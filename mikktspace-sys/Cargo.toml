@@ -1,0 +1,6 @@
+[package]
+name = "mikktspace-sys"
+version = "0.1.0"
+authors = ["alteous <alteous@outlook.com>"]
+
+[dependencies]
