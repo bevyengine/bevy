@@ -3,7 +3,5 @@ name = "mikktspace"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
 
-[dev-dependencies]
-mikktspace-sys = { path = "./mikktspace-sys" }
-
 [dependencies]
+mikktspace-sys = { path = "./mikktspace-sys" }

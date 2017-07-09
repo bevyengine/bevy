@@ -2,5 +2,9 @@
 name = "mikktspace-sys"
 version = "0.1.0"
 authors = ["alteous <alteous@outlook.com>"]
+build = "build.rs"
+
+[build-dependencies]
+cmake = "0.1"
 
 [dependencies]

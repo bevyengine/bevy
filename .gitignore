@@ -1,3 +1,4 @@
 /target/
+/mikktspace-sys/target/
 **/*.rs.bk
 Cargo.lock
