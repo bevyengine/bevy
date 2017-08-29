@@ -1,7 +1,14 @@
 [package]
-name = "mikktspace"
+name = "mikktspace-sys"
 version = "0.1.0"
-authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+authors = ["alteous <alteous@outlook.com>"]
+build = "build.rs"
+
+[build-dependencies]
+cmake = "0.1"
 
 [dependencies]
-mikktspace-sys = { path = "./mikktspace-sys" }
+gltf = "0.7"
+
+[[example]]
+name = "generate"

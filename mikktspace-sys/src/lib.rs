@@ -4,7 +4,6 @@ mod ffi;
 use std::os::raw::*;
 use std::mem;
 
-/// Rust FFI for the MikkTSpace implementation.
 const INTERFACE: ffi::SMikkTSpaceInterface = ffi::SMikkTSpaceInterface {
     m_getNumFaces: faces,
     m_getNumVerticesOfFace: vertices,
@@ -16,26 +15,7 @@ const INTERFACE: ffi::SMikkTSpaceInterface = ffi::SMikkTSpaceInterface {
 };
 
 pub struct Context {
-    faces: Box<ExactSizeIterator<Item = Face>>,
-    positions: Box<ExactSizeIterator<Item = [f32; 3]>>,
-    tex_coords: Box<ExactSizeIterator<Item = [f32; 2]>>,
-    normals: Box<ExactSizeIterator<Item = [f32; 3]>>,
-}
-
-/// Specifies whether a face is a triangle or a quad.
-pub enum Face {
-    Triangle,
-    Quad,
-}
-
-impl Face {
-    /// Returns the number of vertices bound by this face.
-    pub fn vertices(&self) -> i32 {
-        match self {
-            &Face::Triangle { .. } => 3,
-            &Face::Quad { .. } => 4,
-        }
-    }
+    faces: i32,
 }
 
 /// Returns the number of faces (triangles/quads) on the mesh to be processed.
@@ -43,7 +23,7 @@ impl Face {
 extern "C" fn faces(pContext: *const ffi::SMikkTSpaceContext) -> c_int {
     unsafe {
         let m: *const Context = mem::transmute(pContext);
-        (*m).faces.len() as c_int
+        (*m).faces as c_int
     }
 }
 
@@ -56,7 +36,7 @@ extern "C" fn vertices(
 ) -> c_int {
     unsafe {
         let _: *const Context = mem::transmute(pContext);
-        3
+        unimplemented!()
     }
 }
 
@@ -134,19 +114,16 @@ extern "C" fn set_tspace(
 }
 
 impl Context {
-    /// Constructor for a MikkTSpace `Context`.
-    pub fn new<F, P, T, N>(faces: F, positions: P, tex_coords: T, normals: N) -> Self
-    where
-        F: 'static + ExactSizeIterator<Item = Face>,
-        P: 'static + ExactSizeIterator<Item = [f32; 3]>,
-        T: 'static + ExactSizeIterator<Item = [f32; 2]>,
-        N: 'static + ExactSizeIterator<Item = [f32; 3]>,
-    {
+    pub fn new() -> Self {
         Context {
-            faces: Box::new(faces),
-            positions: Box::new(positions),
-            tex_coords: Box::new(tex_coords),
-            normals: Box::new(normals),
+            faces: 3,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
     }
 }
