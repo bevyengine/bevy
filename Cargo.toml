@@ -1,7 +1,7 @@
 [package]
 name = "mikktspace"
 version = "0.1.0"
-authors = ["alteous <alteous@outlook.com>"]
+authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
 build = "build.rs"
 
 [build-dependencies]
