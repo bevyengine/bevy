@@ -110,7 +110,7 @@ extern "C" fn tex_coord(
 extern "C" fn set_tspace_basic(
     pContext: *mut ffi::SMikkTSpaceContext,
     fvTangent: *const c_float,
-    fSign: *const c_float,
+    fSign: c_float,
     iFace: c_int,
     iVert: c_int,
 ) {
@@ -119,7 +119,7 @@ extern "C" fn set_tspace_basic(
         let mut tangent: [f32; 4] = mem::uninitialized();
         let dst: *mut c_float = tangent.as_mut_ptr();
         ptr::copy_nonoverlapping::<c_float>(fvTangent, dst, 3);
-        tangent[3] = *fSign;
+        tangent[3] = fSign;
         ((*x).set_tangent)(iFace as usize, iVert as usize, tangent);
     }
 }
@@ -129,15 +129,13 @@ extern "C" fn set_tspace(
     pContext: *mut ffi::SMikkTSpaceContext,
     fvTangent: *const c_float,
     _fvBiTangent: *const c_float,
-    _fMagS: *const c_float,
-    _fMagT: *const c_float,
+    _fMagS: c_float,
+    _fMagT: c_float,
     bIsOrientationPreserving: ffi::tbool,
     iFace: c_int,
     iVert: c_int,
 ) {
-    const POSITIVE: f32 = 1.0;
-    const NEGATIVE: f32 = -1.0;
-    let fSign = if bIsOrientationPreserving != 0 { &POSITIVE } else { &NEGATIVE };
+    let fSign = if bIsOrientationPreserving != 0 { 1.0 } else { -1.0 };
     set_tspace_basic(pContext, fvTangent, fSign, iFace, iVert);
 }
 

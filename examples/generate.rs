@@ -132,12 +132,9 @@ fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
 
 fn main() {
     let (faces, vertices) = make_cube();
-    //println!("{:#?}", faces);
-    //println!("{:#?}", vertices);
 
     let vertex = |face, vert| {
         let vs: &[u32; 3] = &faces[face % faces.len()];
-        println!("reading {}, {}", face, vert);
         &vertices[vs[vert] as usize % vertices.len()]
     };
     let vertices_per_face = || 3;
@@ -147,10 +144,8 @@ fn main() {
     let tex_coord = |face, vert| &vertex(face, vert).tex_coord;
 
     let mut new_vertices = Vec::new();
-
     {
         let mut set_tangent = |face, vert, tangent| {
-            println!("setting {}, {}", face, vert);
             new_vertices.push(NewVertex {
                 position: *position(face, vert),
                 normal: *normal(face, vert),
