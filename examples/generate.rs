@@ -134,8 +134,8 @@ fn main() {
     let (faces, vertices) = make_cube();
 
     let vertex = |face, vert| {
-        let vs: &[u32; 3] = &faces[face % faces.len()];
-        &vertices[vs[vert] as usize % vertices.len()]
+        let vs: &[u32; 3] = &faces[face];
+        &vertices[vs[vert] as usize]
     };
     let vertices_per_face = || 3;
     let face_count = || faces.len();
