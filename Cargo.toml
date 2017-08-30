@@ -2,5 +2,13 @@
 name = "mikktspace"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+build = "build.rs"
+
+[build-dependencies]
+cmake = "0.1"
 
 [dependencies]
+cgmath = "0.15"
+
+[[example]]
+name = "generate"
