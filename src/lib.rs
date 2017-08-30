@@ -17,7 +17,9 @@ const INTERFACE: ffi::SMikkTSpaceInterface = ffi::SMikkTSpaceInterface {
     m_setTSpace: set_tspace,
 };
 
+/// Rust front-end API for tangent generation.
 struct Closures<'a> {
+    /// Returns the number of vertices per face.
     pub vertices_per_face: &'a Fn() -> usize,
     
     /// Returns the number of faces.
@@ -124,19 +126,23 @@ extern "C" fn set_tspace_basic(
 
 /// Returns tangent space results to the application.
 extern "C" fn set_tspace(
-    _pContext: *mut ffi::SMikkTSpaceContext,
-    _fvTangent: *const c_float,
+    pContext: *mut ffi::SMikkTSpaceContext,
+    fvTangent: *const c_float,
     _fvBiTangent: *const c_float,
     _fMagS: *const c_float,
     _fMagT: *const c_float,
-    _bIsOrientationPreserving: ffi::tbool,
-    _iFace: c_int,
-    _iVert: c_int,
+    bIsOrientationPreserving: ffi::tbool,
+    iFace: c_int,
+    iVert: c_int,
 ) {
-    unimplemented!()
+    const POSITIVE: f32 = 1.0;
+    const NEGATIVE: f32 = -1.0;
+    let fSign = if bIsOrientationPreserving != 0 { &POSITIVE } else { &NEGATIVE };
+    set_tspace_basic(pContext, fvTangent, fSign, iFace, iVert);
 }
 
 impl<'a> Closures<'a> {
+    /// Generates tangents.
     pub fn generate(mut self) -> bool {
         let ctx = ffi::SMikkTSpaceContext {
             m_pInterface: &INTERFACE,
@@ -148,6 +154,7 @@ impl<'a> Closures<'a> {
     }
 }
 
+/// Generates tangents.
 pub fn generate<'a>(
     vertices_per_face: &'a Fn() -> usize,
     face_count: &'a Fn() -> usize,

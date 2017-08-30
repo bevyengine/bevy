@@ -1,45 +1,172 @@
+extern crate cgmath;
+extern crate mikktspace;
 
-extern crate gltf;
+use cgmath::prelude::*;
 
-use std::io::Write;
+pub type Face = [u32; 3];
+pub type Vec2 = [f32; 2];
+pub type Vec3 = [f32; 3];
+pub type Vec4 = [f32; 4];
+
+#[derive(Debug)]
+struct Vertex {
+    position: Vec3,
+    normal: Vec3,
+    tex_coord: Vec2,
+}
+
+#[derive(Debug)]
+struct NewVertex {
+    position: Vec3,
+    normal: Vec3,
+    tex_coord: Vec2,
+    tangent: Vec4,
+}
+
+fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
+    struct ControlPoint {
+        uv: Vec2,
+        dir: Vec3,
+    }
+    let mut faces = Vec::new();
+    let mut ctl_pts = Vec::new();
+    let mut vertices = Vec::new();
+
+    // +x plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [1.0, 0.0, 0.0] });
+    }
+
+    // -x plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [-1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [-1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [-1.0, 0.0, 0.0] });
+    }
+
+    // +y plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.5], dir: [0.0, 1.0, 0.0] });
+    }
+
+    // -y plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.5], dir: [0.0, -1.0, 0.0] });
+    }
+
+    // +z plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, -1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, 1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [0.0, 0.0, 1.0] });
+    }
+
+    // -z plane
+    {
+        let base = ctl_pts.len() as u32;
+        faces.push([base, base + 1, base + 4]);
+        faces.push([base + 1, base + 2, base + 4]);
+        faces.push([base + 2, base + 3, base + 4]);
+        faces.push([base + 3, base, base + 4]);
+        ctl_pts.push(ControlPoint { uv: [1.0, 0.0], dir: [1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [1.0, 1.0], dir: [1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 1.0], dir: [-1.0, -1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.0, 0.0], dir: [-1.0, 1.0, -1.0] });
+        ctl_pts.push(ControlPoint { uv: [0.5, 0.5], dir: [0.0, 0.0, -1.0] });
+    }
+
+    for pt in ctl_pts {
+        let p: cgmath::Vector3<f32> = pt.dir.into();
+        let n: cgmath::Vector3<f32> = p.normalize();
+        let t: cgmath::Vector2<f32> = pt.uv.into();
+        vertices.push(Vertex {
+            position: (p / 2.0).into(),
+            normal: n.into(),
+            tex_coord: t.into(),
+        });
+    }
+
+    (faces, vertices)
+}
 
 fn main() {
-    let path = "test-data/Avocado.gltf";
-    let gltf = gltf::Import::from_path(path).sync().unwrap();
-    let mesh = gltf.meshes().nth(0).unwrap();
-    let primitive = mesh.primitives().nth(0).unwrap();
-    let positions: Vec<[f32; 3]> = primitive.positions().unwrap().collect();
-    let normals: Vec<[f32; 3]> = primitive.normals().unwrap().collect();
-    let mut tex_coords: Vec<[f32; 2]> = vec![];
-    let mut indices: Vec<u16> = vec![];
-    match primitive.tex_coords(0).unwrap() {
-        gltf::mesh::TexCoords::F32(iter) => tex_coords.extend(iter),
-        _ => unreachable!(),
-    }
-    match primitive.indices().unwrap() {
-        gltf::mesh::Indices::U16(iter) => indices.extend(iter),
-        _ => unreachable!(),
-    }
+    let (faces, vertices) = make_cube();
+    //println!("{:#?}", faces);
+    //println!("{:#?}", vertices);
 
-    let file = std::fs::File::create("Avocado.obj").unwrap();
-    let mut writer = std::io::BufWriter::new(file);
-    for position in &positions {
-        writeln!(writer, "v {} {} {}", position[0], position[1], position[2]);
-    }
-    for normal in &normals {
-        writeln!(writer, "vn {} {} {}", normal[0], normal[1], normal[2]);
-    }
-    for tex_coord in &tex_coords {
-        writeln!(writer, "vt {} {}", tex_coord[0], tex_coord[1]);
-    }
-    let mut i = indices.iter();
-    while let (Some(v0), Some(v1), Some(v2)) = (i.next(), i.next(), i.next()) {
-        writeln!(
-            writer,
-            "f {}/{}/{} {}/{}/{} {}/{}/{}",
-            1 + v0, 1 + v0, 1 + v0,
-            1 + v1, 1 + v1, 1 + v1,
-            1 + v2, 1 + v2, 1 + v2,
+    let vertex = |face, vert| {
+        let vs: &[u32; 3] = &faces[face % faces.len()];
+        println!("reading {}, {}", face, vert);
+        &vertices[vs[vert] as usize % vertices.len()]
+    };
+    let vertices_per_face = || 3;
+    let face_count = || faces.len();
+    let position = |face, vert| &vertex(face, vert).position;
+    let normal = |face, vert| &vertex(face, vert).normal;
+    let tex_coord = |face, vert| &vertex(face, vert).tex_coord;
+
+    let mut new_vertices = Vec::new();
+
+    {
+        let mut set_tangent = |face, vert, tangent| {
+            println!("setting {}, {}", face, vert);
+            new_vertices.push(NewVertex {
+                position: *position(face, vert),
+                normal: *normal(face, vert),
+                tex_coord: *tex_coord(face, vert),
+                tangent: tangent,
+            });
+        };
+        let ret = mikktspace::generate(
+            &vertices_per_face,
+            &face_count,
+            &position,
+            &normal,
+            &tex_coord,
+            &mut set_tangent,
         );
+        assert_eq!(true, ret);
     }
+    println!("{:#?}", new_vertices);
 }
