@@ -132,7 +132,6 @@ fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
 
 fn main() {
     let (faces, vertices) = make_cube();
-
     let vertex = |face, vert| {
         let vs: &[u32; 3] = &faces[face];
         &vertices[vs[vert] as usize]
@@ -163,5 +162,6 @@ fn main() {
         );
         assert_eq!(true, ret);
     }
+
     println!("{:#?}", new_vertices);
 }

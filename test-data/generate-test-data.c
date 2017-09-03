@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -52,18 +51,6 @@ struct input {
     size_t nr_faces;
 } input;
 
-struct output {
-    // Borrows from `positions`, `normals`, and `tex_coords`.
-    struct vertex *vertices;
-
-    // Owned.
-    struct tangent *tangents;
-
-    // Number of entries in `vertices` and `tangents`.
-    // Equal to `3 * input.nr_faces`.
-    size_t nr_vertices;
-} output;
-
 void print_vec2(float (*t)[2]) {
     printf("[%f, %f]", (*t)[0], (*t)[1]);
 }
@@ -86,17 +73,17 @@ int get_num_vertices_of_face(const SMikkTSpaceContext *x, int f) {
 
 void get_position(const SMikkTSpaceContext *x, float *dst, int f, int v) {
     float (*src)[3] = input.faces[f].vertices[v].position;
-    memcpy(dst, src, sizeof(*src));
+    memcpy(dst, *src, 3 * sizeof(float));
 }
 
 void get_normal(const SMikkTSpaceContext *x, float *dst, int f, int v) {
     float (*src)[3] = input.faces[f].vertices[v].normal;
-    memcpy(dst, src, sizeof(*src));
+    memcpy(dst, *src, 3 * sizeof(float));
 }
 
 void get_tex_coord(const SMikkTSpaceContext *x, float *dst, int f, int v) {
     float (*src)[2] = input.faces[f].vertices[v].tex_coord;
-    memcpy(dst, src, sizeof(*src));
+    memcpy(dst, *src, 2 * sizeof(float));
 }
 
 void set_tspace_basic(
@@ -111,11 +98,14 @@ void set_tspace_basic(
 
     struct vertex *in = &input.faces[f].vertices[v];
 
-    output.vertices[i].position = in->position;
-    output.vertices[i].normal = in->normal;
-    output.vertices[i].tex_coord = in->tex_coord;
-    memcpy(output.tangents[i].v, t, 3 * sizeof(float));
-    output.tangents[i].s = s;
+    printf("%d: { v: ", i);
+    print_vec3(in->position);
+    printf(", vn: ");
+    print_vec3(in->normal);
+    printf(", vt: ");
+    print_vec2(in->tex_coord);
+    printf(", vx: [%f, %f, %f, %f] }", t[0], t[1], t[2], s);
+    puts("");
 
     ++i;
 }
@@ -130,22 +120,19 @@ void set_tspace(
     int f, 
     int v
 ) {
-    assert(!"unreachable");
+    set_tspace_basic(x, t, op != 0 ? 1.0f : -1.0f, f, v);
 }
 
 int main() {  
-    input.nr_vertices = 406;
-    input.nr_faces = 682;
-    output.nr_vertices = 3 * input.nr_faces;
+    input.nr_vertices = 30;
+    input.nr_faces = 24;
 
     input.positions = calloc(input.nr_vertices, sizeof(*input.positions));
     input.normals = calloc(input.nr_vertices, sizeof(*input.normals));
     input.tex_coords = calloc(input.nr_vertices, sizeof(*input.tex_coords));
     input.faces = calloc(input.nr_faces, sizeof(*input.faces));
-    output.vertices = calloc(output.nr_vertices, sizeof(*output.vertices));
-    output.tangents = calloc(output.nr_vertices, sizeof(*output.tangents));
 
-    FILE *fi = fopen("Avocado.obj", "rb");
+    FILE *fi = fopen("cube.obj", "rb");
     assert(fi);
     char buffer[1024];
 
@@ -205,7 +192,7 @@ int main() {
         .m_getNormal = get_normal,
         .m_getTexCoord = get_tex_coord,
         .m_setTSpaceBasic = set_tspace_basic,
-        .m_setTSpace = NULL,
+        .m_setTSpace = set_tspace,
     };
     SMikkTSpaceContext context = {
         .m_pInterface = &interface,
@@ -214,32 +201,11 @@ int main() {
 
     genTangSpaceDefault(&context);
 
-    printf("{\n  \"vlist\": [\n");
-    for (size_t i = 0; i < output.nr_vertices; ++i) {
-	printf("    {\"v\": ");
-	print_vec3(output.vertices[i].position);
-	printf(", \"vn\": ");
-	print_vec3(output.vertices[i].normal);
-	printf(", \"vt\": ");
-	print_vec2(output.vertices[i].tex_coord);
-	printf(", \"vx\": ");
-	print_tangent(&output.tangents[i]);
-	if (i == output.nr_vertices - 1) {
-	    printf("}\n");
-	} else {
-	    printf("},\n");
-	}
-    }
-    printf("  ]\n}");	   
-    
     fclose(fi);
     free(input.positions);
     free(input.normals);
     free(input.tex_coords);
     free(input.faces);
-    free(output.vertices);
-    free(output.tangents);
 
     return 0;
 }
-
