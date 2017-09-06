@@ -8,6 +8,7 @@ repository = "https://github.com/bwasty/mikktspace-rs"
 homepage = "https://github.com/bwasty/mikktspace-rs"
 readme = "README.md"
 keywords = ["3D", "graphics", "algorithm", "tangent"]
+license = "MIT/Apache-2.0"
 build = "build.rs"
 
 [build-dependencies]
