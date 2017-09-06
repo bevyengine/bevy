@@ -7,6 +7,7 @@ documentation = "https://docs.rs/mikktspace"
 repository = "https://github.com/bwasty/mikktspace-rs"
 homepage = "https://github.com/bwasty/mikktspace-rs"
 readme = "README.md"
+keywords = ["3D", "graphics", "algorithm", "tangent"]
 build = "build.rs"
 
 [build-dependencies]
