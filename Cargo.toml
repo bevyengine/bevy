@@ -12,6 +12,9 @@ license = "MIT/Apache-2.0"
 build = "build.rs"
 exclude = ["examples/cube.obj", "examples/generate.c"]
 
+[badges]
+travis-ci = { repository = "bwasty/mikktspace-rs" }
+
 [build-dependencies]
 cmake = "0.1"
 
