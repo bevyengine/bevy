@@ -2,6 +2,7 @@
 name = "mikktspace"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+description = "Mikkelsen tangent space algorithm"
 build = "build.rs"
 
 [build-dependencies]
