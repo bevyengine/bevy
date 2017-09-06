@@ -10,6 +10,7 @@ readme = "README.md"
 keywords = ["3D", "graphics", "algorithm", "tangent"]
 license = "MIT/Apache-2.0"
 build = "build.rs"
+exclude = ["examples/cube.obj", "examples/generate.c"]
 
 [build-dependencies]
 cmake = "0.1"
