@@ -1,7 +1,7 @@
 [package]
 name = "mikktspace"
 version = "0.1.0"
-authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>"]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/mikktspace"
 repository = "https://github.com/bwasty/mikktspace-rs"
