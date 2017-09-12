@@ -6,21 +6,12 @@ use cgmath::prelude::*;
 pub type Face = [u32; 3];
 pub type Vec2 = [f32; 2];
 pub type Vec3 = [f32; 3];
-pub type Vec4 = [f32; 4];
 
 #[derive(Debug)]
 struct Vertex {
     position: Vec3,
     normal: Vec3,
     tex_coord: Vec2,
-}
-
-#[derive(Debug)]
-struct NewVertex {
-    position: Vec3,
-    normal: Vec3,
-    tex_coord: Vec2,
-    tangent: Vec4,
 }
 
 fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
@@ -142,17 +133,20 @@ fn main() {
     let normal = |face, vert| &vertex(face, vert).normal;
     let tex_coord = |face, vert| &vertex(face, vert).tex_coord;
 
-    let mut new_vertices = Vec::new();
     {
+        let mut i = 0;
         let mut set_tangent = |face, vert, tangent| {
-            new_vertices.push(NewVertex {
-                position: *position(face, vert),
-                normal: *normal(face, vert),
-                tex_coord: *tex_coord(face, vert),
-                tangent: tangent,
-            });
+            println!(
+                "{index}: v: {v:?}, vn: {vn:?}, vt: {vt:?}, vx: {vx:?}",
+                index = i,
+                v = position(face, vert),
+                vn = normal(face, vert),
+                vt = tex_coord(face, vert),
+                vx = tangent,
+            );
+            i += 1;
         };
-        let ret = mikktspace::generate(
+        let ret = mikktspace::generate_tangents(
             &vertices_per_face,
             &face_count,
             &position,
@@ -162,6 +156,4 @@ fn main() {
         );
         assert_eq!(true, ret);
     }
-
-    println!("{:#?}", new_vertices);
 }
