@@ -1,7 +1,7 @@
 # mikktspace
 
 [![crates.io](https://img.shields.io/crates/v/mikktspace.svg)](https://crates.io/crates/mikktspace)
-[![Build Status](https://travis-ci.org/bwasty/mikktspace-rs.svg?branch=master)](https://travis-ci.org/gltf-rs/mikktspace)
+[![Build Status](https://travis-ci.org/gltf-rs/mikktspace.svg?branch=master)](https://travis-ci.org/gltf-rs/mikktspace)
 
 Bindings to the [Mikkelsen Tangent Space Algorithm](https://wiki.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
 
