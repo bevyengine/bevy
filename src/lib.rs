@@ -153,7 +153,7 @@ impl<'a> Closures<'a> {
 }
 
 /// Generates tangents.
-pub fn generate<'a>(
+pub fn generate_tangents<'a>(
     vertices_per_face: &'a Fn() -> usize,
     face_count: &'a Fn() -> usize,
     position: &'a Fn(usize, usize) -> &'a [f32; 3],
