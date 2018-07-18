@@ -1,5 +1,3 @@
 /target/
-/mikktspace-sys/target/
-/mikktspace-sys/libmikktspace/libmikktspace.a
 **/*.rs.bk
 Cargo.lock

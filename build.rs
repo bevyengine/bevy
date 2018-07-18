@@ -1,9 +1,9 @@
-
-extern crate cmake;
+extern crate cc;
 
 fn main() {
-    let dst = cmake::build("libmikktspace");
-    println!("cargo:rustc-link-search=native={}", dst.display());
+    cc::Build::new()
+        .file("libmikktspace/mikktspace.c")
+        .file("libmikktspace/mikktspace.c")
+        .compile("mikktspace");
     println!("cargo:rustc-link-lib=static=mikktspace");
 }
-
