@@ -16,7 +16,7 @@ exclude = ["examples/**"]
 travis-ci = { repository = "gltf-rs/mikktspace" }
 
 [build-dependencies]
-cmake = "0.1"
+cc = "1.0"
 
 [dev-dependencies]
 cgmath = "0.15"
