@@ -9,21 +9,14 @@
     unused_variables
 )]
 
-use std::{mem::size_of, ptr::null_mut};
+use std::ptr::null_mut;
 
 use {
-    libc::{c_int, c_ulong},
+    libc::c_int,
     nalgebra::{zero, Vector3},
 };
 
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
-
-extern "C" {
-    #[no_mangle]
-    fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
-    fn free(__ptr: *mut libc::c_void);
-}
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -144,6 +137,13 @@ pub union SEdge {
     pub unnamed: unnamed,
     pub array: [libc::c_int; 3],
 }
+
+impl SEdge {
+    fn zero() -> Self {
+        Self { array: [0, 0, 0] }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct unnamed {
     pub i0: libc::c_int,
@@ -155,6 +155,15 @@ pub struct unnamed {
 pub struct STmpVert {
     pub vert: [libc::c_float; 3],
     pub index: libc::c_int,
+}
+
+impl STmpVert {
+    fn zero() -> Self {
+        Self {
+            vert: [0.0, 0.0, 0.0],
+            index: 0,
+        }
+    }
 }
 
 pub unsafe fn genTangSpace<I: Geometry>(
@@ -1050,15 +1059,16 @@ unsafe fn InitTriInfo<I: Geometry>(
             t += 1
         }
     }
-    let mut pEdges: *mut SEdge =
-        malloc((size_of::<SEdge>() * iNrTrianglesIn * 3) as c_ulong) as *mut SEdge;
-    if pEdges.is_null() {
-        BuildNeighborsSlow(pTriInfos, piTriListIn, iNrTrianglesIn as c_int);
-    } else {
-        BuildNeighborsFast(pTriInfos, pEdges, piTriListIn, iNrTrianglesIn as c_int);
-        free(pEdges as *mut libc::c_void);
-    };
+
+    let mut pEdges = vec![SEdge::zero(); iNrTrianglesIn * 3];
+    BuildNeighborsFast(
+        pTriInfos,
+        pEdges.as_mut_ptr(),
+        piTriListIn,
+        iNrTrianglesIn as c_int,
+    );
 }
+
 unsafe fn BuildNeighborsFast(
     mut pTriInfos: *mut STriInfo,
     mut pEdges: *mut SEdge,
@@ -1278,53 +1288,7 @@ unsafe fn QuickSortEdges(
         QuickSortEdges(pSortBuffer, iL, iRight, channel, uSeed);
     };
 }
-unsafe fn BuildNeighborsSlow(
-    mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *const libc::c_int,
-    iNrTrianglesIn: libc::c_int,
-) {
-    let mut f: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
-    f = 0i32;
-    while f < iNrTrianglesIn {
-        i = 0i32;
-        while i < 3i32 {
-            if (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize] == -1i32 {
-                let i0_A: libc::c_int = *piTriListIn.offset((f * 3i32 + i) as isize);
-                let i1_A: libc::c_int = *piTriListIn
-                    .offset((f * 3i32 + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
-                let mut bFound: bool = false;
-                let mut t: libc::c_int = 0i32;
-                let mut j: libc::c_int = 0i32;
-                while !bFound && t < iNrTrianglesIn {
-                    if t != f {
-                        j = 0i32;
-                        while !bFound && j < 3i32 {
-                            let i1_B: libc::c_int = *piTriListIn.offset((t * 3i32 + j) as isize);
-                            let i0_B: libc::c_int = *piTriListIn.offset(
-                                (t * 3i32 + if j < 2i32 { j + 1i32 } else { 0i32 }) as isize,
-                            );
-                            if i0_A == i0_B && i1_A == i1_B {
-                                bFound = true
-                            } else {
-                                j += 1
-                            }
-                        }
-                    }
-                    if !bFound {
-                        t += 1
-                    }
-                }
-                if bFound {
-                    (*pTriInfos.offset(f as isize)).FaceNeighbors[i as usize] = t;
-                    (*pTriInfos.offset(t as isize)).FaceNeighbors[j as usize] = f
-                }
-            }
-            i += 1
-        }
-        f += 1
-    }
-}
+
 // returns the texture area times 2
 unsafe fn CalcTexArea<I: Geometry>(
     geometry: &mut I,
@@ -1441,15 +1405,11 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     geometry: &mut I,
     iNrTrianglesIn: usize,
 ) {
-    // Generate bounding box
-    let mut piHashTable: *mut libc::c_int = 0 as *mut libc::c_int;
-    let mut piHashOffsets: *mut libc::c_int = 0 as *mut libc::c_int;
-    let mut pTmpVert: *mut STmpVert = 0 as *mut STmpVert;
     let mut i = 0;
     let mut iChannel: libc::c_int = 0i32;
     let mut k = 0;
-    let mut e: libc::c_int = 0i32;
-    let mut iMaxCount: libc::c_int = 0i32;
+    let mut e = 0;
+    let mut iMaxCount = 0;
     let mut vMin = get_position(geometry, 0);
     let mut vMax = vMin;
     let mut vDim = Vector3::new(0.0, 0.0, 0.0);
@@ -1489,23 +1449,9 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         fMin = vMin.z;
         fMax = vMax.z
     }
-    piHashTable = malloc((size_of::<libc::c_int>() * iNrTrianglesIn * 3) as c_ulong) as *mut c_int;
-    piHashOffsets = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
-    if piHashTable.is_null() || piHashOffsets.is_null() {
-        if !piHashTable.is_null() {
-            free(piHashTable as *mut libc::c_void);
-        }
-        if !piHashOffsets.is_null() {
-            free(piHashOffsets as *mut libc::c_void);
-        }
-        GenerateSharedVerticesIndexListSlow(
-            piTriList_in_and_out,
-            geometry,
-            iNrTrianglesIn as c_int,
-        );
-        return;
-    }
 
+    let mut piHashTable = vec![0i32; iNrTrianglesIn * 3];
+    let mut piHashOffsets = vec![0i32; g_iCells];
     let mut piHashCount = vec![0i32; g_iCells];
     let mut piHashCount2 = vec![0i32; g_iCells];
 
@@ -1524,11 +1470,10 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         piHashCount[iCell] += 1;
         i += 1
     }
-    *piHashOffsets.offset(0isize) = 0i32;
+    piHashOffsets[0] = 0i32;
     k = 1;
     while k < g_iCells {
-        *piHashOffsets.offset(k as isize) =
-            *piHashOffsets.offset((k - 1) as isize) + piHashCount[k - 1];
+        piHashOffsets[k] = piHashOffsets[k - 1] + piHashCount[k - 1];
         k += 1
     }
     i = 0;
@@ -1544,8 +1489,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         };
         let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
         let mut pTable: *mut libc::c_int = 0 as *mut libc::c_int;
-        pTable = &mut *piHashTable.offset(*piHashOffsets.offset(iCell_0 as isize) as isize)
-            as *mut libc::c_int;
+        pTable = &mut piHashTable[piHashOffsets[iCell_0] as usize] as *mut libc::c_int;
         *pTable.offset(piHashCount2[iCell_0] as isize) = i as c_int;
         piHashCount2[iCell_0] += 1;
         i += 1
@@ -1554,101 +1498,46 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     while k < g_iCells {
         k += 1
     }
-    iMaxCount = piHashCount[0];
+    iMaxCount = piHashCount[0] as usize;
     k = 1;
     while k < g_iCells {
-        if iMaxCount < piHashCount[k] {
-            iMaxCount = piHashCount[k]
+        if iMaxCount < piHashCount[k] as usize {
+            iMaxCount = piHashCount[k] as usize
         }
         k += 1
     }
-    pTmpVert = malloc(
-        (::std::mem::size_of::<STmpVert>() as libc::c_ulong)
-            .wrapping_mul(iMaxCount as libc::c_ulong),
-    ) as *mut STmpVert;
+    let mut pTmpVert = vec!(STmpVert::zero(); iMaxCount);
     k = 0;
     while k < g_iCells {
         // extract table of cell k and amount of entries in it
-        let mut pTable_0: *mut libc::c_int = &mut *piHashTable
-            .offset(*piHashOffsets.offset(k as isize) as isize)
-            as *mut libc::c_int;
-        let iEntries: libc::c_int = piHashCount[k];
-        if !(iEntries < 2i32) {
-            if !pTmpVert.is_null() {
-                e = 0i32;
-                while e < iEntries {
-                    let mut i_0: libc::c_int = *pTable_0.offset(e as isize);
-                    let vP_2 = get_position(
-                        geometry,
-                        *piTriList_in_and_out.offset(i_0 as isize) as usize,
-                    );
-                    (*pTmpVert.offset(e as isize)).vert[0usize] = vP_2.x;
-                    (*pTmpVert.offset(e as isize)).vert[1usize] = vP_2.y;
-                    (*pTmpVert.offset(e as isize)).vert[2usize] = vP_2.z;
-                    (*pTmpVert.offset(e as isize)).index = i_0;
-                    e += 1
-                }
-                MergeVertsFast(
-                    piTriList_in_and_out,
-                    pTmpVert,
+        let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut c_int;
+        let iEntries = piHashCount[k] as usize;
+        if !(iEntries < 2) {
+            e = 0;
+            while e < iEntries {
+                let mut i_0: libc::c_int = *pTable_0.offset(e as isize);
+                let vP_2 = get_position(
                     geometry,
-                    0i32,
-                    iEntries - 1i32,
+                    *piTriList_in_and_out.offset(i_0 as isize) as usize,
                 );
-            } else {
-                MergeVertsSlow(
-                    piTriList_in_and_out,
-                    geometry,
-                    pTable_0 as *const libc::c_int,
-                    iEntries,
-                );
+                pTmpVert[e].vert[0usize] = vP_2.x;
+                pTmpVert[e].vert[1usize] = vP_2.y;
+                pTmpVert[e].vert[2usize] = vP_2.z;
+                pTmpVert[e].index = i_0;
+                e += 1
             }
+            MergeVertsFast(
+                piTriList_in_and_out,
+                pTmpVert.as_mut_ptr(),
+                geometry,
+                0i32,
+                (iEntries - 1) as i32,
+            );
         }
         k += 1
     }
-    if !pTmpVert.is_null() {
-        free(pTmpVert as *mut libc::c_void);
-    }
-    free(piHashTable as *mut libc::c_void);
-    free(piHashOffsets as *mut libc::c_void);
 }
-unsafe fn MergeVertsSlow<I: Geometry>(
-    mut piTriList_in_and_out: *mut libc::c_int,
-    geometry: &mut I,
-    mut pTable: *const libc::c_int,
-    iEntries: libc::c_int,
-) {
-    // this can be optimized further using a tree structure or more hashing.
-    let mut e: libc::c_int = 0i32;
-    e = 0i32;
-    while e < iEntries {
-        let mut i: libc::c_int = *pTable.offset(e as isize);
-        let index: libc::c_int = *piTriList_in_and_out.offset(i as isize);
-        let vP = get_position(geometry, index as usize);
-        let vN = get_normal(geometry, index as usize);
-        let vT = get_tex_coord(geometry, index as usize);
-        let mut bNotFound: bool = true;
-        let mut e2: libc::c_int = 0i32;
-        let mut i2rec: libc::c_int = -1i32;
-        while e2 < e && bNotFound {
-            let i2: libc::c_int = *pTable.offset(e2 as isize);
-            let index2: libc::c_int = *piTriList_in_and_out.offset(i2 as isize);
-            let vP2 = get_position(geometry, index2 as usize);
-            let vN2 = get_normal(geometry, index2 as usize);
-            let vT2 = get_tex_coord(geometry, index2 as usize);
-            i2rec = i2;
-            if vP == vP2 && vN == vN2 && vT == vT2 {
-                bNotFound = false
-            } else {
-                e2 += 1
-            }
-        }
-        if !bNotFound {
-            *piTriList_in_and_out.offset(i as isize) = *piTriList_in_and_out.offset(i2rec as isize)
-        }
-        e += 1
-    }
-}
+
 unsafe fn MergeVertsFast<I: Geometry>(
     mut piTriList_in_and_out: *mut libc::c_int,
     mut pTmpVert: *mut STmpVert,
@@ -1798,53 +1687,6 @@ unsafe fn FindGridCell(fMin: libc::c_float, fMax: libc::c_float, fVal: libc::c_f
     };
 }
 
-unsafe fn GenerateSharedVerticesIndexListSlow<I: Geometry>(
-    mut piTriList_in_and_out: *mut libc::c_int,
-    geometry: &mut I,
-    iNrTrianglesIn: libc::c_int,
-) {
-    let mut iNumUniqueVerts: libc::c_int = 0i32;
-    let mut t: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
-    t = 0i32;
-    while t < iNrTrianglesIn {
-        i = 0i32;
-        while i < 3i32 {
-            let offs: libc::c_int = t * 3i32 + i;
-            let index: libc::c_int = *piTriList_in_and_out.offset(offs as isize);
-            let vP = get_position(geometry, index as usize);
-            let vN = get_normal(geometry, index as usize);
-            let vT = get_tex_coord(geometry, index as usize);
-            let mut bFound: bool = false;
-            let mut t2: libc::c_int = 0i32;
-            let mut index2rec: libc::c_int = -1i32;
-            while !bFound && t2 <= t {
-                let mut j: libc::c_int = 0i32;
-                while !bFound && j < 3i32 {
-                    let index2: libc::c_int =
-                        *piTriList_in_and_out.offset((t2 * 3i32 + j) as isize);
-                    let vP2 = get_position(geometry, index2 as usize);
-                    let vN2 = get_normal(geometry, index2 as usize);
-                    let vT2 = get_tex_coord(geometry, index2 as usize);
-                    if vP == vP2 && vN == vN2 && vT == vT2 {
-                        bFound = true
-                    } else {
-                        j += 1
-                    }
-                }
-                if !bFound {
-                    t2 += 1
-                }
-            }
-            if index2rec == index {
-                iNumUniqueVerts += 1
-            }
-            *piTriList_in_and_out.offset(offs as isize) = index2rec;
-            i += 1
-        }
-        t += 1
-    }
-}
 unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
     pTriInfos: &mut [STriInfo],
     piTriList_out: &mut [i32],
