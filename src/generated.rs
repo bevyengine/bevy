@@ -9,7 +9,7 @@
     unused_variables
 )]
 
-use std::mem::size_of;
+use std::{mem::size_of, ptr::null_mut};
 
 use {
     libc::{c_int, c_ulong},
@@ -90,6 +90,24 @@ pub struct STriInfo {
     pub iTSpacesOffs: libc::c_int,
     pub vert_num: [libc::c_uchar; 4],
 }
+
+impl STriInfo {
+    fn zero() -> Self {
+        Self {
+            FaceNeighbors: [0, 0, 0],
+            AssignedGroup: [null_mut(), null_mut(), null_mut()],
+            vOs: zero(),
+            vOt: zero(),
+            fMagS: 0.0,
+            fMagT: 0.0,
+            iOrgFaceNumber: 0,
+            iFlag: 0,
+            iTSpacesOffs: 0,
+            vert_num: [0, 0, 0, 0],
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct SGroup {
@@ -131,9 +149,7 @@ pub unsafe fn genTangSpace<I: Geometry>(
     fAngularThreshold: libc::c_float,
 ) -> bool {
     // count nr_triangles
-    let mut piTriListIn: *mut libc::c_int = 0 as *mut libc::c_int;
     let mut piGroupTrianglesBuffer: *mut libc::c_int = 0 as *mut libc::c_int;
-    let mut pTriInfos: *mut STriInfo = 0 as *mut STriInfo;
     let mut pGroups: *mut SGroup = 0 as *mut SGroup;
     let mut iNrTrianglesIn = 0;
     let mut f = 0;
@@ -163,46 +179,43 @@ pub unsafe fn genTangSpace<I: Geometry>(
     if iNrTrianglesIn <= 0 {
         return false;
     }
-    piTriListIn = malloc((size_of::<libc::c_int>() * 3 * iNrTrianglesIn) as c_ulong) as *mut c_int;
-    pTriInfos = malloc((size_of::<STriInfo>() * iNrTrianglesIn) as c_ulong) as *mut STriInfo;
-    if piTriListIn.is_null() || pTriInfos.is_null() {
-        if !piTriListIn.is_null() {
-            free(piTriListIn as *mut libc::c_void);
-        }
-        if !pTriInfos.is_null() {
-            free(pTriInfos as *mut libc::c_void);
-        }
-        return false;
-    }
-    iNrTSPaces =
-        GenerateInitialVerticesIndexList(pTriInfos, piTriListIn, geometry, iNrTrianglesIn as c_int);
-    GenerateSharedVerticesIndexList(piTriListIn, geometry, iNrTrianglesIn);
+
+    let mut piTriListIn = vec![0i32; 3 * iNrTrianglesIn];
+    let mut pTriInfos = vec![STriInfo::zero(); iNrTrianglesIn];
+
+    iNrTSPaces = GenerateInitialVerticesIndexList(
+        pTriInfos.as_mut_ptr(),
+        piTriListIn.as_mut_ptr(),
+        geometry,
+        iNrTrianglesIn as c_int,
+    );
+    GenerateSharedVerticesIndexList(piTriListIn.as_mut_ptr(), geometry, iNrTrianglesIn);
     iTotTris = iNrTrianglesIn;
     iDegenTriangles = 0;
     t = 0;
     while t < iTotTris as usize {
-        let i0 = *piTriListIn.offset((t * 3 + 0) as isize);
-        let i1 = *piTriListIn.offset((t * 3 + 1) as isize);
-        let i2 = *piTriListIn.offset((t * 3 + 2) as isize);
+        let i0 = piTriListIn[t * 3 + 0];
+        let i1 = piTriListIn[t * 3 + 1];
+        let i2 = piTriListIn[t * 3 + 2];
         let p0 = get_position(geometry, i0 as usize);
         let p1 = get_position(geometry, i1 as usize);
         let p2 = get_position(geometry, i2 as usize);
         if p0 == p1 || p0 == p2 || p1 == p2 {
-            (*pTriInfos.offset(t as isize)).iFlag |= 1i32;
+            pTriInfos[t].iFlag |= 1i32;
             iDegenTriangles += 1
         }
         t += 1
     }
     iNrTrianglesIn = iTotTris - iDegenTriangles;
     DegenPrologue(
-        pTriInfos,
-        piTriListIn,
+        pTriInfos.as_mut_ptr(),
+        piTriListIn.as_mut_ptr(),
         iNrTrianglesIn as c_int,
         iTotTris as c_int,
     );
     InitTriInfo(
-        pTriInfos,
-        piTriListIn as *const libc::c_int,
+        pTriInfos.as_mut_ptr(),
+        piTriListIn.as_ptr(),
         geometry,
         iNrTrianglesIn,
     );
@@ -217,15 +230,13 @@ pub unsafe fn genTangSpace<I: Geometry>(
         if !piGroupTrianglesBuffer.is_null() {
             free(piGroupTrianglesBuffer as *mut libc::c_void);
         }
-        free(piTriListIn as *mut libc::c_void);
-        free(pTriInfos as *mut libc::c_void);
         return false;
     }
     iNrActiveGroups = Build4RuleGroups(
-        pTriInfos,
+        pTriInfos.as_mut_ptr(),
         pGroups,
         piGroupTrianglesBuffer,
-        piTriListIn as *const libc::c_int,
+        piTriListIn.as_ptr(),
         iNrTrianglesIn as c_int,
     );
 
@@ -242,30 +253,26 @@ pub unsafe fn genTangSpace<I: Geometry>(
 
     bRes = GenerateTSpaces(
         &mut psTspace,
-        pTriInfos as *const STriInfo,
+        pTriInfos.as_ptr(),
         pGroups as *const SGroup,
         iNrActiveGroups,
-        piTriListIn as *const libc::c_int,
+        piTriListIn.as_ptr(),
         fThresCos,
         geometry,
     );
     free(pGroups as *mut libc::c_void);
     free(piGroupTrianglesBuffer as *mut libc::c_void);
     if !bRes {
-        free(pTriInfos as *mut libc::c_void);
-        free(piTriListIn as *mut libc::c_void);
         return false;
     }
     DegenEpilogue(
         psTspace.as_mut_ptr(),
-        pTriInfos,
-        piTriListIn,
+        pTriInfos.as_mut_ptr(),
+        piTriListIn.as_mut_ptr(),
         geometry,
         iNrTrianglesIn as c_int,
         iTotTris as c_int,
     );
-    free(pTriInfos as *mut libc::c_void);
-    free(piTriListIn as *mut libc::c_void);
     index = 0;
     f = 0;
     while f < iNrFaces {
@@ -561,10 +568,8 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 iUniqueSubGroups += 1
             }
             let iOffs = (*pTriInfos.offset(f as isize)).iTSpacesOffs as usize;
-            let iVert =
-                (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
-            let mut pTS_out: *mut STSpace =
-                &mut psTspace[iOffs + iVert] as *mut STSpace;
+            let iVert = (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
+            let mut pTS_out: *mut STSpace = &mut psTspace[iOffs + iVert] as *mut STSpace;
             if (*pTS_out).iCounter == 1i32 {
                 *pTS_out = AvgTSpace(pTS_out, &mut *pSubGroupTspace.offset(l as isize));
                 (*pTS_out).iCounter = 2i32;
@@ -1527,9 +1532,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     }
     piHashTable = malloc((size_of::<libc::c_int>() * iNrTrianglesIn * 3) as c_ulong) as *mut c_int;
     piHashOffsets = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
-    if piHashTable.is_null()
-        || piHashOffsets.is_null()
-    {
+    if piHashTable.is_null() || piHashOffsets.is_null() {
         if !piHashTable.is_null() {
             free(piHashTable as *mut libc::c_void);
         }
@@ -1544,8 +1547,8 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         return;
     }
 
-    let mut piHashCount = vec!(0i32; g_iCells);
-    let mut piHashCount2 = vec!(0i32; g_iCells);
+    let mut piHashCount = vec![0i32; g_iCells];
+    let mut piHashCount2 = vec![0i32; g_iCells];
 
     i = 0;
     while i < iNrTrianglesIn * 3 {
