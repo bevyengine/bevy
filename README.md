@@ -5,8 +5,6 @@
 
 Port of the [Mikkelsen Tangent Space Algorithm](https://en.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
 
-Machine generated with modifications for better integration with Rust.
-
 ## Examples
 
 ### generate

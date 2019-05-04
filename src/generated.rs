@@ -1,3 +1,6 @@
+//! Everything in this module is pending to be refactored, turned into idiomatic-rust, and moved to
+//! other modules.
+
 #![allow(
     dead_code,
     mutable_transmutes,
