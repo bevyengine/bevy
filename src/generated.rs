@@ -16,7 +16,6 @@ use nalgebra::{zero, Vector3};
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
 
 #[derive(Copy, Clone)]
-#[repr(C)]
 pub struct STSpace {
     pub vOs: Vector3<f32>,
     pub fMagS: f32,
