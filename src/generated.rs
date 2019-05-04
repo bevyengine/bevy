@@ -184,10 +184,10 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut pTriInfos = vec![STriInfo::zero(); iNrTrianglesIn];
 
     iNrTSPaces = GenerateInitialVerticesIndexList(
-        pTriInfos.as_mut_ptr(),
-        piTriListIn.as_mut_ptr(),
+        &mut pTriInfos,
+        &mut piTriListIn,
         geometry,
-        iNrTrianglesIn as c_int,
+        iNrTrianglesIn,
     );
     GenerateSharedVerticesIndexList(piTriListIn.as_mut_ptr(), geometry, iNrTrianglesIn);
     iTotTris = iNrTrianglesIn;
@@ -1887,39 +1887,33 @@ unsafe fn GenerateSharedVerticesIndexListSlow<I: Geometry>(
     }
 }
 unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
-    mut pTriInfos: *mut STriInfo,
-    mut piTriList_out: *mut libc::c_int,
+    pTriInfos: &mut [STriInfo],
+    piTriList_out: &mut [i32],
     geometry: &mut I,
-    iNrTrianglesIn: libc::c_int,
+    iNrTrianglesIn: usize,
 ) -> usize {
     let mut iTSpacesOffs: usize = 0;
     let mut f = 0;
-    let mut t: libc::c_int = 0i32;
-    let mut iDstTriIndex: libc::c_int = 0i32;
+    let mut t: usize = 0;
+    let mut iDstTriIndex = 0;
     f = 0;
     while f < geometry.get_num_faces() {
         let verts = geometry.get_num_vertices_of_face(f);
         if !(verts != 3 && verts != 4) {
-            (*pTriInfos.offset(iDstTriIndex as isize)).iOrgFaceNumber = f as c_int;
-            (*pTriInfos.offset(iDstTriIndex as isize)).iTSpacesOffs = iTSpacesOffs as c_int;
+            pTriInfos[iDstTriIndex].iOrgFaceNumber = f as c_int;
+            pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as c_int;
             if verts == 3 {
-                let mut pVerts: *mut libc::c_uchar = (*pTriInfos.offset(iDstTriIndex as isize))
-                    .vert_num
-                    .as_mut_ptr();
-                *pVerts.offset(0isize) = 0i32 as libc::c_uchar;
-                *pVerts.offset(1isize) = 1i32 as libc::c_uchar;
-                *pVerts.offset(2isize) = 2i32 as libc::c_uchar;
-                *piTriList_out.offset((iDstTriIndex * 3i32 + 0i32) as isize) =
-                    face_vert_to_index(f, 0) as c_int;
-                *piTriList_out.offset((iDstTriIndex * 3i32 + 1i32) as isize) =
-                    face_vert_to_index(f, 1) as c_int;
-                *piTriList_out.offset((iDstTriIndex * 3i32 + 2i32) as isize) =
-                    face_vert_to_index(f, 2) as c_int;
+                let mut pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
+                pVerts[0] = 0;
+                pVerts[1] = 1;
+                pVerts[2] = 2;
+                piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as c_int;
+                piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as c_int;
+                piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as c_int;
                 iDstTriIndex += 1
             } else {
-                (*pTriInfos.offset((iDstTriIndex + 1i32) as isize)).iOrgFaceNumber = f as c_int;
-                (*pTriInfos.offset((iDstTriIndex + 1i32) as isize)).iTSpacesOffs =
-                    iTSpacesOffs as c_int;
+                pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as c_int;
+                pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as c_int;
                 let i0 = face_vert_to_index(f, 0);
                 let i1 = face_vert_to_index(f, 1);
                 let i2 = face_vert_to_index(f, 2);
@@ -1949,50 +1943,40 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                     }
                 }
                 if bQuadDiagIs_02 {
-                    let mut pVerts_A: *mut libc::c_uchar = (*pTriInfos
-                        .offset(iDstTriIndex as isize))
-                    .vert_num
-                    .as_mut_ptr();
-                    *pVerts_A.offset(0isize) = 0i32 as libc::c_uchar;
-                    *pVerts_A.offset(1isize) = 1i32 as libc::c_uchar;
-                    *pVerts_A.offset(2isize) = 2i32 as libc::c_uchar;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 0i32) as isize) = i0 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 1i32) as isize) = i1 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 2i32) as isize) = i2 as c_int;
+                    let mut pVerts_A = &mut pTriInfos[iDstTriIndex].vert_num;
+                    pVerts_A[0] = 0;
+                    pVerts_A[1] = 1;
+                    pVerts_A[2] = 2;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i2 as c_int;
                     iDstTriIndex += 1;
-                    let mut pVerts_B: *mut libc::c_uchar = (*pTriInfos
-                        .offset(iDstTriIndex as isize))
-                    .vert_num
-                    .as_mut_ptr();
-                    *pVerts_B.offset(0isize) = 0i32 as libc::c_uchar;
-                    *pVerts_B.offset(1isize) = 2i32 as libc::c_uchar;
-                    *pVerts_B.offset(2isize) = 3i32 as libc::c_uchar;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 0i32) as isize) = i0 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 1i32) as isize) = i2 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 2i32) as isize) = i3 as c_int;
+
+                    let mut pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
+                    pVerts_B[0] = 0;
+                    pVerts_B[1] = 2;
+                    pVerts_B[2] = 3;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
                     iDstTriIndex += 1
                 } else {
-                    let mut pVerts_A_0: *mut libc::c_uchar = (*pTriInfos
-                        .offset(iDstTriIndex as isize))
-                    .vert_num
-                    .as_mut_ptr();
-                    *pVerts_A_0.offset(0isize) = 0i32 as libc::c_uchar;
-                    *pVerts_A_0.offset(1isize) = 1i32 as libc::c_uchar;
-                    *pVerts_A_0.offset(2isize) = 3i32 as libc::c_uchar;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 0i32) as isize) = i0 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 1i32) as isize) = i1 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 2i32) as isize) = i3 as c_int;
+                    let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                    pVerts_A_0[0] = 0;
+                    pVerts_A_0[1] = 1;
+                    pVerts_A_0[2] = 3;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
                     iDstTriIndex += 1;
-                    let mut pVerts_B_0: *mut libc::c_uchar = (*pTriInfos
-                        .offset(iDstTriIndex as isize))
-                    .vert_num
-                    .as_mut_ptr();
-                    *pVerts_B_0.offset(0isize) = 1i32 as libc::c_uchar;
-                    *pVerts_B_0.offset(1isize) = 2i32 as libc::c_uchar;
-                    *pVerts_B_0.offset(2isize) = 3i32 as libc::c_uchar;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 0i32) as isize) = i1 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 1i32) as isize) = i2 as c_int;
-                    *piTriList_out.offset((iDstTriIndex * 3i32 + 2i32) as isize) = i3 as c_int;
+
+                    let mut pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
+                    pVerts_B_0[0] = 1;
+                    pVerts_B_0[1] = 2;
+                    pVerts_B_0[2] = 3;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i1 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
                     iDstTriIndex += 1
                 }
             }
@@ -2000,9 +1984,9 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
         }
         f += 1
     }
-    t = 0i32;
+    t = 0;
     while t < iNrTrianglesIn {
-        (*pTriInfos.offset(t as isize)).iFlag = 0i32;
+        pTriInfos[t].iFlag = 0;
         t += 1
     }
     return iTSpacesOffs;
