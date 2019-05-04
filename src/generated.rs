@@ -20,8 +20,6 @@ use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometr
 
 extern "C" {
     #[no_mangle]
-    fn memcpy(_: *mut libc::c_void, _: *const libc::c_void, _: libc::c_ulong) -> *mut libc::c_void;
-    #[no_mangle]
     fn malloc(_: libc::c_ulong) -> *mut libc::c_void;
     #[no_mangle]
     fn free(__ptr: *mut libc::c_void);
@@ -126,17 +124,17 @@ impl SGroup {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct SSubGroup {
     pub iNrFaces: libc::c_int,
-    pub pTriMembers: *mut libc::c_int,
+    pub pTriMembers: Vec<i32>,
 }
 
 impl SSubGroup {
     fn zero() -> Self {
         Self {
             iNrFaces: 0,
-            pTriMembers: null_mut(),
+            pTriMembers: Vec::new(),
         }
     }
 }
@@ -233,8 +231,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
     );
     iNrMaxGroups = iNrTrianglesIn * 3;
 
-    let mut pGroups = vec!(SGroup::zero(); iNrMaxGroups);
-    let mut piGroupTrianglesBuffer = vec!(0; iNrTrianglesIn * 3);
+    let mut pGroups = vec![SGroup::zero(); iNrMaxGroups];
+    let mut piGroupTrianglesBuffer = vec![0; iNrTrianglesIn * 3];
 
     iNrActiveGroups = Build4RuleGroups(
         pTriInfos.as_mut_ptr(),
@@ -421,9 +419,9 @@ unsafe fn GenerateTSpaces<I: Geometry>(
         return true;
     }
 
-    let mut pSubGroupTspace = vec!(STSpace::zero(); iMaxNrFaces);
-    let mut pUniSubGroups = vec!(SSubGroup::zero(); iMaxNrFaces);
-    let mut pTmpMembers = vec!(0i32; iMaxNrFaces);
+    let mut pSubGroupTspace = vec![STSpace::zero(); iMaxNrFaces];
+    let mut pUniSubGroups = vec![SSubGroup::zero(); iMaxNrFaces];
+    let mut pTmpMembers = vec![0i32; iMaxNrFaces];
 
     iUniqueTspaces = 0;
     g = 0i32;
@@ -442,7 +440,7 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             let mut l: usize = 0;
             let mut tmp_group: SSubGroup = SSubGroup {
                 iNrFaces: 0,
-                pTriMembers: 0 as *mut libc::c_int,
+                pTriMembers: Vec::new(),
             };
             let mut bFound: bool = false;
             let mut n = Vector3::new(0.0, 0.0, 0.0);
@@ -504,12 +502,17 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 }
                 j += 1
             }
-            tmp_group.iNrFaces = iMembers as c_int;
-            tmp_group.pTriMembers = pTmpMembers.as_mut_ptr();
             if iMembers > 1 {
                 let mut uSeed: libc::c_uint = 39871946i32 as libc::c_uint;
-                QuickSort(pTmpMembers.as_mut_ptr(), 0i32, (iMembers - 1) as c_int, uSeed);
+                QuickSort(
+                    pTmpMembers.as_mut_ptr(),
+                    0i32,
+                    (iMembers - 1) as c_int,
+                    uSeed,
+                );
             }
+            tmp_group.iNrFaces = iMembers as c_int;
+            tmp_group.pTriMembers = pTmpMembers.clone();
             bFound = false;
             l = 0;
             while l < iUniqueSubGroups && !bFound {
@@ -519,27 +522,11 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 }
             }
             if !bFound {
-                let mut pIndices = malloc((size_of::<c_int>() * iMembers) as c_ulong) as *mut c_int;
-                if pIndices.is_null() {
-                    let mut s_0 = 0;
-                    while s_0 < iUniqueSubGroups {
-                        free(
-                            pUniSubGroups[s_0].pTriMembers as *mut libc::c_void,
-                        );
-                        s_0 += 1
-                    }
-                    return false;
-                }
                 pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as c_int;
-                pUniSubGroups[iUniqueSubGroups].pTriMembers = pIndices;
-                memcpy(
-                    pIndices as *mut libc::c_void,
-                    tmp_group.pTriMembers as *const libc::c_void,
-                    (iMembers as libc::c_ulong)
-                        .wrapping_mul(::std::mem::size_of::<libc::c_int>() as libc::c_ulong),
-                );
+                pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers.clone();
+
                 pSubGroupTspace[iUniqueSubGroups] = EvalTspace(
-                    tmp_group.pTriMembers,
+                    tmp_group.pTriMembers.as_mut_ptr(),
                     iMembers as c_int,
                     piTriListIn,
                     pTriInfos,
@@ -561,11 +548,6 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 (*pTS_out).bOrient = (*pGroup).bOrientPreservering
             }
             i += 1
-        }
-        s = 0;
-        while s < iUniqueSubGroups {
-            free(pUniSubGroups[s].pTriMembers as *mut libc::c_void);
-            s += 1
         }
         iUniqueTspaces += iUniqueSubGroups;
         g += 1
@@ -733,17 +715,16 @@ unsafe fn EvalTspace<I: Geometry>(
 
 unsafe fn CompareSubGroups(mut pg1: *const SSubGroup, mut pg2: *const SSubGroup) -> bool {
     let mut bStillSame: bool = true;
-    let mut i: libc::c_int = 0i32;
+    let mut i = 0;
     if (*pg1).iNrFaces != (*pg2).iNrFaces {
         return false;
     }
-    while i < (*pg1).iNrFaces && bStillSame {
-        bStillSame =
-            if *(*pg1).pTriMembers.offset(i as isize) == *(*pg2).pTriMembers.offset(i as isize) {
-                true
-            } else {
-                false
-            };
+    while i < (*pg1).iNrFaces as usize && bStillSame {
+        bStillSame = if (*pg1).pTriMembers[i] == (*pg2).pTriMembers[i] {
+            true
+        } else {
+            false
+        };
         if bStillSame {
             i += 1
         }
