@@ -1,7 +1,8 @@
 [package]
 name = "mikktspace"
 version = "0.1.1"
-authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>"]
+edition = "2018"
+authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
 description = "Mikkelsen tangent space algorithm"
 documentation = "https://docs.rs/mikktspace"
 repository = "https://github.com/gltf-rs/mikktspace"
@@ -9,17 +10,14 @@ homepage = "https://github.com/gltf-rs/mikktspace"
 readme = "README.md"
 keywords = ["3D", "graphics", "algorithm", "tangent"]
 license = "MIT/Apache-2.0"
-build = "build.rs"
 exclude = ["examples/**"]
 
 [badges]
 travis-ci = { repository = "gltf-rs/mikktspace" }
 
-[build-dependencies]
-cc = "1.0"
-
-[dev-dependencies]
-cgmath = "0.15"
+[dependencies]
+libc = "0.2.54"
+nalgebra = "0.18.0"
 
 [[example]]
 name = "generate"

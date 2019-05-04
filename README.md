@@ -3,7 +3,9 @@
 [![crates.io](https://img.shields.io/crates/v/mikktspace.svg)](https://crates.io/crates/mikktspace)
 [![Build Status](https://travis-ci.org/gltf-rs/mikktspace.svg?branch=master)](https://travis-ci.org/gltf-rs/mikktspace)
 
-Bindings to the [Mikkelsen Tangent Space Algorithm](https://en.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
+Port of the [Mikkelsen Tangent Space Algorithm](https://en.blender.org/index.php/Dev:Shading/Tangent_Space_Normal_Maps) reference implementation.
+
+Machine generated with modifications for better integration with Rust.
 
 ## Examples
 
@@ -13,16 +15,6 @@ Demonstrates generating tangents for a cube with 4 triangular faces per side.
 
 ```sh
 cargo run --example generate
-```
-
-There is also an equivalent C example to check the correctness of the Rust bindings.
-
-```sh
-cd examples
-cmake ../libmikktspace
-make
-cc generate.c libmikktspace.a -I../libmikktspace -lm -o generate
-./generate
 ```
 
 ## License agreement

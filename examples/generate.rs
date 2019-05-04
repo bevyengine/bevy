@@ -1,23 +1,62 @@
-extern crate cgmath;
-extern crate mikktspace;
-
-use cgmath::prelude::*;
+use nalgebra::{Point2, Point3, Vector3, Vector4};
 
 pub type Face = [u32; 3];
-pub type Vec2 = [f32; 2];
-pub type Vec3 = [f32; 3];
 
 #[derive(Debug)]
 struct Vertex {
-    position: Vec3,
-    normal: Vec3,
-    tex_coord: Vec2,
+    position: Point3<f32>,
+    normal: Vector3<f32>,
+    tex_coord: Point2<f32>,
 }
 
-fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
+struct Mesh {
+    faces: Vec<Face>,
+    vertices: Vec<Vertex>,
+}
+
+fn vertex(mesh: &Mesh, face: usize, vert: usize) -> &Vertex {
+    let vs: &[u32; 3] = &mesh.faces[face];
+    &mesh.vertices[vs[vert] as usize]
+}
+
+impl mikktspace::Geometry for Mesh {
+    fn get_num_faces(&self) -> usize {
+        self.faces.len()
+    }
+
+    fn get_num_vertices_of_face(&self, _face: usize) -> usize {
+        3
+    }
+
+    fn get_position(&self, face: usize, vert: usize) -> Point3<f32> {
+        vertex(self, face, vert).position
+    }
+
+    fn get_normal(&self, face: usize, vert: usize) -> Vector3<f32> {
+        vertex(self, face, vert).normal
+    }
+
+    fn get_tex_coord(&self, face: usize, vert: usize) -> Point2<f32> {
+        vertex(self, face, vert).tex_coord
+    }
+
+    fn set_tangent_encoded(&mut self, tangent: Vector4<f32>, face: usize, vert: usize) {
+        println!(
+            "{face}-{vert}: v: {v:?}, vn: {vn:?}, vt: {vt:?}, vx: {vx:?}",
+            face = face,
+            vert = vert,
+            v = vertex(self, face, vert).position.coords.data,
+            vn = vertex(self, face, vert).normal.data,
+            vt = vertex(self, face, vert).tex_coord.coords.data,
+            vx = tangent.data,
+        );
+    }
+}
+
+fn make_cube() -> Mesh {
     struct ControlPoint {
-        uv: Vec2,
-        dir: Vec3,
+        uv: [f32; 2],
+        dir: [f32; 3],
     }
     let mut faces = Vec::new();
     let mut ctl_pts = Vec::new();
@@ -108,9 +147,9 @@ fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
     }
 
     for pt in ctl_pts {
-        let p: cgmath::Vector3<f32> = pt.dir.into();
-        let n: cgmath::Vector3<f32> = p.normalize();
-        let t: cgmath::Vector2<f32> = pt.uv.into();
+        let p: Point3<f32> = pt.dir.into();
+        let n: Vector3<f32> = p.coords.normalize();
+        let t: Point2<f32> = pt.uv.into();
         vertices.push(Vertex {
             position: (p / 2.0).into(),
             normal: n.into(),
@@ -118,42 +157,14 @@ fn make_cube() -> (Vec<Face>, Vec<Vertex>) {
         });
     }
 
-    (faces, vertices)
+    Mesh {
+        faces,
+        vertices,
+    }
 }
 
 fn main() {
-    let (faces, vertices) = make_cube();
-    let vertex = |face, vert| {
-        let vs: &[u32; 3] = &faces[face];
-        &vertices[vs[vert] as usize]
-    };
-    let vertices_per_face = || 3;
-    let face_count = || faces.len();
-    let position = |face, vert| &vertex(face, vert).position;
-    let normal = |face, vert| &vertex(face, vert).normal;
-    let tex_coord = |face, vert| &vertex(face, vert).tex_coord;
-
-    {
-        let mut i = 0;
-        let mut set_tangent = |face, vert, tangent| {
-            println!(
-                "{index}: v: {v:?}, vn: {vn:?}, vt: {vt:?}, vx: {vx:?}",
-                index = i,
-                v = position(face, vert),
-                vn = normal(face, vert),
-                vt = tex_coord(face, vert),
-                vx = tangent,
-            );
-            i += 1;
-        };
-        let ret = mikktspace::generate_tangents(
-            &vertices_per_face,
-            &face_count,
-            &position,
-            &normal,
-            &tex_coord,
-            &mut set_tangent,
-        );
-        assert_eq!(true, ret);
-    }
+    let mut cube = make_cube();
+    let ret = mikktspace::generate_tangents_default(&mut cube);
+    assert_eq!(true, ret);
 }
