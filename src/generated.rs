@@ -1481,9 +1481,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
 ) {
     // Generate bounding box
     let mut piHashTable: *mut libc::c_int = 0 as *mut libc::c_int;
-    let mut piHashCount: *mut libc::c_int = 0 as *mut libc::c_int;
     let mut piHashOffsets: *mut libc::c_int = 0 as *mut libc::c_int;
-    let mut piHashCount2: *mut libc::c_int = 0 as *mut libc::c_int;
     let mut pTmpVert: *mut STmpVert = 0 as *mut STmpVert;
     let mut i = 0;
     let mut iChannel: libc::c_int = 0i32;
@@ -1530,25 +1528,15 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         fMax = vMax.z
     }
     piHashTable = malloc((size_of::<libc::c_int>() * iNrTrianglesIn * 3) as c_ulong) as *mut c_int;
-    piHashCount = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
     piHashOffsets = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
-    piHashCount2 = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
     if piHashTable.is_null()
-        || piHashCount.is_null()
         || piHashOffsets.is_null()
-        || piHashCount2.is_null()
     {
         if !piHashTable.is_null() {
             free(piHashTable as *mut libc::c_void);
         }
-        if !piHashCount.is_null() {
-            free(piHashCount as *mut libc::c_void);
-        }
         if !piHashOffsets.is_null() {
             free(piHashOffsets as *mut libc::c_void);
-        }
-        if !piHashCount2.is_null() {
-            free(piHashCount2 as *mut libc::c_void);
         }
         GenerateSharedVerticesIndexListSlow(
             piTriList_in_and_out,
@@ -1557,16 +1545,10 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         );
         return;
     }
-    memset(
-        piHashCount as *mut libc::c_void,
-        0,
-        (size_of::<c_int>() * g_iCells) as c_ulong,
-    );
-    memset(
-        piHashCount2 as *mut libc::c_void,
-        0,
-        (size_of::<c_int>() * g_iCells) as c_ulong,
-    );
+
+    let mut piHashCount = vec!(0i32; g_iCells);
+    let mut piHashCount2 = vec!(0i32; g_iCells);
+
     i = 0;
     while i < iNrTrianglesIn * 3 {
         let index_0: libc::c_int = *piTriList_in_and_out.offset(i as isize);
@@ -1579,15 +1561,14 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
             vP_0.z
         };
         let iCell = FindGridCell(fMin, fMax, fVal);
-        let ref mut fresh5 = *piHashCount.offset(iCell as isize);
-        *fresh5 += 1;
+        piHashCount[iCell] += 1;
         i += 1
     }
     *piHashOffsets.offset(0isize) = 0i32;
     k = 1;
     while k < g_iCells {
         *piHashOffsets.offset(k as isize) =
-            *piHashOffsets.offset((k - 1) as isize) + *piHashCount.offset((k - 1) as isize);
+            *piHashOffsets.offset((k - 1) as isize) + piHashCount[k - 1];
         k += 1
     }
     i = 0;
@@ -1605,21 +1586,19 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         let mut pTable: *mut libc::c_int = 0 as *mut libc::c_int;
         pTable = &mut *piHashTable.offset(*piHashOffsets.offset(iCell_0 as isize) as isize)
             as *mut libc::c_int;
-        *pTable.offset(*piHashCount2.offset(iCell_0 as isize) as isize) = i as c_int;
-        let ref mut fresh6 = *piHashCount2.offset(iCell_0 as isize);
-        *fresh6 += 1;
+        *pTable.offset(piHashCount2[iCell_0] as isize) = i as c_int;
+        piHashCount2[iCell_0] += 1;
         i += 1
     }
     k = 0;
     while k < g_iCells {
         k += 1
     }
-    free(piHashCount2 as *mut libc::c_void);
-    iMaxCount = *piHashCount.offset(0isize);
+    iMaxCount = piHashCount[0];
     k = 1;
     while k < g_iCells {
-        if iMaxCount < *piHashCount.offset(k as isize) {
-            iMaxCount = *piHashCount.offset(k as isize)
+        if iMaxCount < piHashCount[k] {
+            iMaxCount = piHashCount[k]
         }
         k += 1
     }
@@ -1633,7 +1612,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         let mut pTable_0: *mut libc::c_int = &mut *piHashTable
             .offset(*piHashOffsets.offset(k as isize) as isize)
             as *mut libc::c_int;
-        let iEntries: libc::c_int = *piHashCount.offset(k as isize);
+        let iEntries: libc::c_int = piHashCount[k];
         if !(iEntries < 2i32) {
             if !pTmpVert.is_null() {
                 e = 0i32;
@@ -1671,7 +1650,6 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         free(pTmpVert as *mut libc::c_void);
     }
     free(piHashTable as *mut libc::c_void);
-    free(piHashCount as *mut libc::c_void);
     free(piHashOffsets as *mut libc::c_void);
 }
 unsafe fn MergeVertsSlow<I: Geometry>(
