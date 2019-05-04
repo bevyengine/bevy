@@ -227,9 +227,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
     }
     memset(
         psTspace as *mut libc::c_void,
-        0i32,
-        (::std::mem::size_of::<STSpace>() as libc::c_ulong)
-            .wrapping_mul(iNrTSPaces as libc::c_ulong),
+        0,
+        (size_of::<STSpace>() * iNrTSPaces) as c_ulong,
     );
     t = 0;
     while t < iNrTSPaces {
@@ -1490,7 +1489,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     let mut pTmpVert: *mut STmpVert = 0 as *mut STmpVert;
     let mut i = 0;
     let mut iChannel: libc::c_int = 0i32;
-    let mut k: libc::c_int = 0i32;
+    let mut k = 0;
     let mut e: libc::c_int = 0i32;
     let mut iMaxCount: libc::c_int = 0i32;
     let mut vMin = get_position(geometry, 0);
@@ -1533,9 +1532,9 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         fMax = vMax.z
     }
     piHashTable = malloc((size_of::<libc::c_int>() * iNrTrianglesIn * 3) as c_ulong) as *mut c_int;
-    piHashCount = malloc((size_of::<libc::c_int>() * g_iCells as usize) as c_ulong) as *mut c_int;
-    piHashOffsets = malloc((size_of::<libc::c_int>() * g_iCells as usize) as c_ulong) as *mut c_int;
-    piHashCount2 = malloc((size_of::<libc::c_int>() * g_iCells as usize) as c_ulong) as *mut c_int;
+    piHashCount = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
+    piHashOffsets = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
+    piHashCount2 = malloc((size_of::<libc::c_int>() * g_iCells) as c_ulong) as *mut c_int;
     if piHashTable.is_null()
         || piHashCount.is_null()
         || piHashOffsets.is_null()
@@ -1562,15 +1561,13 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     }
     memset(
         piHashCount as *mut libc::c_void,
-        0i32,
-        (::std::mem::size_of::<libc::c_int>() as libc::c_ulong)
-            .wrapping_mul(g_iCells as libc::c_ulong),
+        0,
+        (size_of::<c_int>() * g_iCells) as c_ulong,
     );
     memset(
         piHashCount2 as *mut libc::c_void,
-        0i32,
-        (::std::mem::size_of::<libc::c_int>() as libc::c_ulong)
-            .wrapping_mul(g_iCells as libc::c_ulong),
+        0,
+        (size_of::<c_int>() * g_iCells) as c_ulong,
     );
     i = 0;
     while i < iNrTrianglesIn * 3 {
@@ -1583,16 +1580,16 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         } else {
             vP_0.z
         };
-        let iCell: libc::c_int = FindGridCell(fMin, fMax, fVal);
+        let iCell = FindGridCell(fMin, fMax, fVal);
         let ref mut fresh5 = *piHashCount.offset(iCell as isize);
         *fresh5 += 1;
         i += 1
     }
     *piHashOffsets.offset(0isize) = 0i32;
-    k = 1i32;
+    k = 1;
     while k < g_iCells {
         *piHashOffsets.offset(k as isize) =
-            *piHashOffsets.offset((k - 1i32) as isize) + *piHashCount.offset((k - 1i32) as isize);
+            *piHashOffsets.offset((k - 1) as isize) + *piHashCount.offset((k - 1) as isize);
         k += 1
     }
     i = 0;
@@ -1606,7 +1603,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         } else {
             vP_1.z
         };
-        let iCell_0: libc::c_int = FindGridCell(fMin, fMax, fVal_0);
+        let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
         let mut pTable: *mut libc::c_int = 0 as *mut libc::c_int;
         pTable = &mut *piHashTable.offset(*piHashOffsets.offset(iCell_0 as isize) as isize)
             as *mut libc::c_int;
@@ -1615,13 +1612,13 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         *fresh6 += 1;
         i += 1
     }
-    k = 0i32;
+    k = 0;
     while k < g_iCells {
         k += 1
     }
     free(piHashCount2 as *mut libc::c_void);
     iMaxCount = *piHashCount.offset(0isize);
-    k = 1i32;
+    k = 1;
     while k < g_iCells {
         if iMaxCount < *piHashCount.offset(k as isize) {
             iMaxCount = *piHashCount.offset(k as isize)
@@ -1632,7 +1629,7 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
         (::std::mem::size_of::<STmpVert>() as libc::c_ulong)
             .wrapping_mul(iMaxCount as libc::c_ulong),
     ) as *mut STmpVert;
-    k = 0i32;
+    k = 0;
     while k < g_iCells {
         // extract table of cell k and amount of entries in it
         let mut pTable_0: *mut libc::c_int = &mut *piHashTable
@@ -1844,7 +1841,9 @@ unsafe fn MergeVertsFast<I: Geometry>(
         }
     };
 }
-static mut g_iCells: libc::c_int = 2048i32;
+
+const g_iCells: usize = 2048;
+
 // it is IMPORTANT that this function is called to evaluate the hash since
 // inlining could potentially reorder instructions and generate different
 // results for the same effective input value fVal.
@@ -1853,19 +1852,20 @@ unsafe fn FindGridCell(
     fMin: libc::c_float,
     fMax: libc::c_float,
     fVal: libc::c_float,
-) -> libc::c_int {
-    let fIndex: libc::c_float = g_iCells as libc::c_float * ((fVal - fMin) / (fMax - fMin));
-    let iIndex: libc::c_int = fIndex as libc::c_int;
-    return if iIndex < g_iCells {
-        if iIndex >= 0i32 {
-            iIndex
+) -> usize {
+    let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
+    let iIndex = fIndex as isize;
+    return if iIndex < g_iCells as isize {
+        if iIndex >= 0 {
+            iIndex as usize
         } else {
-            0i32
+            0
         }
     } else {
-        g_iCells - 1i32
+        g_iCells - 1
     };
 }
+
 unsafe fn GenerateSharedVerticesIndexListSlow<I: Geometry>(
     mut piTriList_in_and_out: *mut libc::c_int,
     geometry: &mut I,
