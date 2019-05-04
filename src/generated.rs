@@ -13,7 +13,7 @@ use std::mem::size_of;
 
 use {
     libc::{c_int, c_ulong},
-    nalgebra::Vector3,
+    nalgebra::{zero, Vector3},
 };
 
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
@@ -39,6 +39,20 @@ pub struct STSpace {
     pub iCounter: libc::c_int,
     pub bOrient: bool,
 }
+
+impl STSpace {
+    pub fn zero() -> Self {
+        Self {
+            vOs: zero(),
+            fMagS: 0.0,
+            vOt: zero(),
+            fMagT: 0.0,
+            iCounter: 0,
+            bOrient: false,
+        }
+    }
+}
+
 // To avoid visual errors (distortions/unwanted hard edges in lighting), when using sampled normal maps, the
 // normal map sampler must use the exact inverse of the pixel shader transformation.
 // The most efficient transformation we can possibly do in the pixel shader is
@@ -123,7 +137,6 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut piGroupTrianglesBuffer: *mut libc::c_int = 0 as *mut libc::c_int;
     let mut pTriInfos: *mut STriInfo = 0 as *mut STriInfo;
     let mut pGroups: *mut SGroup = 0 as *mut SGroup;
-    let mut psTspace: *mut STSpace = 0 as *mut STSpace;
     let mut iNrTrianglesIn = 0;
     let mut f = 0;
     let mut t = 0;
@@ -133,7 +146,7 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut iDegenTriangles = 0;
     let mut iNrMaxGroups = 0;
     let mut iNrActiveGroups: libc::c_int = 0i32;
-    let mut index: libc::c_int = 0i32;
+    let mut index = 0;
     let iNrFaces = geometry.get_num_faces();
     let mut bRes: bool = false;
     let fThresCos: libc::c_float = ((fAngularThreshold * 3.14159265358979323846f64 as libc::c_float
@@ -217,33 +230,20 @@ pub unsafe fn genTangSpace<I: Geometry>(
         piTriListIn as *const libc::c_int,
         iNrTrianglesIn as c_int,
     );
-    psTspace = malloc((size_of::<STSpace>() * iNrTSPaces) as c_ulong) as *mut STSpace;
-    if psTspace.is_null() {
-        free(piTriListIn as *mut libc::c_void);
-        free(pTriInfos as *mut libc::c_void);
-        free(pGroups as *mut libc::c_void);
-        free(piGroupTrianglesBuffer as *mut libc::c_void);
-        return false;
-    }
-    memset(
-        psTspace as *mut libc::c_void,
-        0,
-        (size_of::<STSpace>() * iNrTSPaces) as c_ulong,
-    );
-    t = 0;
-    while t < iNrTSPaces {
-        (*psTspace.offset(t as isize)).vOs.x = 1.0f32;
-        (*psTspace.offset(t as isize)).vOs.y = 0.0f32;
-        (*psTspace.offset(t as isize)).vOs.z = 0.0f32;
-        (*psTspace.offset(t as isize)).fMagS = 1.0f32;
-        (*psTspace.offset(t as isize)).vOt.x = 0.0f32;
-        (*psTspace.offset(t as isize)).vOt.y = 1.0f32;
-        (*psTspace.offset(t as isize)).vOt.z = 0.0f32;
-        (*psTspace.offset(t as isize)).fMagT = 1.0f32;
-        t += 1
-    }
+
+    let mut psTspace = vec![
+        STSpace {
+            vOs: Vector3::new(1.0, 0.0, 0.0),
+            fMagS: 1.0,
+            vOt: Vector3::new(0.0, 1.0, 0.0),
+            fMagT: 1.0,
+            ..STSpace::zero()
+        };
+        iNrTSPaces
+    ];
+
     bRes = GenerateTSpaces(
-        psTspace,
+        &mut psTspace,
         pTriInfos as *const STriInfo,
         pGroups as *const SGroup,
         iNrActiveGroups,
@@ -256,11 +256,10 @@ pub unsafe fn genTangSpace<I: Geometry>(
     if !bRes {
         free(pTriInfos as *mut libc::c_void);
         free(piTriListIn as *mut libc::c_void);
-        free(psTspace as *mut libc::c_void);
         return false;
     }
     DegenEpilogue(
-        psTspace,
+        psTspace.as_mut_ptr(),
         pTriInfos,
         piTriListIn,
         geometry,
@@ -269,15 +268,14 @@ pub unsafe fn genTangSpace<I: Geometry>(
     );
     free(pTriInfos as *mut libc::c_void);
     free(piTriListIn as *mut libc::c_void);
-    index = 0i32;
+    index = 0;
     f = 0;
     while f < iNrFaces {
         let verts_0 = geometry.get_num_vertices_of_face(f);
         if !(verts_0 != 3 && verts_0 != 4) {
             i = 0;
             while i < verts_0 {
-                let mut pTSpace: *const STSpace =
-                    &mut *psTspace.offset(index as isize) as *mut STSpace;
+                let mut pTSpace: *const STSpace = &mut psTspace[index] as *mut STSpace;
                 let mut tang = Vector3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
                 let mut bitang = Vector3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
                 geometry.set_tangent(
@@ -295,7 +293,7 @@ pub unsafe fn genTangSpace<I: Geometry>(
         }
         f += 1
     }
-    free(psTspace as *mut libc::c_void);
+
     return true;
 }
 unsafe fn DegenEpilogue<I: Geometry>(
@@ -393,7 +391,7 @@ unsafe fn DegenEpilogue<I: Geometry>(
 }
 
 unsafe fn GenerateTSpaces<I: Geometry>(
-    mut psTspace: *mut STSpace,
+    psTspace: &mut [STSpace],
     mut pTriInfos: *const STriInfo,
     mut pGroups: *const SGroup,
     iNrActiveGroups: libc::c_int,
@@ -564,11 +562,11 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 );
                 iUniqueSubGroups += 1
             }
-            let iOffs: libc::c_int = (*pTriInfos.offset(f as isize)).iTSpacesOffs;
-            let iVert: libc::c_int =
-                (*pTriInfos.offset(f as isize)).vert_num[index as usize] as libc::c_int;
+            let iOffs = (*pTriInfos.offset(f as isize)).iTSpacesOffs as usize;
+            let iVert =
+                (*pTriInfos.offset(f as isize)).vert_num[index as usize] as usize;
             let mut pTS_out: *mut STSpace =
-                &mut *psTspace.offset((iOffs + iVert) as isize) as *mut STSpace;
+                &mut psTspace[iOffs + iVert] as *mut STSpace;
             if (*pTS_out).iCounter == 1i32 {
                 *pTS_out = AvgTSpace(pTS_out, &mut *pSubGroupTspace.offset(l as isize));
                 (*pTS_out).iCounter = 2i32;
@@ -1848,11 +1846,7 @@ const g_iCells: usize = 2048;
 // inlining could potentially reorder instructions and generate different
 // results for the same effective input value fVal.
 #[inline(never)]
-unsafe fn FindGridCell(
-    fMin: libc::c_float,
-    fMax: libc::c_float,
-    fVal: libc::c_float,
-) -> usize {
+unsafe fn FindGridCell(fMin: libc::c_float, fMax: libc::c_float, fVal: libc::c_float) -> usize {
     let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
     let iIndex = fIndex as isize;
     return if iIndex < g_iCells as isize {
