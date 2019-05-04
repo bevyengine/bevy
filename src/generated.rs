@@ -11,10 +11,7 @@
 
 use std::ptr::null_mut;
 
-use {
-    libc::c_int,
-    nalgebra::{zero, Vector3},
-};
+use nalgebra::{zero, Vector3};
 
 use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometry};
 
@@ -22,10 +19,10 @@ use crate::{face_vert_to_index, get_normal, get_position, get_tex_coord, Geometr
 #[repr(C)]
 pub struct STSpace {
     pub vOs: Vector3<f32>,
-    pub fMagS: libc::c_float,
+    pub fMagS: f32,
     pub vOt: Vector3<f32>,
-    pub fMagT: libc::c_float,
-    pub iCounter: libc::c_int,
+    pub fMagT: f32,
+    pub iCounter: i32,
     pub bOrient: bool,
 }
 
@@ -69,16 +66,16 @@ impl STSpace {
 
 #[derive(Copy, Clone)]
 pub struct STriInfo {
-    pub FaceNeighbors: [libc::c_int; 3],
+    pub FaceNeighbors: [i32; 3],
     pub AssignedGroup: [*mut SGroup; 3],
     pub vOs: Vector3<f32>,
     pub vOt: Vector3<f32>,
-    pub fMagS: libc::c_float,
-    pub fMagT: libc::c_float,
-    pub iOrgFaceNumber: libc::c_int,
-    pub iFlag: libc::c_int,
-    pub iTSpacesOffs: libc::c_int,
-    pub vert_num: [libc::c_uchar; 4],
+    pub fMagS: f32,
+    pub fMagT: f32,
+    pub iOrgFaceNumber: i32,
+    pub iFlag: i32,
+    pub iTSpacesOffs: i32,
+    pub vert_num: [u8; 4],
 }
 
 impl STriInfo {
@@ -100,9 +97,9 @@ impl STriInfo {
 
 #[derive(Copy, Clone)]
 pub struct SGroup {
-    pub iNrFaces: libc::c_int,
-    pub pFaceIndices: *mut libc::c_int,
-    pub iVertexRepresentitive: libc::c_int,
+    pub iNrFaces: i32,
+    pub pFaceIndices: *mut i32,
+    pub iVertexRepresentitive: i32,
     pub bOrientPreservering: bool,
 }
 
@@ -119,7 +116,7 @@ impl SGroup {
 
 #[derive(Clone)]
 pub struct SSubGroup {
-    pub iNrFaces: libc::c_int,
+    pub iNrFaces: i32,
     pub pTriMembers: Vec<i32>,
 }
 
@@ -135,7 +132,7 @@ impl SSubGroup {
 #[derive(Copy, Clone)]
 pub union SEdge {
     pub unnamed: unnamed,
-    pub array: [libc::c_int; 3],
+    pub array: [i32; 3],
 }
 
 impl SEdge {
@@ -146,15 +143,15 @@ impl SEdge {
 
 #[derive(Copy, Clone)]
 pub struct unnamed {
-    pub i0: libc::c_int,
-    pub i1: libc::c_int,
-    pub f: libc::c_int,
+    pub i0: i32,
+    pub i1: i32,
+    pub f: i32,
 }
 
 #[derive(Copy, Clone)]
 pub struct STmpVert {
-    pub vert: [libc::c_float; 3],
-    pub index: libc::c_int,
+    pub vert: [f32; 3],
+    pub index: i32,
 }
 
 impl STmpVert {
@@ -168,7 +165,7 @@ impl STmpVert {
 
 pub unsafe fn genTangSpace<I: Geometry>(
     geometry: &mut I,
-    fAngularThreshold: libc::c_float,
+    fAngularThreshold: f32,
 ) -> bool {
     let mut iNrTrianglesIn = 0;
     let mut f = 0;
@@ -178,13 +175,13 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut iTotTris = 0;
     let mut iDegenTriangles = 0;
     let mut iNrMaxGroups = 0;
-    let mut iNrActiveGroups: libc::c_int = 0i32;
+    let mut iNrActiveGroups: i32 = 0i32;
     let mut index = 0;
     let iNrFaces = geometry.get_num_faces();
     let mut bRes: bool = false;
-    let fThresCos: libc::c_float = ((fAngularThreshold * 3.14159265358979323846f64 as libc::c_float
-        / 180.0f32) as libc::c_double)
-        .cos() as libc::c_float;
+    let fThresCos: f32 = ((fAngularThreshold * 3.14159265358979323846f64 as f32
+        / 180.0f32) as f64)
+        .cos() as f32;
     f = 0;
     while f < iNrFaces {
         let verts = geometry.get_num_vertices_of_face(f);
@@ -229,8 +226,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
-        iNrTrianglesIn as c_int,
-        iTotTris as c_int,
+        iNrTrianglesIn as i32,
+        iTotTris as i32,
     );
     InitTriInfo(
         pTriInfos.as_mut_ptr(),
@@ -248,7 +245,7 @@ pub unsafe fn genTangSpace<I: Geometry>(
         pGroups.as_mut_ptr(),
         piGroupTrianglesBuffer.as_mut_ptr(),
         piTriListIn.as_ptr(),
-        iNrTrianglesIn as c_int,
+        iNrTrianglesIn as i32,
     );
 
     let mut psTspace = vec![
@@ -279,8 +276,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
         geometry,
-        iNrTrianglesIn as c_int,
-        iTotTris as c_int,
+        iNrTrianglesIn as i32,
+        iTotTris as i32,
     );
     index = 0;
     f = 0;
@@ -313,13 +310,13 @@ pub unsafe fn genTangSpace<I: Geometry>(
 unsafe fn DegenEpilogue<I: Geometry>(
     mut psTspace: *mut STSpace,
     mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *mut libc::c_int,
+    mut piTriListIn: *mut i32,
     geometry: &mut I,
-    iNrTrianglesIn: libc::c_int,
-    iTotTris: libc::c_int,
+    iNrTrianglesIn: i32,
+    iTotTris: i32,
 ) {
-    let mut t: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
+    let mut t: i32 = 0i32;
+    let mut i: i32 = 0i32;
     t = iNrTrianglesIn;
     while t < iTotTris {
         let bSkip: bool = if (*pTriInfos.offset(t as isize)).iFlag & 2i32 != 0i32 {
@@ -330,11 +327,11 @@ unsafe fn DegenEpilogue<I: Geometry>(
         if !bSkip {
             i = 0i32;
             while i < 3i32 {
-                let index1: libc::c_int = *piTriListIn.offset((t * 3i32 + i) as isize);
+                let index1: i32 = *piTriListIn.offset((t * 3i32 + i) as isize);
                 let mut bNotFound: bool = true;
-                let mut j: libc::c_int = 0i32;
+                let mut j: i32 = 0i32;
                 while bNotFound && j < 3i32 * iNrTrianglesIn {
-                    let index2: libc::c_int = *piTriListIn.offset(j as isize);
+                    let index2: i32 = *piTriListIn.offset(j as isize);
                     if index1 == index2 {
                         bNotFound = false
                     } else {
@@ -342,14 +339,14 @@ unsafe fn DegenEpilogue<I: Geometry>(
                     }
                 }
                 if !bNotFound {
-                    let iTri: libc::c_int = j / 3i32;
-                    let iVert: libc::c_int = j % 3i32;
-                    let iSrcVert: libc::c_int =
-                        (*pTriInfos.offset(iTri as isize)).vert_num[iVert as usize] as libc::c_int;
-                    let iSrcOffs: libc::c_int = (*pTriInfos.offset(iTri as isize)).iTSpacesOffs;
-                    let iDstVert: libc::c_int =
-                        (*pTriInfos.offset(t as isize)).vert_num[i as usize] as libc::c_int;
-                    let iDstOffs: libc::c_int = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
+                    let iTri: i32 = j / 3i32;
+                    let iVert: i32 = j % 3i32;
+                    let iSrcVert: i32 =
+                        (*pTriInfos.offset(iTri as isize)).vert_num[iVert as usize] as i32;
+                    let iSrcOffs: i32 = (*pTriInfos.offset(iTri as isize)).iTSpacesOffs;
+                    let iDstVert: i32 =
+                        (*pTriInfos.offset(t as isize)).vert_num[i as usize] as i32;
+                    let iDstOffs: i32 = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
                     *psTspace.offset((iDstOffs + iDstVert) as isize) =
                         *psTspace.offset((iSrcOffs + iSrcVert) as isize)
                 }
@@ -362,14 +359,14 @@ unsafe fn DegenEpilogue<I: Geometry>(
     while t < iNrTrianglesIn {
         if (*pTriInfos.offset(t as isize)).iFlag & 2i32 != 0i32 {
             let mut vDstP = Vector3::new(0.0, 0.0, 0.0);
-            let mut iOrgF: libc::c_int = -1i32;
-            let mut i_0: libc::c_int = 0i32;
+            let mut iOrgF: i32 = -1i32;
+            let mut i_0: i32 = 0i32;
             let mut bNotFound_0: bool = false;
-            let mut pV: *mut libc::c_uchar = (*pTriInfos.offset(t as isize)).vert_num.as_mut_ptr();
-            let mut iFlag: libc::c_int = 1i32 << *pV.offset(0isize) as libc::c_int
-                | 1i32 << *pV.offset(1isize) as libc::c_int
-                | 1i32 << *pV.offset(2isize) as libc::c_int;
-            let mut iMissingIndex: libc::c_int = 0i32;
+            let mut pV: *mut u8 = (*pTriInfos.offset(t as isize)).vert_num.as_mut_ptr();
+            let mut iFlag: i32 = 1i32 << *pV.offset(0isize) as i32
+                | 1i32 << *pV.offset(1isize) as i32
+                | 1i32 << *pV.offset(2isize) as i32;
+            let mut iMissingIndex: i32 = 0i32;
             if iFlag & 2i32 == 0i32 {
                 iMissingIndex = 1i32
             } else if iFlag & 4i32 == 0i32 {
@@ -385,13 +382,13 @@ unsafe fn DegenEpilogue<I: Geometry>(
             bNotFound_0 = true;
             i_0 = 0i32;
             while bNotFound_0 && i_0 < 3i32 {
-                let iVert_0: libc::c_int = *pV.offset(i_0 as isize) as libc::c_int;
+                let iVert_0: i32 = *pV.offset(i_0 as isize) as i32;
                 let vSrcP = get_position(
                     geometry,
                     face_vert_to_index(iOrgF as usize, iVert_0 as usize),
                 );
                 if vSrcP == vDstP {
-                    let iOffs: libc::c_int = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
+                    let iOffs: i32 = (*pTriInfos.offset(t as isize)).iTSpacesOffs;
                     *psTspace.offset((iOffs + iMissingIndex) as isize) =
                         *psTspace.offset((iOffs + iVert_0) as isize);
                     bNotFound_0 = false
@@ -408,15 +405,15 @@ unsafe fn GenerateTSpaces<I: Geometry>(
     psTspace: &mut [STSpace],
     mut pTriInfos: *const STriInfo,
     mut pGroups: *const SGroup,
-    iNrActiveGroups: libc::c_int,
-    mut piTriListIn: *const libc::c_int,
-    fThresCos: libc::c_float,
+    iNrActiveGroups: i32,
+    mut piTriListIn: *const i32,
+    fThresCos: f32,
     geometry: &mut I,
 ) -> bool {
     let mut iMaxNrFaces: usize = 0;
     let mut iUniqueTspaces = 0;
-    let mut g: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
+    let mut g: i32 = 0i32;
+    let mut i: i32 = 0i32;
     g = 0i32;
     while g < iNrActiveGroups {
         if iMaxNrFaces < (*pGroups.offset(g as isize)).iNrFaces as usize {
@@ -440,12 +437,12 @@ unsafe fn GenerateTSpaces<I: Geometry>(
         let mut s = 0;
         i = 0i32;
         while i < (*pGroup).iNrFaces {
-            let f: libc::c_int = *(*pGroup).pFaceIndices.offset(i as isize);
-            let mut index: libc::c_int = -1i32;
-            let mut iVertIndex: libc::c_int = -1i32;
-            let mut iOF_1: libc::c_int = -1i32;
+            let f: i32 = *(*pGroup).pFaceIndices.offset(i as isize);
+            let mut index: i32 = -1i32;
+            let mut iVertIndex: i32 = -1i32;
+            let mut iOF_1: i32 = -1i32;
             let mut iMembers: usize = 0;
-            let mut j: libc::c_int = 0i32;
+            let mut j: i32 = 0i32;
             let mut l: usize = 0;
             let mut tmp_group: SSubGroup = SSubGroup {
                 iNrFaces: 0,
@@ -480,8 +477,8 @@ unsafe fn GenerateTSpaces<I: Geometry>(
             iMembers = 0;
             j = 0i32;
             while j < (*pGroup).iNrFaces {
-                let t: libc::c_int = *(*pGroup).pFaceIndices.offset(j as isize);
-                let iOF_2: libc::c_int = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
+                let t: i32 = *(*pGroup).pFaceIndices.offset(j as isize);
+                let iOF_2: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
                 let mut vOs2 = (*pTriInfos.offset(t as isize)).vOs
                     - (n.dot(&(*pTriInfos.offset(t as isize)).vOs) * n);
                 let mut vOt2 = (*pTriInfos.offset(t as isize)).vOt
@@ -502,8 +499,8 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                     false
                 };
                 let bSameOrgFace: bool = iOF_1 == iOF_2;
-                let fCosS: libc::c_float = vOs.dot(&vOs2);
-                let fCosT: libc::c_float = vOt.dot(&vOt2);
+                let fCosS: f32 = vOs.dot(&vOs2);
+                let fCosT: f32 = vOt.dot(&vOt2);
                 if bAny || bSameOrgFace || fCosS > fThresCos && fCosT > fThresCos {
                     let fresh0 = iMembers;
                     iMembers = iMembers + 1;
@@ -512,15 +509,15 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 j += 1
             }
             if iMembers > 1 {
-                let mut uSeed: libc::c_uint = 39871946i32 as libc::c_uint;
+                let mut uSeed: u32 = 39871946i32 as u32;
                 QuickSort(
                     pTmpMembers.as_mut_ptr(),
                     0i32,
-                    (iMembers - 1) as c_int,
+                    (iMembers - 1) as i32,
                     uSeed,
                 );
             }
-            tmp_group.iNrFaces = iMembers as c_int;
+            tmp_group.iNrFaces = iMembers as i32;
             tmp_group.pTriMembers = pTmpMembers.clone();
             bFound = false;
             l = 0;
@@ -531,12 +528,12 @@ unsafe fn GenerateTSpaces<I: Geometry>(
                 }
             }
             if !bFound {
-                pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as c_int;
+                pUniSubGroups[iUniqueSubGroups].iNrFaces = iMembers as i32;
                 pUniSubGroups[iUniqueSubGroups].pTriMembers = tmp_group.pTriMembers.clone();
 
                 pSubGroupTspace[iUniqueSubGroups] = EvalTspace(
                     tmp_group.pTriMembers.as_mut_ptr(),
-                    iMembers as c_int,
+                    iMembers as i32,
                     piTriListIn,
                     pTriInfos,
                     geometry,
@@ -604,17 +601,17 @@ unsafe fn VNotZero(v: Vector3<f32>) -> bool {
     NotZero(v.x) || NotZero(v.y) || NotZero(v.z)
 }
 
-unsafe fn NotZero(fX: libc::c_float) -> bool {
+unsafe fn NotZero(fX: f32) -> bool {
     fX.abs() > 1.17549435e-38f32
 }
 
 unsafe fn EvalTspace<I: Geometry>(
-    mut face_indices: *mut libc::c_int,
-    iFaces: libc::c_int,
-    mut piTriListIn: *const libc::c_int,
+    mut face_indices: *mut i32,
+    iFaces: i32,
+    mut piTriListIn: *const i32,
     mut pTriInfos: *const STriInfo,
     geometry: &mut I,
-    iVertexRepresentitive: libc::c_int,
+    iVertexRepresentitive: i32,
 ) -> STSpace {
     let mut res: STSpace = STSpace {
         vOs: Vector3::new(0.0, 0.0, 0.0),
@@ -624,19 +621,19 @@ unsafe fn EvalTspace<I: Geometry>(
         iCounter: 0,
         bOrient: false,
     };
-    let mut fAngleSum: libc::c_float = 0i32 as libc::c_float;
-    let mut face: libc::c_int = 0i32;
+    let mut fAngleSum: f32 = 0i32 as f32;
+    let mut face: i32 = 0i32;
     res.vOs.x = 0.0f32;
     res.vOs.y = 0.0f32;
     res.vOs.z = 0.0f32;
     res.vOt.x = 0.0f32;
     res.vOt.y = 0.0f32;
     res.vOt.z = 0.0f32;
-    res.fMagS = 0i32 as libc::c_float;
-    res.fMagT = 0i32 as libc::c_float;
+    res.fMagS = 0i32 as f32;
+    res.fMagT = 0i32 as f32;
     face = 0i32;
     while face < iFaces {
-        let f: libc::c_int = *face_indices.offset(face as isize);
+        let f: i32 = *face_indices.offset(face as isize);
         if (*pTriInfos.offset(f as isize)).iFlag & 4i32 == 0i32 {
             let mut n = Vector3::new(0.0, 0.0, 0.0);
             let mut vOs = Vector3::new(0.0, 0.0, 0.0);
@@ -646,15 +643,15 @@ unsafe fn EvalTspace<I: Geometry>(
             let mut p2 = Vector3::new(0.0, 0.0, 0.0);
             let mut v1 = Vector3::new(0.0, 0.0, 0.0);
             let mut v2 = Vector3::new(0.0, 0.0, 0.0);
-            let mut fCos: libc::c_float = 0.;
-            let mut fAngle: libc::c_float = 0.;
-            let mut fMagS: libc::c_float = 0.;
-            let mut fMagT: libc::c_float = 0.;
-            let mut i: libc::c_int = -1i32;
-            let mut index: libc::c_int = -1i32;
-            let mut i0: libc::c_int = -1i32;
-            let mut i1: libc::c_int = -1i32;
-            let mut i2: libc::c_int = -1i32;
+            let mut fCos: f32 = 0.;
+            let mut fAngle: f32 = 0.;
+            let mut fMagS: f32 = 0.;
+            let mut fMagT: f32 = 0.;
+            let mut i: i32 = -1i32;
+            let mut index: i32 = -1i32;
+            let mut i0: i32 = -1i32;
+            let mut i1: i32 = -1i32;
+            let mut i2: i32 = -1i32;
             if *piTriListIn.offset((3i32 * f + 0i32) as isize) == iVertexRepresentitive {
                 i = 0i32
             } else if *piTriListIn.offset((3i32 * f + 1i32) as isize) == iVertexRepresentitive {
@@ -691,14 +688,14 @@ unsafe fn EvalTspace<I: Geometry>(
                 v2 = Normalize(v2)
             }
             fCos = v1.dot(&v2);
-            fCos = if fCos > 1i32 as libc::c_float {
-                1i32 as libc::c_float
-            } else if fCos < -1i32 as libc::c_float {
-                -1i32 as libc::c_float
+            fCos = if fCos > 1i32 as f32 {
+                1i32 as f32
+            } else if fCos < -1i32 as f32 {
+                -1i32 as f32
             } else {
                 fCos
             };
-            fAngle = (fCos as libc::c_double).acos() as libc::c_float;
+            fAngle = (fCos as f64).acos() as f32;
             fMagS = (*pTriInfos.offset(f as isize)).fMagS;
             fMagT = (*pTriInfos.offset(f as isize)).fMagT;
             res.vOs = res.vOs + (fAngle * vOs);
@@ -715,7 +712,7 @@ unsafe fn EvalTspace<I: Geometry>(
     if VNotZero(res.vOt) {
         res.vOt = Normalize(res.vOt)
     }
-    if fAngleSum > 0i32 as libc::c_float {
+    if fAngleSum > 0i32 as f32 {
         res.fMagS /= fAngleSum;
         res.fMagT /= fAngleSum
     }
@@ -741,28 +738,28 @@ unsafe fn CompareSubGroups(mut pg1: *const SSubGroup, mut pg2: *const SSubGroup)
     return bStillSame;
 }
 unsafe fn QuickSort(
-    mut pSortBuffer: *mut libc::c_int,
-    mut iLeft: libc::c_int,
-    mut iRight: libc::c_int,
-    mut uSeed: libc::c_uint,
+    mut pSortBuffer: *mut i32,
+    mut iLeft: i32,
+    mut iRight: i32,
+    mut uSeed: u32,
 ) {
-    let mut iL: libc::c_int = 0;
-    let mut iR: libc::c_int = 0;
-    let mut n: libc::c_int = 0;
-    let mut index: libc::c_int = 0;
-    let mut iMid: libc::c_int = 0;
-    let mut iTmp: libc::c_int = 0;
+    let mut iL: i32 = 0;
+    let mut iR: i32 = 0;
+    let mut n: i32 = 0;
+    let mut index: i32 = 0;
+    let mut iMid: i32 = 0;
+    let mut iTmp: i32 = 0;
 
     // Random
-    let mut t: libc::c_uint = uSeed & 31i32 as libc::c_uint;
-    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as libc::c_uint).wrapping_sub(t));
-    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as libc::c_uint);
+    let mut t: u32 = uSeed & 31i32 as u32;
+    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as u32).wrapping_sub(t));
+    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as u32);
     // Random end
 
     iL = iLeft;
     iR = iRight;
     n = iR - iL + 1i32;
-    index = uSeed.wrapping_rem(n as libc::c_uint) as libc::c_int;
+    index = uSeed.wrapping_rem(n as u32) as i32;
     iMid = *pSortBuffer.offset((index + iL) as isize);
     loop {
         while *pSortBuffer.offset(iL as isize) < iMid {
@@ -792,15 +789,15 @@ unsafe fn QuickSort(
 unsafe fn Build4RuleGroups(
     mut pTriInfos: *mut STriInfo,
     mut pGroups: *mut SGroup,
-    mut piGroupTrianglesBuffer: *mut libc::c_int,
-    mut piTriListIn: *const libc::c_int,
-    iNrTrianglesIn: libc::c_int,
-) -> libc::c_int {
-    let iNrMaxGroups: libc::c_int = iNrTrianglesIn * 3i32;
-    let mut iNrActiveGroups: libc::c_int = 0i32;
-    let mut iOffset: libc::c_int = 0i32;
-    let mut f: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
+    mut piGroupTrianglesBuffer: *mut i32,
+    mut piTriListIn: *const i32,
+    iNrTrianglesIn: i32,
+) -> i32 {
+    let iNrMaxGroups: i32 = iNrTrianglesIn * 3i32;
+    let mut iNrActiveGroups: i32 = 0i32;
+    let mut iOffset: i32 = 0i32;
+    let mut f: i32 = 0i32;
+    let mut i: i32 = 0i32;
     f = 0i32;
     while f < iNrTrianglesIn {
         i = 0i32;
@@ -809,9 +806,9 @@ unsafe fn Build4RuleGroups(
                 && (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize].is_null()
             {
                 let mut bOrPre: bool = false;
-                let mut neigh_indexL: libc::c_int = 0;
-                let mut neigh_indexR: libc::c_int = 0;
-                let vert_index: libc::c_int = *piTriListIn.offset((f * 3i32 + i) as isize);
+                let mut neigh_indexL: i32 = 0;
+                let mut neigh_indexR: i32 = 0;
+                let vert_index: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
                 let ref mut fresh2 = (*pTriInfos.offset(f as isize)).AssignedGroup[i as usize];
                 *fresh2 = &mut *pGroups.offset(iNrActiveGroups as isize) as *mut SGroup;
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize])
@@ -821,7 +818,7 @@ unsafe fn Build4RuleGroups(
                 (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).iNrFaces = 0i32;
                 let ref mut fresh3 =
                     (*(*pTriInfos.offset(f as isize)).AssignedGroup[i as usize]).pFaceIndices;
-                *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut libc::c_int;
+                *fresh3 = &mut *piGroupTrianglesBuffer.offset(iOffset as isize) as *mut i32;
                 iNrActiveGroups += 1;
                 AddTriToGroup((*pTriInfos.offset(f as isize)).AssignedGroup[i as usize], f);
                 bOrPre = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 != 0i32 {
@@ -873,18 +870,18 @@ unsafe fn Build4RuleGroups(
 // ///////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 unsafe fn AssignRecur(
-    mut piTriListIn: *const libc::c_int,
+    mut piTriListIn: *const i32,
     mut psTriInfos: *mut STriInfo,
-    iMyTriIndex: libc::c_int,
+    iMyTriIndex: i32,
     mut pGroup: *mut SGroup,
 ) -> bool {
     let mut pMyTriInfo: *mut STriInfo =
         &mut *psTriInfos.offset(iMyTriIndex as isize) as *mut STriInfo;
     // track down vertex
-    let iVertRep: libc::c_int = (*pGroup).iVertexRepresentitive;
-    let mut pVerts: *const libc::c_int =
-        &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const libc::c_int;
-    let mut i: libc::c_int = -1i32;
+    let iVertRep: i32 = (*pGroup).iVertexRepresentitive;
+    let mut pVerts: *const i32 =
+        &*piTriListIn.offset((3i32 * iMyTriIndex + 0i32) as isize) as *const i32;
+    let mut i: i32 = -1i32;
     if *pVerts.offset(0isize) == iVertRep {
         i = 0i32
     } else if *pVerts.offset(1isize) == iVertRep {
@@ -922,8 +919,8 @@ unsafe fn AssignRecur(
     }
     AddTriToGroup(pGroup, iMyTriIndex);
     (*pMyTriInfo).AssignedGroup[i as usize] = pGroup;
-    let neigh_indexL: libc::c_int = (*pMyTriInfo).FaceNeighbors[i as usize];
-    let neigh_indexR: libc::c_int =
+    let neigh_indexL: i32 = (*pMyTriInfo).FaceNeighbors[i as usize];
+    let neigh_indexR: i32 =
         (*pMyTriInfo).FaceNeighbors[(if i > 0i32 { i - 1i32 } else { 2i32 }) as usize];
     if neigh_indexL >= 0i32 {
         AssignRecur(piTriListIn, psTriInfos, neigh_indexL, pGroup);
@@ -933,13 +930,13 @@ unsafe fn AssignRecur(
     }
     return true;
 }
-unsafe fn AddTriToGroup(mut pGroup: *mut SGroup, iTriIndex: libc::c_int) {
+unsafe fn AddTriToGroup(mut pGroup: *mut SGroup, iTriIndex: i32) {
     *(*pGroup).pFaceIndices.offset((*pGroup).iNrFaces as isize) = iTriIndex;
     (*pGroup).iNrFaces += 1;
 }
 unsafe fn InitTriInfo<I: Geometry>(
     mut pTriInfos: *mut STriInfo,
-    mut piTriListIn: *const libc::c_int,
+    mut piTriListIn: *const i32,
     geometry: &mut I,
     iNrTrianglesIn: usize,
 ) {
@@ -959,8 +956,8 @@ unsafe fn InitTriInfo<I: Geometry>(
             (*pTriInfos.offset(f as isize)).vOt.x = 0.0f32;
             (*pTriInfos.offset(f as isize)).vOt.y = 0.0f32;
             (*pTriInfos.offset(f as isize)).vOt.z = 0.0f32;
-            (*pTriInfos.offset(f as isize)).fMagS = 0i32 as libc::c_float;
-            (*pTriInfos.offset(f as isize)).fMagT = 0i32 as libc::c_float;
+            (*pTriInfos.offset(f as isize)).fMagS = 0i32 as f32;
+            (*pTriInfos.offset(f as isize)).fMagT = 0i32 as f32;
             (*pTriInfos.offset(f as isize)).iFlag |= 4i32;
             i += 1
         }
@@ -974,25 +971,25 @@ unsafe fn InitTriInfo<I: Geometry>(
         let t1 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 0) as isize) as usize);
         let t2 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 1) as isize) as usize);
         let t3 = get_tex_coord(geometry, *piTriListIn.offset((f * 3 + 2) as isize) as usize);
-        let t21x: libc::c_float = t2.x - t1.x;
-        let t21y: libc::c_float = t2.y - t1.y;
-        let t31x: libc::c_float = t3.x - t1.x;
-        let t31y: libc::c_float = t3.y - t1.y;
+        let t21x: f32 = t2.x - t1.x;
+        let t21y: f32 = t2.y - t1.y;
+        let t31x: f32 = t3.x - t1.x;
+        let t31y: f32 = t3.y - t1.y;
         let d1 = v2 - v1;
         let d2 = v3 - v1;
-        let fSignedAreaSTx2: libc::c_float = t21x * t31y - t21y * t31x;
+        let fSignedAreaSTx2: f32 = t21x * t31y - t21y * t31x;
         let mut vOs = (t31y * d1) - (t21y * d2);
         let mut vOt = (-t31x * d1) + (t21x * d2);
-        (*pTriInfos.offset(f as isize)).iFlag |= if fSignedAreaSTx2 > 0i32 as libc::c_float {
+        (*pTriInfos.offset(f as isize)).iFlag |= if fSignedAreaSTx2 > 0i32 as f32 {
             8i32
         } else {
             0i32
         };
         if NotZero(fSignedAreaSTx2) {
-            let fAbsArea: libc::c_float = fSignedAreaSTx2.abs();
-            let fLenOs: libc::c_float = vOs.magnitude();
-            let fLenOt: libc::c_float = vOt.magnitude();
-            let fS: libc::c_float = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
+            let fAbsArea: f32 = fSignedAreaSTx2.abs();
+            let fLenOs: f32 = vOs.magnitude();
+            let fLenOt: f32 = vOt.magnitude();
+            let fS: f32 = if (*pTriInfos.offset(f as isize)).iFlag & 8i32 == 0i32 {
                 -1.0f32
             } else {
                 1.0f32
@@ -1014,8 +1011,8 @@ unsafe fn InitTriInfo<I: Geometry>(
         f += 1
     }
     while t < iNrTrianglesIn - 1 {
-        let iFO_a: libc::c_int = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
-        let iFO_b: libc::c_int = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
+        let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
+        let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
             let bIsDeg_a: bool = if (*pTriInfos.offset(t as isize)).iFlag & 1i32 != 0i32 {
                 true
@@ -1065,29 +1062,29 @@ unsafe fn InitTriInfo<I: Geometry>(
         pTriInfos,
         pEdges.as_mut_ptr(),
         piTriListIn,
-        iNrTrianglesIn as c_int,
+        iNrTrianglesIn as i32,
     );
 }
 
 unsafe fn BuildNeighborsFast(
     mut pTriInfos: *mut STriInfo,
     mut pEdges: *mut SEdge,
-    mut piTriListIn: *const libc::c_int,
-    iNrTrianglesIn: libc::c_int,
+    mut piTriListIn: *const i32,
+    iNrTrianglesIn: i32,
 ) {
     // build array of edges
     // could replace with a random seed?
-    let mut uSeed: libc::c_uint = 39871946i32 as libc::c_uint;
-    let mut iEntries: libc::c_int = 0i32;
-    let mut iCurStartIndex: libc::c_int = -1i32;
-    let mut f: libc::c_int = 0i32;
-    let mut i: libc::c_int = 0i32;
+    let mut uSeed: u32 = 39871946i32 as u32;
+    let mut iEntries: i32 = 0i32;
+    let mut iCurStartIndex: i32 = -1i32;
+    let mut f: i32 = 0i32;
+    let mut i: i32 = 0i32;
     f = 0i32;
     while f < iNrTrianglesIn {
         i = 0i32;
         while i < 3i32 {
-            let i0: libc::c_int = *piTriListIn.offset((f * 3i32 + i) as isize);
-            let i1: libc::c_int =
+            let i0: i32 = *piTriListIn.offset((f * 3i32 + i) as isize);
+            let i1: i32 =
                 *piTriListIn.offset((f * 3i32 + if i < 2i32 { i + 1i32 } else { 0i32 }) as isize);
             (*pEdges.offset((f * 3i32 + i) as isize)).unnamed.i0 = if i0 < i1 { i0 } else { i1 };
             (*pEdges.offset((f * 3i32 + i) as isize)).unnamed.i1 = if !(i0 < i1) { i0 } else { i1 };
@@ -1104,8 +1101,8 @@ unsafe fn BuildNeighborsFast(
         if (*pEdges.offset(iCurStartIndex as isize)).unnamed.i0
             != (*pEdges.offset(i as isize)).unnamed.i0
         {
-            let iL: libc::c_int = iCurStartIndex;
-            let iR: libc::c_int = i - 1i32;
+            let iL: i32 = iCurStartIndex;
+            let iR: i32 = i - 1i32;
             iCurStartIndex = i;
             QuickSortEdges(pEdges, iL, iR, 1i32, uSeed);
         }
@@ -1119,8 +1116,8 @@ unsafe fn BuildNeighborsFast(
             || (*pEdges.offset(iCurStartIndex as isize)).unnamed.i1
                 != (*pEdges.offset(i as isize)).unnamed.i1
         {
-            let iL_0: libc::c_int = iCurStartIndex;
-            let iR_0: libc::c_int = i - 1i32;
+            let iL_0: i32 = iCurStartIndex;
+            let iR_0: i32 = i - 1i32;
             iCurStartIndex = i;
             QuickSortEdges(pEdges, iL_0, iR_0, 2i32, uSeed);
         }
@@ -1128,14 +1125,14 @@ unsafe fn BuildNeighborsFast(
     }
     i = 0i32;
     while i < iEntries {
-        let i0_0: libc::c_int = (*pEdges.offset(i as isize)).unnamed.i0;
-        let i1_0: libc::c_int = (*pEdges.offset(i as isize)).unnamed.i1;
-        let f_0: libc::c_int = (*pEdges.offset(i as isize)).unnamed.f;
+        let i0_0: i32 = (*pEdges.offset(i as isize)).unnamed.i0;
+        let i1_0: i32 = (*pEdges.offset(i as isize)).unnamed.i1;
+        let f_0: i32 = (*pEdges.offset(i as isize)).unnamed.f;
         let mut bUnassigned_A: bool = false;
-        let mut i0_A: libc::c_int = 0;
-        let mut i1_A: libc::c_int = 0;
-        let mut edgenum_A: libc::c_int = 0;
-        let mut edgenum_B: libc::c_int = 0i32;
+        let mut i0_A: i32 = 0;
+        let mut i1_A: i32 = 0;
+        let mut edgenum_A: i32 = 0;
+        let mut edgenum_B: i32 = 0i32;
         GetEdge(
             &mut i0_A,
             &mut i1_A,
@@ -1151,8 +1148,8 @@ unsafe fn BuildNeighborsFast(
                 false
             };
         if bUnassigned_A {
-            let mut j: libc::c_int = i + 1i32;
-            let mut t: libc::c_int = 0;
+            let mut j: i32 = i + 1i32;
+            let mut t: i32 = 0;
             let mut bNotFound: bool = true;
             while j < iEntries
                 && i0_0 == (*pEdges.offset(j as isize)).unnamed.i0
@@ -1160,8 +1157,8 @@ unsafe fn BuildNeighborsFast(
                 && bNotFound
             {
                 let mut bUnassigned_B: bool = false;
-                let mut i0_B: libc::c_int = 0;
-                let mut i1_B: libc::c_int = 0;
+                let mut i0_B: i32 = 0;
+                let mut i1_B: i32 = 0;
                 t = (*pEdges.offset(j as isize)).unnamed.f;
                 GetEdge(
                     &mut i1_B,
@@ -1184,7 +1181,7 @@ unsafe fn BuildNeighborsFast(
                 }
             }
             if !bNotFound {
-                let mut t_0: libc::c_int = (*pEdges.offset(j as isize)).unnamed.f;
+                let mut t_0: i32 = (*pEdges.offset(j as isize)).unnamed.f;
                 (*pTriInfos.offset(f_0 as isize)).FaceNeighbors[edgenum_A as usize] = t_0;
                 (*pTriInfos.offset(t_0 as isize)).FaceNeighbors[edgenum_B as usize] = f_0
             }
@@ -1193,12 +1190,12 @@ unsafe fn BuildNeighborsFast(
     }
 }
 unsafe fn GetEdge(
-    mut i0_out: *mut libc::c_int,
-    mut i1_out: *mut libc::c_int,
-    mut edgenum_out: *mut libc::c_int,
-    mut indices: *const libc::c_int,
-    i0_in: libc::c_int,
-    i1_in: libc::c_int,
+    mut i0_out: *mut i32,
+    mut i1_out: *mut i32,
+    mut edgenum_out: *mut i32,
+    mut indices: *const i32,
+    i0_in: i32,
+    i1_in: i32,
 ) {
     *edgenum_out = -1i32;
     if *indices.offset(0isize) == i0_in || *indices.offset(0isize) == i1_in {
@@ -1221,22 +1218,22 @@ unsafe fn GetEdge(
 /////////////////////////////////////////////////////////////////////////////////////////////
 unsafe fn QuickSortEdges(
     mut pSortBuffer: *mut SEdge,
-    mut iLeft: libc::c_int,
-    mut iRight: libc::c_int,
-    channel: libc::c_int,
-    mut uSeed: libc::c_uint,
+    mut iLeft: i32,
+    mut iRight: i32,
+    channel: i32,
+    mut uSeed: u32,
 ) {
-    let mut t: libc::c_uint = 0;
-    let mut iL: libc::c_int = 0;
-    let mut iR: libc::c_int = 0;
-    let mut n: libc::c_int = 0;
-    let mut index: libc::c_int = 0;
-    let mut iMid: libc::c_int = 0;
+    let mut t: u32 = 0;
+    let mut iL: i32 = 0;
+    let mut iR: i32 = 0;
+    let mut n: i32 = 0;
+    let mut index: i32 = 0;
+    let mut iMid: i32 = 0;
     // early out
     let mut sTmp: SEdge = SEdge {
         unnamed: unnamed { i0: 0, i1: 0, f: 0 },
     };
-    let iElems: libc::c_int = iRight - iLeft + 1i32;
+    let iElems: i32 = iRight - iLeft + 1i32;
     if iElems < 2i32 {
         return;
     } else {
@@ -1253,15 +1250,15 @@ unsafe fn QuickSortEdges(
     }
 
     // Random
-    t = uSeed & 31i32 as libc::c_uint;
-    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as libc::c_uint).wrapping_sub(t));
-    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as libc::c_uint);
+    t = uSeed & 31i32 as u32;
+    t = uSeed.rotate_left(t) | uSeed.rotate_right((32i32 as u32).wrapping_sub(t));
+    uSeed = uSeed.wrapping_add(t).wrapping_add(3i32 as u32);
     // Random end
 
     iL = iLeft;
     iR = iRight;
     n = iR - iL + 1i32;
-    index = uSeed.wrapping_rem(n as libc::c_uint) as libc::c_int;
+    index = uSeed.wrapping_rem(n as u32) as i32;
     iMid = (*pSortBuffer.offset((index + iL) as isize)).array[channel as usize];
     loop {
         while (*pSortBuffer.offset(iL as isize)).array[channel as usize] < iMid {
@@ -1292,17 +1289,17 @@ unsafe fn QuickSortEdges(
 // returns the texture area times 2
 unsafe fn CalcTexArea<I: Geometry>(
     geometry: &mut I,
-    mut indices: *const libc::c_int,
-) -> libc::c_float {
+    mut indices: *const i32,
+) -> f32 {
     let t1 = get_tex_coord(geometry, *indices.offset(0isize) as usize);
     let t2 = get_tex_coord(geometry, *indices.offset(1isize) as usize);
     let t3 = get_tex_coord(geometry, *indices.offset(2isize) as usize);
-    let t21x: libc::c_float = t2.x - t1.x;
-    let t21y: libc::c_float = t2.y - t1.y;
-    let t31x: libc::c_float = t3.x - t1.x;
-    let t31y: libc::c_float = t3.y - t1.y;
-    let fSignedAreaSTx2: libc::c_float = t21x * t31y - t21y * t31x;
-    return if fSignedAreaSTx2 < 0i32 as libc::c_float {
+    let t21x: f32 = t2.x - t1.x;
+    let t21y: f32 = t2.y - t1.y;
+    let t31x: f32 = t3.x - t1.x;
+    let t31y: f32 = t3.y - t1.y;
+    let fSignedAreaSTx2: f32 = t21x * t31y - t21y * t31x;
+    return if fSignedAreaSTx2 < 0i32 as f32 {
         -fSignedAreaSTx2
     } else {
         fSignedAreaSTx2
@@ -1312,17 +1309,17 @@ unsafe fn CalcTexArea<I: Geometry>(
 // degen triangles
 unsafe fn DegenPrologue(
     mut pTriInfos: *mut STriInfo,
-    mut piTriList_out: *mut libc::c_int,
-    iNrTrianglesIn: libc::c_int,
-    iTotTris: libc::c_int,
+    mut piTriList_out: *mut i32,
+    iNrTrianglesIn: i32,
+    iTotTris: i32,
 ) {
-    let mut iNextGoodTriangleSearchIndex: libc::c_int = -1i32;
+    let mut iNextGoodTriangleSearchIndex: i32 = -1i32;
     let mut bStillFindingGoodOnes: bool = false;
     // locate quads with only one good triangle
-    let mut t: libc::c_int = 0i32;
+    let mut t: i32 = 0i32;
     while t < iTotTris - 1i32 {
-        let iFO_a: libc::c_int = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
-        let iFO_b: libc::c_int = (*pTriInfos.offset((t + 1i32) as isize)).iOrgFaceNumber;
+        let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
+        let iFO_b: i32 = (*pTriInfos.offset((t + 1i32) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
             let bIsDeg_a: bool = if (*pTriInfos.offset(t as isize)).iFlag & 1i32 != 0i32 {
                 true
@@ -1357,8 +1354,8 @@ unsafe fn DegenPrologue(
                 iNextGoodTriangleSearchIndex = t + 2i32
             }
         } else {
-            let mut t0: libc::c_int = 0;
-            let mut t1: libc::c_int = 0;
+            let mut t0: i32 = 0;
+            let mut t1: i32 = 0;
             let mut bJustADegenerate: bool = true;
             while bJustADegenerate && iNextGoodTriangleSearchIndex < iTotTris {
                 let bIsGood_0: bool =
@@ -1379,10 +1376,10 @@ unsafe fn DegenPrologue(
             t1 = iNextGoodTriangleSearchIndex;
             iNextGoodTriangleSearchIndex += 1;
             if !bJustADegenerate {
-                let mut i: libc::c_int = 0i32;
+                let mut i: i32 = 0i32;
                 i = 0i32;
                 while i < 3i32 {
-                    let index: libc::c_int = *piTriList_out.offset((t0 * 3i32 + i) as isize);
+                    let index: i32 = *piTriList_out.offset((t0 * 3i32 + i) as isize);
                     *piTriList_out.offset((t0 * 3i32 + i) as isize) =
                         *piTriList_out.offset((t1 * 3i32 + i) as isize);
                     *piTriList_out.offset((t1 * 3i32 + i) as isize) = index;
@@ -1401,23 +1398,23 @@ unsafe fn DegenPrologue(
     }
 }
 unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
-    mut piTriList_in_and_out: *mut libc::c_int,
+    mut piTriList_in_and_out: *mut i32,
     geometry: &mut I,
     iNrTrianglesIn: usize,
 ) {
     let mut i = 0;
-    let mut iChannel: libc::c_int = 0i32;
+    let mut iChannel: i32 = 0i32;
     let mut k = 0;
     let mut e = 0;
     let mut iMaxCount = 0;
     let mut vMin = get_position(geometry, 0);
     let mut vMax = vMin;
     let mut vDim = Vector3::new(0.0, 0.0, 0.0);
-    let mut fMin: libc::c_float = 0.;
-    let mut fMax: libc::c_float = 0.;
+    let mut fMin: f32 = 0.;
+    let mut fMax: f32 = 0.;
     i = 1;
     while i < iNrTrianglesIn * 3 {
-        let index: libc::c_int = *piTriList_in_and_out.offset(i as isize);
+        let index: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP = get_position(geometry, index as usize);
         if vMin.x > vP.x {
             vMin.x = vP.x
@@ -1457,9 +1454,9 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
 
     i = 0;
     while i < iNrTrianglesIn * 3 {
-        let index_0: libc::c_int = *piTriList_in_and_out.offset(i as isize);
+        let index_0: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP_0 = get_position(geometry, index_0 as usize);
-        let fVal: libc::c_float = if iChannel == 0i32 {
+        let fVal: f32 = if iChannel == 0i32 {
             vP_0.x
         } else if iChannel == 1i32 {
             vP_0.y
@@ -1478,9 +1475,9 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     }
     i = 0;
     while i < iNrTrianglesIn * 3 {
-        let index_1: libc::c_int = *piTriList_in_and_out.offset(i as isize);
+        let index_1: i32 = *piTriList_in_and_out.offset(i as isize);
         let vP_1 = get_position(geometry, index_1 as usize);
-        let fVal_0: libc::c_float = if iChannel == 0i32 {
+        let fVal_0: f32 = if iChannel == 0i32 {
             vP_1.x
         } else if iChannel == 1i32 {
             vP_1.y
@@ -1488,9 +1485,9 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
             vP_1.z
         };
         let iCell_0 = FindGridCell(fMin, fMax, fVal_0);
-        let mut pTable: *mut libc::c_int = 0 as *mut libc::c_int;
-        pTable = &mut piHashTable[piHashOffsets[iCell_0] as usize] as *mut libc::c_int;
-        *pTable.offset(piHashCount2[iCell_0] as isize) = i as c_int;
+        let mut pTable: *mut i32 = 0 as *mut i32;
+        pTable = &mut piHashTable[piHashOffsets[iCell_0] as usize] as *mut i32;
+        *pTable.offset(piHashCount2[iCell_0] as isize) = i as i32;
         piHashCount2[iCell_0] += 1;
         i += 1
     }
@@ -1510,12 +1507,12 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
     k = 0;
     while k < g_iCells {
         // extract table of cell k and amount of entries in it
-        let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut c_int;
+        let mut pTable_0 = &mut piHashTable[piHashOffsets[k] as usize] as *mut i32;
         let iEntries = piHashCount[k] as usize;
         if !(iEntries < 2) {
             e = 0;
             while e < iEntries {
-                let mut i_0: libc::c_int = *pTable_0.offset(e as isize);
+                let mut i_0: i32 = *pTable_0.offset(e as isize);
                 let vP_2 = get_position(
                     geometry,
                     *piTriList_in_and_out.offset(i_0 as isize) as usize,
@@ -1539,22 +1536,22 @@ unsafe fn GenerateSharedVerticesIndexList<I: Geometry>(
 }
 
 unsafe fn MergeVertsFast<I: Geometry>(
-    mut piTriList_in_and_out: *mut libc::c_int,
+    mut piTriList_in_and_out: *mut i32,
     mut pTmpVert: *mut STmpVert,
     geometry: &mut I,
-    iL_in: libc::c_int,
-    iR_in: libc::c_int,
+    iL_in: i32,
+    iR_in: i32,
 ) {
     // make bbox
-    let mut c: libc::c_int = 0i32;
-    let mut l: libc::c_int = 0i32;
-    let mut channel: libc::c_int = 0i32;
-    let mut fvMin: [libc::c_float; 3] = [0.; 3];
-    let mut fvMax: [libc::c_float; 3] = [0.; 3];
-    let mut dx: libc::c_float = 0i32 as libc::c_float;
-    let mut dy: libc::c_float = 0i32 as libc::c_float;
-    let mut dz: libc::c_float = 0i32 as libc::c_float;
-    let mut fSep: libc::c_float = 0i32 as libc::c_float;
+    let mut c: i32 = 0i32;
+    let mut l: i32 = 0i32;
+    let mut channel: i32 = 0i32;
+    let mut fvMin: [f32; 3] = [0.; 3];
+    let mut fvMax: [f32; 3] = [0.; 3];
+    let mut dx: f32 = 0i32 as f32;
+    let mut dy: f32 = 0i32 as f32;
+    let mut dz: f32 = 0i32 as f32;
+    let mut fSep: f32 = 0i32 as f32;
     c = 0i32;
     while c < 3i32 {
         fvMin[c as usize] = (*pTmpVert.offset(iL_in as isize)).vert[c as usize];
@@ -1587,17 +1584,17 @@ unsafe fn MergeVertsFast<I: Geometry>(
     if fSep >= fvMax[channel as usize] || fSep <= fvMin[channel as usize] {
         l = iL_in;
         while l <= iR_in {
-            let mut i: libc::c_int = (*pTmpVert.offset(l as isize)).index;
-            let index: libc::c_int = *piTriList_in_and_out.offset(i as isize);
+            let mut i: i32 = (*pTmpVert.offset(l as isize)).index;
+            let index: i32 = *piTriList_in_and_out.offset(i as isize);
             let vP = get_position(geometry, index as usize);
             let vN = get_normal(geometry, index as usize);
             let vT = get_tex_coord(geometry, index as usize);
             let mut bNotFound: bool = true;
-            let mut l2: libc::c_int = iL_in;
-            let mut i2rec: libc::c_int = -1i32;
+            let mut l2: i32 = iL_in;
+            let mut i2rec: i32 = -1i32;
             while l2 < l && bNotFound {
-                let i2: libc::c_int = (*pTmpVert.offset(l2 as isize)).index;
-                let index2: libc::c_int = *piTriList_in_and_out.offset(i2 as isize);
+                let i2: i32 = (*pTmpVert.offset(l2 as isize)).index;
+                let index2: i32 = *piTriList_in_and_out.offset(i2 as isize);
                 let vP2 = get_position(geometry, index2 as usize);
                 let vN2 = get_normal(geometry, index2 as usize);
                 let vT2 = get_tex_coord(geometry, index2 as usize);
@@ -1624,8 +1621,8 @@ unsafe fn MergeVertsFast<I: Geometry>(
             l += 1
         }
     } else {
-        let mut iL: libc::c_int = iL_in;
-        let mut iR: libc::c_int = iR_in;
+        let mut iL: i32 = iL_in;
+        let mut iR: i32 = iR_in;
         while iL < iR {
             let mut bReadyLeftSwap: bool = false;
             let mut bReadyRightSwap: bool = false;
@@ -1673,7 +1670,7 @@ const g_iCells: usize = 2048;
 // inlining could potentially reorder instructions and generate different
 // results for the same effective input value fVal.
 #[inline(never)]
-unsafe fn FindGridCell(fMin: libc::c_float, fMax: libc::c_float, fVal: libc::c_float) -> usize {
+unsafe fn FindGridCell(fMin: f32, fMax: f32, fVal: f32) -> usize {
     let fIndex = g_iCells as f32 * ((fVal - fMin) / (fMax - fMin));
     let iIndex = fIndex as isize;
     return if iIndex < g_iCells as isize {
@@ -1701,20 +1698,20 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
     while f < geometry.get_num_faces() {
         let verts = geometry.get_num_vertices_of_face(f);
         if !(verts != 3 && verts != 4) {
-            pTriInfos[iDstTriIndex].iOrgFaceNumber = f as c_int;
-            pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as c_int;
+            pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
+            pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as i32;
             if verts == 3 {
                 let mut pVerts = &mut pTriInfos[iDstTriIndex].vert_num;
                 pVerts[0] = 0;
                 pVerts[1] = 1;
                 pVerts[2] = 2;
-                piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as c_int;
-                piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as c_int;
-                piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as c_int;
+                piTriList_out[iDstTriIndex * 3 + 0] = face_vert_to_index(f, 0) as i32;
+                piTriList_out[iDstTriIndex * 3 + 1] = face_vert_to_index(f, 1) as i32;
+                piTriList_out[iDstTriIndex * 3 + 2] = face_vert_to_index(f, 2) as i32;
                 iDstTriIndex += 1
             } else {
-                pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as c_int;
-                pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as c_int;
+                pTriInfos[iDstTriIndex + 1].iOrgFaceNumber = f as i32;
+                pTriInfos[iDstTriIndex + 1].iTSpacesOffs = iTSpacesOffs as i32;
                 let i0 = face_vert_to_index(f, 0);
                 let i1 = face_vert_to_index(f, 1);
                 let i2 = face_vert_to_index(f, 2);
@@ -1723,8 +1720,8 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                 let T1 = get_tex_coord(geometry, i1);
                 let T2 = get_tex_coord(geometry, i2);
                 let T3 = get_tex_coord(geometry, i3);
-                let distSQ_02: libc::c_float = (T2 - T0).magnitude_squared();
-                let distSQ_13: libc::c_float = (T3 - T1).magnitude_squared();
+                let distSQ_02: f32 = (T2 - T0).magnitude_squared();
+                let distSQ_13: f32 = (T3 - T1).magnitude_squared();
                 let mut bQuadDiagIs_02: bool = false;
                 if distSQ_02 < distSQ_13 {
                     bQuadDiagIs_02 = true
@@ -1735,8 +1732,8 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                     let P1 = get_position(geometry, i1);
                     let P2 = get_position(geometry, i2);
                     let P3 = get_position(geometry, i3);
-                    let distSQ_02_0: libc::c_float = (P2 - P0).magnitude_squared();
-                    let distSQ_13_0: libc::c_float = (P3 - P1).magnitude_squared();
+                    let distSQ_02_0: f32 = (P2 - P0).magnitude_squared();
+                    let distSQ_13_0: f32 = (P3 - P1).magnitude_squared();
                     bQuadDiagIs_02 = if distSQ_13_0 < distSQ_02_0 {
                         false
                     } else {
@@ -1748,36 +1745,36 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
                     pVerts_A[0] = 0;
                     pVerts_A[1] = 1;
                     pVerts_A[2] = 2;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i2 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i2 as i32;
                     iDstTriIndex += 1;
 
                     let mut pVerts_B = &mut pTriInfos[iDstTriIndex].vert_num;
                     pVerts_B[0] = 0;
                     pVerts_B[1] = 2;
                     pVerts_B[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                     iDstTriIndex += 1
                 } else {
                     let mut pVerts_A_0 = &mut pTriInfos[iDstTriIndex].vert_num;
                     pVerts_A_0[0] = 0;
                     pVerts_A_0[1] = 1;
                     pVerts_A_0[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i0 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i1 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                     iDstTriIndex += 1;
 
                     let mut pVerts_B_0 = &mut pTriInfos[iDstTriIndex].vert_num;
                     pVerts_B_0[0] = 1;
                     pVerts_B_0[1] = 2;
                     pVerts_B_0[2] = 3;
-                    piTriList_out[iDstTriIndex * 3 + 0] = i1 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as c_int;
-                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as c_int;
+                    piTriList_out[iDstTriIndex * 3 + 0] = i1 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 1] = i2 as i32;
+                    piTriList_out[iDstTriIndex * 3 + 2] = i3 as i32;
                     iDstTriIndex += 1
                 }
             }
