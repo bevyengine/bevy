@@ -5,19 +5,19 @@ use nalgebra::{Point2, Point3, Vector3, Vector4};
 /// The interface by which mikktspace interacts with your geometry.
 pub trait Geometry {
     /// Returns the number of faces.
-    fn get_num_faces(&self) -> usize;
+    fn num_faces(&self) -> usize;
 
     /// Returns the number of vertices of a face.
-    fn get_num_vertices_of_face(&self, face: usize) -> usize;
+    fn num_vertices_of_face(&self, face: usize) -> usize;
 
     /// Returns the position of a vertex.
-    fn get_position(&self, face: usize, vert: usize) -> Point3<f32>;
+    fn position(&self, face: usize, vert: usize) -> Point3<f32>;
 
     /// Returns the normal of a vertex.
-    fn get_normal(&self, face: usize, vert: usize) -> Vector3<f32>;
+    fn normal(&self, face: usize, vert: usize) -> Vector3<f32>;
 
     /// Returns the texture coordinate of a vertex.
-    fn get_tex_coord(&self, face: usize, vert: usize) -> Point2<f32>;
+    fn tex_coord(&self, face: usize, vert: usize) -> Point2<f32>;
 
     /// Sets a vertex' generated tangent.
     fn set_tangent(
@@ -51,17 +51,17 @@ pub fn generate_tangents_default<I: Geometry>(geometry: &mut I) -> bool {
 
 fn get_position<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
     let (face, vert) = index_to_face_vert(index);
-    geometry.get_position(face, vert).coords
+    geometry.position(face, vert).coords
 }
 
 fn get_tex_coord<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
     let (face, vert) = index_to_face_vert(index);
-    geometry.get_tex_coord(face, vert).coords.insert_row(2, 1.0)
+    geometry.tex_coord(face, vert).coords.insert_row(2, 1.0)
 }
 
 fn get_normal<I: Geometry>(geometry: &mut I, index: usize) -> Vector3<f32> {
     let (face, vert) = index_to_face_vert(index);
-    geometry.get_normal(face, vert)
+    geometry.normal(face, vert)
 }
 
 fn index_to_face_vert(index: usize) -> (usize, usize) {

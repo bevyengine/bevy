@@ -20,23 +20,23 @@ fn vertex(mesh: &Mesh, face: usize, vert: usize) -> &Vertex {
 }
 
 impl mikktspace::Geometry for Mesh {
-    fn get_num_faces(&self) -> usize {
+    fn num_faces(&self) -> usize {
         self.faces.len()
     }
 
-    fn get_num_vertices_of_face(&self, _face: usize) -> usize {
+    fn num_vertices_of_face(&self, _face: usize) -> usize {
         3
     }
 
-    fn get_position(&self, face: usize, vert: usize) -> Point3<f32> {
+    fn position(&self, face: usize, vert: usize) -> Point3<f32> {
         vertex(self, face, vert).position
     }
 
-    fn get_normal(&self, face: usize, vert: usize) -> Vector3<f32> {
+    fn normal(&self, face: usize, vert: usize) -> Vector3<f32> {
         vertex(self, face, vert).normal
     }
 
-    fn get_tex_coord(&self, face: usize, vert: usize) -> Point2<f32> {
+    fn tex_coord(&self, face: usize, vert: usize) -> Point2<f32> {
         vertex(self, face, vert).tex_coord
     }
 

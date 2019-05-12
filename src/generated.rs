@@ -179,14 +179,14 @@ pub unsafe fn genTangSpace<I: Geometry>(
     let mut iNrMaxGroups = 0;
     let mut iNrActiveGroups: i32 = 0i32;
     let mut index = 0;
-    let iNrFaces = geometry.get_num_faces();
+    let iNrFaces = geometry.num_faces();
     let mut bRes: bool = false;
     let fThresCos: f32 = ((fAngularThreshold * 3.14159265358979323846f64 as f32
         / 180.0f32) as f64)
         .cos() as f32;
     f = 0;
     while f < iNrFaces {
-        let verts = geometry.get_num_vertices_of_face(f);
+        let verts = geometry.num_vertices_of_face(f);
         if verts == 3 {
             iNrTrianglesIn += 1
         } else if verts == 4 {
@@ -284,7 +284,7 @@ pub unsafe fn genTangSpace<I: Geometry>(
     index = 0;
     f = 0;
     while f < iNrFaces {
-        let verts_0 = geometry.get_num_vertices_of_face(f);
+        let verts_0 = geometry.num_vertices_of_face(f);
         if !(verts_0 != 3 && verts_0 != 4) {
             i = 0;
             while i < verts_0 {
@@ -1697,8 +1697,8 @@ unsafe fn GenerateInitialVerticesIndexList<I: Geometry>(
     let mut t: usize = 0;
     let mut iDstTriIndex = 0;
     f = 0;
-    while f < geometry.get_num_faces() {
-        let verts = geometry.get_num_vertices_of_face(f);
+    while f < geometry.num_faces() {
+        let verts = geometry.num_vertices_of_face(f);
         if !(verts != 3 && verts != 4) {
             pTriInfos[iDstTriIndex].iOrgFaceNumber = f as i32;
             pTriInfos[iDstTriIndex].iTSpacesOffs = iTSpacesOffs as i32;
