@@ -1,4 +1,4 @@
-use nalgebra::{Point2, Point3, Vector3, Vector4};
+use nalgebra::{Point2, Point3, Vector3};
 
 pub type Face = [u32; 3];
 
@@ -28,19 +28,19 @@ impl mikktspace::Geometry for Mesh {
         3
     }
 
-    fn position(&self, face: usize, vert: usize) -> Point3<f32> {
-        vertex(self, face, vert).position
+    fn position(&self, face: usize, vert: usize) -> [f32; 3] {
+        vertex(self, face, vert).position.coords.into()
     }
 
-    fn normal(&self, face: usize, vert: usize) -> Vector3<f32> {
-        vertex(self, face, vert).normal
+    fn normal(&self, face: usize, vert: usize) -> [f32; 3] {
+        vertex(self, face, vert).normal.into()
     }
 
-    fn tex_coord(&self, face: usize, vert: usize) -> Point2<f32> {
-        vertex(self, face, vert).tex_coord
+    fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2] {
+        vertex(self, face, vert).tex_coord.coords.into()
     }
 
-    fn set_tangent_encoded(&mut self, tangent: Vector4<f32>, face: usize, vert: usize) {
+    fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
         println!(
             "{face}-{vert}: v: {v:?}, vn: {vn:?}, vt: {vt:?}, vx: {vx:?}",
             face = face,
@@ -48,7 +48,7 @@ impl mikktspace::Geometry for Mesh {
             v = vertex(self, face, vert).position.coords.data,
             vn = vertex(self, face, vert).normal.data,
             vt = vertex(self, face, vert).tex_coord.coords.data,
-            vx = tangent.data,
+            vx = tangent,
         );
     }
 }
