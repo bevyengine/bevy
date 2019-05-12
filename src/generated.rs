@@ -292,8 +292,8 @@ pub unsafe fn genTangSpace<I: Geometry>(
                 let mut tang = Vector3::new((*pTSpace).vOs.x, (*pTSpace).vOs.y, (*pTSpace).vOs.z);
                 let mut bitang = Vector3::new((*pTSpace).vOt.x, (*pTSpace).vOt.y, (*pTSpace).vOt.z);
                 geometry.set_tangent(
-                    tang,
-                    bitang,
+                    tang.into(),
+                    bitang.into(),
                     (*pTSpace).fMagS,
                     (*pTSpace).fMagT,
                     (*pTSpace).bOrient,
