@@ -5,7 +5,8 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-legion = { git = "https://github.com/TomGillen/legion.git" }
+# legion = { git = "https://github.com/TomGillen/legion.git" }
+legion = { git = "https://github.com/jaynus/legion.git" }
 nalgebra = "0.18"
 wgpu = "0.4.0"
 winit = "0.20.0-alpha4"
