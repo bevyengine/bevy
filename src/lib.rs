@@ -5,3 +5,4 @@ mod temp;
 
 pub use transform::Transform;
 pub use application::Application;
+pub use legion;

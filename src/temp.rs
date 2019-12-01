@@ -1,28 +1,18 @@
 pub use std::rc::Rc;
 pub use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
+use nalgebra_glm as glm;
 
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    -1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    0.5,
-    0.0,
-    0.0,
-    0.0,
-    0.5,
-    1.0,
-);
-
+pub fn opengl_to_wgpu_matrix() -> glm::Mat4 {
+    glm::mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, -1.0, 0.0, 0.0,
+        0.0, 0.0, 0.5, 0.0,
+        0.0, 0.0, 0.5, 1.0,
+    )
+}
 pub struct Entity {
-    pub mx_world: cgmath::Matrix4<f32>,
+    pub mx_world: glm::Mat4,
     pub rotation_speed: f32,
     pub color: wgpu::Color,
     pub vertex_buf: Rc<wgpu::Buffer>,
@@ -33,7 +23,7 @@ pub struct Entity {
 }
 
 pub struct Light {
-    pub pos: cgmath::Point3<f32>,
+    pub pos: glm::Vec3,
     pub color: wgpu::Color,
     pub fov: f32,
     pub depth: Range<f32>,
@@ -50,19 +40,8 @@ pub struct LightRaw {
 
 impl Light {
     pub fn to_raw(&self) -> LightRaw {
-        use cgmath::{Deg, EuclideanSpace, Matrix4, PerspectiveFov, Point3, Vector3};
-
-        let mx_view = Matrix4::look_at(self.pos, Point3::origin(), Vector3::unit_z());
-        let projection = PerspectiveFov {
-            fovy: Deg(self.fov).into(),
-            aspect: 1.0,
-            near: self.depth.start,
-            far: self.depth.end,
-        };
-        let mx_view_proj = OPENGL_TO_WGPU_MATRIX *
-            cgmath::Matrix4::from(projection.to_perspective()) * mx_view;
         LightRaw {
-            proj: *mx_view_proj.as_ref(),
+            proj: generate_matrix(&self.pos, self.fov, 1.0, self.depth.start, self.depth.end).into(),
             pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
             color: [
                 self.color.r as f32,
@@ -99,6 +78,7 @@ pub struct Pass {
     pub uniform_buf: wgpu::Buffer,
 }
 
+#[allow(dead_code)]
 pub enum ShaderStage {
     Vertex,
     Fragment,
@@ -115,12 +95,14 @@ pub fn load_glsl(code: &str, stage: ShaderStage) -> Vec<u32> {
     wgpu::read_spirv(glsl_to_spirv::compile(&code, ty).unwrap()).unwrap()
 }
 
-pub fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
-    let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 20.0);
-    let mx_view = cgmath::Matrix4::look_at(
-        cgmath::Point3::new(3.0f32, -10.0, 6.0),
-        cgmath::Point3::new(0f32, 0.0, 0.0),
-        cgmath::Vector3::unit_z(),
+pub fn generate_matrix(eye: &glm::Vec3, fov: f32, aspect_ratio: f32, near: f32, far: f32) -> glm::Mat4 {
+    let projection = glm::perspective(aspect_ratio, fov, near, far);
+
+    let view = glm::look_at_rh::<f32>(
+        &eye,
+        &glm::vec3(0.0, 0.0, 0.0),
+        &glm::vec3(0.0, 0.0, 1.0),
     );
-    OPENGL_TO_WGPU_MATRIX * mx_projection * mx_view
+
+    opengl_to_wgpu_matrix() * projection * view
 }

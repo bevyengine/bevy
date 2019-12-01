@@ -13,7 +13,6 @@ fn main() {
     // Create a query which finds all `Position` and `Velocity` components
     let mut query = Read::<Transform>::query();
     
-
     // // Iterate through all entities that match the query in the world
     for mut trans in query.iter(&mut world) {
         // println!("{} hi", trans.global);

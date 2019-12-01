@@ -1,16 +1,16 @@
-use nalgebra::Matrix4;
+use nalgebra_glm as glm;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
-    pub local: Matrix4<f32>,
-    pub global: Matrix4<f32>,
+    pub local: glm::Mat4,
+    pub global: glm::Mat4,
 }
 
 impl Transform {
     pub fn new() -> Transform {
         Transform {
-            local: Matrix4::<f32>::identity(),
-            global: Matrix4::<f32>::identity(),
+            local: glm::identity(),
+            global: glm::identity(),
         }
     }
 }

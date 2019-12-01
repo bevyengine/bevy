@@ -1,3 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+
+tiny-town/target
+**/*.rs.bk
+tiny-town/Cargo.lock

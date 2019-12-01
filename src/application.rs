@@ -4,30 +4,14 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::AsBytes;
+use nalgebra_glm as glm;
 
 use std::rc::Rc;
 use std::mem;
 
 use crate::temp::*;
 use crate::vertex::*;
-
-#[cfg_attr(rustfmt, rustfmt_skip)]
-#[allow(unused)]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, -1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
-
-#[allow(dead_code)]
-pub fn cast_slice<T>(data: &[T]) -> &[u8] {
-    use std::mem::size_of;
-    use std::slice::from_raw_parts;
-
-    unsafe { from_raw_parts(data.as_ptr() as *const u8, data.len() * size_of::<T>()) }
-}
 
 pub struct Application
 {
@@ -38,6 +22,8 @@ pub struct Application
     forward_pass: Pass,
     forward_depth: wgpu::TextureView,
     light_uniform_buf: wgpu::Buffer,
+    camera_position: glm::Vec3,
+    camera_fov: f32,
 }
 
 impl Application {
@@ -88,8 +74,6 @@ impl Application {
             });
 
         let mut entities = vec![{
-            use cgmath::SquareMatrix;
-
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &local_bind_group_layout,
                 bindings: &[wgpu::Binding {
@@ -101,7 +85,7 @@ impl Application {
                 }],
             });
             Entity {
-                mx_world: cgmath::Matrix4::identity(),
+                mx_world: glm::identity(),
                 rotation_speed: 0.0,
                 color: wgpu::Color::WHITE,
                 vertex_buf: Rc::new(plane_vertex_buf),
@@ -112,53 +96,39 @@ impl Application {
             }
         }];
 
+        let camera_position = glm::vec3(3.0f32, -10.0, 6.0);
+        let camera_fov = glm::quarter_pi();
+
         struct CubeDesc {
-            offset: cgmath::Vector3<f32>,
-            angle: f32,
-            scale: f32,
+            offset: glm::Vec3,
             rotation: f32,
         }
         let cube_descs = [
             CubeDesc {
-                offset: cgmath::vec3(-2.0, -2.0, 2.0),
-                angle: 10.0,
-                scale: 0.7,
+                offset: glm::vec3(-2.0, -2.0, 2.0),
                 rotation: 0.1,
             },
             CubeDesc {
-                offset: cgmath::vec3(2.0, -2.0, 2.0),
-                angle: 50.0,
-                scale: 1.3,
+                offset: glm::vec3(2.0, -2.0, 2.0),
                 rotation: 0.2,
             },
             CubeDesc {
-                offset: cgmath::vec3(-2.0, 2.0, 2.0),
-                angle: 140.0,
-                scale: 1.1,
+                offset: glm::vec3(-2.0, 2.0, 2.0),
                 rotation: 0.3,
             },
             CubeDesc {
-                offset: cgmath::vec3(2.0, 2.0, 2.0),
-                angle: 210.0,
-                scale: 0.9,
+                offset: glm::vec3(2.0, 2.0, 2.0),
                 rotation: 0.4,
             },
         ];
 
         for cube in &cube_descs {
-            use cgmath::{Decomposed, Deg, InnerSpace, Quaternion, Rotation3};
-
-            let transform = Decomposed {
-                disp: cube.offset.clone(),
-                rot: Quaternion::from_axis_angle(cube.offset.normalize(), Deg(cube.angle)),
-                scale: cube.scale,
-            };
             let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
                 size: entity_uniform_size,
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             });
             entities.push(Entity {
-                mx_world: cgmath::Matrix4::from(transform),
+                mx_world: glm::translation(&cube.offset),
                 rotation_speed: cube.rotation,
                 color: wgpu::Color::GREEN,
                 vertex_buf: Rc::clone(&cube_vertex_buf),
@@ -217,26 +187,26 @@ impl Application {
             .collect::<Vec<_>>();
         let lights = vec![
             Light {
-                pos: cgmath::Point3::new(7.0, -5.0, 10.0),
+                pos: glm::vec3(7.0, -5.0, 10.0),
                 color: wgpu::Color {
                     r: 0.5,
                     g: 1.0,
                     b: 0.5,
                     a: 1.0,
                 },
-                fov: 60.0,
+                fov: f32::to_radians(60.0),
                 depth: 1.0 .. 20.0,
                 target_view: shadow_target_views[0].take().unwrap(),
             },
             Light {
-                pos: cgmath::Point3::new(-5.0, 7.0, 10.0),
+                pos: glm::vec3(-5.0, 7.0, 10.0),
                 color: wgpu::Color {
                     r: 1.0,
                     g: 0.5,
                     b: 0.5,
                     a: 1.0,
                 },
-                fov: 45.0,
+                fov: f32::to_radians(45.0),
                 depth: 1.0 .. 20.0,
                 target_view: shadow_target_views[1].take().unwrap(),
             },
@@ -383,7 +353,7 @@ impl Application {
                 bind_group_layouts: &[&bind_group_layout, &local_bind_group_layout],
             });
 
-            let mx_total = generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+            let mx_total = generate_matrix(&camera_position, camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
             let forward_uniforms = ForwardUniforms {
                 proj: *mx_total.as_ref(),
                 num_lights: [lights.len() as u32, 0, 0, 0],
@@ -501,6 +471,8 @@ impl Application {
             forward_pass,
             forward_depth: depth_texture.create_default_view(),
             light_uniform_buf,
+            camera_position,
+            camera_fov
         };
         (this, None)
     }
@@ -512,8 +484,8 @@ impl Application {
     ) -> Option<wgpu::CommandBuffer>
     {
         let command_buf = {
-            let mx_total = generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
-            let mx_ref: &[f32; 16] = mx_total.as_ref();
+            let mx_total = generate_matrix(&self.camera_position, self.camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
+            let mx_ref: [[f32; 4]; 4] = mx_total.into();
             let temp_buf =
                 device.create_buffer_with_data(mx_ref.as_bytes(), wgpu::BufferUsage::COPY_SRC);
 
@@ -541,7 +513,7 @@ impl Application {
         Some(command_buf)
     }
 
-    fn update(&mut self, event: WindowEvent)
+    fn update(&mut self, _: WindowEvent)
     {
     }
 
@@ -559,7 +531,6 @@ impl Application {
             let temp_buf_data = device
                 .create_buffer_mapped(self.entities.len() * size, wgpu::BufferUsage::COPY_SRC);
 
-            // FIXME: Align and use `LayoutVerified`
             for (entity, slot) in self
                 .entities
                 .iter_mut()
@@ -567,7 +538,7 @@ impl Application {
             {
                 if entity.rotation_speed != 0.0 {
                     let rotation =
-                        cgmath::Matrix4::from_angle_x(cgmath::Deg(entity.rotation_speed));
+                        glm::rotation(entity.rotation_speed, &glm::vec3(0.0, 1.0, 0.0));
                     entity.mx_world = entity.mx_world * rotation;
                 }
                 slot.copy_from_slice(
@@ -603,7 +574,6 @@ impl Application {
             let total_size = size * self.lights.len();
             let temp_buf_data =
                 device.create_buffer_mapped(total_size, wgpu::BufferUsage::COPY_SRC);
-            // FIXME: Align and use `LayoutVerified`
             for (light, slot) in self
                 .lights
                 .iter()

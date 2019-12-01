@@ -73,6 +73,7 @@ pub fn create_plane(size: i8) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data.to_vec(), index_data.to_vec())
 }
 
+#[allow(dead_code)]
 pub fn create_texels(size: usize) -> Vec<u8> {
     use std::iter;
 
