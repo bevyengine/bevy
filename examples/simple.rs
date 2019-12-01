@@ -1,8 +1,6 @@
 use bevy::{Application, Transform};
 use legion::prelude::*;
 
-struct SimpleApp;
-
 fn main() {
     Application::run();
     // Create a world to store our entities
@@ -14,7 +12,7 @@ fn main() {
     let mut query = Read::<Transform>::query();
     
     // // Iterate through all entities that match the query in the world
-    for mut trans in query.iter(&mut world) {
+    for _ in query.iter(&mut world) {
         // println!("{} hi", trans.global);
     }
 }

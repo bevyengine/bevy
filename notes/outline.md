@@ -87,4 +87,3 @@
                 * Dep: CollisionShape2d, PhysicsBody2d, GlobalTransform2d
             * UpdateRigidBodies2d/NCollide
                 * Dep: PhysicsBody2d, RigidBody2d, GlobalTransform2d
-

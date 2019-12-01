@@ -1,10 +1,10 @@
-pub use std::rc::Rc;
-pub use std::ops::Range;
+use std::{rc::Rc, ops::Range};
 use zerocopy::{AsBytes, FromBytes};
-use nalgebra_glm as glm;
+use crate::math;
 
-pub fn opengl_to_wgpu_matrix() -> glm::Mat4 {
-    glm::mat4(
+
+pub fn opengl_to_wgpu_matrix() -> math::Mat4 {
+    math::mat4(
         1.0, 0.0, 0.0, 0.0,
         0.0, -1.0, 0.0, 0.0,
         0.0, 0.0, 0.5, 0.0,
@@ -12,7 +12,7 @@ pub fn opengl_to_wgpu_matrix() -> glm::Mat4 {
     )
 }
 pub struct Entity {
-    pub mx_world: glm::Mat4,
+    pub mx_world: math::Mat4,
     pub rotation_speed: f32,
     pub color: wgpu::Color,
     pub vertex_buf: Rc<wgpu::Buffer>,
@@ -23,7 +23,7 @@ pub struct Entity {
 }
 
 pub struct Light {
-    pub pos: glm::Vec3,
+    pub pos: math::Vec3,
     pub color: wgpu::Color,
     pub fov: f32,
     pub depth: Range<f32>,
@@ -55,13 +55,6 @@ impl Light {
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
-pub struct ForwardUniforms {
-    pub proj: [[f32; 4]; 4],
-    pub num_lights: [u32; 4],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct EntityUniforms {
     pub model: [[f32; 4]; 4],
     pub color: [f32; 4],
@@ -72,11 +65,11 @@ pub struct ShadowUniforms {
     pub proj: [[f32; 4]; 4],
 }
 
-pub struct Pass {
-    pub pipeline: wgpu::RenderPipeline,
-    pub bind_group: wgpu::BindGroup,
-    pub uniform_buf: wgpu::Buffer,
-}
+// pub struct Pass {
+//     pub pipeline: wgpu::RenderPipeline,
+//     pub bind_group: wgpu::BindGroup,
+//     pub uniform_buf: wgpu::Buffer,
+// }
 
 #[allow(dead_code)]
 pub enum ShaderStage {
@@ -95,13 +88,13 @@ pub fn load_glsl(code: &str, stage: ShaderStage) -> Vec<u32> {
     wgpu::read_spirv(glsl_to_spirv::compile(&code, ty).unwrap()).unwrap()
 }
 
-pub fn generate_matrix(eye: &glm::Vec3, fov: f32, aspect_ratio: f32, near: f32, far: f32) -> glm::Mat4 {
-    let projection = glm::perspective(aspect_ratio, fov, near, far);
+pub fn generate_matrix(eye: &math::Vec3, fov: f32, aspect_ratio: f32, near: f32, far: f32) -> math::Mat4 {
+    let projection = math::perspective(aspect_ratio, fov, near, far);
 
-    let view = glm::look_at_rh::<f32>(
+    let view = math::look_at_rh::<f32>(
         &eye,
-        &glm::vec3(0.0, 0.0, 0.0),
-        &glm::vec3(0.0, 0.0, 1.0),
+        &math::vec3(0.0, 0.0, 0.0),
+        &math::vec3(0.0, 0.0, 1.0),
     );
 
     opengl_to_wgpu_matrix() * projection * view

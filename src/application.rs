@@ -5,37 +5,24 @@ use winit::{
 };
 
 use zerocopy::AsBytes;
-use nalgebra_glm as glm;
 
 use std::rc::Rc;
 use std::mem;
 
-use crate::temp::*;
-use crate::vertex::*;
+use crate::{temp::*, vertex::*, render::*, math};
 
 pub struct Application
 {
     entities: Vec<Entity>,
     lights: Vec<Light>,
     lights_are_dirty: bool,
-    shadow_pass: Pass,
-    forward_pass: Pass,
-    forward_depth: wgpu::TextureView,
-    light_uniform_buf: wgpu::Buffer,
-    camera_position: glm::Vec3,
+    shadow_pass: ShadowPass,
+    forward_pass: ForwardPass,
+    camera_position: math::Vec3,
     camera_fov: f32,
 }
 
 impl Application {
-    const MAX_LIGHTS: usize = 10;
-    const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-    const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-        width: 512,
-        height: 512,
-        depth: 1,
-    };
-    const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-
     fn init(
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
@@ -85,7 +72,7 @@ impl Application {
                 }],
             });
             Entity {
-                mx_world: glm::identity(),
+                mx_world: math::identity(),
                 rotation_speed: 0.0,
                 color: wgpu::Color::WHITE,
                 vertex_buf: Rc::new(plane_vertex_buf),
@@ -96,28 +83,28 @@ impl Application {
             }
         }];
 
-        let camera_position = glm::vec3(3.0f32, -10.0, 6.0);
-        let camera_fov = glm::quarter_pi();
+        let camera_position = math::vec3(3.0f32, -10.0, 6.0);
+        let camera_fov = math::quarter_pi();
 
         struct CubeDesc {
-            offset: glm::Vec3,
+            offset: math::Vec3,
             rotation: f32,
         }
         let cube_descs = [
             CubeDesc {
-                offset: glm::vec3(-2.0, -2.0, 2.0),
+                offset: math::vec3(-2.0, -2.0, 2.0),
                 rotation: 0.1,
             },
             CubeDesc {
-                offset: glm::vec3(2.0, -2.0, 2.0),
+                offset: math::vec3(2.0, -2.0, 2.0),
                 rotation: 0.2,
             },
             CubeDesc {
-                offset: glm::vec3(-2.0, 2.0, 2.0),
+                offset: math::vec3(-2.0, 2.0, 2.0),
                 rotation: 0.3,
             },
             CubeDesc {
-                offset: glm::vec3(2.0, 2.0, 2.0),
+                offset: math::vec3(2.0, 2.0, 2.0),
                 rotation: 0.4,
             },
         ];
@@ -128,7 +115,7 @@ impl Application {
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             });
             entities.push(Entity {
-                mx_world: glm::translation(&cube.offset),
+                mx_world: math::translation(&cube.offset),
                 rotation_speed: cube.rotation,
                 color: wgpu::Color::GREEN,
                 vertex_buf: Rc::clone(&cube_vertex_buf),
@@ -148,78 +135,6 @@ impl Application {
             });
         }
 
-        // Create other resources
-        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            compare_function: wgpu::CompareFunction::LessEqual,
-        });
-
-        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: Self::SHADOW_SIZE,
-            array_layer_count: Self::MAX_LIGHTS as u32,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: Self::SHADOW_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
-        });
-        let shadow_view = shadow_texture.create_default_view();
-
-        let mut shadow_target_views = (0 .. 2)
-            .map(|i| {
-                Some(shadow_texture.create_view(&wgpu::TextureViewDescriptor {
-                    format: Self::SHADOW_FORMAT,
-                    dimension: wgpu::TextureViewDimension::D2,
-                    aspect: wgpu::TextureAspect::All,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: i as u32,
-                    array_layer_count: 1,
-                }))
-            })
-            .collect::<Vec<_>>();
-        let lights = vec![
-            Light {
-                pos: glm::vec3(7.0, -5.0, 10.0),
-                color: wgpu::Color {
-                    r: 0.5,
-                    g: 1.0,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 1.0 .. 20.0,
-                target_view: shadow_target_views[0].take().unwrap(),
-            },
-            Light {
-                pos: glm::vec3(-5.0, 7.0, 10.0),
-                color: wgpu::Color {
-                    r: 1.0,
-                    g: 0.5,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(45.0),
-                depth: 1.0 .. 20.0,
-                target_view: shadow_target_views[1].take().unwrap(),
-            },
-        ];
-        let light_uniform_size =
-            (Self::MAX_LIGHTS * mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
-        let light_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            size: light_uniform_size,
-            usage: wgpu::BufferUsage::UNIFORM
-                | wgpu::BufferUsage::COPY_SRC
-                | wgpu::BufferUsage::COPY_DST,
-        });
-
         let vb_desc = wgpu::VertexBufferDescriptor {
             stride: vertex_size as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
@@ -237,231 +152,55 @@ impl Application {
             ],
         };
 
-        let shadow_pass = {
-            // Create pipeline layout
-            let bind_group_layout =
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    bindings: &[wgpu::BindGroupLayoutBinding {
-                        binding: 0, // global
-                        visibility: wgpu::ShaderStage::VERTEX,
-                        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                    }],
-                });
-            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&bind_group_layout, &local_bind_group_layout],
-            });
-
-            let uniform_size = mem::size_of::<ShadowUniforms>() as wgpu::BufferAddress;
-            let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
-                size: uniform_size,
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            });
-
-            // Create bind group
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &bind_group_layout,
-                bindings: &[wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &uniform_buf,
-                        range: 0 .. uniform_size,
-                    },
-                }],
-            });
-
-            // Create the render pipeline
-            let vs_bytes =
-                load_glsl(include_str!("render/bake/bake.vert"), ShaderStage::Vertex);
-            let fs_bytes =
-                load_glsl(include_str!("render/bake/bake.frag"), ShaderStage::Fragment);
-            let vs_module = device.create_shader_module(&vs_bytes);
-            let fs_module = device.create_shader_module(&fs_bytes);
-
-            let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                layout: &pipeline_layout,
-                vertex_stage: wgpu::ProgrammableStageDescriptor {
-                    module: &vs_module,
-                    entry_point: "main",
+        let shadow_pass = ShadowPass::new(device, vb_desc.clone(), &local_bind_group_layout);
+        
+        let mut shadow_target_views = (0 .. 2)
+        .map(|i| {
+            Some(shadow_pass.shadow_texture.create_view(&wgpu::TextureViewDescriptor {
+                format: ShadowPass::SHADOW_FORMAT,
+                dimension: wgpu::TextureViewDimension::D2,
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: i as u32,
+                array_layer_count: 1,
+            }))
+        })
+        .collect::<Vec<_>>();
+        let lights = vec![
+            Light {
+                pos: math::vec3(7.0, -5.0, 10.0),
+                color: wgpu::Color {
+                    r: 0.5,
+                    g: 1.0,
+                    b: 0.5,
+                    a: 1.0,
                 },
-                fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                    module: &fs_module,
-                    entry_point: "main",
-                }),
-                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::Back,
-                    depth_bias: 2, // corresponds to bilinear filtering
-                    depth_bias_slope_scale: 2.0,
-                    depth_bias_clamp: 0.0,
-                }),
-                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-                color_states: &[],
-                depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                    format: Self::SHADOW_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
-                    stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    stencil_read_mask: 0,
-                    stencil_write_mask: 0,
-                }),
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[vb_desc.clone()],
-                sample_count: 1,
-                sample_mask: !0,
-                alpha_to_coverage_enabled: false,
-            });
-
-            Pass {
-                pipeline,
-                bind_group,
-                uniform_buf,
-            }
-        };
-
-        let forward_pass = {
-            // Create pipeline layout
-            let bind_group_layout =
-                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    bindings: &[
-                        wgpu::BindGroupLayoutBinding {
-                            binding: 0, // global
-                            visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                        },
-                        wgpu::BindGroupLayoutBinding {
-                            binding: 1, // lights
-                            visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                        },
-                        wgpu::BindGroupLayoutBinding {
-                            binding: 2,
-                            visibility: wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::SampledTexture {
-                                multisampled: false,
-                                dimension: wgpu::TextureViewDimension::D2Array,
-                            },
-                        },
-                        wgpu::BindGroupLayoutBinding {
-                            binding: 3,
-                            visibility: wgpu::ShaderStage::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler,
-                        },
-                    ],
-                });
-            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&bind_group_layout, &local_bind_group_layout],
-            });
-
-            let mx_total = generate_matrix(&camera_position, camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
-            let forward_uniforms = ForwardUniforms {
-                proj: *mx_total.as_ref(),
-                num_lights: [lights.len() as u32, 0, 0, 0],
-            };
-            let uniform_size = mem::size_of::<ForwardUniforms>() as wgpu::BufferAddress;
-            let uniform_buf = device.create_buffer_with_data(
-                forward_uniforms.as_bytes(),
-                wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            );
-
-            // Create bind group
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &bind_group_layout,
-                bindings: &[
-                    wgpu::Binding {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer {
-                            buffer: &uniform_buf,
-                            range: 0 .. uniform_size,
-                        },
-                    },
-                    wgpu::Binding {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Buffer {
-                            buffer: &light_uniform_buf,
-                            range: 0 .. light_uniform_size,
-                        },
-                    },
-                    wgpu::Binding {
-                        binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&shadow_view),
-                    },
-                    wgpu::Binding {
-                        binding: 3,
-                        resource: wgpu::BindingResource::Sampler(&shadow_sampler),
-                    },
-                ],
-            });
-
-            // Create the render pipeline
-            let vs_bytes =
-                load_glsl(include_str!("render/forward/forward.vert"), ShaderStage::Vertex);
-            let fs_bytes =
-                load_glsl(include_str!("render/forward/forward.frag"), ShaderStage::Fragment);
-
-            let vs_module = device.create_shader_module(&vs_bytes);
-            let fs_module = device.create_shader_module(&fs_bytes);
-
-            let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                layout: &pipeline_layout,
-                vertex_stage: wgpu::ProgrammableStageDescriptor {
-                    module: &vs_module,
-                    entry_point: "main",
-                },
-                fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                    module: &fs_module,
-                    entry_point: "main",
-                }),
-                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: wgpu::CullMode::Back,
-                    depth_bias: 0,
-                    depth_bias_slope_scale: 0.0,
-                    depth_bias_clamp: 0.0,
-                }),
-                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-                color_states: &[wgpu::ColorStateDescriptor {
-                    format: sc_desc.format,
-                    color_blend: wgpu::BlendDescriptor::REPLACE,
-                    alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                    write_mask: wgpu::ColorWrite::ALL,
-                }],
-                depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                    format: Self::DEPTH_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                    stencil_read_mask: 0,
-                    stencil_write_mask: 0,
-                }),
-                index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[vb_desc],
-                sample_count: 1,
-                sample_mask: !0,
-                alpha_to_coverage_enabled: false,
-            });
-
-            Pass {
-                pipeline,
-                bind_group,
-                uniform_buf,
-            }
-        };
-
-        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: sc_desc.width,
-                height: sc_desc.height,
-                depth: 1,
+                fov: f32::to_radians(60.0),
+                depth: 1.0 .. 20.0,
+                target_view: shadow_target_views[0].take().unwrap(),
             },
-            array_layer_count: 1,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        });
+            Light {
+                pos: math::vec3(-5.0, 7.0, 10.0),
+                color: wgpu::Color {
+                    r: 1.0,
+                    g: 0.5,
+                    b: 0.5,
+                    a: 1.0,
+                },
+                fov: f32::to_radians(45.0),
+                depth: 1.0 .. 20.0,
+                target_view: shadow_target_views[1].take().unwrap(),
+            },
+        ];
+        
+        let matrix = generate_matrix(&camera_position, camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
+        let forward_uniforms = ForwardUniforms {
+            proj: *matrix.as_ref(),
+            num_lights: [lights.len() as u32, 0, 0, 0],
+        };
+
+        let forward_pass = ForwardPass::new(device, forward_uniforms, &shadow_pass, vb_desc, &local_bind_group_layout, sc_desc);
 
         let this = Application {
             entities,
@@ -469,8 +208,6 @@ impl Application {
             lights_are_dirty: true,
             shadow_pass,
             forward_pass,
-            forward_depth: depth_texture.create_default_view(),
-            light_uniform_buf,
             camera_position,
             camera_fov
         };
@@ -491,24 +228,11 @@ impl Application {
 
             let mut encoder =
                 device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-            encoder.copy_buffer_to_buffer(&temp_buf, 0, &self.forward_pass.uniform_buf, 0, 64);
+            encoder.copy_buffer_to_buffer(&temp_buf, 0, &self.forward_pass.forward_uniform_buffer, 0, 64);
             encoder.finish()
         };
 
-        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: sc_desc.width,
-                height: sc_desc.height,
-                depth: 1,
-            },
-            array_layer_count: 1,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        });
-        self.forward_depth = depth_texture.create_default_view();
+        self.forward_pass.update_swap_chain_descriptor(device, sc_desc);
 
         Some(command_buf)
     }
@@ -538,7 +262,7 @@ impl Application {
             {
                 if entity.rotation_speed != 0.0 {
                     let rotation =
-                        glm::rotation(entity.rotation_speed, &glm::vec3(0.0, 1.0, 0.0));
+                        math::rotation(entity.rotation_speed, &math::vec3(0.0, 1.0, 0.0));
                     entity.mx_world = entity.mx_world * rotation;
                 }
                 slot.copy_from_slice(
@@ -584,7 +308,7 @@ impl Application {
             encoder.copy_buffer_to_buffer(
                 &temp_buf_data.finish(),
                 0,
-                &self.light_uniform_buf,
+                &self.forward_pass.light_uniform_buffer,
                 0,
                 total_size as wgpu::BufferAddress,
             );
@@ -594,7 +318,7 @@ impl Application {
             // The light uniform buffer already has the projection,
             // let's just copy it over to the shadow uniform buffer.
             encoder.copy_buffer_to_buffer(
-                &self.light_uniform_buf,
+                &self.forward_pass.light_uniform_buffer,
                 (i * mem::size_of::<LightRaw>()) as wgpu::BufferAddress,
                 &self.shadow_pass.uniform_buf,
                 0,
@@ -640,7 +364,7 @@ impl Application {
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.forward_depth,
+                    attachment: &self.forward_pass.depth_texture,
                     depth_load_op: wgpu::LoadOp::Clear,
                     depth_store_op: wgpu::StoreOp::Store,
                     stencil_load_op: wgpu::LoadOp::Clear,
