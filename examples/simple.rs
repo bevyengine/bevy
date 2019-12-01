@@ -1,18 +1,21 @@
-use legion::prelude::*;
 use bevy::{Application, Transform};
-
+use legion::prelude::*;
 
 struct SimpleApp;
 
-impl Application for SimpleApp {
-    fn update(&self) {}
-}
-
 fn main() {
-    let app = SimpleApp {};
+    Application::run();
     // Create a world to store our entities
     let universe = Universe::new();
     let mut world = universe.create_world();
     world.insert((), vec![(Transform::new(),)]);
-    app.start();
+
+    // Create a query which finds all `Position` and `Velocity` components
+    let mut query = Read::<Transform>::query();
+    
+
+    // // Iterate through all entities that match the query in the world
+    for mut trans in query.iter(&mut world) {
+        // println!("{} hi", trans.global);
+    }
 }

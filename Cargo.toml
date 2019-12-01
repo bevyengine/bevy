@@ -5,8 +5,12 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-# legion = { git = "https://github.com/TomGillen/legion.git" }
-legion = { git = "https://github.com/jaynus/legion.git" }
+legion = { git = "https://github.com/TomGillen/legion.git" }
 nalgebra = "0.18"
-wgpu = "0.4.0"
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "44fa1bc2fa208fa92f80944253e0da56cb7ac1fe"}
 winit = "0.20.0-alpha4"
+glsl-to-spirv = "0.1"
+cgmath = "0.17"
+zerocopy = "0.2"
+log = "0.4"
+env_logger = "0.7"
