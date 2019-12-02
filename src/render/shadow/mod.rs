@@ -1,5 +1,5 @@
-use crate::{render::*, asset::*};
-use wgpu::{BindGroupLayout, CommandEncoder, Device, VertexBufferDescriptor, SwapChainOutput};
+use crate::{render::*, asset::*, LocalToWorld};
+use wgpu::{BindGroupLayout, Buffer, CommandEncoder, Device, VertexBufferDescriptor, SwapChainOutput, SwapChainDescriptor};
 use legion::prelude::*;
 use zerocopy::AsBytes;
 use std::{mem, sync::Arc};
@@ -22,7 +22,7 @@ pub struct ShadowUniforms {
 
 impl Pass for ShadowPass {
     fn render(&mut self, device: &Device, _: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World) {
-        let mut light_query = <Read<Light>>::query();
+        let mut light_query = <(Read<Light>, Read<LocalToWorld>)>::query();
         let mut mesh_query = <(Read<Material>, Read<Handle<Mesh>>)>::query();
         let light_count = light_query.iter(world).count();
 
@@ -32,11 +32,11 @@ impl Pass for ShadowPass {
             let total_size = size * light_count;
             let temp_buf_data =
                 device.create_buffer_mapped(total_size, wgpu::BufferUsage::COPY_SRC);
-            for (light, slot) in light_query
+            for ((light, local_to_world), slot) in light_query
                 .iter(world)
                 .zip(temp_buf_data.data.chunks_exact_mut(size))
             {
-                slot.copy_from_slice(light.to_raw().as_bytes());
+                slot.copy_from_slice(light.to_raw(&local_to_world.0).as_bytes());
             }
             encoder.copy_buffer_to_buffer(
                 &temp_buf_data.finish(),
@@ -47,7 +47,21 @@ impl Pass for ShadowPass {
             );
         }
 
-        for (i, light) in light_query.iter_immutable(world).enumerate() {
+        for (i, (mut light, _)) in <(Write<Light>, Read<LocalToWorld>)>::query().iter(world).enumerate() {
+            if let None = light.target_view {
+                light.target_view = Some(self.shadow_texture.create_view(&wgpu::TextureViewDescriptor {
+                    format: ShadowPass::SHADOW_FORMAT,
+                    dimension: wgpu::TextureViewDimension::D2,
+                    aspect: wgpu::TextureAspect::All,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: i as u32,
+                    array_layer_count: 1,
+                }));
+            }
+        }
+
+        for (i, (light, _)) in light_query.iter_immutable(world).enumerate() {
             // The light uniform buffer already has the projection,
             // let's just copy it over to the shadow uniform buffer.
             encoder.copy_buffer_to_buffer(
@@ -61,7 +75,7 @@ impl Pass for ShadowPass {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &light.target_view,
+                    attachment: light.target_view.as_ref().unwrap(),
                     depth_load_op: wgpu::LoadOp::Clear,
                     depth_store_op: wgpu::StoreOp::Store,
                     stencil_load_op: wgpu::LoadOp::Clear,
@@ -87,6 +101,9 @@ impl Pass for ShadowPass {
             }
         }
     }
+
+    fn resize(&mut self, _: &Device, _: &SwapChainDescriptor) { }
+    fn get_camera_uniform_buffer(&self) -> Option<&Buffer> { None }
 }
 
 impl ShadowPass {
@@ -97,7 +114,7 @@ impl ShadowPass {
         depth: 1,
     };
 
-    pub fn new(device: &Device, light_uniform_buffer: Arc::<UniformBuffer>, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, max_lights: u32) -> ShadowPass {
+    pub fn new(device: &Device, _: &World, light_uniform_buffer: Arc::<UniformBuffer>, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, max_lights: u32) -> ShadowPass {
         // Create pipeline layout
         let bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

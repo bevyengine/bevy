@@ -7,7 +7,7 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-legion = { git = "https://github.com/TomGillen/legion.git" }
+legion = { git = "https://github.com/TomGillen/legion.git", rev = "8628b227bcbe57582fffb5e80e73c634ec4eebd9" }
 #legion = { path = "../legion" }
 log = "0.4"
 nalgebra = { version = "0.19.0" }

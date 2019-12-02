@@ -8,7 +8,7 @@ pub struct Light {
     pub color: wgpu::Color,
     pub fov: f32,
     pub depth: Range<f32>,
-    pub target_view: wgpu::TextureView,
+    pub target_view: Option<wgpu::TextureView>,
 }
 
 #[repr(C)]
@@ -20,9 +20,10 @@ pub struct LightRaw {
 }
 
 impl Light {
-    pub fn to_raw(&self) -> LightRaw {
+    pub fn to_raw(&self, transform: &math::Mat4) -> LightRaw {
+        let proj = camera::get_projection_matrix(self.fov, 1.0, self.depth.start, self.depth.end) * transform;
         LightRaw {
-            proj: camera::get_projection_view_matrix(&self.pos, self.fov, 1.0, self.depth.start, self.depth.end).into(),
+            proj: proj.into(),
             pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
             color: [
                 self.color.r as f32,

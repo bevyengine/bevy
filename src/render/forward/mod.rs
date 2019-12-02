@@ -2,7 +2,7 @@ use crate::{render::*, asset::*, render::mesh::*};
 use legion::prelude::*;
 use std::{mem, sync::Arc};
 use zerocopy::{AsBytes, FromBytes};
-use wgpu::{CommandEncoder, Device, BindGroupLayout, VertexBufferDescriptor, SwapChainDescriptor, SwapChainOutput};
+use wgpu::{Buffer, CommandEncoder, Device, BindGroupLayout, VertexBufferDescriptor, SwapChainDescriptor, SwapChainOutput};
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
@@ -59,6 +59,14 @@ impl Pass for ForwardPass {
 
             };
         }
+    }
+    
+    fn resize(&mut self, device: &Device, frame: &SwapChainDescriptor) {
+        self.depth_texture = Self::get_depth_texture(device, frame);
+    }
+
+    fn get_camera_uniform_buffer(&self) -> Option<&Buffer> { 
+        Some(&self.forward_uniform_buffer)
     }
 }
 
@@ -196,11 +204,6 @@ impl ForwardPass {
             light_uniform_buffer,
             depth_texture: Self::get_depth_texture(device, swap_chain_descriptor)
         }
-    }
-
-
-    pub fn update_swap_chain_descriptor(&mut self, device: &Device, swap_chain_descriptor: &SwapChainDescriptor) {
-        self.depth_texture = Self::get_depth_texture(device, swap_chain_descriptor);
     }
 
     fn get_depth_texture(device: &Device, swap_chain_descriptor: &SwapChainDescriptor) -> wgpu::TextureView {

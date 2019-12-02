@@ -14,6 +14,7 @@ pub use shader::*;
 pub use pass::*;
 pub use material::*;
 pub use mesh::*;
+pub use camera::*;
 
 pub struct UniformBuffer {
     pub buffer: wgpu::Buffer,
