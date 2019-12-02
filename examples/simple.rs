@@ -17,7 +17,7 @@ fn main() {
 
     world.insert((), vec![
         (
-            Material { color: math::vec4(0.1, 0.6, 0.1, 1.0), bind_group: None, uniform_buf: None },
+            Material { color: math::vec4(0.1, 0.2, 0.1, 1.0), bind_group: None, uniform_buf: None },
             plane_handle.clone(),
             LocalToWorld(math::translation(&math::vec3(0.0, 0.0, 0.0))),
             Translation::new(0.0, 0.0, 0.0)
@@ -25,13 +25,13 @@ fn main() {
         (
             Material { color: math::vec4(0.1, 0.1, 0.6, 1.0), bind_group: None, uniform_buf: None },
             mesh_handle.clone(),
-            LocalToWorld(math::translation(&math::vec3(3.0, 0.0, 0.0))),
+            LocalToWorld(math::translation(&math::vec3(1.5, 0.0, 1.0))),
             Translation::new(0.0, 0.0, 0.0)
         ),
         (
             Material { color: math::vec4(0.6, 0.1, 0.1, 1.0), bind_group: None, uniform_buf: None },
             mesh_handle,
-            LocalToWorld::identity(),
+            LocalToWorld(math::translation(&math::vec3(-1.5, 0.0, 1.0))),
             Translation::new(0.0, 0.0, 0.0)
         ),
     ]);

@@ -29,9 +29,9 @@ impl Pass for ForwardPass {
                 load_op: wgpu::LoadOp::Clear,
                 store_op: wgpu::StoreOp::Store,
                 clear_color: wgpu::Color {
-                    r: 0.1,
-                    g: 0.2,
-                    b: 0.3,
+                    r: 0.3,
+                    g: 0.4,
+                    b: 0.5,
                     a: 1.0,
                 },
             }],
