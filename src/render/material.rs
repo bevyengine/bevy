@@ -7,6 +7,16 @@ pub struct Material {
     pub uniform_buf: Option<wgpu::Buffer>,
 }
 
+impl Material {
+    pub fn new(color: math::Vec4) -> Self {
+        Material {
+            color,
+            bind_group: None,
+            uniform_buf: None, 
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct RenderedUniforms {
