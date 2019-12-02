@@ -1,9 +1,5 @@
 use crate::math;
 
-pub struct Camera {
-    projection: math::Mat4,
-}
-
 pub fn get_projection_view_matrix(eye: &math::Vec3, fov: f32, aspect_ratio: f32, near: f32, far: f32) -> math::Mat4 {
     let projection = math::perspective(aspect_ratio, fov, near, far);
 

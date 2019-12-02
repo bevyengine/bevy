@@ -1,6 +1,6 @@
 use crate::{vertex::Vertex, asset::Asset};
 use wgpu::{Buffer, Device};
-use zerocopy::{AsBytes, FromBytes};
+use zerocopy::AsBytes;
 
 pub enum MeshType {
     Cube,

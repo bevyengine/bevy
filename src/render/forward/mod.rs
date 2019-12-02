@@ -1,4 +1,4 @@
-use crate::{render::*, temp::*, asset::*, render::mesh::*};
+use crate::{render::*, asset::*, render::mesh::*};
 use legion::prelude::*;
 use std::{mem, sync::Arc};
 use zerocopy::{AsBytes, FromBytes};
@@ -21,7 +21,7 @@ pub struct ForwardPass {
 
 impl Pass for ForwardPass {
     fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World) { 
-        let mut mesh_query = <(Read<CubeEnt>, Read<Handle<Mesh>>)>::query();
+        let mut mesh_query = <(Read<Material>, Read<Handle<Mesh>>)>::query();
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: &frame.view,
@@ -50,7 +50,7 @@ impl Pass for ForwardPass {
 
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
         for (entity, mesh) in mesh_query.iter_immutable(world) {
-            if let Some(mesh_asset) = mesh_storage.get(*mesh.id) {
+            if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
                 mesh_asset.setup_buffers(device);
                 pass.set_bind_group(1, entity.bind_group.as_ref().unwrap(), &[]);
                 pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);

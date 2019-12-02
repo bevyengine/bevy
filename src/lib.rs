@@ -2,7 +2,6 @@ pub mod render;
 pub mod asset;
 mod application;
 mod vertex;
-pub mod temp;
 mod core;
 
 pub use application::Application;

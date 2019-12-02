@@ -10,7 +10,7 @@ use legion::prelude::*;
 use std::sync::Arc;
 use std::mem;
 
-use crate::{temp::*, vertex::*, render::*, math, LocalToWorld, Translation, ApplicationStage};
+use crate::{vertex::*, render::*, math, LocalToWorld, ApplicationStage};
 
 pub struct Application
 {
@@ -45,9 +45,9 @@ impl Application {
             });
 
 
-        let mut entities = <Write<CubeEnt>>::query();
+        let mut entities = <Write<Material>>::query();
         for mut entity in entities.iter(&mut world) {
-            let entity_uniform_size = mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+            let entity_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
             let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
                 size: entity_uniform_size,
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
@@ -204,9 +204,9 @@ impl Application {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         {
-            let mut entities = <(Read<CubeEnt>, Read<LocalToWorld>)>::query();
+            let mut entities = <(Read<Material>, Read<LocalToWorld>)>::query();
             let entities_count = entities.iter(&mut self.world).count();
-            let size = mem::size_of::<EntityUniforms>();
+            let size = mem::size_of::<MaterialUniforms>();
             let temp_buf_data = device
                 .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
 
@@ -214,7 +214,7 @@ impl Application {
                 .zip(temp_buf_data.data.chunks_exact_mut(size))
             {
                 slot.copy_from_slice(
-                    EntityUniforms {
+                    MaterialUniforms {
                         model: transform.0.into(),
                         color: [
                             entity.color.x as f32,

@@ -1,10 +1,20 @@
-use std::{sync::Arc, marker::PhantomData, ops::Drop};
+use std::{sync::{Arc, RwLock}, marker::PhantomData, ops::Drop};
 
 pub struct Handle<T>
 {
-    pub id: Arc<usize>,
+    pub id: Arc<RwLock<usize>>,
     marker: PhantomData<T>,
-    free_indices: Arc<Vec<usize>>
+    free_indices: Arc<RwLock<Vec<usize>>>
+}
+
+impl<T> Clone for Handle<T> {
+    fn clone(&self) -> Self { 
+        Handle {
+            id: self.id.clone(),
+            free_indices: self.free_indices.clone(),
+            marker: PhantomData
+        }
+    }
 }
 
 impl<T> Drop for Handle<T> {
@@ -12,7 +22,8 @@ impl<T> Drop for Handle<T> {
         // TODO: Maybe this should be 1
         // TODO: Is this even necessary?
         if Arc::strong_count(&self.id) == 0 {
-            Arc::get_mut(&mut self.free_indices).unwrap().push(*self.id);
+            let id = *self.id.read().unwrap();
+            self.free_indices.write().unwrap().push(id);
         }
     }
 }
@@ -23,7 +34,7 @@ pub trait Asset<D> {
 
 pub struct AssetStorage<T, D> where T: Asset<D> {
     assets: Vec<Option<T>>,
-    free_indices: Arc<Vec<usize>>,
+    free_indices: Arc<RwLock<Vec<usize>>>,
     marker: PhantomData<D>,
 }
 
@@ -31,17 +42,17 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
     pub fn new() -> AssetStorage<T, D> {
         AssetStorage {
             assets: Vec::new(),
-            free_indices: Arc::new(Vec::new()),
+            free_indices: Arc::new(RwLock::new(Vec::new())),
             marker: PhantomData,
         }
     }
 
     pub fn add(&mut self, asset: T) -> Handle<T> {
-        match Arc::get_mut(&mut self.free_indices).unwrap().pop() {
+        match self.free_indices.write().unwrap().pop() {
             Some(id) => {
                 self.assets[id as usize] = Some(asset);
                 Handle {
-                    id: Arc::new(id),
+                    id: Arc::new(RwLock::new(id)),
                     marker: PhantomData,
                     free_indices: self.free_indices.clone()
                 }
@@ -49,7 +60,7 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
             None => {
                 self.assets.push(Some(asset));
                 Handle {
-                    id: Arc::new(self.assets.len() - 1),
+                    id: Arc::new(RwLock::new(self.assets.len() - 1)),
                     marker: PhantomData,
                     free_indices: self.free_indices.clone()
                 }
