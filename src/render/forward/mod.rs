@@ -1,8 +1,8 @@
-use crate::{temp::*, render::shadow::ShadowPass};
-
-use std::mem;
+use crate::{render::*, temp::*};
+use legion::prelude::*;
+use std::{mem, sync::Arc};
 use zerocopy::{AsBytes, FromBytes};
-use wgpu::{Device, BindGroupLayout, VertexBufferDescriptor, SwapChainDescriptor};
+use wgpu::{CommandEncoder, Device, BindGroupLayout, VertexBufferDescriptor, SwapChainDescriptor, SwapChainOutput};
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
@@ -15,22 +15,59 @@ pub struct ForwardPass {
     pub pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
     pub forward_uniform_buffer: wgpu::Buffer,
-    pub light_uniform_buffer: wgpu::Buffer,
+    pub light_uniform_buffer: Arc::<UniformBuffer>,
     pub depth_texture: wgpu::TextureView,
 }
 
+impl Pass for ForwardPass {
+    fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World) { 
+        let mut entities = <Read<CubeEnt>>::query();
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                attachment: &frame.view,
+                resolve_target: None,
+                load_op: wgpu::LoadOp::Clear,
+                store_op: wgpu::StoreOp::Store,
+                clear_color: wgpu::Color {
+                    r: 0.1,
+                    g: 0.2,
+                    b: 0.3,
+                    a: 1.0,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture,
+                depth_load_op: wgpu::LoadOp::Clear,
+                depth_store_op: wgpu::StoreOp::Store,
+                stencil_load_op: wgpu::LoadOp::Clear,
+                stencil_store_op: wgpu::StoreOp::Store,
+                clear_depth: 1.0,
+                clear_stencil: 0,
+            }),
+        });
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+
+        for entity in entities.iter_immutable(world) {
+            pass.set_bind_group(1, &entity.bind_group, &[]);
+            pass.set_index_buffer(&entity.index_buf, 0);
+            pass.set_vertex_buffers(0, &[(&entity.vertex_buf, 0)]);
+            pass.draw_indexed(0 .. entity.index_count as u32, 0, 0 .. 1);
+        }
+    }
+}
+
 impl ForwardPass {
-    pub const MAX_LIGHTS: usize = 10;
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
     
-    pub fn new(device: &Device, forward_uniforms: ForwardUniforms, shadow_pass: &ShadowPass, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, swap_chain_descriptor: &SwapChainDescriptor) -> ForwardPass {
-        let vs_bytes = load_glsl(
+    pub fn new(device: &Device, forward_uniforms: ForwardUniforms, light_uniform_buffer: Arc::<UniformBuffer>, shadow_pass: &shadow::ShadowPass, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, swap_chain_descriptor: &SwapChainDescriptor) -> ForwardPass {
+        let vs_bytes = shader::load_glsl(
             include_str!("forward.vert"),
-            ShaderStage::Vertex,
+            shader::ShaderStage::Vertex,
         );
-        let fs_bytes = load_glsl(
+        let fs_bytes = shader::load_glsl(
             include_str!("forward.frag"),
-            ShaderStage::Fragment,
+            shader::ShaderStage::Fragment,
         );
 
         let bind_group_layout =
@@ -68,16 +105,6 @@ impl ForwardPass {
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
 
-        let light_uniform_size =
-        (Self::MAX_LIGHTS * mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
-
-        let light_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: light_uniform_size,
-            usage: wgpu::BufferUsage::UNIFORM
-                | wgpu::BufferUsage::COPY_SRC
-                | wgpu::BufferUsage::COPY_DST,
-        });
-
         // Create bind group
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
@@ -92,8 +119,8 @@ impl ForwardPass {
                 wgpu::Binding {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer {
-                        buffer: &light_uniform_buffer,
-                        range: 0 .. light_uniform_size,
+                        buffer: &light_uniform_buffer.buffer,
+                        range: 0 .. light_uniform_buffer.size,
                     },
                 },
                 wgpu::Binding {
@@ -156,7 +183,6 @@ impl ForwardPass {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
-
 
         ForwardPass {
             pipeline,

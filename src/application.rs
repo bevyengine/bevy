@@ -5,36 +5,41 @@ use winit::{
 };
 
 use zerocopy::AsBytes;
+use legion::prelude::*;
 
-use std::rc::Rc;
+use std::sync::Arc;
 use std::mem;
 
-use crate::{temp::*, vertex::*, render::*, math};
+use crate::{temp::*, vertex::*, render::*, math, Transform};
 
 pub struct Application
 {
-    entities: Vec<Entity>,
-    lights: Vec<Light>,
-    lights_are_dirty: bool,
-    shadow_pass: ShadowPass,
-    forward_pass: ForwardPass,
+    pub universe: Universe,
+    pub world: World,
+    pub shadow_pass: ShadowPass,
+    pub forward_pass: ForwardPass,
     camera_position: math::Vec3,
     camera_fov: f32,
 }
 
 impl Application {
+    pub const MAX_LIGHTS: usize = 10;
+
     fn init(
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
     ) -> (Self, Option<wgpu::CommandBuffer>)
     {
+        let universe = Universe::new();
+        let mut world = universe.create_world();
+
         let vertex_size = mem::size_of::<Vertex>();
         let (cube_vertex_data, cube_index_data) = create_cube();
-        let cube_vertex_buf = Rc::new(
+        let cube_vertex_buf = Arc::new(
             device.create_buffer_with_data(cube_vertex_data.as_bytes(), wgpu::BufferUsage::VERTEX),
         );
 
-        let cube_index_buf = Rc::new(
+        let cube_index_buf = Arc::new(
             device.create_buffer_with_data(cube_index_data.as_bytes(), wgpu::BufferUsage::INDEX),
         );
 
@@ -71,16 +76,15 @@ impl Application {
                     },
                 }],
             });
-            Entity {
-                mx_world: math::identity(),
+            (CubeEnt {
                 rotation_speed: 0.0,
                 color: wgpu::Color::WHITE,
-                vertex_buf: Rc::new(plane_vertex_buf),
-                index_buf: Rc::new(plane_index_buf),
+                vertex_buf: Arc::new(plane_vertex_buf),
+                index_buf: Arc::new(plane_index_buf),
                 index_count: plane_index_data.len(),
                 bind_group,
                 uniform_buf: plane_uniform_buf,
-            }
+            }, Transform::new())
         }];
 
         let camera_position = math::vec3(3.0f32, -10.0, 6.0);
@@ -114,12 +118,11 @@ impl Application {
                 size: entity_uniform_size,
                 usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
             });
-            entities.push(Entity {
-                mx_world: math::translation(&cube.offset),
+            entities.push((CubeEnt {
                 rotation_speed: cube.rotation,
                 color: wgpu::Color::GREEN,
-                vertex_buf: Rc::clone(&cube_vertex_buf),
-                index_buf: Rc::clone(&cube_index_buf),
+                vertex_buf: Arc::clone(&cube_vertex_buf),
+                index_buf: Arc::clone(&cube_index_buf),
                 index_count: cube_index_data.len(),
                 bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: &local_bind_group_layout,
@@ -132,8 +135,10 @@ impl Application {
                     }],
                 }),
                 uniform_buf,
-            });
+            }, Transform { value: math::translation(&cube.offset)}));
         }
+
+        world.insert((), entities);
 
         let vb_desc = wgpu::VertexBufferDescriptor {
             stride: vertex_size as wgpu::BufferAddress,
@@ -152,7 +157,20 @@ impl Application {
             ],
         };
 
-        let shadow_pass = ShadowPass::new(device, vb_desc.clone(), &local_bind_group_layout);
+        let light_uniform_size =
+        (Self::MAX_LIGHTS * mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
+
+        let light_uniform_buffer = Arc::new(UniformBuffer {
+            buffer: device.create_buffer(&wgpu::BufferDescriptor {
+                size: light_uniform_size,
+                usage: wgpu::BufferUsage::UNIFORM
+                    | wgpu::BufferUsage::COPY_SRC
+                    | wgpu::BufferUsage::COPY_DST,
+            }),
+            size: light_uniform_size,
+        });
+
+        let shadow_pass = ShadowPass::new(device, light_uniform_buffer.clone(), vb_desc.clone(), &local_bind_group_layout, Self::MAX_LIGHTS as u32);
         
         let mut shadow_target_views = (0 .. 2)
         .map(|i| {
@@ -167,8 +185,9 @@ impl Application {
             }))
         })
         .collect::<Vec<_>>();
+
         let lights = vec![
-            Light {
+            (Light {
                 pos: math::vec3(7.0, -5.0, 10.0),
                 color: wgpu::Color {
                     r: 0.5,
@@ -179,8 +198,8 @@ impl Application {
                 fov: f32::to_radians(60.0),
                 depth: 1.0 .. 20.0,
                 target_view: shadow_target_views[0].take().unwrap(),
-            },
-            Light {
+            },),
+            (Light {
                 pos: math::vec3(-5.0, 7.0, 10.0),
                 color: wgpu::Color {
                     r: 1.0,
@@ -191,21 +210,23 @@ impl Application {
                 fov: f32::to_radians(45.0),
                 depth: 1.0 .. 20.0,
                 target_view: shadow_target_views[1].take().unwrap(),
-            },
+            },),
         ];
+
+        let light_count = lights.len();
+        world.insert((), lights);
         
-        let matrix = generate_matrix(&camera_position, camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
+        let matrix = camera::get_projection_view_matrix(&camera_position, camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
         let forward_uniforms = ForwardUniforms {
             proj: *matrix.as_ref(),
-            num_lights: [lights.len() as u32, 0, 0, 0],
+            num_lights: [light_count as u32, 0, 0, 0],
         };
 
-        let forward_pass = ForwardPass::new(device, forward_uniforms, &shadow_pass, vb_desc, &local_bind_group_layout, sc_desc);
+        let forward_pass = ForwardPass::new(device, forward_uniforms, light_uniform_buffer.clone(), &shadow_pass, vb_desc, &local_bind_group_layout, sc_desc);
 
         let this = Application {
-            entities,
-            lights,
-            lights_are_dirty: true,
+            universe,
+            world,
             shadow_pass,
             forward_pass,
             camera_position,
@@ -221,7 +242,7 @@ impl Application {
     ) -> Option<wgpu::CommandBuffer>
     {
         let command_buf = {
-            let mx_total = generate_matrix(&self.camera_position, self.camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
+            let mx_total = camera::get_projection_view_matrix(&self.camera_position, self.camera_fov, sc_desc.width as f32 / sc_desc.height as f32, 1.0, 20.0);
             let mx_ref: [[f32; 4]; 4] = mx_total.into();
             let temp_buf =
                 device.create_buffer_with_data(mx_ref.as_bytes(), wgpu::BufferUsage::COPY_SRC);
@@ -251,23 +272,18 @@ impl Application {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         {
+            let mut entities = <(Read<CubeEnt>, Read<Transform>)>::query();
+            let entities_count = entities.iter(&mut self.world).count();
             let size = mem::size_of::<EntityUniforms>();
             let temp_buf_data = device
-                .create_buffer_mapped(self.entities.len() * size, wgpu::BufferUsage::COPY_SRC);
+                .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
 
-            for (entity, slot) in self
-                .entities
-                .iter_mut()
+            for ((entity, transform), slot) in entities.iter(&mut self.world)
                 .zip(temp_buf_data.data.chunks_exact_mut(size))
             {
-                if entity.rotation_speed != 0.0 {
-                    let rotation =
-                        math::rotation(entity.rotation_speed, &math::vec3(0.0, 1.0, 0.0));
-                    entity.mx_world = entity.mx_world * rotation;
-                }
                 slot.copy_from_slice(
                     EntityUniforms {
-                        model: entity.mx_world.into(),
+                        model: transform.value.into(),
                         color: [
                             entity.color.r as f32,
                             entity.color.g as f32,
@@ -281,7 +297,7 @@ impl Application {
 
             let temp_buf = temp_buf_data.finish();
 
-            for (i, entity) in self.entities.iter().enumerate() {
+            for (i, (entity, _)) in entities.iter(&mut self.world).enumerate() {
                 encoder.copy_buffer_to_buffer(
                     &temp_buf,
                     (i * size) as wgpu::BufferAddress,
@@ -292,97 +308,8 @@ impl Application {
             }
         }
 
-        if self.lights_are_dirty {
-            self.lights_are_dirty = false;
-            let size = mem::size_of::<LightRaw>();
-            let total_size = size * self.lights.len();
-            let temp_buf_data =
-                device.create_buffer_mapped(total_size, wgpu::BufferUsage::COPY_SRC);
-            for (light, slot) in self
-                .lights
-                .iter()
-                .zip(temp_buf_data.data.chunks_exact_mut(size))
-            {
-                slot.copy_from_slice(light.to_raw().as_bytes());
-            }
-            encoder.copy_buffer_to_buffer(
-                &temp_buf_data.finish(),
-                0,
-                &self.forward_pass.light_uniform_buffer,
-                0,
-                total_size as wgpu::BufferAddress,
-            );
-        }
-
-        for (i, light) in self.lights.iter().enumerate() {
-            // The light uniform buffer already has the projection,
-            // let's just copy it over to the shadow uniform buffer.
-            encoder.copy_buffer_to_buffer(
-                &self.forward_pass.light_uniform_buffer,
-                (i * mem::size_of::<LightRaw>()) as wgpu::BufferAddress,
-                &self.shadow_pass.uniform_buf,
-                0,
-                64,
-            );
-
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &light.target_view,
-                    depth_load_op: wgpu::LoadOp::Clear,
-                    depth_store_op: wgpu::StoreOp::Store,
-                    stencil_load_op: wgpu::LoadOp::Clear,
-                    stencil_store_op: wgpu::StoreOp::Store,
-                    clear_depth: 1.0,
-                    clear_stencil: 0,
-                }),
-            });
-            pass.set_pipeline(&self.shadow_pass.pipeline);
-            pass.set_bind_group(0, &self.shadow_pass.bind_group, &[]);
-
-            for entity in &self.entities {
-                pass.set_bind_group(1, &entity.bind_group, &[]);
-                pass.set_index_buffer(&entity.index_buf, 0);
-                pass.set_vertex_buffers(0, &[(&entity.vertex_buf, 0)]);
-                pass.draw_indexed(0 .. entity.index_count as u32, 0, 0 .. 1);
-            }
-        }
-
-        // forward pass
-        {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.forward_pass.depth_texture,
-                    depth_load_op: wgpu::LoadOp::Clear,
-                    depth_store_op: wgpu::StoreOp::Store,
-                    stencil_load_op: wgpu::LoadOp::Clear,
-                    stencil_store_op: wgpu::StoreOp::Store,
-                    clear_depth: 1.0,
-                    clear_stencil: 0,
-                }),
-            });
-            pass.set_pipeline(&self.forward_pass.pipeline);
-            pass.set_bind_group(0, &self.forward_pass.bind_group, &[]);
-
-            for entity in &self.entities {
-                pass.set_bind_group(1, &entity.bind_group, &[]);
-                pass.set_index_buffer(&entity.index_buf, 0);
-                pass.set_vertex_buffers(0, &[(&entity.vertex_buf, 0)]);
-                pass.draw_indexed(0 .. entity.index_count as u32, 0, 0 .. 1);
-            }
-        }
+        self.shadow_pass.render(device, frame, &mut encoder, &mut self.world);
+        self.forward_pass.render(device, frame, &mut encoder, &mut self.world);
 
         encoder.finish()
     }
