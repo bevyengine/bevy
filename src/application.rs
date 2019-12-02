@@ -194,7 +194,7 @@ impl Application {
     }
 
     #[allow(dead_code)]
-    pub fn run(universe: Universe, world: World) {
+    pub fn run(universe: Universe, world: World, system_scheduler: SystemScheduler<ApplicationStage>) {
         env_logger::init();
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
@@ -242,7 +242,7 @@ impl Application {
             queue,
             swap_chain,
             swap_chain_descriptor,
-            scheduler: SystemScheduler::new(),
+            scheduler: system_scheduler,
             render_passes: Vec::new(),
         };
 

@@ -9,6 +9,9 @@ use bevy::{render::*, asset::{Asset, AssetStorage}, math};
 fn main() {
     let universe = Universe::new();
     let mut world = universe.create_world();
+    let mut scheduler = SystemScheduler::<ApplicationStage>::new();
+    let transform_system_bundle = transform_system_bundle::build(&mut world);
+    scheduler.add_systems(ApplicationStage::Update, transform_system_bundle);
     // Create a query which finds all `Position` and `Velocity` components
     // let mut query = Read::<Transform>::query();
     let cube = Mesh::load(MeshType::Cube);
@@ -25,21 +28,21 @@ fn main() {
         (
             Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
             plane_handle.clone(),
-            LocalToWorld(math::translation(&math::vec3(0.0, 0.0, 0.0))),
+            LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0)
         ),
         // cubes
         (
             Material::new(math::vec4(0.1, 0.1, 0.6, 1.0)),
             mesh_handle.clone(),
-            LocalToWorld(math::translation(&math::vec3(1.5, 0.0, 1.0))),
-            Translation::new(0.0, 0.0, 0.0)
+            LocalToWorld::identity(),
+            Translation::new(1.5, 0.0, 1.0)
         ),
         (
             Material::new(math::vec4(0.6, 0.1, 0.1, 1.0)),
             mesh_handle,
-            LocalToWorld(math::translation(&math::vec3(-1.5, 0.0, 1.0))),
-            Translation::new(0.0, 0.0, 0.0)
+            LocalToWorld::identity(),
+            Translation::new(-1.5, 0.0, 1.0)
         ),
     ]);
     world.insert((), vec![
@@ -57,8 +60,8 @@ fn main() {
                 depth: 1.0 .. 20.0,
                 target_view: None,
             },
-            LocalToWorld(math::translation(&math::vec3(7.0, -5.0, 10.0))),
-            Translation::new(0.0, 0.0, 0.0)
+            LocalToWorld::identity(),
+            Translation::new(7.0, -5.0, 10.0)
         ),
         (
             Light {
@@ -73,8 +76,8 @@ fn main() {
                 depth: 1.0 .. 20.0,
                 target_view: None,
             },
-            LocalToWorld(math::translation(&math::vec3(-1.5, 0.0, 1.0))),
-            Translation::new(0.0, 0.0, 0.0)
+            LocalToWorld::identity(),
+            Translation::new(-5.0, 7.0, 10.0)
         ),
     ]);
     world.insert((), vec![
@@ -86,13 +89,13 @@ fn main() {
                 far: 20.0,
                 aspect_ratio: 1.0,
             }),
-            LocalToWorld(math::look_at_rh(&math::vec3(3.0, -10.0, 6.0),
-            &math::vec3(0.0, 0.0, 0.0),
-            &math::vec3(0.0, 0.0, 1.0),)),
-            Translation::new(0.0, 0.0, 0.0)
+            LocalToWorld(math::look_at_rh(
+                &math::vec3(3.0, -10.0, 6.0),
+                &math::vec3(0.0, 0.0, 0.0),
+                &math::vec3(0.0, 0.0, 1.0),)),
+            // Translation::new(0.0, 0.0, 0.0),
         )
     ]);
 
-    // let transform_system_bundle = transform_system_bundle::build(&mut world);
-    Application::run(universe, world);
+    Application::run(universe, world, scheduler);
 }

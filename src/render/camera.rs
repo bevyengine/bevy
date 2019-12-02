@@ -24,9 +24,9 @@ impl Camera {
 
     pub fn update(&mut self, width: u32, height: u32) {
         match &mut self.camera_type {
-            CameraType::Projection { mut aspect_ratio, fov, near, far } => {
-                aspect_ratio = width as f32 / height as f32;
-                self.view_matrix = get_projection_matrix(aspect_ratio, *fov, *near, *far)
+            CameraType::Projection { aspect_ratio, fov, near, far } => {
+                *aspect_ratio = width as f32 / height as f32;
+                self.view_matrix = get_projection_matrix(*fov, *aspect_ratio, *near, *far)
             }
         }
     }
