@@ -10,12 +10,13 @@ use legion::prelude::*;
 use std::sync::Arc;
 use std::mem;
 
-use crate::{temp::*, vertex::*, render::*, math, Transform};
+use crate::{temp::*, vertex::*, render::*, math, LocalToWorld, Translation, ApplicationStage};
 
 pub struct Application
 {
     pub universe: Universe,
     pub world: World,
+    pub scheduler: SystemScheduler<ApplicationStage>,
     pub shadow_pass: ShadowPass,
     pub forward_pass: ForwardPass,
     camera_position: math::Vec3,
@@ -26,35 +27,13 @@ impl Application {
     pub const MAX_LIGHTS: usize = 10;
 
     fn init(
+        universe: Universe,
+        mut world: World,
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
     ) -> (Self, Option<wgpu::CommandBuffer>)
     {
-        let universe = Universe::new();
-        let mut world = universe.create_world();
-
         let vertex_size = mem::size_of::<Vertex>();
-        let (cube_vertex_data, cube_index_data) = create_cube();
-        let cube_vertex_buf = Arc::new(
-            device.create_buffer_with_data(cube_vertex_data.as_bytes(), wgpu::BufferUsage::VERTEX),
-        );
-
-        let cube_index_buf = Arc::new(
-            device.create_buffer_with_data(cube_index_data.as_bytes(), wgpu::BufferUsage::INDEX),
-        );
-
-        let (plane_vertex_data, plane_index_data) = create_plane(7);
-        let plane_vertex_buf =
-            device.create_buffer_with_data(plane_vertex_data.as_bytes(), wgpu::BufferUsage::VERTEX);
-
-        let plane_index_buf =
-            device.create_buffer_with_data(plane_index_data.as_bytes(), wgpu::BufferUsage::INDEX);
-
-        let entity_uniform_size = mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
-        let plane_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            size: entity_uniform_size,
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
 
         let local_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -65,80 +44,32 @@ impl Application {
                 }],
             });
 
-        let mut entities = vec![{
+
+        let mut entities = <Write<CubeEnt>>::query();
+        for mut entity in entities.iter(&mut world) {
+            let entity_uniform_size = mem::size_of::<EntityUniforms>() as wgpu::BufferAddress;
+            let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
+                size: entity_uniform_size,
+                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            });
+
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &local_bind_group_layout,
                 bindings: &[wgpu::Binding {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer {
-                        buffer: &plane_uniform_buf,
+                        buffer: &uniform_buf,
                         range: 0 .. entity_uniform_size,
                     },
                 }],
             });
-            (CubeEnt {
-                rotation_speed: 0.0,
-                color: wgpu::Color::WHITE,
-                vertex_buf: Arc::new(plane_vertex_buf),
-                index_buf: Arc::new(plane_index_buf),
-                index_count: plane_index_data.len(),
-                bind_group,
-                uniform_buf: plane_uniform_buf,
-            }, Transform::new())
-        }];
+
+            entity.bind_group = Some(bind_group);
+            entity.uniform_buf = Some(uniform_buf);
+        }
 
         let camera_position = math::vec3(3.0f32, -10.0, 6.0);
         let camera_fov = math::quarter_pi();
-
-        struct CubeDesc {
-            offset: math::Vec3,
-            rotation: f32,
-        }
-        let cube_descs = [
-            CubeDesc {
-                offset: math::vec3(-2.0, -2.0, 2.0),
-                rotation: 0.1,
-            },
-            CubeDesc {
-                offset: math::vec3(2.0, -2.0, 2.0),
-                rotation: 0.2,
-            },
-            CubeDesc {
-                offset: math::vec3(-2.0, 2.0, 2.0),
-                rotation: 0.3,
-            },
-            CubeDesc {
-                offset: math::vec3(2.0, 2.0, 2.0),
-                rotation: 0.4,
-            },
-        ];
-
-        for cube in &cube_descs {
-            let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
-                size: entity_uniform_size,
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            });
-            entities.push((CubeEnt {
-                rotation_speed: cube.rotation,
-                color: wgpu::Color::GREEN,
-                vertex_buf: Arc::clone(&cube_vertex_buf),
-                index_buf: Arc::clone(&cube_index_buf),
-                index_count: cube_index_data.len(),
-                bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: &local_bind_group_layout,
-                    bindings: &[wgpu::Binding {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer {
-                            buffer: &uniform_buf,
-                            range: 0 .. entity_uniform_size,
-                        },
-                    }],
-                }),
-                uniform_buf,
-            }, Transform { value: math::translation(&cube.offset)}));
-        }
-
-        world.insert((), entities);
 
         let vb_desc = wgpu::VertexBufferDescriptor {
             stride: vertex_size as wgpu::BufferAddress,
@@ -227,6 +158,7 @@ impl Application {
         let this = Application {
             universe,
             world,
+            scheduler: SystemScheduler::new(),
             shadow_pass,
             forward_pass,
             camera_position,
@@ -272,7 +204,7 @@ impl Application {
             device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         {
-            let mut entities = <(Read<CubeEnt>, Read<Transform>)>::query();
+            let mut entities = <(Read<CubeEnt>, Read<LocalToWorld>)>::query();
             let entities_count = entities.iter(&mut self.world).count();
             let size = mem::size_of::<EntityUniforms>();
             let temp_buf_data = device
@@ -283,12 +215,12 @@ impl Application {
             {
                 slot.copy_from_slice(
                     EntityUniforms {
-                        model: transform.value.into(),
+                        model: transform.0.into(),
                         color: [
-                            entity.color.r as f32,
-                            entity.color.g as f32,
-                            entity.color.b as f32,
-                            entity.color.a as f32,
+                            entity.color.x as f32,
+                            entity.color.y as f32,
+                            entity.color.z as f32,
+                            entity.color.w as f32,
                         ],
                     }
                     .as_bytes(),
@@ -301,7 +233,7 @@ impl Application {
                 encoder.copy_buffer_to_buffer(
                     &temp_buf,
                     (i * size) as wgpu::BufferAddress,
-                    &entity.uniform_buf,
+                    entity.uniform_buf.as_ref().unwrap(),
                     0,
                     size as wgpu::BufferAddress,
                 );
@@ -315,7 +247,7 @@ impl Application {
     }
 
     #[allow(dead_code)]
-    pub fn run() {
+    pub fn run(universe: Universe, world: World) {
         env_logger::init();
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
@@ -354,7 +286,7 @@ impl Application {
         let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
     
         log::info!("Initializing the example...");
-        let (mut example, init_command_buf) = Application::init(&sc_desc, &device);
+        let (mut example, init_command_buf) = Application::init(universe, world, &sc_desc, &device);
         if let Some(command_buf) = init_command_buf {
             queue.submit(&[command_buf]);
         }
@@ -402,6 +334,7 @@ impl Application {
                     let frame = swap_chain
                         .get_next_texture()
                         .expect("Timeout when acquiring next swap chain texture");
+                    example.scheduler.execute(&mut example.world);
                     let command_buf = example.render(&frame, &device);
                     queue.submit(&[command_buf]);
                 }

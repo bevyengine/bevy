@@ -1,4 +1,4 @@
-use crate::{render::*, temp::*};
+use crate::{render::*, temp::*, asset::*, render::mesh::*};
 use legion::prelude::*;
 use std::{mem, sync::Arc};
 use zerocopy::{AsBytes, FromBytes};
@@ -21,7 +21,7 @@ pub struct ForwardPass {
 
 impl Pass for ForwardPass {
     fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World) { 
-        let mut entities = <Read<CubeEnt>>::query();
+        let mut mesh_query = <(Read<CubeEnt>, Read<Handle<Mesh>>)>::query();
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: &frame.view,
@@ -48,11 +48,16 @@ impl Pass for ForwardPass {
         pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.bind_group, &[]);
 
-        for entity in entities.iter_immutable(world) {
-            pass.set_bind_group(1, &entity.bind_group, &[]);
-            pass.set_index_buffer(&entity.index_buf, 0);
-            pass.set_vertex_buffers(0, &[(&entity.vertex_buf, 0)]);
-            pass.draw_indexed(0 .. entity.index_count as u32, 0, 0 .. 1);
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
+        for (entity, mesh) in mesh_query.iter_immutable(world) {
+            if let Some(mesh_asset) = mesh_storage.get(*mesh.id) {
+                mesh_asset.setup_buffers(device);
+                pass.set_bind_group(1, entity.bind_group.as_ref().unwrap(), &[]);
+                pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
+                pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
+                pass.draw_indexed(0 .. mesh_asset.indices.len() as u32, 0, 0 .. 1);
+
+            };
         }
     }
 }

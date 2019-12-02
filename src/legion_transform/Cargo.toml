@@ -1,0 +1,20 @@
+[package]
+name = "legion_transform"
+version = "0.3.0"
+authors = ["Alec Thilenius <alec@thilenius.com>"]
+edition = "2018"
+
+license = "MIT"
+
+[dependencies]
+legion = { git = "https://github.com/TomGillen/legion.git" }
+#legion = { path = "../legion" }
+log = "0.4"
+nalgebra = { version = "0.19.0" }
+rayon = "1.2"
+serde = { version = "1", features = ["derive"] }
+smallvec = "0.6"
+shrinkwraprs = "0.2"
+
+[dev-dependencies]
+env_logger = "0.7"
