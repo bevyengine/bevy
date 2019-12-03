@@ -2,9 +2,9 @@ use bevy::*;
 use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math, Schedulable};
 use rand::{rngs::StdRng, Rng, SeedableRng, random};
 
-fn build_wander_system(world: &mut World) -> Box<dyn Schedulable> {
+fn build_wander_system() -> Box<dyn Schedulable> {
     let mut rng = StdRng::from_entropy();
-
+    
     SystemBuilder::new("Wander")
         .read_resource::<Time>()
         .with_query(<(
@@ -31,7 +31,7 @@ fn build_wander_system(world: &mut World) -> Box<dyn Schedulable> {
         })
 }
 
-fn build_navigate_system(world: &mut World) -> Box<dyn Schedulable> {
+fn build_navigate_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("Navigate")
         .with_query(<(
             Read<Person>,
@@ -40,7 +40,7 @@ fn build_navigate_system(world: &mut World) -> Box<dyn Schedulable> {
             Write<NavigationPoint>,
         )>::query())
         .build(move |_, world, _, person_query| {
-            for (_, mut translation, mut velocity, mut navigation_point) in person_query.iter(world) {
+            for (_, translation, mut velocity, navigation_point) in person_query.iter(world) {
                 let distance = navigation_point.target - translation.vector;
                 if math::length(&distance) > 0.01 {
                     let direction = distance.normalize();
@@ -52,7 +52,7 @@ fn build_navigate_system(world: &mut World) -> Box<dyn Schedulable> {
         })
 }
 
-fn build_move_system(world: &mut World) -> Box<dyn Schedulable> {
+fn build_move_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("Move")
         .read_resource::<Time>()
         .with_query(<(
@@ -66,7 +66,7 @@ fn build_move_system(world: &mut World) -> Box<dyn Schedulable> {
         })
 }
 
-fn build_print_status_system(world: &mut World) -> Box<dyn Schedulable> {
+fn build_print_status_system() -> Box<dyn Schedulable> {
     let mut elapsed = 0.0;
     SystemBuilder::new("PrintStatus")
         .read_resource::<Time>()
@@ -85,19 +85,23 @@ fn build_print_status_system(world: &mut World) -> Box<dyn Schedulable> {
 
 fn build_spawner_system(world: &mut World) -> Box<dyn Schedulable> {
     let mesh_handle = {
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
+        let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
         mesh_storage.get_named("cube").unwrap()
     };
-    let mut elapsed = 0.0;
+
+    let duration = 1000000.0;
+    let mut elapsed = duration;
+    let batch_size = 1;
+
     SystemBuilder::new("Spawner")
         .read_resource::<Time>()
         .with_query(<(
             Read<Person>,
         )>::query())
-        .build(move |command_buffer, world, time , person_query| {
+        .build(move |command_buffer, _, time , _| {
             elapsed += time.delta_seconds;
-            if elapsed > 0.5 {
-                for i in 0..20 {
+            if elapsed > duration {
+                for _ in 0..batch_size {
                     spawn_person(command_buffer, mesh_handle.clone());
                 }
                 elapsed = 0.0;
@@ -132,17 +136,17 @@ fn main() {
     let plane = Mesh::load(MeshType::Plane{ size: 25 });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
-    let mesh_handle = mesh_storage.add(cube, "cube");
+    let _ = mesh_storage.add(cube, "cube");
     let plane_handle = mesh_storage.add(plane, "plane");
     world.resources.insert(mesh_storage);
 
     let transform_system_bundle = transform_system_bundle::build(&mut world);
     scheduler.add_systems(ApplicationStage::Update, transform_system_bundle);
-    scheduler.add_system(ApplicationStage::Update, build_wander_system(&mut world));
-    scheduler.add_system(ApplicationStage::Update, build_navigate_system(&mut world));
-    scheduler.add_system(ApplicationStage::Update, build_move_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_wander_system());
+    scheduler.add_system(ApplicationStage::Update, build_navigate_system());
+    scheduler.add_system(ApplicationStage::Update, build_move_system());
     scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
-    scheduler.add_system(ApplicationStage::Update, build_print_status_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_print_status_system());
 
     world.insert((), vec![
         // plane
@@ -158,7 +162,6 @@ fn main() {
         // lights
         (
             Light {
-                pos: math::vec3(7.0, -5.0, 10.0),
                 color: wgpu::Color {
                     r: 0.5,
                     g: 1.0,
@@ -174,7 +177,6 @@ fn main() {
         ),
         (
             Light {
-                pos: math::vec3(-5.0, 7.0, 10.0),
                 color: wgpu::Color {
                     r: 1.0,
                     g: 0.5,

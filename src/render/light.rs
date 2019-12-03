@@ -1,10 +1,9 @@
-use crate::{math, render::camera};
+use crate::{math, render::camera, Translation};
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
 
 
 pub struct Light {
-    pub pos: math::Vec3,
     pub color: wgpu::Color,
     pub fov: f32,
     pub depth: Range<f32>,
@@ -19,16 +18,16 @@ pub struct LightRaw {
     pub color: [f32; 4],
 }
 
-impl Light {
-    pub fn to_raw(&self, transform: &math::Mat4) -> LightRaw {
-        let proj = camera::get_projection_matrix(self.fov, 1.0, self.depth.start, self.depth.end) * transform;
+impl LightRaw {
+    pub fn from(light: &Light, transform: &math::Mat4, translation: &Translation) -> LightRaw {
+        let proj = camera::get_projection_matrix(light.fov, 1.0, light.depth.start, light.depth.end) * transform;
         LightRaw {
             proj: proj.into(),
-            pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
+            pos: [translation.vector.x, translation.vector.y, translation.vector.z, 1.0],
             color: [
-                self.color.r as f32,
-                self.color.g as f32,
-                self.color.b as f32,
+                light.color.r as f32,
+                light.color.g as f32,
+                light.color.b as f32,
                 1.0,
             ],
         }
