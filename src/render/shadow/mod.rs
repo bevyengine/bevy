@@ -2,7 +2,7 @@ use crate::{render::*, asset::*, LocalToWorld};
 use wgpu::{BindGroupLayout, Buffer, CommandEncoder, Device, VertexBufferDescriptor, SwapChainOutput, SwapChainDescriptor};
 use legion::prelude::*;
 use zerocopy::AsBytes;
-use std::{mem, sync::Arc};
+use std::{mem, sync::Arc, rc::Rc};
 
 pub struct ShadowPass {
     pub pipeline: wgpu::RenderPipeline,
@@ -11,6 +11,7 @@ pub struct ShadowPass {
     pub shadow_texture: wgpu::Texture,
     pub shadow_view: wgpu::TextureView,
     pub shadow_sampler: wgpu::Sampler,
+    pub local_bind_group_layout: Rc<BindGroupLayout>,
     pub light_uniform_buffer: Arc::<UniformBuffer>,
     pub lights_are_dirty: bool,
 }
@@ -45,6 +46,30 @@ impl Pass for ShadowPass {
                 0,
                 total_size as wgpu::BufferAddress,
             );
+        }
+
+        for mut material in <Write<Material>>::query().iter(world) {
+            if let None = material.bind_group {
+                let entity_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
+                let uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
+                    size: entity_uniform_size,
+                    usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                });
+
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &self.local_bind_group_layout,
+                    bindings: &[wgpu::Binding {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer {
+                            buffer: &uniform_buf,
+                            range: 0 .. entity_uniform_size,
+                        },
+                    }],
+                });
+
+                material.bind_group = Some(bind_group);
+                material.uniform_buf = Some(uniform_buf);
+            }
         }
 
         for (i, (mut light, _)) in <(Write<Light>, Read<LocalToWorld>)>::query().iter(world).enumerate() {
@@ -114,7 +139,7 @@ impl ShadowPass {
         depth: 1,
     };
 
-    pub fn new(device: &Device, _: &World, light_uniform_buffer: Arc::<UniformBuffer>, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, max_lights: u32) -> ShadowPass {
+    pub fn new(device: &Device, _: &World, light_uniform_buffer: Arc::<UniformBuffer>, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: Rc<BindGroupLayout>, max_lights: u32) -> ShadowPass {
         // Create pipeline layout
         let bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -222,6 +247,7 @@ impl ShadowPass {
             shadow_view,
             shadow_sampler,
             light_uniform_buffer,
+            local_bind_group_layout,
             lights_are_dirty: true,
         }
     }

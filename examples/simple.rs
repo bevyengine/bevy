@@ -1,27 +1,148 @@
 use bevy::*;
-use bevy::{render::*, asset::{Asset, AssetStorage}, math};
+use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math, Schedulable};
+use rand::{rngs::StdRng, Rng, SeedableRng, random};
 
-// fn build_move_system() -> Box<dyn Scheduleable> {
-//     SystemBuilder::new("MoveSystem")
-//         .with_query(<>)
-// }
+fn build_wander_system(world: &mut World) -> Box<dyn Schedulable> {
+    let mut rng = StdRng::from_entropy();
+
+    SystemBuilder::new("Wander")
+        .read_resource::<Time>()
+        .with_query(<(
+            Read<Person>,
+            Read<Translation>,
+            Write<Wander>,
+            Write<NavigationPoint>,
+        )>::query())
+        .build(move |_, world, time , person_query| {
+            for (_, translation, mut wander, mut navigation_point) in person_query.iter(world) {
+                wander.elapsed += time.delta_seconds;
+                if wander.elapsed >= wander.duration {
+                    let direction = math::vec3(
+                        rng.gen_range(-1.0, 1.0),
+                        rng.gen_range(-1.0, 1.0),
+                        rng.gen_range(0.0, 0.001),
+                    ).normalize();
+                    let distance = rng.gen_range(wander.distance_bounds.x, wander.distance_bounds.y);
+                    navigation_point.target = translation.vector + direction * distance;
+                    wander.elapsed = 0.0;
+                    wander.duration = rng.gen_range(wander.duration_bounds.x, wander.duration_bounds.y);
+                }
+            }
+        })
+}
+
+fn build_navigate_system(world: &mut World) -> Box<dyn Schedulable> {
+    SystemBuilder::new("Navigate")
+        .with_query(<(
+            Read<Person>,
+            Write<Translation>,
+            Write<Velocity>,
+            Write<NavigationPoint>,
+        )>::query())
+        .build(move |_, world, _, person_query| {
+            for (_, mut translation, mut velocity, mut navigation_point) in person_query.iter(world) {
+                let distance = navigation_point.target - translation.vector;
+                if math::length(&distance) > 0.01 {
+                    let direction = distance.normalize();
+                    velocity.value = direction * 2.0;
+                } else {
+                    velocity.value = math::vec3(0.0, 0.0, 0.0);
+                }
+            }
+        })
+}
+
+fn build_move_system(world: &mut World) -> Box<dyn Schedulable> {
+    SystemBuilder::new("Move")
+        .read_resource::<Time>()
+        .with_query(<(
+            Write<Translation>,
+            Read<Velocity>,
+        )>::query())
+        .build(move |_, world, time , person_query| {
+            for (mut translation, velocity) in person_query.iter(world) {
+                translation.vector += velocity.value * time.delta_seconds;
+            }
+        })
+}
+
+fn build_print_status_system(world: &mut World) -> Box<dyn Schedulable> {
+    let mut elapsed = 0.0;
+    SystemBuilder::new("PrintStatus")
+        .read_resource::<Time>()
+        .with_query(<(
+            Read<Person>,
+        )>::query())
+        .build(move |_, world, time , person_query| {
+            elapsed += time.delta_seconds;
+            if elapsed > 1.0 {
+                println!("fps: {}", if time.delta_seconds == 0.0 { 0.0 } else { 1.0 / time.delta_seconds });
+                println!("peeps: {}", person_query.iter(world).count());
+                elapsed = 0.0;
+            }
+        })
+}
+
+fn build_spawner_system(world: &mut World) -> Box<dyn Schedulable> {
+    let mesh_handle = {
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
+        mesh_storage.get_named("cube").unwrap()
+    };
+    let mut elapsed = 0.0;
+    SystemBuilder::new("Spawner")
+        .read_resource::<Time>()
+        .with_query(<(
+            Read<Person>,
+        )>::query())
+        .build(move |command_buffer, world, time , person_query| {
+            elapsed += time.delta_seconds;
+            if elapsed > 0.5 {
+                for i in 0..20 {
+                    spawn_person(command_buffer, mesh_handle.clone());
+                }
+                elapsed = 0.0;
+            }
+        })
+}
+
+struct Person {
+}
+
+struct Velocity {
+    pub value: math::Vec3,
+}
+
+struct NavigationPoint {
+    pub target: math::Vec3,
+}
+
+struct Wander {
+    pub duration_bounds: math::Vec2,
+    pub distance_bounds: math::Vec2,
+    pub duration: f32,
+    pub elapsed: f32,
+}
 
 fn main() {
     let universe = Universe::new();
     let mut world = universe.create_world();
     let mut scheduler = SystemScheduler::<ApplicationStage>::new();
-    let transform_system_bundle = transform_system_bundle::build(&mut world);
-    scheduler.add_systems(ApplicationStage::Update, transform_system_bundle);
-    // Create a query which finds all `Position` and `Velocity` components
-    // let mut query = Read::<Transform>::query();
+
     let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane{ size: 10 });
+    let plane = Mesh::load(MeshType::Plane{ size: 25 });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
-    // this currently breaks because Arcs cant be modified after they are cloned :(
-    let mesh_handle = mesh_storage.add(cube);
-    let plane_handle = mesh_storage.add(plane);
+    let mesh_handle = mesh_storage.add(cube, "cube");
+    let plane_handle = mesh_storage.add(plane, "plane");
     world.resources.insert(mesh_storage);
+
+    let transform_system_bundle = transform_system_bundle::build(&mut world);
+    scheduler.add_systems(ApplicationStage::Update, transform_system_bundle);
+    scheduler.add_system(ApplicationStage::Update, build_wander_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_navigate_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_move_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
+    scheduler.add_system(ApplicationStage::Update, build_print_status_system(&mut world));
 
     world.insert((), vec![
         // plane
@@ -31,20 +152,8 @@ fn main() {
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0)
         ),
-        // cubes
-        (
-            Material::new(math::vec4(0.1, 0.1, 0.6, 1.0)),
-            mesh_handle.clone(),
-            LocalToWorld::identity(),
-            Translation::new(1.5, 0.0, 1.0)
-        ),
-        (
-            Material::new(math::vec4(0.6, 0.1, 0.1, 1.0)),
-            mesh_handle,
-            LocalToWorld::identity(),
-            Translation::new(-1.5, 0.0, 1.0)
-        ),
     ]);
+
     world.insert((), vec![
         // lights
         (
@@ -80,6 +189,7 @@ fn main() {
             Translation::new(-5.0, 7.0, 10.0)
         ),
     ]);
+
     world.insert((), vec![
         // camera
         (
@@ -90,7 +200,7 @@ fn main() {
                 aspect_ratio: 1.0,
             }),
             LocalToWorld(math::look_at_rh(
-                &math::vec3(3.0, -10.0, 6.0),
+                &math::vec3(6.0, -40.0, 20.0),
                 &math::vec3(0.0, 0.0, 0.0),
                 &math::vec3(0.0, 0.0, 1.0),)),
             // Translation::new(0.0, 0.0, 0.0),
@@ -98,4 +208,29 @@ fn main() {
     ]);
 
     Application::run(universe, world, scheduler);
+}
+
+
+fn spawn_person(command_buffer: &mut CommandBuffer, mesh_handle: Handle<Mesh>) {
+    command_buffer.insert((), vec![
+        (
+            Person{},
+            Wander {
+                duration_bounds: math::vec2(3.0, 10.0),
+                distance_bounds: math::vec2(-50.0, 50.0),
+                elapsed: 0.0,
+                duration: 0.0,
+            },
+            NavigationPoint {
+                target: math::vec3(0.0, 0.0, 0.0),
+            },
+            Velocity {
+                value: math::vec3(0.0, 0.0, 0.0),
+            },
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
+            mesh_handle.clone(),
+            LocalToWorld::identity(),
+            Translation::new(0.0, 0.0, 1.0)
+        ),
+    ]);
 }

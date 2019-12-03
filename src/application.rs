@@ -9,11 +9,12 @@ use zerocopy::AsBytes;
 use legion::prelude::*;
 
 use std::sync::Arc;
+use std::rc::Rc;
 use std::mem;
 
 use wgpu::{Surface, Device, Queue, SwapChain, SwapChainDescriptor};
 
-use crate::{vertex::*, render::*, math, LocalToWorld, ApplicationStage};
+use crate::{vertex::*, render::*, math, LocalToWorld, ApplicationStage, Time};
 
 pub struct Application
 {
@@ -37,13 +38,13 @@ impl Application {
         (Self::MAX_LIGHTS * mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
 
         let local_bind_group_layout =
-            self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            Rc::new(self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 bindings: &[wgpu::BindGroupLayoutBinding {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                     ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 }],
-            });
+            }));
 
         let light_uniform_buffer = Arc::new(UniformBuffer {
             buffer: self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -54,29 +55,6 @@ impl Application {
             }),
             size: light_uniform_size,
         });
-
-        let mut materials = <Write<Material>>::query();
-        for mut material in materials.iter(&mut self.world) {
-            let entity_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
-            let uniform_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
-                size: entity_uniform_size,
-                usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            });
-
-            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &local_bind_group_layout,
-                bindings: &[wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &uniform_buf,
-                        range: 0 .. entity_uniform_size,
-                    },
-                }],
-            });
-
-            material.bind_group = Some(bind_group);
-            material.uniform_buf = Some(uniform_buf);
-        }
 
         let light_count = <Read<Light>>::query().iter(&mut self.world).count();
         let forward_uniforms = ForwardUniforms {
@@ -103,10 +81,23 @@ impl Application {
             ],
         };
 
-        let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, light_uniform_buffer.clone(), vb_desc.clone(), &local_bind_group_layout, Self::MAX_LIGHTS as u32);
+        let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, light_uniform_buffer.clone(), vb_desc.clone(), local_bind_group_layout.clone(), Self::MAX_LIGHTS as u32);
         let forward_pass = ForwardPass::new(&mut self.device, forward_uniforms, light_uniform_buffer.clone(), &shadow_pass, vb_desc, &local_bind_group_layout, &self.swap_chain_descriptor);
         self.render_passes.push(Box::new(shadow_pass));
         self.render_passes.push(Box::new(forward_pass));
+    }
+
+    fn update(&mut self) {
+        {
+            let mut time = self.world.resources.get_mut::<Time>().unwrap();
+            time.start();
+        }
+        self.scheduler.execute(&mut self.world);
+        self.render();
+        {
+            let mut time = self.world.resources.get_mut::<Time>().unwrap();
+            time.stop();
+        }
     }
 
     fn resize(&mut self, width: u32, height: u32)
@@ -137,7 +128,7 @@ impl Application {
         self.queue.submit(&[command_buffer]);
     }
 
-    fn update(&mut self, _: WindowEvent)
+    fn handle_event(&mut self, _: WindowEvent)
     {
     }
 
@@ -150,7 +141,7 @@ impl Application {
         let mut encoder =
             self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-        let mut entities = <(Read<Material>, Read<LocalToWorld>)>::query();
+        let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query();
         let entities_count = entities.iter(&mut self.world).count();
         let size = mem::size_of::<MaterialUniforms>();
         let temp_buf_data = self.device
@@ -174,7 +165,12 @@ impl Application {
         }
 
         let temp_buf = temp_buf_data.finish();
+        
+        for pass in self.render_passes.iter_mut() {
+            pass.render(&mut self.device, &mut frame, &mut encoder, &mut self.world);
+        }
 
+        // TODO: this should happen before rendering
         for (i, (entity, _)) in entities.iter(&mut self.world).enumerate() {
             encoder.copy_buffer_to_buffer(
                 &temp_buf,
@@ -185,16 +181,12 @@ impl Application {
             );
         }
 
-        for pass in self.render_passes.iter_mut() {
-            pass.render(&mut self.device, &mut frame, &mut encoder, &mut self.world);
-        }
-
         let command_buffer = encoder.finish();
         self.queue.submit(&[command_buffer]);
     }
 
     #[allow(dead_code)]
-    pub fn run(universe: Universe, world: World, system_scheduler: SystemScheduler<ApplicationStage>) {
+    pub fn run(universe: Universe, mut world: World, system_scheduler: SystemScheduler<ApplicationStage>) {
         env_logger::init();
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
@@ -217,6 +209,7 @@ impl Application {
         let (window, hidpi_factor, size, surface) = {
             let window = winit::window::Window::new(&event_loop).unwrap();
             window.set_title("bevy");
+            window.set_inner_size((1920, 1080).into());
             let hidpi_factor = window.hidpi_factor();
             let size = window.inner_size().to_physical(hidpi_factor);
             let surface = wgpu::Surface::create(&window);
@@ -231,7 +224,9 @@ impl Application {
             present_mode: wgpu::PresentMode::Vsync,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-    
+        
+        world.resources.insert(Time::new());
+
         log::info!("Initializing the example...");
         let mut app = Application {
             universe,
@@ -280,12 +275,11 @@ impl Application {
                         *control_flow = ControlFlow::Exit;
                     }
                     _ => {
-                        app.update(event);
+                        app.handle_event(event);
                     }
                 },
                 event::Event::EventsCleared => {
-                    app.scheduler.execute(&mut app.world);
-                    app.render();
+                    app.update();
                 }
                 _ => (),
             }

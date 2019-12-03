@@ -1,5 +1,8 @@
 use legion::schedule::Stage;
 
+pub mod time;
+pub use time::Time;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ApplicationStage {
     Update,

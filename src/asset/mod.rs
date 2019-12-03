@@ -1,4 +1,4 @@
-use std::{sync::{Arc, RwLock}, marker::PhantomData, ops::Drop};
+use std::{sync::{Arc, RwLock}, marker::PhantomData, ops::Drop, collections::HashMap};
 
 pub struct Handle<T>
 {
@@ -35,6 +35,7 @@ pub trait Asset<D> {
 pub struct AssetStorage<T, D> where T: Asset<D> {
     assets: Vec<Option<T>>,
     free_indices: Arc<RwLock<Vec<usize>>>,
+    names: HashMap<String, Arc<RwLock<usize>>>,
     marker: PhantomData<D>,
 }
 
@@ -43,24 +44,43 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
         AssetStorage {
             assets: Vec::new(),
             free_indices: Arc::new(RwLock::new(Vec::new())),
+            names: HashMap::new(),
             marker: PhantomData,
         }
     }
 
-    pub fn add(&mut self, asset: T) -> Handle<T> {
+    pub fn get_named(&self, name: &str) -> Option<Handle<T>> {
+        match self.names.get(name) {
+            Some(id) => {
+                Some(Handle {
+                    id: id.clone(),
+                    marker: PhantomData,
+                    free_indices: self.free_indices.clone()
+                })
+            },
+            None => None,
+        }
+    }
+
+    pub fn add(&mut self, asset: T, name: &str) -> Handle<T> {
         match self.free_indices.write().unwrap().pop() {
             Some(id) => {
                 self.assets[id as usize] = Some(asset);
+                let handle = Arc::new(RwLock::new(id));
+                self.names.insert(name.to_string(), handle.clone());
                 Handle {
-                    id: Arc::new(RwLock::new(id)),
+                    id: handle,
                     marker: PhantomData,
                     free_indices: self.free_indices.clone()
                 }
             },
             None => {
                 self.assets.push(Some(asset));
+                let id = self.assets.len() - 1;
+                let handle = Arc::new(RwLock::new(id));
+                self.names.insert(name.to_string(), handle.clone());
                 Handle {
-                    id: Arc::new(RwLock::new(self.assets.len() - 1)),
+                    id: handle,
                     marker: PhantomData,
                     free_indices: self.free_indices.clone()
                 }
