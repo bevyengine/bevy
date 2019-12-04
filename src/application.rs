@@ -147,17 +147,17 @@ impl Application {
         let temp_buf_data = self.device
             .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
 
-        for ((entity, transform), slot) in entities.iter(&mut self.world)
+        for ((material, transform), slot) in entities.iter(&mut self.world)
             .zip(temp_buf_data.data.chunks_exact_mut(size))
         {
             slot.copy_from_slice(
                 MaterialUniforms {
                     model: transform.0.into(),
                     color: [
-                        entity.color.x as f32,
-                        entity.color.y as f32,
-                        entity.color.z as f32,
-                        entity.color.w as f32,
+                        material.color.x as f32,
+                        material.color.y as f32,
+                        material.color.z as f32,
+                        material.color.w as f32,
                     ],
                 }
                 .as_bytes(),
