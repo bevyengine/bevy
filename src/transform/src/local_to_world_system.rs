@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::{components::*, ecs::prelude::*, math::Matrix4};
+use crate::{components::*, ecs::prelude::*, math::{Mat4, Vec3, Quat}};
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldUpdateSystem")
@@ -128,78 +128,83 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation
                     a.for_each_unchecked(world, |(mut ltw, translation)| {
-                        *ltw = LocalToWorld(translation.to_homogeneous());
+                        *ltw = LocalToWorld(Mat4::from_translation(translation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Rotation
                     b.for_each_unchecked(world, |(mut ltw, rotation)| {
-                        *ltw = LocalToWorld(rotation.to_homogeneous());
+                        *ltw = LocalToWorld(Mat4::from_quat(rotation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Scale
                     c.for_each_unchecked(world, |(mut ltw, scale)| {
-                        *ltw = LocalToWorld(Matrix4::new_scaling(scale.0));
+                        *ltw = LocalToWorld(Mat4::from_scale(Vec3::new(scale.0, scale.0, scale.0)));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // NonUniformScale
                     d.for_each_unchecked(world, |(mut ltw, non_uniform_scale)| {
-                        *ltw = LocalToWorld(Matrix4::new_nonuniform_scaling(&non_uniform_scale.0));
+                        *ltw = LocalToWorld(Mat4::from_scale(non_uniform_scale.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Translation + Rotation
                     e.for_each_unchecked(world, |(mut ltw, translation, rotation)| {
                         *ltw = LocalToWorld(
-                            rotation
-                                .to_homogeneous()
-                                .append_translation(&translation.vector),
+                            Mat4::from_rotation_translation(rotation.0, translation.0)
                         );
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Translation + Scale
                     f.for_each_unchecked(world, |(mut ltw, translation, scale)| {
-                        *ltw = LocalToWorld(translation.to_homogeneous().prepend_scaling(scale.0));
+                        *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                            Vec3::new(scale.0, scale.0, scale.0),
+                            Quat::default(),
+                            translation.0,
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Translation + NonUniformScale
                     g.for_each_unchecked(world, |(mut ltw, translation, non_uniform_scale)| {
-                        *ltw = LocalToWorld(
-                            translation
-                                .to_homogeneous()
-                                .prepend_nonuniform_scaling(&non_uniform_scale.0),
-                        );
+                        *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                            non_uniform_scale.0,
+                            Quat::default(),
+                            translation.0,
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Rotation + Scale
                     h.for_each_unchecked(world, |(mut ltw, rotation, scale)| {
-                        *ltw = LocalToWorld(rotation.to_homogeneous().prepend_scaling(scale.0));
+                        *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                            Vec3::new(scale.0, scale.0, scale.0),
+                            rotation.0,
+                            Vec3::default(),
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Rotation + NonUniformScale
                     i.for_each_unchecked(world, |(mut ltw, rotation, non_uniform_scale)| {
-                        *ltw = LocalToWorld(
-                            rotation
-                                .to_homogeneous()
-                                .prepend_nonuniform_scaling(&non_uniform_scale.0),
-                        );
+                        *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                            non_uniform_scale.0,
+                            rotation.0,
+                            Vec3::default(),
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Translation + Rotation + Scale
                     j.for_each_unchecked(world, |(mut ltw, translation, rotation, scale)| {
-                        *ltw = LocalToWorld(
-                            rotation
-                                .to_homogeneous()
-                                .append_translation(&translation.vector)
-                                .prepend_scaling(scale.0),
-                        );
+                        *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                            Vec3::new(scale.0, scale.0, scale.0),
+                            rotation.0,
+                            translation.0,
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -207,12 +212,11 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                     k.for_each_unchecked(
                         world,
                         |(mut ltw, translation, rotation, non_uniform_scale)| {
-                            *ltw = LocalToWorld(
-                                rotation
-                                    .to_homogeneous()
-                                    .append_translation(&translation.vector)
-                                    .prepend_nonuniform_scaling(&non_uniform_scale.0),
-                            );
+                            *ltw = LocalToWorld(Mat4::from_scale_rotation_translation(
+                                non_uniform_scale.0,
+                                rotation.0,
+                                translation.0,
+                            ));
                         },
                     );
                 });
@@ -236,6 +240,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::math::{Mat4, Quat, Vec3};
 
     #[test]
     fn correct_world_transformation() {
@@ -270,72 +275,92 @@ mod test {
         // Verify that each was transformed correctly.
         assert_eq!(
             world.get_component::<LocalToWorld>(translation).unwrap().0,
-            t.to_homogeneous()
+            Mat4::from_translation(t.0)
         );
         assert_eq!(
             world.get_component::<LocalToWorld>(rotation).unwrap().0,
-            r.to_homogeneous()
+            Mat4::from_quat(r.0)
         );
         assert_eq!(
             world.get_component::<LocalToWorld>(scale).unwrap().0,
-            Matrix4::new_scaling(s.0),
+            Mat4::from_scale(Vec3::new(s.0, s.0, s.0))
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(non_uniform_scale)
                 .unwrap()
                 .0,
-            Matrix4::new_nonuniform_scaling(&nus.0),
+            Mat4::from_scale(nus.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_and_rotation)
                 .unwrap()
                 .0,
-            r.to_homogeneous().append_translation(&t.vector),
+            Mat4::from_rotation_translation(r.0, t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_and_scale)
                 .unwrap()
                 .0,
-            t.to_homogeneous().prepend_scaling(s.0),
+            Mat4::from_scale_rotation_translation(
+                Vec3::new(s.0, s.0, s.0),
+                Quat::default(),
+                t.0
+            )
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_and_nus)
                 .unwrap()
                 .0,
-            t.to_homogeneous().prepend_nonuniform_scaling(&nus.0),
+            Mat4::from_scale_rotation_translation(
+                nus.0,
+                Quat::default(),
+                t.0
+            )
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(rotation_scale)
                 .unwrap()
                 .0,
-            r.to_homogeneous().prepend_scaling(s.0)
+            Mat4::from_scale_rotation_translation(
+                Vec3::new(s.0, s.0, s.0),
+                r.0,
+                Vec3::default()
+            )
         );
         assert_eq!(
             world.get_component::<LocalToWorld>(rotation_nus).unwrap().0,
-            r.to_homogeneous().prepend_nonuniform_scaling(&nus.0)
+            Mat4::from_scale_rotation_translation(
+                nus.0,
+                r.0,
+                Vec3::default()
+            )
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_rotation_scale)
                 .unwrap()
                 .0,
-            r.to_homogeneous()
-                .append_translation(&t.vector)
-                .prepend_scaling(s.0)
+            Mat4::from_scale_rotation_translation(
+                Vec3::new(s.0, s.0, s.0),
+                r.0,
+                t.0
+            )
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_rotation_nus)
                 .unwrap()
                 .0,
-            r.to_homogeneous()
-                .append_translation(&t.vector)
-                .prepend_nonuniform_scaling(&nus.0)
+            Mat4::from_scale_rotation_translation(
+                nus.0,
+                r.0,
+                t.0
+            )
         );
     }
 }

@@ -58,7 +58,7 @@ impl Application {
 
         let light_count = <Read<Light>>::query().iter(&mut self.world).count();
         let forward_uniforms = ForwardUniforms {
-            proj: math::Mat4::identity().into(),
+            proj: math::Mat4::identity().to_cols_array_2d(),
             num_lights: [light_count as u32, 0, 0, 0],
         };
 
@@ -110,7 +110,7 @@ impl Application {
 
         for (mut camera, local_to_world) in <(Write<Camera>, Read<LocalToWorld>)>::query().iter(&mut self.world) {
             camera.update(self.swap_chain_descriptor.width, self.swap_chain_descriptor.height);
-            let camera_matrix: [[f32; 4]; 4] = (camera.view_matrix * local_to_world.0).into();
+            let camera_matrix: [[f32; 4]; 4] = (camera.view_matrix * local_to_world.0).to_cols_array_2d();
             let temp_buf =
                 self.device.create_buffer_with_data(camera_matrix.as_bytes(), wgpu::BufferUsage::COPY_SRC);
             for pass in self.render_passes.iter() {
@@ -152,13 +152,8 @@ impl Application {
         {
             slot.copy_from_slice(
                 MaterialUniforms {
-                    model: transform.0.into(),
-                    color: [
-                        material.color.x as f32,
-                        material.color.y as f32,
-                        material.color.z as f32,
-                        material.color.w as f32,
-                    ],
+                    model: transform.0.to_cols_array_2d(),
+                    color: material.color.into(),
                 }
                 .as_bytes(),
             );

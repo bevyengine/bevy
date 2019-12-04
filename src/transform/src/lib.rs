@@ -1,5 +1,5 @@
 pub use legion as ecs;
-pub use nalgebra as math;
+pub use glam as math;
 
 pub mod components;
 pub mod hierarchy_maintenance_system;

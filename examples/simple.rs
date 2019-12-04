@@ -1,5 +1,5 @@
 use bevy::*;
-use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math, Schedulable, Parent};
+use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math::{Mat4, Quat, Vec3}, Schedulable, Parent};
 use rand::{rngs::StdRng, Rng, SeedableRng, random};
 
 fn build_wander_system() -> Box<dyn Schedulable> {
@@ -25,10 +25,10 @@ fn build_wander_system() -> Box<dyn Schedulable> {
                         rng.gen_range(-1.0, 1.0),
                         rng.gen_range(0.0, 0.001),
                     ).normalize();
-                    let distance = rng.gen_range(wander.distance_bounds.x, wander.distance_bounds.y);
-                    navigation_point.target = translation.vector + direction * distance;
+                    let distance = rng.gen_range(wander.distance_bounds.x(), wander.distance_bounds.y());
+                    navigation_point.target = translation.0 + direction * distance;
                     wander.elapsed = 0.0;
-                    wander.duration = rng.gen_range(wander.duration_bounds.x, wander.duration_bounds.y);
+                    wander.duration = rng.gen_range(wander.duration_bounds.x(), wander.duration_bounds.y());
                 }
             }
         })
@@ -46,8 +46,8 @@ fn build_navigate_system() -> Box<dyn Schedulable> {
             _, world,
             _, person_query| {
             for (_, translation, mut velocity, navigation_point) in person_query.iter(world) {
-                let distance = navigation_point.target - translation.vector;
-                if math::length(&distance) > 0.01 {
+                let distance = navigation_point.target - translation.0;
+                if distance.length() > 0.01 {
                     let direction = distance.normalize();
                     velocity.value = direction * 2.0;
                 } else {
@@ -66,7 +66,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
         )>::query())
         .build(move |_, world, time , person_query| {
             for (mut translation, velocity) in person_query.iter(world) {
-                translation.vector += velocity.value * time.delta_seconds;
+                translation.0 += velocity.value * time.delta_seconds;
             }
         })
 }
@@ -122,9 +122,8 @@ fn build_light_rotator_system() -> Box<dyn Schedulable> {
             Write<Rotation>,
         )>::query())
         .build(move |_, world, time , light_query| {
-            for (mut light, mut rotation) in light_query.iter(world) {
-                let euler = math::quat_euler_angles(rotation.quaternion());
-                *rotation =  Rotation::from_euler_angles(euler.z + time.delta_seconds, euler.y, euler.x);
+            for (_, mut rotation) in light_query.iter(world) {
+                rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
             }
         })
 }
@@ -235,15 +234,15 @@ fn main() {
         // camera
         (
             Camera::new(CameraType::Projection {
-                fov: math::quarter_pi(),
+                fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
-                far: 20.0,
+                far: 1000.0,
                 aspect_ratio: 1.0,
             }),
-            LocalToWorld(math::look_at_rh(
-                &math::vec3(6.0, -40.0, 20.0),
-                &math::vec3(0.0, 0.0, 0.0),
-                &math::vec3(0.0, 0.0, 1.0),)),
+            LocalToWorld(Mat4::look_at_rh(
+                Vec3::new(6.0, -40.0, 20.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 1.0),)),
             // Translation::new(0.0, 0.0, 0.0),
         )
     ]);

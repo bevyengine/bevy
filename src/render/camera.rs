@@ -1,4 +1,4 @@
-use crate::math;
+use crate::math::Mat4;
 
 pub enum CameraType {
     Projection {
@@ -10,14 +10,14 @@ pub enum CameraType {
 }
 
 pub struct Camera {
-    pub view_matrix: math::Mat4,
+    pub view_matrix: Mat4,
     pub camera_type: CameraType,
 }
 
 impl Camera {
     pub fn new(camera_type: CameraType) -> Self {
         Camera {
-            view_matrix: math::identity(),
+            view_matrix: Mat4::identity(),
             camera_type,
         }
     }
@@ -32,17 +32,17 @@ impl Camera {
     }
 }
 
-pub fn get_projection_matrix(fov: f32, aspect_ratio: f32, near: f32, far: f32) -> math::Mat4 {
-    let projection = math::perspective(aspect_ratio, fov, near, far);
+pub fn get_projection_matrix(fov: f32, aspect_ratio: f32, near: f32, far: f32) -> Mat4 {
+    let projection = Mat4::perspective_rh_gl(fov, aspect_ratio, near, far);
 
     opengl_to_wgpu_matrix() * projection
 }
 
-pub fn opengl_to_wgpu_matrix() -> math::Mat4 {
-    math::mat4(
+pub fn opengl_to_wgpu_matrix() -> Mat4 {
+    Mat4::from_cols_array(&[
         1.0, 0.0, 0.0, 0.0,
         0.0, -1.0, 0.0, 0.0,
         0.0, 0.0, 0.5, 0.0,
         0.0, 0.0, 0.5, 1.0,
-    )
+    ])
 }

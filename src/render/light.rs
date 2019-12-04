@@ -20,10 +20,11 @@ pub struct LightRaw {
 
 impl LightRaw {
     pub fn from(light: &Light, transform: &math::Mat4, translation: &Translation) -> LightRaw {
-        let proj = camera::get_projection_matrix(light.fov, 1.0, light.depth.start, light.depth.end) * transform;
+        let proj = camera::get_projection_matrix(light.fov, 1.0, light.depth.start, light.depth.end) * *transform;
+        let (x, y, z) = translation.0.into();
         LightRaw {
-            proj: proj.into(),
-            pos: [translation.vector.x, translation.vector.y, translation.vector.z, 1.0],
+            proj: proj.to_cols_array_2d(),
+            pos: [x, y, z, 1.0],
             color: [
                 light.color.r as f32,
                 light.color.g as f32,

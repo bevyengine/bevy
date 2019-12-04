@@ -1,25 +1,24 @@
-use crate::math::Matrix4;
+use crate::math::Mat4;
 use shrinkwraprs::Shrinkwrap;
 use std::fmt;
 
 #[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
 #[shrinkwrap(mutable)]
-pub struct LocalToWorld(pub Matrix4<f32>);
+pub struct LocalToParent(pub Mat4);
 
-impl LocalToWorld {
-    #[inline(always)]
+impl LocalToParent {
     pub fn identity() -> Self {
-        Self(Matrix4::identity())
+        Self(Mat4::identity())
     }
 }
 
-impl Default for LocalToWorld {
+impl Default for LocalToParent {
     fn default() -> Self {
         Self::identity()
     }
 }
 
-impl fmt::Display for LocalToWorld {
+impl fmt::Display for LocalToParent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }

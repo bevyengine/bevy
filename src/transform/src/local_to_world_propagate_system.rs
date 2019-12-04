@@ -59,6 +59,7 @@ mod test {
     use crate::{
         hierarchy_maintenance_system, local_to_parent_system, local_to_world_propagate_system,
         local_to_world_system,
+        math::{Vec3, Mat4}
     };
 
     #[test]
@@ -120,14 +121,14 @@ mod test {
 
         assert_eq!(
             world.get_component::<LocalToWorld>(e1).unwrap().0,
-            Translation::new(1.0, 0.0, 0.0).to_homogeneous()
-                * Translation::new(0.0, 2.0, 0.0).to_homogeneous()
+            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
         );
 
         assert_eq!(
             world.get_component::<LocalToWorld>(e2).unwrap().0,
-            Translation::new(1.0, 0.0, 0.0).to_homogeneous()
-                * Translation::new(0.0, 0.0, 3.0).to_homogeneous()
+            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
     }
 }

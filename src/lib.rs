@@ -14,4 +14,4 @@ pub use legion::prelude::*;
 pub use legion::schedule::Schedulable;
 pub use legion_transform::prelude::*;
 pub use legion_transform::transform_system_bundle;
-pub use nalgebra_glm as math;
+pub use glam as math;
