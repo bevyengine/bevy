@@ -89,9 +89,9 @@ fn build_spawner_system(world: &mut World) -> Box<dyn Schedulable> {
         mesh_storage.get_named("cube").unwrap()
     };
 
-    let duration = 1000000.0;
+    let duration = 10000.0;
     let mut elapsed = duration;
-    let batch_size = 1;
+    let batch_size = 5;
 
     SystemBuilder::new("Spawner")
         .read_resource::<Time>()
@@ -136,7 +136,7 @@ fn main() {
     let plane = Mesh::load(MeshType::Plane{ size: 25 });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
-    let _ = mesh_storage.add(cube, "cube");
+    let _cube_handle = mesh_storage.add(cube, "cube");
     let plane_handle = mesh_storage.add(plane, "plane");
     world.resources.insert(mesh_storage);
 
@@ -163,8 +163,8 @@ fn main() {
         (
             Light {
                 color: wgpu::Color {
-                    r: 0.5,
-                    g: 1.0,
+                    r: 0.8,
+                    g: 0.8,
                     b: 0.5,
                     a: 1.0,
                 },
@@ -172,24 +172,29 @@ fn main() {
                 depth: 1.0 .. 20.0,
                 target_view: None,
             },
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
+            // cube_handle.clone(),
             LocalToWorld::identity(),
-            Translation::new(7.0, -5.0, 10.0)
+            Translation::new(4.0, -4.0, 5.0),
+            Rotation::from_euler_angles(-math::pi::<f32>() / 2.0, 0.0, 0.0)
         ),
-        (
-            Light {
-                color: wgpu::Color {
-                    r: 1.0,
-                    g: 0.5,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(45.0),
-                depth: 1.0 .. 20.0,
-                target_view: None,
-            },
-            LocalToWorld::identity(),
-            Translation::new(-5.0, 7.0, 10.0)
-        ),
+        // (
+        //     Light {
+        //         color: wgpu::Color {
+        //             r: 1.0,
+        //             g: 0.5,
+        //             b: 0.5,
+        //             a: 1.0,
+        //         },
+        //         fov: f32::to_radians(45.0),
+        //         depth: 1.0 .. 20.0,
+        //         target_view: None,
+        //     },
+        //     // Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
+        //     // cube_handle.clone(),
+        //     LocalToWorld::identity(),
+        //     Translation::new(-5.0, 7.0, 10.0)
+        // ),
     ]);
 
     world.insert((), vec![

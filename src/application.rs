@@ -209,7 +209,7 @@ impl Application {
         let (window, hidpi_factor, size, surface) = {
             let window = winit::window::Window::new(&event_loop).unwrap();
             window.set_title("bevy");
-            window.set_inner_size((1920, 1080).into());
+            window.set_inner_size((1280, 720).into());
             let hidpi_factor = window.hidpi_factor();
             let size = window.inner_size().to_physical(hidpi_factor);
             let surface = wgpu::Surface::create(&window);
