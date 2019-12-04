@@ -1,5 +1,5 @@
 use bevy::*;
-use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math, Schedulable};
+use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math, Schedulable, Parent};
 use rand::{rngs::StdRng, Rng, SeedableRng, random};
 
 fn build_wander_system() -> Box<dyn Schedulable> {
@@ -13,7 +13,10 @@ fn build_wander_system() -> Box<dyn Schedulable> {
             Write<Wander>,
             Write<NavigationPoint>,
         )>::query())
-        .build(move |_, world, time , person_query| {
+        .build(move |
+            _, world,
+            time ,
+            person_query| {
             for (_, translation, mut wander, mut navigation_point) in person_query.iter(world) {
                 wander.elapsed += time.delta_seconds;
                 if wander.elapsed >= wander.duration {
@@ -39,7 +42,9 @@ fn build_navigate_system() -> Box<dyn Schedulable> {
             Write<Velocity>,
             Write<NavigationPoint>,
         )>::query())
-        .build(move |_, world, _, person_query| {
+        .build(move |
+            _, world,
+            _, person_query| {
             for (_, translation, mut velocity, navigation_point) in person_query.iter(world) {
                 let distance = navigation_point.target - translation.vector;
                 if math::length(&distance) > 0.01 {
@@ -109,6 +114,21 @@ fn build_spawner_system(world: &mut World) -> Box<dyn Schedulable> {
         })
 }
 
+fn build_light_rotator_system() -> Box<dyn Schedulable> {
+    SystemBuilder::new("LightRotator")
+        .read_resource::<Time>()
+        .with_query(<(
+            Write<Light>,
+            Write<Rotation>,
+        )>::query())
+        .build(move |_, world, time , light_query| {
+            for (mut light, mut rotation) in light_query.iter(world) {
+                let euler = math::quat_euler_angles(rotation.quaternion());
+                *rotation =  Rotation::from_euler_angles(euler.z + time.delta_seconds, euler.y, euler.x);
+            }
+        })
+}
+
 struct Person {
 }
 
@@ -145,6 +165,7 @@ fn main() {
     scheduler.add_system(ApplicationStage::Update, build_wander_system());
     scheduler.add_system(ApplicationStage::Update, build_navigate_system());
     scheduler.add_system(ApplicationStage::Update, build_move_system());
+    scheduler.add_system(ApplicationStage::Update, build_light_rotator_system());
     scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
     scheduler.add_system(ApplicationStage::Update, build_print_status_system());
 
@@ -158,7 +179,7 @@ fn main() {
         ),
     ]);
 
-    world.insert((), vec![
+    let x = *world.insert((), vec![
         // lights
         (
             Light {
@@ -169,14 +190,14 @@ fn main() {
                     a: 1.0,
                 },
                 fov: f32::to_radians(60.0),
-                depth: 1.0 .. 20.0,
+                depth: 0.1 .. 50.0,
                 target_view: None,
             },
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
-            // cube_handle.clone(),
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+            // _cube_handle.clone(),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
-            Rotation::from_euler_angles(-math::pi::<f32>() / 2.0, 0.0, 0.0)
+            Rotation::from_euler_angles(0.0, 0.0, 0.0)
         ),
         // (
         //     Light {
@@ -195,9 +216,22 @@ fn main() {
         //     LocalToWorld::identity(),
         //     Translation::new(-5.0, 7.0, 10.0)
         // ),
+    ]).first().unwrap();
+
+    world.insert((), vec![
+        (
+            Material::new(math::vec4(1.0, 1.0, 1.0, 1.0)),
+            _cube_handle.clone(),
+            LocalToWorld::identity(),
+            Translation::new(0.0, 0.0, 3.0),
+            Scale(1.0),
+            Parent(x),
+            LocalToParent::identity(),
+        )
     ]);
 
     world.insert((), vec![
+        
         // camera
         (
             Camera::new(CameraType::Projection {
