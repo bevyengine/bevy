@@ -250,7 +250,6 @@ fn main() {
     Application::run(universe, world, scheduler);
 }
 
-
 fn spawn_person(command_buffer: &mut CommandBuffer, mesh_handle: Handle<Mesh>) {
     command_buffer.insert((), vec![
         (

@@ -14,7 +14,7 @@ use std::mem;
 
 use wgpu::{Surface, Device, Queue, SwapChain, SwapChainDescriptor};
 
-use crate::{vertex::*, render::*, math, LocalToWorld, ApplicationStage, Time};
+use crate::{vertex::*, render::*, LocalToWorld, ApplicationStage, Time};
 
 pub struct Application
 {
@@ -56,14 +56,7 @@ impl Application {
             size: light_uniform_size,
         });
 
-        let light_count = <Read<Light>>::query().iter(&mut self.world).count();
-        let forward_uniforms = ForwardUniforms {
-            proj: math::Mat4::identity().to_cols_array_2d(),
-            num_lights: [light_count as u32, 0, 0, 0],
-        };
-
         let vertex_size = mem::size_of::<Vertex>();
-
         let vb_desc = wgpu::VertexBufferDescriptor {
             stride: vertex_size as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
@@ -82,7 +75,7 @@ impl Application {
         };
 
         let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, light_uniform_buffer.clone(), vb_desc.clone(), local_bind_group_layout.clone(), Self::MAX_LIGHTS as u32);
-        let forward_pass = ForwardPass::new(&mut self.device, forward_uniforms, light_uniform_buffer.clone(), &shadow_pass, vb_desc, &local_bind_group_layout, &self.swap_chain_descriptor);
+        let forward_pass = ForwardPass::new(&mut self.device, &self.world, light_uniform_buffer.clone(), &shadow_pass, vb_desc, &local_bind_group_layout, &self.swap_chain_descriptor);
         self.render_passes.push(Box::new(shadow_pass));
         self.render_passes.push(Box::new(forward_pass));
     }
@@ -105,17 +98,19 @@ impl Application {
         self.swap_chain_descriptor.width = width;
         self.swap_chain_descriptor.height = height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+
         let mut encoder =
             self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         for (mut camera, local_to_world) in <(Write<Camera>, Read<LocalToWorld>)>::query().iter(&mut self.world) {
             camera.update(self.swap_chain_descriptor.width, self.swap_chain_descriptor.height);
             let camera_matrix: [[f32; 4]; 4] = (camera.view_matrix * local_to_world.0).to_cols_array_2d();
-            let temp_buf =
+            let matrix_size = mem::size_of::<[[f32; 4]; 4]>() as u64;
+            let temp_camera_buffer =
                 self.device.create_buffer_with_data(camera_matrix.as_bytes(), wgpu::BufferUsage::COPY_SRC);
             for pass in self.render_passes.iter() {
                 if let Some(buffer) = pass.get_camera_uniform_buffer() {
-                    encoder.copy_buffer_to_buffer(&temp_buf, 0, buffer, 0, 64);
+                    encoder.copy_buffer_to_buffer(&temp_camera_buffer, 0, buffer, 0, matrix_size);
                 }
             }
         }

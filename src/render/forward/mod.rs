@@ -1,4 +1,4 @@
-use crate::{render::*, asset::*, render::mesh::*};
+use crate::{render::*, asset::*, render::mesh::*, math};
 use legion::prelude::*;
 use std::{mem, sync::Arc};
 use zerocopy::{AsBytes, FromBytes};
@@ -73,7 +73,7 @@ impl Pass for ForwardPass {
 impl ForwardPass {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
     
-    pub fn new(device: &Device, forward_uniforms: ForwardUniforms, light_uniform_buffer: Arc::<UniformBuffer>, shadow_pass: &shadow::ShadowPass, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, swap_chain_descriptor: &SwapChainDescriptor) -> ForwardPass {
+    pub fn new(device: &Device, world: &World, light_uniform_buffer: Arc::<UniformBuffer>, shadow_pass: &shadow::ShadowPass, vertex_buffer_descriptor: VertexBufferDescriptor, local_bind_group_layout: &BindGroupLayout, swap_chain_descriptor: &SwapChainDescriptor) -> ForwardPass {
         let vs_bytes = shader::load_glsl(
             include_str!("forward.vert"),
             shader::ShaderStage::Vertex,
@@ -111,6 +111,12 @@ impl ForwardPass {
                 },
             ],
         });
+
+        let light_count = <Read<Light>>::query().iter_immutable(world).count();
+        let forward_uniforms = ForwardUniforms {
+            proj: math::Mat4::identity().to_cols_array_2d(),
+            num_lights: [light_count as u32, 0, 0, 0],
+        };
 
         let uniform_size = mem::size_of::<ForwardUniforms>() as wgpu::BufferAddress;
         let forward_uniform_buffer = device.create_buffer_with_data(
