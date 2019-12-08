@@ -1,6 +1,7 @@
 use bevy::*;
 use bevy::{render::*, asset::{Asset, AssetStorage, Handle}, math::{Mat4, Quat, Vec3}, Schedulable, Parent};
 use rand::{rngs::StdRng, Rng, SeedableRng, random};
+use std::collections::VecDeque;
 
 fn build_wander_system() -> Box<dyn Schedulable> {
     let mut rng = StdRng::from_entropy();
@@ -73,6 +74,10 @@ fn build_move_system() -> Box<dyn Schedulable> {
 
 fn build_print_status_system() -> Box<dyn Schedulable> {
     let mut elapsed = 0.0;
+    let mut frame_time_total = 0.0;
+    let mut frame_time_count = 0;
+    let mut frame_time_max = 10;
+    let mut frame_time_values = VecDeque::new();
     SystemBuilder::new("PrintStatus")
         .read_resource::<Time>()
         .with_query(<(
@@ -80,8 +85,18 @@ fn build_print_status_system() -> Box<dyn Schedulable> {
         )>::query())
         .build(move |_, world, time , person_query| {
             elapsed += time.delta_seconds;
+            frame_time_values.push_front(time.delta_seconds);
+            frame_time_total += time.delta_seconds;
+            frame_time_count += 1;
+            if frame_time_count > frame_time_max {
+                frame_time_count = frame_time_max;
+                frame_time_total -= frame_time_values.pop_back().unwrap();
+            }
             if elapsed > 1.0 {
-                println!("fps: {}", if time.delta_seconds == 0.0 { 0.0 } else { 1.0 / time.delta_seconds });
+                // println!("fps: {}", if time.delta_seconds == 0.0 { 0.0 } else { 1.0 / time.delta_seconds });
+                if frame_time_count > 0 && frame_time_total > 0.0  {
+                    println!("fps: {}", 1.0 / (frame_time_total / frame_time_count as f32))
+                }
                 println!("peeps: {}", person_query.iter(world).count());
                 elapsed = 0.0;
             }
