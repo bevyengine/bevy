@@ -76,7 +76,7 @@ fn build_print_status_system() -> Box<dyn Schedulable> {
     let mut elapsed = 0.0;
     let mut frame_time_total = 0.0;
     let mut frame_time_count = 0;
-    let mut frame_time_max = 10;
+    let frame_time_max = 10;
     let mut frame_time_values = VecDeque::new();
     SystemBuilder::new("PrintStatus")
         .read_resource::<Time>()
