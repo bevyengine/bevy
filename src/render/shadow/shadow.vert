@@ -1,6 +1,6 @@
 #version 450
 
-layout(location = 0) in ivec4 a_Pos;
+layout(location = 0) in vec4 a_Pos;
 
 layout(set = 0, binding = 0) uniform Globals {
     mat4 u_ViewProj;

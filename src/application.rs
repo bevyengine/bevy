@@ -62,13 +62,13 @@ impl Application {
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Char4,
+                    format: wgpu::VertexFormat::Float4,
                     offset: 0,
                     shader_location: 0,
                 },
                 wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Char4,
-                    offset: 4 * 1,
+                    format: wgpu::VertexFormat::Float4,
+                    offset: 4 * 4,
                     shader_location: 1,
                 },
             ],

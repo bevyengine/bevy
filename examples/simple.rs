@@ -167,7 +167,7 @@ fn main() {
     let mut scheduler = SystemScheduler::<ApplicationStage>::new();
 
     let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane{ size: 25 });
+    let plane = Mesh::load(MeshType::Plane{ size: 24.5 });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
     let _cube_handle = mesh_storage.add(cube, "cube");

@@ -5,7 +5,7 @@ use zerocopy::AsBytes;
 pub enum MeshType {
     Cube,
     Plane {
-        size: i8
+        size: f32
     }
 }
 
@@ -44,45 +44,38 @@ impl Asset<MeshType> for Mesh {
     }
 }
 
-pub fn vertex(pos: [i8; 3], nor: [i8; 3]) -> Vertex {
-    Vertex {
-        pos: [pos[0], pos[1], pos[2], 1],
-        normal: [nor[0], nor[1], nor[2], 0],
-    }
-}
-
 pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
         // top (0, 0, 1)
-        vertex([-1, -1, 1], [0, 0, 1]),
-        vertex([1, -1, 1], [0, 0, 1]),
-        vertex([1, 1, 1], [0, 0, 1]),
-        vertex([-1, 1, 1], [0, 0, 1]),
+        Vertex::from(([-1, -1, 1], [0, 0, 1])),
+        Vertex::from(([1, -1, 1], [0, 0, 1])),
+        Vertex::from(([1, 1, 1], [0, 0, 1])),
+        Vertex::from(([-1, 1, 1], [0, 0, 1])),
         // bottom (0, 0, -1)
-        vertex([-1, 1, -1], [0, 0, -1]),
-        vertex([1, 1, -1], [0, 0, -1]),
-        vertex([1, -1, -1], [0, 0, -1]),
-        vertex([-1, -1, -1], [0, 0, -1]),
+        Vertex::from(([-1, 1, -1], [0, 0, -1])),
+        Vertex::from(([1, 1, -1], [0, 0, -1])),
+        Vertex::from(([1, -1, -1], [0, 0, -1])),
+        Vertex::from(([-1, -1, -1], [0, 0, -1])),
         // right (1, 0, 0)
-        vertex([1, -1, -1], [1, 0, 0]),
-        vertex([1, 1, -1], [1, 0, 0]),
-        vertex([1, 1, 1], [1, 0, 0]),
-        vertex([1, -1, 1], [1, 0, 0]),
+        Vertex::from(([1, -1, -1], [1, 0, 0])),
+        Vertex::from(([1, 1, -1], [1, 0, 0])),
+        Vertex::from(([1, 1, 1], [1, 0, 0])),
+        Vertex::from(([1, -1, 1], [1, 0, 0])),
         // left (-1, 0, 0)
-        vertex([-1, -1, 1], [-1, 0, 0]),
-        vertex([-1, 1, 1], [-1, 0, 0]),
-        vertex([-1, 1, -1], [-1, 0, 0]),
-        vertex([-1, -1, -1], [-1, 0, 0]),
+        Vertex::from(([-1, -1, 1], [-1, 0, 0])),
+        Vertex::from(([-1, 1, 1], [-1, 0, 0])),
+        Vertex::from(([-1, 1, -1], [-1, 0, 0])),
+        Vertex::from(([-1, -1, -1], [-1, 0, 0])),
         // front (0, 1, 0)
-        vertex([1, 1, -1], [0, 1, 0]),
-        vertex([-1, 1, -1], [0, 1, 0]),
-        vertex([-1, 1, 1], [0, 1, 0]),
-        vertex([1, 1, 1], [0, 1, 0]),
+        Vertex::from(([1, 1, -1], [0, 1, 0])),
+        Vertex::from(([-1, 1, -1], [0, 1, 0])),
+        Vertex::from(([-1, 1, 1], [0, 1, 0])),
+        Vertex::from(([1, 1, 1], [0, 1, 0])),
         // back (0, -1, 0)
-        vertex([1, -1, 1], [0, -1, 0]),
-        vertex([-1, -1, 1], [0, -1, 0]),
-        vertex([-1, -1, -1], [0, -1, 0]),
-        vertex([1, -1, -1], [0, -1, 0]),
+        Vertex::from(([1, -1, 1], [0, -1, 0])),
+        Vertex::from(([-1, -1, 1], [0, -1, 0])),
+        Vertex::from(([-1, -1, -1], [0, -1, 0])),
+        Vertex::from(([1, -1, -1], [0, -1, 0])),
     ];
 
     let index_data: &[u16] = &[
@@ -97,12 +90,12 @@ pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data.to_vec(), index_data.to_vec())
 }
 
-pub fn create_plane(size: i8) -> (Vec<Vertex>, Vec<u16>) {
+pub fn create_plane(size: f32) -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
-        vertex([size, -size, 0], [0, 0, 1]),
-        vertex([size, size, 0], [0, 0, 1]),
-        vertex([-size, -size, 0], [0, 0, 1]),
-        vertex([-size, size, 0], [0, 0, 1]),
+        Vertex::from(([size, -size, 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([size, size, 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([-size, -size, 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([-size, size, 0.0], [0.0, 0.0, 1.0])),
     ];
 
     let index_data: &[u16] = &[0, 1, 2, 2, 1, 3];
