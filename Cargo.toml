@@ -15,3 +15,6 @@ zerocopy = "0.2"
 log = "0.4"
 env_logger = "0.7"
 rand = "0.7.2"
+
+[profile.release]
+debug = true

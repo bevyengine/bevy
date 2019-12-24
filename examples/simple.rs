@@ -109,9 +109,9 @@ fn build_spawner_system(world: &mut World) -> Box<dyn Schedulable> {
         mesh_storage.get_named("cube").unwrap()
     };
 
-    let duration = 10000.0;
+    let duration = 0.5;
     let mut elapsed = duration;
-    let batch_size = 5;
+    let batch_size = 100;
 
     SystemBuilder::new("Spawner")
         .read_resource::<Time>()

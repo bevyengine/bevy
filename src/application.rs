@@ -8,8 +8,6 @@ use winit::{
 use zerocopy::AsBytes;
 use legion::prelude::*;
 
-use std::sync::Arc;
-use std::rc::Rc;
 use std::mem;
 
 use wgpu::{Surface, Device, Queue, SwapChain, SwapChainDescriptor};
@@ -27,37 +25,14 @@ pub struct Application
     pub swap_chain: SwapChain,
     pub swap_chain_descriptor: SwapChainDescriptor,
     pub scheduler: SystemScheduler<ApplicationStage>,
+    pub render_resources: RenderResources,
     pub render_passes: Vec<Box<dyn Pass>>,
 }
 
 impl Application {
-    pub const MAX_LIGHTS: usize = 10;
-
     fn add_default_passes(&mut self) {
-        let light_uniform_size =
-        (Self::MAX_LIGHTS * mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
-
-        let local_bind_group_layout =
-            Rc::new(self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[wgpu::BindGroupLayoutBinding {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                }],
-            }));
-
-        let light_uniform_buffer = Arc::new(UniformBuffer {
-            buffer: self.device.create_buffer(&wgpu::BufferDescriptor {
-                size: light_uniform_size,
-                usage: wgpu::BufferUsage::UNIFORM
-                    | wgpu::BufferUsage::COPY_SRC
-                    | wgpu::BufferUsage::COPY_DST,
-            }),
-            size: light_uniform_size,
-        });
-
         let vertex_size = mem::size_of::<Vertex>();
-        let vb_desc = wgpu::VertexBufferDescriptor {
+        let vertex_buffer_descriptor = wgpu::VertexBufferDescriptor {
             stride: vertex_size as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
@@ -74,9 +49,11 @@ impl Application {
             ],
         };
 
-        let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, light_uniform_buffer.clone(), vb_desc.clone(), local_bind_group_layout.clone(), Self::MAX_LIGHTS as u32);
-        let forward_pass = ForwardPass::new(&mut self.device, &self.world, light_uniform_buffer.clone(), &shadow_pass, vb_desc, &local_bind_group_layout, &self.swap_chain_descriptor);
-        self.render_passes.push(Box::new(shadow_pass));
+        // let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, &self.render_resources, vertex_buffer_descriptor.clone());
+        // let forward_shadow_pass = ForwardShadowPass::new(&mut self.device, &self.world, &self.render_resources, &shadow_pass, vertex_buffer_descriptor.clone(), &self.swap_chain_descriptor);
+        let forward_pass = ForwardPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor, &self.swap_chain_descriptor);
+        // self.render_passes.push(Box::new(shadow_pass));
+        // self.render_passes.push(Box::new(forward_shadow_pass));
         self.render_passes.push(Box::new(forward_pass));
     }
 
@@ -154,18 +131,44 @@ impl Application {
             );
         }
 
+        self.render_resources.update_lights(&self.device, &mut encoder, &mut self.world);
+
+        for mut material in <Write<Material>>::query().iter(&mut self.world) {
+            if let None = material.bind_group {
+                let material_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
+                let uniform_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    size: material_uniform_size,
+                    usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                });
+
+                let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &self.render_resources.local_bind_group_layout,
+                    bindings: &[wgpu::Binding {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer {
+                            buffer: &uniform_buf,
+                            range: 0 .. material_uniform_size,
+                        },
+                    }],
+                });
+
+                material.bind_group = Some(bind_group);
+                material.uniform_buf = Some(uniform_buf);
+            }
+        }
+
         let temp_buf = temp_buf_data.finish();
         
         for pass in self.render_passes.iter_mut() {
-            pass.render(&mut self.device, &mut frame, &mut encoder, &mut self.world);
+            pass.render(&mut self.device, &mut frame, &mut encoder, &mut self.world, &self.render_resources);
         }
 
         // TODO: this should happen before rendering
-        for (i, (entity, _)) in entities.iter(&mut self.world).enumerate() {
+        for (i, (material, _)) in entities.iter(&mut self.world).enumerate() {
             encoder.copy_buffer_to_buffer(
                 &temp_buf,
                 (i * size) as wgpu::BufferAddress,
-                entity.uniform_buf.as_ref().unwrap(),
+                material.uniform_buf.as_ref().unwrap(),
                 0,
                 size as wgpu::BufferAddress,
             );
@@ -189,7 +192,7 @@ impl Application {
         )
         .unwrap();
     
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+        let (mut device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
             extensions: wgpu::Extensions {
                 anisotropic_filtering: false,
             },
@@ -217,6 +220,8 @@ impl Application {
         
         world.resources.insert(Time::new());
 
+        let render_resources = RenderResources::new(&mut device, 10);
+
         log::info!("Initializing the example...");
         let mut app = Application {
             universe,
@@ -227,6 +232,7 @@ impl Application {
             queue,
             swap_chain,
             swap_chain_descriptor,
+            render_resources,
             scheduler: system_scheduler,
             render_passes: Vec::new(),
         };
