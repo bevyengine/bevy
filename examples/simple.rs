@@ -179,19 +179,19 @@ fn main() {
     scheduler.add_system(ApplicationStage::Update, build_wander_system());
     scheduler.add_system(ApplicationStage::Update, build_navigate_system());
     scheduler.add_system(ApplicationStage::Update, build_move_system());
-    scheduler.add_system(ApplicationStage::Update, build_light_rotator_system());
-    scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
+    // scheduler.add_system(ApplicationStage::Update, build_light_rotator_system());
+    // scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
     scheduler.add_system(ApplicationStage::Update, build_print_status_system());
 
-    world.insert((), vec![
-        // plane
-        (
-            Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
-            plane_handle.clone(),
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 0.0)
-        ),
-    ]);
+    // world.insert((), vec![
+    //     // plane
+    //     (
+    //         Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
+    //         plane_handle.clone(),
+    //         LocalToWorld::identity(),
+    //         Translation::new(0.0, 0.0, 0.0)
+    //     ),
+    // ]);
 
     let x = *world.insert((), vec![
         // lights
@@ -232,17 +232,17 @@ fn main() {
         // ),
     ]).first().unwrap();
 
-    world.insert((), vec![
-        (
-            Material::new(math::vec4(1.0, 1.0, 1.0, 1.0)),
-            _cube_handle.clone(),
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 3.0),
-            Scale(1.0),
-            Parent(x),
-            LocalToParent::identity(),
-        )
-    ]);
+    // world.insert((), vec![
+    //     (
+    //         Material::new(math::vec4(1.0, 1.0, 1.0, 1.0)),
+    //         _cube_handle.clone(),
+    //         LocalToWorld::identity(),
+    //         Translation::new(0.0, 0.0, 3.0),
+    //         Scale(1.0),
+    //         Parent(x),
+    //         LocalToParent::identity(),
+    //     )
+    // ]);
 
     world.insert((), vec![
         
@@ -261,6 +261,12 @@ fn main() {
             // Translation::new(0.0, 0.0, 0.0),
         )
     ]);
+
+    let mut rng = StdRng::from_entropy();
+    for _ in 0 .. 70000 {
+        create_person(&mut world, _cube_handle.clone(),
+            Translation::new(rng.gen_range(-50.0, 50.0), 0.0, rng.gen_range(-50.0, 50.0)));
+    }
 
     Application::run(universe, world, scheduler);
 }
@@ -281,6 +287,7 @@ fn spawn_person(command_buffer: &mut CommandBuffer, mesh_handle: Handle<Mesh>) {
             Velocity {
                 value: math::vec3(0.0, 0.0, 0.0),
             },
+            Instanced,
             Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
             mesh_handle.clone(),
             LocalToWorld::identity(),
@@ -288,3 +295,28 @@ fn spawn_person(command_buffer: &mut CommandBuffer, mesh_handle: Handle<Mesh>) {
         ),
     ]);
 }
+
+fn create_person(world: &mut World, mesh_handle: Handle<Mesh>, translation: Translation) {
+    world.insert((), vec![
+        (
+            Person{},
+            Wander {
+                duration_bounds: math::vec2(3.0, 10.0),
+                distance_bounds: math::vec2(-50.0, 50.0),
+                elapsed: 0.0,
+                duration: 0.0,
+            },
+            NavigationPoint {
+                target: math::vec3(0.0, 0.0, 0.0),
+            },
+            Velocity {
+                value: math::vec3(0.0, 0.0, 0.0),
+            },
+            Instanced,
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()),
+            mesh_handle,
+            LocalToWorld::identity(),
+            translation
+        ),
+    ]);
+} 

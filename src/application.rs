@@ -51,10 +51,12 @@ impl Application {
 
         // let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, &self.render_resources, vertex_buffer_descriptor.clone());
         // let forward_shadow_pass = ForwardShadowPass::new(&mut self.device, &self.world, &self.render_resources, &shadow_pass, vertex_buffer_descriptor.clone(), &self.swap_chain_descriptor);
-        let forward_pass = ForwardPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor, &self.swap_chain_descriptor);
+        // let forward_pass = ForwardPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor.clone(), &self.swap_chain_descriptor);
+        let forward_instanced_pass = ForwardInstancedPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor, &self.swap_chain_descriptor);
         // self.render_passes.push(Box::new(shadow_pass));
         // self.render_passes.push(Box::new(forward_shadow_pass));
-        self.render_passes.push(Box::new(forward_pass));
+        // self.render_passes.push(Box::new(forward_pass));
+        self.render_passes.push(Box::new(forward_instanced_pass));
     }
 
     fn update(&mut self) {
@@ -113,7 +115,8 @@ impl Application {
         let mut encoder =
             self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-        let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query();
+        let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query()
+            .filter(!component::<Instanced>());
         let entities_count = entities.iter(&mut self.world).count();
         let size = mem::size_of::<MaterialUniforms>();
         let temp_buf_data = self.device
@@ -133,7 +136,7 @@ impl Application {
 
         self.render_resources.update_lights(&self.device, &mut encoder, &mut self.world);
 
-        for mut material in <Write<Material>>::query().iter(&mut self.world) {
+        for mut material in <Write<Material>>::query().filter(!component::<Instanced>()).iter(&mut self.world) {
             if let None = material.bind_group {
                 let material_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
                 let uniform_buf = self.device.create_buffer(&wgpu::BufferDescriptor {

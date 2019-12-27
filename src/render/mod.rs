@@ -3,14 +3,16 @@ pub mod shader;
 pub mod mesh;
 mod forward;
 mod forward_shadow;
+mod forward_instanced;
 mod shadow;
 mod light;
 mod pass;
 mod material;
 mod render_resources;
 
-pub use forward_shadow::{ForwardShadowPass};
 pub use forward::{ForwardPass, ForwardUniforms};
+pub use forward_shadow::{ForwardShadowPass};
+pub use forward_instanced::ForwardInstancedPass;
 pub use shadow::ShadowPass;
 pub use light::*;
 pub use shader::*;

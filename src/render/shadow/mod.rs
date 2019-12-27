@@ -21,7 +21,9 @@ pub struct ShadowUniforms {
 impl Pass for ShadowPass {
     fn render(&mut self, device: &Device, _: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World, render_resources: &RenderResources) {
         let mut light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
-        let mut mesh_query = <(Read<Material>, Read<Handle<Mesh>>)>::query();
+        let mut mesh_query =
+            <(Read<Material>, Read<Handle<Mesh>>)>::query()
+                .filter(!component::<Instanced>());
 
         for (i, (mut light, _)) in <(Write<Light>, Read<LocalToWorld>)>::query().iter(world).enumerate() {
             if let None = light.target_view {
