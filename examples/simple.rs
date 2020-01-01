@@ -183,15 +183,15 @@ fn main() {
     // scheduler.add_system(ApplicationStage::Update, build_spawner_system(&mut world));
     scheduler.add_system(ApplicationStage::Update, build_print_status_system());
 
-    // world.insert((), vec![
-    //     // plane
-    //     (
-    //         Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
-    //         plane_handle.clone(),
-    //         LocalToWorld::identity(),
-    //         Translation::new(0.0, 0.0, 0.0)
-    //     ),
-    // ]);
+    world.insert((), vec![
+        // plane
+        (
+            Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
+            plane_handle.clone(),
+            LocalToWorld::identity(),
+            Translation::new(0.0, 0.0, 0.0)
+        ),
+    ]);
 
     let x = *world.insert((), vec![
         // lights
@@ -263,7 +263,7 @@ fn main() {
     ]);
 
     let mut rng = StdRng::from_entropy();
-    for _ in 0 .. 70000 {
+    for _ in 0 .. 1000 {
         create_person(&mut world, _cube_handle.clone(),
             Translation::new(rng.gen_range(-50.0, 50.0), 0.0, rng.gen_range(-50.0, 50.0)));
     }

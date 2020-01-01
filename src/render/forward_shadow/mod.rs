@@ -18,7 +18,7 @@ pub struct ForwardShadowPass {
     pub depth_texture: wgpu::TextureView,
 }
 
-impl Pass for ForwardShadowPass {
+impl Pipeline for ForwardShadowPass {
     fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World, _: &RenderResources) { 
         let mut mesh_query = <(Read<Material>, Read<Handle<Mesh>>)>::query();
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

@@ -19,7 +19,7 @@ pub struct ForwardInstancedPass {
     pub instance_buffer_infos: Vec<InstanceBufferInfo>,
 }
 
-impl Pass for ForwardInstancedPass {
+impl Pipeline for ForwardInstancedPass {
     fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World, _: &RenderResources) { 
         self.instance_buffer_infos = ForwardInstancedPass::create_instance_buffer_infos(device, world);
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -240,6 +240,38 @@ impl ForwardInstancedPass {
         instance_buffer_infos.push(InstanceBufferInfo {
             mesh_id: last_mesh_id.unwrap(),
             buffer: temp_buf_data.finish(),
+            instance_count: entities_count,
+        });
+
+        instance_buffer_infos
+    }
+
+    fn create_instance_buffer_infos_direct(device: &Device, world: &World) -> Vec<InstanceBufferInfo> {
+        let mut entities = <(Read<Material>, Read<LocalToWorld>, Read<Handle<Mesh>>, Read<Instanced>)>::query();
+        let entities_count = entities.iter_immutable(world).count();
+
+        let mut last_mesh_id = None;
+        let mut data = Vec::with_capacity(entities_count);
+        for (material, transform, mesh, _) in entities.iter_immutable(world)
+        {
+
+            last_mesh_id = Some(*mesh.id.read().unwrap());
+            let (_, _, translation) = transform.0.to_scale_rotation_translation();
+
+            data.push(SimpleMaterialUniforms {
+                position: translation.into(),
+                color: material.color.into(),
+            });
+        }
+
+        let buffer = device
+            .create_buffer_with_data(data.as_bytes(), wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX);
+        
+    
+        let mut instance_buffer_infos = Vec::new();
+        instance_buffer_infos.push(InstanceBufferInfo {
+            mesh_id: last_mesh_id.unwrap(),
+            buffer: buffer,
             instance_count: entities_count,
         });
 

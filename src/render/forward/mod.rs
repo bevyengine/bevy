@@ -1,8 +1,8 @@
-use crate::{render::*, asset::*, render::mesh::*, math};
+use crate::{render::*, asset::*, render::mesh::*, vertex::Vertex};
 use legion::prelude::*;
 use std::mem;
 use zerocopy::{AsBytes, FromBytes};
-use wgpu::{Buffer, CommandEncoder, Device, VertexBufferDescriptor, SwapChainDescriptor, SwapChainOutput};
+use wgpu::{Device, SwapChainDescriptor, SwapChainOutput};
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
@@ -11,19 +11,51 @@ pub struct ForwardUniforms {
     pub num_lights: [u32; 4],
 }
 
-pub struct ForwardPass {
-    pub pipeline: wgpu::RenderPipeline,
-    pub bind_group: wgpu::BindGroup,
-    pub forward_uniform_buffer: wgpu::Buffer,
-    pub depth_texture: wgpu::TextureView,
+pub struct ForwardPipelineNew {
+    pub pipeline: Option<wgpu::RenderPipeline>,
+    pub depth_format: wgpu::TextureFormat,
+    pub local_bind_group: Option<wgpu::BindGroup>,
 }
 
+pub struct ForwardPass {
+    pub depth_format: wgpu::TextureFormat,
+}
+
+impl ForwardPass {
+    pub fn new() -> Self {
+        ForwardPass {
+            depth_format: wgpu::TextureFormat::Depth32Float
+        }
+    }
+    fn get_depth_texture(&self, device: &Device, swap_chain_descriptor: &SwapChainDescriptor) -> wgpu::TextureView {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: swap_chain_descriptor.width,
+                height: swap_chain_descriptor.height,
+                depth: 1,
+            },
+            array_layer_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: self.depth_format,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        });
+
+        texture.create_default_view()
+    }
+}
+
+const DEPTH_TEXTURE_NAME: &str = "forward_depth";
+
 impl Pass for ForwardPass {
-    fn render(&mut self, device: &Device, frame: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World, _: &RenderResources) { 
-        let mut mesh_query =
-            <(Read<Material>, Read<Handle<Mesh>>)>::query()
-            .filter(!component::<Instanced>());
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    fn initialize(&self, render_graph: &mut RenderGraphData) { 
+        let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
+        render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
+    }
+    fn begin<'a>(&self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> wgpu::RenderPass<'a> {
+        let depth_texture = render_graph.get_texture(DEPTH_TEXTURE_NAME);
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: &frame.view,
                 resolve_target: None,
@@ -37,7 +69,7 @@ impl Pass for ForwardPass {
                 },
             }],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture,
+                attachment: depth_texture.unwrap(),
                 depth_load_op: wgpu::LoadOp::Clear,
                 depth_store_op: wgpu::StoreOp::Store,
                 stencil_load_op: wgpu::LoadOp::Clear,
@@ -45,50 +77,26 @@ impl Pass for ForwardPass {
                 clear_depth: 1.0,
                 clear_stencil: 0,
             }),
-        });
-        pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &self.bind_group, &[]);
-
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
-        let mut last_mesh_id = None;
-        for (entity, mesh) in mesh_query.iter_immutable(world) {
-            let current_mesh_id = *mesh.id.read().unwrap();
-
-            let mut should_load_mesh = last_mesh_id == None;
-            if let Some(last) = last_mesh_id {
-                should_load_mesh = last != current_mesh_id;
-            }
-
-            if should_load_mesh {
-                if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
-                    mesh_asset.setup_buffers(device);
-                    pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
-                    pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
-                };
-            }
-
-            if let Some(ref mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
-                pass.set_bind_group(1, entity.bind_group.as_ref().unwrap(), &[]);
-                pass.draw_indexed(0 .. mesh_asset.indices.len() as u32, 0, 0 .. 1);
-            };
-
-            last_mesh_id = Some(current_mesh_id); 
-        }
+        })
     }
-    
-    fn resize(&mut self, device: &Device, frame: &SwapChainDescriptor) {
-        self.depth_texture = Self::get_depth_texture(device, frame);
-    }
-
-    fn get_camera_uniform_buffer(&self) -> Option<&Buffer> { 
-        Some(&self.forward_uniform_buffer)
+    fn resize(&self, render_graph: &mut RenderGraphData) {
+        let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
+        render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
     }
 }
 
-impl ForwardPass {
-    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
- 
-    pub fn new(device: &Device, world: &World, render_resources: &RenderResources, vertex_buffer_descriptor: VertexBufferDescriptor, swap_chain_descriptor: &SwapChainDescriptor) -> Self {
+impl ForwardPipelineNew {
+    pub fn new() -> Self {
+        ForwardPipelineNew {
+            pipeline: None,
+            local_bind_group: None,
+            depth_format: wgpu::TextureFormat::Depth32Float
+        }
+    }
+}
+
+impl PipelineNew for ForwardPipelineNew {
+    fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
         let vs_bytes = shader::load_glsl(
             include_str!("forward.vert"),
             shader::ShaderStage::Vertex,
@@ -99,7 +107,7 @@ impl ForwardPass {
         );
 
         let bind_group_layout =
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        render_graph.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             bindings: &[
                 wgpu::BindGroupLayoutBinding {
                     binding: 0, // global
@@ -114,47 +122,56 @@ impl ForwardPass {
             ],
         });
 
-        let light_count = <Read<Light>>::query().iter_immutable(world).count();
-        let forward_uniforms = ForwardUniforms {
-            proj: math::Mat4::identity().to_cols_array_2d(),
-            num_lights: [light_count as u32, 0, 0, 0],
+        self.local_bind_group = Some({
+
+            let forward_uniform_buffer = render_graph.get_uniform_buffer(render_resources::FORWARD_UNIFORM_BUFFER_NAME).unwrap();
+            let light_uniform_buffer = render_graph.get_uniform_buffer(render_resources::LIGHT_UNIFORM_BUFFER_NAME).unwrap();
+
+            // Create bind group
+            render_graph.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &bind_group_layout,
+                bindings: &[
+                    wgpu::Binding {
+                        binding: 0,
+                        resource: forward_uniform_buffer.get_binding_resource(),
+                    },
+                    wgpu::Binding {
+                        binding: 1,
+                        resource: light_uniform_buffer.get_binding_resource(),
+                    }
+                ],
+            })
+        });
+
+        // TODO: fix this inline "local"
+        let local_bind_group_layout = render_graph.get_bind_group_layout("local").unwrap();
+
+        let pipeline_layout = render_graph.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            bind_group_layouts: &[&bind_group_layout, local_bind_group_layout],
+        });
+
+        let vertex_size = mem::size_of::<Vertex>();
+        let vertex_buffer_descriptor = wgpu::VertexBufferDescriptor {
+            stride: vertex_size as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float4,
+                    offset: 0,
+                    shader_location: 0,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float4,
+                    offset: 4 * 4,
+                    shader_location: 1,
+                },
+            ],
         };
 
-        let uniform_size = mem::size_of::<ForwardUniforms>() as wgpu::BufferAddress;
-        let forward_uniform_buffer = device.create_buffer_with_data(
-            forward_uniforms.as_bytes(),
-            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        );
+        let vs_module = render_graph.device.create_shader_module(&vs_bytes);
+        let fs_module = render_graph.device.create_shader_module(&fs_bytes);
 
-        // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &forward_uniform_buffer,
-                        range: 0 .. uniform_size,
-                    },
-                },
-                wgpu::Binding {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &render_resources.light_uniform_buffer.buffer,
-                        range: 0 .. render_resources.light_uniform_buffer.size,
-                    },
-                }
-            ],
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&bind_group_layout, &render_resources.local_bind_group_layout],
-        });
-
-        let vs_module = device.create_shader_module(&vs_bytes);
-        let fs_module = device.create_shader_module(&fs_bytes);
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        self.pipeline = Some(render_graph.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
@@ -174,14 +191,14 @@ impl ForwardPass {
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             color_states: &[
                 wgpu::ColorStateDescriptor {
-                    format: swap_chain_descriptor.format,
+                    format: render_graph.swap_chain_descriptor.format,
                     color_blend: wgpu::BlendDescriptor::REPLACE,
                     alpha_blend: wgpu::BlendDescriptor::REPLACE,
                     write_mask: wgpu::ColorWrite::ALL,
                 },
             ],
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: Self::DEPTH_FORMAT,
+                format: self.depth_format,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
@@ -194,32 +211,44 @@ impl ForwardPass {
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
-        });
+        }));
+    }
+    fn render(&mut self, render_graph: &RenderGraphData, pass: &mut wgpu::RenderPass, frame: &SwapChainOutput, world: &mut World) {
+        pass.set_bind_group(0, self.local_bind_group.as_ref().unwrap(), &[]);
 
-        ForwardPass {
-            pipeline,
-            bind_group,
-            forward_uniform_buffer,
-            depth_texture: Self::get_depth_texture(device, swap_chain_descriptor)
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
+        let mut last_mesh_id = None;
+        let mut mesh_query =
+            <(Read<Material>, Read<Handle<Mesh>>)>::query()
+            .filter(!component::<Instanced>());
+        for (entity, mesh) in mesh_query.iter_immutable(world) {
+            let current_mesh_id = *mesh.id.read().unwrap();
+
+            let mut should_load_mesh = last_mesh_id == None;
+            if let Some(last) = last_mesh_id {
+                should_load_mesh = last != current_mesh_id;
+            }
+
+            if should_load_mesh {
+                if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
+                    mesh_asset.setup_buffers(&render_graph.device);
+                    pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
+                    pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
+                };
+            }
+
+            if let Some(ref mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
+                pass.set_bind_group(1, entity.bind_group.as_ref().unwrap(), &[]);
+                pass.draw_indexed(0 .. mesh_asset.indices.len() as u32, 0, 0 .. 1);
+            };
+
+            last_mesh_id = Some(current_mesh_id); 
         }
     }
-    
-    fn get_depth_texture(device: &Device, swap_chain_descriptor: &SwapChainDescriptor) -> wgpu::TextureView {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: wgpu::Extent3d {
-                width: swap_chain_descriptor.width,
-                height: swap_chain_descriptor.height,
-                depth: 1,
-            },
-            array_layer_count: 1,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        });
+    fn resize(&mut self, render_graph: &RenderGraphData) {
 
-        texture.create_default_view()
+    }
+    fn get_pipeline(&self) -> &wgpu::RenderPipeline {
+        self.pipeline.as_ref().unwrap()
     }
 }
-

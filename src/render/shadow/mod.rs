@@ -18,7 +18,7 @@ pub struct ShadowUniforms {
     pub proj: [[f32; 4]; 4],
 }
 
-impl Pass for ShadowPass {
+impl Pipeline for ShadowPass {
     fn render(&mut self, device: &Device, _: &SwapChainOutput, encoder: &mut CommandEncoder, world: &mut World, render_resources: &RenderResources) {
         let mut light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
         let mut mesh_query =
