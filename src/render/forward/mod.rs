@@ -1,6 +1,5 @@
-use crate::{render::*, asset::*, render::mesh::*, vertex::Vertex};
+use crate::{render::*, asset::*, render::mesh::*};
 use legion::prelude::*;
-use std::mem;
 use zerocopy::{AsBytes, FromBytes};
 use wgpu::{Device, SwapChainDescriptor, SwapChainOutput};
 
@@ -22,9 +21,9 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-    pub fn new() -> Self {
+    pub fn new(depth_format: wgpu::TextureFormat) -> Self {
         ForwardPass {
-            depth_format: wgpu::TextureFormat::Depth32Float
+            depth_format, 
         }
     }
     fn get_depth_texture(&self, device: &Device, swap_chain_descriptor: &SwapChainDescriptor) -> wgpu::TextureView {
@@ -150,23 +149,7 @@ impl PipelineNew for ForwardPipelineNew {
             bind_group_layouts: &[&bind_group_layout, local_bind_group_layout],
         });
 
-        let vertex_size = mem::size_of::<Vertex>();
-        let vertex_buffer_descriptor = wgpu::VertexBufferDescriptor {
-            stride: vertex_size as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float4,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float4,
-                    offset: 4 * 4,
-                    shader_location: 1,
-                },
-            ],
-        };
+        let vertex_buffer_descriptor = get_vertex_buffer_descriptor();
 
         let vs_module = render_graph.device.create_shader_module(&vs_bytes);
         let fs_module = render_graph.device.create_shader_module(&fs_bytes);

@@ -35,16 +35,10 @@ impl Application {
 
         self.render_graph.data.set_bind_group_layout("local", local_bind_group_layout);
 
-        // let shadow_pass = ShadowPass::new(&mut self.device, &mut self.world, &self.render_resources, vertex_buffer_descriptor.clone());
-        // let forward_shadow_pass = ForwardShadowPass::new(&mut self.device, &self.world, &self.render_resources, &shadow_pass, vertex_buffer_descriptor.clone(), &self.swap_chain_descriptor);
-        // let forward_pass = ForwardPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor.clone(), &self.swap_chain_descriptor);
-        // let forward_instanced_pass = ForwardInstancedPass::new(&mut self.device, &self.world, &self.render_resources, vertex_buffer_descriptor, &self.swap_chain_descriptor);
-        // self.render_passes.push(Box::new(shadow_pass));
-        // self.render_passes.push(Box::new(forward_shadow_pass));
-        // self.render_passes.push(Box::new(forward_pass));
-        // self.render_passes.push(Box::new(forward_instanced_pass));
-        self.render_graph.set_pass("forward", Box::new(ForwardPass::new()));
+        let depth_format = wgpu::TextureFormat::Depth32Float;
+        self.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
         self.render_graph.set_pipeline("forward", Box::new(ForwardPipelineNew::new()));
+        self.render_graph.set_pipeline("forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
     }
 
     fn update(&mut self) {

@@ -13,7 +13,7 @@ mod material;
 
 pub use forward::{ForwardUniforms, ForwardPipelineNew, ForwardPass};
 pub use forward_shadow::{ForwardShadowPass};
-pub use forward_instanced::ForwardInstancedPass;
+pub use forward_instanced::ForwardInstancedPipeline;
 pub use shadow::ShadowPass;
 pub use light::*;
 pub use shader::*;
@@ -23,6 +23,9 @@ pub use material::*;
 pub use mesh::*;
 pub use camera::*;
 pub use render_resources::RenderResources;
+
+use std::mem;
+use crate::vertex::Vertex;
 
 pub struct UniformBuffer {
     pub buffer: wgpu::Buffer,
@@ -35,5 +38,25 @@ impl UniformBuffer {
             buffer: &self.buffer,
             range: 0 .. self.size,
         }
+    }
+}
+
+pub fn get_vertex_buffer_descriptor<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+    let vertex_size = mem::size_of::<Vertex>();
+    wgpu::VertexBufferDescriptor {
+        stride: vertex_size as wgpu::BufferAddress,
+        step_mode: wgpu::InputStepMode::Vertex,
+        attributes: &[
+            wgpu::VertexAttributeDescriptor {
+                format: wgpu::VertexFormat::Float4,
+                offset: 0,
+                shader_location: 0,
+            },
+            wgpu::VertexAttributeDescriptor {
+                format: wgpu::VertexFormat::Float4,
+                offset: 4 * 4,
+                shader_location: 1,
+            },
+        ],
     }
 }
