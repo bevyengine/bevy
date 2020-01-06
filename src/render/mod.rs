@@ -14,7 +14,7 @@ mod material;
 pub use forward::{ForwardUniforms, ForwardPipelineNew, ForwardPass};
 pub use forward_shadow::{ForwardShadowPass};
 pub use forward_instanced::ForwardInstancedPipeline;
-pub use shadow::ShadowPass;
+pub use shadow::ShadowPassOld;
 pub use light::*;
 pub use shader::*;
 pub use pipeline::*;

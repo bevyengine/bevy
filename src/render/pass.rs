@@ -4,7 +4,8 @@ use legion::world::World;
 
 pub trait Pass {
     fn initialize(&self, render_graph: &mut RenderGraphData);
-    fn begin<'a>(&self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> wgpu::RenderPass<'a>;
+    fn begin<'a>(&mut self, render_graph: &mut RenderGraphData, world: &mut World, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> Option<wgpu::RenderPass<'a>>;
+    fn should_repeat(&self) -> bool;
     fn resize(&self, render_graph: &mut RenderGraphData);
 }
 
@@ -18,6 +19,7 @@ pub struct RenderGraph {
     pub data: RenderGraphData,
     passes: HashMap<String, Box<dyn Pass>>,
     pipelines: HashMap<String, Box<dyn PipelineNew>>,
+    pass_pipelines: HashMap<String, Vec<String>>,
     render_resource_managers: Vec<Box<dyn RenderResourceManager>>,
     pub swap_chain: wgpu::SwapChain, // TODO: this is weird
 }
@@ -75,6 +77,7 @@ impl RenderGraph {
             passes: HashMap::new(),
             pipelines: HashMap::new(),
             swap_chain,
+            pass_pipelines: HashMap::new(),
             render_resource_managers: Vec::new(),
             data: RenderGraphData::new(device, swap_chain_descriptor, queue, surface),
         }
@@ -106,12 +109,23 @@ impl RenderGraph {
             render_resource_manager.update(&mut self.data, &mut encoder, world);
         }
 
-        for pass in self.passes.values_mut() {
-            let mut render_pass = pass.begin(&mut self.data, &mut encoder, &frame);
-            // TODO: assign pipelines to specific passes
-            for pipeline in self.pipelines.values_mut() {
-                render_pass.set_pipeline(pipeline.get_pipeline());
-                pipeline.render(&mut self.data, &mut render_pass, &frame, world);
+        for (pass_name, pass) in self.passes.iter_mut() {
+            loop {
+                let render_pass = pass.begin(&mut self.data, world, &mut encoder, &frame);
+                if let Some(mut render_pass) = render_pass {
+                    // TODO: assign pipelines to specific passes
+                    if let Some(pipeline_names)  = self.pass_pipelines.get(pass_name) {
+                        for pipeline_name in pipeline_names.iter() {
+                            let pipeline = self.pipelines.get_mut(pipeline_name).unwrap();
+                            render_pass.set_pipeline(pipeline.get_pipeline());
+                            pipeline.render(&mut self.data, &mut render_pass, &frame, world);
+                        }
+                    }
+
+                    if !pass.should_repeat() {
+                        break;
+                    }
+                }
             }
         }
 
@@ -148,8 +162,16 @@ impl RenderGraph {
         self.render_resource_managers.push(render_resource_manager);
     }
 
-    pub fn set_pipeline(&mut self, name: &str, pipeline: Box<dyn PipelineNew>) {
-        self.pipelines.insert(name.to_string(), pipeline);
+    pub fn set_pipeline(&mut self, pass_name: &str, pipeline_name: &str, pipeline: Box<dyn PipelineNew>) {
+        self.pipelines.insert(pipeline_name.to_string(), pipeline);
+        if let None = self.pass_pipelines.get_mut(pass_name) {
+            let mut pipelines = Vec::new();
+            self.pass_pipelines.insert(pass_name.to_string(), pipelines);
+        };
+
+        let current_pass_pipelines = self.pass_pipelines.get_mut(pass_name).unwrap();
+
+        current_pass_pipelines.push(pipeline_name.to_string());
     }
 
     pub fn set_pass(&mut self, name: &str, pass: Box<dyn Pass>) {

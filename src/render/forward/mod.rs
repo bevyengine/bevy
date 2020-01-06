@@ -52,9 +52,9 @@ impl Pass for ForwardPass {
         let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
         render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
     }
-    fn begin<'a>(&self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> wgpu::RenderPass<'a> {
+    fn begin<'a>(&mut self, render_graph: &mut RenderGraphData, world: &mut World, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> Option<wgpu::RenderPass<'a>> {
         let depth_texture = render_graph.get_texture(DEPTH_TEXTURE_NAME);
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        Some(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: &frame.view,
                 resolve_target: None,
@@ -76,11 +76,16 @@ impl Pass for ForwardPass {
                 clear_depth: 1.0,
                 clear_stencil: 0,
             }),
-        })
+        }))
     }
+
     fn resize(&self, render_graph: &mut RenderGraphData) {
         let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
         render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
+    }
+
+    fn should_repeat(&self) -> bool {
+        false
     }
 }
 

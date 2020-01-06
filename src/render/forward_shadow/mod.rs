@@ -71,7 +71,7 @@ impl Pipeline for ForwardShadowPass {
 impl ForwardShadowPass {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
     
-    pub fn new(device: &Device, world: &World, render_resources: &RenderResources, shadow_pass: &shadow::ShadowPass, vertex_buffer_descriptor: VertexBufferDescriptor, swap_chain_descriptor: &SwapChainDescriptor) -> Self {
+    pub fn new(device: &Device, world: &World, render_resources: &RenderResources, shadow_pass: &shadow::ShadowPassOld, vertex_buffer_descriptor: VertexBufferDescriptor, swap_chain_descriptor: &SwapChainDescriptor) -> Self {
         let vs_bytes = shader::load_glsl(
             include_str!("forward_shadow.vert"),
             shader::ShaderStage::Vertex,

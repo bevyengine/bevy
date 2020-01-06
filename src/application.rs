@@ -37,8 +37,8 @@ impl Application {
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
         self.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
-        self.render_graph.set_pipeline("forward", Box::new(ForwardPipelineNew::new()));
-        self.render_graph.set_pipeline("forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
+        self.render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipelineNew::new()));
+        self.render_graph.set_pipeline("forward", "forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
     }
 
     fn update(&mut self) {
