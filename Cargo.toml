@@ -16,7 +16,7 @@ exclude = ["examples/**"]
 travis-ci = { repository = "gltf-rs/mikktspace" }
 
 [dependencies]
-nalgebra = "0.18.0"
+nalgebra = "0.19.0"
 
 [[example]]
 name = "generate"
