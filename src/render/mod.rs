@@ -2,27 +2,18 @@ pub mod camera;
 pub mod shader;
 pub mod mesh;
 pub mod render_resources;
-mod forward;
-mod forward_shadow;
-mod forward_instanced;
-mod shadow;
+pub mod passes;
+
 mod light;
-mod pipeline;
-mod pass;
+mod render_graph;
 mod material;
 
-pub use forward::{ForwardUniforms, ForwardPipelineNew, ForwardPass};
-pub use forward_shadow::{ForwardShadowPass};
-pub use forward_instanced::ForwardInstancedPipeline;
-pub use shadow::ShadowPassOld;
 pub use light::*;
 pub use shader::*;
-pub use pipeline::*;
-pub use pass::*;
+pub use render_graph::*;
 pub use material::*;
 pub use mesh::*;
 pub use camera::*;
-pub use render_resources::RenderResources;
 
 use std::mem;
 use crate::vertex::Vertex;

@@ -1,24 +1,19 @@
-use crate::render::{PipelineNew, UniformBuffer};
+mod pass;
+mod pipeline;
+mod render_resource_manager;
+
+pub use pass::Pass;
+pub use pipeline::Pipeline;
+pub use render_resource_manager::RenderResourceManager;
+
+use crate::render::UniformBuffer;
 use std::collections::HashMap;
 use legion::world::World;
-
-pub trait Pass {
-    fn initialize(&self, render_graph: &mut RenderGraphData);
-    fn begin<'a>(&mut self, render_graph: &mut RenderGraphData, world: &mut World, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> Option<wgpu::RenderPass<'a>>;
-    fn should_repeat(&self) -> bool;
-    fn resize(&self, render_graph: &mut RenderGraphData);
-}
-
-pub trait RenderResourceManager {
-    fn initialize(&self, render_graph: &mut RenderGraphData, world: &mut World);
-    fn update<'a>(&mut self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World);
-    fn resize<'a>(&self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World);
-}
 
 pub struct RenderGraph {
     pub data: RenderGraphData,
     passes: HashMap<String, Box<dyn Pass>>,
-    pipelines: HashMap<String, Box<dyn PipelineNew>>,
+    pipelines: HashMap<String, Box<dyn Pipeline>>,
     pass_pipelines: HashMap<String, Vec<String>>,
     render_resource_managers: Vec<Box<dyn RenderResourceManager>>,
     pub swap_chain: wgpu::SwapChain, // TODO: this is weird
@@ -30,6 +25,7 @@ pub struct RenderGraphData {
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     textures: HashMap<String, wgpu::TextureView>,
+    samplers: HashMap<String, wgpu::Sampler>,
     uniform_buffers: HashMap<String, UniformBuffer>,
     bind_group_layouts: HashMap<String, wgpu::BindGroupLayout>,
 }
@@ -37,6 +33,7 @@ impl RenderGraphData {
     pub fn new(device: wgpu::Device, swap_chain_descriptor: wgpu::SwapChainDescriptor, queue: wgpu::Queue, surface: wgpu::Surface) -> Self {
         RenderGraphData {
             textures: HashMap::new(),
+            samplers: HashMap::new(),
             uniform_buffers: HashMap::new(),
             bind_group_layouts: HashMap::new(),
             device,
@@ -68,6 +65,14 @@ impl RenderGraphData {
 
     pub fn get_texture(&self, name: &str) -> Option<&wgpu::TextureView> {
         self.textures.get(name)
+    }
+
+    pub fn set_sampler(&mut self, name: &str, sampler: wgpu::Sampler) {
+        self.samplers.insert(name.to_string(), sampler);
+    }
+
+    pub fn get_sampler(&self, name: &str) -> Option<&wgpu::Sampler> {
+        self.samplers.get(name)
     }
 }
 
@@ -162,10 +167,10 @@ impl RenderGraph {
         self.render_resource_managers.push(render_resource_manager);
     }
 
-    pub fn set_pipeline(&mut self, pass_name: &str, pipeline_name: &str, pipeline: Box<dyn PipelineNew>) {
+    pub fn set_pipeline(&mut self, pass_name: &str, pipeline_name: &str, pipeline: Box<dyn Pipeline>) {
         self.pipelines.insert(pipeline_name.to_string(), pipeline);
         if let None = self.pass_pipelines.get_mut(pass_name) {
-            let mut pipelines = Vec::new();
+            let pipelines = Vec::new();
             self.pass_pipelines.insert(pass_name.to_string(), pipelines);
         };
 

@@ -1,0 +1,75 @@
+use crate::{render::*, LocalToWorld};
+
+use legion::prelude::*;
+use std::mem;
+use zerocopy::AsBytes;
+
+pub struct MaterialResourceManager;
+
+impl RenderResourceManager for MaterialResourceManager {
+    fn initialize(&self, _render_graph: &mut RenderGraphData, _world: &mut World) {
+
+    }
+
+    fn update<'a>(&mut self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World) {
+        let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query()
+            .filter(!component::<Instanced>());
+        let entities_count = entities.iter(world).count();
+        let size = mem::size_of::<MaterialUniforms>();
+        let temp_buf_data = render_graph.device
+            .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
+
+        for ((material, transform), slot) in entities.iter(world)
+            .zip(temp_buf_data.data.chunks_exact_mut(size))
+        {
+            slot.copy_from_slice(
+                MaterialUniforms {
+                    model: transform.0.to_cols_array_2d(),
+                    color: material.color.into(),
+                }
+                .as_bytes(),
+            );
+        }
+        
+        // TODO: dont use inline local
+        let local_bind_group_layout = render_graph.get_bind_group_layout("local").unwrap();
+
+        for mut material in <Write<Material>>::query().filter(!component::<Instanced>()).iter(world) {
+            if let None = material.bind_group {
+                let material_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
+                let uniform_buf = render_graph.device.create_buffer(&wgpu::BufferDescriptor {
+                    size: material_uniform_size,
+                    usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                });
+
+                let bind_group = render_graph.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: local_bind_group_layout,
+                    bindings: &[wgpu::Binding {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer {
+                            buffer: &uniform_buf,
+                            range: 0 .. material_uniform_size,
+                        },
+                    }],
+                });
+
+                material.bind_group = Some(bind_group);
+                material.uniform_buf = Some(uniform_buf);
+            }
+        }
+
+        let temp_buf = temp_buf_data.finish();
+        for (i, (material, _)) in entities.iter(world).enumerate() {
+            encoder.copy_buffer_to_buffer(
+                &temp_buf,
+                (i * size) as wgpu::BufferAddress,
+                material.uniform_buf.as_ref().unwrap(),
+                0,
+                size as wgpu::BufferAddress,
+            );
+        }
+    }
+    fn resize<'a>(&self, _render_graph: &mut RenderGraphData, _encoder: &'a mut wgpu::CommandEncoder, _world: &mut World) {
+
+    }
+}

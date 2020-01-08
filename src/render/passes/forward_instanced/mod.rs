@@ -64,6 +64,7 @@ impl ForwardInstancedPipeline {
         instance_buffer_infos
     }
 
+    #[allow(dead_code)]
     fn create_instance_buffer_infos_direct(device: &Device, world: &World) -> Vec<InstanceBufferInfo> {
         let mut entities = <(Read<Material>, Read<LocalToWorld>, Read<Handle<Mesh>>, Read<Instanced>)>::query();
         let entities_count = entities.iter_immutable(world).count();
@@ -97,7 +98,7 @@ impl ForwardInstancedPipeline {
     }
 }
 
-impl PipelineNew for ForwardInstancedPipeline {
+impl Pipeline for ForwardInstancedPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
         let vs_bytes = shader::load_glsl(
             include_str!("forward_instanced.vert"),
@@ -126,7 +127,6 @@ impl PipelineNew for ForwardInstancedPipeline {
         
         // TODO: this is the same as normal forward pipeline. we can probably reuse
         self.local_bind_group = Some({
-
             let forward_uniform_buffer = render_graph.get_uniform_buffer(render_resources::FORWARD_UNIFORM_BUFFER_NAME).unwrap();
             let light_uniform_buffer = render_graph.get_uniform_buffer(render_resources::LIGHT_UNIFORM_BUFFER_NAME).unwrap();
 
@@ -218,7 +218,7 @@ impl PipelineNew for ForwardInstancedPipeline {
         self.instance_buffer_infos = Some(Self::create_instance_buffer_infos(&render_graph.device, world));
     }
 
-    fn render(&mut self, render_graph: &RenderGraphData, pass: &mut wgpu::RenderPass, frame: &SwapChainOutput, world: &mut World) {
+    fn render(&mut self, render_graph: &RenderGraphData, pass: &mut wgpu::RenderPass, _: &SwapChainOutput, world: &mut World) {
         self.instance_buffer_infos = Some(Self::create_instance_buffer_infos(&render_graph.device, world));
         pass.set_bind_group(0, self.local_bind_group.as_ref().unwrap(), &[]);
 
@@ -234,7 +234,7 @@ impl PipelineNew for ForwardInstancedPipeline {
         }
     }
 
-    fn resize(&mut self, render_graph: &RenderGraphData) {
+    fn resize(&mut self, _: &RenderGraphData) {
 
     }
 
