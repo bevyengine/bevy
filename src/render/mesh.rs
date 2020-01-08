@@ -6,7 +6,7 @@ pub enum MeshType {
     Cube,
     Plane {
         size: f32
-    }
+    },
 }
 
 pub struct Mesh {

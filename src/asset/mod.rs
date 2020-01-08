@@ -1,3 +1,7 @@
+mod gltf;
+
+pub use self::gltf::load_gltf;
+
 use std::{sync::{Arc, RwLock}, marker::PhantomData, ops::Drop, collections::HashMap};
 
 pub struct Handle<T>
