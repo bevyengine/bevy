@@ -20,20 +20,9 @@ pub struct Application
 
 impl Application {
     fn add_default_passes(&mut self) {
-        let local_bind_group_layout =
-        self.render_graph.data.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[wgpu::BindGroupLayoutBinding {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-            }],
-        });
-
         self.render_graph.add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
         self.render_graph.add_render_resource_manager(Box::new(render_resources::LightResourceManager::new(10)));
         self.render_graph.add_render_resource_manager(Box::new(render_resources::CameraResourceManager));
-
-        self.render_graph.data.set_bind_group_layout("local", local_bind_group_layout);
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
         self.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));

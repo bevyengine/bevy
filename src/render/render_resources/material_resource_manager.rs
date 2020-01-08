@@ -4,11 +4,22 @@ use legion::prelude::*;
 use std::mem;
 use zerocopy::AsBytes;
 
+pub const MATERIAL_BIND_GROUP_LAYOUT_NAME: &str = "material";
+
 pub struct MaterialResourceManager;
 
 impl RenderResourceManager for MaterialResourceManager {
-    fn initialize(&self, _render_graph: &mut RenderGraphData, _world: &mut World) {
+    fn initialize(&self, render_graph: &mut RenderGraphData, _world: &mut World) {
+        let material_bind_group_layout =
+        render_graph.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            bindings: &[wgpu::BindGroupLayoutBinding {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            }],
+        });
 
+        render_graph.set_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME, material_bind_group_layout);
     }
 
     fn update<'a>(&mut self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World) {
@@ -31,8 +42,7 @@ impl RenderResourceManager for MaterialResourceManager {
             );
         }
         
-        // TODO: dont use inline local
-        let local_bind_group_layout = render_graph.get_bind_group_layout("local").unwrap();
+        let material_bind_group_layout = render_graph.get_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME).unwrap();
 
         for mut material in <Write<Material>>::query().filter(!component::<Instanced>()).iter(world) {
             if let None = material.bind_group {
@@ -43,7 +53,7 @@ impl RenderResourceManager for MaterialResourceManager {
                 });
 
                 let bind_group = render_graph.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: local_bind_group_layout,
+                    layout: material_bind_group_layout,
                     bindings: &[wgpu::Binding {
                         binding: 0,
                         resource: wgpu::BindingResource::Buffer {

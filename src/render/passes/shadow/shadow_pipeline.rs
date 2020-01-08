@@ -38,13 +38,12 @@ impl Pipeline for ShadowPipeline {
             }],
         });
 
-        // TODO: stop using "local"
-        let local_bind_group_layout = render_graph.get_bind_group_layout("local").unwrap();
+        let material_bind_group_layout = render_graph.get_bind_group_layout(render_resources::MATERIAL_BIND_GROUP_LAYOUT_NAME).unwrap();
 
         let pipeline_layout = render_graph.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[
                 &bind_group_layout,
-                local_bind_group_layout,
+                material_bind_group_layout,
             ],
         });
 
