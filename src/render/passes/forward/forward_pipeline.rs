@@ -5,14 +5,14 @@ use wgpu::SwapChainOutput;
 pub struct ForwardPipeline {
     pub pipeline: Option<wgpu::RenderPipeline>,
     pub depth_format: wgpu::TextureFormat,
-    pub local_bind_group: Option<wgpu::BindGroup>,
+    pub bind_group: Option<wgpu::BindGroup>,
 }
 
 impl ForwardPipeline {
     pub fn new() -> Self {
         ForwardPipeline {
             pipeline: None,
-            local_bind_group: None,
+            bind_group: None,
             depth_format: wgpu::TextureFormat::Depth32Float
         }
     }
@@ -45,7 +45,7 @@ impl Pipeline for ForwardPipeline {
             ],
         });
 
-        self.local_bind_group = Some({
+        self.bind_group = Some({
 
             let forward_uniform_buffer = render_graph.get_uniform_buffer(render_resources::FORWARD_UNIFORM_BUFFER_NAME).unwrap();
             let light_uniform_buffer = render_graph.get_uniform_buffer(render_resources::LIGHT_UNIFORM_BUFFER_NAME).unwrap();
@@ -120,7 +120,7 @@ impl Pipeline for ForwardPipeline {
         }));
     }
     fn render(&mut self, render_graph: &RenderGraphData, pass: &mut wgpu::RenderPass, _: &SwapChainOutput, world: &mut World) {
-        pass.set_bind_group(0, self.local_bind_group.as_ref().unwrap(), &[]);
+        pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
         let mut last_mesh_id = None;
