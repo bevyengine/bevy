@@ -6,9 +6,9 @@ use zerocopy::AsBytes;
 
 pub const FORWARD_UNIFORM_BUFFER_NAME: &str = "forward";
 
-pub struct CameraResourceManager;
+pub struct GlobalResourceManager;
 
-impl RenderResourceManager for CameraResourceManager {
+impl RenderResourceManager for GlobalResourceManager {
     fn initialize(&self, render_graph: &mut RenderGraphData, world: &mut World) {
         let light_count = <Read<Light>>::query().iter_immutable(world).count();
         let forward_uniforms = ForwardUniforms {
@@ -32,7 +32,7 @@ impl RenderResourceManager for CameraResourceManager {
 
     }
     fn resize<'a>(&self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World) {
-        for (mut camera, local_to_world) in <(Write<Camera>, Read<LocalToWorld>)>::query().iter(world) {
+        for (mut camera, local_to_world, _) in <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter(world) {
             camera.update(render_graph.swap_chain_descriptor.width, render_graph.swap_chain_descriptor.height);
             let camera_matrix: [[f32; 4]; 4] = (camera.view_matrix * local_to_world.0).to_cols_array_2d();
             let matrix_size = mem::size_of::<[[f32; 4]; 4]>() as u64;

@@ -1,12 +1,21 @@
-use crate::{vertex::Vertex, asset::Asset};
+use crate::{vertex::Vertex, asset::Asset, math::*};
 use wgpu::{Buffer, Device};
 use zerocopy::AsBytes;
+
+// TODO: this is pretty dirty. work out a cleaner way to distinguish between 3d and 2d meshes
+pub struct Mesh2d;
 
 pub enum MeshType {
     Cube,
     Plane {
         size: f32
     },
+    Quad {
+        north_west: Vec2,
+        north_east: Vec2,
+        south_west: Vec2,
+        south_east: Vec2,
+    }
 }
 
 pub struct Mesh {
@@ -33,6 +42,7 @@ impl Asset<MeshType> for Mesh {
         let (vertices, indices) = match descriptor {
             MeshType::Cube => create_cube(),
             MeshType::Plane { size } => create_plane(size),
+            MeshType::Quad { north_west, north_east, south_west, south_east } => create_quad(north_west, north_east, south_west, south_east),
         };
 
         Mesh {
@@ -42,6 +52,18 @@ impl Asset<MeshType> for Mesh {
             index_buffer: None,
         }
     }
+}
+
+pub fn create_quad(north_west: Vec2, north_east: Vec2, south_west: Vec2, south_east: Vec2) -> (Vec<Vertex>, Vec<u16>) {
+    let vertex_data = [
+        Vertex::from(([south_west.x(), south_west.y(), 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([north_west.x(), north_west.y(), 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([north_east.x(), north_east.y(), 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([south_east.x(), south_east.y(), 0.0], [0.0, 0.0, 1.0])),
+    ];
+
+    let index_data: &[u16] = &[ 0, 1, 2, 0, 2, 3 ];
+    return (vertex_data.to_vec(), index_data.to_vec());
 }
 
 pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
@@ -98,6 +120,7 @@ pub fn create_plane(size: f32) -> (Vec<Vertex>, Vec<u16>) {
         Vertex::from(([-size, size, 0.0], [0.0, 0.0, 1.0])),
     ];
 
+    // TODO: make sure this order is correct
     let index_data: &[u16] = &[0, 1, 2, 2, 1, 3];
 
     (vertex_data.to_vec(), index_data.to_vec())

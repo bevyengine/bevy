@@ -22,12 +22,14 @@ impl Application {
     fn add_default_passes(&mut self) {
         self.render_graph.add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
         self.render_graph.add_render_resource_manager(Box::new(render_resources::LightResourceManager::new(10)));
-        self.render_graph.add_render_resource_manager(Box::new(render_resources::CameraResourceManager));
+        self.render_graph.add_render_resource_manager(Box::new(render_resources::GlobalResourceManager));
+        self.render_graph.add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
         self.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
         self.render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new()));
         self.render_graph.set_pipeline("forward", "forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
+        self.render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new()));
     }
 
     fn update(&mut self) {

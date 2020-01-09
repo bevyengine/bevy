@@ -168,10 +168,17 @@ fn main() {
 
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane{ size: 24.5 });
+    let quad = Mesh::load(MeshType::Quad {
+        north_west: math::vec2(100.0, 200.0),
+        north_east: math::vec2(200.0, 200.0),
+        south_west: math::vec2(100.0, 100.0),
+        south_east: math::vec2(200.0, 100.0),
+    });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
     let _cube_handle = mesh_storage.add(cube, "cube");
     let plane_handle = mesh_storage.add(plane, "plane");
+    let quad_handle = mesh_storage.add(quad, "quad");
     world.resources.insert(mesh_storage);
 
     let transform_system_bundle = transform_system_bundle::build(&mut world);
@@ -254,11 +261,37 @@ fn main() {
                 far: 1000.0,
                 aspect_ratio: 1.0,
             }),
+            ActiveCamera,
             LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(6.0, -40.0, 20.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),)),
             // Translation::new(0.0, 0.0, 0.0),
+        )
+    ]);
+
+    world.insert((), vec![
+        
+        // camera
+        (
+            Camera::new(CameraType::Orthographic {
+                left: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                top: 0.0,
+                near: 0.0,
+                far: 1.0,
+            }),
+            ActiveCamera2d,
+        )
+    ]);
+
+    world.insert((), vec![
+        
+        // camera
+        (
+            quad_handle,
+            Mesh2d,
         )
     ]);
 

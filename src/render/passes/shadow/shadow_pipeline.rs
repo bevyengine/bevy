@@ -146,11 +146,11 @@ impl Pipeline for ShadowPipeline {
             .resources
             .get_mut::<AssetStorage<Mesh, MeshType>>()
             .unwrap();
-        for (entity, mesh) in mesh_query.iter_immutable(world) {
+        for (material, mesh) in mesh_query.iter_immutable(world) {
             if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
                 mesh_asset.setup_buffers(&render_graph.device);
 
-                pass.set_bind_group(1, entity.bind_group.as_ref().unwrap(), &[]);
+                pass.set_bind_group(1, material.bind_group.as_ref().unwrap(), &[]);
                 pass.set_index_buffer(&mesh_asset.index_buffer.as_ref().unwrap(), 0);
                 pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
                 pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
