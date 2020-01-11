@@ -5,7 +5,7 @@ use crate::{
     LocalToWorld,
 };
 use legion::prelude::*;
-use std::mem;
+use std::{collections::HashMap, mem};
 use wgpu::{Device, SwapChainOutput};
 use zerocopy::AsBytes;
 
@@ -33,42 +33,62 @@ impl ForwardInstancedPipeline {
             Read<Handle<Mesh>>,
             Read<Instanced>,
         )>::query();
-        let entities_count = entities.iter(world).count();
-        if entities_count == 0 {
+        if entities.iter(world).count() == 0 {
             return Vec::new();
         }
 
-        let size = mem::size_of::<SimpleMaterialUniforms>();
+        let uniform_size = mem::size_of::<SimpleMaterialUniforms>();
 
-        let temp_buf_data = device.create_buffer_mapped(
-            entities_count * size,
-            wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
-        );
-
-        // TODO: generate these buffers for multiple meshes
-
-        let mut last_mesh_id = None;
-        for ((material, transform, mesh, _), slot) in entities
-            .iter(world)
-            .zip(temp_buf_data.data.chunks_exact_mut(size))
-        {
-            last_mesh_id = Some(mesh.id);
-            let (_, _, translation) = transform.0.to_scale_rotation_translation();
-            slot.copy_from_slice(
-                SimpleMaterialUniforms {
-                    position: translation.into(),
-                    color: material.color.into(),
+        let mut mesh_groups: HashMap<
+            usize,
+            Vec<(
+                legion::borrow::Ref<Material>,
+                legion::borrow::Ref<LocalToWorld>,
+            )>,
+        > = HashMap::new();
+        for (material, transform, mesh, _) in entities.iter(world) {
+            match mesh_groups.get_mut(&mesh.id) {
+                Some(entities) => {
+                    entities.push((material, transform));
                 }
-                .as_bytes(),
-            );
+                None => {
+                    let mut entities = Vec::new();
+                    let id = mesh.id;
+                    entities.push((material, transform));
+                    mesh_groups.insert(id, entities);
+                }
+            }
         }
 
         let mut instance_buffer_infos = Vec::new();
-        instance_buffer_infos.push(InstanceBufferInfo {
-            mesh_id: last_mesh_id.unwrap(),
-            buffer: temp_buf_data.finish(),
-            instance_count: entities_count,
-        });
+        for (mesh_id, mut same_mesh_entities) in mesh_groups {
+            let temp_buf_data = device.create_buffer_mapped(
+                same_mesh_entities.len() * uniform_size,
+                wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
+            );
+
+            let entity_count = same_mesh_entities.len();
+            for ((material, transform), slot) in same_mesh_entities
+                .drain(..)
+                .zip(temp_buf_data.data.chunks_exact_mut(uniform_size))
+            {
+                let (_, _, translation) = transform.0.to_scale_rotation_translation();
+                slot.copy_from_slice(
+                    SimpleMaterialUniforms {
+                        position: translation.into(),
+                        color: material.color.into(),
+                    }
+                    .as_bytes(),
+                );
+            }
+
+
+            instance_buffer_infos.push(InstanceBufferInfo {
+                mesh_id: mesh_id,
+                buffer: temp_buf_data.finish(),
+                instance_count: entity_count,
+            });
+        }
 
         instance_buffer_infos
     }
@@ -261,10 +281,7 @@ impl Pipeline for ForwardInstancedPipeline {
         ));
         pass.set_bind_group(0, self.local_bind_group.as_ref().unwrap(), &[]);
 
-        let mut mesh_storage = world
-            .resources
-            .get_mut::<AssetStorage<Mesh>>()
-            .unwrap();
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for instance_buffer_info in self.instance_buffer_infos.as_ref().unwrap().iter() {
             if let Some(mesh_asset) = mesh_storage.get(instance_buffer_info.mesh_id) {
                 mesh_asset.setup_buffers(&render_graph.device);
