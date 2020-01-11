@@ -1,14 +1,8 @@
-use crate::{render::*, asset::*, render::mesh::*, LocalToWorld};
+use crate::{render::{*, instancing::InstanceBufferInfo}, asset::*, render::mesh::*, LocalToWorld};
 use legion::prelude::*;
 use std::mem;
 use zerocopy::AsBytes;
 use wgpu::{Device, SwapChainOutput};
-
-pub struct InstanceBufferInfo {
-    pub buffer: wgpu::Buffer,
-    pub instance_count: usize,
-    pub mesh_id: usize,
-}
 
 pub struct ForwardInstancedPipeline {
     pub pipeline: Option<wgpu::RenderPipeline>,

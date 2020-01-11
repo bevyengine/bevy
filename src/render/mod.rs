@@ -3,10 +3,12 @@ pub mod shader;
 pub mod mesh;
 pub mod render_resources;
 pub mod passes;
+pub mod instancing;
 
 mod light;
 mod render_graph;
 mod material;
+mod rect;
 
 pub use light::*;
 pub use shader::*;
@@ -14,6 +16,7 @@ pub use render_graph::*;
 pub use material::*;
 pub use mesh::*;
 pub use camera::*;
+pub use rect::*;
 
 use std::mem;
 use crate::vertex::Vertex;

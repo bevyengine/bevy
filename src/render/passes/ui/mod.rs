@@ -1,10 +1,21 @@
-use crate::{render::*, asset::*, render::mesh::*};
+use crate::{render::{*, instancing::InstanceBufferInfo}, asset::*, render::mesh::*, math};
 use legion::prelude::*;
+use zerocopy::{AsBytes, FromBytes};
 use wgpu::SwapChainOutput;
+
+#[repr(C)]
+#[derive(Clone, Copy, AsBytes, FromBytes)]
+pub struct RectData {
+    pub position: [f32; 2],
+    pub dimensions: [f32; 2],
+    pub color: [f32; 4],
+    pub z_index: f32,
+}
 
 pub struct UiPipeline {
     pub pipeline: Option<wgpu::RenderPipeline>,
     pub depth_format: wgpu::TextureFormat,
+    pub quad: Option<Handle<Mesh>>,
     pub bind_group: Option<wgpu::BindGroup>,
 }
 
@@ -13,13 +24,48 @@ impl UiPipeline {
         UiPipeline {
             pipeline: None,
             bind_group: None,
+            quad: None,
             depth_format: wgpu::TextureFormat::Depth32Float
         }
+    }
+
+    pub fn create_rect_buffers(&self, device: &wgpu::Device, world: &World) -> Vec<InstanceBufferInfo> {
+        let mut rect_query = <Read<Rect>>::query();
+        let rect_count = rect_query.iter_immutable(world).count();
+
+        let mut data = Vec::with_capacity(rect_count);
+        // TODO: this probably isn't the best way to handle z-ordering
+        let mut z = 0.9999;
+        for rect in rect_query.iter_immutable(world)
+        {
+            data.push(RectData {
+                position: rect.position.into(),
+                dimensions: rect.dimensions.into(),
+                color: rect.color.into(),
+                z_index: z,
+            });
+            
+            z -= 0.0001;
+        }
+
+        let buffer = device
+            .create_buffer_with_data(data.as_bytes(), wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX);
+        
+        let mesh_id = *self.quad.as_ref().unwrap().id.read().unwrap();
+
+        let mut instance_buffer_infos = Vec::new();
+        instance_buffer_infos.push(InstanceBufferInfo {
+            mesh_id: mesh_id,
+            buffer: buffer,
+            instance_count: rect_count,
+        });
+
+        instance_buffer_infos
     }
 }
 
 impl Pipeline for UiPipeline {
-    fn initialize(&mut self, render_graph: &mut RenderGraphData, _: &mut World) {
+    fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
         let vs_bytes = shader::load_glsl(
             include_str!("ui.vert"),
             shader::ShaderStage::Vertex,
@@ -56,11 +102,50 @@ impl Pipeline for UiPipeline {
             })
         });
 
+        {
+            let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
+
+            let quad = Mesh::load(MeshType::Quad {
+                north_west: math::vec2(-0.5, 0.5),
+                north_east: math::vec2(0.5, 0.5),
+                south_west: math::vec2(-0.5, -0.5),
+                south_east: math::vec2(0.5, -0.5),
+            });
+            self.quad = Some(mesh_storage.add(quad, "ui_quad"));
+        }
+
         let pipeline_layout = render_graph.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
         });
 
         let vertex_buffer_descriptor = get_vertex_buffer_descriptor();
+        let rect_data_size = mem::size_of::<RectData>();
+        let instance_buffer_descriptor = wgpu::VertexBufferDescriptor {
+            stride: rect_data_size as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float2,
+                    offset: 0,
+                    shader_location: 2,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float2,
+                    offset: 2 * 4,
+                    shader_location: 3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float4,
+                    offset: 4 * 4,
+                    shader_location: 4,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float,
+                    offset: 8 * 4,
+                    shader_location: 5,
+                },
+            ],
+        };
 
         let vs_module = render_graph.device.create_shader_module(&vs_bytes);
         let fs_module = render_graph.device.create_shader_module(&fs_bytes);
@@ -101,7 +186,7 @@ impl Pipeline for UiPipeline {
                 stencil_write_mask: 0,
             }),
             index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[vertex_buffer_descriptor],
+            vertex_buffers: &[vertex_buffer_descriptor, instance_buffer_descriptor],
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -109,34 +194,18 @@ impl Pipeline for UiPipeline {
     }
 
     fn render(&mut self, render_graph: &RenderGraphData, pass: &mut wgpu::RenderPass, _: &SwapChainOutput, world: &mut World) {
+        let instance_buffer_infos = Some(self.create_rect_buffers(&render_graph.device, world));
         pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
-        let mut last_mesh_id = None;
-        let mut mesh_query =
-            <(Read<Handle<Mesh>>, Read<Mesh2d>)>::query()
-            .filter(!component::<Instanced>());
-        for (mesh, _) in mesh_query.iter_immutable(world) {
-            let current_mesh_id = *mesh.id.read().unwrap();
-
-            let mut should_load_mesh = last_mesh_id == None;
-            if let Some(last) = last_mesh_id {
-                should_load_mesh = last != current_mesh_id;
-            }
-
-            if should_load_mesh {
-                if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
-                    mesh_asset.setup_buffers(&render_graph.device);
-                    pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
-                    pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
-                };
-            }
-
-            if let Some(ref mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
-                pass.draw_indexed(0 .. mesh_asset.indices.len() as u32, 0, 0 .. 1);
+        for instance_buffer_info in instance_buffer_infos.as_ref().unwrap().iter() {
+            if let Some(mesh_asset) = mesh_storage.get(instance_buffer_info.mesh_id) {
+                mesh_asset.setup_buffers(&render_graph.device);
+                pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
+                pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
+                pass.set_vertex_buffers(1, &[(&instance_buffer_info.buffer, 0)]);
+                pass.draw_indexed(0 .. mesh_asset.indices.len() as u32, 0, 0 .. instance_buffer_info.instance_count as u32);
             };
-
-            last_mesh_id = Some(current_mesh_id); 
         }
     }
     

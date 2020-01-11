@@ -168,17 +168,10 @@ fn main() {
 
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane{ size: 24.5 });
-    let quad = Mesh::load(MeshType::Quad {
-        north_west: math::vec2(100.0, 200.0),
-        north_east: math::vec2(200.0, 200.0),
-        south_west: math::vec2(100.0, 100.0),
-        south_east: math::vec2(200.0, 100.0),
-    });
     let mut mesh_storage = AssetStorage::<Mesh, MeshType>::new();
 
     let _cube_handle = mesh_storage.add(cube, "cube");
     let plane_handle = mesh_storage.add(plane, "plane");
-    let quad_handle = mesh_storage.add(quad, "quad");
     world.resources.insert(mesh_storage);
 
     let transform_system_bundle = transform_system_bundle::build(&mut world);
@@ -287,16 +280,37 @@ fn main() {
     ]);
 
     world.insert((), vec![
-        
-        // camera
         (
-            quad_handle,
-            Mesh2d,
+            Rect {
+                position: math::vec2(75.0, 75.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(0.0, 1.0, 0.0, 1.0),
+            },
+        )
+    ]);
+
+    world.insert((), vec![
+        (
+            Rect {
+                position: math::vec2(50.0, 50.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(1.0, 0.0, 0.0, 1.0),
+            },
+        )
+    ]);
+
+    world.insert((), vec![
+        (
+            Rect {
+                position: math::vec2(100.0, 100.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(0.0, 0.0, 1.0, 1.0),
+            },
         )
     ]);
 
     let mut rng = StdRng::from_entropy();
-    for _ in 0 .. 70000 {
+    for _ in 0 .. 5 {
         create_person(&mut world, _cube_handle.clone(),
             Translation::new(rng.gen_range(-50.0, 50.0), 0.0, rng.gen_range(-50.0, 50.0)));
     }
