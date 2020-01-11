@@ -22,15 +22,13 @@ pub trait Asset<D> {
     fn load(descriptor: D) -> Self;
 }
 
-pub struct AssetStorage<T>
-{
+pub struct AssetStorage<T> {
     assets: HashMap<usize, T>,
     names: HashMap<String, usize>,
     current_index: usize,
 }
 
-impl<T> AssetStorage<T>
-{
+impl<T> AssetStorage<T> {
     pub fn new() -> AssetStorage<T> {
         AssetStorage {
             assets: HashMap::new(),

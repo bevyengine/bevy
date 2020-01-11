@@ -169,10 +169,7 @@ impl Pipeline for ForwardShadowPassNew {
         let mesh_query = <(Read<Material>, Read<Handle<Mesh>>)>::query();
         pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
-        let mut mesh_storage = world
-            .resources
-            .get_mut::<AssetStorage<Mesh>>()
-            .unwrap();
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for (material, mesh) in mesh_query.iter(world) {
             if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
                 mesh_asset.setup_buffers(&render_graph.device);

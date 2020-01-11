@@ -112,10 +112,7 @@ impl Pipeline for UiPipeline {
         });
 
         {
-            let mut mesh_storage = world
-                .resources
-                .get_mut::<AssetStorage<Mesh>>()
-                .unwrap();
+            let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
 
             let quad = Mesh::load(MeshType::Quad {
                 north_west: math::vec2(-0.5, 0.5),
@@ -218,10 +215,7 @@ impl Pipeline for UiPipeline {
         let instance_buffer_infos = Some(self.create_rect_buffers(&render_graph.device, world));
         pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
-        let mut mesh_storage = world
-            .resources
-            .get_mut::<AssetStorage<Mesh>>()
-            .unwrap();
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for instance_buffer_info in instance_buffer_infos.as_ref().unwrap().iter() {
             if let Some(mesh_asset) = mesh_storage.get(instance_buffer_info.mesh_id) {
                 mesh_asset.setup_buffers(&render_graph.device);

@@ -129,6 +129,6 @@ pub fn create_plane(size: f32) -> (Vec<Vertex>, Vec<u16>) {
         vec2(-size_over_2, size_over_2),
         vec2(size_over_2, size_over_2),
         vec2(-size_over_2, -size_over_2),
-        vec2(size_over_2, -size_over_2)
+        vec2(size_over_2, -size_over_2),
     )
 }

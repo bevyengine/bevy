@@ -135,10 +135,7 @@ impl Pipeline for ForwardPipeline {
     ) {
         pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
-        let mut mesh_storage = world
-            .resources
-            .get_mut::<AssetStorage<Mesh>>()
-            .unwrap();
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         let mut last_mesh_id = None;
         let mesh_query =
             <(Read<Material>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());

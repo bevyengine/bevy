@@ -82,7 +82,6 @@ impl ForwardInstancedPipeline {
                 );
             }
 
-
             instance_buffer_infos.push(InstanceBufferInfo {
                 mesh_id: mesh_id,
                 buffer: temp_buf_data.finish(),

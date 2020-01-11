@@ -12,10 +12,7 @@ fn main() {
 fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let cube_handle = {
-        let mut mesh_storage = world
-            .resources
-            .get_mut::<AssetStorage<Mesh>>()
-            .unwrap();
+        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         mesh_storage.add(cube)
     };
 
