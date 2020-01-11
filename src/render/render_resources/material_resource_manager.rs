@@ -11,30 +11,40 @@ pub struct MaterialResourceManager;
 impl RenderResourceManager for MaterialResourceManager {
     fn initialize(&self, render_graph: &mut RenderGraphData, _world: &mut World) {
         let material_bind_group_layout =
-        render_graph.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[wgpu::BindGroupLayoutBinding {
-                binding: 0,
-                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-            }],
-        });
+            render_graph
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    bindings: &[wgpu::BindGroupLayoutBinding {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                    }],
+                });
 
-        render_graph.set_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME, material_bind_group_layout);
+        render_graph
+            .set_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME, material_bind_group_layout);
     }
 
-    fn update<'a>(&mut self, render_graph: &mut RenderGraphData, encoder: &'a mut wgpu::CommandEncoder, world: &mut World) {
-        let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query()
-            .filter(!component::<Instanced>());
+    fn update<'a>(
+        &mut self,
+        render_graph: &mut RenderGraphData,
+        encoder: &'a mut wgpu::CommandEncoder,
+        world: &mut World,
+    ) {
+        let mut entities =
+            <(Write<Material>, Read<LocalToWorld>)>::query().filter(!component::<Instanced>());
         let entities_count = entities.iter(world).count();
         if entities_count == 0 {
             return;
         }
 
         let size = mem::size_of::<MaterialUniforms>();
-        let temp_buf_data = render_graph.device
+        let temp_buf_data = render_graph
+            .device
             .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
 
-        for ((material, transform), slot) in entities.iter(world)
+        for ((material, transform), slot) in entities
+            .iter(world)
             .zip(temp_buf_data.data.chunks_exact_mut(size))
         {
             slot.copy_from_slice(
@@ -45,27 +55,36 @@ impl RenderResourceManager for MaterialResourceManager {
                 .as_bytes(),
             );
         }
-        
-        let material_bind_group_layout = render_graph.get_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME).unwrap();
 
-        for mut material in <Write<Material>>::query().filter(!component::<Instanced>()).iter(world) {
+        let material_bind_group_layout = render_graph
+            .get_bind_group_layout(MATERIAL_BIND_GROUP_LAYOUT_NAME)
+            .unwrap();
+
+        for mut material in <Write<Material>>::query()
+            .filter(!component::<Instanced>())
+            .iter(world)
+        {
             if let None = material.bind_group {
-                let material_uniform_size = mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
+                let material_uniform_size =
+                    mem::size_of::<MaterialUniforms>() as wgpu::BufferAddress;
                 let uniform_buf = render_graph.device.create_buffer(&wgpu::BufferDescriptor {
                     size: material_uniform_size,
                     usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
                 });
 
-                let bind_group = render_graph.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: material_bind_group_layout,
-                    bindings: &[wgpu::Binding {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer {
-                            buffer: &uniform_buf,
-                            range: 0 .. material_uniform_size,
-                        },
-                    }],
-                });
+                let bind_group =
+                    render_graph
+                        .device
+                        .create_bind_group(&wgpu::BindGroupDescriptor {
+                            layout: material_bind_group_layout,
+                            bindings: &[wgpu::Binding {
+                                binding: 0,
+                                resource: wgpu::BindingResource::Buffer {
+                                    buffer: &uniform_buf,
+                                    range: 0..material_uniform_size,
+                                },
+                            }],
+                        });
 
                 material.bind_group = Some(bind_group);
                 material.uniform_buf = Some(uniform_buf);
@@ -83,7 +102,11 @@ impl RenderResourceManager for MaterialResourceManager {
             );
         }
     }
-    fn resize<'a>(&self, _render_graph: &mut RenderGraphData, _encoder: &'a mut wgpu::CommandEncoder, _world: &mut World) {
-
+    fn resize<'a>(
+        &self,
+        _render_graph: &mut RenderGraphData,
+        _encoder: &'a mut wgpu::CommandEncoder,
+        _world: &mut World,
+    ) {
     }
 }

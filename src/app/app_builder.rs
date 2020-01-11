@@ -1,4 +1,9 @@
-use crate::{App, asset::AssetStorage, legion::prelude::{World, SystemScheduler}, render::{*, passes::*}, AppStage, Time};
+use crate::{
+    asset::AssetStorage,
+    legion::prelude::{SystemScheduler, World},
+    render::{passes::*, *},
+    App, AppStage, Time,
+};
 
 pub struct AppBuilder {
     pub app: App,
@@ -26,7 +31,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn with_scheduler(mut self, scheduler: SystemScheduler::<AppStage>) -> Self {
+    pub fn with_scheduler(mut self, scheduler: SystemScheduler<AppStage>) -> Self {
         self.app.scheduler = scheduler;
         self
     }
@@ -37,29 +42,36 @@ impl AppBuilder {
     }
 
     pub fn add_default_passes(mut self) -> Self {
-        self.app.render_graph.add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
-        self.app.render_graph.add_render_resource_manager(Box::new(render_resources::LightResourceManager::new(10)));
-        self.app.render_graph.add_render_resource_manager(Box::new(render_resources::GlobalResourceManager));
-        self.app.render_graph.add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
+        let render_graph = &mut self.app.render_graph;
+        render_graph
+            .add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
+        render_graph
+            .add_render_resource_manager(Box::new(render_resources::LightResourceManager::new(10)));
+        render_graph.add_render_resource_manager(Box::new(render_resources::GlobalResourceManager));
+        render_graph
+            .add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
-        self.app.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
-        self.app.render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new()));
-        self.app.render_graph.set_pipeline("forward", "forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
-        self.app.render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new()));
+        render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
+        render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new()));
+        render_graph.set_pipeline(
+            "forward",
+            "forward_instanced",
+            Box::new(ForwardInstancedPipeline::new(depth_format)),
+        );
+        render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new()));
 
         self
     }
 
     pub fn add_default_resources(mut self) -> Self {
-        self.app.world.resources.insert(Time::new());
-        self.app.world.resources.insert(AssetStorage::<Mesh, MeshType>::new());
+        let resources = &mut self.app.world.resources;
+        resources.insert(Time::new());
+        resources.insert(AssetStorage::<Mesh, MeshType>::new());
         self
     }
 
     pub fn add_defaults(self) -> Self {
-        self
-            .add_default_resources()
-            .add_default_passes()
+        self.add_default_resources().add_default_passes()
     }
 }

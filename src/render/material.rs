@@ -1,5 +1,5 @@
-use zerocopy::{AsBytes, FromBytes};
 use crate::math;
+use zerocopy::{AsBytes, FromBytes};
 
 pub struct Material {
     pub color: math::Vec4,
@@ -14,7 +14,7 @@ impl Material {
         Material {
             color,
             bind_group: None,
-            uniform_buf: None, 
+            uniform_buf: None,
         }
     }
 }

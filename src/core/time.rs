@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 pub struct Time {
     pub delta: Duration,
     pub instant: Instant,
-    pub delta_seconds: f32
+    pub delta_seconds: f32,
 }
 
 impl Time {
@@ -21,6 +21,7 @@ impl Time {
 
     pub fn stop(&mut self) {
         self.delta = Instant::now() - self.instant;
-        self.delta_seconds = self.delta.as_secs() as f32 + (self.delta.subsec_nanos() as f32 / 1.0e9);
+        self.delta_seconds =
+            self.delta.as_secs() as f32 + (self.delta.subsec_nanos() as f32 / 1.0e9);
     }
 }

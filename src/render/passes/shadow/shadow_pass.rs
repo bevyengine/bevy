@@ -1,4 +1,4 @@
-use crate::{render::*, render::passes::shadow, LocalToWorld, Translation};
+use crate::{render::passes::shadow, render::*, LocalToWorld, Translation};
 use legion::prelude::*;
 use std::mem;
 
@@ -13,7 +13,11 @@ pub struct ShadowPass {
 pub const SHADOW_TEXTURE_NAME: &str = "shadow_texture";
 
 impl ShadowPass {
-    pub fn new(shadow_size: wgpu::Extent3d, shadow_format: wgpu::TextureFormat, max_lights: usize) -> Self {
+    pub fn new(
+        shadow_size: wgpu::Extent3d,
+        shadow_format: wgpu::TextureFormat,
+        max_lights: usize,
+    ) -> Self {
         ShadowPass {
             light_index: -1,
             shadow_texture: None,
@@ -26,15 +30,17 @@ impl ShadowPass {
 
 impl Pass for ShadowPass {
     fn initialize(&self, render_graph: &mut RenderGraphData) {
-        let shadow_texture = render_graph.device.create_texture(&wgpu::TextureDescriptor {
-            size: self.shadow_size,
-            array_layer_count: self.max_lights as u32,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: self.shadow_format,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
-        });
+        let shadow_texture = render_graph
+            .device
+            .create_texture(&wgpu::TextureDescriptor {
+                size: self.shadow_size,
+                array_layer_count: self.max_lights as u32,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: self.shadow_format,
+                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            });
 
         let shadow_view = shadow_texture.create_default_view();
         render_graph.set_texture(SHADOW_TEXTURE_NAME, shadow_view);
@@ -74,8 +80,12 @@ impl Pass for ShadowPass {
 
             // The light uniform buffer already has the projection,
             // let's just copy it over to the shadow uniform buffer.
-            let light_uniform_buffer = render_graph.get_uniform_buffer(render_resources::LIGHT_UNIFORM_BUFFER_NAME).unwrap();
-            let shadow_pipeline_uniform_buffer = render_graph.get_uniform_buffer(shadow::SHADOW_PIPELINE_UNIFORMS).unwrap();
+            let light_uniform_buffer = render_graph
+                .get_uniform_buffer(render_resources::LIGHT_UNIFORM_BUFFER_NAME)
+                .unwrap();
+            let shadow_pipeline_uniform_buffer = render_graph
+                .get_uniform_buffer(shadow::SHADOW_PIPELINE_UNIFORMS)
+                .unwrap();
             encoder.copy_buffer_to_buffer(
                 &light_uniform_buffer.buffer,
                 (i * mem::size_of::<LightRaw>()) as wgpu::BufferAddress,

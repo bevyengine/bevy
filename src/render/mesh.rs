@@ -1,4 +1,4 @@
-use crate::{vertex::Vertex, asset::Asset, math::*};
+use crate::{asset::Asset, math::*, vertex::Vertex};
 use wgpu::{Buffer, Device};
 use zerocopy::AsBytes;
 
@@ -8,14 +8,14 @@ pub struct Mesh2d;
 pub enum MeshType {
     Cube,
     Plane {
-        size: f32
+        size: f32,
     },
     Quad {
         north_west: Vec2,
         north_east: Vec2,
         south_west: Vec2,
         south_east: Vec2,
-    }
+    },
 }
 
 pub struct Mesh {
@@ -28,11 +28,15 @@ pub struct Mesh {
 impl Mesh {
     pub fn setup_buffers(&mut self, device: &Device) {
         if let None = self.vertex_buffer {
-            self.vertex_buffer = Some(device.create_buffer_with_data(self.vertices.as_bytes(), wgpu::BufferUsage::VERTEX));
+            self.vertex_buffer = Some(
+                device.create_buffer_with_data(self.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
+            );
         }
 
         if let None = self.index_buffer {
-            self.index_buffer = Some(device.create_buffer_with_data(self.indices.as_bytes(), wgpu::BufferUsage::INDEX));
+            self.index_buffer = Some(
+                device.create_buffer_with_data(self.indices.as_bytes(), wgpu::BufferUsage::INDEX),
+            );
         }
     }
 }
@@ -42,7 +46,12 @@ impl Asset<MeshType> for Mesh {
         let (vertices, indices) = match descriptor {
             MeshType::Cube => create_cube(),
             MeshType::Plane { size } => create_plane(size),
-            MeshType::Quad { north_west, north_east, south_west, south_east } => create_quad(north_west, north_east, south_west, south_east),
+            MeshType::Quad {
+                north_west,
+                north_east,
+                south_west,
+                south_east,
+            } => create_quad(north_west, north_east, south_west, south_east),
         };
 
         Mesh {
@@ -54,7 +63,12 @@ impl Asset<MeshType> for Mesh {
     }
 }
 
-pub fn create_quad(north_west: Vec2, north_east: Vec2, south_west: Vec2, south_east: Vec2) -> (Vec<Vertex>, Vec<u16>) {
+pub fn create_quad(
+    north_west: Vec2,
+    north_east: Vec2,
+    south_west: Vec2,
+    south_east: Vec2,
+) -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
         Vertex::from(([south_west.x(), south_west.y(), 0.0], [0.0, 0.0, 1.0])),
         Vertex::from(([north_west.x(), north_west.y(), 0.0], [0.0, 0.0, 1.0])),
@@ -62,7 +76,7 @@ pub fn create_quad(north_west: Vec2, north_east: Vec2, south_west: Vec2, south_e
         Vertex::from(([south_east.x(), south_east.y(), 0.0], [0.0, 0.0, 1.0])),
     ];
 
-    let index_data: &[u16] = &[ 0, 1, 2, 0, 2, 3 ];
+    let index_data: &[u16] = &[0, 1, 2, 0, 2, 3];
     return (vertex_data.to_vec(), index_data.to_vec());
 }
 

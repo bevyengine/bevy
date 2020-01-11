@@ -1,25 +1,25 @@
 pub mod camera;
-pub mod shader;
-pub mod mesh;
-pub mod render_resources;
-pub mod passes;
 pub mod instancing;
+pub mod mesh;
+pub mod passes;
+pub mod render_resources;
+pub mod shader;
 
 mod light;
-mod render_graph;
 mod material;
 mod rect;
+mod render_graph;
 
+pub use camera::*;
 pub use light::*;
-pub use shader::*;
-pub use render_graph::*;
 pub use material::*;
 pub use mesh::*;
-pub use camera::*;
 pub use rect::*;
+pub use render_graph::*;
+pub use shader::*;
 
-use std::mem;
 use crate::vertex::Vertex;
+use std::mem;
 
 pub struct UniformBuffer {
     pub buffer: wgpu::Buffer,
@@ -30,7 +30,7 @@ impl UniformBuffer {
     pub fn get_binding_resource<'a>(&'a self) -> wgpu::BindingResource<'a> {
         wgpu::BindingResource::Buffer {
             buffer: &self.buffer,
-            range: 0 .. self.size,
+            range: 0..self.size,
         }
     }
 }

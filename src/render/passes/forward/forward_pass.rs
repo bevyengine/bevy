@@ -1,7 +1,7 @@
 use crate::render::*;
 use legion::prelude::*;
-use zerocopy::{AsBytes, FromBytes};
 use wgpu::{Device, SwapChainDescriptor};
+use zerocopy::{AsBytes, FromBytes};
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
@@ -16,11 +16,13 @@ pub struct ForwardPass {
 
 impl ForwardPass {
     pub fn new(depth_format: wgpu::TextureFormat) -> Self {
-        ForwardPass {
-            depth_format, 
-        }
+        ForwardPass { depth_format }
     }
-    fn get_depth_texture(&self, device: &Device, swap_chain_descriptor: &SwapChainDescriptor) -> wgpu::TextureView {
+    fn get_depth_texture(
+        &self,
+        device: &Device,
+        swap_chain_descriptor: &SwapChainDescriptor,
+    ) -> wgpu::TextureView {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width: swap_chain_descriptor.width,
@@ -42,11 +44,18 @@ impl ForwardPass {
 const DEPTH_TEXTURE_NAME: &str = "forward_depth";
 
 impl Pass for ForwardPass {
-    fn initialize(&self, render_graph: &mut RenderGraphData) { 
-        let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
+    fn initialize(&self, render_graph: &mut RenderGraphData) {
+        let depth_texture =
+            self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
         render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
     }
-    fn begin<'a>(&mut self, render_graph: &mut RenderGraphData, _: &mut World, encoder: &'a mut wgpu::CommandEncoder, frame: &'a wgpu::SwapChainOutput) -> Option<wgpu::RenderPass<'a>> {
+    fn begin<'a>(
+        &mut self,
+        render_graph: &mut RenderGraphData,
+        _: &mut World,
+        encoder: &'a mut wgpu::CommandEncoder,
+        frame: &'a wgpu::SwapChainOutput,
+    ) -> Option<wgpu::RenderPass<'a>> {
         let depth_texture = render_graph.get_texture(DEPTH_TEXTURE_NAME);
         Some(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -74,7 +83,8 @@ impl Pass for ForwardPass {
     }
 
     fn resize(&self, render_graph: &mut RenderGraphData) {
-        let depth_texture = self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
+        let depth_texture =
+            self.get_depth_texture(&render_graph.device, &render_graph.swap_chain_descriptor);
         render_graph.set_texture(DEPTH_TEXTURE_NAME, depth_texture);
     }
 

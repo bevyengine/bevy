@@ -30,22 +30,27 @@ impl ShadowPipeline {
 
 impl Pipeline for ShadowPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, _: &mut World) {
-        let bind_group_layout = render_graph.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[wgpu::BindGroupLayoutBinding {
-                binding: 0, // global
-                visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-            }],
-        });
+        let bind_group_layout =
+            render_graph
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    bindings: &[wgpu::BindGroupLayoutBinding {
+                        binding: 0, // global
+                        visibility: wgpu::ShaderStage::VERTEX,
+                        ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                    }],
+                });
 
-        let material_bind_group_layout = render_graph.get_bind_group_layout(render_resources::MATERIAL_BIND_GROUP_LAYOUT_NAME).unwrap();
+        let material_bind_group_layout = render_graph
+            .get_bind_group_layout(render_resources::MATERIAL_BIND_GROUP_LAYOUT_NAME)
+            .unwrap();
 
-        let pipeline_layout = render_graph.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[
-                &bind_group_layout,
-                material_bind_group_layout,
-            ],
-        });
+        let pipeline_layout =
+            render_graph
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    bind_group_layouts: &[&bind_group_layout, material_bind_group_layout],
+                });
 
         let uniform_size = mem::size_of::<ShadowUniforms>() as wgpu::BufferAddress;
         let uniform_buf = render_graph.device.create_buffer(&wgpu::BufferDescriptor {
@@ -54,81 +59,91 @@ impl Pipeline for ShadowPipeline {
         });
 
         // Create bind group
-        self.bind_group = Some(render_graph.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
-            bindings: &[wgpu::Binding {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &uniform_buf,
-                    range: 0..uniform_size,
-                },
-            }],
-        }));
+        self.bind_group = Some(
+            render_graph
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &bind_group_layout,
+                    bindings: &[wgpu::Binding {
+                        binding: 0,
+                        resource: wgpu::BindingResource::Buffer {
+                            buffer: &uniform_buf,
+                            range: 0..uniform_size,
+                        },
+                    }],
+                }),
+        );
 
-        render_graph.set_uniform_buffer(SHADOW_PIPELINE_UNIFORMS, UniformBuffer {
-            buffer: uniform_buf,
-            size: uniform_size,
-        });
+        render_graph.set_uniform_buffer(
+            SHADOW_PIPELINE_UNIFORMS,
+            UniformBuffer {
+                buffer: uniform_buf,
+                size: uniform_size,
+            },
+        );
 
         // Create other resources
-        let shadow_sampler = render_graph.device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            compare_function: wgpu::CompareFunction::LessEqual,
-        });
+        let shadow_sampler = render_graph
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                lod_min_clamp: -100.0,
+                lod_max_clamp: 100.0,
+                compare_function: wgpu::CompareFunction::LessEqual,
+            });
 
         render_graph.set_sampler(SHADOW_SAMPLER_NAME, shadow_sampler);
 
         let vertex_buffer_descriptor = get_vertex_buffer_descriptor();
 
         // Create the render pipeline
-        let vs_bytes =
-            shader::load_glsl(include_str!("shadow.vert"), shader::ShaderStage::Vertex);
+        let vs_bytes = shader::load_glsl(include_str!("shadow.vert"), shader::ShaderStage::Vertex);
         let fs_bytes =
             shader::load_glsl(include_str!("shadow.frag"), shader::ShaderStage::Fragment);
         let vs_module = render_graph.device.create_shader_module(&vs_bytes);
         let fs_module = render_graph.device.create_shader_module(&fs_bytes);
 
-        self.pipeline = Some(render_graph.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: &pipeline_layout,
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main",
+        self.pipeline = Some(render_graph.device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                layout: &pipeline_layout,
+                vertex_stage: wgpu::ProgrammableStageDescriptor {
+                    module: &vs_module,
+                    entry_point: "main",
+                },
+                fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                    module: &fs_module,
+                    entry_point: "main",
+                }),
+                rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: wgpu::CullMode::Back,
+                    depth_bias: 2, // corresponds to bilinear filtering
+                    depth_bias_slope_scale: 2.0,
+                    depth_bias_clamp: 0.0,
+                }),
+                primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+                color_states: &[],
+                depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                    format: self.shadow_format,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                    stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                    stencil_read_mask: 0,
+                    stencil_write_mask: 0,
+                }),
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[vertex_buffer_descriptor],
+                sample_count: 1,
+                sample_mask: !0,
+                alpha_to_coverage_enabled: false,
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                depth_bias: 2, // corresponds to bilinear filtering
-                depth_bias_slope_scale: 2.0,
-                depth_bias_clamp: 0.0,
-            }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            color_states: &[],
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: self.shadow_format,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_read_mask: 0,
-                stencil_write_mask: 0,
-            }),
-            index_format: wgpu::IndexFormat::Uint16,
-            vertex_buffers: &[vertex_buffer_descriptor],
-            sample_count: 1,
-            sample_mask: !0,
-            alpha_to_coverage_enabled: false,
-        }));
+        ));
     }
 
     fn render(

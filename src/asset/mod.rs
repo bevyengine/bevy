@@ -2,21 +2,25 @@ mod gltf;
 
 pub use self::gltf::load_gltf;
 
-use std::{sync::{Arc, RwLock}, marker::PhantomData, ops::Drop, collections::HashMap};
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    ops::Drop,
+    sync::{Arc, RwLock},
+};
 
-pub struct Handle<T>
-{
+pub struct Handle<T> {
     pub id: Arc<RwLock<usize>>,
     marker: PhantomData<T>,
-    free_indices: Arc<RwLock<Vec<usize>>>
+    free_indices: Arc<RwLock<Vec<usize>>>,
 }
 
 impl<T> Clone for Handle<T> {
-    fn clone(&self) -> Self { 
+    fn clone(&self) -> Self {
         Handle {
             id: self.id.clone(),
             free_indices: self.free_indices.clone(),
-            marker: PhantomData
+            marker: PhantomData,
         }
     }
 }
@@ -36,14 +40,20 @@ pub trait Asset<D> {
     fn load(descriptor: D) -> Self;
 }
 
-pub struct AssetStorage<T, D> where T: Asset<D> {
+pub struct AssetStorage<T, D>
+where
+    T: Asset<D>,
+{
     assets: Vec<Option<T>>,
     free_indices: Arc<RwLock<Vec<usize>>>,
     names: HashMap<String, Arc<RwLock<usize>>>,
     marker: PhantomData<D>,
 }
 
-impl<T, D> AssetStorage<T, D> where T: Asset<D> {
+impl<T, D> AssetStorage<T, D>
+where
+    T: Asset<D>,
+{
     pub fn new() -> AssetStorage<T, D> {
         AssetStorage {
             assets: Vec::new(),
@@ -55,13 +65,11 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
 
     pub fn get_named(&self, name: &str) -> Option<Handle<T>> {
         match self.names.get(name) {
-            Some(id) => {
-                Some(Handle {
-                    id: id.clone(),
-                    marker: PhantomData,
-                    free_indices: self.free_indices.clone()
-                })
-            },
+            Some(id) => Some(Handle {
+                id: id.clone(),
+                marker: PhantomData,
+                free_indices: self.free_indices.clone(),
+            }),
             None => None,
         }
     }
@@ -75,9 +83,9 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
                 Handle {
                     id: handle,
                     marker: PhantomData,
-                    free_indices: self.free_indices.clone()
+                    free_indices: self.free_indices.clone(),
                 }
-            },
+            }
             None => {
                 self.assets.push(Some(asset));
                 let id = self.assets.len() - 1;
@@ -86,7 +94,7 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
                 Handle {
                     id: handle,
                     marker: PhantomData,
-                    free_indices: self.free_indices.clone()
+                    free_indices: self.free_indices.clone(),
                 }
             }
         }
@@ -95,14 +103,12 @@ impl<T, D> AssetStorage<T, D> where T: Asset<D> {
     pub fn get(&mut self, id: usize) -> Option<&mut T> {
         if id >= self.assets.len() {
             None
-        }
-        else {
+        } else {
             if let Some(ref mut asset) = self.assets[id] {
                 Some(asset)
             } else {
                 None
             }
         }
-
     }
 }

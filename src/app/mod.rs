@@ -1,8 +1,8 @@
-mod app_stage;
 mod app_builder;
+mod app_stage;
 
-pub use app_stage::AppStage;
 pub use app_builder::AppBuilder;
+pub use app_stage::AppStage;
 
 use winit::{
     event,
@@ -15,8 +15,7 @@ use legion::prelude::*;
 
 use crate::{render::*, Time};
 
-pub struct App
-{
+pub struct App {
     pub world: World,
     pub window: Option<Window>,
     pub render_graph: RenderGraph,
@@ -33,7 +32,7 @@ impl App {
             swap_chain: None,
             window: None,
         }
-    }    
+    }
 
     fn update(&mut self) {
         {
@@ -48,25 +47,22 @@ impl App {
         }
     }
 
-    fn resize(&mut self, width: u32, height: u32)
-    {
+    fn resize(&mut self, width: u32, height: u32) {
         self.swap_chain = Some(self.render_graph.resize(width, height, &mut self.world));
     }
 
-    fn handle_event(&mut self, _: WindowEvent)
-    {
-    }
+    fn handle_event(&mut self, _: WindowEvent) {}
 
-    fn render(&mut self)
-    {
-        self.render_graph.render(&mut self.world, self.swap_chain.as_mut().unwrap());
+    fn render(&mut self) {
+        self.render_graph
+            .render(&mut self.world, self.swap_chain.as_mut().unwrap());
     }
 
     pub fn run(mut self) {
         env_logger::init();
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
-    
+
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -74,7 +70,7 @@ impl App {
             wgpu::BackendBit::PRIMARY,
         )
         .unwrap();
-    
+
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
             extensions: wgpu::Extensions {
                 anisotropic_filtering: false,
@@ -91,7 +87,7 @@ impl App {
             let surface = wgpu::Surface::create(&window);
             (window, size, surface)
         };
-    
+
         let swap_chain_descriptor = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
@@ -102,11 +98,16 @@ impl App {
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
         log::info!("Initializing the example...");
-        self.render_graph.initialize(&mut self.world, device, swap_chain_descriptor, queue, surface);
+        self.render_graph.initialize(
+            &mut self.world,
+            device,
+            swap_chain_descriptor,
+            queue,
+            surface,
+        );
         self.window = Some(window);
         self.swap_chain = Some(swap_chain);
 
-    
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
             *control_flow = if cfg!(feature = "metal-auto-capture") {
@@ -148,6 +149,6 @@ impl App {
                 }
                 _ => (),
             }
-        }); 
+        });
     }
 }
