@@ -73,7 +73,7 @@ pub fn create_quad(
         Vertex::from(([south_east.x(), south_east.y(), 0.0], [0.0, 0.0, 1.0])),
     ];
 
-    let index_data: &[u16] = &[0, 1, 2, 0, 2, 3];
+    let index_data: &[u16] = &[0, 2, 1, 0, 3, 2];
     return (vertex_data.to_vec(), index_data.to_vec());
 }
 
@@ -124,15 +124,11 @@ pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
 }
 
 pub fn create_plane(size: f32) -> (Vec<Vertex>, Vec<u16>) {
-    let vertex_data = [
-        Vertex::from(([size, -size, 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([size, size, 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([-size, -size, 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([-size, size, 0.0], [0.0, 0.0, 1.0])),
-    ];
-
-    // TODO: make sure this order is correct
-    let index_data: &[u16] = &[0, 1, 2, 2, 1, 3];
-
-    (vertex_data.to_vec(), index_data.to_vec())
+    let size_over_2 = size / 2.0;
+    create_quad(
+        vec2(-size_over_2, size_over_2),
+        vec2(size_over_2, size_over_2),
+        vec2(-size_over_2, -size_over_2),
+        vec2(size_over_2, -size_over_2)
+    )
 }
