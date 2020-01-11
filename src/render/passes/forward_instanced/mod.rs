@@ -24,6 +24,10 @@ impl ForwardInstancedPipeline {
     fn create_instance_buffer_infos(device: &Device, world: &World) -> Vec<InstanceBufferInfo> {
         let mut entities = <(Read<Material>, Read<LocalToWorld>, Read<Handle<Mesh>>, Read<Instanced>)>::query();
         let entities_count = entities.iter_immutable(world).count();
+        if entities_count == 0 {
+            return Vec::new();
+        }
+
         let size = mem::size_of::<SimpleMaterialUniforms>();
 
         // TODO: use a staging buffer for more efficient gpu reads

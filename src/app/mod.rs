@@ -1,3 +1,9 @@
+mod app_stage;
+mod app_builder;
+
+pub use app_stage::AppStage;
+pub use app_builder::AppBuilder;
+
 use winit::{
     event,
     event::WindowEvent,
@@ -7,30 +13,27 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{render::*, render::passes::*, ApplicationStage, Time};
+use crate::{render::*, Time};
 
-pub struct Application
+pub struct App
 {
-    pub universe: Universe,
     pub world: World,
-    pub window: Window,
+    pub window: Option<Window>,
     pub render_graph: RenderGraph,
-    pub scheduler: SystemScheduler<ApplicationStage>,
+    pub swap_chain: Option<wgpu::SwapChain>,
+    pub scheduler: SystemScheduler<AppStage>,
 }
 
-impl Application {
-    fn add_default_passes(&mut self) {
-        self.render_graph.add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
-        self.render_graph.add_render_resource_manager(Box::new(render_resources::LightResourceManager::new(10)));
-        self.render_graph.add_render_resource_manager(Box::new(render_resources::GlobalResourceManager));
-        self.render_graph.add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
-
-        let depth_format = wgpu::TextureFormat::Depth32Float;
-        self.render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
-        self.render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new()));
-        self.render_graph.set_pipeline("forward", "forward_instanced", Box::new(ForwardInstancedPipeline::new(depth_format)));
-        self.render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new()));
-    }
+impl App {
+    pub fn new(world: World, scheduler: SystemScheduler<AppStage>) -> App {
+        App {
+            world: world,
+            scheduler: scheduler,
+            render_graph: RenderGraph::new(),
+            swap_chain: None,
+            window: None,
+        }
+    }    
 
     fn update(&mut self) {
         {
@@ -47,7 +50,7 @@ impl Application {
 
     fn resize(&mut self, width: u32, height: u32)
     {
-        self.render_graph.resize(width, height, &mut self.world);
+        self.swap_chain = Some(self.render_graph.resize(width, height, &mut self.world));
     }
 
     fn handle_event(&mut self, _: WindowEvent)
@@ -56,11 +59,10 @@ impl Application {
 
     fn render(&mut self)
     {
-        self.render_graph.render(&mut self.world);
+        self.render_graph.render(&mut self.world, self.swap_chain.as_mut().unwrap());
     }
 
-    #[allow(dead_code)]
-    pub fn run(universe: Universe, mut world: World, system_scheduler: SystemScheduler<ApplicationStage>) {
+    pub fn run(mut self) {
         env_logger::init();
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
@@ -80,14 +82,14 @@ impl Application {
             limits: wgpu::Limits::default(),
         });
 
-        let (window, hidpi_factor, size, surface) = {
+        let (window, size, surface) = {
             let window = winit::window::Window::new(&event_loop).unwrap();
             window.set_title("bevy");
             window.set_inner_size((1280, 720).into());
             let hidpi_factor = window.hidpi_factor();
             let size = window.inner_size().to_physical(hidpi_factor);
             let surface = wgpu::Surface::create(&window);
-            (window, hidpi_factor, size, surface)
+            (window, size, surface)
         };
     
         let swap_chain_descriptor = wgpu::SwapChainDescriptor {
@@ -98,21 +100,12 @@ impl Application {
             present_mode: wgpu::PresentMode::Vsync,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-        
-        world.resources.insert(Time::new());
 
         log::info!("Initializing the example...");
-        let render_graph = RenderGraph::new(device, swap_chain_descriptor, swap_chain, queue, surface);
-        let mut app = Application {
-            universe,
-            world,
-            window,
-            render_graph,
-            scheduler: system_scheduler,
-        };
+        self.render_graph.initialize(&mut self.world, device, swap_chain_descriptor, queue, surface);
+        self.window = Some(window);
+        self.swap_chain = Some(swap_chain);
 
-        app.add_default_passes();
-        app.render_graph.initialize(&mut app.world);
     
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
@@ -126,11 +119,12 @@ impl Application {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
+                    let hidpi_factor = self.window.as_ref().unwrap().hidpi_factor();
                     let physical = size.to_physical(hidpi_factor);
                     log::info!("Resizing to {:?}", physical);
                     let width = physical.width.round() as u32;
                     let height = physical.height.round() as u32;
-                    app.resize(width, height);
+                    self.resize(width, height);
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {
@@ -146,11 +140,11 @@ impl Application {
                         *control_flow = ControlFlow::Exit;
                     }
                     _ => {
-                        app.handle_event(event);
+                        self.handle_event(event);
                     }
                 },
                 event::Event::EventsCleared => {
-                    app.update();
+                    self.update();
                 }
                 _ => (),
             }

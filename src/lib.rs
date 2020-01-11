@@ -1,10 +1,10 @@
 pub mod render;
 pub mod asset;
-mod application;
+mod app;
 mod vertex;
 mod core;
 
-pub use application::Application;
+pub use app::{App, AppStage, AppBuilder};
 pub use crate::core::*;
 
 pub use wgpu;

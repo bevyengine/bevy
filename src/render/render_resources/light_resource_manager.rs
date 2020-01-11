@@ -42,6 +42,10 @@ impl RenderResourceManager for LightResourceManager {
             let mut light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
             let light_count = light_query.iter(world).count();
 
+            if light_count == 0 {
+                return;
+            }
+
             self.lights_are_dirty = false;
             let size = mem::size_of::<LightRaw>();
             let total_size = size * light_count;

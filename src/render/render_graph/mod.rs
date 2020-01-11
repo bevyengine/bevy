@@ -11,12 +11,11 @@ use std::collections::HashMap;
 use legion::world::World;
 
 pub struct RenderGraph {
-    pub data: RenderGraphData,
+    pub data: Option<RenderGraphData>,
     passes: HashMap<String, Box<dyn Pass>>,
     pipelines: HashMap<String, Box<dyn Pipeline>>,
     pass_pipelines: HashMap<String, Vec<String>>,
     render_resource_managers: Vec<Box<dyn RenderResourceManager>>,
-    pub swap_chain: wgpu::SwapChain, // TODO: this is weird
 }
 
 pub struct RenderGraphData {
@@ -77,53 +76,56 @@ impl RenderGraphData {
 }
 
 impl RenderGraph {
-    pub fn new(device: wgpu::Device, swap_chain_descriptor: wgpu::SwapChainDescriptor, swap_chain: wgpu::SwapChain, queue: wgpu::Queue, surface: wgpu::Surface) -> Self {
+    pub fn new() -> Self {
         RenderGraph {
             passes: HashMap::new(),
             pipelines: HashMap::new(),
-            swap_chain,
             pass_pipelines: HashMap::new(),
             render_resource_managers: Vec::new(),
-            data: RenderGraphData::new(device, swap_chain_descriptor, queue, surface),
+            data: None,
         }
     }
 
-    pub fn initialize(&mut self, world: &mut World) {
+    pub fn initialize(&mut self, world: &mut World, device: wgpu::Device, swap_chain_descriptor: wgpu::SwapChainDescriptor, queue: wgpu::Queue, surface: wgpu::Surface) {
+        let mut data = RenderGraphData::new(device, swap_chain_descriptor, queue, surface);
         for render_resource_manager in self.render_resource_managers.iter_mut() {
-            render_resource_manager.initialize(&mut self.data, world);
+            render_resource_manager.initialize(&mut data, world);
         }
 
         for pass in self.passes.values_mut() {
-            pass.initialize(&mut self.data);
+            pass.initialize(&mut data);
         }
         
         for pipeline in self.pipelines.values_mut() {
-            pipeline.initialize(&mut self.data, world);
+            pipeline.initialize(&mut data, world);
         }
+
+        self.data = Some(data);
     }
 
-    pub fn render(&mut self, world: &mut World) {
-        let frame = self.swap_chain
+    pub fn render(&mut self, world: &mut World, swap_chain: &mut wgpu::SwapChain) {
+        let frame = swap_chain
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
 
+        let data = self.data.as_mut().unwrap();
         let mut encoder =
-            self.data.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+            data.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         for render_resource_manager in self.render_resource_managers.iter_mut() {
-            render_resource_manager.update(&mut self.data, &mut encoder, world);
+            render_resource_manager.update(data, &mut encoder, world);
         }
 
         for (pass_name, pass) in self.passes.iter_mut() {
             loop {
-                let render_pass = pass.begin(&mut self.data, world, &mut encoder, &frame);
+                let render_pass = pass.begin(data, world, &mut encoder, &frame);
                 if let Some(mut render_pass) = render_pass {
                     // TODO: assign pipelines to specific passes
                     if let Some(pipeline_names)  = self.pass_pipelines.get(pass_name) {
                         for pipeline_name in pipeline_names.iter() {
                             let pipeline = self.pipelines.get_mut(pipeline_name).unwrap();
                             render_pass.set_pipeline(pipeline.get_pipeline());
-                            pipeline.render(&mut self.data, &mut render_pass, &frame, world);
+                            pipeline.render(data, &mut render_pass, &frame, world);
                         }
                     }
 
@@ -135,32 +137,33 @@ impl RenderGraph {
         }
 
         let command_buffer = encoder.finish();
-        self.data.queue.submit(&[command_buffer]);
+        data.queue.submit(&[command_buffer]);
     }
 
-    pub fn resize(&mut self, width: u32, height: u32, world: &mut World) {
-        self.data.swap_chain_descriptor.width = width;
-        self.data.swap_chain_descriptor.height = height;
-        self.swap_chain = self.data.device.create_swap_chain(&self.data.surface, &self.data.swap_chain_descriptor);
+    pub fn resize(&mut self, width: u32, height: u32, world: &mut World) -> wgpu::SwapChain {
+        let data = self.data.as_mut().unwrap();
+        data.swap_chain_descriptor.width = width;
+        data.swap_chain_descriptor.height = height;
+        let swap_chain = data.device.create_swap_chain(&data.surface, &data.swap_chain_descriptor);
         let mut encoder =
-            self.data.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+            data.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         for render_resource_manager in self.render_resource_managers.iter_mut() {
-            render_resource_manager.resize(&mut self.data, &mut encoder, world);
+            render_resource_manager.resize(data, &mut encoder, world);
         }
 
         let command_buffer = encoder.finish();
 
         for pass in self.passes.values_mut() {
-            pass.resize(&mut self.data);
+            pass.resize(data);
         }
 
         for pipeline in self.pipelines.values_mut() {
-            pipeline.resize(&mut self.data);
+            pipeline.resize(data);
         }
 
-        self.data.queue.submit(&[command_buffer]);
-
+        data.queue.submit(&[command_buffer]);
+        swap_chain
     }
 
     pub fn add_render_resource_manager(&mut self, render_resource_manager: Box<dyn RenderResourceManager>) {

@@ -26,6 +26,10 @@ impl RenderResourceManager for MaterialResourceManager {
         let mut entities = <(Write<Material>, Read<LocalToWorld>)>::query()
             .filter(!component::<Instanced>());
         let entities_count = entities.iter(world).count();
+        if entities_count == 0 {
+            return;
+        }
+
         let size = mem::size_of::<MaterialUniforms>();
         let temp_buf_data = render_graph.device
             .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);

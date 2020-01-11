@@ -9,37 +9,22 @@ fn main() {
 
 fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
     let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane{ size: 10.0 });
-
-    let (cube_handle, plane_handle) = {
+    let cube_handle = {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
-        (mesh_storage.add(cube, "cube"), mesh_storage.add(plane, "plane"))
+        mesh_storage.add(cube, "cube")
     };
 
     let transform_system_bundle = transform_system_bundle::build(world);
     scheduler.add_systems(AppStage::Update, transform_system_bundle);
 
-    // plane
-    world.insert((), vec![
-        (
-            plane_handle.clone(),
-            Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 0.0)
-        ),
-    ]);
-    
-    // cube
     world.insert((), vec![
         (
             cube_handle,
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 1.0)
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
         )
     ]);
 
-    // light
     world.insert((), vec![
         (
             Light {
@@ -53,15 +38,14 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
                 depth: 0.1 .. 50.0,
                 target_view: None,
             },
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
             Rotation::from_euler_angles(0.0, 0.0, 0.0)
         ),
     ]);
 
-    // camera
     world.insert((), vec![
+        // camera
         (
             Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
@@ -71,9 +55,54 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             }),
             ActiveCamera,
             LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, -8.0, 5.0),
+                Vec3::new(3.0, -5.0, 3.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),)),
+        )
+    ]);
+
+    world.insert((), vec![
+        // camera
+        (
+            Camera::new(CameraType::Orthographic {
+                left: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                top: 0.0,
+                near: 0.0,
+                far: 1.0,
+            }),
+            ActiveCamera2d,
+        )
+    ]);
+
+    world.insert((), vec![
+        (
+            Rect {
+                position: math::vec2(75.0, 75.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(0.0, 1.0, 0.0, 1.0),
+            },
+        )
+    ]);
+
+    world.insert((), vec![
+        (
+            Rect {
+                position: math::vec2(50.0, 50.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(1.0, 0.0, 0.0, 1.0),
+            },
+        )
+    ]);
+
+    world.insert((), vec![
+        (
+            Rect {
+                position: math::vec2(100.0, 100.0),
+                dimensions: math::vec2(100.0, 100.0),
+                color: math::vec4(0.0, 0.0, 1.0, 1.0),
+            },
         )
     ]);
 }

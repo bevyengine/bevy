@@ -1,10 +1,26 @@
-use bevy::{*, render::*, asset::{Asset, AssetStorage}, math::{Mat4, Vec3}};
+use bevy::{*, render::*, asset::{Asset, AssetStorage}, math::{Mat4, Quat, Vec3}, Schedulable, Parent};
+
+struct Rotator;
 
 fn main() {
     AppBuilder::new()
         .add_defaults()
         .setup(&setup)
         .run();
+}
+
+fn build_rotator_system() -> Box<dyn Schedulable> {
+    SystemBuilder::new("Rotator")
+        .read_resource::<Time>()
+        .with_query(<(
+            Write<Rotator>,
+            Write<Rotation>,
+        )>::query())
+        .build(move |_, world, time , light_query| {
+            for (_, mut rotation) in light_query.iter(world) {
+                rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
+            }
+        })
 }
 
 fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
@@ -18,6 +34,7 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
 
     let transform_system_bundle = transform_system_bundle::build(world);
     scheduler.add_systems(AppStage::Update, transform_system_bundle);
+    scheduler.add_system(AppStage::Update, build_rotator_system());
 
     // plane
     world.insert((), vec![
@@ -25,17 +42,31 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             plane_handle.clone(),
             Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 0.0)
+            Translation::new(0.0, 0.0, -5.0)
         ),
     ]);
     
+    // cube
+    let parent_cube = *world.insert((), vec![
+        (
+            cube_handle.clone(),
+            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+            LocalToWorld::identity(),
+            Translation::new(0.0, 0.0, 1.0),
+            Rotation::from_euler_angles(0.0, 0.0, 0.0),
+            Rotator,
+        )
+    ]).first().unwrap();
+
     // cube
     world.insert((), vec![
         (
             cube_handle,
             Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 1.0)
+            Translation::new(0.0, 0.0, 3.0),
+            Parent(parent_cube),
+            LocalToParent::identity(),
         )
     ]);
 
@@ -71,7 +102,7 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             }),
             ActiveCamera,
             LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, -8.0, 5.0),
+                Vec3::new(3.0, -15.0, 8.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),)),
         )
