@@ -77,7 +77,7 @@ impl AppBuilder {
     pub fn add_default_resources(mut self) -> Self {
         let resources = &mut self.world.resources;
         resources.insert(Time::new());
-        resources.insert(AssetStorage::<Mesh, MeshType>::new());
+        resources.insert(AssetStorage::<Mesh>::new());
         self
     }
 

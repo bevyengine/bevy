@@ -14,9 +14,9 @@ fn setup(world: &mut World) {
     let cube_handle = {
         let mut mesh_storage = world
             .resources
-            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .get_mut::<AssetStorage<Mesh>>()
             .unwrap();
-        mesh_storage.add(cube, "cube")
+        mesh_storage.add(cube)
     };
 
     world.insert(

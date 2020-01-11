@@ -65,7 +65,7 @@ impl UiPipeline {
             wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
         );
 
-        let mesh_id = *self.quad.as_ref().unwrap().id.read().unwrap();
+        let mesh_id = self.quad.as_ref().unwrap().id;
 
         let mut instance_buffer_infos = Vec::new();
         instance_buffer_infos.push(InstanceBufferInfo {
@@ -114,7 +114,7 @@ impl Pipeline for UiPipeline {
         {
             let mut mesh_storage = world
                 .resources
-                .get_mut::<AssetStorage<Mesh, MeshType>>()
+                .get_mut::<AssetStorage<Mesh>>()
                 .unwrap();
 
             let quad = Mesh::load(MeshType::Quad {
@@ -123,7 +123,7 @@ impl Pipeline for UiPipeline {
                 south_west: math::vec2(-0.5, -0.5),
                 south_east: math::vec2(0.5, -0.5),
             });
-            self.quad = Some(mesh_storage.add(quad, "ui_quad"));
+            self.quad = Some(mesh_storage.add(quad));
         }
 
         let pipeline_layout =
@@ -220,7 +220,7 @@ impl Pipeline for UiPipeline {
 
         let mut mesh_storage = world
             .resources
-            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .get_mut::<AssetStorage<Mesh>>()
             .unwrap();
         for instance_buffer_info in instance_buffer_infos.as_ref().unwrap().iter() {
             if let Some(mesh_asset) = mesh_storage.get(instance_buffer_info.mesh_id) {

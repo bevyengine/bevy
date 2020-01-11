@@ -2,36 +2,18 @@ mod gltf;
 
 pub use self::gltf::load_gltf;
 
-use std::{
-    collections::HashMap,
-    marker::PhantomData,
-    ops::Drop,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, marker::PhantomData};
 
 pub struct Handle<T> {
-    pub id: Arc<RwLock<usize>>,
+    pub id: usize,
     marker: PhantomData<T>,
-    free_indices: Arc<RwLock<Vec<usize>>>,
 }
 
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Handle {
             id: self.id.clone(),
-            free_indices: self.free_indices.clone(),
             marker: PhantomData,
-        }
-    }
-}
-
-impl<T> Drop for Handle<T> {
-    fn drop(&mut self) {
-        // TODO: Maybe this should be 1
-        // TODO: Is this even necessary?
-        if Arc::strong_count(&self.id) == 0 {
-            let id = *self.id.read().unwrap();
-            self.free_indices.write().unwrap().push(id);
         }
     }
 }
@@ -40,75 +22,47 @@ pub trait Asset<D> {
     fn load(descriptor: D) -> Self;
 }
 
-pub struct AssetStorage<T, D>
-where
-    T: Asset<D>,
+pub struct AssetStorage<T>
 {
-    assets: Vec<Option<T>>,
-    free_indices: Arc<RwLock<Vec<usize>>>,
-    names: HashMap<String, Arc<RwLock<usize>>>,
-    marker: PhantomData<D>,
+    assets: HashMap<usize, T>,
+    names: HashMap<String, usize>,
+    current_index: usize,
 }
 
-impl<T, D> AssetStorage<T, D>
-where
-    T: Asset<D>,
+impl<T> AssetStorage<T>
 {
-    pub fn new() -> AssetStorage<T, D> {
+    pub fn new() -> AssetStorage<T> {
         AssetStorage {
-            assets: Vec::new(),
-            free_indices: Arc::new(RwLock::new(Vec::new())),
+            assets: HashMap::new(),
             names: HashMap::new(),
-            marker: PhantomData,
+            current_index: 0,
         }
     }
 
-    pub fn get_named(&self, name: &str) -> Option<Handle<T>> {
+    pub fn get_named(&mut self, name: &str) -> Option<&mut T> {
         match self.names.get(name) {
-            Some(id) => Some(Handle {
-                id: id.clone(),
-                marker: PhantomData,
-                free_indices: self.free_indices.clone(),
-            }),
+            Some(id) => self.assets.get_mut(id),
             None => None,
         }
     }
 
-    pub fn add(&mut self, asset: T, name: &str) -> Handle<T> {
-        match self.free_indices.write().unwrap().pop() {
-            Some(id) => {
-                self.assets[id as usize] = Some(asset);
-                let handle = Arc::new(RwLock::new(id));
-                self.names.insert(name.to_string(), handle.clone());
-                Handle {
-                    id: handle,
-                    marker: PhantomData,
-                    free_indices: self.free_indices.clone(),
-                }
-            }
-            None => {
-                self.assets.push(Some(asset));
-                let id = self.assets.len() - 1;
-                let handle = Arc::new(RwLock::new(id));
-                self.names.insert(name.to_string(), handle.clone());
-                Handle {
-                    id: handle,
-                    marker: PhantomData,
-                    free_indices: self.free_indices.clone(),
-                }
-            }
+    pub fn add(&mut self, asset: T) -> Handle<T> {
+        let id = self.current_index;
+        self.current_index += 1;
+        self.assets.insert(id, asset);
+        Handle {
+            id,
+            marker: PhantomData,
         }
     }
 
+    pub fn add_named(&mut self, asset: T, name: &str) -> Handle<T> {
+        let handle = self.add(asset);
+        self.names.insert(name.to_string(), handle.id);
+        handle
+    }
+
     pub fn get(&mut self, id: usize) -> Option<&mut T> {
-        if id >= self.assets.len() {
-            None
-        } else {
-            if let Some(ref mut asset) = self.assets[id] {
-                Some(asset)
-            } else {
-                None
-            }
-        }
+        self.assets.get_mut(&id)
     }
 }

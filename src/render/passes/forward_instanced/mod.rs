@@ -52,7 +52,7 @@ impl ForwardInstancedPipeline {
             .iter(world)
             .zip(temp_buf_data.data.chunks_exact_mut(size))
         {
-            last_mesh_id = Some(*mesh.id.read().unwrap());
+            last_mesh_id = Some(mesh.id);
             let (_, _, translation) = transform.0.to_scale_rotation_translation();
             slot.copy_from_slice(
                 SimpleMaterialUniforms {
@@ -89,7 +89,7 @@ impl ForwardInstancedPipeline {
         let mut last_mesh_id = None;
         let mut data = Vec::with_capacity(entities_count);
         for (material, transform, mesh, _) in entities.iter(world) {
-            last_mesh_id = Some(*mesh.id.read().unwrap());
+            last_mesh_id = Some(mesh.id);
             let (_, _, translation) = transform.0.to_scale_rotation_translation();
 
             data.push(SimpleMaterialUniforms {
@@ -263,7 +263,7 @@ impl Pipeline for ForwardInstancedPipeline {
 
         let mut mesh_storage = world
             .resources
-            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .get_mut::<AssetStorage<Mesh>>()
             .unwrap();
         for instance_buffer_info in self.instance_buffer_infos.as_ref().unwrap().iter() {
             if let Some(mesh_asset) = mesh_storage.get(instance_buffer_info.mesh_id) {

@@ -33,11 +33,11 @@ fn setup(world: &mut World) {
     let (cube_handle, plane_handle) = {
         let mut mesh_storage = world
             .resources
-            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .get_mut::<AssetStorage<Mesh>>()
             .unwrap();
         (
-            mesh_storage.add(cube, "cube"),
-            mesh_storage.add(plane, "plane"),
+            mesh_storage.add(cube),
+            mesh_storage.add(plane),
         )
     };
 

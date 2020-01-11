@@ -137,13 +137,13 @@ impl Pipeline for ForwardPipeline {
 
         let mut mesh_storage = world
             .resources
-            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .get_mut::<AssetStorage<Mesh>>()
             .unwrap();
         let mut last_mesh_id = None;
         let mesh_query =
             <(Read<Material>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
         for (material, mesh) in mesh_query.iter(world) {
-            let current_mesh_id = *mesh.id.read().unwrap();
+            let current_mesh_id = mesh.id;
 
             let mut should_load_mesh = last_mesh_id == None;
             if let Some(last) = last_mesh_id {
@@ -151,14 +151,14 @@ impl Pipeline for ForwardPipeline {
             }
 
             if should_load_mesh {
-                if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
+                if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
                     mesh_asset.setup_buffers(&render_graph.device);
                     pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
                     pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
                 };
             }
 
-            if let Some(ref mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
+            if let Some(ref mesh_asset) = mesh_storage.get(mesh.id) {
                 pass.set_bind_group(1, material.bind_group.as_ref().unwrap(), &[]);
                 pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
             };
