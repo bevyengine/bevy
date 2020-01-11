@@ -21,6 +21,16 @@ impl AppBuilder {
         self.app.run();
     }
 
+    pub fn with_world(mut self, world: World) -> Self {
+        self.app.world = world;
+        self
+    }
+
+    pub fn with_scheduler(mut self, scheduler: SystemScheduler::<AppStage>) -> Self {
+        self.app.scheduler = scheduler;
+        self
+    }
+
     pub fn setup(mut self, setup: &dyn Fn(&mut World, &mut SystemScheduler<AppStage>)) -> Self {
         setup(&mut self.app.world, &mut self.app.scheduler);
         self
