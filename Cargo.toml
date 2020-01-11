@@ -7,9 +7,9 @@ edition = "2018"
 [dependencies]
 legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d" }
 legion_transform = { path = "src/transform" }
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "44fa1bc2fa208fa92f80944253e0da56cb7ac1fe"}
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "4a0da16fe6764c4e1dc918a31cbd7467d404df51"}
 glam = "0.8.4"
-winit = "0.20.0-alpha4"
+winit = "0.20.0-alpha6"
 glsl-to-spirv = "0.1"
 zerocopy = "0.2"
 log = "0.4"

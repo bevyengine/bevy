@@ -18,15 +18,15 @@ pub struct App {
     pub window: Option<Window>,
     pub render_graph: RenderGraph,
     pub swap_chain: Option<wgpu::SwapChain>,
-    pub scheduler: Schedule,
+    pub schedule: Schedule,
 }
 
 impl App {
     pub fn new(world: World, schedule: Schedule, render_graph: RenderGraph) -> App {
         App {
-            world: world,
-            scheduler: schedule,
-            render_graph: render_graph,
+            world,
+            schedule: schedule,
+            render_graph,
             swap_chain: None,
             window: None,
         }
@@ -37,7 +37,7 @@ impl App {
             let mut time = self.world.resources.get_mut::<Time>().unwrap();
             time.start();
         }
-        self.scheduler.execute(&mut self.world);
+        self.schedule.execute(&mut self.world);
         self.render();
         {
             let mut time = self.world.resources.get_mut::<Time>().unwrap();
@@ -79,9 +79,8 @@ impl App {
         let (window, size, surface) = {
             let window = winit::window::Window::new(&event_loop).unwrap();
             window.set_title("bevy");
-            window.set_inner_size((1280, 720).into());
-            let hidpi_factor = window.hidpi_factor();
-            let size = window.inner_size().to_physical(hidpi_factor);
+            window.set_inner_size(winit::dpi::LogicalSize::new(1280, 720));
+            let size = window.inner_size();
             let surface = wgpu::Surface::create(&window);
             (window, size, surface)
         };
@@ -89,8 +88,8 @@ impl App {
         let swap_chain_descriptor = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.width.round() as u32,
-            height: size.height.round() as u32,
+            width: size.width,
+            height: size.height,
             present_mode: wgpu::PresentMode::Vsync,
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
@@ -118,12 +117,7 @@ impl App {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
-                    let hidpi_factor = self.window.as_ref().unwrap().hidpi_factor();
-                    let physical = size.to_physical(hidpi_factor);
-                    log::info!("Resizing to {:?}", physical);
-                    let width = physical.width.round() as u32;
-                    let height = physical.height.round() as u32;
-                    self.resize(width, height);
+                    self.resize(size.width, size.height);
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {
@@ -142,7 +136,7 @@ impl App {
                         self.handle_event(event);
                     }
                 },
-                event::Event::EventsCleared => {
+                event::Event::MainEventsCleared => {
                     self.update();
                 }
                 _ => (),
