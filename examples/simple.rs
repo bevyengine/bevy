@@ -1,47 +1,58 @@
-use bevy::{*, render::*, asset::{Asset, AssetStorage}, math::{Mat4, Vec3}};
+use bevy::{
+    asset::{Asset, AssetStorage},
+    math::{Mat4, Vec3},
+    render::*,
+    *,
+};
 
 fn main() {
-    AppBuilder::new()
-        .add_defaults()
-        .setup(&setup)
-        .run();
+    AppBuilder::new().add_defaults().setup(&setup).run();
 }
 
 fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
     let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane{ size: 10.0 });
+    let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
     let (cube_handle, plane_handle) = {
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh, MeshType>>().unwrap();
-        (mesh_storage.add(cube, "cube"), mesh_storage.add(plane, "plane"))
+        let mut mesh_storage = world
+            .resources
+            .get_mut::<AssetStorage<Mesh, MeshType>>()
+            .unwrap();
+        (
+            mesh_storage.add(cube, "cube"),
+            mesh_storage.add(plane, "plane"),
+        )
     };
 
     let transform_system_bundle = transform_system_bundle::build(world);
     scheduler.add_systems(AppStage::Update, transform_system_bundle);
 
     // plane
-    world.insert((), vec![
-        (
+    world.insert(
+        (),
+        vec![(
             plane_handle.clone(),
             Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 0.0)
-        ),
-    ]);
-    
+            Translation::new(0.0, 0.0, 0.0),
+        )],
+    );
+
     // cube
-    world.insert((), vec![
-        (
+    world.insert(
+        (),
+        vec![(
             cube_handle,
             Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 1.0)
-        )
-    ]);
+            Translation::new(0.0, 0.0, 1.0),
+        )],
+    );
 
     // light
-    world.insert((), vec![
-        (
+    world.insert(
+        (),
+        vec![(
             Light {
                 color: wgpu::Color {
                     r: 0.8,
@@ -50,19 +61,20 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
                     a: 1.0,
                 },
                 fov: f32::to_radians(60.0),
-                depth: 0.1 .. 50.0,
+                depth: 0.1..50.0,
                 target_view: None,
             },
             Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
-            Rotation::from_euler_angles(0.0, 0.0, 0.0)
-        ),
-    ]);
+            Rotation::from_euler_angles(0.0, 0.0, 0.0),
+        )],
+    );
 
     // camera
-    world.insert((), vec![
-        (
+    world.insert(
+        (),
+        vec![(
             Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
@@ -73,7 +85,8 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(3.0, -8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),)),
-        )
-    ]);
+                Vec3::new(0.0, 0.0, 1.0),
+            )),
+        )],
+    );
 }
