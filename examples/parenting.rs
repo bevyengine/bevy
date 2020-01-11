@@ -11,7 +11,7 @@ fn main() {
     AppBuilder::new()
         .add_defaults()
         .setup_world(setup)
-        .setup_systems(|builder: Builder| builder.add_system(build_rotator_system()))
+        .setup_systems(|builder| builder.add_system(build_rotator_system()))
         .run();
 }
 
