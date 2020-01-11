@@ -140,9 +140,9 @@ impl Pipeline for ForwardPipeline {
             .get_mut::<AssetStorage<Mesh, MeshType>>()
             .unwrap();
         let mut last_mesh_id = None;
-        let mut mesh_query =
+        let mesh_query =
             <(Read<Material>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
-        for (material, mesh) in mesh_query.iter_immutable(world) {
+        for (material, mesh) in mesh_query.iter(world) {
             let current_mesh_id = *mesh.id.read().unwrap();
 
             let mut should_load_mesh = last_mesh_id == None;

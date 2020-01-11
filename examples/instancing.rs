@@ -25,10 +25,20 @@ struct Wander {
 }
 
 fn main() {
-    AppBuilder::new().add_defaults().setup(&setup).run();
+    AppBuilder::new()
+        .add_defaults()
+        .setup_world(setup)
+        .setup_systems(|builder| {
+            builder
+                .add_system(build_wander_system())
+                .add_system(build_navigate_system())
+                .add_system(build_move_system())
+                .add_system(build_print_status_system())
+        })
+        .run();
 }
 
-fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
+fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let cube_handle = {
         let mut mesh_storage = world
@@ -37,13 +47,6 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             .unwrap();
         mesh_storage.add(cube, "cube")
     };
-
-    let transform_system_bundle = transform_system_bundle::build(world);
-    scheduler.add_systems(AppStage::Update, transform_system_bundle);
-    scheduler.add_system(AppStage::Update, build_wander_system());
-    scheduler.add_system(AppStage::Update, build_navigate_system());
-    scheduler.add_system(AppStage::Update, build_move_system());
-    scheduler.add_system(AppStage::Update, build_print_status_system());
 
     world.insert(
         (),
@@ -112,7 +115,7 @@ fn build_wander_system() -> Box<dyn Schedulable> {
             Write<NavigationPoint>,
         )>::query())
         .build(move |_, world, time, person_query| {
-            for (_, translation, mut wander, mut navigation_point) in person_query.iter(world) {
+            for (_, translation, mut wander, mut navigation_point) in person_query.iter_mut(world) {
                 wander.elapsed += time.delta_seconds;
                 if wander.elapsed >= wander.duration {
                     let direction = math::vec3(
@@ -141,7 +144,7 @@ fn build_navigate_system() -> Box<dyn Schedulable> {
             Write<NavigationPoint>,
         )>::query())
         .build(move |_, world, _, person_query| {
-            for (_, translation, mut velocity, navigation_point) in person_query.iter(world) {
+            for (_, translation, mut velocity, navigation_point) in person_query.iter_mut(world) {
                 let distance = navigation_point.target - translation.0;
                 if distance.length() > 0.01 {
                     let direction = distance.normalize();
@@ -158,7 +161,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
         .read_resource::<Time>()
         .with_query(<(Write<Translation>, Read<Velocity>)>::query())
         .build(move |_, world, time, person_query| {
-            for (mut translation, velocity) in person_query.iter(world) {
+            for (mut translation, velocity) in person_query.iter_mut(world) {
                 translation.0 += velocity.value * time.delta_seconds;
             }
         })

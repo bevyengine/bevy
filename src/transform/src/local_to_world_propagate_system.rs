@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::{
     components::*,
-    ecs::{prelude::*, system::PreparedWorld},
+    ecs::{prelude::*, system::SubWorld},
 };
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
@@ -22,7 +22,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
 
 fn propagate_recursive(
     parent_local_to_world: LocalToWorld,
-    world: &mut PreparedWorld,
+    world: &mut SubWorld,
     entity: Entity,
     commands: &mut CommandBuffer,
 ) {

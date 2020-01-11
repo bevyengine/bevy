@@ -49,7 +49,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
                 HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
 
             // Entities with a changed Parent (that also have a PreviousParent, even if None)
-            for (entity, (parent, mut previous_parent)) in queries.1.iter_entities(world) {
+            for (entity, (parent, mut previous_parent)) in queries.1.iter_entities_mut(world) {
                 log::trace!("Parent changed for {}", entity);
 
                 // If the `PreviousParent` is not None.

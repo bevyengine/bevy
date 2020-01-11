@@ -44,7 +44,7 @@ impl RenderResourceManager for LightResourceManager {
         world: &mut World,
     ) {
         if self.lights_are_dirty {
-            let mut light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
+            let light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
             let light_count = light_query.iter(world).count();
 
             if light_count == 0 {

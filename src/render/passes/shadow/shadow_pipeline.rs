@@ -153,7 +153,7 @@ impl Pipeline for ShadowPipeline {
         _: &SwapChainOutput,
         world: &mut World,
     ) {
-        let mut mesh_query =
+        let mesh_query =
             <(Read<Material>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
         pass.set_bind_group(0, self.bind_group.as_ref().unwrap(), &[]);
 
@@ -161,7 +161,7 @@ impl Pipeline for ShadowPipeline {
             .resources
             .get_mut::<AssetStorage<Mesh, MeshType>>()
             .unwrap();
-        for (material, mesh) in mesh_query.iter_immutable(world) {
+        for (material, mesh) in mesh_query.iter(world) {
             if let Some(mesh_asset) = mesh_storage.get(*mesh.id.read().unwrap()) {
                 mesh_asset.setup_buffers(&render_graph.device);
 

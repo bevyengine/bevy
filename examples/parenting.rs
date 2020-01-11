@@ -8,7 +8,11 @@ use bevy::{
 struct Rotator;
 
 fn main() {
-    AppBuilder::new().add_defaults().setup(&setup).run();
+    AppBuilder::new()
+        .add_defaults()
+        .setup_world(setup)
+        .setup_systems(|builder: Builder| builder.add_system(build_rotator_system()))
+        .run();
 }
 
 fn build_rotator_system() -> Box<dyn Schedulable> {
@@ -16,13 +20,13 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
         .read_resource::<Time>()
         .with_query(<(Write<Rotator>, Write<Rotation>)>::query())
         .build(move |_, world, time, light_query| {
-            for (_, mut rotation) in light_query.iter(world) {
+            for (_, mut rotation) in light_query.iter_mut(world) {
                 rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
             }
         })
 }
 
-fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
+fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
@@ -36,10 +40,6 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             mesh_storage.add(plane, "plane"),
         )
     };
-
-    let transform_system_bundle = transform_system_bundle::build(world);
-    scheduler.add_systems(AppStage::Update, transform_system_bundle);
-    scheduler.add_system(AppStage::Update, build_rotator_system());
 
     // plane
     world.insert(

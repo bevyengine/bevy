@@ -10,7 +10,7 @@ pub struct GlobalResourceManager;
 
 impl RenderResourceManager for GlobalResourceManager {
     fn initialize(&self, render_graph: &mut RenderGraphData, world: &mut World) {
-        let light_count = <Read<Light>>::query().iter_immutable(world).count();
+        let light_count = <Read<Light>>::query().iter(world).count();
         let forward_uniforms = ForwardUniforms {
             proj: math::Mat4::identity().to_cols_array_2d(),
             num_lights: [light_count as u32, 0, 0, 0],
@@ -42,7 +42,7 @@ impl RenderResourceManager for GlobalResourceManager {
         world: &mut World,
     ) {
         for (mut camera, local_to_world, _) in
-            <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter(world)
+            <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter_mut(world)
         {
             camera.update(
                 render_graph.swap_chain_descriptor.width,

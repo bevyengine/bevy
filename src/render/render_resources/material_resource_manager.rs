@@ -31,9 +31,9 @@ impl RenderResourceManager for MaterialResourceManager {
         encoder: &'a mut wgpu::CommandEncoder,
         world: &mut World,
     ) {
-        let mut entities =
+        let entities =
             <(Write<Material>, Read<LocalToWorld>)>::query().filter(!component::<Instanced>());
-        let entities_count = entities.iter(world).count();
+        let entities_count = entities.iter_mut(world).count();
         if entities_count == 0 {
             return;
         }
@@ -44,7 +44,7 @@ impl RenderResourceManager for MaterialResourceManager {
             .create_buffer_mapped(entities_count * size, wgpu::BufferUsage::COPY_SRC);
 
         for ((material, transform), slot) in entities
-            .iter(world)
+            .iter_mut(world)
             .zip(temp_buf_data.data.chunks_exact_mut(size))
         {
             slot.copy_from_slice(
@@ -62,7 +62,7 @@ impl RenderResourceManager for MaterialResourceManager {
 
         for mut material in <Write<Material>>::query()
             .filter(!component::<Instanced>())
-            .iter(world)
+            .iter_mut(world)
         {
             if let None = material.bind_group {
                 let material_uniform_size =
@@ -92,7 +92,7 @@ impl RenderResourceManager for MaterialResourceManager {
         }
 
         let temp_buf = temp_buf_data.finish();
-        for (i, (material, _)) in entities.iter(world).enumerate() {
+        for (i, (material, _)) in entities.iter_mut(world).enumerate() {
             encoder.copy_buffer_to_buffer(
                 &temp_buf,
                 (i * size) as wgpu::BufferAddress,

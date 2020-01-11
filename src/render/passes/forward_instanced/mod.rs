@@ -27,13 +27,13 @@ impl ForwardInstancedPipeline {
     }
 
     fn create_instance_buffer_infos(device: &Device, world: &World) -> Vec<InstanceBufferInfo> {
-        let mut entities = <(
+        let entities = <(
             Read<Material>,
             Read<LocalToWorld>,
             Read<Handle<Mesh>>,
             Read<Instanced>,
         )>::query();
-        let entities_count = entities.iter_immutable(world).count();
+        let entities_count = entities.iter(world).count();
         if entities_count == 0 {
             return Vec::new();
         }
@@ -50,7 +50,7 @@ impl ForwardInstancedPipeline {
 
         let mut last_mesh_id = None;
         for ((material, transform, mesh, _), slot) in entities
-            .iter_immutable(world)
+            .iter(world)
             .zip(temp_buf_data.data.chunks_exact_mut(size))
         {
             last_mesh_id = Some(*mesh.id.read().unwrap());
@@ -79,17 +79,17 @@ impl ForwardInstancedPipeline {
         device: &Device,
         world: &World,
     ) -> Vec<InstanceBufferInfo> {
-        let mut entities = <(
+        let entities = <(
             Read<Material>,
             Read<LocalToWorld>,
             Read<Handle<Mesh>>,
             Read<Instanced>,
         )>::query();
-        let entities_count = entities.iter_immutable(world).count();
+        let entities_count = entities.iter(world).count();
 
         let mut last_mesh_id = None;
         let mut data = Vec::with_capacity(entities_count);
-        for (material, transform, mesh, _) in entities.iter_immutable(world) {
+        for (material, transform, mesh, _) in entities.iter(world) {
             last_mesh_id = Some(*mesh.id.read().unwrap());
             let (_, _, translation) = transform.0.to_scale_rotation_translation();
 

@@ -1,48 +1,58 @@
 use crate::{
     asset::AssetStorage,
-    legion::prelude::{SystemScheduler, World},
+    legion::{
+        prelude::{Schedule, World},
+        schedule::Builder,
+    },
     render::{passes::*, *},
-    App, AppStage, Time,
+    transform_system_bundle, App, Time,
 };
 
 pub struct AppBuilder {
-    pub app: App,
+    pub world: World,
+    pub schedule_builder: Builder,
+    pub render_graph: RenderGraph,
 }
 
 impl AppBuilder {
     pub fn new() -> Self {
-        let world = World::new();
-        let scheduler = SystemScheduler::<AppStage>::new();
         AppBuilder {
-            app: App::new(world, scheduler),
+            world: World::new(),
+            schedule_builder: Schedule::builder(),
+            render_graph: RenderGraph::new(),
         }
     }
 
     pub fn build(self) -> App {
-        self.app
+        App::new(self.world, self.schedule_builder.build(), self.render_graph)
     }
 
     pub fn run(self) {
-        self.app.run();
+        self.build().run();
     }
 
     pub fn with_world(mut self, world: World) -> Self {
-        self.app.world = world;
+        self.world = world;
         self
     }
 
-    pub fn with_scheduler(mut self, scheduler: SystemScheduler<AppStage>) -> Self {
-        self.app.scheduler = scheduler;
+    pub fn with_schedule(mut self, schedule_builder: Builder) -> Self {
+        self.schedule_builder = schedule_builder;
         self
     }
 
-    pub fn setup(mut self, setup: &dyn Fn(&mut World, &mut SystemScheduler<AppStage>)) -> Self {
-        setup(&mut self.app.world, &mut self.app.scheduler);
+    pub fn setup_world(mut self, setup: impl Fn(&mut World)) -> Self {
+        setup(&mut self.world);
+        self
+    }
+
+    pub fn setup_systems(mut self, setup: impl Fn(Builder) -> Builder) -> Self {
+        self.schedule_builder = setup(self.schedule_builder);
         self
     }
 
     pub fn add_default_passes(mut self) -> Self {
-        let render_graph = &mut self.app.render_graph;
+        let render_graph = &mut self.render_graph;
         render_graph
             .add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
         render_graph
@@ -65,13 +75,22 @@ impl AppBuilder {
     }
 
     pub fn add_default_resources(mut self) -> Self {
-        let resources = &mut self.app.world.resources;
+        let resources = &mut self.world.resources;
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh, MeshType>::new());
         self
     }
 
+    pub fn add_default_systems(mut self) -> Self {
+        for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
+            self.schedule_builder = self.schedule_builder.add_system(transform_system);
+        }
+        self
+    }
+
     pub fn add_defaults(self) -> Self {
-        self.add_default_resources().add_default_passes()
+        self.add_default_resources()
+            .add_default_passes()
+            .add_default_systems()
     }
 }

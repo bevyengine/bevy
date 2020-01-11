@@ -6,10 +6,10 @@ use bevy::{
 };
 
 fn main() {
-    AppBuilder::new().add_defaults().setup(&setup).run();
+    AppBuilder::new().add_defaults().setup_world(setup).run();
 }
 
-fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
+fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
@@ -23,9 +23,6 @@ fn setup(world: &mut World, scheduler: &mut SystemScheduler<AppStage>) {
             mesh_storage.add(plane, "plane"),
         )
     };
-
-    let transform_system_bundle = transform_system_bundle::build(world);
-    scheduler.add_systems(AppStage::Update, transform_system_bundle);
 
     // plane
     world.insert(

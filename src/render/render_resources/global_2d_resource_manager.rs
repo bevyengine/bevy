@@ -47,7 +47,7 @@ impl RenderResourceManager for Global2dResourceManager {
         encoder: &'a mut wgpu::CommandEncoder,
         world: &mut World,
     ) {
-        for (mut camera, _) in <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter(world) {
+        for (mut camera, _) in <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter_mut(world) {
             camera.update(
                 render_graph.swap_chain_descriptor.width,
                 render_graph.swap_chain_descriptor.height,

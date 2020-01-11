@@ -39,8 +39,8 @@ impl UiPipeline {
         device: &wgpu::Device,
         world: &World,
     ) -> Vec<InstanceBufferInfo> {
-        let mut rect_query = <Read<Rect>>::query();
-        let rect_count = rect_query.iter_immutable(world).count();
+        let rect_query = <Read<Rect>>::query();
+        let rect_count = rect_query.iter(world).count();
 
         if rect_count == 0 {
             return Vec::new();
@@ -49,7 +49,7 @@ impl UiPipeline {
         let mut data = Vec::with_capacity(rect_count);
         // TODO: this probably isn't the best way to handle z-ordering
         let mut z = 0.9999;
-        for rect in rect_query.iter_immutable(world) {
+        for rect in rect_query.iter(world) {
             data.push(RectData {
                 position: rect.position.into(),
                 dimensions: rect.dimensions.into(),

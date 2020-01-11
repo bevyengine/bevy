@@ -1,8 +1,6 @@
 mod app_builder;
-mod app_stage;
 
 pub use app_builder::AppBuilder;
-pub use app_stage::AppStage;
 
 use winit::{
     event,
@@ -20,15 +18,15 @@ pub struct App {
     pub window: Option<Window>,
     pub render_graph: RenderGraph,
     pub swap_chain: Option<wgpu::SwapChain>,
-    pub scheduler: SystemScheduler<AppStage>,
+    pub scheduler: Schedule,
 }
 
 impl App {
-    pub fn new(world: World, scheduler: SystemScheduler<AppStage>) -> App {
+    pub fn new(world: World, schedule: Schedule, render_graph: RenderGraph) -> App {
         App {
             world: world,
-            scheduler: scheduler,
-            render_graph: RenderGraph::new(),
+            scheduler: schedule,
+            render_graph: render_graph,
             swap_chain: None,
             window: None,
         }

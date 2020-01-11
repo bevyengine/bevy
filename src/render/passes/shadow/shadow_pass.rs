@@ -57,9 +57,9 @@ impl Pass for ShadowPass {
             self.light_index = 0;
         }
 
-        let mut light_query = <(Write<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
-        let light_count = light_query.iter(world).count();
-        for (i, (mut light, _, _)) in light_query.iter(world).enumerate() {
+        let light_query = <(Write<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
+        let light_count = light_query.iter_mut(world).count();
+        for (i, (mut light, _, _)) in light_query.iter_mut(world).enumerate() {
             if i != self.light_index as usize {
                 continue;
             }

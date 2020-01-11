@@ -5,7 +5,7 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-legion = { git = "https://github.com/TomGillen/legion.git", rev = "8628b227bcbe57582fffb5e80e73c634ec4eebd9" }
+legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d" }
 legion_transform = { path = "src/transform" }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "44fa1bc2fa208fa92f80944253e0da56cb7ac1fe"}
 glam = "0.8.4"
