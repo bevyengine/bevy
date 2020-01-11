@@ -2,9 +2,6 @@ use crate::{asset::Asset, math::*, render::Vertex};
 use wgpu::{Buffer, Device};
 use zerocopy::AsBytes;
 
-// TODO: this is pretty dirty. work out a cleaner way to distinguish between 3d and 2d meshes
-pub struct Mesh2d;
-
 pub enum MeshType {
     Cube,
     Plane {
