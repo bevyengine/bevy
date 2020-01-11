@@ -1,4 +1,4 @@
-use crate::{asset::Asset, math::*, vertex::Vertex};
+use crate::{asset::Asset, math::*, render::Vertex};
 use wgpu::{Buffer, Device};
 use zerocopy::AsBytes;
 

@@ -9,6 +9,7 @@ mod light;
 mod material;
 mod rect;
 mod render_graph;
+mod vertex;
 
 pub use camera::*;
 pub use light::*;
@@ -18,8 +19,8 @@ pub use rect::*;
 pub use render_graph::*;
 pub use shader::*;
 
-use crate::vertex::Vertex;
 use std::mem;
+pub use vertex::Vertex;
 
 pub struct UniformBuffer {
     pub buffer: wgpu::Buffer,
