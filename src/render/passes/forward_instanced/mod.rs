@@ -40,7 +40,6 @@ impl ForwardInstancedPipeline {
 
         let size = mem::size_of::<SimpleMaterialUniforms>();
 
-        // TODO: use a staging buffer for more efficient gpu reads
         let temp_buf_data = device.create_buffer_mapped(
             entities_count * size,
             wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,

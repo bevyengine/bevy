@@ -135,7 +135,6 @@ impl RenderGraph {
             loop {
                 let render_pass = pass.begin(data, world, &mut encoder, &frame);
                 if let Some(mut render_pass) = render_pass {
-                    // TODO: assign pipelines to specific passes
                     if let Some(pipeline_names) = self.pass_pipelines.get(pass_name) {
                         for pipeline_name in pipeline_names.iter() {
                             let pipeline = self.pipelines.get_mut(pipeline_name).unwrap();
