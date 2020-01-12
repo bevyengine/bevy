@@ -89,6 +89,7 @@ fn setup(world: &mut World) {
         vec![(Rect {
             position: math::vec2(75.0, 75.0),
             dimensions: math::vec2(100.0, 100.0),
+            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
             color: math::vec4(0.0, 1.0, 0.0, 1.0),
         },)],
     );
@@ -98,6 +99,7 @@ fn setup(world: &mut World) {
         vec![(Rect {
             position: math::vec2(50.0, 50.0),
             dimensions: math::vec2(100.0, 100.0),
+            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
             color: math::vec4(1.0, 0.0, 0.0, 1.0),
         },)],
     );
@@ -107,6 +109,7 @@ fn setup(world: &mut World) {
         vec![(Rect {
             position: math::vec2(100.0, 100.0),
             dimensions: math::vec2(100.0, 100.0),
+            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
             color: math::vec4(0.0, 0.0, 1.0, 1.0),
         },)],
     );

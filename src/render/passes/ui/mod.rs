@@ -13,6 +13,7 @@ use zerocopy::{AsBytes, FromBytes};
 pub struct RectData {
     pub position: [f32; 2],
     pub dimensions: [f32; 2],
+    pub anchors: [f32; 4],
     pub color: [f32; 4],
     pub z_index: f32,
 }
@@ -54,6 +55,7 @@ impl UiPipeline {
                 position: rect.position.into(),
                 dimensions: rect.dimensions.into(),
                 color: rect.color.into(),
+                anchors: [rect.anchors.top, rect.anchors.bottom, rect.anchors.left, rect.anchors.right],
                 z_index: z,
             });
 
@@ -152,9 +154,14 @@ impl Pipeline for UiPipeline {
                     shader_location: 4,
                 },
                 wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float,
+                    format: wgpu::VertexFormat::Float4,
                     offset: 8 * 4,
                     shader_location: 5,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    format: wgpu::VertexFormat::Float,
+                    offset: 12 * 4,
+                    shader_location: 6,
                 },
             ],
         };
