@@ -175,4 +175,15 @@ fn setup(world: &mut World) {
             Parent(parent),
         )],
     );
+
+    // alpha test
+    world.insert(
+        (),
+        vec![(Node::new(
+            math::vec2(200.0, 200.0),
+            Anchors::new(0.5, 0.5, 0.5, 0.5),
+            Margins::new(0.0, 100.0, 0.0, 100.0),
+            math::vec4(1.0, 0.7, 0.7, 0.2),
+        ),)],
+    );
 }
