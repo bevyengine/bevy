@@ -2,6 +2,7 @@ use bevy::{
     asset::{Asset, AssetStorage},
     math::{Mat4, Vec3},
     render::*,
+    ui::*,
     *,
 };
 
@@ -86,31 +87,41 @@ fn setup(world: &mut World) {
 
     world.insert(
         (),
-        vec![(Rect {
-            position: math::vec2(75.0, 75.0),
-            dimensions: math::vec2(100.0, 100.0),
-            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
-            color: math::vec4(0.0, 1.0, 0.0, 1.0),
-        },)],
+        vec![(Node::new(
+            math::vec2(0.0, 0.0),
+            Anchors::new(0.0, 0.0, 0.0, 1.0),
+            Margins::new(10.0, 100.0, 10.0, 10.0),
+            math::vec4(0.0, 1.0, 0.0, 1.0),
+        ),)],
     );
 
     world.insert(
         (),
-        vec![(Rect {
-            position: math::vec2(50.0, 50.0),
-            dimensions: math::vec2(100.0, 100.0),
-            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
-            color: math::vec4(1.0, 0.0, 0.0, 1.0),
-        },)],
+        vec![(Node::new(
+            math::vec2(75.0, 75.0),
+            Anchors::new(0.5, 0.5, 0.5, 0.5),
+            Margins::new(0.0, 100.0, 0.0, 100.0),
+            math::vec4(1.0, 0.1, 0.1, 1.0),
+        ),)],
     );
 
     world.insert(
         (),
-        vec![(Rect {
-            position: math::vec2(100.0, 100.0),
-            dimensions: math::vec2(100.0, 100.0),
-            anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
-            color: math::vec4(0.0, 0.0, 1.0, 1.0),
-        },)],
+        vec![(Node::new(
+            math::vec2(50.0, 50.0),
+            Anchors::new(0.5, 0.5, 0.5, 0.5),
+            Margins::new(0.0, 100.0, 0.0, 100.0),
+            math::vec4(1.0, 0.3, 0.3, 1.0),
+        ),)],
+    );
+
+    world.insert(
+        (),
+        vec![(Node::new(
+            math::vec2(100.0, 100.0),
+            Anchors::new(0.5, 0.5, 0.5, 0.5),
+            Margins::new(0.0, 100.0, 0.0, 100.0),
+            math::vec4(1.0, 0.5, 0.5, 1.0),
+        ),)],
     );
 }

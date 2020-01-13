@@ -7,7 +7,6 @@ pub mod shader;
 
 mod light;
 mod material;
-mod rect;
 mod render_graph;
 mod vertex;
 
@@ -15,7 +14,6 @@ pub use camera::*;
 pub use light::*;
 pub use material::*;
 pub use mesh::*;
-pub use rect::*;
 pub use render_graph::*;
 pub use shader::*;
 

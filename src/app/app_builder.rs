@@ -5,7 +5,7 @@ use crate::{
         schedule::Builder,
     },
     render::{passes::*, *},
-    transform_system_bundle, App, Time,
+    transform_system_bundle, ui, App, Time,
 };
 
 pub struct AppBuilder {
@@ -82,9 +82,13 @@ impl AppBuilder {
     }
 
     pub fn add_default_systems(mut self) -> Self {
+        self.schedule_builder = self
+            .schedule_builder
+            .add_system(ui::update_system::build_ui_update_system());
         for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
             self.schedule_builder = self.schedule_builder.add_system(transform_system);
         }
+
         self
     }
 

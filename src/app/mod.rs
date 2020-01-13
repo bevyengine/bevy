@@ -6,7 +6,6 @@ use winit::{
     event,
     event::WindowEvent,
     event_loop::{ControlFlow, EventLoop},
-    window::Window,
 };
 
 use legion::prelude::*;
@@ -15,7 +14,6 @@ use crate::{render::*, Time};
 
 pub struct App {
     pub world: World,
-    pub window: Option<Window>,
     pub render_graph: RenderGraph,
     pub swap_chain: Option<wgpu::SwapChain>,
     pub schedule: Schedule,
@@ -28,7 +26,6 @@ impl App {
             schedule: schedule,
             render_graph,
             swap_chain: None,
-            window: None,
         }
     }
 
@@ -102,7 +99,8 @@ impl App {
             queue,
             surface,
         );
-        self.window = Some(window);
+
+        self.world.resources.insert(window);
         self.swap_chain = Some(swap_chain);
 
         log::info!("Entering render loop...");

@@ -2,6 +2,7 @@ mod app;
 pub mod asset;
 mod core;
 pub mod render;
+pub mod ui;
 
 pub use crate::core::*;
 pub use app::{App, AppBuilder};

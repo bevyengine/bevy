@@ -3,6 +3,7 @@ use crate::{
     math,
     render::mesh::*,
     render::{instancing::InstanceBufferInfo, *},
+    ui::Node,
 };
 use legion::prelude::*;
 use wgpu::SwapChainOutput;
@@ -13,7 +14,6 @@ use zerocopy::{AsBytes, FromBytes};
 pub struct RectData {
     pub position: [f32; 2],
     pub dimensions: [f32; 2],
-    pub anchors: [f32; 4],
     pub color: [f32; 4],
     pub z_index: f32,
 }
@@ -40,22 +40,21 @@ impl UiPipeline {
         device: &wgpu::Device,
         world: &World,
     ) -> Vec<InstanceBufferInfo> {
-        let rect_query = <Read<Rect>>::query();
-        let rect_count = rect_query.iter(world).count();
+        let node_query = <Read<Node>>::query();
+        let node_count = node_query.iter(world).count();
 
-        if rect_count == 0 {
+        if node_count == 0 {
             return Vec::new();
         }
 
-        let mut data = Vec::with_capacity(rect_count);
+        let mut data = Vec::with_capacity(node_count);
         // TODO: this probably isn't the best way to handle z-ordering
         let mut z = 0.9999;
-        for rect in rect_query.iter(world) {
+        for node in node_query.iter(world) {
             data.push(RectData {
-                position: rect.position.into(),
-                dimensions: rect.dimensions.into(),
-                color: rect.color.into(),
-                anchors: [rect.anchors.top, rect.anchors.bottom, rect.anchors.left, rect.anchors.right],
+                position: node.global_position.into(),
+                dimensions: node.dimensions.into(),
+                color: node.color.into(),
                 z_index: z,
             });
 
@@ -73,7 +72,7 @@ impl UiPipeline {
         instance_buffer_infos.push(InstanceBufferInfo {
             mesh_id: mesh_id,
             buffer: buffer,
-            instance_count: rect_count,
+            instance_count: node_count,
         });
 
         instance_buffer_infos
@@ -154,14 +153,9 @@ impl Pipeline for UiPipeline {
                     shader_location: 4,
                 },
                 wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float4,
+                    format: wgpu::VertexFormat::Float,
                     offset: 8 * 4,
                     shader_location: 5,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float,
-                    offset: 12 * 4,
-                    shader_location: 6,
                 },
             ],
         };
@@ -196,8 +190,8 @@ impl Pipeline for UiPipeline {
                 }],
                 depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                     format: self.depth_format,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
+                    depth_write_enabled: false,
+                    depth_compare: wgpu::CompareFunction::Always,
                     stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
                     stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
                     stencil_read_mask: 0,

@@ -7,9 +7,8 @@ layout(location = 1) in vec4 a_Normal;
 // instanced attributes (RectData)
 layout (location = 2) in vec2 a_RectPosition;
 layout (location = 3) in vec2 a_RectDimensions;
-layout (location = 4) in vec4 a_RectAnchors;
-layout (location = 5) in vec4 a_RectColor;
-layout (location = 6) in float a_RectZIndex;
+layout (location = 4) in vec4 a_RectColor;
+layout (location = 5) in float a_RectZIndex;
 
 layout(location = 0) out vec4 v_Color;
 
