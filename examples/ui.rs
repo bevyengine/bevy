@@ -85,6 +85,8 @@ fn setup(world: &mut World) {
         ],
     );
 
+    // bottom left anchor with vertical fill
+
     world.insert(
         (),
         vec![(Node::new(
@@ -95,6 +97,8 @@ fn setup(world: &mut World) {
         ),)],
     );
 
+    // top right anchor with vertical fill
+
     world.insert(
         (),
         vec![(Node::new(
@@ -104,6 +108,8 @@ fn setup(world: &mut World) {
             math::vec4(0.1, 0.1, 0.1, 1.0),
         ),)],
     );
+
+    // render order test: reddest in the back, whitest in the front
 
     world.insert(
         (),
