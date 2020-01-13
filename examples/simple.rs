@@ -55,7 +55,6 @@ fn setup(world: &mut World) {
                 depth: 0.1..50.0,
                 target_view: None,
             },
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
             Rotation::from_euler_angles(0.0, 0.0, 0.0),
@@ -74,7 +73,7 @@ fn setup(world: &mut World) {
             }),
             ActiveCamera,
             LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, -8.0, 5.0),
+                Vec3::new(3.0, 8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
