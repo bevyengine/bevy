@@ -24,13 +24,15 @@ pub struct UiPipeline {
     pub depth_format: wgpu::TextureFormat,
     pub quad: Option<Handle<Mesh>>,
     pub bind_group: Option<wgpu::BindGroup>,
+    pub msaa_samples: usize,
 }
 
 impl UiPipeline {
-    pub fn new() -> Self {
+    pub fn new(msaa_samples: usize) -> Self {
         UiPipeline {
             pipeline: None,
             bind_group: None,
+            msaa_samples,
             quad: None,
             depth_format: wgpu::TextureFormat::Depth32Float,
         }
@@ -220,7 +222,7 @@ impl Pipeline for UiPipeline {
                 }),
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[vertex_buffer_descriptor, instance_buffer_descriptor],
-                sample_count: 1,
+                sample_count: self.msaa_samples as u32,
                 sample_mask: !0,
                 alpha_to_coverage_enabled: false,
             },

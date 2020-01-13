@@ -14,13 +14,15 @@ pub struct ForwardInstancedPipeline {
     pub depth_format: wgpu::TextureFormat,
     pub local_bind_group: Option<wgpu::BindGroup>,
     pub instance_buffer_infos: Option<Vec<InstanceBufferInfo>>,
+    pub msaa_samples: usize,
 }
 
 impl ForwardInstancedPipeline {
-    pub fn new(depth_format: wgpu::TextureFormat) -> Self {
+    pub fn new(depth_format: wgpu::TextureFormat, msaa_samples: usize) -> Self {
         ForwardInstancedPipeline {
             pipeline: None,
             depth_format,
+            msaa_samples,
             local_bind_group: None,
             instance_buffer_infos: None,
         }
@@ -255,7 +257,7 @@ impl Pipeline for ForwardInstancedPipeline {
                 }),
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[vertex_buffer_descriptor, instance_buffer_descriptor],
-                sample_count: 1,
+                sample_count: self.msaa_samples as u32,
                 sample_mask: !0,
                 alpha_to_coverage_enabled: false,
             },

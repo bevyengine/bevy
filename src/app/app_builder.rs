@@ -52,6 +52,7 @@ impl AppBuilder {
     }
 
     pub fn add_default_passes(mut self) -> Self {
+        let msaa_samples = 8;
         let render_graph = &mut self.render_graph;
         render_graph
             .add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
@@ -62,14 +63,14 @@ impl AppBuilder {
             .add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
-        render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format)));
-        render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new()));
+        render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format, msaa_samples)));
+        render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new(msaa_samples)));
         render_graph.set_pipeline(
             "forward",
             "forward_instanced",
-            Box::new(ForwardInstancedPipeline::new(depth_format)),
+            Box::new(ForwardInstancedPipeline::new(depth_format, msaa_samples)),
         );
-        render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new()));
+        render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new(msaa_samples)));
 
         self
     }
