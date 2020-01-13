@@ -183,7 +183,6 @@ fn build_print_status_system() -> Box<dyn Schedulable> {
                 frame_time_total -= frame_time_values.pop_back().unwrap();
             }
             if elapsed > 1.0 {
-                // println!("fps: {}", if time.delta_seconds == 0.0 { 0.0 } else { 1.0 / time.delta_seconds });
                 if frame_time_count > 0 && frame_time_total > 0.0 {
                     println!(
                         "fps: {}",

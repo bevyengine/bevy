@@ -90,8 +90,18 @@ fn setup(world: &mut World) {
         vec![(Node::new(
             math::vec2(0.0, 0.0),
             Anchors::new(0.0, 0.0, 0.0, 1.0),
-            Margins::new(10.0, 100.0, 10.0, 10.0),
-            math::vec4(0.0, 1.0, 0.0, 1.0),
+            Margins::new(10.0, 200.0, 10.0, 10.0),
+            math::vec4(0.1, 0.1, 0.1, 1.0),
+        ),)],
+    );
+
+    world.insert(
+        (),
+        vec![(Node::new(
+            math::vec2(0.0, 0.0),
+            Anchors::new(1.0, 1.0, 0.0, 1.0),
+            Margins::new(10.0, 100.0, 50.0, 100.0),
+            math::vec4(0.1, 0.1, 0.1, 1.0),
         ),)],
     );
 
@@ -122,6 +132,16 @@ fn setup(world: &mut World) {
             Anchors::new(0.5, 0.5, 0.5, 0.5),
             Margins::new(0.0, 100.0, 0.0, 100.0),
             math::vec4(1.0, 0.5, 0.5, 1.0),
+        ),)],
+    );
+
+    world.insert(
+        (),
+        vec![(Node::new(
+            math::vec2(150.0, 150.0),
+            Anchors::new(0.5, 0.5, 0.5, 0.5),
+            Margins::new(0.0, 100.0, 0.0, 100.0),
+            math::vec4(1.0, 0.7, 0.7, 1.0),
         ),)],
     );
 }

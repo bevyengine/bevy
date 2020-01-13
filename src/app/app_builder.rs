@@ -84,7 +84,7 @@ impl AppBuilder {
     pub fn add_default_systems(mut self) -> Self {
         self.schedule_builder = self
             .schedule_builder
-            .add_system(ui::update_system::build_ui_update_system());
+            .add_system(ui::ui_update_system::build_ui_update_system());
         for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
             self.schedule_builder = self.schedule_builder.add_system(transform_system);
         }
