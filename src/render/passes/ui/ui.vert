@@ -6,7 +6,7 @@ layout(location = 1) in vec4 a_Normal;
 
 // instanced attributes (RectData)
 layout (location = 2) in vec2 a_RectPosition;
-layout (location = 3) in vec2 a_RectDimensions;
+layout (location = 3) in vec2 a_RectSize;
 layout (location = 4) in vec4 a_RectColor;
 layout (location = 5) in float a_RectZIndex;
 
@@ -18,7 +18,7 @@ layout(set = 0, binding = 0) uniform Globals {
 
 void main() {
     v_Color = a_RectColor;
-    vec4 position = a_Pos * vec4(a_RectDimensions, 0.0, 1.0);
-    position = position + vec4(a_RectPosition, -a_RectZIndex, 0.0);
+    vec4 position = a_Pos * vec4(a_RectSize, 0.0, 1.0);
+    position = position + vec4(a_RectPosition + a_RectSize / 2.0, -a_RectZIndex, 0.0);
     gl_Position = u_ViewProj * position;
 }

@@ -1,9 +1,10 @@
 use crate::{
     asset::*,
-    math,
+    ecs, math,
     render::mesh::*,
     render::{instancing::InstanceBufferInfo, *},
     ui::Node,
+    Parent,
 };
 use legion::prelude::*;
 use wgpu::SwapChainOutput;
@@ -13,7 +14,7 @@ use zerocopy::{AsBytes, FromBytes};
 #[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct RectData {
     pub position: [f32; 2],
-    pub dimensions: [f32; 2],
+    pub size: [f32; 2],
     pub color: [f32; 4],
     pub z_index: f32,
 }
@@ -38,27 +39,39 @@ impl UiPipeline {
     pub fn create_rect_buffers(
         &self,
         device: &wgpu::Device,
-        world: &World,
+        world: &mut World,
     ) -> Vec<InstanceBufferInfo> {
-        let node_query = <Read<Node>>::query();
-        let node_count = node_query.iter(world).count();
+        let node_query = <Read<Node>>::query().filter(!component::<Parent>());
 
-        if node_count == 0 {
+        if node_query.iter(world).count() == 0 {
             return Vec::new();
         }
 
-        let mut data = Vec::with_capacity(node_count);
+        let mut data = Vec::new();
         // TODO: this probably isn't the best way to handle z-ordering
         let mut z = 0.9999;
-        for node in node_query.iter(world) {
-            data.push(RectData {
-                position: node.global_position.into(),
-                dimensions: node.dimensions.into(),
-                color: node.color.into(),
-                z_index: z,
-            });
+        {
+            let mut add_data: Box<dyn FnMut(&mut World, Entity, ()) -> Option<()>> =
+                Box::new(|world, entity, _| {
+                    let node = world.get_component::<Node>(entity).unwrap();
+                    data.push(RectData {
+                        position: node.global_position.into(),
+                        size: node.size.into(),
+                        color: node.color.into(),
+                        z_index: z,
+                    });
 
-            z -= 0.0001;
+                    z -= 0.0001;
+                    Some(())
+                });
+
+            for entity in node_query
+                .iter_entities(world)
+                .map(|(entity, _)| entity)
+                .collect::<Vec<Entity>>()
+            {
+                ecs::run_on_hierarchy(world, entity, (), &mut add_data);
+            }
         }
 
         let buffer = device.create_buffer_with_data(
@@ -72,7 +85,7 @@ impl UiPipeline {
         instance_buffer_infos.push(InstanceBufferInfo {
             mesh_id: mesh_id,
             buffer: buffer,
-            instance_count: node_count,
+            instance_count: data.len(),
         });
 
         instance_buffer_infos

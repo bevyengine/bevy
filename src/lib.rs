@@ -1,12 +1,14 @@
 mod app;
 pub mod asset;
 mod core;
+pub mod ecs;
 pub mod render;
 pub mod ui;
 
 pub use crate::core::*;
 pub use app::{App, AppBuilder};
 
+pub use ecs::*;
 pub use glam as math;
 pub use legion;
 pub use legion::prelude::*;

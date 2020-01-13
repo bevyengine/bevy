@@ -12,7 +12,7 @@ enum GrowDirection {
 pub struct Node {
     pub position: Vec2,
     pub global_position: Vec2,
-    pub dimensions: Vec2,
+    pub size: Vec2,
     pub parent_dimensions: Vec2,
     pub anchors: Anchors,
     pub margins: Margins,
@@ -24,7 +24,7 @@ impl Default for Node {
         Node {
             position: Vec2::default(),
             global_position: Vec2::default(),
-            dimensions: Vec2::default(),
+            size: Vec2::default(),
             parent_dimensions: Vec2::default(),
             anchors: Anchors::default(),
             margins: Margins::default(),
@@ -38,7 +38,7 @@ impl Node {
         Node {
             position,
             global_position: Vec2::default(),
-            dimensions: Vec2::default(),
+            size: Vec2::default(),
             parent_dimensions: Vec2::default(),
             anchors,
             margins,
@@ -46,7 +46,7 @@ impl Node {
         }
     }
 
-    pub fn update(&mut self, parent_dimensions: Vec2) {
+    pub fn update(&mut self, parent_dimensions: Vec2, parent_position: Vec2) {
         let (rect_x, rect_width) = Self::compute_dimension_properties(
             self.position.x(),
             self.margins.left,
@@ -64,8 +64,8 @@ impl Node {
             parent_dimensions.y(),
         );
 
-        self.global_position = math::vec2(rect_x, rect_y);
-        self.dimensions = math::vec2(rect_width, rect_height);
+        self.size = math::vec2(rect_width, rect_height);
+        self.global_position = math::vec2(rect_x, rect_y) + parent_position;
     }
 
     fn compute_dimension_properties(
@@ -93,8 +93,11 @@ impl Node {
         let p0 = Self::compute_rect_position(offset, margin0, anchor_p0, p0_grow_direction);
         let p1 = Self::compute_rect_position(offset, margin1, anchor_p1, p1_grow_direction);
 
-        let p = (p0 + p1) / 2.0;
         let final_width = p1 - p0;
+        let mut p = (p0 + p1) / 2.0;
+
+        // move position to "origin" in bottom left hand corner
+        p = p - final_width / 2.0;
 
         (p, final_width)
     }

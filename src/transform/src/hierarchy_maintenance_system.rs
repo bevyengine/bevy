@@ -7,9 +7,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
     let missing_previous_parent_system = SystemBuilder::<()>::new("MissingPreviousParentSystem")
         // Entities with missing `PreviousParent`
         .with_query(<Read<Parent>>::query().filter(
-            component::<LocalToParent>()
-                & component::<LocalToWorld>()
-                & !component::<PreviousParent>(),
+            !component::<PreviousParent>(),
         ))
         .build(move |commands, world, _resource, query| {
             // Add missing `PreviousParent` components
@@ -24,10 +22,9 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
         .with_query(<Read<PreviousParent>>::query().filter(!component::<Parent>()))
         // Entities with a changed `Parent`
         .with_query(<(Read<Parent>, Write<PreviousParent>)>::query().filter(
-            component::<LocalToParent>() & component::<LocalToWorld>() & changed::<Parent>(),
+            changed::<Parent>(),
         ))
         // Deleted Parents (ie Entities with `Children` and without a `LocalToWorld`).
-        .with_query(<Read<Children>>::query().filter(!component::<LocalToWorld>()))
         .write_component::<Children>()
         .build(move |commands, world, _resource, queries| {
             // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
@@ -93,22 +90,6 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
                         .entry(parent.0)
                         .or_insert_with(Default::default)
                         .push(entity);
-                }
-            }
-
-            // Deleted `Parents` (ie. Entities with a `Children` but no `LocalToWorld`).
-            for (entity, children) in queries.2.iter_entities(world) {
-                log::trace!("The entity {} doesn't have a LocalToWorld", entity);
-                if children_additions.remove(&entity).is_none() {
-                    log::trace!(" > It needs to be remove from the ECS.");
-                    for child_entity in children.0.iter() {
-                        commands.remove_component::<Parent>(*child_entity);
-                        commands.remove_component::<PreviousParent>(*child_entity);
-                        commands.remove_component::<LocalToParent>(*child_entity);
-                    }
-                    commands.remove_component::<Children>(entity);
-                } else {
-                    log::trace!(" > It was a new addition, removing it from additions map");
                 }
             }
 

@@ -17,6 +17,7 @@ fn setup(world: &mut World) {
         mesh_storage.add(cube)
     };
 
+    // cube
     world.insert(
         (),
         vec![(
@@ -26,6 +27,7 @@ fn setup(world: &mut World) {
         )],
     );
 
+    // light
     world.insert(
         (),
         vec![(
@@ -46,6 +48,7 @@ fn setup(world: &mut World) {
         )],
     );
 
+    // 3d camera
     world.insert(
         (),
         vec![
@@ -67,26 +70,23 @@ fn setup(world: &mut World) {
         ],
     );
 
+    // 2d camera
     world.insert(
         (),
-        vec![
-            // camera
-            (
-                Camera::new(CameraType::Orthographic {
-                    left: 0.0,
-                    right: 0.0,
-                    bottom: 0.0,
-                    top: 0.0,
-                    near: 0.0,
-                    far: 1.0,
-                }),
-                ActiveCamera2d,
-            ),
-        ],
+        vec![(
+            Camera::new(CameraType::Orthographic {
+                left: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                top: 0.0,
+                near: 0.0,
+                far: 1.0,
+            }),
+            ActiveCamera2d,
+        )],
     );
 
     // bottom left anchor with vertical fill
-
     world.insert(
         (),
         vec![(Node::new(
@@ -98,7 +98,6 @@ fn setup(world: &mut World) {
     );
 
     // top right anchor with vertical fill
-
     world.insert(
         (),
         vec![(Node::new(
@@ -110,7 +109,6 @@ fn setup(world: &mut World) {
     );
 
     // render order test: reddest in the back, whitest in the front
-
     world.insert(
         (),
         vec![(Node::new(
@@ -149,5 +147,32 @@ fn setup(world: &mut World) {
             Margins::new(0.0, 100.0, 0.0, 100.0),
             math::vec4(1.0, 0.7, 0.7, 1.0),
         ),)],
+    );
+
+    // parenting
+    let parent = *world
+        .insert(
+            (),
+            vec![(Node::new(
+                math::vec2(300.0, 300.0),
+                Anchors::new(0.0, 0.0, 0.0, 0.0),
+                Margins::new(0.0, 200.0, 0.0, 200.0),
+                math::vec4(0.1, 0.1, 1.0, 1.0),
+            ),)],
+        )
+        .first()
+        .unwrap();
+
+    world.insert(
+        (),
+        vec![(
+            Node::new(
+                math::vec2(0.0, 0.0),
+                Anchors::new(0.0, 1.0, 0.0, 1.0),
+                Margins::new(20.0, 20.0, 20.0, 20.0),
+                math::vec4(0.6, 0.6, 1.0, 1.0),
+            ),
+            Parent(parent),
+        )],
     );
 }
