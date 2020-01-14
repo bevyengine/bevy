@@ -52,7 +52,7 @@ impl AppBuilder {
     }
 
     pub fn add_default_passes(mut self) -> Self {
-        let msaa_samples = 8;
+        let msaa_samples = 4;
         let render_graph = &mut self.render_graph;
         render_graph
             .add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
