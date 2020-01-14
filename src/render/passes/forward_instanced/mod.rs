@@ -1,7 +1,7 @@
 use crate::{
     asset::*,
     render::{instancing::InstanceBufferInfo, *},
-    LocalToWorld,
+    prelude::LocalToWorld,
 };
 use legion::prelude::*;
 use std::{collections::HashMap, mem};

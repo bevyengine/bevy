@@ -1,9 +1,4 @@
-use bevy::{
-    asset::*,
-    math::{Mat4, Quat, Vec3},
-    render::*,
-    Parent, Schedulable, *,
-};
+use bevy::prelude::*;
 
 struct Rotator;
 

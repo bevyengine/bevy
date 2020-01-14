@@ -1,4 +1,4 @@
-use crate::{legion::system::SubWorld, Children, Entity, World};
+use crate::prelude::{Children, Entity, World, SubWorld};
 pub fn run_on_hierarchy<T>(
     world: &mut World,
     entity: Entity,

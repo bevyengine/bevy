@@ -1,4 +1,4 @@
-use crate::{render::*, LocalToWorld};
+use crate::{prelude::LocalToWorld, render::*};
 
 use legion::prelude::*;
 use std::mem;

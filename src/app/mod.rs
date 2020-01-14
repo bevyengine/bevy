@@ -10,7 +10,7 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{render::*, Time};
+use crate::{render::*, core::Time};
 
 pub struct App {
     pub world: World,

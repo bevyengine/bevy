@@ -1,4 +1,4 @@
-use bevy::*;
+use bevy::{prelude::*, asset};
 
 fn main() {
     asset::load_gltf("examples/assets/Box.gltf").unwrap();

@@ -1,4 +1,4 @@
-use crate::{math, render::passes::ForwardUniforms, render::*, LocalToWorld};
+use crate::{math, prelude::LocalToWorld, render::passes::ForwardUniforms, render::*};
 
 use legion::prelude::*;
 use std::mem;

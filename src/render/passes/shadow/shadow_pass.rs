@@ -1,4 +1,8 @@
-use crate::{render::passes::shadow, render::*, LocalToWorld, Translation};
+use crate::{
+    prelude::{LocalToWorld, Translation},
+    render::passes::shadow,
+    render::*,
+};
 use legion::prelude::*;
 use std::mem;
 

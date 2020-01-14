@@ -1,4 +1,4 @@
-use crate::{math, render::camera, Translation};
+use crate::{math, prelude::Translation, render::camera};
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
 

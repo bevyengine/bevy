@@ -1,9 +1,4 @@
-use bevy::{
-    asset::*,
-    math::{Mat4, Vec3},
-    render::*,
-    *,
-};
+use bevy::{asset, prelude::*};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -18,7 +13,7 @@ fn setup(world: &mut World) {
 
     let texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
-        let texture = Texture::load(TextureType::Data(create_texels(256)));
+        let texture = Texture::load(TextureType::Data(asset::create_texels(256)));
         (texture_storage.add(texture))
     };
 

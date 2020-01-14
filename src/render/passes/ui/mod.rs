@@ -3,7 +3,7 @@ use crate::{
     ecs, math,
     render::{instancing::InstanceBufferInfo, *},
     ui::Node,
-    Parent,
+    prelude::Parent,
 };
 use legion::prelude::*;
 use wgpu::SwapChainOutput;

@@ -1,10 +1,4 @@
-use bevy::{
-    asset::*,
-    math::{Mat4, Vec3},
-    render::*,
-    ui::*,
-    *,
-};
+use bevy::prelude::*;
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();

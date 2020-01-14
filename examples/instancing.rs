@@ -1,9 +1,4 @@
-use bevy::{
-    asset::*,
-    math::{Mat4, Vec3},
-    render::*,
-    Schedulable, *,
-};
+use bevy::prelude::*;
 use rand::{random, rngs::StdRng, Rng, SeedableRng};
 use std::collections::VecDeque;
 
