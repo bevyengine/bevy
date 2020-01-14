@@ -1,4 +1,4 @@
-use crate::{asset::*, render::mesh::*, render::*};
+use crate::{asset::*, render::*};
 use legion::prelude::*;
 use wgpu::SwapChainOutput;
 

@@ -8,6 +8,7 @@
     * Consider reworking current RenderGraph to be more graph-like
     * Macro to produce vertex buffer attributes (and maybe descriptors) from structs
     * Dynamic / user defined shaders
+        * consider using shaderc-rs. but this introduces compile complexity and requires other C++ build systems
 * Physics
     * High level physics data types
     * Integrate with nphysics

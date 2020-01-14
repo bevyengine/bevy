@@ -1,6 +1,10 @@
 mod gltf;
+mod mesh;
+mod texture;
 
 pub use self::gltf::load_gltf;
+pub use mesh::*;
+pub use texture::*;
 
 use std::{collections::HashMap, marker::PhantomData};
 

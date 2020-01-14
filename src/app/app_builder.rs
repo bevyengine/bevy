@@ -1,5 +1,5 @@
 use crate::{
-    asset::AssetStorage,
+    asset::*,
     legion::{
         prelude::{Schedule, World},
         schedule::Builder,
