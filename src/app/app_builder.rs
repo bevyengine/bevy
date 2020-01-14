@@ -79,6 +79,7 @@ impl AppBuilder {
         let resources = &mut self.world.resources;
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh>::new());
+        resources.insert(AssetStorage::<Texture>::new());
         self
     }
 

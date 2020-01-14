@@ -78,7 +78,7 @@ impl ForwardInstancedPipeline {
                 slot.copy_from_slice(
                     SimpleMaterialUniforms {
                         position: translation.into(),
-                        color: material.color.into(),
+                        color: material.get_color().into(),
                     }
                     .as_bytes(),
                 );
@@ -115,7 +115,7 @@ impl ForwardInstancedPipeline {
 
             data.push(SimpleMaterialUniforms {
                 position: translation.into(),
-                color: material.color.into(),
+                color: material.get_color().into(),
             });
         }
 

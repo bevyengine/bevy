@@ -50,7 +50,7 @@ impl RenderResourceManager for MaterialResourceManager {
             slot.copy_from_slice(
                 MaterialUniforms {
                     model: transform.0.to_cols_array_2d(),
-                    color: material.color.into(),
+                    color: material.get_color().into(),
                 }
                 .as_bytes(),
             );

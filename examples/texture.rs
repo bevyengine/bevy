@@ -10,31 +10,24 @@ fn main() {
 }
 
 fn setup(world: &mut World) {
-    let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane { size: 10.0 });
-
-    let (cube_handle, plane_handle) = {
+    let cube_handle = {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        (mesh_storage.add(cube), mesh_storage.add(plane))
+        let cube = Mesh::load(MeshType::Cube);
+        (mesh_storage.add(cube))
     };
 
-    // plane
-    world.insert(
-        (),
-        vec![(
-            plane_handle.clone(),
-            Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 0.0),
-        )],
-    );
+    let texture_handle = {
+        let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
+        let texture = Texture::load(TextureType::Data(create_texels(256)));
+        (texture_storage.add(texture))
+    };
 
     // cube
     world.insert(
         (),
         vec![(
             cube_handle,
-            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
+            Material::new(Albedo::Texture(texture_handle)),
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 1.0),
         )],

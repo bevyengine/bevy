@@ -23,7 +23,7 @@ fn setup(world: &mut World) {
         vec![(
             cube_handle,
             LocalToWorld::identity(),
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
         )],
     );
 

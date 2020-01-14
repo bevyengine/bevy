@@ -1,6 +1,7 @@
 pub mod camera;
 pub mod instancing;
 pub mod mesh;
+pub mod texture;
 pub mod passes;
 pub mod render_resources;
 pub mod shader;
@@ -14,6 +15,7 @@ pub use camera::*;
 pub use light::*;
 pub use material::*;
 pub use mesh::*;
+pub use texture::*;
 pub use render_graph::*;
 pub use shader::*;
 

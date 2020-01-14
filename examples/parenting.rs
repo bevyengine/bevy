@@ -40,7 +40,7 @@ fn setup(world: &mut World) {
         (),
         vec![(
             plane_handle.clone(),
-            Material::new(math::vec4(0.1, 0.2, 0.1, 1.0)),
+            Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, -5.0),
         )],
@@ -52,7 +52,7 @@ fn setup(world: &mut World) {
             (),
             vec![(
                 cube_handle.clone(),
-                Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+                Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
                 LocalToWorld::identity(),
                 Translation::new(0.0, 0.0, 1.0),
                 Rotation::from_euler_angles(0.0, 0.0, 0.0),
@@ -67,7 +67,7 @@ fn setup(world: &mut World) {
         (),
         vec![(
             cube_handle,
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 3.0),
             Parent(parent_cube),
@@ -90,7 +90,7 @@ fn setup(world: &mut World) {
                 depth: 0.1..50.0,
                 target_view: None,
             },
-            Material::new(math::vec4(0.5, 0.3, 0.3, 1.0)),
+            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
             Rotation::from_euler_angles(0.0, 0.0, 0.0),
