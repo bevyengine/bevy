@@ -10,4 +10,3 @@ pub use wgpu;
 pub use glam as math;
 pub use legion;
 pub use legion_transform;
-use legion_transform::transform_system_bundle;

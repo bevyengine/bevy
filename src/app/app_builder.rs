@@ -5,7 +5,7 @@ use crate::{
         schedule::Builder,
     },
     render::{passes::*, *},
-    transform_system_bundle, ui, app::App, core::Time,
+    legion_transform::transform_system_bundle, ui, app::App, core::Time,
 };
 
 pub struct AppBuilder {
