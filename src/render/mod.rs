@@ -50,6 +50,11 @@ pub fn get_vertex_buffer_descriptor<'a>() -> wgpu::VertexBufferDescriptor<'a> {
                 offset: 4 * 4,
                 shader_location: 1,
             },
+            wgpu::VertexAttributeDescriptor {
+                format: wgpu::VertexFormat::Float2,
+                offset: 8 * 4,
+                shader_location: 2,
+            },
         ],
     }
 }

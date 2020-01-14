@@ -3,10 +3,11 @@
 // vertex attributes
 layout(location = 0) in vec4 a_Pos;
 layout(location = 1) in vec4 a_Normal;
+layout(location = 2) in vec2 a_Uv;
 
 // Instanced attributes
-layout (location = 2) in vec3 a_instancePos;
-layout (location = 3) in vec4 a_instanceColor;
+layout (location = 3) in vec3 a_instancePos;
+layout (location = 4) in vec4 a_instanceColor;
 
 
 layout(location = 0) out vec3 v_Normal;

@@ -155,22 +155,22 @@ impl Pipeline for UiPipeline {
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float2,
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 3,
                 },
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float2,
                     offset: 2 * 4,
-                    shader_location: 3,
+                    shader_location: 4,
                 },
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float4,
                     offset: 4 * 4,
-                    shader_location: 4,
+                    shader_location: 5,
                 },
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float,
                     offset: 8 * 4,
-                    shader_location: 5,
+                    shader_location: 6,
                 },
             ],
         };

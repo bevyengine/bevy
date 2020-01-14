@@ -199,12 +199,12 @@ impl Pipeline for ForwardInstancedPipeline {
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float3,
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 3,
                 },
                 wgpu::VertexAttributeDescriptor {
                     format: wgpu::VertexFormat::Float4,
                     offset: 3 * 4,
-                    shader_location: 3,
+                    shader_location: 4,
                 },
             ],
         };

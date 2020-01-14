@@ -67,10 +67,10 @@ pub fn create_quad(
     south_east: Vec2,
 ) -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
-        Vertex::from(([south_west.x(), south_west.y(), 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([north_west.x(), north_west.y(), 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([north_east.x(), north_east.y(), 0.0], [0.0, 0.0, 1.0])),
-        Vertex::from(([south_east.x(), south_east.y(), 0.0], [0.0, 0.0, 1.0])),
+        Vertex::from(([south_west.x(), south_west.y(), 0.0], [0.0, 0.0, 1.0], [0.0, 0.0])),
+        Vertex::from(([north_west.x(), north_west.y(), 0.0], [0.0, 0.0, 1.0], [0.0, 1.0])),
+        Vertex::from(([north_east.x(), north_east.y(), 0.0], [0.0, 0.0, 1.0], [1.0, 1.0])),
+        Vertex::from(([south_east.x(), south_east.y(), 0.0], [0.0, 0.0, 1.0], [1.0, 0.0])),
     ];
 
     let index_data: &[u16] = &[0, 2, 1, 0, 3, 2];
@@ -80,35 +80,35 @@ pub fn create_quad(
 pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
         // top (0, 0, 1)
-        Vertex::from(([-1, -1, 1], [0, 0, 1])),
-        Vertex::from(([1, -1, 1], [0, 0, 1])),
-        Vertex::from(([1, 1, 1], [0, 0, 1])),
-        Vertex::from(([-1, 1, 1], [0, 0, 1])),
+        Vertex::from(([-1, -1, 1], [0, 0, 1], [0, 0])),
+        Vertex::from(([1, -1, 1], [0, 0, 1], [1, 0])),
+        Vertex::from(([1, 1, 1], [0, 0, 1], [1, 1])),
+        Vertex::from(([-1, 1, 1], [0, 0, 1], [0, 1])),
         // bottom (0, 0, -1)
-        Vertex::from(([-1, 1, -1], [0, 0, -1])),
-        Vertex::from(([1, 1, -1], [0, 0, -1])),
-        Vertex::from(([1, -1, -1], [0, 0, -1])),
-        Vertex::from(([-1, -1, -1], [0, 0, -1])),
+        Vertex::from(([-1, 1, -1], [0, 0, -1], [1, 0])),
+        Vertex::from(([1, 1, -1], [0, 0, -1], [0, 0])),
+        Vertex::from(([1, -1, -1], [0, 0, -1], [0, 1])),
+        Vertex::from(([-1, -1, -1], [0, 0, -1], [1, 1])),
         // right (1, 0, 0)
-        Vertex::from(([1, -1, -1], [1, 0, 0])),
-        Vertex::from(([1, 1, -1], [1, 0, 0])),
-        Vertex::from(([1, 1, 1], [1, 0, 0])),
-        Vertex::from(([1, -1, 1], [1, 0, 0])),
+        Vertex::from(([1, -1, -1], [1, 0, 0], [0, 0])),
+        Vertex::from(([1, 1, -1], [1, 0, 0], [1, 0])),
+        Vertex::from(([1, 1, 1], [1, 0, 0], [1, 1])),
+        Vertex::from(([1, -1, 1], [1, 0, 0], [0, 1])),
         // left (-1, 0, 0)
-        Vertex::from(([-1, -1, 1], [-1, 0, 0])),
-        Vertex::from(([-1, 1, 1], [-1, 0, 0])),
-        Vertex::from(([-1, 1, -1], [-1, 0, 0])),
-        Vertex::from(([-1, -1, -1], [-1, 0, 0])),
+        Vertex::from(([-1, -1, 1], [-1, 0, 0], [1, 0])),
+        Vertex::from(([-1, 1, 1], [-1, 0, 0], [0, 0])),
+        Vertex::from(([-1, 1, -1], [-1, 0, 0], [0, 1])),
+        Vertex::from(([-1, -1, -1], [-1, 0, 0], [1, 1])),
         // front (0, 1, 0)
-        Vertex::from(([1, 1, -1], [0, 1, 0])),
-        Vertex::from(([-1, 1, -1], [0, 1, 0])),
-        Vertex::from(([-1, 1, 1], [0, 1, 0])),
-        Vertex::from(([1, 1, 1], [0, 1, 0])),
+        Vertex::from(([1, 1, -1], [0, 1, 0], [1, 0])),
+        Vertex::from(([-1, 1, -1], [0, 1, 0], [0, 0])),
+        Vertex::from(([-1, 1, 1], [0, 1, 0], [0, 1])),
+        Vertex::from(([1, 1, 1], [0, 1, 0], [1, 1])),
         // back (0, -1, 0)
-        Vertex::from(([1, -1, 1], [0, -1, 0])),
-        Vertex::from(([-1, -1, 1], [0, -1, 0])),
-        Vertex::from(([-1, -1, -1], [0, -1, 0])),
-        Vertex::from(([1, -1, -1], [0, -1, 0])),
+        Vertex::from(([1, -1, 1], [0, -1, 0], [0, 0])),
+        Vertex::from(([-1, -1, 1], [0, -1, 0], [1, 0])),
+        Vertex::from(([-1, -1, -1], [0, -1, 0], [1, 1])),
+        Vertex::from(([1, -1, -1], [0, -1, 0], [0, 1])),
     ];
 
     let index_data: &[u16] = &[
