@@ -1,5 +1,5 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new().add_defaults().run();
+    AppBuilder::new().run();
 }

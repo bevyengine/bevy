@@ -23,13 +23,10 @@ fn main() {
     AppBuilder::new()
         .add_defaults()
         .setup_world(setup)
-        .setup_systems(|builder| {
-            builder
-                .add_system(build_wander_system())
-                .add_system(build_navigate_system())
-                .add_system(build_move_system())
-                .add_system(build_print_status_system())
-        })
+        .add_system(build_wander_system())
+        .add_system(build_navigate_system())
+        .add_system(build_move_system())
+        .add_system(build_print_status_system())
         .run();
 }
 

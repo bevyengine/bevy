@@ -6,7 +6,7 @@ fn main() {
     AppBuilder::new()
         .add_defaults()
         .setup_world(setup)
-        .setup_systems(|builder| builder.add_system(build_rotator_system()))
+        .add_system(build_rotator_system())
         .run();
 }
 

@@ -1,30 +1,46 @@
 use crate::{
     asset::*,
     legion::{
-        prelude::{Schedule, World},
-        schedule::Builder,
+        prelude::{Schedule, Schedulable, World},
     },
     render::{passes::*, *},
     legion_transform::transform_system_bundle, ui, app::App, core::Time,
 };
 
+use std::collections::HashMap;
+
+pub const UPDATE: &str = "update";
+
 pub struct AppBuilder {
     pub world: World,
-    pub schedule_builder: Builder,
     pub render_graph: RenderGraph,
+    pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
+    pub stage_order: Vec<String>,
 }
 
 impl AppBuilder {
     pub fn new() -> Self {
         AppBuilder {
             world: World::new(),
-            schedule_builder: Schedule::builder(),
             render_graph: RenderGraph::new(),
+            system_stages: HashMap::new(),
+            stage_order: Vec::new(),
         }
     }
 
-    pub fn build(self) -> App {
-        App::new(self.world, self.schedule_builder.build(), self.render_graph)
+    pub fn build(mut self) -> App {
+        let mut schedule_builder = Schedule::builder();
+        for stage_name in self.stage_order.iter() {
+            if let Some((_name, stage_systems)) = self.system_stages.remove_entry(stage_name) {
+                for system in stage_systems {
+                    schedule_builder = schedule_builder.add_system(system);
+                }
+
+                schedule_builder = schedule_builder.flush();
+            }
+        }
+
+        App::new(self.world, schedule_builder.build(), self.render_graph)
     }
 
     pub fn run(self) {
@@ -36,18 +52,24 @@ impl AppBuilder {
         self
     }
 
-    pub fn with_schedule(mut self, schedule_builder: Builder) -> Self {
-        self.schedule_builder = schedule_builder;
-        self
-    }
-
     pub fn setup_world(mut self, setup: impl Fn(&mut World)) -> Self {
         setup(&mut self.world);
         self
     }
 
-    pub fn setup_systems(mut self, setup: impl Fn(Builder) -> Builder) -> Self {
-        self.schedule_builder = setup(self.schedule_builder);
+    pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
+        self.add_system_to_stage(UPDATE, system)
+    }
+
+    pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
+        if let None = self.system_stages.get(stage_name) {
+            self.system_stages.insert(stage_name.to_string(), Vec::new());
+            self.stage_order.push(stage_name.to_string());
+        }
+
+        let stages = self.system_stages.get_mut(stage_name).unwrap();
+        stages.push(system);
+        
         self
     }
 
@@ -84,11 +106,9 @@ impl AppBuilder {
     }
 
     pub fn add_default_systems(mut self) -> Self {
-        self.schedule_builder = self
-            .schedule_builder
-            .add_system(ui::ui_update_system::build_ui_update_system());
+        self = self.add_system(ui::ui_update_system::build_ui_update_system());
         for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
-            self.schedule_builder = self.schedule_builder.add_system(transform_system);
+            self = self.add_system(transform_system);
         }
 
         self
