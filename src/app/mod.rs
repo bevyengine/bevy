@@ -30,14 +30,12 @@ impl App {
     }
 
     fn update(&mut self) {
-        {
-            let mut time = self.world.resources.get_mut::<Time>().unwrap();
+        if let Some(mut time) = self.world.resources.get_mut::<Time>() {
             time.start();
         }
         self.schedule.execute(&mut self.world);
         self.render();
-        {
-            let mut time = self.world.resources.get_mut::<Time>().unwrap();
+        if let Some(mut time) = self.world.resources.get_mut::<Time>() {
             time.stop();
         }
     }
