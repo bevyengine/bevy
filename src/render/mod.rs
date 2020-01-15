@@ -7,6 +7,7 @@ pub mod shader;
 mod light;
 mod material;
 mod render_graph;
+mod render_graph_2;
 mod vertex;
 
 pub use camera::*;

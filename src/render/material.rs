@@ -36,12 +36,6 @@ impl Material {
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]
-pub struct RenderedUniforms {
-    pub transform: [[f32; 4]; 4],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, AsBytes, FromBytes)]
 pub struct MaterialUniforms {
     pub model: [[f32; 4]; 4],
     pub color: [f32; 4],
