@@ -1,7 +1,7 @@
 use crate::{
     asset::*,
     legion::{
-        prelude::{Schedule, Schedulable, World, Runnable},
+        prelude::{Schedule, Schedulable, World, Universe, Runnable},
     },
     render::{passes::*, *},
     legion_transform::transform_system_bundle, ui, app::App, core::Time,
@@ -13,6 +13,7 @@ pub const UPDATE: &str = "update";
 
 pub struct AppBuilder {
     pub world: World,
+    pub universe: Universe,
     pub render_graph: RenderGraph,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
@@ -21,8 +22,11 @@ pub struct AppBuilder {
 
 impl AppBuilder {
     pub fn new() -> Self {
+        let universe = Universe::new();
+        let world = universe.create_world();
         AppBuilder {
-            world: World::new(),
+            universe,
+            world,
             render_graph: RenderGraph::new(),
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
@@ -50,7 +54,7 @@ impl AppBuilder {
             }
         }
 
-        App::new(self.world, schedule_builder.build(), self.render_graph)
+        App::new(self.universe, self.world, schedule_builder.build(), self.render_graph)
     }
 
     pub fn run(self) {

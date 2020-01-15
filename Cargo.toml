@@ -5,7 +5,7 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d" }
+legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d", features = ["serde-1"] }
 legion_transform = { path = "src/transform" }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "4a0da16fe6764c4e1dc918a31cbd7467d404df51"}
 glam = "0.8.4"
@@ -16,6 +16,11 @@ log = "0.4"
 env_logger = "0.7"
 rand = "0.7.2"
 gltf = "0.14.0"
+serde = { version = "1", features = ["derive"]}
+serde_json = "1.0"
+uuid = { version = "0.8", features = ["v4"] }
+erased-serde = "0.3"
+type-uuid = "0.1"
 
 [profile.release]
 debug = true

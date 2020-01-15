@@ -9,14 +9,16 @@ use legion::prelude::*;
 use crate::{render::*, core::Time};
 
 pub struct App {
+    pub universe: Universe,
     pub world: World,
     pub render_graph: RenderGraph,
     pub schedule: Schedule,
 }
 
 impl App {
-    pub fn new(world: World, schedule: Schedule, render_graph: RenderGraph) -> App {
+    pub fn new(universe: Universe, world: World, schedule: Schedule, render_graph: RenderGraph) -> App {
         App {
+            universe,
             world,
             schedule: schedule,
             render_graph,
