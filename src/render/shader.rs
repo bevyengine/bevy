@@ -5,12 +5,27 @@ pub enum ShaderStage {
     Compute,
 }
 
-pub fn load_glsl(code: &str, stage: ShaderStage) -> Vec<u32> {
-    let ty = match stage {
-        ShaderStage::Vertex => glsl_to_spirv::ShaderType::Vertex,
-        ShaderStage::Fragment => glsl_to_spirv::ShaderType::Fragment,
-        ShaderStage::Compute => glsl_to_spirv::ShaderType::Compute,
-    };
+impl Into<shaderc::ShaderKind> for ShaderStage {
+    fn into(self) -> shaderc::ShaderKind {
+        match self {
+            ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
+            ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
+            ShaderStage::Compute => shaderc::ShaderKind::Compute,
+        }
+    }
+}
 
-    wgpu::read_spirv(glsl_to_spirv::compile(&code, ty).unwrap()).unwrap()
+pub fn glsl_to_spirv(glsl_source: &str, stage: ShaderStage) -> Vec<u32> {
+    let shader_kind: shaderc::ShaderKind = stage.into(); 
+    let mut compiler = shaderc::Compiler::new().unwrap();
+    let options = shaderc::CompileOptions::new().unwrap();
+    // options.add_macro_definition("EP", Some("main"));
+    let binary_result = compiler.compile_into_spirv(
+        glsl_source, shader_kind,
+        "shader.glsl", "main", Some(&options)).unwrap();
+    
+    // let text_result = compiler.compile_into_spirv_assembly(
+    //     glsl_source, shader_kind,
+    //     "shader.glsl", "main", Some(&options)).unwrap();
+    binary_result.as_binary().into()
 }

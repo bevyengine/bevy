@@ -22,9 +22,9 @@ impl ForwardPipeline {
 
 impl Pipeline for ForwardPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, _: &mut World) {
-        let vs_bytes = shader::load_glsl(include_str!("forward.vert"), shader::ShaderStage::Vertex);
+        let vs_bytes = shader::glsl_to_spirv(include_str!("forward.vert"), shader::ShaderStage::Vertex);
         let fs_bytes =
-            shader::load_glsl(include_str!("forward.frag"), shader::ShaderStage::Fragment);
+            shader::glsl_to_spirv(include_str!("forward.frag"), shader::ShaderStage::Fragment);
 
         let bind_group_layout =
             render_graph

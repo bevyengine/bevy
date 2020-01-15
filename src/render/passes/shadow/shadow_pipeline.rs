@@ -102,9 +102,9 @@ impl Pipeline for ShadowPipeline {
         let vertex_buffer_descriptor = get_vertex_buffer_descriptor();
 
         // Create the render pipeline
-        let vs_bytes = shader::load_glsl(include_str!("shadow.vert"), shader::ShaderStage::Vertex);
+        let vs_bytes = shader::glsl_to_spirv(include_str!("shadow.vert"), shader::ShaderStage::Vertex);
         let fs_bytes =
-            shader::load_glsl(include_str!("shadow.frag"), shader::ShaderStage::Fragment);
+            shader::glsl_to_spirv(include_str!("shadow.frag"), shader::ShaderStage::Fragment);
         let vs_module = render_graph.device.create_shader_module(&vs_bytes);
         let fs_module = render_graph.device.create_shader_module(&fs_bytes);
 

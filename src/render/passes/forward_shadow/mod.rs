@@ -20,11 +20,11 @@ impl ForwardShadowPassNew {
 
 impl Pipeline for ForwardShadowPassNew {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, _world: &mut World) {
-        let vs_bytes = shader::load_glsl(
+        let vs_bytes = shader::glsl_to_spirv(
             include_str!("forward_shadow.vert"),
             shader::ShaderStage::Vertex,
         );
-        let fs_bytes = shader::load_glsl(
+        let fs_bytes = shader::glsl_to_spirv(
             include_str!("forward_shadow.frag"),
             shader::ShaderStage::Fragment,
         );

@@ -136,11 +136,11 @@ impl ForwardInstancedPipeline {
 
 impl Pipeline for ForwardInstancedPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
-        let vs_bytes = shader::load_glsl(
+        let vs_bytes = shader::glsl_to_spirv(
             include_str!("forward_instanced.vert"),
             shader::ShaderStage::Vertex,
         );
-        let fs_bytes = shader::load_glsl(
+        let fs_bytes = shader::glsl_to_spirv(
             include_str!("forward_instanced.frag"),
             shader::ShaderStage::Fragment,
         );
