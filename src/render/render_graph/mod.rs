@@ -8,7 +8,7 @@ pub use render_resource_manager::RenderResourceManager;
 
 use crate::render::UniformBuffer;
 use legion::world::World;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 pub struct RenderGraph {
     pub data: Option<RenderGraphData>,
@@ -16,6 +16,7 @@ pub struct RenderGraph {
     pipelines: HashMap<String, Box<dyn Pipeline>>,
     pass_pipelines: HashMap<String, Vec<String>>,
     render_resource_managers: Vec<Box<dyn RenderResourceManager>>,
+    swap_chain: Option<wgpu::SwapChain>,
 }
 
 pub struct RenderGraphData {
@@ -90,35 +91,70 @@ impl RenderGraph {
             pass_pipelines: HashMap::new(),
             render_resource_managers: Vec::new(),
             data: None,
+            swap_chain: None,
         }
     }
 
-    pub fn initialize(
-        &mut self,
-        world: &mut World,
-        device: wgpu::Device,
-        swap_chain_descriptor: wgpu::SwapChainDescriptor,
-        queue: wgpu::Queue,
-        surface: wgpu::Surface,
-    ) {
-        let mut data = RenderGraphData::new(device, swap_chain_descriptor, queue, surface);
+    pub fn initialize(&mut self, world: &mut World) {
+        let adapter = wgpu::Adapter::request(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+            },
+            wgpu::BackendBit::PRIMARY,
+        )
+        .unwrap();
+
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            extensions: wgpu::Extensions {
+                anisotropic_filtering: false,
+            },
+            limits: wgpu::Limits::default(),
+        });
+
+        let (surface, window_size) = {
+            let window = world.resources.get::<winit::window::Window>().unwrap();
+            let surface = wgpu::Surface::create(window.deref());
+            let window_size = window.inner_size();
+            (surface, window_size)
+        };
+
+        let swap_chain_descriptor = wgpu::SwapChainDescriptor {
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            width: window_size.width,
+            height: window_size.height,
+            present_mode: wgpu::PresentMode::Vsync,
+        };
+
+        self.swap_chain = Some(device.create_swap_chain(&surface, &swap_chain_descriptor));
+
+        self.data = Some(RenderGraphData::new(
+            device,
+            swap_chain_descriptor,
+            queue,
+            surface,
+        ));
+
+        let data = self.data.as_mut().unwrap();
         for render_resource_manager in self.render_resource_managers.iter_mut() {
-            render_resource_manager.initialize(&mut data, world);
+            render_resource_manager.initialize(data, world);
         }
 
         for pass in self.passes.values_mut() {
-            pass.initialize(&mut data);
+            pass.initialize(data);
         }
 
         for pipeline in self.pipelines.values_mut() {
-            pipeline.initialize(&mut data, world);
+            pipeline.initialize(data, world);
         }
 
-        self.data = Some(data);
+        self.resize(window_size.width, window_size.height, world);
     }
 
-    pub fn render(&mut self, world: &mut World, swap_chain: &mut wgpu::SwapChain) {
-        let frame = swap_chain
+    pub fn render(&mut self, world: &mut World) {
+        let frame = self.swap_chain
+            .as_mut()
+            .unwrap()
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
 
@@ -154,13 +190,14 @@ impl RenderGraph {
         data.queue.submit(&[command_buffer]);
     }
 
-    pub fn resize(&mut self, width: u32, height: u32, world: &mut World) -> wgpu::SwapChain {
+    pub fn resize(&mut self, width: u32, height: u32, world: &mut World) {
         let data = self.data.as_mut().unwrap();
         data.swap_chain_descriptor.width = width;
         data.swap_chain_descriptor.height = height;
-        let swap_chain = data
-            .device
-            .create_swap_chain(&data.surface, &data.swap_chain_descriptor);
+        self.swap_chain = Some(
+            data.device
+                .create_swap_chain(&data.surface, &data.swap_chain_descriptor),
+        );
         let mut encoder = data
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
@@ -180,7 +217,6 @@ impl RenderGraph {
         }
 
         data.queue.submit(&[command_buffer]);
-        swap_chain
     }
 
     pub fn add_render_resource_manager(

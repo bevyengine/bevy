@@ -1,7 +1,7 @@
 use crate::{
     asset::*,
     legion::{
-        prelude::{Schedule, Schedulable, World},
+        prelude::{Schedule, Schedulable, World, Runnable},
     },
     render::{passes::*, *},
     legion_transform::transform_system_bundle, ui, app::App, core::Time,
@@ -15,6 +15,7 @@ pub struct AppBuilder {
     pub world: World,
     pub render_graph: RenderGraph,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
+    pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
 }
 
@@ -24,6 +25,7 @@ impl AppBuilder {
             world: World::new(),
             render_graph: RenderGraph::new(),
             system_stages: HashMap::new(),
+            runnable_stages: HashMap::new(),
             stage_order: Vec::new(),
         }
     }
@@ -34,6 +36,14 @@ impl AppBuilder {
             if let Some((_name, stage_systems)) = self.system_stages.remove_entry(stage_name) {
                 for system in stage_systems {
                     schedule_builder = schedule_builder.add_system(system);
+                }
+
+                schedule_builder = schedule_builder.flush();
+            }
+
+            if let Some((_name, stage_runnables)) = self.runnable_stages.remove_entry(stage_name) {
+                for system in stage_runnables {
+                    schedule_builder = schedule_builder.add_thread_local(system);
                 }
 
                 schedule_builder = schedule_builder.flush();
@@ -68,6 +78,18 @@ impl AppBuilder {
         }
 
         let stages = self.system_stages.get_mut(stage_name).unwrap();
+        stages.push(system);
+        
+        self
+    }
+
+    pub fn add_runnable_to_stage(mut self, stage_name: &str, system: Box<dyn Runnable>) -> Self {
+        if let None = self.runnable_stages.get(stage_name) {
+            self.runnable_stages.insert(stage_name.to_string(), Vec::new());
+            self.stage_order.push(stage_name.to_string());
+        }
+
+        let stages = self.runnable_stages.get_mut(stage_name).unwrap();
         stages.push(system);
         
         self
