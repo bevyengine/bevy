@@ -86,7 +86,10 @@ impl Pass for ForwardPass {
                 &render_graph.swap_chain_descriptor,
                 self.msaa_samples,
             );
-            render_graph.set_texture(MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME, multisampled_framebuffer);
+            render_graph.set_texture(
+                MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME,
+                multisampled_framebuffer,
+            );
         }
     }
 
@@ -112,7 +115,9 @@ impl Pass for ForwardPass {
                 },
             }
         } else {
-            let multisampled_framebuffer = render_graph.get_texture(MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME).unwrap();
+            let multisampled_framebuffer = render_graph
+                .get_texture(MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME)
+                .unwrap();
             wgpu::RenderPassColorAttachmentDescriptor {
                 attachment: multisampled_framebuffer,
                 resolve_target: Some(&frame.view),
@@ -151,7 +156,10 @@ impl Pass for ForwardPass {
                 &render_graph.swap_chain_descriptor,
                 self.msaa_samples,
             );
-            render_graph.set_texture(MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME, multisampled_framebuffer);
+            render_graph.set_texture(
+                MULTISAMPLED_FRAMEBUFFER_TEXTURE_NAME,
+                multisampled_framebuffer,
+            );
         }
     }
 

@@ -205,7 +205,9 @@ fn create_person(world: &mut World, mesh_handle: Handle<Mesh>, translation: Tran
                 value: math::vec3(0.0, 0.0, 0.0),
             },
             Instanced,
-            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>())),
+            Material::new(Albedo::Color(
+                math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>(),
+            )),
             mesh_handle,
             LocalToWorld::identity(),
             translation,

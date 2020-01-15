@@ -29,6 +29,7 @@ pub struct RenderGraphData {
     uniform_buffers: HashMap<String, UniformBuffer>,
     bind_group_layouts: HashMap<String, wgpu::BindGroupLayout>,
 }
+
 impl RenderGraphData {
     pub fn new(
         device: wgpu::Device,
@@ -152,7 +153,8 @@ impl RenderGraph {
     }
 
     pub fn render(&mut self, world: &mut World) {
-        let frame = self.swap_chain
+        let frame = self
+            .swap_chain
             .as_mut()
             .unwrap()
             .get_next_texture()

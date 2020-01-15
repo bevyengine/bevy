@@ -14,16 +14,14 @@ impl Asset<TextureType> for Texture {
             TextureType::Data(data) => data.clone(),
         };
 
-        Texture {
-            data: data,
-        }
+        Texture { data: data }
     }
 }
 
 pub fn create_texels(size: usize) -> Vec<u8> {
     use std::iter;
 
-    (0 .. size * size)
+    (0..size * size)
         .flat_map(|id| {
             // get high five for recognizing this ;)
             let cx = 3.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;

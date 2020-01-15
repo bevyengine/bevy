@@ -1,4 +1,5 @@
-use crate::prelude::{Children, Entity, World, SubWorld};
+use crate::prelude::{Children, Entity, SubWorld, World};
+
 pub fn run_on_hierarchy<T>(
     world: &mut World,
     entity: Entity,

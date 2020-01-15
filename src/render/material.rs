@@ -1,4 +1,7 @@
-use crate::{asset::{Handle, Texture}, math};
+use crate::{
+    asset::{Handle, Texture},
+    math,
+};
 use zerocopy::{AsBytes, FromBytes};
 
 pub enum Albedo {

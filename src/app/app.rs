@@ -6,7 +6,7 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{render::*, core::Time};
+use crate::{core::Time, render::*};
 
 pub struct App {
     pub universe: Universe,
@@ -16,7 +16,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(universe: Universe, world: World, schedule: Schedule, render_graph: RenderGraph) -> App {
+    pub fn new(
+        universe: Universe,
+        world: World,
+        schedule: Schedule,
+        render_graph: RenderGraph,
+    ) -> App {
         App {
             universe,
             world,
@@ -50,9 +55,7 @@ impl App {
         self.world.resources.insert(window);
 
         log::info!("Initializing the example...");
-        self.render_graph.initialize(
-            &mut self.world,
-        );
+        self.render_graph.initialize(&mut self.world);
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
@@ -66,7 +69,8 @@ impl App {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
-                    self.render_graph.resize(size.width, size.height, &mut self.world);
+                    self.render_graph
+                        .resize(size.width, size.height, &mut self.world);
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {

@@ -3,8 +3,10 @@ pub use crate::{
     asset::{Asset, AssetStorage, Handle, Mesh, MeshType, Texture, TextureType},
     core::Time,
     ecs,
-    render::{Albedo, Camera, CameraType, ActiveCamera, ActiveCamera2d, Instanced, Light, Material},
-    ui::{Node, Anchors, Margins},
+    render::{
+        ActiveCamera, ActiveCamera2d, Albedo, Camera, CameraType, Instanced, Light, Material,
+    },
+    ui::{Anchors, Margins, Node},
 };
 pub use glam as math;
 pub use legion::{
@@ -14,4 +16,4 @@ pub use legion::{
     system::SystemBuilder,
 };
 pub use legion_transform::prelude::*;
-pub use math::{Mat3, Mat4, Vec2, Vec3, Vec4, Quat};
+pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};

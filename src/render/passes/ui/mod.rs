@@ -1,9 +1,9 @@
 use crate::{
     asset::*,
     ecs, math,
+    prelude::Parent,
     render::{instancing::InstanceBufferInfo, *},
     ui::Node,
-    prelude::Parent,
 };
 use legion::prelude::*;
 use wgpu::SwapChainOutput;

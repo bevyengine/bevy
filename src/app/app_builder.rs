@@ -1,10 +1,11 @@
 use crate::{
+    app::App,
     asset::*,
-    legion::{
-        prelude::{Schedule, Schedulable, World, Universe, Runnable},
-    },
+    core::Time,
+    legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
+    legion_transform::transform_system_bundle,
     render::{passes::*, *},
-    legion_transform::transform_system_bundle, ui, app::App, core::Time,
+    ui,
 };
 
 use std::collections::HashMap;
@@ -54,7 +55,12 @@ impl AppBuilder {
             }
         }
 
-        App::new(self.universe, self.world, schedule_builder.build(), self.render_graph)
+        App::new(
+            self.universe,
+            self.world,
+            schedule_builder.build(),
+            self.render_graph,
+        )
     }
 
     pub fn run(self) {
@@ -77,25 +83,27 @@ impl AppBuilder {
 
     pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
         if let None = self.system_stages.get(stage_name) {
-            self.system_stages.insert(stage_name.to_string(), Vec::new());
+            self.system_stages
+                .insert(stage_name.to_string(), Vec::new());
             self.stage_order.push(stage_name.to_string());
         }
 
         let stages = self.system_stages.get_mut(stage_name).unwrap();
         stages.push(system);
-        
+
         self
     }
 
     pub fn add_runnable_to_stage(mut self, stage_name: &str, system: Box<dyn Runnable>) -> Self {
         if let None = self.runnable_stages.get(stage_name) {
-            self.runnable_stages.insert(stage_name.to_string(), Vec::new());
+            self.runnable_stages
+                .insert(stage_name.to_string(), Vec::new());
             self.stage_order.push(stage_name.to_string());
         }
 
         let stages = self.runnable_stages.get_mut(stage_name).unwrap();
         stages.push(system);
-        
+
         self
     }
 
@@ -111,8 +119,15 @@ impl AppBuilder {
             .add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
 
         let depth_format = wgpu::TextureFormat::Depth32Float;
-        render_graph.set_pass("forward", Box::new(ForwardPass::new(depth_format, msaa_samples)));
-        render_graph.set_pipeline("forward", "forward", Box::new(ForwardPipeline::new(msaa_samples)));
+        render_graph.set_pass(
+            "forward",
+            Box::new(ForwardPass::new(depth_format, msaa_samples)),
+        );
+        render_graph.set_pipeline(
+            "forward",
+            "forward",
+            Box::new(ForwardPipeline::new(msaa_samples)),
+        );
         render_graph.set_pipeline(
             "forward",
             "forward_instanced",
