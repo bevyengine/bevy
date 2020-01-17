@@ -52,7 +52,7 @@ impl UiPipeline {
         // TODO: this probably isn't the best way to handle z-ordering
         let mut z = 0.9999;
         {
-            let mut add_data: Box<dyn FnMut(&mut World, Entity, ()) -> Option<()>> =
+            let mut add_data: Box<dyn FnMut(&World, Entity, ()) -> Option<()>> =
                 Box::new(|world, entity, _| {
                     let node = world.get_component::<Node>(entity).unwrap();
                     data.push(RectData {

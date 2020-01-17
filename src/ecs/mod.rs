@@ -1,6 +1,28 @@
 use crate::prelude::{Children, Entity, SubWorld, World};
 
 pub fn run_on_hierarchy<T>(
+    world: &World,
+    entity: Entity,
+    input: T,
+    func: &mut dyn FnMut(&World, Entity, T) -> Option<T>,
+) where
+    T: Copy,
+{
+    let result = func(world, entity, input);
+
+    if let Some(result) = result {
+        match world.get_component::<Children>(entity) {
+            Some(children) => Some(
+                for child in children.iter() {
+                    run_on_hierarchy(world, *child, result, func);
+                }
+            ),
+            None => None,
+        };
+    }
+}
+
+pub fn run_on_hierarchy_mut<T>(
     world: &mut World,
     entity: Entity,
     input: T,
@@ -24,17 +46,39 @@ pub fn run_on_hierarchy<T>(
     if let Some(result) = result {
         if let Some(children) = children {
             for child in children {
-                run_on_hierarchy(world, child, result, func);
+                run_on_hierarchy_mut(world, child, result, func);
             }
         }
     }
 }
 
 pub fn run_on_hierarchy_subworld<T>(
-    world: &mut legion::system::SubWorld,
+    world: &SubWorld,
     entity: Entity,
     input: T,
-    func: &dyn Fn(&mut SubWorld, Entity, T) -> Option<T>,
+    func: &mut dyn FnMut(&SubWorld, Entity, T) -> Option<T>,
+) where
+    T: Copy,
+{
+    let result = func(world, entity, input);
+
+    if let Some(result) = result {
+        match world.get_component::<Children>(entity) {
+            Some(children) => Some(
+                for child in children.iter() {
+                    run_on_hierarchy_subworld(world, *child, result, func);
+                }
+            ),
+            None => None,
+        };
+    }
+}
+
+pub fn run_on_hierarchy_subworld_mut<T>(
+    world: &mut SubWorld,
+    entity: Entity,
+    input: T,
+    func: &mut dyn FnMut(&mut SubWorld, Entity, T) -> Option<T>,
 ) where
     T: Copy,
 {
@@ -54,7 +98,7 @@ pub fn run_on_hierarchy_subworld<T>(
     if let Some(result) = result {
         if let Some(children) = children {
             for child in children {
-                run_on_hierarchy_subworld(world, child, result, func);
+                run_on_hierarchy_subworld_mut(world, child, result, func);
             }
         }
     }

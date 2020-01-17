@@ -12,11 +12,11 @@ pub fn build_ui_update_system() -> Box<dyn Schedulable> {
             let parent_size = math::vec2(window_size.width as f32, window_size.height as f32);
             let parent_position = math::vec2(0.0, 0.0);
             for (entity, _) in node_query.iter_entities_mut(world) {
-                ecs::run_on_hierarchy_subworld(
+                ecs::run_on_hierarchy_subworld_mut(
                     world,
                     entity,
                     (parent_size, parent_position),
-                    &update_node_entity,
+                    &mut update_node_entity,
                 );
             }
         })
