@@ -3,11 +3,11 @@ pub mod instancing;
 pub mod passes;
 pub mod render_resources;
 pub mod shader;
+pub mod render_graph_2;
 
 mod light;
 mod material;
 mod render_graph;
-mod render_graph_2;
 mod vertex;
 
 pub use camera::*;
