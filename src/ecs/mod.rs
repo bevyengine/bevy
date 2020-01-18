@@ -1,3 +1,9 @@
+mod entity_builder;
+mod archetypes;
+
+pub use entity_builder::*;
+pub use archetypes::*;
+
 use crate::prelude::{Children, Entity, SubWorld, World};
 
 pub fn run_on_hierarchy<T>(
