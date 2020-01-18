@@ -66,3 +66,12 @@ pub struct ShaderStages {
     pub vertex: Shader,
     pub fragment: Option<Shader>,
 }
+
+impl ShaderStages {
+    pub fn new(vertex_shader: Shader) -> Self {
+        ShaderStages {
+            vertex: vertex_shader,
+            fragment: None,
+        }
+    }
+}

@@ -2,14 +2,15 @@ mod pipeline;
 
 pub use pipeline::*;
 
+use crate::prelude::*;
 use crate::{asset::Texture, legion::{prelude::{Entity, World}, borrow::{Ref, RefMap}}, render::Albedo};
-use std::{collections::{HashMap, HashSet}, ops::Deref};
+use std::collections::HashMap;
 
 pub enum ShaderValue<'a> {
     Int(u32),
     Float(f32),
-    Vec4(crate::math::Vec4),
-    Texture(&'a crate::asset::Handle<Texture>),
+    Vec4(Vec4),
+    Texture(&'a Handle<Texture>),
 }
 
 type ShaderMaterialSelector = fn(Entity, &World) -> Option<RefMap<&dyn ShaderMaterial>>;
@@ -88,12 +89,20 @@ enum ResourceType {
 // updates resources based on events like "resize" or "update"
 // if there are no resources in use, dont run allocate resource provider resources on gpu
 trait ResourceProvider {
-  fn get_resources() -> Vec<String>;
+  fn get_resources(&self) -> &[Resource];
 }
 
 // holds on to passes, pipeline descriptions, instances
 // passes: shadow, forward
-struct RenderGraph;
+struct RenderGraph {
+  pipeline_definitions: HashMap<String, PipelineDefinition>,
+  pipeline_instances: HashMap<String, wgpu::RenderPipeline>,
+}
+
+struct RenderGraphBuilder {
+
+}
+
 /*
 RenderGraph::build()
 .AddPass("forward", Pass {
@@ -127,20 +136,35 @@ RenderGraph::build()
 )
 */
 
-// A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc 
-// Mesh target
-trait DrawTarget {
-    fn draw(device: &wgpu::Device);
+pub struct RenderPassColorAttachmentDescription {
+  /// The actual color attachment.
+  pub attachment: String,
+
+  /// The resolve target for this color attachment, if any.
+  pub resolve_target: Option<String>,
+
+  /// The beginning-of-pass load operation for this color attachment.
+  pub load_op: wgpu::LoadOp,
+
+  /// The end-of-pass store operation for this color attachment.
+  pub store_op: wgpu::StoreOp,
+
+  /// The color that will be assigned to every pixel of this attachment when cleared.
+  pub clear_color: wgpu::Color,
 }
 
-// a texture that is rendered to. TextureView or SwapChain
-struct RenderTarget;
+pub struct RenderPassDepthStencilAttachmentDescription {
+    pub attachment: String,
+    pub depth_load_op: wgpu::LoadOp,
+    pub depth_store_op: wgpu::StoreOp,
+    pub clear_depth: f32,
+    pub stencil_load_op: wgpu::LoadOp,
+    pub stencil_store_op: wgpu::StoreOp,
+    pub clear_stencil: u32,
+}
 
 // A set of pipeline bindings and draw calls with color and depth outputs
-struct Pass;
-
-// A pipeline description (original shaders)
-struct PipelineDefinition;
-
-// A specific instance of a pipeline definition
-struct Pipeline;
+struct Pass {
+  color_attachments: Vec<RenderPassColorAttachmentDescription>,
+  depth_stencil_attachment: Option<RenderPassDepthStencilAttachmentDescription>,
+}
