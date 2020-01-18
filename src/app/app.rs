@@ -6,7 +6,7 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{core::Time, render::*};
+use crate::{core::Time, render::*, app::AppBuilder};
 
 pub struct App {
     pub universe: Universe,
@@ -28,6 +28,10 @@ impl App {
             schedule: schedule,
             render_graph,
         }
+    }
+
+    pub fn build() -> AppBuilder {
+        AppBuilder::new()
     }
 
     fn update(&mut self) {

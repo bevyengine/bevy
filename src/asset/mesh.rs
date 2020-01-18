@@ -18,6 +18,8 @@ pub enum MeshType {
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
+
+    // TODO: remove me
     pub vertex_buffer: Option<Buffer>,
     pub index_buffer: Option<Buffer>,
 }

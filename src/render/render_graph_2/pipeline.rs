@@ -1,22 +1,15 @@
-use crate::{
-    legion::prelude::World,
-    render::shader::{Shader, ShaderStages},
+use crate::render::{
+    render_graph_2::DrawTarget,
+    shader::{Shader, ShaderStages},
 };
 
-// A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc
-// Mesh target
-// trait DrawTarget {
-//     fn draw(device: &wgpu::Device);
-// }
-type DrawTarget = fn(world: &World, device: &wgpu::Device);
-
-pub struct VertexBufferDefinition {
+pub struct VertexBufferDescriptor {
     pub stride: wgpu::BufferAddress,
     pub step_mode: wgpu::InputStepMode,
     pub attributes: Vec<wgpu::VertexAttributeDescriptor>,
 }
 
-impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDefinition {
+impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDescriptor {
     fn into(self) -> wgpu::VertexBufferDescriptor<'a> {
         wgpu::VertexBufferDescriptor {
             step_mode: self.step_mode,
@@ -26,7 +19,7 @@ impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDefinition {
     }
 }
 
-pub struct PipelineDefinition {
+pub struct PipelineDescriptor {
     pub draw_targets: Vec<DrawTarget>,
     pub shader_stages: ShaderStages,
     pub rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
@@ -44,7 +37,7 @@ pub struct PipelineDefinition {
     pub index_format: wgpu::IndexFormat,
 
     /// The format of any vertex buffers used with this pipeline.
-    pub vertex_buffer_definitions: Vec<VertexBufferDefinition>,
+    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
 
     /// The number of samples calculated per pixel (for MSAA).
     pub sample_count: u32,
@@ -60,14 +53,14 @@ pub struct PipelineDefinition {
     pub alpha_to_coverage_enabled: bool,
 }
 
-impl PipelineDefinition {
+impl PipelineDescriptor {
     fn new(vertex_shader: Shader) -> Self {
-        PipelineDefinition {
+        PipelineDescriptor {
             color_states: Vec::new(),
             depth_stencil_state: None,
             draw_targets: Vec::new(),
             shader_stages: ShaderStages::new(vertex_shader),
-            vertex_buffer_definitions: Vec::new(),
+            vertex_buffer_descriptors: Vec::new(),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
@@ -84,62 +77,27 @@ impl PipelineDefinition {
     }
 }
 
-impl PipelineDefinition {
-    pub fn create_render_pipeline(&self, device: &wgpu::Device) -> wgpu::RenderPipeline {
-        let vertex_shader_module = self.shader_stages.vertex.create_shader_module(device);
-        let fragment_shader_module = match self.shader_stages.fragment {
-            Some(ref fragment_shader) => Some(fragment_shader.create_shader_module(device)),
-            None => None,
-        };
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[],
-        });
-        let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-            layout: &pipeline_layout,
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vertex_shader_module,
-                entry_point: &self.shader_stages.vertex.entry_point,
-            },
-            fragment_stage: match self.shader_stages.fragment {
-                Some(ref fragment_shader) => Some(wgpu::ProgrammableStageDescriptor {
-                    entry_point: &fragment_shader.entry_point,
-                    module: fragment_shader_module.as_ref().unwrap(),
-                }),
-                None => None,
-            },
-            rasterization_state: self.rasterization_state.clone(),
-            primitive_topology: self.primitive_topology,
-            color_states: &self.color_states,
-            depth_stencil_state: self.depth_stencil_state.clone(),
-            index_format: self.index_format,
-            vertex_buffers: &self
-                .vertex_buffer_definitions
-                .iter()
-                .map(|v| v.into())
-                .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
-            sample_count: self.sample_count,
-            sample_mask: self.sample_mask,
-            alpha_to_coverage_enabled: self.alpha_to_coverage_enabled,
-        };
-
-        device.create_render_pipeline(&render_pipeline_descriptor)
-    }
-
+impl PipelineDescriptor {
     pub fn build(vertex_shader: Shader) -> PipelineBuilder {
         PipelineBuilder::new(vertex_shader)
     }
 }
 
 pub struct PipelineBuilder {
-    pipeline: PipelineDefinition,
+    pipeline: PipelineDescriptor,
+    vertex_buffer_descriptor_offset: u64,
 }
 
 impl PipelineBuilder {
     pub fn new(vertex_shader: Shader) -> Self {
         PipelineBuilder {
-            pipeline: PipelineDefinition::new(vertex_shader),
+            pipeline: PipelineDescriptor::new(vertex_shader),
+            vertex_buffer_descriptor_offset: 0,
         }
+    }
+
+    pub fn build(self) -> PipelineDescriptor {
+        self.pipeline
     }
 
     pub fn with_fragment_shader(mut self, fragment_shader: Shader) -> Self {
@@ -152,7 +110,10 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_depth_stencil_state(mut self, depth_stencil_state: wgpu::DepthStencilStateDescriptor) -> Self {
+    pub fn with_depth_stencil_state(
+        mut self,
+        depth_stencil_state: wgpu::DepthStencilStateDescriptor,
+    ) -> Self {
         if let Some(_) = self.pipeline.depth_stencil_state {
             panic!("Depth stencil state has already been set");
         }
@@ -160,8 +121,21 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_vertex_buffer_definition(mut self, vertex_buffer_definition: VertexBufferDefinition) -> Self {
-        self.pipeline.vertex_buffer_definitions.push(vertex_buffer_definition);
+    pub fn with_vertex_buffer_descriptor(
+        mut self,
+        mut vertex_buffer_descriptor: VertexBufferDescriptor,
+    ) -> Self {
+        let mut offset = 0;
+        for attribute in vertex_buffer_descriptor.attributes.iter_mut() {
+            offset += attribute.offset;
+            attribute.offset += self.vertex_buffer_descriptor_offset;
+        }
+
+        self.vertex_buffer_descriptor_offset += offset;
+
+        self.pipeline
+            .vertex_buffer_descriptors
+            .push(vertex_buffer_descriptor);
         self
     }
 
@@ -175,7 +149,10 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_rasterization_state(mut self, rasterization_state: wgpu::RasterizationStateDescriptor) -> Self {
+    pub fn with_rasterization_state(
+        mut self,
+        rasterization_state: wgpu::RasterizationStateDescriptor,
+    ) -> Self {
         self.pipeline.rasterization_state = Some(rasterization_state);
         self
     }
