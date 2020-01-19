@@ -4,6 +4,7 @@ use crate::{
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
     render::{passes::*, *},
+    render::render_graph_2,
     ui,
 };
 
@@ -16,6 +17,7 @@ pub struct AppBuilder {
     pub world: World,
     pub universe: Universe,
     pub legacy_render_graph: Option<RenderGraph>,
+    pub renderer: Option<Box<dyn render_graph_2::Renderer>>,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
@@ -29,6 +31,7 @@ impl AppBuilder {
             universe,
             world,
             legacy_render_graph: None,
+            renderer: None,
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
             stage_order: Vec::new(),
@@ -60,6 +63,7 @@ impl AppBuilder {
             self.world,
             schedule_builder.build(),
             self.legacy_render_graph,
+            self.renderer,
         )
     }
 
@@ -152,6 +156,7 @@ impl AppBuilder {
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh>::new());
         resources.insert(AssetStorage::<Texture>::new());
+        resources.insert(render_graph_2::RenderGraph::default());
         self
     }
 
@@ -164,11 +169,22 @@ impl AppBuilder {
         self
     }
 
+    // pub fn add_wgpu_renderer(mut self) -> Self {
+    //     self.renderer = Some(render_graph_2::WgpuRenderer);
+    //     self
+    // }
+
     pub fn add_defaults_legacy(self) -> Self {
         self
             .with_legacy_render_graph()
             .add_default_resources()
             .add_default_passes()
+            .add_default_systems()
+    }
+
+    pub fn add_defaults(self) -> Self {
+        self
+            .add_default_resources()
             .add_default_systems()
     }
 }

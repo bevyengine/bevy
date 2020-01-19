@@ -65,6 +65,11 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
+    pub fn new() -> Self {
+        WgpuRenderer {
+
+        }
+    }
     pub fn create_render_pipeline(
         pipeline_descriptor: &PipelineDescriptor,
         device: &wgpu::Device,

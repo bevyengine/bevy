@@ -6,12 +6,13 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{core::Time, render::*, app::AppBuilder};
+use crate::{core::Time, render, app::AppBuilder, render::render_graph_2::{Renderer, RenderGraph}};
 
 pub struct App {
     pub universe: Universe,
     pub world: World,
-    pub legacy_render_graph: Option<RenderGraph>,
+    pub legacy_render_graph: Option<render::RenderGraph>,
+    pub renderer: Option<Box<dyn Renderer>>,
     pub schedule: Schedule,
 }
 
@@ -20,13 +21,15 @@ impl App {
         universe: Universe,
         world: World,
         schedule: Schedule,
-        legacy_render_graph: Option<RenderGraph>,
+        legacy_render_graph: Option<render::RenderGraph>,
+        renderer: Option<Box<dyn Renderer>>,
     ) -> App {
         App {
             universe,
             world,
             schedule: schedule,
             legacy_render_graph: legacy_render_graph,
+            renderer: renderer,
         }
     }
 
@@ -43,6 +46,12 @@ impl App {
         // TODO: remove me
         if let Some(ref mut render_graph) = self.legacy_render_graph {
             render_graph.render(&mut self.world);
+        }
+
+        if let Some(ref mut renderer) = self.renderer {
+            if let Some(render_graph) = self.world.resources.get::<RenderGraph>() {
+                renderer.process_render_graph(&render_graph, &mut self.world);
+            }
         }
 
         if let Some(mut time) = self.world.resources.get_mut::<Time>() {
