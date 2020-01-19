@@ -1,7 +1,7 @@
 use bevy::{asset, prelude::*};
 
 fn main() {
-    AppBuilder::new().add_defaults().setup_world(setup).run();
+    AppBuilder::new().add_defaults_legacy().setup_world(setup).run();
 }
 
 fn setup(world: &mut World) {

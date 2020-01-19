@@ -1,8 +1,6 @@
 use crate::render::render_graph_2::{PassDescriptor, PipelineDescriptor};
 use std::collections::HashMap;
 
-// holds on to passes, pipeline descriptions, instances
-// passes: shadow, forward
 pub struct RenderGraph {
     pub pipeline_descriptors: HashMap<String, PipelineDescriptor>,
     pub pass_descriptors: HashMap<String, PassDescriptor>,
@@ -63,36 +61,3 @@ impl RenderGraphBuilder {
         self.render_graph
     }
 }
-
-/*
-RenderGraph::build()
-.AddPass("forward", Pass {
-
-})
-.AddPipeline(Pipeline::build()
-  .with_vertex_shader("pbr.vert")
-  .with_fragment_shader("pbr.frag")
-  .add_vertex_layout(Vertex::get_layout()) // maybe someday reflect this using spirv-reflect
-  .add_uniform_binding("camera_resource", "shader_camera") // if a uniform is not bound directly, and no uniforms are set on entity, produce an error
-  .add_texture_binding("some_texture", "shader_texture") // if a uniform is not bound directly, and no uniforms are set on entity, produce an error
-  .add_draw_target(MeshDrawTarget)
-  .add_draw_target(InstancedMeshDrawTarget)
-)
-.AddPipeline(Pipeline::build()
-  .with_vertex_shader("ui.vert")
-  .with_fragment_shader("ui.frag")
-  .with_vertex_layout(Vertex::get_layout())
-  .with_draw_target(UiDrawTarget)
-)
-.AddPass("shadow", Pass {
-    render_target: Null
-    depth_target: DepthTexture (TextureView)
-})
-.AddPipeline(Pipeline::build()
-  .with_vertex_shader("pbr.vert")
-  .with_fragment_shader("pbr.frag")
-  .with_vertex_layout(Vertex::get_layout())
-  .with_draw_target(ShadowedMeshDrawTarget)
-  .with_draw_target(ShadowedInstancedMeshDrawTarget)
-)
-*/

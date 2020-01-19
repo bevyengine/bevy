@@ -11,7 +11,7 @@ use crate::{core::Time, render::*, app::AppBuilder};
 pub struct App {
     pub universe: Universe,
     pub world: World,
-    pub render_graph: RenderGraph,
+    pub legacy_render_graph: Option<RenderGraph>,
     pub schedule: Schedule,
 }
 
@@ -20,13 +20,13 @@ impl App {
         universe: Universe,
         world: World,
         schedule: Schedule,
-        render_graph: RenderGraph,
+        legacy_render_graph: Option<RenderGraph>,
     ) -> App {
         App {
             universe,
             world,
             schedule: schedule,
-            render_graph,
+            legacy_render_graph: legacy_render_graph,
         }
     }
 
@@ -39,7 +39,12 @@ impl App {
             time.start();
         }
         self.schedule.execute(&mut self.world);
-        self.render_graph.render(&mut self.world);
+
+        // TODO: remove me
+        if let Some(ref mut render_graph) = self.legacy_render_graph {
+            render_graph.render(&mut self.world);
+        }
+
         if let Some(mut time) = self.world.resources.get_mut::<Time>() {
             time.stop();
         }
@@ -59,7 +64,9 @@ impl App {
         self.world.resources.insert(window);
 
         log::info!("Initializing the example...");
-        self.render_graph.initialize(&mut self.world);
+        if let Some(ref mut render_graph) = self.legacy_render_graph {
+            render_graph.initialize(&mut self.world);
+        }
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
@@ -73,8 +80,10 @@ impl App {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
-                    self.render_graph
-                        .resize(size.width, size.height, &mut self.world);
+                    if let Some(ref mut render_graph) = self.legacy_render_graph {
+                        render_graph
+                            .resize(size.width, size.height, &mut self.world);
+                    }
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {

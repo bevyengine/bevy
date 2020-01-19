@@ -4,7 +4,7 @@ struct Rotator;
 
 fn main() {
     AppBuilder::new()
-        .add_defaults()
+        .add_defaults_legacy()
         .setup_world(setup)
         .add_system(build_rotator_system())
         .run();

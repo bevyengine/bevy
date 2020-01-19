@@ -210,3 +210,9 @@ impl<'a, 'b, 'c> RenderPass for WgpuRenderPass<'a, 'b, 'c> {
         self.render_pass.set_index_buffer(buffer, offset);
     }
 }
+
+// pub trait RenderResources {
+//     fn get_buffer(name: &str) -> Option<Buffer>;
+//     fn get_texture(name: &str) -> Option<Texture>;
+//     fn get_sampler(name: &str) -> Option<Sampler>;
+// }
