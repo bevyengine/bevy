@@ -1,5 +1,5 @@
 [package]
-name = "legion_transform"
+name = "bevy_transform"
 version = "0.3.0"
 authors = ["Alec Thilenius <alec@thilenius.com>"]
 edition = "2018"
@@ -8,7 +8,6 @@ license = "MIT"
 
 [dependencies]
 legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d" }
-#legion = { path = "../legion" }
 glam = "0.8.3"
 log = "0.4"
 rayon = "1.2"

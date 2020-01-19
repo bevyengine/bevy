@@ -1,10 +1,12 @@
 mod entity_builder;
-mod archetypes;
+mod entity_archetype;
+pub mod default_archetypes;
 
 pub use entity_builder::*;
-pub use archetypes::*;
+pub use entity_archetype::*;
 
-use crate::prelude::{Children, Entity, SubWorld, World};
+use legion::{prelude::{Entity, World}, system::SubWorld};
+use bevy_transform::prelude::Children;
 
 pub fn run_on_hierarchy<T>(
     world: &World,

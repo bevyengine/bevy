@@ -3,11 +3,11 @@ use crate::{
     asset::*,
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
-    legion_transform::transform_system_bundle,
     render::{passes::*, *},
     ui,
 };
 
+use bevy_transform::transform_system_bundle;
 use std::collections::HashMap;
 
 pub const UPDATE: &str = "update";

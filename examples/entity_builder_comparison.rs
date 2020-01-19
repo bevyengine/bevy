@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::ecs::*;
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
