@@ -120,14 +120,14 @@ fn create_entities_builder_add_component(world: &mut World, plane_handle: Handle
 fn create_entities_builder_archetype(world: &mut World, plane_handle: Handle<Mesh>, cube_handle: Handle<Mesh>) {
     world.build()
         // plane
-        .build_archetype(Object3dEntity {
+        .build_archetype(MeshEntity {
             mesh: plane_handle.clone(),
             material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 0.0),
         })
         // cube
-        .build_archetype(Object3dEntity {
+        .build_archetype(MeshEntity {
             mesh: cube_handle,
             material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
             local_to_world: LocalToWorld::identity(),

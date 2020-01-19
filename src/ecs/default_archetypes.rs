@@ -2,7 +2,7 @@ use crate::prelude::*;
 use bevy_derive::EntityArchetype;
 
 #[derive(EntityArchetype)]
-pub struct Object3dEntity {
+pub struct MeshEntity {
     pub mesh: Handle<Mesh>,
     pub material: Material,
     pub local_to_world: LocalToWorld,
