@@ -191,11 +191,11 @@ impl Renderer for WgpuRenderer {
     }
 
     fn resize(&mut self, world: &mut World, width: u32, height: u32) {
+        self.swap_chain_descriptor.width = width;
+        self.swap_chain_descriptor.height = height;
         let swap_chain = self
             .device
             .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
-        self.swap_chain_descriptor.width = width;
-        self.swap_chain_descriptor.height = height;
 
         // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues
         world.resources.insert(swap_chain);

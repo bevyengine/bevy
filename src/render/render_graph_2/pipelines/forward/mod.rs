@@ -3,7 +3,7 @@ use crate::render::{
     {
         render_graph_2::{
             mesh_draw_target, PassDescriptor, PipelineDescriptor, RenderGraphBuilder,
-            RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor,
+            RenderPassColorAttachmentDescriptor,
             resource,
         },
         shader::{Shader, ShaderStage},
