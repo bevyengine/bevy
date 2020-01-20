@@ -98,6 +98,11 @@ impl App {
                         render_graph
                             .resize(size.width, size.height, &mut self.world);
                     }
+
+                    if let Some(ref mut renderer) = self.renderer {
+                        renderer
+                            .resize(&mut self.world, size.width, size.height);
+                    }
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {
