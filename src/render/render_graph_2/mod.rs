@@ -4,14 +4,12 @@ mod renderer;
 mod shader;
 mod render_graph;
 mod example;
-mod render_system;
 
 pub use pipeline::*;
 pub use pass::*;
 pub use renderer::*;
 pub use shader::*;
 pub use render_graph::*;
-pub use render_system::*;
 
 // a named graphics resource provided by a resource provider
 pub struct Resource {

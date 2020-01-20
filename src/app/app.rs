@@ -13,6 +13,7 @@ pub struct App {
     pub world: World,
     pub legacy_render_graph: Option<render::RenderGraph>,
     pub renderer: Option<Box<dyn Renderer>>,
+    pub render_graph: RenderGraph,
     pub schedule: Schedule,
 }
 
@@ -23,13 +24,15 @@ impl App {
         schedule: Schedule,
         legacy_render_graph: Option<render::RenderGraph>,
         renderer: Option<Box<dyn Renderer>>,
+        render_graph: RenderGraph,
     ) -> App {
         App {
             universe,
             world,
-            schedule: schedule,
-            legacy_render_graph: legacy_render_graph,
-            renderer: renderer,
+            schedule,
+            legacy_render_graph,
+            renderer,
+            render_graph,
         }
     }
 
@@ -49,9 +52,7 @@ impl App {
         }
 
         if let Some(ref mut renderer) = self.renderer {
-            if let Some(render_graph) = self.world.resources.get::<RenderGraph>() {
-                renderer.process_render_graph(&render_graph, &mut self.world);
-            }
+            renderer.process_render_graph(&self.render_graph, &mut self.world);
         }
 
         if let Some(mut time) = self.world.resources.get_mut::<Time>() {
@@ -75,6 +76,10 @@ impl App {
         log::info!("Initializing the example...");
         if let Some(ref mut render_graph) = self.legacy_render_graph {
             render_graph.initialize(&mut self.world);
+        }
+
+        if let Some(ref mut renderer) = self.renderer {
+            renderer.initialize(&mut self.world);
         }
 
         log::info!("Entering render loop...");

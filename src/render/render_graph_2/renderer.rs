@@ -2,11 +2,11 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph_2::{PipelineDescriptor, PassDescriptor, RenderGraph, ShaderMaterials},
+        render_graph_2::{PassDescriptor, PipelineDescriptor, RenderGraph, ShaderMaterials},
         Instanced,
     },
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 use zerocopy::AsBytes;
 
 // A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc
@@ -14,13 +14,9 @@ use zerocopy::AsBytes;
 // trait DrawTarget {
 //     fn draw(device: &wgpu::Device);
 // }
-pub type DrawTarget =
-    fn(world: &World, render_pass: &mut dyn RenderPass);
+pub type DrawTarget = fn(world: &World, render_pass: &mut dyn RenderPass);
 
-pub fn mesh_draw_target(
-    world: &World,
-    render_pass: &mut dyn RenderPass,
-) {
+pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
     let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut last_mesh_id = None;
     let mesh_query =
@@ -51,6 +47,7 @@ pub fn mesh_draw_target(
 }
 
 pub trait Renderer {
+    fn initialize(&mut self, world: &mut World);
     fn resize(&mut self, world: &mut World, width: u32, height: u32);
     fn process_render_graph(&mut self, render_graph: &RenderGraph, world: &mut World);
     fn load_mesh(&mut self, asset_id: usize, mesh: &Mesh);
@@ -58,7 +55,7 @@ pub trait Renderer {
 
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
-    pub surface: wgpu::Surface,
+    pub surface: Option<wgpu::Surface>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<String, wgpu::RenderPipeline>,
     pub buffers: HashMap<String, wgpu::Buffer>,
@@ -66,10 +63,38 @@ pub struct WgpuRenderer {
 
 impl WgpuRenderer {
     pub fn new() -> Self {
-        WgpuRenderer {
+        let adapter = wgpu::Adapter::request(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+            },
+            wgpu::BackendBit::PRIMARY,
+        )
+        .unwrap();
 
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            extensions: wgpu::Extensions {
+                anisotropic_filtering: false,
+            },
+            limits: wgpu::Limits::default(),
+        });
+
+        let swap_chain_descriptor = wgpu::SwapChainDescriptor {
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            width: 0,
+            height: 0,
+            present_mode: wgpu::PresentMode::Vsync,
+        };
+
+        WgpuRenderer {
+            device,
+            surface: None,
+            swap_chain_descriptor,
+            render_pipelines: HashMap::new(),
+            buffers: HashMap::new(),
         }
     }
+
     pub fn create_render_pipeline(
         pipeline_descriptor: &PipelineDescriptor,
         device: &wgpu::Device,
@@ -131,10 +156,22 @@ impl WgpuRenderer {
 }
 
 impl Renderer for WgpuRenderer {
+    fn initialize(&mut self, world: &mut World) {
+        let (surface, window_size) = {
+            let window = world.resources.get::<winit::window::Window>().unwrap();
+            let surface = wgpu::Surface::create(window.deref());
+            let window_size = window.inner_size();
+            (surface, window_size)
+        };
+
+        self.surface = Some(surface);
+        self.resize(world, window_size.width, window_size.height);
+    }
+
     fn resize(&mut self, world: &mut World, width: u32, height: u32) {
         let swap_chain = self
             .device
-            .create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+            .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
         self.swap_chain_descriptor.width = width;
         self.swap_chain_descriptor.height = height;
 
@@ -168,7 +205,7 @@ impl Renderer for WgpuRenderer {
                             self.render_pipelines
                                 .insert(pass_pipeline.to_string(), render_pipeline);
                         }
-                        
+
                         let mut render_pass = WgpuRenderPass {
                             render_pass: &mut render_pass,
                             renderer: &self,

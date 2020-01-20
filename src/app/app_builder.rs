@@ -18,6 +18,7 @@ pub struct AppBuilder {
     pub universe: Universe,
     pub legacy_render_graph: Option<RenderGraph>,
     pub renderer: Option<Box<dyn render_graph_2::Renderer>>,
+    pub render_graph: render_graph_2::RenderGraph,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
@@ -30,6 +31,7 @@ impl AppBuilder {
         AppBuilder {
             universe,
             world,
+            render_graph: render_graph_2::RenderGraph::default(),
             legacy_render_graph: None,
             renderer: None,
             system_stages: HashMap::new(),
@@ -64,6 +66,7 @@ impl AppBuilder {
             schedule_builder.build(),
             self.legacy_render_graph,
             self.renderer,
+            self.render_graph,
         )
     }
 
@@ -156,7 +159,6 @@ impl AppBuilder {
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh>::new());
         resources.insert(AssetStorage::<Texture>::new());
-        resources.insert(render_graph_2::RenderGraph::default());
         self
     }
 
@@ -169,10 +171,10 @@ impl AppBuilder {
         self
     }
 
-    // pub fn add_wgpu_renderer(mut self) -> Self {
-    //     self.renderer = Some(render_graph_2::WgpuRenderer);
-    //     self
-    // }
+    pub fn add_wgpu_renderer(mut self) -> Self {
+        self.renderer = Some(Box::new(render_graph_2::WgpuRenderer::new()));
+        self
+    }
 
     pub fn add_defaults_legacy(self) -> Self {
         self
@@ -186,5 +188,6 @@ impl AppBuilder {
         self
             .add_default_resources()
             .add_default_systems()
+            .add_wgpu_renderer()
     }
 }
