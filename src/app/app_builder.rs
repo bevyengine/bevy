@@ -1,24 +1,23 @@
 use crate::{
-    app::App,
+    app::{App, system_stage},
     asset::*,
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
-    render::{passes::*, *},
     render::render_graph_2,
+    render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer},
+    render::{passes::*, *},
     ui,
 };
 
 use bevy_transform::transform_system_bundle;
 use std::collections::HashMap;
 
-pub const UPDATE: &str = "update";
-
 pub struct AppBuilder {
     pub world: World,
     pub universe: Universe,
     pub legacy_render_graph: Option<RenderGraph>,
     pub renderer: Option<Box<dyn render_graph_2::Renderer>>,
-    pub render_graph: render_graph_2::RenderGraph,
+    pub render_graph_builder: render_graph_2::RenderGraphBuilder,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
@@ -31,7 +30,7 @@ impl AppBuilder {
         AppBuilder {
             universe,
             world,
-            render_graph: render_graph_2::RenderGraph::default(),
+            render_graph_builder: render_graph_2::RenderGraphBuilder::new(),
             legacy_render_graph: None,
             renderer: None,
             system_stages: HashMap::new(),
@@ -66,7 +65,7 @@ impl AppBuilder {
             schedule_builder.build(),
             self.legacy_render_graph,
             self.renderer,
-            self.render_graph,
+            self.render_graph_builder.build(),
         )
     }
 
@@ -85,7 +84,7 @@ impl AppBuilder {
     }
 
     pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
-        self.add_system_to_stage(UPDATE, system)
+        self.add_system_to_stage(system_stage::UPDATE, system)
     }
 
     pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
@@ -171,23 +170,31 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_render_graph_defaults(mut self) -> Self {
+        self.render_graph_builder = self
+            .render_graph_builder
+            .add_forward_pass()
+            .add_forward_pipeline();
+
+        self
+    }
+
     pub fn add_wgpu_renderer(mut self) -> Self {
-        self.renderer = Some(Box::new(render_graph_2::WgpuRenderer::new()));
+        self.renderer = Some(Box::new(WgpuRenderer::new()));
         self
     }
 
     pub fn add_defaults_legacy(self) -> Self {
-        self
-            .with_legacy_render_graph()
+        self.with_legacy_render_graph()
             .add_default_resources()
             .add_default_passes()
             .add_default_systems()
     }
 
     pub fn add_defaults(self) -> Self {
-        self
-            .add_default_resources()
+        self.add_default_resources()
             .add_default_systems()
+            .add_render_graph_defaults()
             .add_wgpu_renderer()
     }
 }

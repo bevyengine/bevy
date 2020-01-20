@@ -17,21 +17,19 @@ impl Default for RenderGraph {
     }
 }
 
-impl RenderGraph {
-    pub fn build() -> RenderGraphBuilder {
-        RenderGraphBuilder {
-            render_graph: RenderGraph::default(),
-            current_pass: None,
-        }
-    }
-}
-
 pub struct RenderGraphBuilder {
     render_graph: RenderGraph,
     current_pass: Option<String>,
 }
 
 impl RenderGraphBuilder {
+    pub fn new() -> Self {
+        RenderGraphBuilder {
+            render_graph: RenderGraph::default(),
+            current_pass: None,
+        }
+    }
+
     pub fn add_pass(mut self, name: &str, pass: PassDescriptor) -> Self {
         self.current_pass = Some(name.to_string());
         self.render_graph
