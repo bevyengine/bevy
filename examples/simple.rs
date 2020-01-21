@@ -12,7 +12,7 @@ fn setup(world: &mut World) {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
-
+    
     world.build()
         // plane
         .build_archetype(MeshEntity {
