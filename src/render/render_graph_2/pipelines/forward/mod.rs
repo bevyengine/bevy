@@ -2,9 +2,8 @@ use crate::render::{
     Vertex,
     {
         render_graph_2::{
-            mesh_draw_target, PassDescriptor, PipelineDescriptor, RenderGraphBuilder,
-            RenderPassColorAttachmentDescriptor,
-            resource,
+            mesh_draw_target, resource, pipeline_layout::*, PassDescriptor, PipelineDescriptor,
+            RenderGraphBuilder, RenderPassColorAttachmentDescriptor,
         },
         shader::{Shader, ShaderStage},
     },
@@ -25,6 +24,64 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 include_str!("forward.frag"),
                 ShaderStage::Fragment,
             ))
+            .add_bind_group(BindGroup {
+                bindings: vec![
+                    Binding {
+                        name: "Globals".to_string(),
+                        bind_type: BindType::Uniform {
+                            properties: vec![
+                                UniformProperty {
+                                    name: "ViewProj".to_string(),
+                                    property_type: UniformPropertyType::Mat4,
+                                },
+                                UniformProperty {
+                                    name: "NumLights".to_string(),
+                                    property_type: UniformPropertyType::UVec4,
+                                },
+                            ]
+                        }
+                    },
+                    Binding {
+                        name: "Lights".to_string(),
+                        bind_type: BindType::Uniform {
+                            properties: vec![
+                                UniformProperty {
+                                    name: "SceneLights".to_string(),
+                                    property_type: UniformPropertyType::Array(
+                                        Box::new(UniformPropertyType::Struct(
+                                            vec![
+                                                UniformPropertyType::Mat4,
+                                                UniformPropertyType::Vec4,
+                                                UniformPropertyType::Vec4,
+                                            ]
+                                        )),
+                                        10
+                                    ),
+                                },
+                            ]
+                        }
+                    }
+                ]
+            })
+            .add_bind_group(BindGroup {
+                bindings: vec![
+                    Binding {
+                        name: "Entity".to_string(),
+                        bind_type: BindType::Uniform {
+                            properties: vec![
+                                UniformProperty {
+                                    name: "World".to_string(),
+                                    property_type: UniformPropertyType::Mat4,
+                                },
+                                UniformProperty {
+                                    name: "Color".to_string(),
+                                    property_type: UniformPropertyType::Vec4,
+                                },
+                            ]
+                        }
+                    },
+                ]
+            })
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,
@@ -41,14 +98,14 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 stencil_read_mask: 0,
                 stencil_write_mask: 0,
             })
-            .with_color_state(wgpu::ColorStateDescriptor {
+            .add_color_state(wgpu::ColorStateDescriptor {
                 format: wgpu::TextureFormat::Bgra8UnormSrgb,
                 color_blend: wgpu::BlendDescriptor::REPLACE,
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
             })
-            .with_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-            .with_draw_target(mesh_draw_target)
+            .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
+            .add_draw_target(mesh_draw_target)
             .build(),
         )
     }

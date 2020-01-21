@@ -1,5 +1,5 @@
 use crate::render::{
-    render_graph_2::DrawTarget,
+    render_graph_2::{DrawTarget, PipelineLayout, BindGroup},
     shader::{Shader, ShaderStages},
 };
 
@@ -21,6 +21,7 @@ impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDescriptor {
 
 pub struct PipelineDescriptor {
     pub draw_targets: Vec<DrawTarget>,
+    pub pipeline_layout: PipelineLayout,
     pub shader_stages: ShaderStages,
     pub rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
 
@@ -56,6 +57,7 @@ pub struct PipelineDescriptor {
 impl PipelineDescriptor {
     fn new(vertex_shader: Shader) -> Self {
         PipelineDescriptor {
+            pipeline_layout: PipelineLayout::new(),
             color_states: Vec::new(),
             depth_stencil_state: None,
             draw_targets: Vec::new(),
@@ -105,7 +107,7 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_color_state(mut self, color_state_descriptor: wgpu::ColorStateDescriptor) -> Self {
+    pub fn add_color_state(mut self, color_state_descriptor: wgpu::ColorStateDescriptor) -> Self {
         self.pipeline.color_states.push(color_state_descriptor);
         self
     }
@@ -121,7 +123,12 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_vertex_buffer_descriptor(
+    pub fn add_bind_group(mut self, bind_group: BindGroup) -> Self {
+        self.pipeline.pipeline_layout.bind_groups.push(bind_group);
+        self
+    }
+
+    pub fn add_vertex_buffer_descriptor(
         mut self,
         mut vertex_buffer_descriptor: VertexBufferDescriptor,
     ) -> Self {
@@ -144,7 +151,7 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn with_draw_target(mut self, draw_target: DrawTarget) -> Self {
+    pub fn add_draw_target(mut self, draw_target: DrawTarget) -> Self {
         self.pipeline.draw_targets.push(draw_target);
         self
     }

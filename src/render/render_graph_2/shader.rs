@@ -6,6 +6,7 @@ pub enum ShaderValue<'a> {
     Int(u32),
     Float(f32),
     Vec4(Vec4),
+    Uniform(&'a [u8]),
     Texture(&'a Handle<Texture>),
 }
 

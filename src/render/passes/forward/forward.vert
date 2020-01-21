@@ -8,16 +8,16 @@ layout(location = 0) out vec3 v_Normal;
 layout(location = 1) out vec4 v_Position;
 
 layout(set = 0, binding = 0) uniform Globals {
-    mat4 u_ViewProj;
-    uvec4 u_NumLights;
+    mat4 ViewProj;
+    uvec4 NumLights;
 };
 layout(set = 1, binding = 0) uniform Entity {
-    mat4 u_World;
-    vec4 u_Color;
+    mat4 World;
+    vec4 Color;
 };
 
 void main() {
-    v_Normal = mat3(u_World) * vec3(a_Normal.xyz);
-    v_Position = u_World * vec4(a_Pos);
-    gl_Position = u_ViewProj * v_Position;
+    v_Normal = mat3(World) * vec3(a_Normal.xyz);
+    v_Position = World * vec4(a_Pos);
+    gl_Position = ViewProj * v_Position;
 }
