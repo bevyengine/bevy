@@ -1,10 +1,21 @@
 use bevy::prelude::*;
+use bevy::plugin::AppPlugin;
+use bevy_derive::RegisterAppPlugin;
 
-fn main() {
-    AppBuilder::new().add_defaults_legacy().setup_world(setup).run();
+#[derive(RegisterAppPlugin)]
+pub struct ExamplePlugin;
+
+impl AppPlugin for ExamplePlugin {
+    fn build(&self, app_builder: AppBuilder) -> AppBuilder {
+        app_builder.setup_world(setup)
+    }
+
+    fn name(&self) -> &'static str {
+        "example"
+    }
 }
 
-fn setup(world: &mut World) {
+pub fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
@@ -29,22 +40,22 @@ fn setup(world: &mut World) {
             translation: Translation::new(0.0, 0.0, 1.0),
         })
         // light
-        .build_archetype(LightEntity {
-            light: Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            },
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(4.0, -4.0, 5.0),
-            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        })
+        // .build_archetype(LightEntity {
+        //     light: Light {
+        //         color: wgpu::Color {
+        //             r: 0.8,
+        //             g: 0.8,
+        //             b: 0.5,
+        //             a: 1.0,
+        //         },
+        //         fov: f32::to_radians(60.0),
+        //         depth: 0.1..50.0,
+        //         target_view: None,
+        //     },
+        //     local_to_world: LocalToWorld::identity(),
+        //     translation: Translation::new(4.0, -4.0, 5.0),
+        //     rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+        // })
         // camera
         .build_archetype(CameraEntity {
             camera: Camera::new(CameraType::Projection {

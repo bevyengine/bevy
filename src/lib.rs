@@ -6,6 +6,7 @@ pub mod prelude;
 pub mod render;
 pub mod serialization;
 pub mod ui;
+pub mod plugin;
 
 pub use glam as math;
 pub use legion;

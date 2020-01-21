@@ -6,6 +6,7 @@ use crate::{
     render::render_graph_2,
     render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer},
     render::{passes::*, *},
+    plugin::load_plugin,
     ui,
 };
 
@@ -196,5 +197,11 @@ impl AppBuilder {
             .add_default_systems()
             .add_render_graph_defaults()
             .add_wgpu_renderer()
+    }
+
+    pub fn load_plugin(mut self, path: &str) -> Self {
+        let (_lib, plugin) = load_plugin(path);
+        self = plugin.build(self);
+        self
     }
 }

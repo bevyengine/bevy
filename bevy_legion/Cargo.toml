@@ -1,0 +1,62 @@
+[package]
+name = "legion"
+version = "0.2.1"
+description = "High performance entity component system (ECS) library"
+authors = ["Thomas Gillen <thomas.gillen@googlemail.com>"]
+repository = "https://github.com/TomGillen/legion"
+keywords = ["ecs", "game"]
+categories = ["game-engines", "data-structures"]
+readme = "readme.md"
+license = "MIT"
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "TomGillen/legion", branch = "master" }
+
+[features]
+default = ["par-iter", "par-schedule", "events", "ffi"]
+par-iter = ["rayon"]
+par-schedule = ["rayon", "crossbeam-queue"]
+log = ["tracing/log", "tracing/log-always"]
+ffi = []
+serde-1 = ["serde"]
+events = ["rayon"]
+
+[dependencies]
+parking_lot = "0.9"
+downcast-rs = "1.0"
+itertools = "0.8"
+rayon = { version = "1.2", optional = true }
+crossbeam-queue = { version = "0.2.0", optional = true }
+crossbeam-channel = "0.4.0"
+derivative = "1"
+smallvec = "0.6"
+bit-set = "0.5"
+paste = "0.1"
+tracing = "0.1"
+metrics = { version = "0.12", optional = true }
+serde = { version = "1", optional = true }
+fxhash = "0.2"
+
+[dev-dependencies]
+criterion = "0.3"
+cgmath = "0.17"
+tracing-subscriber = "0.1.6"
+legion = { features = ["serde-1"], path = "." }
+serde_json = "1.0"
+type-uuid = "0.1"
+erased-serde = "0.3"
+serde = { version = "1", features = ["derive"]}
+uuid = { version = "0.8", features = ["v4"] }
+
+[[bench]]
+name = "benchmarks"
+harness = false
+
+[[bench]]
+name = "parallel_query"
+harness = false
+
+[[bench]]
+name = "transform"
+harness = false

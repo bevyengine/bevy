@@ -5,7 +5,8 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-legion = { git = "https://github.com/TomGillen/legion.git", rev = "940ef3bfcb77e5d074ee3184b776ff1600da228d", features = ["serde-1"] }
+# Modified to use std::any::type_name instead of std::any::TypeId
+legion = { path = "bevy_legion", features = ["serde-1"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "4a0da16fe6764c4e1dc918a31cbd7467d404df51"}
 glam = "0.8.4"
 winit = "0.20.0-alpha6"
@@ -20,6 +21,7 @@ uuid = { version = "0.8", features = ["v4"] }
 erased-serde = "0.3"
 type-uuid = "0.1"
 shaderc = "0.6"
+libloading = "0.5.2"
 bevy_derive = { path = "bevy_derive" }
 bevy_transform = { path = "bevy_transform" }
 
