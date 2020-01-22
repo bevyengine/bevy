@@ -1,12 +1,21 @@
 # Bevy Engine
+[![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/LICENSE)
+[![Crates.io](https://img.shields.io/crates/d/bevy.svg)](https://crates.io/crates/bevy)
+
+## What is Bevy?
 
 Bevy is a modern data-driven game engine built in Rust
+
+## <span style="color: rgb(200, 200, 10);">WARNING</span>
+
+Bevy is still in the _very_ stages of development. APIs can and will change. Important features are missing. Please don't build any serious projects in Bevy unless you are prepared to be broken by api changes constantly.
 
 ## Design Goals
 
 * Provide a first class user-experience for both 2D and 3D games.
 * Easy for newbies to pick up, but infinitely flexible for power users.
-* Fast iterative compile times. Ideally less than 1 second.
+* Fast iterative compile times. Ideally less than 1 second for small to medium sized projects.
 * Data-first game development using ECS (Entity Component Systems)
 * High performance and parallel architecture
 * Use the latest and greatest rendering technologies and techniques
@@ -16,9 +25,9 @@ Bevy is a modern data-driven game engine built in Rust
 * Cross Platform: Windows, MacOS, Linux
 * Modern Renderer
     * Multiple Backends: Vulkan, DirectX 11/12, Metal
-    * Flexible "Render Graph" api
-        * Easy to use defaults for beginners 
-        * Experts can extend the Render Graph or modify the defaults
+    * Modern and flexible low level "Render Graph" api
+        * Easy to use high level defaults for beginners 
+        * Experts can create their own Render Graphs or modify the defaults
 * Expressive UI System
 * Fast iterative compile times
     * the example projects have less than 1 second iterative compiles
@@ -30,6 +39,7 @@ Bevy is a modern data-driven game engine built in Rust
 * Physically Based Rendering
 * Load scenes from files
 * Editor (built using Bevy)
+* Live Plugin Reloading
 * GLTF model loading
 * Gamepad support
 * Networking
@@ -56,7 +66,7 @@ cargo run --example simple
         * [.cargo/config](https://doc.rust-lang.org/cargo/reference/config.html)
             * We have included an example configuration in ```.cargo/config_fast_builds```. Try renaming it to ```.cargo/config``` and see if it works!
         * [environment variables](https://doc.rust-lang.org/cargo/reference/environment-variables.html):
-            * For example, in Bash you would run this command ```RUSTFLAGS="-Clink-arg=-fuse-ld=lld -Zshare-generics=y" cargo build --release```
+            * For example, in Bash you would run this command: ```RUSTFLAGS="-Clink-arg=-fuse-ld=lld -Zshare-generics=y" cargo build --release```
 
 ## Libraries Used
 
@@ -66,6 +76,9 @@ Bevy is only possible because of the hard work put into these foundational techn
 * [legion](https://github.com/TomGillen/legion): a feature rich high performance ECS library
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross platform window creation and management in Rust
+* [legion_transform](https://github.com/AThilenius/legion_transform): A hierarchical space transform system, implemented using Legion ECS
+
+Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a game engine to build Rust games in, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others. 
 
 ## F.A.Q.
 
