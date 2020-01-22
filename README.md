@@ -7,7 +7,7 @@
 
 Bevy is a modern data-driven game engine built in Rust
 
-## <span style="color: rgb(200, 200, 10);">WARNING</span>
+## WARNING
 
 Bevy is still in the _very_ stages of development. APIs can and will change. Important features are missing. Please don't build any serious projects in Bevy unless you are prepared to be broken by api changes constantly.
 
