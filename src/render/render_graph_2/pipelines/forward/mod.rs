@@ -2,7 +2,7 @@ use crate::render::{
     Vertex,
     {
         render_graph_2::{
-            mesh_draw_target, resource, pipeline_layout::*, PassDescriptor, PipelineDescriptor,
+            mesh_draw_target, resource_name, pipeline_layout::*, PassDescriptor, PipelineDescriptor,
             RenderGraphBuilder, RenderPassColorAttachmentDescriptor,
         },
         shader::{Shader, ShaderStage},
@@ -27,54 +27,40 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
             .add_bind_group(BindGroup {
                 bindings: vec![
                     Binding {
-                        name: "Globals".to_string(),
+                        name: "Camera".to_string(),
                         bind_type: BindType::Uniform {
+                            dynamic: false,
                             properties: vec![
                                 UniformProperty {
                                     name: "ViewProj".to_string(),
                                     property_type: UniformPropertyType::Mat4,
                                 },
-                                UniformProperty {
-                                    name: "NumLights".to_string(),
-                                    property_type: UniformPropertyType::UVec4,
-                                },
                             ]
                         }
                     },
-                    Binding {
-                        name: "Lights".to_string(),
-                        bind_type: BindType::Uniform {
-                            properties: vec![
-                                UniformProperty {
-                                    name: "SceneLights".to_string(),
-                                    property_type: UniformPropertyType::Array(
-                                        Box::new(UniformPropertyType::Struct(
-                                            vec![
-                                                UniformPropertyType::Mat4,
-                                                UniformPropertyType::Vec4,
-                                                UniformPropertyType::Vec4,
-                                            ]
-                                        )),
-                                        10
-                                    ),
-                                },
-                            ]
-                        }
-                    }
                 ]
             })
             .add_bind_group(BindGroup {
                 bindings: vec![
                     Binding {
-                        name: "Entity".to_string(),
+                        name: "Object".to_string(),
                         bind_type: BindType::Uniform {
+                            dynamic: false,
                             properties: vec![
                                 UniformProperty {
-                                    name: "World".to_string(),
+                                    name: "Model".to_string(),
                                     property_type: UniformPropertyType::Mat4,
                                 },
+                            ]
+                        }
+                    },
+                    Binding {
+                        name: "StandardMaterial".to_string(),
+                        bind_type: BindType::Uniform {
+                            dynamic: false,
+                            properties: vec![
                                 UniformProperty {
-                                    name: "Color".to_string(),
+                                    name: "Albedo".to_string(),
                                     property_type: UniformPropertyType::Vec4,
                                 },
                             ]
@@ -121,7 +107,7 @@ impl ForwardPassBuilder for RenderGraphBuilder {
             "main",
             PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
-                    attachment: resource::texture::SWAP_CHAIN.to_string(),
+                    attachment: resource_name::texture::SWAP_CHAIN.to_string(),
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,

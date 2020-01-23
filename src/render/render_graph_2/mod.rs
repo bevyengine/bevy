@@ -1,6 +1,8 @@
 pub mod pipelines;
-pub mod resource;
+pub mod resource_name;
 pub mod wgpu_renderer;
+mod resource_provider;
+mod resource;
 mod pipeline;
 mod pipeline_layout;
 mod pass;
@@ -16,3 +18,5 @@ pub use renderer::*;
 pub use shader::*;
 pub use render_graph::*;
 pub use draw_target::*;
+pub use resource::*;
+pub use resource_provider::*;

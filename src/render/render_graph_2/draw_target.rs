@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph_2::{ShaderMaterials, RenderPass},
+        render_graph_2::{ShaderUniforms, RenderPass},
         Instanced,
     },
 };
@@ -14,7 +14,7 @@ pub fn mesh_draw_target(world: &World, _render_pass: &mut dyn RenderPass) {
     let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut last_mesh_id = None;
     let mesh_query =
-        <(Read<ShaderMaterials>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
+        <(Read<ShaderUniforms>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
     for (_material, mesh) in mesh_query.iter(world) {
         let current_mesh_id = mesh.id;
 

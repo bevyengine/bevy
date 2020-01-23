@@ -1,13 +1,12 @@
 use crate::{
-    asset::Mesh,
     legion::prelude::*,
     render::render_graph_2::{
-        resource, PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
-        RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor, Renderer,
+        resource_name, BindType, Buffer, PassDescriptor, PipelineDescriptor, RenderGraph,
+        RenderPass, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, Renderer, TextureDimension,
     },
 };
 use std::{collections::HashMap, ops::Deref};
-use zerocopy::AsBytes;
 
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
@@ -68,9 +67,34 @@ impl WgpuRenderer {
             None => None,
         };
 
+        let bind_group_layouts = pipeline_descriptor
+            .pipeline_layout
+            .bind_groups
+            .iter()
+            .map(|bind_group| {
+                let bind_group_layout_binding = bind_group
+                    .bindings
+                    .iter()
+                    .enumerate()
+                    .map(|(i, binding)| wgpu::BindGroupLayoutBinding {
+                        binding: i as u32,
+                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                        ty: (&binding.bind_type).into()
+                    })
+                    .collect::<Vec<wgpu::BindGroupLayoutBinding>>();
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    bindings: bind_group_layout_binding.as_slice(),
+                })
+            })
+            .collect::<Vec<wgpu::BindGroupLayout>>();
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[],
+            bind_group_layouts: bind_group_layouts
+                .iter()
+                .collect::<Vec<&wgpu::BindGroupLayout>>()
+                .as_slice(),
         });
+
         let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -108,7 +132,6 @@ impl WgpuRenderer {
         encoder: &'a mut wgpu::CommandEncoder,
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPass<'a> {
-        // TODO: fill this in
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &pass_descriptor
                 .color_attachments
@@ -128,7 +151,7 @@ impl WgpuRenderer {
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
         let attachment = match color_attachment_descriptor.attachment.as_str() {
-            resource::texture::SWAP_CHAIN => &frame.view,
+            resource_name::texture::SWAP_CHAIN => &frame.view,
             _ => self
                 .textures
                 .get(&color_attachment_descriptor.attachment)
@@ -137,7 +160,7 @@ impl WgpuRenderer {
 
         let resolve_target = match color_attachment_descriptor.resolve_target {
             Some(ref target) => match target.as_str() {
-                resource::texture::SWAP_CHAIN => Some(&frame.view),
+                resource_name::texture::SWAP_CHAIN => Some(&frame.view),
                 _ => Some(&frame.view),
             },
             None => None,
@@ -158,7 +181,7 @@ impl WgpuRenderer {
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView> {
         let attachment = match depth_stencil_attachment_descriptor.attachment.as_str() {
-            resource::texture::SWAP_CHAIN => &frame.view,
+            resource_name::texture::SWAP_CHAIN => &frame.view,
             _ => self
                 .textures
                 .get(&depth_stencil_attachment_descriptor.attachment)
@@ -197,7 +220,7 @@ impl Renderer for WgpuRenderer {
             .device
             .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
 
-        // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues
+        // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
         world.resources.insert(swap_chain);
     }
 
@@ -242,24 +265,36 @@ impl Renderer for WgpuRenderer {
         let command_buffer = encoder.finish();
         self.queue.submit(&[command_buffer]);
     }
-
-    fn load_mesh(&mut self, asset_id: usize, mesh: &Mesh) {
-        if let None = mesh.vertex_buffer {
-            self.buffers.insert(
-                format!("meshv{}", asset_id),
-                self.device
-                    .create_buffer_with_data(mesh.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
-            );
-        }
-
-        if let None = mesh.index_buffer {
-            self.buffers.insert(
-                format!("meshi{}", asset_id),
-                self.device
-                    .create_buffer_with_data(mesh.indices.as_bytes(), wgpu::BufferUsage::INDEX),
-            );
+    fn create_buffer_with_data(&mut self, data: &[u8], buffer_usage: wgpu::BufferUsage) -> Buffer {
+        let buffer = self.device.create_buffer_with_data(data, buffer_usage);
+        // TODO: FILL THIS IN
+        Buffer {
+            buffer_usage,
+            size: data.len() as u64,
+            id: 0,
         }
     }
+    fn free_buffer(&mut self, id: super::ResourceId) -> super::Buffer {
+        unimplemented!()
+    }
+
+    // fn load_mesh(&mut self, asset_id: usize, mesh: &Mesh) {
+    //     if let None = mesh.vertex_buffer {
+    //         self.buffers.insert(
+    //             format!("meshv{}", asset_id),
+    //             self.device
+    //                 .create_buffer_with_data(mesh.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
+    //         );
+    //     }
+
+    //     if let None = mesh.index_buffer {
+    //         self.buffers.insert(
+    //             format!("meshi{}", asset_id),
+    //             self.device
+    //                 .create_buffer_with_data(mesh.indices.as_bytes(), wgpu::BufferUsage::INDEX),
+    //         );
+    //     }
+    // }
 }
 
 pub struct WgpuRenderPass<'a, 'b, 'c> {
@@ -271,4 +306,42 @@ impl<'a, 'b, 'c> RenderPass for WgpuRenderPass<'a, 'b, 'c> {
     fn set_index_buffer(&mut self, buffer: &wgpu::Buffer, offset: wgpu::BufferAddress) {
         self.render_pass.set_index_buffer(buffer, offset);
     }
+}
+
+impl From<TextureDimension> for wgpu::TextureViewDimension {
+    fn from(dimension: TextureDimension) -> Self {
+        match dimension {
+            TextureDimension::D1 => wgpu::TextureViewDimension::D1,
+            TextureDimension::D2 => wgpu::TextureViewDimension::D2,
+            TextureDimension::D2Array => wgpu::TextureViewDimension::D2Array,
+            TextureDimension::Cube => wgpu::TextureViewDimension::Cube,
+            TextureDimension::CubeArray => wgpu::TextureViewDimension::CubeArray,
+            TextureDimension::D3 => wgpu::TextureViewDimension::D3,
+        }
+    }
+}
+
+impl From<&BindType> for wgpu::BindingType {
+    fn from(bind_type: &BindType) -> Self {
+        match bind_type {
+            BindType::Uniform { dynamic, properties: _ } => {
+                wgpu::BindingType::UniformBuffer { dynamic: *dynamic }
+            }
+            BindType::Buffer { dynamic, readonly } => {
+                wgpu::BindingType::StorageBuffer { dynamic: *dynamic, readonly: *readonly }
+            }
+            BindType::SampledTexture {
+                dimension,
+                multisampled,
+            } => wgpu::BindingType::SampledTexture {
+                dimension: (*dimension).into(),
+                multisampled: *multisampled,
+            },
+            BindType::Sampler => wgpu::BindingType::Sampler,
+            BindType::StorageTexture { dimension } => {
+                wgpu::BindingType::StorageTexture { dimension: (*dimension).into() }
+            },
+        }
+    }
+
 }

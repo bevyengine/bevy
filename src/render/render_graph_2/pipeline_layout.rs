@@ -22,7 +22,7 @@ pub struct Binding {
 
 pub enum BindType {
     Uniform {
-        // dynamic: bool,
+        dynamic: bool,
         properties: Vec<UniformProperty>
     },
     Buffer {
@@ -45,6 +45,7 @@ pub struct UniformProperty {
 }
 
 pub enum UniformPropertyType {
+    // TODO: Add all types here
     Int,
     Float,
     UVec4,
@@ -55,6 +56,7 @@ pub enum UniformPropertyType {
     Array(Box<UniformPropertyType>, usize),
 }
 
+#[derive(Copy, Clone)]
 pub enum TextureDimension {
     D1,
     D2,

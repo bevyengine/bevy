@@ -9,11 +9,11 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
 
-layout(set = 1, binding = 1) uniform Material {
+layout(set = 1, binding = 1) uniform StandardMaterial {
     vec4 Albedo;
 };
 
 void main() {
     // multiply the light by material color
-    o_Target = Color;
+    o_Target = Albedo;
 }
