@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 pub struct RenderGraph {
     pub pipeline_descriptors: HashMap<String, PipelineDescriptor>,
+    // TODO: make this ordered 
     pub pass_descriptors: HashMap<String, PassDescriptor>,
     pub pass_pipelines: HashMap<String, Vec<String>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,

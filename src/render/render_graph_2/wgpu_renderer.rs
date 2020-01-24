@@ -1,7 +1,7 @@
 use crate::{
     legion::prelude::*,
     render::render_graph_2::{
-        resource_name, BindType, Buffer, PassDescriptor, PipelineDescriptor, RenderGraph,
+        resource_name, BindType, BufferInfo, PassDescriptor, PipelineDescriptor, RenderGraph,
         RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, Renderer, TextureDimension,
     },
@@ -14,7 +14,7 @@ pub struct WgpuRenderer {
     pub surface: Option<wgpu::Surface>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<String, wgpu::RenderPipeline>,
-    pub buffers: HashMap<String, wgpu::Buffer>,
+    pub buffers: HashMap<String, Buffer<wgpu::Buffer>>,
     pub textures: HashMap<String, wgpu::TextureView>,
 }
 
@@ -79,7 +79,7 @@ impl WgpuRenderer {
                     .map(|(i, binding)| wgpu::BindGroupLayoutBinding {
                         binding: i as u32,
                         visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                        ty: (&binding.bind_type).into()
+                        ty: (&binding.bind_type).into(),
                     })
                     .collect::<Vec<wgpu::BindGroupLayoutBinding>>();
                 device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -252,8 +252,10 @@ impl Renderer for WgpuRenderer {
 
                         let mut render_pass = WgpuRenderPass {
                             render_pass: &mut render_pass,
-                            renderer: &self,
+                            renderer: self,
+                            pipeline_descriptor,
                         };
+
                         for draw_target in pipeline_descriptor.draw_targets.iter() {
                             draw_target(world, &mut render_pass);
                         }
@@ -265,46 +267,62 @@ impl Renderer for WgpuRenderer {
         let command_buffer = encoder.finish();
         self.queue.submit(&[command_buffer]);
     }
-    fn create_buffer_with_data(&mut self, data: &[u8], buffer_usage: wgpu::BufferUsage) -> Buffer {
+
+    fn create_buffer_with_data(
+        &mut self,
+        name: &str,
+        data: &[u8],
+        buffer_usage: wgpu::BufferUsage,
+    ) {
         let buffer = self.device.create_buffer_with_data(data, buffer_usage);
-        // TODO: FILL THIS IN
-        Buffer {
-            buffer_usage,
-            size: data.len() as u64,
-            id: 0,
-        }
-    }
-    fn free_buffer(&mut self, id: super::ResourceId) -> super::Buffer {
-        unimplemented!()
+        self.buffers.insert(
+            name.to_string(),
+            Buffer {
+                buffer,
+                buffer_info: BufferInfo {
+                    buffer_usage,
+                    size: data.len() as u64,
+                },
+            },
+        );
     }
 
-    // fn load_mesh(&mut self, asset_id: usize, mesh: &Mesh) {
-    //     if let None = mesh.vertex_buffer {
-    //         self.buffers.insert(
-    //             format!("meshv{}", asset_id),
-    //             self.device
-    //                 .create_buffer_with_data(mesh.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
-    //         );
-    //     }
+    fn get_buffer_info(&self, name: &str) -> Option<&BufferInfo> {
+        self.buffers.get(name).map(|b| &b.buffer_info)
+    }
 
-    //     if let None = mesh.index_buffer {
-    //         self.buffers.insert(
-    //             format!("meshi{}", asset_id),
-    //             self.device
-    //                 .create_buffer_with_data(mesh.indices.as_bytes(), wgpu::BufferUsage::INDEX),
-    //         );
-    //     }
-    // }
+    fn remove_buffer(&mut self, name: &str) {
+        self.buffers.remove(name);
+    }
 }
 
-pub struct WgpuRenderPass<'a, 'b, 'c> {
+pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
     pub render_pass: &'b mut wgpu::RenderPass<'a>,
-    pub renderer: &'c WgpuRenderer,
+    pub pipeline_descriptor: &'c PipelineDescriptor,
+    pub renderer: &'d mut WgpuRenderer,
 }
 
-impl<'a, 'b, 'c> RenderPass for WgpuRenderPass<'a, 'b, 'c> {
-    fn set_index_buffer(&mut self, buffer: &wgpu::Buffer, offset: wgpu::BufferAddress) {
-        self.render_pass.set_index_buffer(buffer, offset);
+impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c,'d> {
+    fn get_renderer(&mut self) -> &mut dyn Renderer {
+        self.renderer
+    }
+
+    fn get_pipeline_descriptor(&self) -> &PipelineDescriptor {
+        self.pipeline_descriptor
+    }
+
+    fn set_vertex_buffer(&mut self, start_slot: u32, name: &str, offset: u64) {
+        let buffer = self.renderer.buffers.get(name).unwrap();
+        self.render_pass.set_vertex_buffers(start_slot, &[(&buffer.buffer, offset)]);
+    }
+
+    fn set_index_buffer(&mut self, name: &str, offset: u64) {
+        let buffer = self.renderer.buffers.get(name).unwrap();
+        self.render_pass.set_index_buffer(&buffer.buffer, offset);
+    }
+
+    fn draw_indexed(&mut self, indices: core::ops::Range<u32>, base_vertex: i32, instances: core::ops::Range<u32>) {
+        self.render_pass.draw_indexed(indices, base_vertex, instances);
     }
 }
 
@@ -324,12 +342,14 @@ impl From<TextureDimension> for wgpu::TextureViewDimension {
 impl From<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform { dynamic, properties: _ } => {
-                wgpu::BindingType::UniformBuffer { dynamic: *dynamic }
-            }
-            BindType::Buffer { dynamic, readonly } => {
-                wgpu::BindingType::StorageBuffer { dynamic: *dynamic, readonly: *readonly }
-            }
+            BindType::Uniform {
+                dynamic,
+                properties: _,
+            } => wgpu::BindingType::UniformBuffer { dynamic: *dynamic },
+            BindType::Buffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
+                dynamic: *dynamic,
+                readonly: *readonly,
+            },
             BindType::SampledTexture {
                 dimension,
                 multisampled,
@@ -338,10 +358,14 @@ impl From<&BindType> for wgpu::BindingType {
                 multisampled: *multisampled,
             },
             BindType::Sampler => wgpu::BindingType::Sampler,
-            BindType::StorageTexture { dimension } => {
-                wgpu::BindingType::StorageTexture { dimension: (*dimension).into() }
+            BindType::StorageTexture { dimension } => wgpu::BindingType::StorageTexture {
+                dimension: (*dimension).into(),
             },
         }
     }
+}
 
+pub struct Buffer<T> {
+    pub buffer: T,
+    pub buffer_info: BufferInfo,
 }

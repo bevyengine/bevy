@@ -1,12 +1,9 @@
-use crate::prelude::*;
 use crate::{
-    asset::Texture,
     legion::{
-        borrow::{Ref, RefMap},
+        borrow::RefMap,
         prelude::{Entity, World},
     },
-    render::render_graph_2::{UniformPropertyType, Binding, BindType},
-    render::Albedo,
+    render::render_graph_2::{UniformPropertyType, BindType},
     math::Vec4,
 };
 use zerocopy::AsBytes;
@@ -38,15 +35,16 @@ pub trait GetBytes {
     fn get_bytes_ref(&self) -> Option<&[u8]>;
 }
 
-impl GetBytes for dyn AsBytes {
-    fn get_bytes(&self) -> Vec<u8> {
-        self.as_bytes().into()
-    }
+// TODO: might need to add zerocopy to this crate to impl AsBytes for external crates
+// impl GetBytes for dyn AsBytes {
+//     fn get_bytes(&self) -> Vec<u8> {
+//         self.as_bytes().into()
+//     }
 
-    fn get_bytes_ref(&self) -> Option<&[u8]> {
-        Some(self.as_bytes())
-    }
-}
+//     fn get_bytes_ref(&self) -> Option<&[u8]> {
+//         Some(self.as_bytes())
+//     }
+// }
 
 impl GetBytes for Vec4 {
     fn get_bytes(&self) -> Vec<u8> {

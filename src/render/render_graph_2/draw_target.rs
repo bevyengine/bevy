@@ -7,10 +7,14 @@ use crate::{
     },
 };
 
+use zerocopy::AsBytes;
+
 // A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc
 pub type DrawTarget = fn(world: &World, render_pass: &mut dyn RenderPass);
 
-pub fn mesh_draw_target(world: &World, _render_pass: &mut dyn RenderPass) {
+const MESH_VERTEX_BUFFER_NAME: &str = "TempMeshVertexBuffer";
+const MESH_INDEX_BUFFER_NAME: &str = "TempMeshIndexBuffer";
+pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
     let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut last_mesh_id = None;
     let mesh_query =
@@ -24,18 +28,27 @@ pub fn mesh_draw_target(world: &World, _render_pass: &mut dyn RenderPass) {
         }
 
         if should_load_mesh {
-            if let Some(_mesh_asset) = mesh_storage.get(mesh.id) {
-                // render_pass.load_mesh(mesh.id, mesh_asset);
-                // render_pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
-                // render_pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
+            if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
+                let renderer = render_pass.get_renderer();
+                renderer.create_buffer_with_data(MESH_VERTEX_BUFFER_NAME, mesh_asset.vertices.as_bytes(), wgpu::BufferUsage::VERTEX);
+                renderer.create_buffer_with_data(MESH_INDEX_BUFFER_NAME, mesh_asset.indices.as_bytes(), wgpu::BufferUsage::INDEX);
+                
+                // TODO: Verify buffer format matches render pass
+                render_pass.set_index_buffer(MESH_INDEX_BUFFER_NAME, 0);
+                render_pass.set_vertex_buffer(0, MESH_VERTEX_BUFFER_NAME, 0);
             };
         }
 
-        if let Some(ref _mesh_asset) = mesh_storage.get(mesh.id) {
+        if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
             // pass.set_bind_group(1, material.bind_group.as_ref().unwrap(), &[]);
-            // pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
+            render_pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
         };
 
         last_mesh_id = Some(current_mesh_id);
     }
+    
+    // cleanup buffers
+    let renderer = render_pass.get_renderer();
+    renderer.remove_buffer(MESH_VERTEX_BUFFER_NAME);
+    renderer.remove_buffer(MESH_INDEX_BUFFER_NAME);
 }
