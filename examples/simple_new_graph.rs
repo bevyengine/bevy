@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -15,36 +16,43 @@ fn setup(world: &mut World) {
 
     world.build()
         // plane
-        .build_archetype(MeshEntity {
-            mesh: plane_handle.clone(),
-            material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 0.0),
-        })
+        // .build_archetype(MeshEntity {
+        //     mesh: plane_handle.clone(),
+        //     material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
+        //     local_to_world: LocalToWorld::identity(),
+        //     translation: Translation::new(0.0, 0.0, 0.0),
+        // })
         // cube
-        .build_archetype(MeshEntity {
+        .build_archetype(NewMeshEntity {
             mesh: cube_handle,
-            material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
+            material: StandardMaterial {
+                albedo: math::vec4(1.0, 0.0, 0.0, 1.0),
+            },
+            shader_uniforms: ShaderUniforms {
+                uniform_selectors: Vec::new(
+                    
+                )
+            },
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
         })
         // light
-        .build_archetype(LightEntity {
-            light: Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            },
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(4.0, -4.0, 5.0),
-            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        })
+        // .build_archetype(LightEntity {
+        //     light: Light {
+        //         color: wgpu::Color {
+        //             r: 0.8,
+        //             g: 0.8,
+        //             b: 0.5,
+        //             a: 1.0,
+        //         },
+        //         fov: f32::to_radians(60.0),
+        //         depth: 0.1..50.0,
+        //         target_view: None,
+        //     },
+        //     local_to_world: LocalToWorld::identity(),
+        //     translation: Translation::new(4.0, -4.0, 5.0),
+        //     rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+        // })
         // camera
         .build_archetype(CameraEntity {
             camera: Camera::new(CameraType::Projection {

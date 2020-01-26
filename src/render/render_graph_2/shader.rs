@@ -7,6 +7,7 @@ use crate::{
     math::Vec4,
 };
 use zerocopy::AsBytes;
+use legion::storage::Component;
 
 pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUniforms>>;
 pub struct ShaderUniforms {
@@ -88,6 +89,15 @@ const STANDARD_MATERIAL_UNIFORM_LAYOUTS: &[&[UniformPropertyType]] = &[&[]];
 pub struct UniformInfo<'a> {
   pub name: &'a str,
   pub bind_type: BindType,
+}
+
+pub fn standard_material_selector<T>(entity: Entity, world: &World) -> Option<RefMap<&dyn AsUniforms>> where T: AsUniforms + Component {
+    world.get_component::<T>(entity).map(
+        |c| {
+        c.map_into(|s| {
+            s as &dyn AsUniforms
+        })
+    })
 }
 
 // const ST
