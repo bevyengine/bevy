@@ -10,16 +10,19 @@ impl PipelineLayout {
     }
 }
 
+#[derive(Hash)]
 pub struct BindGroup {
     pub bindings: Vec<Binding>
 }
 
+#[derive(Hash)]
 pub struct Binding {
     pub name: String,
     pub bind_type: BindType,
     // TODO: ADD SHADER STAGE VISIBILITY
 }
 
+#[derive(Hash)]
 pub enum BindType {
     Uniform {
         dynamic: bool,
@@ -39,11 +42,13 @@ pub enum BindType {
     },
 }
 
+#[derive(Hash)]
 pub struct UniformProperty {
     pub name: String,
     pub property_type: UniformPropertyType,
 }
 
+#[derive(Hash)]
 pub enum UniformPropertyType {
     // TODO: Add all types here
     Int,
@@ -56,7 +61,7 @@ pub enum UniformPropertyType {
     Array(Box<UniformPropertyType>, usize),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Hash)]
 pub enum TextureDimension {
     D1,
     D2,

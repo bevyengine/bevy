@@ -40,7 +40,7 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
         }
 
         if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
-            // pass.set_bind_group(1, material.bind_group.as_ref().unwrap(), &[]);
+            render_pass.setup_bind_groups();
             render_pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
         };
 

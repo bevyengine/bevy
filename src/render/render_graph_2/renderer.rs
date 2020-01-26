@@ -1,4 +1,4 @@
-use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, BufferInfo, PipelineDescriptor}};
+use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, ResourceInfo, PipelineDescriptor, BindGroup}};
 use std::ops::Range;
 
 pub trait Renderer {
@@ -7,8 +7,9 @@ pub trait Renderer {
     fn process_render_graph(&mut self, render_graph: &RenderGraph, world: &mut World);
     // TODO: swap out wgpu::BufferUsage for custom type
     fn create_buffer_with_data(&mut self, name: &str, data: &[u8], buffer_usage: wgpu::BufferUsage);
+    fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64;
     fn remove_buffer(&mut self, name: &str);
-    fn get_buffer_info(&self, name: &str) -> Option<&BufferInfo>;
+    fn get_resource_info(&self, name: &str) -> Option<&ResourceInfo>;
 }
 
 pub trait RenderPass {
@@ -17,4 +18,5 @@ pub trait RenderPass {
     fn set_index_buffer(&mut self, name: &str, offset: u64);
     fn set_vertex_buffer(&mut self, start_slot: u32, name: &str, offset: u64);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
+    fn setup_bind_groups(&mut self);
 }

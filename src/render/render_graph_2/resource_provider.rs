@@ -7,6 +7,7 @@ use legion::prelude::*;
 use zerocopy::AsBytes;
 
 pub trait ResourceProvider {
+    fn initialize(&self, renderer: &mut dyn Renderer, world: &mut World);
     fn update(&self, renderer: &mut dyn Renderer, world: &mut World);
     fn resize(&self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32);
 }
@@ -14,6 +15,10 @@ pub trait ResourceProvider {
 pub struct CameraResourceProvider;
 
 impl ResourceProvider for CameraResourceProvider {
+    fn initialize(&self, renderer: &mut dyn Renderer, world: &mut World) {
+        // TODO: create real buffer here
+    }
+
     fn update(&self, _renderer: &mut dyn Renderer, _world: &mut World) {}
     fn resize(&self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
         for (mut camera, local_to_world, _) in
@@ -22,7 +27,7 @@ impl ResourceProvider for CameraResourceProvider {
             camera.update(width, height);
             let camera_matrix: [[f32; 4]; 4] =
                 (camera.view_matrix * local_to_world.0).to_cols_array_2d();
-            // TODO: use staging buffer?
+            // TODO: use staging buffer here
             renderer.create_buffer_with_data(
                 resource_name::uniform::CAMERA,
                 camera_matrix.as_bytes(),
