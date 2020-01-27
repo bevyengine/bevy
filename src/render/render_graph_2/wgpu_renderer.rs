@@ -3,7 +3,8 @@ use crate::{
     render::render_graph_2::{
         resource_name, BindGroup, BindType, PassDescriptor, PipelineDescriptor, RenderGraph,
         RenderPass, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, TextureDimension,
+        RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, ShaderUniforms,
+        TextureDimension,
     },
 };
 use std::{
@@ -21,7 +22,7 @@ pub struct WgpuRenderer {
     pub buffers: HashMap<String, wgpu::Buffer>,
     pub textures: HashMap<String, wgpu::TextureView>,
     pub resource_info: HashMap<String, ResourceInfo>,
-    pub bind_groups: HashMap<u64, wgpu::BindGroup>,
+    pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
 }
 
@@ -117,9 +118,8 @@ impl WgpuRenderer {
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: bind_group_layouts.as_slice()
+            bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
         let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
@@ -229,10 +229,131 @@ impl WgpuRenderer {
     fn add_resource_info(&mut self, name: &str, resource_info: ResourceInfo) {
         self.resource_info.insert(name.to_string(), resource_info);
     }
+
+    // TODO: consider moving this to a resource provider
+    fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64 {
+        // TODO: cache hash result in bind_group?
+        let mut hasher = DefaultHasher::new();
+        bind_group.hash(&mut hasher);
+        let bind_group_id = hasher.finish();
+
+        if let None = self.bind_groups.get(&bind_group_id) {
+            let mut unset_uniforms = Vec::new();
+            // if a uniform resource buffer doesn't exist, create a new empty one
+            for binding in bind_group.bindings.iter() {
+                if let None = self.resource_info.get(&binding.name) {
+                    unset_uniforms.push(binding.name.to_string());
+                    if let BindType::Uniform { .. } = &binding.bind_type {
+                        let size = binding.bind_type.get_uniform_size().unwrap();
+                        self.create_buffer(
+                            &binding.name,
+                            size,
+                            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                        )
+                    }
+                }
+            }
+
+            // create wgpu Bindings
+            let bindings = bind_group
+                .bindings
+                .iter()
+                .enumerate()
+                .map(|(i, b)| {
+                    let resource_info = self.resource_info.get(&b.name).unwrap();
+                    wgpu::Binding {
+                        binding: i as u32,
+                        resource: match &b.bind_type {
+                            BindType::Uniform {
+                                dynamic,
+                                properties,
+                            } => {
+                                if let ResourceInfo::Buffer { size, buffer_usage } = resource_info {
+                                    let buffer = self.buffers.get(&b.name).unwrap();
+                                    wgpu::BindingResource::Buffer {
+                                        buffer: buffer,
+                                        range: 0..*size,
+                                    }
+                                } else {
+                                    panic!("expected a Buffer resource");
+                                }
+                            }
+                            _ => panic!("unsupported bind type"),
+                        },
+                    }
+                })
+                .collect::<Vec<wgpu::Binding>>();
+
+            let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
+            let bind_group_descriptor = wgpu::BindGroupDescriptor {
+                layout: bind_group_layout,
+                bindings: bindings.as_slice(),
+            };
+
+            let bind_group = self.device.create_bind_group(&bind_group_descriptor);
+            self.bind_groups.insert(
+                bind_group_id,
+                BindGroupInfo {
+                    bind_group,
+                    unset_uniforms,
+                },
+            );
+        }
+
+        bind_group_id
+    }
+
+    fn setup_entity_shader_uniforms(
+        &mut self,
+        bind_group: &BindGroup,
+        world: &World,
+        entity: Entity,
+        shader_uniforms: &ShaderUniforms,
+        encoder: &mut wgpu::CommandEncoder,
+    ) {
+        // TODO: cache hash result in bind_group?
+        let mut hasher = DefaultHasher::new();
+        bind_group.hash(&mut hasher);
+        let bind_group_id = hasher.finish();
+        let bind_group_info = self.bind_groups.get(&bind_group_id).unwrap();
+        for unset_uniform in bind_group_info.unset_uniforms.iter() {
+            let mut found_uniform = false;
+            for uniform_selector in shader_uniforms.uniform_selectors.iter().rev() {
+                let uniforms = uniform_selector(entity, world).unwrap_or_else(|| {
+                    panic!(
+                        "ShaderUniform selector points to a missing component. Uniform: {}",
+                        unset_uniform
+                    )
+                });
+                if let Some(bytes) = uniforms.get_uniform_bytes(unset_uniform) {
+                    // TODO: validate bind_group layout vs shader uniform
+                    let temp_buffer = self
+                        .device
+                        .create_buffer_with_data(bytes.as_slice(), wgpu::BufferUsage::COPY_SRC);
+                    let uniform_buffer = self.buffers.get(unset_uniform).unwrap();
+
+                    encoder.copy_buffer_to_buffer(
+                        &temp_buffer,
+                        0,
+                        uniform_buffer,
+                        0,
+                        bytes.len() as u64,
+                    );
+
+                    found_uniform = true;
+                    break;
+                }
+            }
+
+            if !found_uniform {
+                panic!("ShaderUniform did not find a source for Uniform: {}. Consider adding a uniform selector to this entity's ShaderUniforms component.", unset_uniform);
+            }
+        }
+    }
 }
 
 impl Renderer for WgpuRenderer {
-    fn initialize(&mut self, world: &mut World) {
+    fn initialize(&mut self, world: &mut World, render_graph: &mut RenderGraph) {
         let (surface, window_size) = {
             let window = world.resources.get::<winit::window::Window>().unwrap();
             let surface = wgpu::Surface::create(window.deref());
@@ -241,10 +362,19 @@ impl Renderer for WgpuRenderer {
         };
 
         self.surface = Some(surface);
-        self.resize(world, window_size.width, window_size.height);
+        self.resize(world, render_graph, window_size.width, window_size.height);
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.initialize(self, world);
+        }
     }
 
-    fn resize(&mut self, world: &mut World, width: u32, height: u32) {
+    fn resize(
+        &mut self,
+        world: &mut World,
+        render_graph: &mut RenderGraph,
+        width: u32,
+        height: u32,
+    ) {
         self.swap_chain_descriptor.width = width;
         self.swap_chain_descriptor.height = height;
         let swap_chain = self
@@ -253,9 +383,16 @@ impl Renderer for WgpuRenderer {
 
         // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
         world.resources.insert(swap_chain);
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.resize(self, world, width, height);
+        }
     }
 
-    fn process_render_graph(&mut self, render_graph: &RenderGraph, world: &mut World) {
+    fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World) {
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.update(self, world);
+        }
+
         let mut swap_chain = world.resources.get_mut::<wgpu::SwapChain>().unwrap();
         let frame = swap_chain
             .get_next_texture()
@@ -265,22 +402,47 @@ impl Renderer for WgpuRenderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
+        // setup, pipelines, bind groups, and resources
+        for (pipeline_name, pipeline_descriptor) in render_graph.pipeline_descriptors.iter() {
+            // create pipelines
+            if let None = self.render_pipelines.get(pipeline_name) {
+                let render_pipeline = WgpuRenderer::create_render_pipeline(
+                    pipeline_descriptor,
+                    &mut self.bind_group_layouts,
+                    &self.device,
+                );
+                self.render_pipelines
+                    .insert(pipeline_name.to_string(), render_pipeline);
+            }
+
+            // create bind groups
+            for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter() {
+                self.setup_bind_group(bind_group);
+                // TODO: Move this out of the for loop
+                // copy entity ShaderUniforms to buffers
+                let shader_uniform_query = <Read<ShaderUniforms>>::query();
+                for (entity, shader_uniforms) in shader_uniform_query.iter_entities(world) {
+                    self.setup_entity_shader_uniforms(
+                        bind_group,
+                        world,
+                        entity,
+                        &&*shader_uniforms,
+                        &mut encoder,
+                    );
+                }
+            }
+        }
+
         for (pass_name, pass_descriptor) in render_graph.pass_descriptors.iter() {
+            // run passes
             let mut render_pass = self.create_render_pass(pass_descriptor, &mut encoder, &frame);
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
                     if let Some(pipeline_descriptor) =
                         render_graph.pipeline_descriptors.get(pass_pipeline)
                     {
-                        if let None = self.render_pipelines.get(pass_pipeline) {
-                            let render_pipeline = WgpuRenderer::create_render_pipeline(
-                                pipeline_descriptor,
-                                &mut self.bind_group_layouts,
-                                &self.device,
-                            );
-                            self.render_pipelines
-                                .insert(pass_pipeline.to_string(), render_pipeline);
-                        }
+                        let render_pipeline = self.render_pipelines.get(pass_pipeline).unwrap();
+                        render_pass.set_pipeline(render_pipeline);
 
                         let mut render_pass = WgpuRenderPass {
                             render_pass: &mut render_pass,
@@ -318,62 +480,29 @@ impl Renderer for WgpuRenderer {
         self.buffers.insert(name.to_string(), buffer);
     }
 
+    fn create_buffer(&mut self, name: &str, size: u64, buffer_usage: wgpu::BufferUsage) {
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            size: size,
+            usage: buffer_usage,
+        });
+
+        self.add_resource_info(
+            name,
+            ResourceInfo::Buffer {
+                buffer_usage,
+                size: size,
+            },
+        );
+
+        self.buffers.insert(name.to_string(), buffer);
+    }
+
     fn get_resource_info(&self, name: &str) -> Option<&ResourceInfo> {
         self.resource_info.get(name)
     }
 
     fn remove_buffer(&mut self, name: &str) {
         self.buffers.remove(name);
-    }
-
-    fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64 {
-        // TODO: cache hash result in bind_group?
-        let mut hasher = DefaultHasher::new();
-        bind_group.hash(&mut hasher);
-        let bind_group_id = hasher.finish();
-
-
-        // TODO: setup bind group layout
-        if let None = self.bind_groups.get(&bind_group_id) {
-            let bindings = bind_group
-            .bindings
-            .iter()
-            .enumerate()
-            .map(|(i, b)| wgpu::Binding {
-                binding: i as u32,
-                resource: match &b.bind_type {
-                    BindType::Uniform {
-                        dynamic,
-                        properties,
-                    } => {
-                        let resource_info = self.resource_info.get(&b.name).unwrap();
-                        if let ResourceInfo::Buffer { size, buffer_usage } = resource_info {
-                            let buffer = self.buffers.get(&b.name).unwrap();
-                            wgpu::BindingResource::Buffer {
-                                buffer: buffer,
-                                range: 0..*size,
-                            }
-                        } else {
-                            panic!("expected a Buffer resource");
-                        }
-                    }
-                    _ => panic!("unsupported bind type"),
-                },
-            })
-            .collect::<Vec<wgpu::Binding>>();
-
-            let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
-            let bind_group_descriptor = wgpu::BindGroupDescriptor {
-                layout: bind_group_layout,
-                bindings: bindings.as_slice(),
-            };
-
-            let bind_group = self.device.create_bind_group(&bind_group_descriptor);
-            // let bind
-            self.bind_groups.insert(bind_group_id, bind_group);
-        }
-
-        bind_group_id
     }
 }
 
@@ -422,12 +551,13 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .iter()
             .enumerate()
         {
-            let id = self.renderer.setup_bind_group(bind_group);
-            self.render_pass.set_bind_group(
-                i as u32,
-                self.renderer.bind_groups.get(&id).unwrap(),
-                &[],
-            );
+            // TODO: cache hash result in bind_group?
+            let mut hasher = DefaultHasher::new();
+            bind_group.hash(&mut hasher);
+            let bind_group_id = hasher.finish();
+            let bind_group_info = self.renderer.bind_groups.get(&bind_group_id).unwrap();
+            self.render_pass
+                .set_bind_group(i as u32, &bind_group_info.bind_group, &[]);
         }
     }
 }
@@ -469,4 +599,9 @@ impl From<&BindType> for wgpu::BindingType {
             },
         }
     }
+}
+
+pub struct BindGroupInfo {
+    pub bind_group: wgpu::BindGroup,
+    pub unset_uniforms: Vec<String>,
 }

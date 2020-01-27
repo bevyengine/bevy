@@ -52,7 +52,7 @@ impl App {
         }
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.process_render_graph(&self.render_graph, &mut self.world);
+            renderer.process_render_graph(&mut self.render_graph, &mut self.world);
         }
 
         if let Some(mut time) = self.world.resources.get_mut::<Time>() {
@@ -79,7 +79,7 @@ impl App {
         }
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.initialize(&mut self.world);
+            renderer.initialize(&mut self.world, &mut self.render_graph);
         }
 
         log::info!("Entering render loop...");
@@ -101,7 +101,7 @@ impl App {
 
                     if let Some(ref mut renderer) = self.renderer {
                         renderer
-                            .resize(&mut self.world, size.width, size.height);
+                            .resize(&mut self.world, &mut self.render_graph, size.width, size.height);
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {

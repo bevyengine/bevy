@@ -4,7 +4,7 @@ use crate::{
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
     render::render_graph_2,
-    render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer},
+    render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer, resource_provider::CameraResourceProvider},
     render::{passes::*, *},
     plugin::load_plugin,
     ui,
@@ -174,6 +174,7 @@ impl AppBuilder {
     pub fn add_render_graph_defaults(mut self) -> Self {
         self.render_graph_builder = self
             .render_graph_builder
+            .add_resource_provider(Box::new(CameraResourceProvider))
             .add_forward_pass()
             .add_forward_pipeline();
 

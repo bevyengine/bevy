@@ -42,6 +42,17 @@ pub enum BindType {
     },
 }
 
+impl BindType {
+    pub fn get_uniform_size(&self) -> Option<u64> {
+        match self {
+            BindType::Uniform { properties, .. } => {
+                Some(properties.iter().fold(0, |total, property| total + property.property_type.get_size()))
+            },
+            _ => None
+        }
+    }
+}
+
 #[derive(Hash)]
 pub struct UniformProperty {
     pub name: String,
@@ -57,8 +68,21 @@ pub enum UniformPropertyType {
     Vec3,
     Vec4,
     Mat4,
-    Struct(Vec<UniformPropertyType>),
-    Array(Box<UniformPropertyType>, usize),
+    // Struct(Vec<UniformPropertyType>),
+    // Array(Box<UniformPropertyType>, usize),
+}
+
+impl UniformPropertyType {
+    fn get_size(&self) -> u64 {
+        match self {
+            UniformPropertyType::Int => 4,
+            UniformPropertyType::Float => 4,
+            UniformPropertyType::UVec4 => 4 * 4,
+            UniformPropertyType::Vec3 => 4 * 3,
+            UniformPropertyType::Vec4 => 4 * 4,
+            UniformPropertyType::Mat4 => 4 * 4 * 4,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash)]

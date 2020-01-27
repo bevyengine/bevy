@@ -1,7 +1,7 @@
 pub mod pipelines;
 pub mod resource_name;
 pub mod wgpu_renderer;
-mod resource_provider;
+pub mod resource_provider;
 mod resource;
 mod pipeline;
 mod pipeline_layout;

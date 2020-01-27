@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms};
+use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms, uniform_selector};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -16,28 +16,43 @@ fn setup(world: &mut World) {
 
     world.build()
         // plane
-        // .build_archetype(MeshEntity {
+        // .add_archetype(MeshEntity {
         //     mesh: plane_handle.clone(),
         //     material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
         //     local_to_world: LocalToWorld::identity(),
         //     translation: Translation::new(0.0, 0.0, 0.0),
         // })
         // cube
-        .build_archetype(NewMeshEntity {
-            mesh: cube_handle,
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(1.0, 0.0, 0.0, 1.0),
             },
             shader_uniforms: ShaderUniforms {
-                uniform_selectors: Vec::new(
-                    
-                )
+                uniform_selectors: vec![
+                   uniform_selector::<StandardMaterial>, 
+                   uniform_selector::<LocalToWorld>, 
+                ]
             },
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
         })
+        // .add_archetype(NewMeshEntity {
+        //     mesh: cube_handle.clone(),
+        //     material: StandardMaterial {
+        //         albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
+        //     },
+        //     shader_uniforms: ShaderUniforms {
+        //         uniform_selectors: vec![
+        //            uniform_selector::<StandardMaterial>, 
+        //            uniform_selector::<LocalToWorld>, 
+        //         ]
+        //     },
+        //     local_to_world: LocalToWorld::identity(),
+        //     translation: Translation::new(-2.0, 0.0, 1.0),
+        // })
         // light
-        // .build_archetype(LightEntity {
+        // .add_archetype(LightEntity {
         //     light: Light {
         //         color: wgpu::Color {
         //             r: 0.8,
@@ -54,7 +69,7 @@ fn setup(world: &mut World) {
         //     rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
         // })
         // camera
-        .build_archetype(CameraEntity {
+        .add_archetype(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,

@@ -26,15 +26,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'simple'",
+            "name": "Build and launch example",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=simple",
+                    "--example=simple_new_graph",
                     "--package=bevy"
                 ],
                 "filter": {
-                    "name": "simple",
+                    "name": "simple_new_graph",
                     "kind": "example"
                 }
             },
@@ -44,13 +44,13 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in example 'simple'",
+            "name": "Launch example",
             "cargo": {
                 "args": [
-                    "test",
-                    "--no-run",
+                    "run",
                     "--example=simple",
-                    "--package=bevy"
+                    "--package=bevy",
+                    "--release"
                 ],
                 "filter": {
                     "name": "simple",

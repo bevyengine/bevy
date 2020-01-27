@@ -48,7 +48,7 @@ impl<'a> EntityBuilder<'a> {
         self
     }
 
-    pub fn build_archetype(mut self, entity_archetype: impl EntityArchetype) -> Self {
+    pub fn add_archetype(mut self, entity_archetype: impl EntityArchetype) -> Self {
         self.current_entity = Some(entity_archetype.insert(self.world));
         self
     }

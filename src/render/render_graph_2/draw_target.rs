@@ -19,7 +19,7 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
     let mut last_mesh_id = None;
     let mesh_query =
         <(Read<ShaderUniforms>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
-    for (_material, mesh) in mesh_query.iter(world) {
+    for (_shader_uniforms, mesh) in mesh_query.iter(world) {
         let current_mesh_id = mesh.id;
 
         let mut should_load_mesh = last_mesh_id == None;
@@ -39,7 +39,9 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
             };
         }
 
+        // TODO: re-getting the mesh isn't necessary. just store the index count
         if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
+            // TODO: validate bind group properties against shader uniform properties at least once
             render_pass.setup_bind_groups();
             render_pass.draw_indexed(0..mesh_asset.indices.len() as u32, 0, 0..1);
         };
