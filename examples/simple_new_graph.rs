@@ -2,7 +2,20 @@ use bevy::prelude::*;
 use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms, uniform_selector};
 
 fn main() {
-    AppBuilder::new().add_defaults().setup_world(setup).run();
+    AppBuilder::new().add_defaults().add_system(build_move_system()).setup_world(setup).run();
+}
+
+fn build_move_system() -> Box<dyn Schedulable> {
+    SystemBuilder::new("Move")
+        .read_resource::<Time>()
+        .with_query(<(Write<Translation>, Write<StandardMaterial>)>::query())
+        .build(move |_, world, time, person_query| {
+            for (mut translation, mut material) in person_query.iter_mut(world) {
+                translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+                material.albedo = material.albedo + math::vec4(-time.delta_seconds, -time.delta_seconds, time.delta_seconds, 0.0);
+                println!("{}", translation.0);
+            }
+        })
 }
 
 fn setup(world: &mut World) {
@@ -19,8 +32,8 @@ fn setup(world: &mut World) {
     indices.insert("Object".to_string(), 0);
 
     let mut indices_2 = std::collections::HashMap::new();
-    indices_2.insert("StandardMaterial".to_string(), 16);
-    indices_2.insert("Object".to_string(), 64);
+    indices_2.insert("StandardMaterial".to_string(), 256);
+    indices_2.insert("Object".to_string(), 256);
 
     world.build()
         // plane

@@ -361,8 +361,8 @@ impl WgpuRenderer {
         for pipeline in render_graph.pipeline_descriptors.values() {
             for bind_group in pipeline.pipeline_layout.bind_groups.iter() {
                 for binding in bind_group.bindings.iter() {
-                    if let None = self.resource_info.get(&binding.name) {
-                        if let BindType::Uniform { .. } = &binding.bind_type {
+                    // if let None = self.resource_info.get(&binding.name) {
+                        if let BindType::Uniform { dynamic: true, .. } = &binding.bind_type {
                             if dynamic_uniform_info.contains_key(&binding.name) {
                                 continue;
                             }
@@ -372,7 +372,7 @@ impl WgpuRenderer {
                                 count: 0,
                             });
                         }
-                    }
+                    // }
                 }
             }
         }
@@ -382,26 +382,34 @@ impl WgpuRenderer {
             for (entity, shader_uniforms) in <Read<ShaderUniforms>>::query().iter_entities(world) {
                 if let Some(_) = shader_uniforms.get_uniform_info(world, entity, name) {
                     info.count += 1;
+                    // TODO: assign indices to shader_uniforms here
                 }
             }
         }
         
         // allocate uniform buffers
         for (name, info) in dynamic_uniform_info.iter() {
-            // TODO: maybe align to device
-            let size = info.size * info.count;
+            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
             println!("{} {} {}", name, info.size, info.count);
+            if self.buffers.contains_key(name) {
+                continue;
+            }
+
             self.create_buffer(name, size, wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM);
         }
 
         // copy entity uniform data to buffers
         for (name, info) in dynamic_uniform_info.iter_mut() {
-            let size = info.size * info.count;
-            let mut current_index = 0;
+            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
             let mapped = self.device.create_buffer_mapped(size as usize, wgpu::BufferUsage::COPY_SRC);
-            for ((entity, shader_uniforms), slot) in <Read<ShaderUniforms>>::query().iter_entities(world).zip(mapped.data.chunks_exact_mut(info.size as usize)) {
+            for ((entity, shader_uniforms), slot) in <Read<ShaderUniforms>>::query().iter_entities(world).zip(mapped.data.chunks_exact_mut(wgpu::BIND_BUFFER_ALIGNMENT as usize)) {
                 if let Some(bytes) = shader_uniforms.get_uniform_bytes(world, entity, name) {
-                    slot.copy_from_slice(bytes.as_slice());
+                    // TODO: make this zero-copy somehow
+                    let mut new_bytes = bytes.clone();
+                    while new_bytes.len() < (wgpu::BIND_BUFFER_ALIGNMENT as usize) {
+                        new_bytes.push(0);
+                    }
+                    slot.copy_from_slice(new_bytes.as_slice());
                 }
             }
 
@@ -485,18 +493,6 @@ impl Renderer for WgpuRenderer {
             // create bind groups
             for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter() {
                 self.setup_bind_group(bind_group);
-                // TODO: Move this out of the for loop
-                // copy entity ShaderUniforms to buffers
-                // let shader_uniform_query = <Read<ShaderUniforms>>::query();
-                // for (entity, shader_uniforms) in shader_uniform_query.iter_entities(world) {
-                //     self.setup_entity_shader_uniforms(
-                //         bind_group,
-                //         world,
-                //         entity,
-                //         &&*shader_uniforms,
-                //         &mut encoder,
-                //     );
-                // }
             }
         }
 
