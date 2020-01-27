@@ -35,14 +35,27 @@ fn setup(world: &mut World) {
     indices_2.insert("StandardMaterial".to_string(), 256);
     indices_2.insert("Object".to_string(), 256);
 
+    let mut indices_3 = std::collections::HashMap::new();
+    indices_3.insert("StandardMaterial".to_string(), 512);
+    indices_3.insert("Object".to_string(), 512);
+
     world.build()
         // plane
-        // .add_archetype(MeshEntity {
-        //     mesh: plane_handle.clone(),
-        //     material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-        //     local_to_world: LocalToWorld::identity(),
-        //     translation: Translation::new(0.0, 0.0, 0.0),
-        // })
+        .add_archetype(NewMeshEntity {
+            mesh: plane_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+            },
+            shader_uniforms: ShaderUniforms {
+                uniform_selectors: vec![
+                   uniform_selector::<StandardMaterial>, 
+                   uniform_selector::<LocalToWorld>, 
+                ],
+                dynamic_uniform_indices: indices,
+            },
+            local_to_world: LocalToWorld::identity(),
+            translation: Translation::new(0.0, 0.0, 0.0),
+        })
         // cube
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
@@ -54,7 +67,7 @@ fn setup(world: &mut World) {
                    uniform_selector::<StandardMaterial>, 
                    uniform_selector::<LocalToWorld>, 
                 ],
-                dynamic_uniform_indices: indices,
+                dynamic_uniform_indices: indices_2,
             },
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
@@ -69,7 +82,7 @@ fn setup(world: &mut World) {
                    uniform_selector::<StandardMaterial>, 
                    uniform_selector::<LocalToWorld>, 
                 ],
-                dynamic_uniform_indices: indices_2,
+                dynamic_uniform_indices: indices_3,
             },
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(-2.0, 0.0, 1.0),
