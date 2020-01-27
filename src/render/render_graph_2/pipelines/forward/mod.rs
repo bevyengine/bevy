@@ -45,7 +45,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                     Binding {
                         name: "Object".to_string(),
                         bind_type: BindType::Uniform {
-                            dynamic: false,
+                            dynamic: true,
                             properties: vec![
                                 UniformProperty {
                                     name: "Model".to_string(),
@@ -57,7 +57,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                     Binding {
                         name: "StandardMaterial".to_string(),
                         bind_type: BindType::Uniform {
-                            dynamic: false,
+                            dynamic: true,
                             properties: vec![
                                 UniformProperty {
                                     name: "Albedo".to_string(),

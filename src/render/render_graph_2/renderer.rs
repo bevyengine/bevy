@@ -1,4 +1,4 @@
-use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, ResourceInfo, PipelineDescriptor}};
+use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, ResourceInfo, PipelineDescriptor, ShaderUniforms}};
 use std::ops::Range;
 
 pub trait Renderer {
@@ -19,5 +19,5 @@ pub trait RenderPass {
     fn set_index_buffer(&mut self, name: &str, offset: u64);
     fn set_vertex_buffer(&mut self, start_slot: u32, name: &str, offset: u64);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
-    fn setup_bind_groups(&mut self);
+    fn setup_bind_groups(&mut self, shader_uniforms: &ShaderUniforms);
 }

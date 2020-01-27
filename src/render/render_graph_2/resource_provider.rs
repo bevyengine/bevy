@@ -27,7 +27,6 @@ impl ResourceProvider for CameraResourceProvider {
             camera.update(width, height);
             let camera_matrix: [[f32; 4]; 4] =
                 (camera.view_matrix * local_to_world.0).to_cols_array_2d();
-            // TODO: use staging buffer here
             renderer.create_buffer_with_data(
                 resource_name::uniform::CAMERA,
                 camera_matrix.as_bytes(),

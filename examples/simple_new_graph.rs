@@ -14,6 +14,14 @@ fn setup(world: &mut World) {
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 
+    let mut indices = std::collections::HashMap::new();
+    indices.insert("StandardMaterial".to_string(), 0);
+    indices.insert("Object".to_string(), 0);
+
+    let mut indices_2 = std::collections::HashMap::new();
+    indices_2.insert("StandardMaterial".to_string(), 16);
+    indices_2.insert("Object".to_string(), 64);
+
     world.build()
         // plane
         // .add_archetype(MeshEntity {
@@ -32,25 +40,27 @@ fn setup(world: &mut World) {
                 uniform_selectors: vec![
                    uniform_selector::<StandardMaterial>, 
                    uniform_selector::<LocalToWorld>, 
-                ]
+                ],
+                dynamic_uniform_indices: indices,
             },
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
         })
-        // .add_archetype(NewMeshEntity {
-        //     mesh: cube_handle.clone(),
-        //     material: StandardMaterial {
-        //         albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
-        //     },
-        //     shader_uniforms: ShaderUniforms {
-        //         uniform_selectors: vec![
-        //            uniform_selector::<StandardMaterial>, 
-        //            uniform_selector::<LocalToWorld>, 
-        //         ]
-        //     },
-        //     local_to_world: LocalToWorld::identity(),
-        //     translation: Translation::new(-2.0, 0.0, 1.0),
-        // })
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
+            },
+            shader_uniforms: ShaderUniforms {
+                uniform_selectors: vec![
+                   uniform_selector::<StandardMaterial>, 
+                   uniform_selector::<LocalToWorld>, 
+                ],
+                dynamic_uniform_indices: indices_2,
+            },
+            local_to_world: LocalToWorld::identity(),
+            translation: Translation::new(-2.0, 0.0, 1.0),
+        })
         // light
         // .add_archetype(LightEntity {
         //     light: Light {
