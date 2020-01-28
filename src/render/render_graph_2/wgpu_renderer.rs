@@ -353,14 +353,12 @@ impl WgpuRenderer {
         for (name, info) in dynamic_uniform_info.iter_mut() {
             let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
             let mapped = self.device.create_buffer_mapped(size as usize, wgpu::BufferUsage::COPY_SRC);
-            for ((entity, shader_uniforms), slot) in <Read<ShaderUniforms>>::query().iter_entities(world).zip(mapped.data.chunks_exact_mut(wgpu::BIND_BUFFER_ALIGNMENT as usize)) {
+            let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+            let mut offset = 0usize;
+            for (entity, shader_uniforms) in <Read<ShaderUniforms>>::query().iter_entities(world) {
                 if let Some(bytes) = shader_uniforms.get_uniform_bytes(world, entity, name) {
-                    // TODO: make this zero-copy somehow
-                    let mut new_bytes = bytes.clone();
-                    while new_bytes.len() < (wgpu::BIND_BUFFER_ALIGNMENT as usize) {
-                        new_bytes.push(0);
-                    }
-                    slot.copy_from_slice(new_bytes.as_slice());
+                    mapped.data[offset..(offset + bytes.len())].copy_from_slice(bytes.as_slice());
+                    offset += alignment;
                 }
             }
 
