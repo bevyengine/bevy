@@ -22,7 +22,7 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
     let mut current_mesh_index_length = 0;
     let mesh_query =
         <(Read<ShaderUniforms>, Read<Handle<Mesh>>)>::query().filter(!component::<Instanced>());
-    for (shader_uniforms, mesh) in mesh_query.iter(world) {
+    for (entity, (_shader_uniforms, mesh)) in mesh_query.iter_entities(world) {
         let mut should_load_mesh = current_mesh_id == None;
         if let Some(current) = current_mesh_id {
             should_load_mesh = current != mesh.id;
@@ -51,7 +51,7 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
         }
 
         // TODO: validate bind group properties against shader uniform properties at least once
-        render_pass.setup_bind_groups(&&*shader_uniforms);
+        render_pass.setup_bind_groups(Some(&entity));
         render_pass.draw_indexed(0..current_mesh_index_length, 0, 0..1);
     }
 

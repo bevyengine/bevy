@@ -6,7 +6,6 @@ use crate::{
     math::Vec4,
     render::render_graph_2::{BindType, UniformPropertyType},
 };
-use std::collections::HashMap;
 use legion::storage::Component;
 use zerocopy::AsBytes;
 
@@ -14,14 +13,12 @@ pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUnif
 pub struct ShaderUniforms {
     // used for distinguishing
     pub uniform_selectors: Vec<ShaderUniformSelector>,
-    pub dynamic_uniform_indices: HashMap<String, u64>,
 }
 
 impl ShaderUniforms {
     pub fn new() -> Self {
         ShaderUniforms {
             uniform_selectors: Vec::new(),
-            dynamic_uniform_indices: HashMap::new(),
         }
     }
 

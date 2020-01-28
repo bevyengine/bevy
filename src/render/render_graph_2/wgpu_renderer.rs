@@ -13,6 +13,14 @@ use std::{
     ops::Deref,
 };
 
+pub struct DynamicUniformBufferInfo {
+    pub indices: HashMap<usize, Entity>,
+    pub offsets: HashMap<Entity, u64>,
+    pub capacity: u64,
+    pub count: u64,
+    pub size: u64,
+}
+
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -24,6 +32,7 @@ pub struct WgpuRenderer {
     pub resource_info: HashMap<String, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
+    pub dynamic_uniform_buffer_info: HashMap<String, DynamicUniformBufferInfo>,
 }
 
 impl WgpuRenderer {
@@ -62,6 +71,7 @@ impl WgpuRenderer {
             resource_info: HashMap::new(),
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
+            dynamic_uniform_buffer_info: HashMap::new(),
         }
     }
 
@@ -268,7 +278,11 @@ impl WgpuRenderer {
                                 dynamic: _,
                                 properties: _,
                             } => {
-                                if let ResourceInfo::Buffer { size, buffer_usage: _ } = resource_info {
+                                if let ResourceInfo::Buffer {
+                                    size,
+                                    buffer_usage: _,
+                                } = resource_info
+                                {
                                     let buffer = self.buffers.get(&b.name).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer: buffer,
@@ -303,9 +317,12 @@ impl WgpuRenderer {
         bind_group_id
     }
 
-    fn setup_dynamic_entity_shader_uniforms(&mut self, world: &World, render_graph: &RenderGraph, encoder: &mut wgpu::CommandEncoder) {
-        let mut dynamic_uniform_info = HashMap::new();
-
+    fn setup_dynamic_entity_shader_uniforms(
+        &mut self,
+        world: &World,
+        render_graph: &RenderGraph,
+        encoder: &mut wgpu::CommandEncoder,
+    ) {
         // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
         // TODO: this breaks down in multiple ways:
         // (1) resource_info will be set after the first run so this won't update.
@@ -314,48 +331,86 @@ impl WgpuRenderer {
             for bind_group in pipeline.pipeline_layout.bind_groups.iter() {
                 for binding in bind_group.bindings.iter() {
                     // if let None = self.resource_info.get(&binding.name) {
-                        if let BindType::Uniform { dynamic: true, .. } = &binding.bind_type {
-                            if dynamic_uniform_info.contains_key(&binding.name) {
-                                continue;
-                            }
-
-                            dynamic_uniform_info.insert(binding.name.to_string(), UniformInfo {
-                                size: binding.bind_type.get_uniform_size().unwrap(),
-                                count: 0,
-                            });
+                    if let BindType::Uniform { dynamic: true, .. } = &binding.bind_type {
+                        if self.dynamic_uniform_buffer_info.contains_key(&binding.name) {
+                            continue;
                         }
+
+                        self.dynamic_uniform_buffer_info.insert(
+                            binding.name.to_string(),
+                            DynamicUniformBufferInfo {
+                                capacity: 0,
+                                count: 0,
+                                size: binding.bind_type.get_uniform_size().unwrap(),
+                                indices: HashMap::new(),
+                                offsets: HashMap::new(),
+                            },
+                        );
+                    }
                     // }
                 }
             }
         }
 
-        // count the number of entities providing each uniform 
-        for (name, info) in dynamic_uniform_info.iter_mut() {
+        // count the number of entities providing each uniform
+        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
+            info.count = 0;
             for (entity, shader_uniforms) in <Read<ShaderUniforms>>::query().iter_entities(world) {
                 if let Some(_) = shader_uniforms.get_uniform_info(world, entity, name) {
                     info.count += 1;
-                    // TODO: assign indices to shader_uniforms here
                 }
             }
         }
-        
+
         // allocate uniform buffers
-        for (name, info) in dynamic_uniform_info.iter() {
-            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
-            if self.buffers.contains_key(name) {
+        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
+            if self.buffers.contains_key(name) && info.count < info.capacity {
                 continue;
             }
 
-            self.create_buffer(name, size, wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM);
+            if info.count >= info.capacity  && info.capacity != 0 {
+                panic!("resizing dynamic uniform buffers isn't supported yet. we still need to support updating bind groups");
+            }
+            
+            // allocate enough space for twice as many entities as there are currently;
+            info.capacity = info.count * 2;
+            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.capacity;
+
+            // TODO: remove this code duplication in favor of self.create_buffer(). this will likely require a refactor
+            // the following is a flattening of the content in self.create_buffer(), which can't be called because
+            // of rust's ownership rules. sometimes rust makes me unhappy
+
+            let buffer_usage = wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM;
+            let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                size: size,
+                usage: buffer_usage,
+            });
+
+            self.resource_info.insert(
+                name.to_string(),
+                ResourceInfo::Buffer {
+                    buffer_usage,
+                    size: size,
+                },
+            );
+
+            self.buffers.insert(name.to_string(), buffer);
         }
 
         // copy entity uniform data to buffers
-        for (name, info) in dynamic_uniform_info.iter_mut() {
+        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
             let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
-            let mapped = self.device.create_buffer_mapped(size as usize, wgpu::BufferUsage::COPY_SRC);
+            let mapped = self
+                .device
+                .create_buffer_mapped(size as usize, wgpu::BufferUsage::COPY_SRC);
             let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
-            for (entity, shader_uniforms) in <Read<ShaderUniforms>>::query().iter_entities(world) {
+
+            for (i, (entity, shader_uniforms)) in <Read<ShaderUniforms>>::query().iter_entities(world).enumerate() {
+                // TODO: check if index has changed. if it has, then entity should be updated
+                // TODO: only mem-map entities if their data has changed
+                info.offsets.insert(entity, offset as u64);
+                info.indices.insert(i, entity);
                 if let Some(bytes) = shader_uniforms.get_uniform_bytes(world, entity, name) {
                     mapped.data[offset..(offset + bytes.len())].copy_from_slice(bytes.as_slice());
                     offset += alignment;
@@ -367,11 +422,6 @@ impl WgpuRenderer {
             encoder.copy_buffer_to_buffer(&temp_buffer, 0, uniform_buffer.unwrap(), 0, size);
         }
     }
-}
-
-pub struct UniformInfo {
-    pub size: u64,
-    pub count: u64,
 }
 
 impl Renderer for WgpuRenderer {
@@ -423,7 +473,7 @@ impl Renderer for WgpuRenderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-        
+
         self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
@@ -555,7 +605,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     }
 
     // TODO: maybe move setup to renderer.setup_bind_groups(&pipeline_desc);
-    fn setup_bind_groups(&mut self, shader_uniforms: &ShaderUniforms) {
+    fn setup_bind_groups(&mut self, entity: Option<&Entity>) {
         for (i, bind_group) in self
             .pipeline_descriptor
             .pipeline_layout
@@ -571,19 +621,28 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
 
             let mut dynamic_uniform_indices = Vec::new();
             for binding in bind_group.bindings.iter() {
-                if let BindType::Uniform { dynamic, ..} = binding.bind_type {
+                if let BindType::Uniform { dynamic, .. } = binding.bind_type {
                     if !dynamic {
                         continue;
                     }
 
-                    if let Some(index) = shader_uniforms.dynamic_uniform_indices.get(&binding.name) {
+                    if let Some(dynamic_uniform_buffer_info) =
+                        self.renderer.dynamic_uniform_buffer_info.get(&binding.name)
+                    {
+                        let index = dynamic_uniform_buffer_info
+                            .offsets
+                            .get(entity.unwrap())
+                            .unwrap();
                         dynamic_uniform_indices.push(*index);
                     }
                 }
-            } 
+            }
 
-            self.render_pass
-                .set_bind_group(i as u32, &bind_group_info.bind_group, dynamic_uniform_indices.as_slice());
+            self.render_pass.set_bind_group(
+                i as u32,
+                &bind_group_info.bind_group,
+                dynamic_uniform_indices.as_slice(),
+            );
         }
     }
 }
