@@ -26,18 +26,6 @@ fn setup(world: &mut World) {
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 
-    let mut indices = std::collections::HashMap::new();
-    indices.insert("StandardMaterial".to_string(), 0);
-    indices.insert("Object".to_string(), 0);
-
-    let mut indices_2 = std::collections::HashMap::new();
-    indices_2.insert("StandardMaterial".to_string(), 256);
-    indices_2.insert("Object".to_string(), 256);
-
-    let mut indices_3 = std::collections::HashMap::new();
-    indices_3.insert("StandardMaterial".to_string(), 512);
-    indices_3.insert("Object".to_string(), 512);
-
     world.build()
         // plane
         .add_archetype(NewMeshEntity {
