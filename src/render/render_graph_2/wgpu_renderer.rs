@@ -7,11 +7,7 @@ use crate::{
         TextureDimension,
     },
 };
-use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
-    hash::{Hash, Hasher},
-    ops::Deref,
-};
+use std::{collections::HashMap, ops::Deref};
 
 pub struct DynamicUniformBufferInfo {
     pub indices: HashMap<usize, Entity>,
@@ -76,7 +72,7 @@ impl WgpuRenderer {
     }
 
     pub fn create_render_pipeline(
-        pipeline_descriptor: &PipelineDescriptor,
+        pipeline_descriptor: &mut PipelineDescriptor,
         bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
@@ -90,10 +86,9 @@ impl WgpuRenderer {
         };
 
         // setup new bind group layouts
-        for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter() {
-            let mut hasher = DefaultHasher::new();
-            bind_group.hash(&mut hasher);
-            let bind_group_id = hasher.finish();
+        for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter_mut() {
+            bind_group.update_hash();
+            let bind_group_id = bind_group.get_hash();
             if let None = bind_group_layouts.get(&bind_group_id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
@@ -120,10 +115,7 @@ impl WgpuRenderer {
             .bind_groups
             .iter()
             .map(|bind_group| {
-                let mut hasher = DefaultHasher::new();
-                bind_group.hash(&mut hasher);
-                let bind_group_id = hasher.finish();
-
+                let bind_group_id = bind_group.get_hash();
                 bind_group_layouts.get(&bind_group_id).unwrap()
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
@@ -132,7 +124,7 @@ impl WgpuRenderer {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
-        let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
+        let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vertex_shader_module,
@@ -160,7 +152,7 @@ impl WgpuRenderer {
             alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
         };
 
-        device.create_render_pipeline(&render_pipeline_descriptor)
+        device.create_render_pipeline(&mut render_pipeline_descriptor)
     }
 
     pub fn create_render_pass<'a>(
@@ -242,10 +234,7 @@ impl WgpuRenderer {
 
     // TODO: consider moving this to a resource provider
     fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64 {
-        // TODO: cache hash result in bind_group?
-        let mut hasher = DefaultHasher::new();
-        bind_group.hash(&mut hasher);
-        let bind_group_id = hasher.finish();
+        let bind_group_id = bind_group.get_hash();
 
         if let None = self.bind_groups.get(&bind_group_id) {
             let mut unset_uniforms = Vec::new();
@@ -368,10 +357,10 @@ impl WgpuRenderer {
                 continue;
             }
 
-            if info.count >= info.capacity  && info.capacity != 0 {
+            if info.count >= info.capacity && info.capacity != 0 {
                 panic!("resizing dynamic uniform buffers isn't supported yet. we still need to support updating bind groups");
             }
-            
+
             // allocate enough space for twice as many entities as there are currently;
             info.capacity = info.count * 2;
             let size = wgpu::BIND_BUFFER_ALIGNMENT * info.capacity;
@@ -406,7 +395,10 @@ impl WgpuRenderer {
             let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
 
-            for (i, (entity, shader_uniforms)) in <Read<ShaderUniforms>>::query().iter_entities(world).enumerate() {
+            for (i, (entity, shader_uniforms)) in <Read<ShaderUniforms>>::query()
+                .iter_entities(world)
+                .enumerate()
+            {
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
                 info.offsets.insert(entity, offset as u64);
@@ -477,7 +469,7 @@ impl Renderer for WgpuRenderer {
         self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
-        for (pipeline_name, pipeline_descriptor) in render_graph.pipeline_descriptors.iter() {
+        for (pipeline_name, pipeline_descriptor) in render_graph.pipeline_descriptors.iter_mut() {
             // create pipelines
             if let None = self.render_pipelines.get(pipeline_name) {
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
@@ -613,10 +605,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .iter()
             .enumerate()
         {
-            // TODO: cache hash result in bind_group?
-            let mut hasher = DefaultHasher::new();
-            bind_group.hash(&mut hasher);
-            let bind_group_id = hasher.finish();
+            let bind_group_id = bind_group.get_hash();
             let bind_group_info = self.renderer.bind_groups.get(&bind_group_id).unwrap();
 
             let mut dynamic_uniform_indices = Vec::new();

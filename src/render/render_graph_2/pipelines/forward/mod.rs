@@ -24,8 +24,8 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 include_str!("forward.frag"),
                 ShaderStage::Fragment,
             ))
-            .add_bind_group(BindGroup {
-                bindings: vec![
+            .add_bind_group(BindGroup::new(
+                vec![
                     Binding {
                         name: "Camera".to_string(),
                         bind_type: BindType::Uniform {
@@ -39,9 +39,9 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                         }
                     },
                 ]
-            })
-            .add_bind_group(BindGroup {
-                bindings: vec![
+            ))
+            .add_bind_group(BindGroup::new(
+                vec![
                     Binding {
                         name: "Object".to_string(),
                         bind_type: BindType::Uniform {
@@ -67,7 +67,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                         }
                     },
                 ]
-            })
+            ))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,

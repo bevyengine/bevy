@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms, uniform_selector};
+use std::collections::VecDeque;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
-    AppBuilder::new().add_defaults().add_system(build_move_system()).setup_world(setup).run();
+    AppBuilder::new().add_defaults().add_system(build_move_system()).add_system(build_print_status_system()).setup_world(setup).run();
 }
 
 fn build_move_system() -> Box<dyn Schedulable> {
@@ -17,6 +19,35 @@ fn build_move_system() -> Box<dyn Schedulable> {
         })
 }
 
+fn build_print_status_system() -> Box<dyn Schedulable> {
+    let mut elapsed = 0.0;
+    let mut frame_time_total = 0.0;
+    let mut frame_time_count = 0;
+    let frame_time_max = 10;
+    let mut frame_time_values = VecDeque::new();
+    SystemBuilder::new("PrintStatus")
+        .read_resource::<Time>()
+        .build(move |_, _world, time, _queries| {
+            elapsed += time.delta_seconds;
+            frame_time_values.push_front(time.delta_seconds);
+            frame_time_total += time.delta_seconds;
+            frame_time_count += 1;
+            if frame_time_count > frame_time_max {
+                frame_time_count = frame_time_max;
+                frame_time_total -= frame_time_values.pop_back().unwrap();
+            }
+            if elapsed > 1.0 {
+                if frame_time_count > 0 && frame_time_total > 0.0 {
+                    println!(
+                        "fps: {}",
+                        1.0 / (frame_time_total / frame_time_count as f32)
+                    )
+                }
+                elapsed = 0.0;
+            }
+        })
+}
+
 fn setup(world: &mut World) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
@@ -26,7 +57,7 @@ fn setup(world: &mut World) {
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 
-    world.build()
+    let mut builder = world.build()
         // plane
         .add_archetype(NewMeshEntity {
             mesh: plane_handle.clone(),
@@ -102,6 +133,26 @@ fn setup(world: &mut World) {
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
+        });
+
+    let mut rng = StdRng::from_entropy();
+    for _ in 0..10000 {
+
+        builder = builder.add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
+            },
+            shader_uniforms: ShaderUniforms {
+                uniform_selectors: vec![
+                   uniform_selector::<StandardMaterial>, 
+                   uniform_selector::<LocalToWorld>, 
+                ],
+            },
+            local_to_world: LocalToWorld::identity(),
+            translation: Translation::new(rng.gen_range(-50.0, 50.0), rng.gen_range(-50.0, 50.0), 0.0),
         })
-    .build();
+    }
+
+    builder.build();
 }

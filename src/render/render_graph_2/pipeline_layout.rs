@@ -1,3 +1,7 @@
+use std::{
+    collections::{hash_map::DefaultHasher},
+    hash::{Hash, Hasher},
+};
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroup>,
 }
@@ -12,7 +16,27 @@ impl PipelineLayout {
 
 #[derive(Hash)]
 pub struct BindGroup {
-    pub bindings: Vec<Binding>
+    pub bindings: Vec<Binding>,
+    hash: Option<u64>,
+}
+
+impl BindGroup {
+    pub fn new(bindings: Vec<Binding>) -> Self {
+        BindGroup {
+            bindings,
+            hash: None,
+        }
+    }
+
+    pub fn get_hash(&self) -> u64 {
+        self.hash.unwrap()
+    }
+
+    pub fn update_hash(&mut self) {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        self.hash = Some(hasher.finish());
+    }
 }
 
 #[derive(Hash)]
