@@ -13,7 +13,6 @@ fn build_move_system() -> Box<dyn Schedulable> {
             for (mut translation, mut material) in person_query.iter_mut(world) {
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
                 material.albedo = material.albedo + math::vec4(-time.delta_seconds, -time.delta_seconds, time.delta_seconds, 0.0);
-                println!("{}", translation.0);
             }
         })
 }

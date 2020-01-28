@@ -15,7 +15,7 @@ pub trait ResourceProvider {
 pub struct CameraResourceProvider;
 
 impl ResourceProvider for CameraResourceProvider {
-    fn initialize(&self, renderer: &mut dyn Renderer, world: &mut World) {
+    fn initialize(&self, _renderer: &mut dyn Renderer, _world: &mut World) {
         // TODO: create real buffer here
     }
 

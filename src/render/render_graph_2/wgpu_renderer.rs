@@ -265,10 +265,10 @@ impl WgpuRenderer {
                         binding: i as u32,
                         resource: match &b.bind_type {
                             BindType::Uniform {
-                                dynamic,
-                                properties,
+                                dynamic: _,
+                                properties: _,
                             } => {
-                                if let ResourceInfo::Buffer { size, buffer_usage } = resource_info {
+                                if let ResourceInfo::Buffer { size, buffer_usage: _ } = resource_info {
                                     let buffer = self.buffers.get(&b.name).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer: buffer,
@@ -301,54 +301,6 @@ impl WgpuRenderer {
         }
 
         bind_group_id
-    }
-
-    fn setup_entity_shader_uniforms(
-        &mut self,
-        bind_group: &BindGroup,
-        world: &World,
-        entity: Entity,
-        shader_uniforms: &ShaderUniforms,
-        encoder: &mut wgpu::CommandEncoder,
-    ) {
-        // TODO: cache hash result in bind_group?
-        let mut hasher = DefaultHasher::new();
-        bind_group.hash(&mut hasher);
-        let bind_group_id = hasher.finish();
-        let bind_group_info = self.bind_groups.get(&bind_group_id).unwrap();
-        for unset_uniform in bind_group_info.unset_uniforms.iter() {
-            let mut found_uniform = false;
-            for uniform_selector in shader_uniforms.uniform_selectors.iter().rev() {
-                let uniforms = uniform_selector(entity, world).unwrap_or_else(|| {
-                    panic!(
-                        "ShaderUniform selector points to a missing component. Uniform: {}",
-                        unset_uniform
-                    )
-                });
-                if let Some(bytes) = uniforms.get_uniform_bytes(unset_uniform) {
-                    // TODO: validate bind_group layout vs shader uniform
-                    let temp_buffer = self
-                        .device
-                        .create_buffer_with_data(bytes.as_slice(), wgpu::BufferUsage::COPY_SRC);
-                    let uniform_buffer = self.buffers.get(unset_uniform).unwrap();
-
-                    encoder.copy_buffer_to_buffer(
-                        &temp_buffer,
-                        0,
-                        uniform_buffer,
-                        0,
-                        bytes.len() as u64,
-                    );
-
-                    found_uniform = true;
-                    break;
-                }
-            }
-
-            if !found_uniform {
-                panic!("ShaderUniform did not find a source for Uniform: {}. Consider adding a uniform selector to this entity's ShaderUniforms component.", unset_uniform);
-            }
-        }
     }
 
     fn setup_dynamic_entity_shader_uniforms(&mut self, world: &World, render_graph: &RenderGraph, encoder: &mut wgpu::CommandEncoder) {
@@ -390,7 +342,6 @@ impl WgpuRenderer {
         // allocate uniform buffers
         for (name, info) in dynamic_uniform_info.iter() {
             let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
-            println!("{} {} {}", name, info.size, info.count);
             if self.buffers.contains_key(name) {
                 continue;
             }
