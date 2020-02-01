@@ -1,6 +1,6 @@
 [package]
 name = "mikktspace"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2018"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>", "David Harvey-Macaulay <alteous@outlook.com>", "Layl Bongers <LaylConway@users.noreply.github.com>"]
 description = "Mikkelsen tangent space algorithm"
