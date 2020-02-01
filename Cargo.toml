@@ -10,7 +10,6 @@ homepage = "https://github.com/gltf-rs/mikktspace"
 readme = "README.md"
 keywords = ["3D", "graphics", "algorithm", "tangent"]
 license = "MIT/Apache-2.0"
-exclude = ["examples/**"]
 
 [badges]
 travis-ci = { repository = "gltf-rs/mikktspace" }
