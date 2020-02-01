@@ -19,7 +19,9 @@ pub trait Geometry {
     /// Returns the texture coordinate of a vertex.
     fn tex_coord(&self, face: usize, vert: usize) -> [f32; 2];
 
-    /// Sets a vertex' generated tangent.
+    /// Sets the generated tangent for a vertex.
+    /// Leave this function unimplemented if you are implementing
+    /// `set_tangent_encoded`.
     fn set_tangent(
         &mut self,
         tangent: [f32; 3],
@@ -38,14 +40,20 @@ pub trait Geometry {
         self.set_tangent_encoded([tangent[0], tangent[1], tangent[2], sign], face, vert);
     }
 
-    /// Sets a vertex' generated tangent with the bi-tangent encoded as the W component in the
-    /// tangent. The W component marks if the bi-tangent is flipped. This will only be called if
-    /// `set_tangent` is not implemented.
+    /// Sets the generated tangent for a vertex with its bi-tangent encoded as the 'W' (4th)
+    /// component in the tangent. The 'W' component marks if the bi-tangent is flipped. This
+    /// is called by the default implementation of `set_tangent`; therefore, this function will
+    /// not be called by the crate unless `set_tangent` is unimplemented.
     fn set_tangent_encoded(&mut self, _tangent: [f32; 4], _face: usize, _vert: usize) {}
 }
 
-/// Default (recommended) Angular Threshold is 180 degrees, which means threshold disabled.
-pub fn generate_tangents_default<I: Geometry>(geometry: &mut I) -> bool {
+/// Generates tangents for the input geometry.
+///
+/// # Errors
+///
+/// Returns `false` if the geometry is unsuitable for tangent generation including,
+/// but not limited to, lack of vertices.
+pub fn generate_tangents<I: Geometry>(geometry: &mut I) -> bool {
     unsafe { generated::genTangSpace(geometry, 180.0) }
 }
 

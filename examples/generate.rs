@@ -165,6 +165,6 @@ fn make_cube() -> Mesh {
 
 fn main() {
     let mut cube = make_cube();
-    let ret = mikktspace::generate_tangents_default(&mut cube);
+    let ret = mikktspace::generate_tangents(&mut cube);
     assert_eq!(true, ret);
 }

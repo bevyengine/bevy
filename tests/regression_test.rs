@@ -1,4 +1,4 @@
-use mikktspace::{generate_tangents_default, Geometry};
+use mikktspace::{generate_tangents, Geometry};
 use nalgebra::{Point2, Point3, Vector3};
 
 pub type Face = [u32; 3];
@@ -221,7 +221,7 @@ fn cube_tangents_should_equal_reference_values() {
         mesh: make_cube(),
         results: Vec::new(),
     };
-    let ret = generate_tangents_default(&mut context);
+    let ret = generate_tangents(&mut context);
     assert_eq!(true, ret);
 
     let expected_results: Vec<Result> = vec![
