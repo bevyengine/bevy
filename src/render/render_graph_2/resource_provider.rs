@@ -24,6 +24,7 @@ impl ResourceProvider for CameraResourceProvider {
         for (mut camera, local_to_world, _) in
             <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter_mut(world)
         {
+            // TODO: consider using staging buffer
             camera.update(width, height);
             let camera_matrix: [[f32; 4]; 4] =
                 (camera.view_matrix * local_to_world.0).to_cols_array_2d();
