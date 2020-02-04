@@ -240,7 +240,7 @@ where
     T: AsUniforms + Send + Sync,
 {
     _marker: PhantomData<T>,
-    uniform_buffer_info_names: HashSet<String>,
+    uniform_buffer_info_names: Vec<String>,
     // dynamic_uniform_buffer_infos: HashMap<String, DynamicUniformBufferInfo>,
 }
 
@@ -251,7 +251,7 @@ where
     pub fn new() -> Self {
         UniformResourceProvider {
             // dynamic_uniform_buffer_infos: HashMap::new(),
-            uniform_buffer_info_names: HashSet::new(),
+            uniform_buffer_info_names: Vec::new(),
             _marker: PhantomData,
         }
     }
@@ -267,34 +267,54 @@ where
         let query = <Read<T>>::query();
         // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
         // TODO: this breaks down in multiple ways:
-        // (1) resource_info will be set after the first run so this won't update.
+        // (SOLVED 1) resource_info will be set after the first run so this won't update.
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
         for name in self.uniform_buffer_info_names.iter() {
-            renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap().count = 0;
+            renderer
+                .get_dynamic_uniform_buffer_info_mut(name)
+                .unwrap()
+                .count = 0;
         }
 
+        let mut sizes = Vec::new();
+        let mut counts = Vec::new();
         for uniforms in query.iter(world) {
             let uniform_layouts = uniforms.get_uniform_layouts();
             for (i, uniform_info) in uniforms.get_uniform_infos().iter().enumerate() {
-                if let None = renderer.get_dynamic_uniform_buffer_info(uniform_info.name) {
+                // only add the first time a uniform info is processed
+                if self.uniform_buffer_info_names.len() <= i {
                     let uniform_layout = uniform_layouts[i];
-                    let mut info = DynamicUniformBufferInfo::new();
-                    info.size = uniform_layout
+                    let size = uniform_layout
                         .iter()
                         .map(|u| u.get_size())
                         .fold(0, |total, current| total + current);
+                    sizes.push(size);
+
                     self.uniform_buffer_info_names
-                        .insert(uniform_info.name.to_string());
-                    renderer.add_dynamic_uniform_buffer_info(uniform_info.name, info);
+                        .push(uniform_info.name.to_string());
                 }
 
-                let mut info = renderer
-                    .get_dynamic_uniform_buffer_info_mut(uniform_info.name)
-                    .unwrap();
-                info.count += 1;
+                if counts.len() <= i {
+                    counts.push(0);
+                }
+
+                counts[i] += 1;
             }
+        }
+
+        // create and update uniform buffer info. this is separate from the last block to avoid
+        // the expense of hashing for large numbers of entities
+        for (i, name) in self.uniform_buffer_info_names.iter().enumerate() {
+            if let None = renderer.get_dynamic_uniform_buffer_info(name) {
+                let mut info = DynamicUniformBufferInfo::new();
+                info.size = sizes[i];
+                renderer.add_dynamic_uniform_buffer_info(name, info);
+            }
+
+            let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
+            info.count = counts[i];
         }
 
         // allocate uniform buffers
@@ -324,10 +344,10 @@ where
 
             let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
+            let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
             for (i, (entity, _uniforms)) in query.iter_entities(world).enumerate() {
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
-                let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
                 info.offsets.insert(entity, offset as u64);
                 info.indices.insert(i, entity);
                 // TODO: try getting ref first
@@ -355,9 +375,6 @@ where
                 },
             );
 
-            // TODO: port me
-            // let uniform_buffer = self.buffers.get(name);
-            // renderer.create_buffer_with_data(name, &data, wgpu::BufferUsage::UNIFORM);
             renderer.copy_buffer_to_buffer("tmp_uniform_mapped", 0, name, 0, size);
         }
     }
