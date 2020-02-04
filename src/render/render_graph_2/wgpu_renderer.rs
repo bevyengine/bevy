@@ -320,6 +320,7 @@ impl WgpuRenderer {
         bind_group_id
     }
 
+    // TODO: remove me
     fn setup_dynamic_entity_shader_uniforms(
         &mut self,
         world: &World,
