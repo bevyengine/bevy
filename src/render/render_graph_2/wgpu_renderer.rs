@@ -33,6 +33,7 @@ pub struct WgpuRenderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: Option<wgpu::Surface>,
+    pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<String, wgpu::RenderPipeline>,
     pub buffers: HashMap<String, wgpu::Buffer>,
@@ -72,6 +73,7 @@ impl WgpuRenderer {
             device,
             queue,
             surface: None,
+            encoder: None,
             swap_chain_descriptor,
             render_pipelines: HashMap::new(),
             buffers: HashMap::new(),
@@ -465,18 +467,23 @@ impl Renderer for WgpuRenderer {
     }
 
     fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World) {
+        // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
+        // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
+        self.encoder = Some(self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }));
+
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world);
         }
+
+        let mut encoder = self.encoder.take().unwrap();
 
         let mut swap_chain = world.resources.get_mut::<wgpu::SwapChain>().unwrap();
         let frame = swap_chain
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
         // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
@@ -574,12 +581,24 @@ impl Renderer for WgpuRenderer {
     fn create_buffer_mapped(&mut self, name: &str, size: usize, buffer_usage: wgpu::BufferUsage, setup_data: &mut dyn FnMut(&mut [u8])) {
         let mut mapped = self.device.create_buffer_mapped(size, buffer_usage);
         setup_data(&mut mapped.data);
-        mapped.finish();
+        let buffer = mapped.finish();
+        
+        self.add_resource_info(
+            name,
+            ResourceInfo::Buffer {
+                buffer_usage,
+                size: size as u64,
+            },
+        );
+
+        self.buffers.insert(name.to_string(), buffer);
     }
 
     fn copy_buffer_to_buffer(&mut self, source_buffer: &str, source_offset: u64, destination_buffer: &str, destination_offset: u64, size: u64) {
         let source = self.buffers.get(source_buffer).unwrap();
         let destination = self.buffers.get(destination_buffer).unwrap();
+        let encoder = self.encoder.as_mut().unwrap();
+        encoder.copy_buffer_to_buffer(source, source_offset, destination, destination_offset, size);
     }
     fn get_dynamic_uniform_buffer_info(&self, name: &str) -> Option<&DynamicUniformBufferInfo> {
         self.dynamic_uniform_buffer_info.get(name)
@@ -630,7 +649,6 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .draw_indexed(indices, base_vertex, instances);
     }
 
-    // TODO: maybe move setup to renderer.setup_bind_groups(&pipeline_desc);
     fn setup_bind_groups(&mut self, entity: Option<&Entity>) {
         for (i, bind_group) in self
             .pipeline_descriptor
