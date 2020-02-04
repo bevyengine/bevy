@@ -17,6 +17,18 @@ pub struct DynamicUniformBufferInfo {
     pub size: u64,
 }
 
+impl DynamicUniformBufferInfo {
+    pub fn new() -> Self {
+        DynamicUniformBufferInfo {
+            capacity: 0,
+            count: 0,
+            indices: HashMap::new(),
+            offsets: HashMap::new(),
+            size: 0,
+        }
+    }
+}
+
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -466,7 +478,7 @@ impl Renderer for WgpuRenderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-        self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
+        // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
         for (pipeline_name, pipeline_descriptor) in render_graph.pipeline_descriptors.iter_mut() {
@@ -558,6 +570,28 @@ impl Renderer for WgpuRenderer {
     fn remove_buffer(&mut self, name: &str) {
         self.buffers.remove(name);
     }
+
+    fn create_buffer_mapped(&mut self, name: &str, size: usize, buffer_usage: wgpu::BufferUsage, setup_data: &mut dyn FnMut(&mut [u8])) {
+        let mut mapped = self.device.create_buffer_mapped(size, buffer_usage);
+        setup_data(&mut mapped.data);
+        mapped.finish();
+    }
+
+    fn copy_buffer_to_buffer(&mut self, source_buffer: &str, source_offset: u64, destination_buffer: &str, destination_offset: u64, size: u64) {
+        let source = self.buffers.get(source_buffer).unwrap();
+        let destination = self.buffers.get(destination_buffer).unwrap();
+    }
+    fn get_dynamic_uniform_buffer_info(&self, name: &str) -> Option<&DynamicUniformBufferInfo> {
+        self.dynamic_uniform_buffer_info.get(name)
+    }
+
+    fn get_dynamic_uniform_buffer_info_mut(&mut self, name: &str) -> Option<&mut DynamicUniformBufferInfo> {
+        self.dynamic_uniform_buffer_info.get_mut(name)
+    }
+
+    fn add_dynamic_uniform_buffer_info(&mut self, name: &str, info: DynamicUniformBufferInfo) {
+        self.dynamic_uniform_buffer_info.insert(name.to_string(), info);
+    }
 }
 
 pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
@@ -622,6 +656,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                             .offsets
                             .get(entity.unwrap())
                             .unwrap();
+
                         dynamic_uniform_indices.push(*index);
                     }
                 }

@@ -4,13 +4,13 @@ use crate::{
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
     render::render_graph_2,
-    render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer, resource_provider::CameraResourceProvider},
+    render::render_graph_2::{pipelines::*, wgpu_renderer::WgpuRenderer, resource_provider::CameraResourceProvider, UniformResourceProvider, StandardMaterial},
     render::{passes::*, *},
     plugin::load_plugin,
     ui,
 };
 
-use bevy_transform::transform_system_bundle;
+use bevy_transform::{transform_system_bundle, prelude::LocalToWorld};
 use std::collections::HashMap;
 
 pub struct AppBuilder {
@@ -175,6 +175,8 @@ impl AppBuilder {
         self.render_graph_builder = self
             .render_graph_builder
             .add_resource_provider(Box::new(CameraResourceProvider))
+            .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
+            .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
             .add_forward_pass()
             .add_forward_pipeline();
 

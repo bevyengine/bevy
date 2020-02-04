@@ -141,7 +141,7 @@ fn setup(world: &mut World) {
         builder = builder.add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
+                albedo: math::vec4(rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0), 1.0),
             },
             shader_uniforms: ShaderUniforms {
                 uniform_selectors: vec![

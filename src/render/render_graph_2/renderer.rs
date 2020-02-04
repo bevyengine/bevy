@@ -1,4 +1,4 @@
-use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, ResourceInfo, PipelineDescriptor}};
+use crate::{legion::prelude::*, render::render_graph_2::{RenderGraph, ResourceInfo, PipelineDescriptor, wgpu_renderer::DynamicUniformBufferInfo}};
 use std::ops::Range;
 
 pub trait Renderer {
@@ -7,9 +7,14 @@ pub trait Renderer {
     fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World);
     // TODO: swap out wgpu::BufferUsage for non-wgpu type
     fn create_buffer_with_data(&mut self, name: &str, data: &[u8], buffer_usage: wgpu::BufferUsage);
+    fn get_dynamic_uniform_buffer_info(&self, name: &str) -> Option<&DynamicUniformBufferInfo>;
+    fn get_dynamic_uniform_buffer_info_mut(&mut self, name: &str) -> Option<&mut DynamicUniformBufferInfo>;
+    fn add_dynamic_uniform_buffer_info(&mut self, name: &str, info: DynamicUniformBufferInfo);
     fn create_buffer(&mut self, name: &str, size: u64, buffer_usage: wgpu::BufferUsage);
+    fn create_buffer_mapped(&mut self, name: &str, size: usize, buffer_usage: wgpu::BufferUsage, func: &mut dyn FnMut(&mut [u8]));
     fn remove_buffer(&mut self, name: &str);
     fn get_resource_info(&self, name: &str) -> Option<&ResourceInfo>;
+    fn copy_buffer_to_buffer(&mut self, source_buffer: &str, source_offset: u64, destination_buffer: &str, destination_offset: u64, size: u64);
 }
 
 pub trait RenderPass {

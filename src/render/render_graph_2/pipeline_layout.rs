@@ -97,7 +97,7 @@ pub enum UniformPropertyType {
 }
 
 impl UniformPropertyType {
-    fn get_size(&self) -> u64 {
+    pub fn get_size(&self) -> u64 {
         match self {
             UniformPropertyType::Int => 4,
             UniformPropertyType::Float => 4,

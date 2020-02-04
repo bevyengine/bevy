@@ -7,20 +7,20 @@ use legion::prelude::*;
 use zerocopy::AsBytes;
 
 pub trait ResourceProvider {
-    fn initialize(&self, renderer: &mut dyn Renderer, world: &mut World);
-    fn update(&self, renderer: &mut dyn Renderer, world: &mut World);
-    fn resize(&self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32);
+    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World);
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World);
+    fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32);
 }
 
 pub struct CameraResourceProvider;
 
 impl ResourceProvider for CameraResourceProvider {
-    fn initialize(&self, _renderer: &mut dyn Renderer, _world: &mut World) {
+    fn initialize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {
         // TODO: create real buffer here
     }
 
-    fn update(&self, _renderer: &mut dyn Renderer, _world: &mut World) {}
-    fn resize(&self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
+    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
+    fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
         for (mut camera, local_to_world, _) in
             <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter_mut(world)
         {
