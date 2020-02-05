@@ -58,6 +58,12 @@ pub struct LightResourceProvider {
     pub max_lights: usize,
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, AsBytes)]
+pub struct LightCount {
+    pub num_lights: [u32; 4],
+}
+
 impl LightResourceProvider {
     pub fn new(max_lights: usize) -> Self {
         LightResourceProvider {
@@ -70,7 +76,7 @@ impl LightResourceProvider {
 impl ResourceProvider for LightResourceProvider {
     fn initialize(&mut self, renderer: &mut dyn Renderer, _world: &mut World) {
         let light_uniform_size =
-            (self.max_lights * std::mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
+            (std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
 
         renderer.create_buffer(
             resource_name::uniform::LIGHTS,
@@ -91,6 +97,7 @@ impl ResourceProvider for LightResourceProvider {
             self.lights_are_dirty = false;
             let size = std::mem::size_of::<LightRaw>();
             let total_size = size * light_count;
+            let light_count_size = std::mem::size_of::<LightCount>();
             renderer
                 .create_buffer_mapped("LIGHT_TMP", total_size, wgpu::BufferUsage::COPY_SRC, &mut |data| {
                     for ((light, local_to_world, translation), slot) in light_query
@@ -102,10 +109,22 @@ impl ResourceProvider for LightResourceProvider {
                         );
                     }
                 });
+            renderer
+                .create_buffer_mapped("LIGHT_COUNT_TMP", light_count_size, wgpu::BufferUsage::COPY_SRC, &mut |data| {
+                    data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
+                });
+
+            renderer.copy_buffer_to_buffer(
+                "LIGHT_COUNT_TMP",
+                0,
+                resource_name::uniform::LIGHTS,
+                0,
+                light_count_size as wgpu::BufferAddress,
+            );
 
             renderer.copy_buffer_to_buffer(
                 "LIGHT_TMP",
-                0,
+                light_count_size as u64,
                 resource_name::uniform::LIGHTS,
                 0,
                 total_size as wgpu::BufferAddress,

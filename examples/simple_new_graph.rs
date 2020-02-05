@@ -103,22 +103,22 @@ fn setup(world: &mut World) {
             translation: Translation::new(-2.0, 0.0, 1.0),
         })
         // light
-        // .add_archetype(LightEntity {
-        //     light: Light {
-        //         color: wgpu::Color {
-        //             r: 0.8,
-        //             g: 0.8,
-        //             b: 0.5,
-        //             a: 1.0,
-        //         },
-        //         fov: f32::to_radians(60.0),
-        //         depth: 0.1..50.0,
-        //         target_view: None,
-        //     },
-        //     local_to_world: LocalToWorld::identity(),
-        //     translation: Translation::new(4.0, -4.0, 5.0),
-        //     rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        // })
+        .add_archetype(LightEntity {
+            light: Light {
+                color: wgpu::Color {
+                    r: 0.8,
+                    g: 0.8,
+                    b: 0.5,
+                    a: 1.0,
+                },
+                fov: f32::to_radians(60.0),
+                depth: 0.1..50.0,
+                target_view: None,
+            },
+            local_to_world: LocalToWorld::identity(),
+            translation: Translation::new(4.0, -4.0, 5.0),
+            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+        })
         // camera
         .add_archetype(CameraEntity {
             camera: Camera::new(CameraType::Projection {

@@ -38,6 +38,29 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                             ]
                         }
                     },
+                    Binding {
+                        name: "Lights".to_string(),
+                        bind_type: BindType::Uniform {
+                            dynamic: false,
+                            properties: vec![
+                                UniformProperty {
+                                    name: "NumLights".to_string(),
+                                    property_type: UniformPropertyType::UVec4,
+                                },
+                                UniformProperty {
+                                    name: "SceneLights".to_string(),
+                                    property_type: UniformPropertyType::Array(
+                                        Box::new(UniformPropertyType::Struct(vec![
+                                            UniformPropertyType::Mat4, // proj
+                                            UniformPropertyType::Vec4, // pos
+                                            UniformPropertyType::Vec4, // color
+                                        ])),
+                                        10, // max lights
+                                    ),
+                                },
+                            ]
+                        }
+                    },
                 ]
             ))
             .add_bind_group(BindGroup::new(

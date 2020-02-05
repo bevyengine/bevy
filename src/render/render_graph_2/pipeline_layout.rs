@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::DefaultHasher},
+    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
 pub struct PipelineLayout {
@@ -50,7 +50,7 @@ pub struct Binding {
 pub enum BindType {
     Uniform {
         dynamic: bool,
-        properties: Vec<UniformProperty>
+        properties: Vec<UniformProperty>,
     },
     Buffer {
         dynamic: bool,
@@ -70,9 +70,11 @@ impl BindType {
     pub fn get_uniform_size(&self) -> Option<u64> {
         match self {
             BindType::Uniform { properties, .. } => {
-                Some(properties.iter().fold(0, |total, property| total + property.property_type.get_size()))
-            },
-            _ => None
+                Some(properties.iter().fold(0, |total, property| {
+                    total + property.property_type.get_size()
+                }))
+            }
+            _ => None,
         }
     }
 }
@@ -92,8 +94,8 @@ pub enum UniformPropertyType {
     Vec3,
     Vec4,
     Mat4,
-    // Struct(Vec<UniformPropertyType>),
-    // Array(Box<UniformPropertyType>, usize),
+    Struct(Vec<UniformPropertyType>),
+    Array(Box<UniformPropertyType>, usize),
 }
 
 impl UniformPropertyType {
@@ -105,6 +107,11 @@ impl UniformPropertyType {
             UniformPropertyType::Vec3 => 4 * 3,
             UniformPropertyType::Vec4 => 4 * 4,
             UniformPropertyType::Mat4 => 4 * 4 * 4,
+            UniformPropertyType::Struct(properties) => properties
+                .iter()
+                .map(|p| p.get_size())
+                .fold(0, |total, size| total + size),
+            UniformPropertyType::Array(property, length) => property.get_size() * *length as u64,
         }
     }
 }
