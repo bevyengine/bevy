@@ -441,10 +441,11 @@ impl Renderer for WgpuRenderer {
         };
 
         self.surface = Some(surface);
-        self.resize(world, render_graph, window_size.width, window_size.height);
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.initialize(self, world);
         }
+
+        self.resize(world, render_graph, window_size.width, window_size.height);
     }
 
     fn resize(
@@ -454,6 +455,10 @@ impl Renderer for WgpuRenderer {
         width: u32,
         height: u32,
     ) {
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+        );
         self.swap_chain_descriptor.width = width;
         self.swap_chain_descriptor.height = height;
         let swap_chain = self
@@ -465,14 +470,19 @@ impl Renderer for WgpuRenderer {
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.resize(self, world, width, height);
         }
+        
+        // consume current encoder
+        let command_buffer = self.encoder.take().unwrap().finish();
+        self.queue.submit(&[command_buffer]);
     }
 
     fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World) {
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
-        self.encoder = Some(self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }));
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+        );
 
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world);
@@ -484,7 +494,6 @@ impl Renderer for WgpuRenderer {
         let frame = swap_chain
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
-
 
         // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
@@ -579,11 +588,17 @@ impl Renderer for WgpuRenderer {
         self.buffers.remove(name);
     }
 
-    fn create_buffer_mapped(&mut self, name: &str, size: usize, buffer_usage: wgpu::BufferUsage, setup_data: &mut dyn FnMut(&mut [u8])) {
+    fn create_buffer_mapped(
+        &mut self,
+        name: &str,
+        size: usize,
+        buffer_usage: wgpu::BufferUsage,
+        setup_data: &mut dyn FnMut(&mut [u8]),
+    ) {
         let mut mapped = self.device.create_buffer_mapped(size, buffer_usage);
         setup_data(&mut mapped.data);
         let buffer = mapped.finish();
-        
+
         self.add_resource_info(
             name,
             ResourceInfo::Buffer {
@@ -595,7 +610,14 @@ impl Renderer for WgpuRenderer {
         self.buffers.insert(name.to_string(), buffer);
     }
 
-    fn copy_buffer_to_buffer(&mut self, source_buffer: &str, source_offset: u64, destination_buffer: &str, destination_offset: u64, size: u64) {
+    fn copy_buffer_to_buffer(
+        &mut self,
+        source_buffer: &str,
+        source_offset: u64,
+        destination_buffer: &str,
+        destination_offset: u64,
+        size: u64,
+    ) {
         let source = self.buffers.get(source_buffer).unwrap();
         let destination = self.buffers.get(destination_buffer).unwrap();
         let encoder = self.encoder.as_mut().unwrap();
@@ -605,12 +627,16 @@ impl Renderer for WgpuRenderer {
         self.dynamic_uniform_buffer_info.get(name)
     }
 
-    fn get_dynamic_uniform_buffer_info_mut(&mut self, name: &str) -> Option<&mut DynamicUniformBufferInfo> {
+    fn get_dynamic_uniform_buffer_info_mut(
+        &mut self,
+        name: &str,
+    ) -> Option<&mut DynamicUniformBufferInfo> {
         self.dynamic_uniform_buffer_info.get_mut(name)
     }
 
     fn add_dynamic_uniform_buffer_info(&mut self, name: &str, info: DynamicUniformBufferInfo) {
-        self.dynamic_uniform_buffer_info.insert(name.to_string(), info);
+        self.dynamic_uniform_buffer_info
+            .insert(name.to_string(), info);
     }
 }
 
@@ -667,7 +693,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                     if !dynamic {
                         continue;
                     }
-                    
+
                     // PERF: This hashmap get is pretty expensive (10 fps per 10000 entities)
                     if let Some(dynamic_uniform_buffer_info) =
                         self.renderer.dynamic_uniform_buffer_info.get(&binding.name)
