@@ -4,4 +4,5 @@ pub mod texture {
 
 pub mod uniform {
     pub const CAMERA: &str = "Camera";
+    pub const LIGHTS: &str = "Lights";
 }

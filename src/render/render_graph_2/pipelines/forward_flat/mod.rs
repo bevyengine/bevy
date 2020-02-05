@@ -8,20 +8,20 @@ use crate::render::{
         shader::{Shader, ShaderStage},
     },
 };
-pub trait ForwardPipelineBuilder {
-    fn add_forward_pipeline(self) -> Self;
+pub trait ForwardFlatPipelineBuilder {
+    fn add_forward_flat_pipeline(self) -> Self;
 }
 
-impl ForwardPipelineBuilder for RenderGraphBuilder {
-    fn add_forward_pipeline(self) -> Self {
+impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
+    fn add_forward_flat_pipeline(self) -> Self {
         self.add_pipeline(
-            "forward",
+            "forward_flat",
             PipelineDescriptor::build(Shader::from_glsl(
-                include_str!("forward.vert"),
+                include_str!("forward_flat.vert"),
                 ShaderStage::Vertex,
             ))
             .with_fragment_shader(Shader::from_glsl(
-                include_str!("forward.frag"),
+                include_str!("forward_flat.frag"),
                 ShaderStage::Fragment,
             ))
             .add_bind_group(BindGroup::new(
