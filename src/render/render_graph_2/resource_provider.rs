@@ -124,9 +124,9 @@ impl ResourceProvider for LightResourceProvider {
 
             renderer.copy_buffer_to_buffer(
                 "LIGHT_TMP",
-                light_count_size as u64,
-                resource_name::uniform::LIGHTS,
                 0,
+                resource_name::uniform::LIGHTS,
+                light_count_size as u64,
                 total_size as wgpu::BufferAddress,
             );
         }

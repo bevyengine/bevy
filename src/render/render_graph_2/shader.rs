@@ -9,9 +9,8 @@ use crate::{
     },
 };
 use legion::{prelude::*, storage::Component};
-use std::collections::HashSet;
-use std::marker::PhantomData;
 use zerocopy::AsBytes;
+use std::marker::PhantomData;
 
 pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUniforms>>;
 pub struct ShaderUniforms {
@@ -383,9 +382,9 @@ where
     fn resize(
         &mut self,
         renderer: &mut dyn super::Renderer,
-        world: &mut World,
-        width: u32,
-        height: u32,
+        _world: &mut World,
+        _width: u32,
+        _height: u32,
     ) {
     }
 }
