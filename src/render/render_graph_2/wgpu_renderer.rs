@@ -667,7 +667,8 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                     if !dynamic {
                         continue;
                     }
-
+                    
+                    // PERF: This hashmap get is pretty expensive (10 fps per 10000 entities)
                     if let Some(dynamic_uniform_buffer_info) =
                         self.renderer.dynamic_uniform_buffer_info.get(&binding.name)
                     {

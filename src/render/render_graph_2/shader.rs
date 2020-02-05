@@ -348,6 +348,7 @@ where
             for (i, (entity, _uniforms)) in query.iter_entities(world).enumerate() {
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
+                // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
                 info.offsets.insert(entity, offset as u64);
                 info.indices.insert(i, entity);
                 // TODO: try getting ref first
