@@ -1,5 +1,5 @@
 use crate::{render::{
-    render_graph_2::{resource_name, Renderer},
+    render_graph_2::{resource_name, Renderer, TextureDescriptor},
     ActiveCamera, Camera, Light, LightRaw,
 }, transform::prelude::Translation};
 use bevy_transform::prelude::LocalToWorld;
@@ -132,4 +132,40 @@ impl ResourceProvider for LightResourceProvider {
         }
     }
     fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {}
+}
+
+pub struct FrameTexture {
+    pub name: String,
+    pub descriptor: TextureDescriptor,
+}
+
+impl FrameTexture {
+    pub fn new(name: &str, descriptor: TextureDescriptor) -> Self {
+        FrameTexture {
+            name: name.to_string(),
+            descriptor,
+        }
+    }
+
+    pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World) {
+        let window = world.resources.get::<winit::window::Window>().unwrap();
+        let window_size = window.inner_size();
+        self.descriptor.size.width = window_size.width;
+        self.descriptor.size.height = window_size.height;
+        renderer.create_texture(&self.name, &self.descriptor);
+    }
+}
+
+impl ResourceProvider for FrameTexture {
+    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+        self.update(renderer, world);
+    }
+
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+
+    }
+
+    fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
+        self.update(renderer, world);
+    }
 }

@@ -156,6 +156,7 @@ impl From<TextureDimension> for wgpu::TextureDimension {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct TextureDescriptor {
     pub size: wgpu::Extent3d,
     pub array_layer_count: u32,

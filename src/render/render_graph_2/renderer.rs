@@ -19,7 +19,7 @@ pub trait Renderer {
     fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World);
     // TODO: swap out wgpu::BufferUsage for non-wgpu type
     fn create_buffer_with_data(&mut self, name: &str, data: &[u8], buffer_usage: wgpu::BufferUsage);
-    fn create_texture(&mut self, name: &str, texture_descriptor: TextureDescriptor);
+    fn create_texture(&mut self, name: &str, texture_descriptor: &TextureDescriptor);
     fn get_dynamic_uniform_buffer_info(&self, name: &str) -> Option<&DynamicUniformBufferInfo>;
     fn get_dynamic_uniform_buffer_info_mut(
         &mut self,

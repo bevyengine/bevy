@@ -489,7 +489,7 @@ impl Renderer for WgpuRenderer {
         }
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
-            self.create_texture(&name, texture_descriptor);
+            self.create_texture(&name, &texture_descriptor);
         } 
 
         let mut encoder = self.encoder.take().unwrap();
@@ -643,8 +643,9 @@ impl Renderer for WgpuRenderer {
             .insert(name.to_string(), info);
     }
 
-    fn create_texture(&mut self, name: &str, texture_descriptor: TextureDescriptor) {
-        let texture = self.device.create_texture(&texture_descriptor.into());
+    fn create_texture(&mut self, name: &str, texture_descriptor: &TextureDescriptor) {
+        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).into();
+        let texture = self.device.create_texture(&descriptor);
         self.textures
             .insert(name.to_string(), texture.create_default_view());
     }
