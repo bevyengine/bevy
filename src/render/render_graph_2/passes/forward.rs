@@ -1,9 +1,7 @@
-use crate::render::{
-        render_graph_2::{
-            resource_name, PassDescriptor,
-            RenderGraphBuilder, RenderPassColorAttachmentDescriptor,
-        },
-    };
+use crate::render::render_graph_2::{
+    resource_name, PassDescriptor, RenderGraphBuilder, RenderPassColorAttachmentDescriptor,
+    RenderPassDepthStencilAttachmentDescriptor, TextureDescriptor, TextureDimension,
+};
 
 pub trait ForwardPassBuilder {
     fn add_forward_pass(self) -> Self;
@@ -11,7 +9,23 @@ pub trait ForwardPassBuilder {
 
 impl ForwardPassBuilder for RenderGraphBuilder {
     fn add_forward_pass(self) -> Self {
-        self.add_pass(
+        self.add_texture(
+            resource_name::texture::DEPTH,
+            TextureDescriptor {
+                size: wgpu::Extent3d {
+                    depth: 1,
+                    width: 2560,
+                    height: 1440,
+                },
+                array_layer_count: 1,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            },
+        )
+        .add_pass(
             "main",
             PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
@@ -26,16 +40,15 @@ impl ForwardPassBuilder for RenderGraphBuilder {
                         a: 1.0,
                     },
                 }],
-                depth_stencil_attachment: None,
-                // depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
-                //     attachment: "forward_depth".to_string(),
-                //     depth_load_op: wgpu::LoadOp::Clear,
-                //     depth_store_op: wgpu::StoreOp::Store,
-                //     stencil_load_op: wgpu::LoadOp::Clear,
-                //     stencil_store_op: wgpu::StoreOp::Store,
-                //     clear_depth: 1.0,
-                //     clear_stencil: 0,
-                // }),
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: resource_name::texture::DEPTH.to_string(),
+                    depth_load_op: wgpu::LoadOp::Clear,
+                    depth_store_op: wgpu::StoreOp::Store,
+                    stencil_load_op: wgpu::LoadOp::Clear,
+                    stencil_store_op: wgpu::StoreOp::Store,
+                    clear_depth: 1.0,
+                    clear_stencil: 0,
+                }),
                 sample_count: 1,
             },
         )

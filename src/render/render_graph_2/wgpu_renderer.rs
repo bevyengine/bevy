@@ -4,7 +4,7 @@ use crate::{
         resource_name, BindGroup, BindType, PassDescriptor, PipelineDescriptor, RenderGraph,
         RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, ShaderUniforms,
-        TextureDimension,
+        TextureDescriptor,
     },
 };
 use std::{collections::HashMap, ops::Deref};
@@ -470,7 +470,7 @@ impl Renderer for WgpuRenderer {
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.resize(self, world, width, height);
         }
-        
+
         // consume current encoder
         let command_buffer = self.encoder.take().unwrap().finish();
         self.queue.submit(&[command_buffer]);
@@ -487,6 +487,10 @@ impl Renderer for WgpuRenderer {
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world);
         }
+
+        for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
+            self.create_texture(&name, texture_descriptor);
+        } 
 
         let mut encoder = self.encoder.take().unwrap();
 
@@ -638,6 +642,12 @@ impl Renderer for WgpuRenderer {
         self.dynamic_uniform_buffer_info
             .insert(name.to_string(), info);
     }
+
+    fn create_texture(&mut self, name: &str, texture_descriptor: TextureDescriptor) {
+        let texture = self.device.create_texture(&texture_descriptor.into());
+        self.textures
+            .insert(name.to_string(), texture.create_default_view());
+    }
 }
 
 pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
@@ -713,19 +723,6 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 &bind_group_info.bind_group,
                 dynamic_uniform_indices.as_slice(),
             );
-        }
-    }
-}
-
-impl From<TextureDimension> for wgpu::TextureViewDimension {
-    fn from(dimension: TextureDimension) -> Self {
-        match dimension {
-            TextureDimension::D1 => wgpu::TextureViewDimension::D1,
-            TextureDimension::D2 => wgpu::TextureViewDimension::D2,
-            TextureDimension::D2Array => wgpu::TextureViewDimension::D2Array,
-            TextureDimension::Cube => wgpu::TextureViewDimension::Cube,
-            TextureDimension::CubeArray => wgpu::TextureViewDimension::CubeArray,
-            TextureDimension::D3 => wgpu::TextureViewDimension::D3,
         }
     }
 }

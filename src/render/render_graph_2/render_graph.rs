@@ -1,4 +1,4 @@
-use crate::render::render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider};
+use crate::render::render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor};
 use std::collections::HashMap;
 
 pub struct RenderGraph {
@@ -7,6 +7,7 @@ pub struct RenderGraph {
     pub pass_descriptors: HashMap<String, PassDescriptor>,
     pub pass_pipelines: HashMap<String, Vec<String>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,
+    pub queued_textures: Vec<(String, TextureDescriptor)>,
 }
 
 impl Default for RenderGraph {
@@ -16,6 +17,7 @@ impl Default for RenderGraph {
             pass_descriptors: HashMap::new(),
             pass_pipelines: HashMap::new(),
             resource_providers: Vec::new(),
+            queued_textures: Vec::new(),
         }
     }
 }
@@ -60,6 +62,11 @@ impl RenderGraphBuilder {
 
     pub fn add_resource_provider(mut self, resource_provider: Box<dyn ResourceProvider>) -> Self {
         self.render_graph.resource_providers.push(resource_provider);
+        self
+    }
+
+    pub fn add_texture(mut self, name: &str, texture_descriptor: TextureDescriptor) -> Self {
+        self.render_graph.queued_textures.push((name.to_string(), texture_descriptor));
         self
     }
 
