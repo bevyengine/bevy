@@ -6,6 +6,7 @@ Here is the current list of planned features. All items are sorted in approximat
     * Text
     * Styling
 * Rendering
+    * Render Graph V2
     * Textures
     * Physically based rendering
     * Skeletal animation
