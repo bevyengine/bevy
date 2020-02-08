@@ -1,9 +1,10 @@
 pub mod pipelines;
 pub mod resource_name;
-pub mod wgpu_renderer;
 pub mod resource_provider;
 pub mod resource_providers;
 pub mod passes;
+pub mod draw_targets;
+pub mod renderers;
 mod resource;
 mod pipeline;
 mod pipeline_layout;

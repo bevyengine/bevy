@@ -11,4 +11,6 @@ pub mod uniform {
 
 pub mod buffer {
     pub const UI_INSTANCES: &str = "UiInstances";
+    pub const TEMP_MESH_VERTEX_BUFFER_NAME: &str = "TempMeshVertexBuffer";
+    pub const TEMP_MESH_INDEX_BUFFER_NAME: &str = "TempMeshIndexBuffer";
 }

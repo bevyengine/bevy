@@ -5,7 +5,7 @@ use crate::{
     },
     math::Vec4,
     render::render_graph_2::{
-        wgpu_renderer::DynamicUniformBufferInfo, BindType, ResourceProvider, UniformPropertyType,
+        resource::DynamicUniformBufferInfo, BindType, ResourceProvider, UniformPropertyType,
     },
 };
 use legion::{prelude::*, storage::Component};
