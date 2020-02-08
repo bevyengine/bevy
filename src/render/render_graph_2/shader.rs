@@ -5,7 +5,8 @@ use crate::{
     },
     math::Vec4,
     render::render_graph_2::{
-        resource::DynamicUniformBufferInfo, BindType, ResourceProvider, UniformPropertyType,
+        resource::DynamicUniformBufferInfo, BindType, Renderer, ResourceProvider,
+        UniformPropertyType,
     },
 };
 use legion::{prelude::*, storage::Component};
@@ -260,9 +261,9 @@ impl<T> ResourceProvider for UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync + 'static,
 {
-    fn initialize(&mut self, _renderer: &mut dyn super::Renderer, _world: &mut World) {}
+    fn initialize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
 
-    fn update(&mut self, renderer: &mut dyn super::Renderer, world: &mut World) {
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
         let query = <Read<T>>::query();
         // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
         // TODO: this breaks down in multiple ways:
@@ -381,7 +382,7 @@ where
 
     fn resize(
         &mut self,
-        _renderer: &mut dyn super::Renderer,
+        _renderer: &mut dyn Renderer,
         _world: &mut World,
         _width: u32,
         _height: u32,
