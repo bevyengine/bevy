@@ -2,7 +2,8 @@ use crate::render::{
     Vertex,
     {
         render_graph_2::{
-            mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
+            draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor,
+            RenderGraphBuilder,
         },
         shader::{Shader, ShaderStage},
     },
