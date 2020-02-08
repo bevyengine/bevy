@@ -255,6 +255,7 @@ impl WgpuRenderer {
             // if a uniform resource buffer doesn't exist, create a new empty one
             for binding in bind_group.bindings.iter() {
                 if let None = self.resource_info.get(&binding.name) {
+                    println!("Warning: creating new empty buffer for binding {}", binding.name);
                     unset_uniforms.push(binding.name.to_string());
                     if let BindType::Uniform { .. } = &binding.bind_type {
                         let size = binding.bind_type.get_uniform_size().unwrap();
@@ -584,6 +585,41 @@ impl Renderer for WgpuRenderer {
         self.buffers.insert(name.to_string(), buffer);
     }
 
+    fn create_instance_buffer(&mut self, name: &str, mesh_id: usize, size: usize, count: usize, buffer_usage: wgpu::BufferUsage) {
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            size: (size * count) as u64,
+            usage: buffer_usage,
+        });
+
+        self.add_resource_info(
+            name,
+            ResourceInfo::InstanceBuffer {
+                buffer_usage,
+                size,
+                count,
+                mesh_id,
+            },
+        );
+
+        self.buffers.insert(name.to_string(), buffer);
+    }
+
+    fn create_instance_buffer_with_data(&mut self, name: &str, mesh_id: usize, data: &[u8], size: usize, count: usize, buffer_usage: wgpu::BufferUsage) {
+        let buffer = self.device.create_buffer_with_data(data, buffer_usage);
+
+        self.add_resource_info(
+            name,
+            ResourceInfo::InstanceBuffer {
+                buffer_usage,
+                size,
+                count,
+                mesh_id,
+            },
+        );
+
+        self.buffers.insert(name.to_string(), buffer);
+    }
+
     fn get_resource_info(&self, name: &str) -> Option<&ResourceInfo> {
         self.resource_info.get(name)
     }
@@ -719,6 +755,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 }
             }
 
+            // TODO: check to see if bind group is already set
             self.render_pass.set_bind_group(
                 i as u32,
                 &bind_group_info.bind_group,

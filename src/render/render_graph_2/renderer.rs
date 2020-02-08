@@ -27,6 +27,8 @@ pub trait Renderer {
     ) -> Option<&mut DynamicUniformBufferInfo>;
     fn add_dynamic_uniform_buffer_info(&mut self, name: &str, info: DynamicUniformBufferInfo);
     fn create_buffer(&mut self, name: &str, size: u64, buffer_usage: wgpu::BufferUsage);
+    fn create_instance_buffer(&mut self, name: &str, mesh_id: usize, size: usize, count: usize, buffer_usage: wgpu::BufferUsage);
+    fn create_instance_buffer_with_data(&mut self, name: &str, mesh_id: usize, data: &[u8], size: usize, count: usize, buffer_usage: wgpu::BufferUsage);
     fn create_buffer_mapped(
         &mut self,
         name: &str,

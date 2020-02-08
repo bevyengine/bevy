@@ -20,7 +20,7 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
             fn insert(self, world: &mut World) -> Entity {
                 *world.insert((), vec![(
                     #(self.#field_name),*
-                )]).first().unwrap()
+                ,)]).first().unwrap()
             }
         }
     })

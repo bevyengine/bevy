@@ -33,3 +33,14 @@ pub struct CameraEntity {
     pub active_camera: ActiveCamera,
     pub local_to_world: LocalToWorld,
 }
+
+#[derive(EntityArchetype)]
+pub struct Camera2dEntity {
+    pub camera: Camera,
+    pub active_camera_2d: ActiveCamera2d,
+}
+
+#[derive(EntityArchetype)]
+pub struct UiEntity {
+    pub node: Node,
+}

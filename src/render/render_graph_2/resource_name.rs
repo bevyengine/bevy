@@ -5,5 +5,10 @@ pub mod texture {
 
 pub mod uniform {
     pub const CAMERA: &str = "Camera";
+    pub const CAMERA2D: &str = "Camera2d";
     pub const LIGHTS: &str = "Lights";
+}
+
+pub mod buffer {
+    pub const UI_INSTANCES: &str = "UiInstances";
 }

@@ -87,14 +87,12 @@ impl PipelineDescriptor {
 
 pub struct PipelineBuilder {
     pipeline: PipelineDescriptor,
-    vertex_buffer_descriptor_offset: u64,
 }
 
 impl PipelineBuilder {
     pub fn new(vertex_shader: Shader) -> Self {
         PipelineBuilder {
             pipeline: PipelineDescriptor::new(vertex_shader),
-            vertex_buffer_descriptor_offset: 0,
         }
     }
 
@@ -130,16 +128,8 @@ impl PipelineBuilder {
 
     pub fn add_vertex_buffer_descriptor(
         mut self,
-        mut vertex_buffer_descriptor: VertexBufferDescriptor,
+        vertex_buffer_descriptor: VertexBufferDescriptor,
     ) -> Self {
-        let mut offset = 0;
-        for attribute in vertex_buffer_descriptor.attributes.iter_mut() {
-            offset += attribute.offset;
-            attribute.offset += self.vertex_buffer_descriptor_offset;
-        }
-
-        self.vertex_buffer_descriptor_offset += offset;
-
         self.pipeline
             .vertex_buffer_descriptors
             .push(vertex_buffer_descriptor);

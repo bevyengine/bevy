@@ -1,7 +1,7 @@
 use crate::render::render_graph_2::{
     resource_name, PassDescriptor, RenderGraphBuilder, RenderPassColorAttachmentDescriptor,
     RenderPassDepthStencilAttachmentDescriptor, TextureDescriptor, TextureDimension,
-    FrameTexture,
+    resource_providers::FrameTextureResourceProvider,
 };
 
 pub trait ForwardPassBuilder {
@@ -10,7 +10,7 @@ pub trait ForwardPassBuilder {
 
 impl ForwardPassBuilder for RenderGraphBuilder {
     fn add_forward_pass(self) -> Self {
-        self.add_resource_provider(Box::new(FrameTexture::new(resource_name::texture::DEPTH, TextureDescriptor {
+        self.add_resource_provider(Box::new(FrameTextureResourceProvider::new(resource_name::texture::DEPTH, TextureDescriptor {
             size: wgpu::Extent3d {
                 depth: 1,
                 width: 1,
