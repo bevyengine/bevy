@@ -36,14 +36,7 @@ Bevy is still in the _very_ stages of development. APIs can and will change. Imp
 
 ## Planned Features
 
-* Physically Based Rendering
-* Load scenes from files
-* Editor (built using Bevy)
-* Live Plugin Reloading
-* GLTF model loading
-* Gamepad support
-* Networking
-* More Platforms: Android, iOS, Web
+See our [ROADMAP.md](~/ROADMAP.md) for the current list of planned features.
 
 ## Getting Started
 
