@@ -36,7 +36,7 @@ Bevy is still in the _very_ stages of development. APIs can and will change. Imp
 
 ## Planned Features
 
-See our [ROADMAP.md](~/ROADMAP.md) for the current list of planned features.
+See our [ROADMAP.md](ROADMAP.md) for the current list of planned features.
 
 ## Getting Started
 
