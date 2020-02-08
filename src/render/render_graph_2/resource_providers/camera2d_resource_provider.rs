@@ -1,10 +1,10 @@
-use crate::{render::{
+use crate::render::render_graph_2::ResourceProvider;
+use crate::render::{
     render_graph_2::{resource_name, Renderer},
     ActiveCamera2d, Camera,
-}};
+};
 use legion::prelude::*;
 use zerocopy::AsBytes;
-use crate::render::render_graph_2::ResourceProvider;
 
 pub struct Camera2dResourceProvider;
 
@@ -20,12 +20,9 @@ impl ResourceProvider for Camera2dResourceProvider {
     fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
     fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-        for (mut camera, _) in
-            <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter_mut(world)
-        {
+        for (mut camera, _) in <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter_mut(world) {
             camera.update(width, height);
-            let camera_matrix: [[f32; 4]; 4] =
-                camera.view_matrix.to_cols_array_2d();
+            let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
 
             renderer.create_buffer_mapped(
                 "camera2d_tmp",

@@ -1,9 +1,9 @@
 pub mod camera;
 pub mod instancing;
 pub mod passes;
+pub mod render_graph_2;
 pub mod render_resources;
 pub mod shader;
-pub mod render_graph_2;
 
 mod light;
 mod material;

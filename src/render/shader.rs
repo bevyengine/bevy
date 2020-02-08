@@ -18,13 +18,19 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
 }
 
 pub fn glsl_to_spirv(glsl_source: &str, stage: ShaderStage) -> Vec<u32> {
-    let shader_kind: shaderc::ShaderKind = stage.into(); 
+    let shader_kind: shaderc::ShaderKind = stage.into();
     let mut compiler = shaderc::Compiler::new().unwrap();
     let options = shaderc::CompileOptions::new().unwrap();
-    let binary_result = compiler.compile_into_spirv(
-        glsl_source, shader_kind,
-        "shader.glsl", "main", Some(&options)).unwrap();
-    
+    let binary_result = compiler
+        .compile_into_spirv(
+            glsl_source,
+            shader_kind,
+            "shader.glsl",
+            "main",
+            Some(&options),
+        )
+        .unwrap();
+
     binary_result.as_binary().into()
 }
 

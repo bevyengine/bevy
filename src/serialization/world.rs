@@ -13,7 +13,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    any::{type_name}, cell::RefCell, collections::HashMap, iter::FromIterator, marker::PhantomData,
+    any::type_name, cell::RefCell, collections::HashMap, iter::FromIterator, marker::PhantomData,
     ptr::NonNull,
 };
 use type_uuid::TypeUuid;
@@ -209,7 +209,9 @@ impl SerializeImpl {
                     .map(|reg| (reg.ty.clone(), reg.clone())),
             ),
             tag_types: HashMap::from_iter(
-                tag_registrations.iter().map(|reg| (reg.ty.clone(), reg.clone())),
+                tag_registrations
+                    .iter()
+                    .map(|reg| (reg.ty.clone(), reg.clone())),
             ),
             entity_map: RefCell::new(HashMap::new()),
         }
@@ -227,7 +229,9 @@ impl SerializeImpl {
                     .map(|reg| (reg.ty.clone(), reg.clone())),
             ),
             tag_types: HashMap::from_iter(
-                tag_registrations.iter().map(|reg| (reg.ty.clone(), reg.clone())),
+                tag_registrations
+                    .iter()
+                    .map(|reg| (reg.ty.clone(), reg.clone())),
             ),
             entity_map: RefCell::new(HashMap::from_iter(
                 entity_map.into_iter().map(|(uuid, e)| (e, uuid)),

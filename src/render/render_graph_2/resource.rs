@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use legion::prelude::Entity;
+use std::collections::HashMap;
 
 pub enum ResourceInfo {
     BufferMapped {

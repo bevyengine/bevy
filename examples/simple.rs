@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new().add_defaults_legacy().setup_world(setup).run();
+    AppBuilder::new()
+        .add_defaults_legacy()
+        .setup_world(setup)
+        .run();
 }
 
 fn setup(world: &mut World) {
@@ -12,8 +15,9 @@ fn setup(world: &mut World) {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
-    
-    world.build()
+
+    world
+        .build()
         // plane
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
@@ -60,5 +64,5 @@ fn setup(world: &mut World) {
                 Vec3::new(0.0, 0.0, 1.0),
             )),
         })
-    .build();
+        .build();
 }

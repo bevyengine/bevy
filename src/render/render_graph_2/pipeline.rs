@@ -1,5 +1,5 @@
 use crate::render::{
-    render_graph_2::{DrawTarget, PipelineLayout, BindGroup},
+    render_graph_2::{BindGroup, DrawTarget, PipelineLayout},
     shader::{Shader, ShaderStages},
 };
 

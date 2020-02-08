@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms};
+use bevy::render::render_graph_2::{ShaderUniforms, StandardMaterial};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -13,8 +13,9 @@ fn setup(world: &mut World) {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
-    
-    world.build()
+
+    world
+        .build()
         // plane
         .add_archetype(NewMeshEntity {
             mesh: plane_handle.clone(),
@@ -67,5 +68,5 @@ fn setup(world: &mut World) {
                 Vec3::new(0.0, 0.0, 1.0),
             )),
         })
-    .build();
+        .build();
 }

@@ -1,12 +1,15 @@
-mod entity_builder;
-mod entity_archetype;
 pub mod default_archetypes;
+mod entity_archetype;
+mod entity_builder;
 
-pub use entity_builder::*;
 pub use entity_archetype::*;
+pub use entity_builder::*;
 
-use legion::{prelude::{Entity, World}, system::SubWorld};
 use bevy_transform::prelude::Children;
+use legion::{
+    prelude::{Entity, World},
+    system::SubWorld,
+};
 
 pub fn run_on_hierarchy<T>(
     world: &World,
@@ -20,11 +23,9 @@ pub fn run_on_hierarchy<T>(
 
     if let Some(result) = result {
         match world.get_component::<Children>(entity) {
-            Some(children) => Some(
-                for child in children.iter() {
-                    run_on_hierarchy(world, *child, result, func);
-                }
-            ),
+            Some(children) => Some(for child in children.iter() {
+                run_on_hierarchy(world, *child, result, func);
+            }),
             None => None,
         };
     }
@@ -72,11 +73,9 @@ pub fn run_on_hierarchy_subworld<T>(
 
     if let Some(result) = result {
         match world.get_component::<Children>(entity) {
-            Some(children) => Some(
-                for child in children.iter() {
-                    run_on_hierarchy_subworld(world, *child, result, func);
-                }
-            ),
+            Some(children) => Some(for child in children.iter() {
+                run_on_hierarchy_subworld(world, *child, result, func);
+            }),
             None => None,
         };
     }

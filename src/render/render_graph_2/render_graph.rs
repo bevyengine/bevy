@@ -1,9 +1,11 @@
-use crate::render::render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor};
+use crate::render::render_graph_2::{
+    PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
+};
 use std::collections::HashMap;
 
 pub struct RenderGraph {
     pub pipeline_descriptors: HashMap<String, PipelineDescriptor>,
-    // TODO: make this ordered 
+    // TODO: make this ordered
     pub pass_descriptors: HashMap<String, PassDescriptor>,
     pub pass_pipelines: HashMap<String, Vec<String>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,
@@ -47,13 +49,19 @@ impl RenderGraphBuilder {
         self.render_graph
             .pipeline_descriptors
             .insert(name.to_string(), pipeline);
-        
+
         if let Some(current_pass) = self.current_pass.as_ref() {
             if let None = self.render_graph.pass_pipelines.get(current_pass) {
-                self.render_graph.pass_pipelines.insert(current_pass.to_string(), Vec::new());
+                self.render_graph
+                    .pass_pipelines
+                    .insert(current_pass.to_string(), Vec::new());
             }
 
-            let pass_pipelines = self.render_graph.pass_pipelines.get_mut(current_pass).unwrap();
+            let pass_pipelines = self
+                .render_graph
+                .pass_pipelines
+                .get_mut(current_pass)
+                .unwrap();
             pass_pipelines.push(name.to_string());
         }
 
@@ -66,7 +74,9 @@ impl RenderGraphBuilder {
     }
 
     pub fn add_texture(mut self, name: &str, texture_descriptor: TextureDescriptor) -> Self {
-        self.render_graph.queued_textures.push((name.to_string(), texture_descriptor));
+        self.render_graph
+            .queued_textures
+            .push((name.to_string(), texture_descriptor));
         self
     }
 

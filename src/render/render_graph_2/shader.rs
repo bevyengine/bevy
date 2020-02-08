@@ -9,8 +9,8 @@ use crate::{
     },
 };
 use legion::{prelude::*, storage::Component};
-use zerocopy::AsBytes;
 use std::marker::PhantomData;
+use zerocopy::AsBytes;
 
 pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUniforms>>;
 pub struct ShaderUniforms {

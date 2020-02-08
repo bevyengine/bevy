@@ -1,11 +1,15 @@
+use crate::asset::MeshType;
 use crate::prelude::Node;
 use crate::render::render_graph_2::resource_name;
 use crate::render::render_graph_2::ResourceProvider;
-use crate::{ecs, render::render_graph_2::Renderer, asset::{Handle, Mesh, Asset, AssetStorage}, math};
+use crate::{
+    asset::{Asset, AssetStorage, Handle, Mesh},
+    ecs, math,
+    render::render_graph_2::Renderer,
+};
 use bevy_transform::prelude::Parent;
 use legion::prelude::*;
 use zerocopy::{AsBytes, FromBytes};
-use crate::asset::MeshType;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, AsBytes, FromBytes)]
@@ -22,9 +26,7 @@ pub struct UiResourceProvider {
 
 impl UiResourceProvider {
     pub fn new() -> Self {
-        UiResourceProvider {
-            quad: None,
-        }
+        UiResourceProvider { quad: None }
     }
 
     pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World) {
@@ -60,7 +62,7 @@ impl UiResourceProvider {
         }
 
         if data.len() == 0 {
-            return
+            return;
         }
 
         let size = std::mem::size_of::<RectData>();
@@ -95,6 +97,12 @@ impl ResourceProvider for UiResourceProvider {
         self.update(renderer, world);
     }
 
-    fn resize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _width: u32, _height: u32) {
+    fn resize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _width: u32,
+        _height: u32,
+    ) {
     }
 }

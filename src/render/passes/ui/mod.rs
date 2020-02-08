@@ -96,7 +96,8 @@ impl UiPipeline {
 impl Pipeline for UiPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
         let vs_bytes = shader::glsl_to_spirv(include_str!("ui.vert"), shader::ShaderStage::Vertex);
-        let fs_bytes = shader::glsl_to_spirv(include_str!("ui.frag"), shader::ShaderStage::Fragment);
+        let fs_bytes =
+            shader::glsl_to_spirv(include_str!("ui.frag"), shader::ShaderStage::Fragment);
 
         let bind_group_layout =
             render_graph
@@ -177,7 +178,7 @@ impl Pipeline for UiPipeline {
         let vs_module = render_graph.device.create_shader_module(&vs_bytes);
         let fs_module = render_graph.device.create_shader_module(&fs_bytes);
 
-        let pipedesc =             wgpu::RenderPipelineDescriptor {
+        let pipedesc = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
@@ -225,8 +226,7 @@ impl Pipeline for UiPipeline {
             alpha_to_coverage_enabled: false,
         };
 
-        self.pipeline = Some(render_graph.device.create_render_pipeline(&pipedesc
-        ));
+        self.pipeline = Some(render_graph.device.create_render_pipeline(&pipedesc));
     }
 
     fn render(

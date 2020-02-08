@@ -1,6 +1,6 @@
+use crate::render::render_graph_2::VertexBufferDescriptor;
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
-use crate::render::render_graph_2::VertexBufferDescriptor;
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes)]

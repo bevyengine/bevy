@@ -1,10 +1,10 @@
 use crate::{
     legion::prelude::*,
     render::render_graph_2::{
-        resource_name, BindGroup, BindType, PassDescriptor, PipelineDescriptor, RenderGraph,
-        RenderPass, RenderPassColorAttachmentDescriptor,
+        resource_name, BindGroup, BindType, DynamicUniformBufferInfo, PassDescriptor,
+        PipelineDescriptor, RenderGraph, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, ShaderUniforms,
-        TextureDescriptor, DynamicUniformBufferInfo,
+        TextureDescriptor,
     },
 };
 use std::{collections::HashMap, ops::Deref};
@@ -235,7 +235,10 @@ impl WgpuRenderer {
             // if a uniform resource buffer doesn't exist, create a new empty one
             for binding in bind_group.bindings.iter() {
                 if let None = self.resource_info.get(&binding.name) {
-                    println!("Warning: creating new empty buffer for binding {}", binding.name);
+                    println!(
+                        "Warning: creating new empty buffer for binding {}",
+                        binding.name
+                    );
                     unset_uniforms.push(binding.name.to_string());
                     if let BindType::Uniform { .. } = &binding.bind_type {
                         let size = binding.bind_type.get_uniform_size().unwrap();
@@ -471,7 +474,7 @@ impl Renderer for WgpuRenderer {
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             self.create_texture(&name, &texture_descriptor);
-        } 
+        }
 
         let mut encoder = self.encoder.take().unwrap();
 
@@ -565,7 +568,14 @@ impl Renderer for WgpuRenderer {
         self.buffers.insert(name.to_string(), buffer);
     }
 
-    fn create_instance_buffer(&mut self, name: &str, mesh_id: usize, size: usize, count: usize, buffer_usage: wgpu::BufferUsage) {
+    fn create_instance_buffer(
+        &mut self,
+        name: &str,
+        mesh_id: usize,
+        size: usize,
+        count: usize,
+        buffer_usage: wgpu::BufferUsage,
+    ) {
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: (size * count) as u64,
             usage: buffer_usage,
@@ -584,7 +594,15 @@ impl Renderer for WgpuRenderer {
         self.buffers.insert(name.to_string(), buffer);
     }
 
-    fn create_instance_buffer_with_data(&mut self, name: &str, mesh_id: usize, data: &[u8], size: usize, count: usize, buffer_usage: wgpu::BufferUsage) {
+    fn create_instance_buffer_with_data(
+        &mut self,
+        name: &str,
+        mesh_id: usize,
+        data: &[u8],
+        size: usize,
+        count: usize,
+        buffer_usage: wgpu::BufferUsage,
+    ) {
         let buffer = self.device.create_buffer_with_data(data, buffer_usage);
 
         self.add_resource_info(

@@ -1,10 +1,10 @@
-use zerocopy::AsBytes;
-use legion::prelude::*;
-use crate::render::render_graph_2::ResourceProvider;
 use crate::render::render_graph_2::resource_name;
 use crate::render::render_graph_2::Renderer;
+use crate::render::render_graph_2::ResourceProvider;
 use crate::render::{Light, LightRaw};
 use bevy_transform::prelude::{LocalToWorld, Translation};
+use legion::prelude::*;
+use zerocopy::AsBytes;
 
 pub struct LightResourceProvider {
     pub lights_are_dirty: bool,
@@ -28,8 +28,9 @@ impl LightResourceProvider {
 
 impl ResourceProvider for LightResourceProvider {
     fn initialize(&mut self, renderer: &mut dyn Renderer, _world: &mut World) {
-        let light_uniform_size =
-            (std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>()) as wgpu::BufferAddress;
+        let light_uniform_size = (std::mem::size_of::<LightCount>()
+            + self.max_lights * std::mem::size_of::<LightRaw>())
+            as wgpu::BufferAddress;
 
         renderer.create_buffer(
             resource_name::uniform::LIGHTS,
@@ -51,21 +52,28 @@ impl ResourceProvider for LightResourceProvider {
             let size = std::mem::size_of::<LightRaw>();
             let total_size = size * light_count;
             let light_count_size = std::mem::size_of::<LightCount>();
-            renderer
-                .create_buffer_mapped("LIGHT_TMP", total_size, wgpu::BufferUsage::COPY_SRC, &mut |data| {
-                    for ((light, local_to_world, translation), slot) in light_query
-                        .iter(world)
-                        .zip(data.chunks_exact_mut(size))
+            renderer.create_buffer_mapped(
+                "LIGHT_TMP",
+                total_size,
+                wgpu::BufferUsage::COPY_SRC,
+                &mut |data| {
+                    for ((light, local_to_world, translation), slot) in
+                        light_query.iter(world).zip(data.chunks_exact_mut(size))
                     {
                         slot.copy_from_slice(
                             LightRaw::from(&light, &local_to_world.0, &translation).as_bytes(),
                         );
                     }
-                });
-            renderer
-                .create_buffer_mapped("LIGHT_COUNT_TMP", light_count_size, wgpu::BufferUsage::COPY_SRC, &mut |data| {
+                },
+            );
+            renderer.create_buffer_mapped(
+                "LIGHT_COUNT_TMP",
+                light_count_size,
+                wgpu::BufferUsage::COPY_SRC,
+                &mut |data| {
                     data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
-                });
+                },
+            );
 
             renderer.copy_buffer_to_buffer(
                 "LIGHT_COUNT_TMP",
@@ -85,5 +93,12 @@ impl ResourceProvider for LightResourceProvider {
         }
     }
 
-    fn resize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _width: u32, _height: u32) {}
+    fn resize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _width: u32,
+        _height: u32,
+    ) {
+    }
 }

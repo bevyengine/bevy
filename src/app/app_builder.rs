@@ -1,16 +1,19 @@
 use crate::{
-    app::{App, system_stage},
+    app::{system_stage, App},
     asset::*,
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
-    render::render_graph_2,
-    render::render_graph_2::{pipelines::*, passes::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*, UniformResourceProvider, StandardMaterial},
-    render::{passes::*, *},
     plugin::load_plugin,
+    render::render_graph_2,
+    render::render_graph_2::{
+        passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
+        StandardMaterial, UniformResourceProvider,
+    },
+    render::{passes::*, *},
     ui,
 };
 
-use bevy_transform::{transform_system_bundle, prelude::LocalToWorld};
+use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use std::collections::HashMap;
 
 pub struct AppBuilder {

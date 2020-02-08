@@ -1,11 +1,18 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new().add_defaults_legacy().setup_world(setup).run();
+    AppBuilder::new()
+        .add_defaults_legacy()
+        .setup_world(setup)
+        .run();
 }
 
 #[allow(dead_code)]
-fn create_entities_insert_vec(world: &mut World, plane_handle: Handle<Mesh>, cube_handle: Handle<Mesh>) {
+fn create_entities_insert_vec(
+    world: &mut World,
+    plane_handle: Handle<Mesh>,
+    cube_handle: Handle<Mesh>,
+) {
     // plane
     world.insert(
         (),
@@ -70,55 +77,65 @@ fn create_entities_insert_vec(world: &mut World, plane_handle: Handle<Mesh>, cub
 }
 
 #[allow(dead_code)]
-fn create_entities_builder_add_component(world: &mut World, plane_handle: Handle<Mesh>, cube_handle: Handle<Mesh>) {
-    world.build()
+fn create_entities_builder_add_component(
+    world: &mut World,
+    plane_handle: Handle<Mesh>,
+    cube_handle: Handle<Mesh>,
+) {
+    world
+        .build()
         // plane
         .build_entity()
-            .add(plane_handle.clone())
-            .add(Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))))
-            .add(LocalToWorld::identity())
-            .add(Translation::new(0.0, 0.0, 0.0))
+        .add(plane_handle.clone())
+        .add(Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))))
+        .add(LocalToWorld::identity())
+        .add(Translation::new(0.0, 0.0, 0.0))
         // cube
         .build_entity()
-            .add(cube_handle)
-            .add(Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))))
-            .add(LocalToWorld::identity())
-            .add(Translation::new(0.0, 0.0, 1.0))
+        .add(cube_handle)
+        .add(Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))))
+        .add(LocalToWorld::identity())
+        .add(Translation::new(0.0, 0.0, 1.0))
         // light
         .build_entity()
-            .add(Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            })
-            .add(LocalToWorld::identity())
-            .add(Translation::new(4.0, -4.0, 5.0))
-            .add(Rotation::from_euler_angles(0.0, 0.0, 0.0))
+        .add(Light {
+            color: wgpu::Color {
+                r: 0.8,
+                g: 0.8,
+                b: 0.5,
+                a: 1.0,
+            },
+            fov: f32::to_radians(60.0),
+            depth: 0.1..50.0,
+            target_view: None,
+        })
+        .add(LocalToWorld::identity())
+        .add(Translation::new(4.0, -4.0, 5.0))
+        .add(Rotation::from_euler_angles(0.0, 0.0, 0.0))
         // camera
         .build_entity()
-            .add(Camera::new(CameraType::Projection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 1.0,
-                far: 1000.0,
-                aspect_ratio: 1.0,
-            }))
-            .add(ActiveCamera)
-            .add(LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, 8.0, 5.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
-            )))
-    .build();
+        .add(Camera::new(CameraType::Projection {
+            fov: std::f32::consts::PI / 4.0,
+            near: 1.0,
+            far: 1000.0,
+            aspect_ratio: 1.0,
+        }))
+        .add(ActiveCamera)
+        .add(LocalToWorld(Mat4::look_at_rh(
+            Vec3::new(3.0, 8.0, 5.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 1.0),
+        )))
+        .build();
 }
 
-fn create_entities_builder_archetype(world: &mut World, plane_handle: Handle<Mesh>, cube_handle: Handle<Mesh>) {
-    world.build()
+fn create_entities_builder_archetype(
+    world: &mut World,
+    plane_handle: Handle<Mesh>,
+    cube_handle: Handle<Mesh>,
+) {
+    world
+        .build()
         // plane
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
@@ -165,7 +182,7 @@ fn create_entities_builder_archetype(world: &mut World, plane_handle: Handle<Mes
                 Vec3::new(0.0, 0.0, 1.0),
             )),
         })
-    .build();
+        .build();
 }
 
 fn setup(world: &mut World) {
@@ -185,6 +202,6 @@ fn setup(world: &mut World) {
     // noarchetype precompile: .93
     // create_entities_builder_add_component(world, plane_handle, cube_handle);
 
-    // archetype precompile: 0.65 
+    // archetype precompile: 0.65
     create_entities_builder_archetype(world, plane_handle, cube_handle);
 }

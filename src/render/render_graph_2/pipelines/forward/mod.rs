@@ -2,8 +2,7 @@ use crate::render::{
     Vertex,
     {
         render_graph_2::{
-            mesh_draw_target, pipeline_layout::*, PipelineDescriptor,
-            RenderGraphBuilder,
+            mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
         },
         shader::{Shader, ShaderStage},
     },
@@ -24,73 +23,63 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 include_str!("forward.frag"),
                 ShaderStage::Fragment,
             ))
-            .add_bind_group(BindGroup::new(
-                vec![
-                    Binding {
-                        name: "Camera".to_string(),
-                        bind_type: BindType::Uniform {
-                            dynamic: false,
-                            properties: vec![
-                                UniformProperty {
-                                    name: "ViewProj".to_string(),
-                                    property_type: UniformPropertyType::Mat4,
-                                },
-                            ]
-                        }
+            .add_bind_group(BindGroup::new(vec![
+                Binding {
+                    name: "Camera".to_string(),
+                    bind_type: BindType::Uniform {
+                        dynamic: false,
+                        properties: vec![UniformProperty {
+                            name: "ViewProj".to_string(),
+                            property_type: UniformPropertyType::Mat4,
+                        }],
                     },
-                    Binding {
-                        name: "Lights".to_string(),
-                        bind_type: BindType::Uniform {
-                            dynamic: false,
-                            properties: vec![
-                                UniformProperty {
-                                    name: "NumLights".to_string(),
-                                    property_type: UniformPropertyType::UVec4,
-                                },
-                                UniformProperty {
-                                    name: "SceneLights".to_string(),
-                                    property_type: UniformPropertyType::Array(
-                                        Box::new(UniformPropertyType::Struct(vec![
-                                            UniformPropertyType::Mat4, // proj
-                                            UniformPropertyType::Vec4, // pos
-                                            UniformPropertyType::Vec4, // color
-                                        ])),
-                                        10, // max lights
-                                    ),
-                                },
-                            ]
-                        }
+                },
+                Binding {
+                    name: "Lights".to_string(),
+                    bind_type: BindType::Uniform {
+                        dynamic: false,
+                        properties: vec![
+                            UniformProperty {
+                                name: "NumLights".to_string(),
+                                property_type: UniformPropertyType::UVec4,
+                            },
+                            UniformProperty {
+                                name: "SceneLights".to_string(),
+                                property_type: UniformPropertyType::Array(
+                                    Box::new(UniformPropertyType::Struct(vec![
+                                        UniformPropertyType::Mat4, // proj
+                                        UniformPropertyType::Vec4, // pos
+                                        UniformPropertyType::Vec4, // color
+                                    ])),
+                                    10, // max lights
+                                ),
+                            },
+                        ],
                     },
-                ]
-            ))
-            .add_bind_group(BindGroup::new(
-                vec![
-                    Binding {
-                        name: "Object".to_string(),
-                        bind_type: BindType::Uniform {
-                            dynamic: true,
-                            properties: vec![
-                                UniformProperty {
-                                    name: "Model".to_string(),
-                                    property_type: UniformPropertyType::Mat4,
-                                },
-                            ]
-                        }
+                },
+            ]))
+            .add_bind_group(BindGroup::new(vec![
+                Binding {
+                    name: "Object".to_string(),
+                    bind_type: BindType::Uniform {
+                        dynamic: true,
+                        properties: vec![UniformProperty {
+                            name: "Model".to_string(),
+                            property_type: UniformPropertyType::Mat4,
+                        }],
                     },
-                    Binding {
-                        name: "StandardMaterial".to_string(),
-                        bind_type: BindType::Uniform {
-                            dynamic: true,
-                            properties: vec![
-                                UniformProperty {
-                                    name: "Albedo".to_string(),
-                                    property_type: UniformPropertyType::Vec4,
-                                },
-                            ]
-                        }
+                },
+                Binding {
+                    name: "StandardMaterial".to_string(),
+                    bind_type: BindType::Uniform {
+                        dynamic: true,
+                        properties: vec![UniformProperty {
+                            name: "Albedo".to_string(),
+                            property_type: UniformPropertyType::Vec4,
+                        }],
                     },
-                ]
-            ))
+                },
+            ]))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,

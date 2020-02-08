@@ -1,9 +1,7 @@
 use crate::{
     asset::{AssetStorage, Mesh},
     legion::prelude::*,
-    render::{
-        render_graph_2::{RenderPass, resource_name, ResourceInfo},
-    },
+    render::render_graph_2::{resource_name, RenderPass, ResourceInfo},
 };
 
 use zerocopy::AsBytes;
@@ -40,7 +38,6 @@ pub fn ui_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
         } else {
             None
         }
-
     };
     if let Some((instance_count, indices_length)) = result {
         render_pass.setup_bind_groups(None);

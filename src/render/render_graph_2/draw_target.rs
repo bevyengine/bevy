@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph_2::{RenderPass, ShaderUniforms, resource_name},
+        render_graph_2::{resource_name, RenderPass, ShaderUniforms},
         Instanced,
     },
 };
@@ -42,7 +42,11 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
 
                 // TODO: Verify buffer format matches render pass
                 render_pass.set_index_buffer(resource_name::buffer::TEMP_MESH_INDEX_BUFFER_NAME, 0);
-                render_pass.set_vertex_buffer(0, resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME, 0);
+                render_pass.set_vertex_buffer(
+                    0,
+                    resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME,
+                    0,
+                );
                 current_mesh_id = Some(mesh.id);
                 current_mesh_index_length = mesh_asset.indices.len() as u32;
             };

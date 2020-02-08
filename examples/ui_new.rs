@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms};
+use bevy::render::render_graph_2::{ShaderUniforms, StandardMaterial};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -12,7 +12,8 @@ fn setup(world: &mut World) {
         mesh_storage.add(cube)
     };
 
-    world.build()
+    world
+        .build()
         // cube
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
@@ -68,7 +69,6 @@ fn setup(world: &mut World) {
             active_camera_2d: ActiveCamera2d,
         })
         .build();
-
 
     // bottom left anchor with vertical fill
     world.insert(

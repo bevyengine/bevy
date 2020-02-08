@@ -6,7 +6,12 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{core::Time, render, app::AppBuilder, render::render_graph_2::{Renderer, RenderGraph}};
+use crate::{
+    app::AppBuilder,
+    core::Time,
+    render,
+    render::render_graph_2::{RenderGraph, Renderer},
+};
 
 pub struct App {
     pub universe: Universe,
@@ -95,13 +100,16 @@ impl App {
                     ..
                 } => {
                     if let Some(ref mut render_graph) = self.legacy_render_graph {
-                        render_graph
-                            .resize(size.width, size.height, &mut self.world);
+                        render_graph.resize(size.width, size.height, &mut self.world);
                     }
 
                     if let Some(ref mut renderer) = self.renderer {
-                        renderer
-                            .resize(&mut self.world, &mut self.render_graph, size.width, size.height);
+                        renderer.resize(
+                            &mut self.world,
+                            &mut self.render_graph,
+                            size.width,
+                            size.height,
+                        );
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {

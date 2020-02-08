@@ -1,8 +1,13 @@
 use bevy::prelude::*;
-use std::collections::VecDeque;
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::VecDeque;
 fn main() {
-    AppBuilder::new().add_defaults_legacy().add_system(build_move_system()).add_system(build_print_status_system()).setup_world(setup).run();
+    AppBuilder::new()
+        .add_defaults_legacy()
+        .add_system(build_move_system())
+        .add_system(build_print_status_system())
+        .setup_world(setup)
+        .run();
 }
 
 fn build_move_system() -> Box<dyn Schedulable> {
@@ -53,8 +58,9 @@ fn setup(world: &mut World) {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
-    
-    let mut builder = world.build()
+
+    let mut builder = world
+        .build()
         // plane
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
@@ -102,15 +108,19 @@ fn setup(world: &mut World) {
             )),
         });
 
-        let mut rng = StdRng::from_entropy();
-        for _ in 0..10000 {
-            builder = builder.add_archetype(MeshEntity {
+    let mut rng = StdRng::from_entropy();
+    for _ in 0..10000 {
+        builder = builder.add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
             local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(rng.gen_range(-50.0, 50.0), rng.gen_range(-50.0, 50.0), 0.0),
-            });
-        }
-    
-        builder.build()    
+            translation: Translation::new(
+                rng.gen_range(-50.0, 50.0),
+                rng.gen_range(-50.0, 50.0),
+                0.0,
+            ),
+        });
+    }
+
+    builder.build()
 }

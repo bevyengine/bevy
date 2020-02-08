@@ -1,10 +1,15 @@
 use bevy::prelude::*;
-use bevy::render::render_graph_2::{StandardMaterial, ShaderUniforms, uniform_selector};
-use std::collections::VecDeque;
+use bevy::render::render_graph_2::{uniform_selector, ShaderUniforms, StandardMaterial};
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use std::collections::VecDeque;
 
 fn main() {
-    AppBuilder::new().add_defaults().add_system(build_move_system()).add_system(build_print_status_system()).setup_world(setup).run();
+    AppBuilder::new()
+        .add_defaults()
+        .add_system(build_move_system())
+        .add_system(build_print_status_system())
+        .setup_world(setup)
+        .run();
 }
 
 fn build_move_system() -> Box<dyn Schedulable> {
@@ -14,7 +19,13 @@ fn build_move_system() -> Box<dyn Schedulable> {
         .build(move |_, world, time, person_query| {
             for (mut translation, mut material) in person_query.iter_mut(world) {
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-                material.albedo = material.albedo + math::vec4(-time.delta_seconds, -time.delta_seconds, time.delta_seconds, 0.0);
+                material.albedo = material.albedo
+                    + math::vec4(
+                        -time.delta_seconds,
+                        -time.delta_seconds,
+                        time.delta_seconds,
+                        0.0,
+                    );
             }
         })
 }
@@ -57,7 +68,8 @@ fn setup(world: &mut World) {
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 
-    let mut builder = world.build()
+    let mut builder = world
+        .build()
         // plane
         .add_archetype(NewMeshEntity {
             mesh: plane_handle.clone(),
@@ -66,8 +78,8 @@ fn setup(world: &mut World) {
             },
             shader_uniforms: ShaderUniforms {
                 uniform_selectors: vec![
-                   uniform_selector::<StandardMaterial>, 
-                   uniform_selector::<LocalToWorld>, 
+                    uniform_selector::<StandardMaterial>,
+                    uniform_selector::<LocalToWorld>,
                 ],
             },
             local_to_world: LocalToWorld::identity(),
@@ -81,8 +93,8 @@ fn setup(world: &mut World) {
             },
             shader_uniforms: ShaderUniforms {
                 uniform_selectors: vec![
-                   uniform_selector::<StandardMaterial>, 
-                   uniform_selector::<LocalToWorld>, 
+                    uniform_selector::<StandardMaterial>,
+                    uniform_selector::<LocalToWorld>,
                 ],
             },
             local_to_world: LocalToWorld::identity(),
@@ -95,8 +107,8 @@ fn setup(world: &mut World) {
             },
             shader_uniforms: ShaderUniforms {
                 uniform_selectors: vec![
-                   uniform_selector::<StandardMaterial>, 
-                   uniform_selector::<LocalToWorld>, 
+                    uniform_selector::<StandardMaterial>,
+                    uniform_selector::<LocalToWorld>,
                 ],
             },
             local_to_world: LocalToWorld::identity(),
@@ -137,20 +149,28 @@ fn setup(world: &mut World) {
 
     let mut rng = StdRng::from_entropy();
     for _ in 0..10000 {
-
         builder = builder.add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0), 1.0),
+                albedo: math::vec4(
+                    rng.gen_range(0.0, 1.0),
+                    rng.gen_range(0.0, 1.0),
+                    rng.gen_range(0.0, 1.0),
+                    1.0,
+                ),
             },
             shader_uniforms: ShaderUniforms {
                 uniform_selectors: vec![
-                   uniform_selector::<StandardMaterial>, 
-                   uniform_selector::<LocalToWorld>, 
+                    uniform_selector::<StandardMaterial>,
+                    uniform_selector::<LocalToWorld>,
                 ],
             },
             local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(rng.gen_range(-50.0, 50.0), rng.gen_range(-50.0, 50.0), 0.0),
+            translation: Translation::new(
+                rng.gen_range(-50.0, 50.0),
+                rng.gen_range(-50.0, 50.0),
+                0.0,
+            ),
         })
     }
 
