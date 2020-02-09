@@ -272,7 +272,7 @@ impl WgpuRenderer {
                                 {
                                     let buffer = self.buffers.get(&b.name).unwrap();
                                     wgpu::BindingResource::Buffer {
-                                        buffer: buffer,
+                                        buffer,
                                         range: 0..*size,
                                     }
                                 } else {
@@ -370,16 +370,13 @@ impl WgpuRenderer {
 
             let buffer_usage = wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM;
             let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                size: size,
+                size,
                 usage: buffer_usage,
             });
 
             self.resource_info.insert(
                 name.to_string(),
-                ResourceInfo::Buffer {
-                    buffer_usage,
-                    size: size,
-                },
+                ResourceInfo::Buffer { buffer_usage, size },
             );
 
             self.buffers.insert(name.to_string(), buffer);
@@ -553,17 +550,11 @@ impl Renderer for WgpuRenderer {
 
     fn create_buffer(&mut self, name: &str, size: u64, buffer_usage: wgpu::BufferUsage) {
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            size: size,
+            size,
             usage: buffer_usage,
         });
 
-        self.add_resource_info(
-            name,
-            ResourceInfo::Buffer {
-                buffer_usage,
-                size: size,
-            },
-        );
+        self.add_resource_info(name, ResourceInfo::Buffer { buffer_usage, size });
 
         self.buffers.insert(name.to_string(), buffer);
     }

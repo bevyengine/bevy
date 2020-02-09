@@ -14,7 +14,7 @@ impl Asset<TextureType> for Texture {
             TextureType::Data(data) => data.clone(),
         };
 
-        Texture { data: data }
+        Texture { data }
     }
 }
 

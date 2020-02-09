@@ -18,7 +18,7 @@ impl LightResourceManager {
     pub fn new(max_lights: usize) -> Self {
         LightResourceManager {
             lights_are_dirty: true,
-            max_lights: max_lights,
+            max_lights,
         }
     }
 }

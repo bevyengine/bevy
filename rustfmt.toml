@@ -1,1 +1,2 @@
 merge_imports = true
+use_field_init_shorthand = true

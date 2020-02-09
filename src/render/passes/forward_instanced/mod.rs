@@ -84,7 +84,7 @@ impl ForwardInstancedPipeline {
             }
 
             instance_buffer_infos.push(InstanceBufferInfo {
-                mesh_id: mesh_id,
+                mesh_id,
                 buffer: temp_buf_data.finish(),
                 instance_count: entity_count,
             });
@@ -126,7 +126,7 @@ impl ForwardInstancedPipeline {
         let mut instance_buffer_infos = Vec::new();
         instance_buffer_infos.push(InstanceBufferInfo {
             mesh_id: last_mesh_id.unwrap(),
-            buffer: buffer,
+            buffer,
             instance_count: entities_count,
         });
 

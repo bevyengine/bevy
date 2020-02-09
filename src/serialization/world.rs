@@ -359,7 +359,7 @@ impl DeserializeImpl {
                     .iter()
                     .map(|reg| (reg.1.uuid, reg.1.clone())),
             ),
-            tag_types: tag_types,
+            tag_types,
             comp_types: component_types,
             // re-use the entity-uuid mapping
             entity_map: RefCell::new(HashMap::from_iter(

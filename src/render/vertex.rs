@@ -40,9 +40,9 @@ impl Vertex {
 impl From<([f32; 4], [f32; 4], [f32; 2])> for Vertex {
     fn from((position, normal, uv): ([f32; 4], [f32; 4], [f32; 2])) -> Self {
         Vertex {
-            position: position,
-            normal: normal,
-            uv: uv,
+            position,
+            normal,
+            uv,
         }
     }
 }
@@ -52,7 +52,7 @@ impl From<([f32; 3], [f32; 3], [f32; 2])> for Vertex {
         Vertex {
             position: [position[0], position[1], position[2], 1.0],
             normal: [normal[0], normal[1], normal[2], 0.0],
-            uv: uv,
+            uv,
         }
     }
 }

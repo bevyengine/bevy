@@ -84,8 +84,8 @@ impl UiPipeline {
 
         let mut instance_buffer_infos = Vec::new();
         instance_buffer_infos.push(InstanceBufferInfo {
-            mesh_id: mesh_id,
-            buffer: buffer,
+            mesh_id,
+            buffer,
             instance_count: data.len(),
         });
 

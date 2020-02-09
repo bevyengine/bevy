@@ -27,7 +27,7 @@ impl RenderResourceManager for Global2dResourceManager {
         );
 
         let uniform_buffer = UniformBuffer {
-            buffer: buffer,
+            buffer,
             size: uniform_size,
         };
         render_graph.set_uniform_buffer(GLOBAL_2D_UNIFORM_BUFFER_NAME, uniform_buffer);
