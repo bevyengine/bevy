@@ -12,7 +12,8 @@ mod resource;
 pub mod resource_name;
 pub mod resource_provider;
 pub mod resource_providers;
-mod shader;
+mod standard_material;
+mod uniform;
 
 pub use draw_target::*;
 pub use pass::*;
@@ -22,4 +23,5 @@ pub use render_graph::*;
 pub use renderer::*;
 pub use resource::*;
 pub use resource_provider::*;
-pub use shader::*;
+pub use standard_material::*;
+pub use uniform::*;
