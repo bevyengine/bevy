@@ -1,12 +1,9 @@
 use crate::render::{
-    Vertex,
-    {
-        render_graph_2::{
-            draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor,
-            RenderGraphBuilder,
-        },
-        shader::{Shader, ShaderStage},
+    render_graph_2::{
+        draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
     },
+    shader::{Shader, ShaderStage},
+    Vertex,
 };
 pub trait ForwardFlatPipelineBuilder {
     fn add_forward_flat_pipeline(self) -> Self;

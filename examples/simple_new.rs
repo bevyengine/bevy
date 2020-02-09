@@ -1,5 +1,7 @@
-use bevy::prelude::*;
-use bevy::render::render_graph_2::{ShaderUniforms, StandardMaterial};
+use bevy::{
+    prelude::*,
+    render::render_graph_2::{ShaderUniforms, StandardMaterial},
+};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();

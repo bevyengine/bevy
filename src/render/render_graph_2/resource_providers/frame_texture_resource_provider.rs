@@ -1,7 +1,7 @@
-use crate::prelude::World;
-use crate::render::render_graph_2::Renderer;
-use crate::render::render_graph_2::ResourceProvider;
-use crate::render::render_graph_2::TextureDescriptor;
+use crate::{
+    prelude::World,
+    render::render_graph_2::{Renderer, ResourceProvider, TextureDescriptor},
+};
 
 pub struct FrameTextureResourceProvider {
     pub name: String,

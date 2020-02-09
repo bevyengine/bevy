@@ -1,6 +1,4 @@
-use std::boxed::Box;
-use std::error::Error;
-use std::{fs, io};
+use std::{boxed::Box, error::Error, fs, io};
 
 // use crate::render::Mesh;
 

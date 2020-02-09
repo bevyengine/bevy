@@ -1,7 +1,6 @@
 use crate::{
     prelude::{LocalToWorld, Translation},
-    render::passes::shadow,
-    render::*,
+    render::{passes::shadow, *},
 };
 use legion::prelude::*;
 use std::mem;

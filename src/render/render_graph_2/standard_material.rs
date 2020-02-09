@@ -1,6 +1,9 @@
 use crate::{
     math::Vec4,
-    render::render_graph_2::{BindType, UniformPropertyType, uniform::{UniformInfo, AsUniforms, GetBytes}},
+    render::render_graph_2::{
+        uniform::{AsUniforms, GetBytes, UniformInfo},
+        BindType, UniformPropertyType,
+    },
 };
 
 use zerocopy::AsBytes;
@@ -8,7 +11,6 @@ use zerocopy::AsBytes;
 pub struct StandardMaterial {
     pub albedo: Vec4,
 }
-
 
 // create this from a derive macro
 const STANDARD_MATERIAL_UNIFORM_INFO: &[UniformInfo] = &[UniformInfo {

@@ -3,8 +3,7 @@ pub use crate::{
     asset::{Asset, AssetStorage, Handle, Mesh, MeshType, Texture, TextureType},
     core::Time,
     ecs,
-    ecs::default_archetypes::*,
-    ecs::{EntityArchetype, EntityBuilder, EntityBuilderSource},
+    ecs::{default_archetypes::*, EntityArchetype, EntityBuilder, EntityBuilderSource},
     render::{
         ActiveCamera, ActiveCamera2d, Albedo, Camera, CameraType, Instanced, Light, Material,
     },
@@ -15,7 +14,6 @@ pub use glam as math;
 pub use legion::{
     prelude::*,
     schedule::{Builder, Schedulable},
-    system::SubWorld,
-    system::SystemBuilder,
+    system::{SubWorld, SystemBuilder},
 };
 pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};

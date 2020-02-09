@@ -1,4 +1,7 @@
-use crate::{asset::*, render::passes::shadow, render::*};
+use crate::{
+    asset::*,
+    render::{passes::shadow, *},
+};
 use legion::prelude::*;
 use wgpu::SwapChainOutput;
 

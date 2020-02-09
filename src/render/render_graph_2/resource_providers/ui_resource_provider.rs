@@ -1,11 +1,8 @@
-use crate::asset::MeshType;
-use crate::prelude::Node;
-use crate::render::render_graph_2::resource_name;
-use crate::render::render_graph_2::ResourceProvider;
 use crate::{
-    asset::{Asset, AssetStorage, Handle, Mesh},
+    asset::{Asset, AssetStorage, Handle, Mesh, MeshType},
     ecs, math,
-    render::render_graph_2::Renderer,
+    prelude::Node,
+    render::render_graph_2::{resource_name, Renderer, ResourceProvider},
 };
 use bevy_transform::prelude::Parent;
 use legion::prelude::*;

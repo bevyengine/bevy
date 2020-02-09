@@ -1,14 +1,10 @@
-use crate::render::render_graph_2::resource_providers::RectData;
-use crate::render::render_graph_2::VertexBufferDescriptor;
 use crate::render::{
-    Vertex,
-    {
-        render_graph_2::{
-            draw_targets::ui_draw_target, pipeline_layout::*, PipelineDescriptor,
-            RenderGraphBuilder,
-        },
-        shader::{Shader, ShaderStage},
+    render_graph_2::{
+        draw_targets::ui_draw_target, pipeline_layout::*, resource_providers::RectData,
+        PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor,
     },
+    shader::{Shader, ShaderStage},
+    Vertex,
 };
 pub trait UiPipelineBuilder {
     fn add_ui_pipeline(self) -> Self;

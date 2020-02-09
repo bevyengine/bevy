@@ -1,6 +1,5 @@
-use crate::render::render_graph_2::ResourceProvider;
 use crate::render::{
-    render_graph_2::{resource_name, Renderer},
+    render_graph_2::{resource_name, Renderer, ResourceProvider},
     ActiveCamera2d, Camera,
 };
 use legion::prelude::*;

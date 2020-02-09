@@ -1,5 +1,7 @@
-use bevy::prelude::*;
-use bevy::render::render_graph_2::{uniform_selector, ShaderUniforms, StandardMaterial};
+use bevy::{
+    prelude::*,
+    render::render_graph_2::{uniform_selector, ShaderUniforms, StandardMaterial},
+};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::VecDeque;
 

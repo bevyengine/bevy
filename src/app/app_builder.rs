@@ -4,12 +4,15 @@ use crate::{
     core::Time,
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
-    render::render_graph_2,
-    render::render_graph_2::{
-        passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
-        StandardMaterial,
+    render::{
+        passes::*,
+        render_graph_2,
+        render_graph_2::{
+            passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
+            StandardMaterial,
+        },
+        *,
     },
-    render::{passes::*, *},
     ui,
 };
 
