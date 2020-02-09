@@ -27,3 +27,7 @@ bevy_transform = { path = "bevy_transform" }
 
 [profile.release]
 debug = true
+incremental = true
+
+[profile.dev]
+opt-level = 3
