@@ -13,5 +13,6 @@ proc-macro = true
 syn = "1.0"
 quote = "1.0"
 Inflector = { version = "0.11.4", default-features = false }
+darling = "0.10.2"
 
 [dev-dependencies]

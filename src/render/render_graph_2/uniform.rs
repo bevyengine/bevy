@@ -41,6 +41,7 @@ pub trait AsUniforms {
     fn get_uniform_info(&self, name: &str) -> Option<&UniformInfo>;
     fn get_uniform_layouts(&self) -> &[&[UniformPropertyType]];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
+    fn get_shader_defs(&self) -> Vec<&'static str>;
     // TODO: support zero-copy uniforms
     // fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
 }

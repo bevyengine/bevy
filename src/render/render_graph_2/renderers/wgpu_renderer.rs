@@ -305,6 +305,7 @@ impl WgpuRenderer {
     }
 
     // TODO: remove me
+    #[allow(dead_code)]
     fn setup_dynamic_entity_shader_uniforms(
         &mut self,
         world: &World,

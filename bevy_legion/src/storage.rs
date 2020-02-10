@@ -1377,7 +1377,7 @@ pub struct ComponentResourceSet {
 
 impl ComponentResourceSet {
     /// Gets the version of the component slice.
-    pub fn version(&self) -> u64 { unsafe { (*self.version.get()) } }
+    pub fn version(&self) -> u64 { unsafe { *self.version.get() } }
 
     /// Gets a raw pointer to the start of the component slice.
     ///

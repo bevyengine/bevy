@@ -11,4 +11,6 @@ use bevy_derive::Uniforms;
 #[derive(Uniforms)]
 pub struct StandardMaterial {
     pub albedo: Vec4,
+    // #[uniform(ignore,shader_def="Hi")]
+    // pub enable_thing: bool,
 }
