@@ -10,7 +10,7 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
 
-layout(set = 1, binding = 1) uniform StandardMaterial {
+layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 

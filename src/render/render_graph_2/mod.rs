@@ -14,6 +14,7 @@ pub mod resource_provider;
 pub mod resource_providers;
 mod standard_material;
 mod uniform;
+mod renderable;
 
 pub use draw_target::*;
 pub use pass::*;
@@ -25,3 +26,4 @@ pub use resource::*;
 pub use resource_provider::*;
 pub use standard_material::*;
 pub use uniform::*;
+pub use renderable::*;

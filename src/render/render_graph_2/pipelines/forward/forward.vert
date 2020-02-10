@@ -16,7 +16,7 @@ layout(set = 1, binding = 0) uniform Object {
     mat4 Model;
 };
 
-layout(set = 1, binding = 1) uniform StandardMaterial {
+layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 

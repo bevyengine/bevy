@@ -43,7 +43,7 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
                     },
                 },
                 Binding {
-                    name: "StandardMaterial".to_string(),
+                    name: "StandardMaterial_albedo".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: true,
                         properties: vec![UniformProperty {

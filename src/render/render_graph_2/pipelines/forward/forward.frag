@@ -23,7 +23,7 @@ layout(set = 0, binding = 1) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 1, binding = 1) uniform StandardMaterial {
+layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 
