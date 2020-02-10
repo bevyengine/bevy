@@ -12,7 +12,7 @@ mod resource;
 pub mod resource_name;
 pub mod resource_provider;
 pub mod resource_providers;
-mod standard_material;
+mod uniforms;
 mod uniform;
 mod renderable;
 
@@ -24,6 +24,6 @@ pub use render_graph::*;
 pub use renderer::*;
 pub use resource::*;
 pub use resource_provider::*;
-pub use standard_material::*;
+pub use uniforms::*;
 pub use uniform::*;
 pub use renderable::*;

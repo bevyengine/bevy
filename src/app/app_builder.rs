@@ -6,7 +6,6 @@ use crate::{
     plugin::load_plugin,
     render::{
         passes::*,
-        render_graph_2,
         render_graph_2::{
             passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
             StandardMaterial,

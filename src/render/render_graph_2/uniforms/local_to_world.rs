@@ -1,18 +1,11 @@
 use crate::{
-    math::Vec4,
     render::render_graph_2::{
-        uniform::{AsUniforms, GetBytes, UniformInfo},
+        uniform::{AsUniforms, UniformInfo},
         BindType, UniformPropertyType,
     },
 };
 
-use bevy_derive::Uniforms;
 use zerocopy::AsBytes;
-
-#[derive(Uniforms)]
-pub struct StandardMaterial {
-    pub albedo: Vec4,
-}
 
 const LOCAL_TO_WORLD_UNIFORM_INFO: &[UniformInfo] = &[UniformInfo {
     name: "Object",
