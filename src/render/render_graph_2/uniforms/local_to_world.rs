@@ -41,7 +41,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
         }
     }
 
-    fn get_shader_defs(&self) -> std::vec::Vec<&'static str> {
-        Vec::new()
+    fn get_shader_defs(&self) -> Option<Vec<String>> {
+        None
     }
 }

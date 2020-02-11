@@ -35,7 +35,7 @@ struct UniformAttributeArgs {
     #[darling(default)]
     pub ignore: Option<bool>,
     #[darling(default)]
-    pub shader_def: Option<String>,
+    pub shader_def: Option<bool>,
 }
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
@@ -81,28 +81,29 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         .map(|(f, _attr)| *f)
         .collect::<Vec<&Field>>();
 
-    let shader_defs = uniform_fields
+    let shader_def_fields = uniform_fields
         .iter()
-        .filter(|(_f, attrs)| match attrs {
-            Some(attrs) => attrs.shader_def.is_some(),
-            None => false,
-        })
-        .map(|(f, attrs)| {
-            // attrs is guaranteed to be set because we checked in filter
-            let shader_def = attrs.as_ref().unwrap().shader_def.as_ref().unwrap();
-            if shader_def.len() == 0 {
-                f.ident.as_ref().unwrap().to_string()
-            } else {
-                shader_def.to_string()
+        .filter(|(_field, attrs)| {
+            match attrs {
+                Some(attrs) =>  match attrs.shader_def {
+                    Some(shader_def) => shader_def,
+                    None => false,
+                },
+                None => false,
             }
         })
-        .collect::<Vec<String>>();
+        .map(|(f, _attr)| *f)
+        .collect::<Vec<&Field>>();
+
+    let shader_def_field_names = shader_def_fields.iter().map(|field| &field.ident);
+    let shader_def_field_name_strs = shader_def_fields.iter().map(|field| field.ident.as_ref().unwrap().to_string());
 
     let struct_name = &ast.ident;
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
     let info_ident = format_ident!("{}_UNIFORM_INFO", struct_name_screaming_snake);
     let layout_ident = format_ident!("{}_UNIFORM_LAYOUTS", struct_name_screaming_snake);
     let layout_arrays = (0..active_uniform_fields.len()).map(|_| quote!(&[]));
+
     let uniform_name_uniform_info = active_uniform_fields
         .iter()
         .map(|field| format!("{}_{}", struct_name, field.ident.as_ref().unwrap()))
@@ -151,10 +152,17 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn get_shader_defs(&self) -> Vec<&'static str> {
-                vec![
-                    #(#shader_defs,)*
-                ]
+            // TODO: this will be very allocation heavy. find a way to either make this allocation free
+            // or alternatively only run it when the shader_defs have changed
+            fn get_shader_defs(&self) -> Option<Vec<String>> {
+                let mut potential_shader_defs: Vec<(&'static str, Option<&'static str>)> = vec![
+                    #((#shader_def_field_name_strs, self.#shader_def_field_names.get_shader_def()),)*
+                ];
+
+                Some(potential_shader_defs.drain(..)
+                    .filter(|(f, shader_def)| shader_def.is_some())
+                    .map(|(f, shader_def)| format!("{}{}", f, shader_def.unwrap()))
+                    .collect::<Vec<String>>())
             }
         }
     })

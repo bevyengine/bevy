@@ -139,10 +139,12 @@ impl Pipeline for ForwardInstancedPipeline {
         let vs_bytes = shader::glsl_to_spirv(
             include_str!("forward_instanced.vert"),
             shader::ShaderStage::Vertex,
+            None,
         );
         let fs_bytes = shader::glsl_to_spirv(
             include_str!("forward_instanced.frag"),
             shader::ShaderStage::Fragment,
+            None,
         );
 
         let bind_group_layout =

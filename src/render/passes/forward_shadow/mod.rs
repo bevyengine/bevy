@@ -26,10 +26,12 @@ impl Pipeline for ForwardShadowPassNew {
         let vs_bytes = shader::glsl_to_spirv(
             include_str!("forward_shadow.vert"),
             shader::ShaderStage::Vertex,
+            None,
         );
         let fs_bytes = shader::glsl_to_spirv(
             include_str!("forward_shadow.frag"),
             shader::ShaderStage::Fragment,
+            None,
         );
 
         let bind_group_layout =

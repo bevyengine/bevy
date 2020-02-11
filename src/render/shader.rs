@@ -17,10 +17,15 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     }
 }
 
-pub fn glsl_to_spirv(glsl_source: &str, stage: ShaderStage) -> Vec<u32> {
+pub fn glsl_to_spirv(glsl_source: &str, stage: ShaderStage, shader_defs: Option<&Vec<String>>) -> Vec<u32> {
     let shader_kind: shaderc::ShaderKind = stage.into();
     let mut compiler = shaderc::Compiler::new().unwrap();
-    let options = shaderc::CompileOptions::new().unwrap();
+    let mut options = shaderc::CompileOptions::new().unwrap();
+    if let Some(shader_defs) = shader_defs {
+        for shader_def in shader_defs.iter() {
+            options.add_macro_definition(shader_def.as_str(), None);
+        }
+    }
     let binary_result = compiler
         .compile_into_spirv(
             glsl_source,
@@ -59,7 +64,7 @@ impl Shader {
     pub fn get_spirv(&self) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage),
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, self.macros.as_ref()),
         }
     }
 

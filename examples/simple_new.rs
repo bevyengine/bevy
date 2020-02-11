@@ -23,6 +23,7 @@ fn setup(world: &mut World) {
             mesh: plane_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+                everything_is_red: true,
             },
             shader_uniforms: ShaderUniforms::new(),
             local_to_world: LocalToWorld::identity(),
@@ -33,6 +34,7 @@ fn setup(world: &mut World) {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                everything_is_red: true,
             },
             shader_uniforms: ShaderUniforms::new(),
             local_to_world: LocalToWorld::identity(),

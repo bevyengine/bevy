@@ -95,9 +95,9 @@ impl UiPipeline {
 
 impl Pipeline for UiPipeline {
     fn initialize(&mut self, render_graph: &mut RenderGraphData, world: &mut World) {
-        let vs_bytes = shader::glsl_to_spirv(include_str!("ui.vert"), shader::ShaderStage::Vertex);
+        let vs_bytes = shader::glsl_to_spirv(include_str!("ui.vert"), shader::ShaderStage::Vertex, None);
         let fs_bytes =
-            shader::glsl_to_spirv(include_str!("ui.frag"), shader::ShaderStage::Fragment);
+            shader::glsl_to_spirv(include_str!("ui.frag"), shader::ShaderStage::Fragment, None);
 
         let bind_group_layout =
             render_graph
