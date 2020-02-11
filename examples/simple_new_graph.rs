@@ -77,44 +77,28 @@ fn setup(world: &mut World) {
             mesh: plane_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+                everything_is_red: false,
             },
-            shader_uniforms: ShaderUniforms {
-                uniform_selectors: vec![
-                    uniform_selector::<StandardMaterial>,
-                    uniform_selector::<LocalToWorld>,
-                ],
-            },
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 0.0),
+            ..Default::default()
         })
         // cube
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(1.0, 0.0, 0.0, 1.0),
+                everything_is_red: false,
             },
-            shader_uniforms: ShaderUniforms {
-                uniform_selectors: vec![
-                    uniform_selector::<StandardMaterial>,
-                    uniform_selector::<LocalToWorld>,
-                ],
-            },
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
         })
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
+                everything_is_red: false,
             },
-            shader_uniforms: ShaderUniforms {
-                uniform_selectors: vec![
-                    uniform_selector::<StandardMaterial>,
-                    uniform_selector::<LocalToWorld>,
-                ],
-            },
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(-2.0, 0.0, 1.0),
+            ..Default::default()
         })
         // light
         .add_archetype(LightEntity {
@@ -160,19 +144,14 @@ fn setup(world: &mut World) {
                     rng.gen_range(0.0, 1.0),
                     1.0,
                 ),
+                everything_is_red: false,
             },
-            shader_uniforms: ShaderUniforms {
-                uniform_selectors: vec![
-                    uniform_selector::<StandardMaterial>,
-                    uniform_selector::<LocalToWorld>,
-                ],
-            },
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(
                 rng.gen_range(-50.0, 50.0),
                 rng.gen_range(-50.0, 50.0),
                 0.0,
             ),
+            ..Default::default()
         })
     }
 

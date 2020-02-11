@@ -13,6 +13,16 @@ pub struct Handle<T> {
     marker: PhantomData<T>,
 }
 
+// TODO: somehow handle this gracefully in asset managers. or alternatively remove Default
+impl<T> Default for Handle<T> {
+    fn default() -> Self {
+        Handle {
+            id: std::usize::MAX,
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Handle {

@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    render::render_graph_2::{ShaderUniforms, StandardMaterial},
+    render::render_graph_2::{ShaderUniforms, StandardMaterial, Renderable},
 };
 use bevy_derive::EntityArchetype;
 
@@ -12,10 +12,11 @@ pub struct MeshEntity {
     pub translation: Translation,
 }
 
-#[derive(EntityArchetype)]
+#[derive(EntityArchetype, Default)]
 pub struct NewMeshEntity {
     pub mesh: Handle<Mesh>,
     pub material: StandardMaterial,
+    pub renderable: Renderable,
     pub shader_uniforms: ShaderUniforms,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,

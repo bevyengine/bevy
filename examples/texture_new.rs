@@ -27,10 +27,10 @@ fn setup(world: &mut World) {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                everything_is_red: false,
             },
-            shader_uniforms: ShaderUniforms::new(),
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
         })
         // light
         .add_archetype(LightEntity {

@@ -83,6 +83,7 @@ where
 
 pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUniforms>>;
 
+#[derive(Default)]
 pub struct ShaderUniforms {
     // used for distinguishing
     pub uniform_selectors: Vec<ShaderUniformSelector>,
