@@ -15,7 +15,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
         .read_resource::<Time>()
         .with_query(<(Write<Translation>, Write<Material>)>::query())
         .build(move |_, world, time, person_query| {
-            for (mut translation, mut material) in person_query.iter_mut(world) {
+            for (mut translation, mut _material) in person_query.iter_mut(world) {
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
             }
         })

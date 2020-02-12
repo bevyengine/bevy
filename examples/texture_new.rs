@@ -1,8 +1,4 @@
-use bevy::{
-    asset,
-    prelude::*,
-    render::render_graph_2::{ShaderUniforms, StandardMaterial},
-};
+use bevy::{asset, prelude::*, render::render_graph_2::StandardMaterial};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
@@ -14,7 +10,7 @@ fn setup(world: &mut World) {
         mesh_storage.add(Mesh::load(MeshType::Cube))
     };
 
-    let texture_handle = {
+    let _texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
         let texture = Texture::load(TextureType::Data(asset::create_texels(256)));
         texture_storage.add(texture)

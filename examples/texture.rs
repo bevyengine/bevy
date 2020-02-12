@@ -11,13 +11,13 @@ fn setup(world: &mut World) {
     let cube_handle = {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         let cube = Mesh::load(MeshType::Cube);
-        (mesh_storage.add(cube))
+        mesh_storage.add(cube)
     };
 
     let texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
         let texture = Texture::load(TextureType::Data(asset::create_texels(256)));
-        (texture_storage.add(texture))
+        texture_storage.add(texture)
     };
 
     // cube
