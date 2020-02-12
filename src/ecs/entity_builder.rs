@@ -1,5 +1,5 @@
 use crate::ecs::EntityArchetype;
-use legion::prelude::*;
+use legion::{world::{TagSet, TagLayout, IntoComponentSource}, prelude::*, filter::{Filter, ChunksetFilterData}};
 
 pub trait EntityBuilderSource {
     fn build(&mut self) -> EntityBuilder;
@@ -45,6 +45,15 @@ impl<'a> EntityBuilder<'a> {
         let _ = self
             .world
             .add_tag(*self.current_entity.as_ref().unwrap(), tag);
+        self
+    }
+
+    pub fn add_entities<T,C>(self, tags: T, components: C) -> Self
+    where
+        T: TagSet + TagLayout + for<'b> Filter<ChunksetFilterData<'b>>,
+        C: IntoComponentSource,
+    {
+        self.world.insert(tags, components);
         self
     }
 
