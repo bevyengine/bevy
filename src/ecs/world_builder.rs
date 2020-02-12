@@ -1,25 +1,25 @@
 use crate::ecs::EntityArchetype;
 use legion::{world::{TagSet, TagLayout, IntoComponentSource}, prelude::*, filter::{Filter, ChunksetFilterData}};
 
-pub trait EntityBuilderSource {
-    fn build(&mut self) -> EntityBuilder;
+pub trait WorldBuilderSource {
+    fn build(&mut self) -> WorldBuilder;
 }
 
-impl EntityBuilderSource for World {
-    fn build(&mut self) -> EntityBuilder {
-        EntityBuilder {
+impl WorldBuilderSource for World {
+    fn build(&mut self) -> WorldBuilder {
+        WorldBuilder {
             world: self,
             current_entity: None,
         }
     }
 }
 
-pub struct EntityBuilder<'a> {
+pub struct WorldBuilder<'a> {
     world: &'a mut World,
     current_entity: Option<Entity>,
 }
 
-impl<'a> EntityBuilder<'a> {
+impl<'a> WorldBuilder<'a> {
     pub fn build_entity(mut self) -> Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);

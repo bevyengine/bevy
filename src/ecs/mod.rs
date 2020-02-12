@@ -1,9 +1,9 @@
 pub mod default_archetypes;
 mod entity_archetype;
-mod entity_builder;
+mod world_builder;
 
 pub use entity_archetype::*;
-pub use entity_builder::*;
+pub use world_builder::*;
 
 use bevy_transform::prelude::Children;
 use legion::{

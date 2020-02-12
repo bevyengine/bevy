@@ -3,7 +3,7 @@ pub use crate::{
     asset::{Asset, AssetStorage, Handle, Mesh, MeshType, Texture, TextureType},
     core::Time,
     ecs,
-    ecs::{default_archetypes::*, EntityArchetype, EntityBuilder, EntityBuilderSource},
+    ecs::{default_archetypes::*, EntityArchetype, WorldBuilder, WorldBuilderSource},
     render::{
         ActiveCamera, ActiveCamera2d, Albedo, Camera, CameraType, Instanced, Light, Material,
     },
