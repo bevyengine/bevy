@@ -1,7 +1,7 @@
 use crate::{
     legion::prelude::World,
     render::render_graph_2::{
-        resource::DynamicUniformBufferInfo, AsUniforms, Renderer, ResourceProvider,
+        resource::DynamicUniformBufferInfo, AsUniforms, Renderable, Renderer, ResourceProvider,
     },
 };
 use legion::prelude::*;
@@ -13,7 +13,6 @@ where
 {
     _marker: PhantomData<T>,
     uniform_buffer_info_names: Vec<String>,
-    // dynamic_uniform_buffer_infos: HashMap<String, DynamicUniformBufferInfo>,
 }
 
 impl<T> UniformResourceProvider<T>
@@ -22,7 +21,6 @@ where
 {
     pub fn new() -> Self {
         UniformResourceProvider {
-            // dynamic_uniform_buffer_infos: HashMap::new(),
             uniform_buffer_info_names: Vec::new(),
             _marker: PhantomData,
         }
@@ -36,7 +34,7 @@ where
     fn initialize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
-        let query = <Read<T>>::query();
+        let query = <(Read<T>, Read<Renderable>)>::query();
         // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
@@ -52,7 +50,7 @@ where
 
         let mut sizes = Vec::new();
         let mut counts = Vec::new();
-        for uniforms in query.iter(world) {
+        for (uniforms, _renderable) in query.iter(world) {
             let uniform_layouts = uniforms.get_uniform_layouts();
             for (i, uniform_info) in uniforms.get_uniform_infos().iter().enumerate() {
                 // only add the first time a uniform info is processed
@@ -117,7 +115,7 @@ where
             let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
             let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
-            for (i, (entity, _uniforms)) in query.iter_entities(world).enumerate() {
+            for (i, (entity, _)) in query.iter_entities(world).enumerate() {
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
                 // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
@@ -135,7 +133,7 @@ where
                 &mut |mapped| {
                     let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
                     let mut offset = 0usize;
-                    for uniforms in query.iter(world) {
+                    for (uniforms, _renderable) in query.iter(world) {
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed
                         // TODO: try getting ref first

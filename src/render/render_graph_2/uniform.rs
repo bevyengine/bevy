@@ -44,7 +44,6 @@ pub trait AsUniforms {
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     // TODO: support zero-copy uniforms
     // fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
-
 }
 
 pub trait ShaderDefSuffixProvider {

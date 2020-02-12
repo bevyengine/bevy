@@ -17,7 +17,11 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
     }
 }
 
-pub fn glsl_to_spirv(glsl_source: &str, stage: ShaderStage, shader_defs: Option<&Vec<String>>) -> Vec<u32> {
+pub fn glsl_to_spirv(
+    glsl_source: &str,
+    stage: ShaderStage,
+    shader_defs: Option<&Vec<String>>,
+) -> Vec<u32> {
     let shader_kind: shaderc::ShaderKind = stage.into();
     let mut compiler = shaderc::Compiler::new().unwrap();
     let mut options = shaderc::CompileOptions::new().unwrap();
@@ -64,7 +68,9 @@ impl Shader {
     pub fn get_spirv(&self) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, self.macros.as_ref()),
+            ShaderSource::Glsl(ref source) => {
+                glsl_to_spirv(&source, self.stage, self.macros.as_ref())
+            }
         }
     }
 

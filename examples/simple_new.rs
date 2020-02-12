@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    render::render_graph_2::{StandardMaterial},
-};
+use bevy::{prelude::*, render::render_graph_2::StandardMaterial};
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();

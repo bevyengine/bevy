@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    render::render_graph_2::{ShaderUniforms, StandardMaterial, Renderable},
+    render::render_graph_2::{Renderable, ShaderUniforms, StandardMaterial},
 };
 use bevy_derive::EntityArchetype;
 

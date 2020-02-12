@@ -1,8 +1,6 @@
-use crate::{
-    render::render_graph_2::{
-        uniform::{AsUniforms, UniformInfo},
-        BindType, UniformPropertyType,
-    },
+use crate::render::render_graph_2::{
+    uniform::{AsUniforms, UniformInfo},
+    BindType, UniformPropertyType,
 };
 
 use zerocopy::AsBytes;
