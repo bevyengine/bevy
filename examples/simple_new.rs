@@ -1,6 +1,6 @@
 use bevy::{
     prelude::*,
-    render::render_graph_2::{ShaderUniforms, StandardMaterial},
+    render::render_graph_2::{StandardMaterial},
 };
 
 fn main() {
@@ -31,7 +31,7 @@ fn setup(world: &mut World) {
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
                 everything_is_red: false,
             },
             translation: Translation::new(0.0, 0.0, 1.0),
@@ -43,7 +43,7 @@ fn setup(world: &mut World) {
                 color: wgpu::Color {
                     r: 0.8,
                     g: 0.8,
-                    b: 0.5,
+                    b: 0.8,
                     a: 1.0,
                 },
                 fov: f32::to_radians(60.0),
