@@ -8,6 +8,7 @@ pub use texture::*;
 
 use std::{collections::HashMap, marker::PhantomData};
 
+#[derive(Hash)]
 pub struct Handle<T> {
     pub id: usize,
     marker: PhantomData<T>,

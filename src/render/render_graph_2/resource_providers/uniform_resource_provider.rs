@@ -136,7 +136,7 @@ where
                     for (uniforms, _renderable) in query.iter(world) {
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed
-                        // TODO: try getting ref first
+                        // TODO: try getting bytes ref first
                         if let Some(uniform_bytes) = uniforms.get_uniform_bytes(name) {
                             mapped[offset..(offset + uniform_bytes.len())]
                                 .copy_from_slice(uniform_bytes.as_slice());
@@ -147,6 +147,15 @@ where
             );
 
             renderer.copy_buffer_to_buffer("tmp_uniform_mapped", 0, name, 0, size);
+        }
+
+        // update shader assignments based on current macro defs
+        for (uniforms, mut renderable) in <(Read<T>, Write<Renderable>)>::query().iter_mut(world) {
+            if let Some(shader_defs) = uniforms.get_shader_defs() {
+                for shader_def in shader_defs {
+                    renderable.shader_defs.insert(shader_def);
+                }
+            }
         }
     }
 

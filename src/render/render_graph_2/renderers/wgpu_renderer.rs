@@ -1,10 +1,10 @@
 use crate::{
     legion::prelude::*,
     render::render_graph_2::{
-        resource_name, BindGroup, BindType, DynamicUniformBufferInfo, PassDescriptor,
-        PipelineDescriptor, RenderGraph, RenderPass, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, ShaderUniforms,
-        TextureDescriptor,
+        resource_name, update_shader_assignments, BindGroup, BindType, DynamicUniformBufferInfo,
+        PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
+        RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor, Renderer,
+        ResourceInfo, ShaderUniforms, TextureDescriptor,
     },
 };
 use std::{collections::HashMap, ops::Deref};
@@ -469,6 +469,8 @@ impl Renderer for WgpuRenderer {
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world);
         }
+
+        update_shader_assignments(world, render_graph);
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             self.create_texture(&name, &texture_descriptor);

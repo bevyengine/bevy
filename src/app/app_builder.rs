@@ -8,7 +8,7 @@ use crate::{
         passes::*,
         render_graph_2::{
             passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
-            StandardMaterial,
+            ShaderAssignments, StandardMaterial,
         },
         *,
     },
@@ -164,6 +164,8 @@ impl AppBuilder {
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh>::new());
         resources.insert(AssetStorage::<Texture>::new());
+        resources.insert(AssetStorage::<Shader>::new());
+        resources.insert(ShaderAssignments::new());
         self
     }
 
