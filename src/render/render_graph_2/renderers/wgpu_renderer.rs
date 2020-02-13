@@ -1,11 +1,11 @@
 use crate::{
     legion::prelude::*,
-    render::render_graph_2::{
+    render::{Shader, render_graph_2::{
         resource_name, update_shader_assignments, BindGroup, BindType, DynamicUniformBufferInfo,
         PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
         RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor, Renderer,
         ResourceInfo, ShaderUniforms, TextureDescriptor,
-    },
+    }},
 };
 use std::{collections::HashMap, ops::Deref};
 
@@ -70,12 +70,11 @@ impl WgpuRenderer {
         bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
     ) -> wgpu::RenderPipeline {
-        let vertex_shader_module = pipeline_descriptor
+        let vertex_shader_module = Self::create_shader_module(device, &pipeline_descriptor
             .shader_stages
-            .vertex
-            .create_shader_module(device);
+            .vertex, None);
         let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(ref fragment_shader) => Some(fragment_shader.create_shader_module(device)),
+            Some(ref fragment_shader) => Some(Self::create_shader_module(device, fragment_shader, None)),
             None => None,
         };
 
@@ -410,6 +409,10 @@ impl WgpuRenderer {
             let uniform_buffer = self.buffers.get(name);
             encoder.copy_buffer_to_buffer(&temp_buffer, 0, uniform_buffer.unwrap(), 0, size);
         }
+    }
+
+    pub fn create_shader_module(device: &wgpu::Device, shader: &Shader, macros: Option<&[String]>) -> wgpu::ShaderModule {
+        device.create_shader_module(&shader.get_spirv(macros))
     }
 }
 

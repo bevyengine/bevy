@@ -20,7 +20,7 @@ impl Into<shaderc::ShaderKind> for ShaderStage {
 pub fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
-    shader_defs: Option<&Vec<String>>,
+    shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
     let shader_kind: shaderc::ShaderKind = stage.into();
     let mut compiler = shaderc::Compiler::new().unwrap();
@@ -52,7 +52,6 @@ pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
     pub entry_point: String,
-    pub macros: Option<Vec<String>>,
 }
 
 impl Shader {
@@ -60,22 +59,25 @@ impl Shader {
         Shader {
             source: ShaderSource::Glsl(glsl.to_string()),
             entry_point: "main".to_string(),
-            macros: None,
             stage,
         }
     }
 
-    pub fn get_spirv(&self) -> Vec<u32> {
+    pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
             ShaderSource::Glsl(ref source) => {
-                glsl_to_spirv(&source, self.stage, self.macros.as_ref())
+                glsl_to_spirv(&source, self.stage, macros)
             }
         }
     }
 
-    pub fn create_shader_module(&self, device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(&self.get_spirv())
+    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
+        Shader {
+            source: ShaderSource::Spirv(self.get_spirv(macros)),
+            entry_point: self.entry_point.clone(),
+            stage: self.stage,
+        }
     }
 }
 
