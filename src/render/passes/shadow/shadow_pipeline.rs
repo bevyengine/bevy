@@ -166,7 +166,7 @@ impl Pipeline for ShadowPipeline {
 
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for (material, mesh) in mesh_query.iter(world) {
-            if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
+            if let Some(mesh_asset) = mesh_storage.get_id(mesh.id) {
                 mesh_asset.setup_buffers(&render_graph.device);
 
                 pass.set_bind_group(1, material.bind_group.as_ref().unwrap(), &[]);

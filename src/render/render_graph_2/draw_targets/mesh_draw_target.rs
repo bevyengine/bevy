@@ -26,7 +26,7 @@ pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
         }
 
         if should_load_mesh {
-            if let Some(mesh_asset) = mesh_storage.get(mesh.id) {
+            if let Some(mesh_asset) = mesh_storage.get_id(mesh.id) {
                 let renderer = render_pass.get_renderer();
                 renderer.create_buffer_with_data(
                     resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME,

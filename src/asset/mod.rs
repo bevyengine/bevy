@@ -8,7 +8,7 @@ pub use texture::*;
 
 use std::{collections::HashMap, marker::PhantomData};
 
-#[derive(Hash)]
+#[derive(Hash, Eq, PartialEq)]
 pub struct Handle<T> {
     pub id: usize,
     marker: PhantomData<T>,
@@ -75,7 +75,11 @@ impl<T> AssetStorage<T> {
         handle
     }
 
-    pub fn get(&mut self, id: usize) -> Option<&mut T> {
+    pub fn get_id(&mut self, id: usize) -> Option<&mut T> {
         self.assets.get_mut(&id)
+    }
+
+    pub fn get(&mut self, handle: &Handle<T>) -> Option<&mut T> {
+        self.assets.get_mut(&handle.id)
     }
 }

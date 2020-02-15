@@ -20,7 +20,7 @@ pub fn ui_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
         };
 
         if let Some((instance_count, mesh_id)) = result {
-            if let Some(mesh_asset) = mesh_storage.get(mesh_id) {
+            if let Some(mesh_asset) = mesh_storage.get_id(mesh_id) {
                 renderer.create_buffer_with_data(
                     resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME,
                     mesh_asset.vertices.as_bytes(),

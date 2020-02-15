@@ -1,6 +1,6 @@
 use std::marker::Copy;
 
-#[derive(Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone)]
 pub enum ShaderStage {
     Vertex,
     Fragment,
@@ -43,15 +43,18 @@ pub fn glsl_to_spirv(
     binary_result.as_binary().into()
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub enum ShaderSource {
     Spirv(Vec<u32>),
     Glsl(String),
 }
 
+#[derive(Hash, Eq, PartialEq)]
 pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
     pub entry_point: String,
+    // TODO: add "precompile" flag?
 }
 
 impl Shader {

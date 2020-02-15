@@ -16,6 +16,7 @@ use crate::{
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
+use render_graph_2::CompiledShaderMap;
 use std::collections::HashMap;
 
 pub struct AppBuilder {
@@ -166,6 +167,7 @@ impl AppBuilder {
         resources.insert(AssetStorage::<Texture>::new());
         resources.insert(AssetStorage::<Shader>::new());
         resources.insert(ShaderAssignments::new());
+        resources.insert(CompiledShaderMap::new());
         self
     }
 
