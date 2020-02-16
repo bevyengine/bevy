@@ -22,6 +22,7 @@ erased-serde = "0.3"
 type-uuid = "0.1"
 shaderc = "0.6"
 libloading = "0.5.2"
+rspirv = "0.5.4"
 bevy_derive = { path = "bevy_derive" }
 bevy_transform = { path = "bevy_transform" }
 
