@@ -9,7 +9,7 @@ edition = "2018"
 legion = { path = "bevy_legion", features = ["serde-1"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "4a0da16fe6764c4e1dc918a31cbd7467d404df51"}
 glam = "0.8.4"
-winit = "0.20.0-alpha6"
+winit = "0.21.0"
 zerocopy = "0.2"
 log = "0.4"
 env_logger = "0.7"
