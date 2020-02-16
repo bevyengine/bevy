@@ -4,6 +4,7 @@ pub mod passes;
 pub mod render_graph_2;
 pub mod render_resources;
 pub mod shader;
+pub mod shader_reflect;
 
 mod light;
 mod material;

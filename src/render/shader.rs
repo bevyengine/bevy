@@ -1,4 +1,4 @@
-use crate::asset::Handle;
+use crate::{asset::Handle, render::shader_reflect::get_shader_layout};
 use std::marker::Copy;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -68,10 +68,14 @@ impl Shader {
     }
 
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
-        match self.source {
+        let result = match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
             ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
-        }
+        };
+
+        get_shader_layout(&result);
+
+        result
     }
 
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
