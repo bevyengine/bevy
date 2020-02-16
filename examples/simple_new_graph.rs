@@ -1,4 +1,5 @@
-use bevy::{prelude::*, render::render_graph_2::StandardMaterial};
+use core::marker::PhantomData;
+use bevy::{prelude::*, render::render_graph_2::{Renderable, StandardMaterial}};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::VecDeque;
 
@@ -83,9 +84,15 @@ fn setup(world: &mut World) {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(1.0, 0.0, 0.0, 1.0),
-                everything_is_red: false,
+                everything_is_red: true,
             },
             translation: Translation::new(0.0, 0.0, 1.0),
+            renderable: Renderable {
+                pipelines: vec![
+                    Handle::new(0), // Forward Pipeline Handle
+                ],
+               ..Default::default() 
+            },
             ..Default::default()
         })
         .add_archetype(NewMeshEntity {

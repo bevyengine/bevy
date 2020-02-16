@@ -36,6 +36,7 @@ impl GetBytes for Vec4 {
     }
 }
 
+// TODO: add ability to specify specific pipeline for uniforms
 pub trait AsUniforms {
     fn get_uniform_infos(&self) -> &[UniformInfo];
     fn get_uniform_info(&self, name: &str) -> Option<&UniformInfo>;

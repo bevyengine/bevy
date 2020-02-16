@@ -96,33 +96,4 @@ impl ShaderStages {
             fragment: None,
         }
     }
-
-    pub fn iter(&self) -> ShaderStagesIter {
-        ShaderStagesIter {
-            shader_stages: self,
-            index: 0,
-        }
-    }
-}
-
-pub struct ShaderStagesIter<'a> {
-    pub shader_stages: &'a ShaderStages,
-    pub index: usize,
-}
-
-impl<'a> Iterator for ShaderStagesIter<'a> {
-    type Item = &'a Handle<Shader>;
-    fn next(&mut self) -> Option<&'a Handle<Shader>> {
-        match self.index {
-            0 => Some(&self.shader_stages.vertex),
-            1 => {
-                if let Some(ref fragment) = self.shader_stages.fragment {
-                    Some(fragment)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-    }
 }

@@ -3,16 +3,27 @@ mod mesh;
 mod texture;
 
 pub use self::gltf::load_gltf;
-use std::hash::{Hash, Hasher};
 pub use mesh::*;
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 pub use texture::*;
 
 use std::{collections::HashMap, marker::PhantomData};
 
-#[derive(Debug)]
 pub struct Handle<T> {
     pub id: usize,
     marker: PhantomData<T>,
+}
+
+impl<T> Handle<T> {
+    pub fn new(id: usize) -> Self {
+        Handle {
+            id,
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<T> Hash for Handle<T> {
@@ -28,6 +39,13 @@ impl<T> PartialEq for Handle<T> {
 }
 
 impl<T> Eq for Handle<T> {}
+
+impl<T> Debug for Handle<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        let name = std::any::type_name::<T>().split("::").last().unwrap();
+        write!(f, "Handle<{}>({})", name, self.id)
+    }
+}
 
 // TODO: somehow handle this gracefully in asset managers. or alternatively remove Default
 impl<T> Default for Handle<T> {

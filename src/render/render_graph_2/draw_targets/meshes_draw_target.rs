@@ -9,7 +9,7 @@ use crate::{
 
 use zerocopy::AsBytes;
 
-pub fn mesh_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
+pub fn meshes_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
     let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut current_mesh_id = None;
     let mut current_mesh_index_length = 0;
