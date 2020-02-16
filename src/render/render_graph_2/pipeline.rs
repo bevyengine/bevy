@@ -3,6 +3,7 @@ use crate::{asset::{AssetStorage, Handle}, render::{
     shader::{Shader, ShaderStages},
 }};
 
+#[derive(Clone, Debug)]
 pub struct VertexBufferDescriptor {
     pub stride: wgpu::BufferAddress,
     pub step_mode: wgpu::InputStepMode,
@@ -19,8 +20,9 @@ impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDescriptor {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
-    pub draw_targets: Vec<DrawTarget>,
+    pub draw_targets: Vec<String>,
     pub pipeline_layout: PipelineLayout,
     pub shader_stages: ShaderStages,
     pub rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
@@ -145,8 +147,8 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn add_draw_target(mut self, draw_target: DrawTarget) -> Self {
-        self.pipeline.draw_targets.push(draw_target);
+    pub fn add_draw_target(mut self, name: &str) -> Self {
+        self.pipeline.draw_targets.push(name.to_string());
         self
     }
 

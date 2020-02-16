@@ -2,8 +2,8 @@ use crate::{
     asset::AssetStorage,
     render::{
         render_graph_2::{
-            draw_targets::ui_draw_target, pipeline_layout::*, resource_providers::RectData,
-            PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor,
+            pipeline_layout::*, resource_providers::RectData,
+            PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor, resource_name,
         },
         shader::{Shader, ShaderStage},
         Vertex,
@@ -100,7 +100,7 @@ impl UiPipelineBuilder for RenderGraphBuilder {
                     },
                 ],
             })
-            .add_draw_target(ui_draw_target)
+            .add_draw_target(resource_name::draw_target::UI)
             .build(),
         )
     }

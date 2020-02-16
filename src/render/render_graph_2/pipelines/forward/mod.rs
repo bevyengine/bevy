@@ -1,6 +1,6 @@
 use crate::{asset::AssetStorage, render::{
     render_graph_2::{
-        draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
+        pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder, resource_name,
     },
     shader::{Shader, ShaderStage},
     Vertex,
@@ -101,7 +101,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 write_mask: wgpu::ColorWrite::ALL,
             })
             .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-            .add_draw_target(mesh_draw_target)
+            .add_draw_target(resource_name::draw_target::MESHES)
             .build(),
         )
     }

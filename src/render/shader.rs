@@ -1,7 +1,7 @@
 use crate::asset::Handle;
 use std::marker::Copy;
 
-#[derive(Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ShaderStage {
     Vertex,
     Fragment,
@@ -44,13 +44,13 @@ pub fn glsl_to_spirv(
     binary_result.as_binary().into()
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum ShaderSource {
     Spirv(Vec<u32>),
     Glsl(String),
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
@@ -83,6 +83,7 @@ impl Shader {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ShaderStages {
     pub vertex: Handle<Shader>,
     pub fragment: Option<Handle<Shader>>,

@@ -14,3 +14,8 @@ pub mod buffer {
     pub const TEMP_MESH_VERTEX_BUFFER_NAME: &str = "TempMeshVertexBuffer";
     pub const TEMP_MESH_INDEX_BUFFER_NAME: &str = "TempMeshIndexBuffer";
 }
+
+pub mod draw_target {
+    pub const MESHES: &str = "Meshes";
+    pub const UI: &str = "Ui";
+}

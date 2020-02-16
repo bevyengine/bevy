@@ -1,7 +1,7 @@
 use crate::{
     asset::{AssetStorage, Handle},
     render::{
-        render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor},
+        render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor, DrawTarget},
     },
 };
 use std::collections::{HashMap, HashSet};
@@ -13,6 +13,7 @@ pub struct RenderGraph {
     pub pass_pipelines: HashMap<String, Vec<Handle<PipelineDescriptor>>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,
     pub queued_textures: Vec<(String, TextureDescriptor)>,
+    pub draw_targets: HashMap<String, DrawTarget>,
 }
 
 impl Default for RenderGraph {
@@ -23,6 +24,7 @@ impl Default for RenderGraph {
             pass_pipelines: HashMap::new(),
             resource_providers: Vec::new(),
             queued_textures: Vec::new(),
+            draw_targets: HashMap::new(),
         }
     }
 }
@@ -80,6 +82,11 @@ impl RenderGraphBuilder {
         self.render_graph
             .queued_textures
             .push((name.to_string(), texture_descriptor));
+        self
+    }
+
+    pub fn add_draw_target(mut self, name: &str, draw_target: DrawTarget) -> Self {
+        self.render_graph.draw_targets.insert(name.to_string(), draw_target);
         self
     }
 

@@ -2,6 +2,8 @@ use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
+
+#[derive(Clone, Debug)]
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroup>,
 }
@@ -14,7 +16,7 @@ impl PipelineLayout {
     }
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Debug)]
 pub struct BindGroup {
     pub bindings: Vec<Binding>,
     hash: Option<u64>,
@@ -39,14 +41,14 @@ impl BindGroup {
     }
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Debug)]
 pub struct Binding {
     pub name: String,
     pub bind_type: BindType,
     // TODO: ADD SHADER STAGE VISIBILITY
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Debug)]
 pub enum BindType {
     Uniform {
         dynamic: bool,
@@ -79,13 +81,13 @@ impl BindType {
     }
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Debug)]
 pub struct UniformProperty {
     pub name: String,
     pub property_type: UniformPropertyType,
 }
 
-#[derive(Hash)]
+#[derive(Hash, Clone, Debug)]
 pub enum UniformPropertyType {
     // TODO: Add all types here
     Int,
@@ -116,7 +118,7 @@ impl UniformPropertyType {
     }
 }
 
-#[derive(Copy, Clone, Hash)]
+#[derive(Copy, Clone, Debug, Hash)]
 pub enum TextureViewDimension {
     D1,
     D2,
@@ -139,7 +141,7 @@ impl From<TextureViewDimension> for wgpu::TextureViewDimension {
     }
 }
 
-#[derive(Copy, Clone, Hash)]
+#[derive(Copy, Clone, Debug, Hash)]
 pub enum TextureDimension {
     D1,
     D2,
