@@ -16,7 +16,7 @@ use crate::{
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
-use render_graph_2::{CompiledShaderMap, PipelineDescriptor, resource_name, draw_targets::{ui_draw_target, meshes_draw_target}};
+use render_graph_2::{CompiledShaderMap, PipelineDescriptor, resource_name, draw_targets::{ui_draw_target, meshes_draw_target, assigned_meshes_draw_target}};
 use std::collections::HashMap;
 
 pub struct AppBuilder {
@@ -196,6 +196,7 @@ impl AppBuilder {
             self.render_graph_builder = self
                 .render_graph_builder
                 .add_draw_target(resource_name::draw_target::MESHES, meshes_draw_target)
+                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES, assigned_meshes_draw_target)
                 .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
                 .add_resource_provider(Box::new(CameraResourceProvider))
                 .add_resource_provider(Box::new(Camera2dResourceProvider))

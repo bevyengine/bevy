@@ -101,7 +101,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                 write_mask: wgpu::ColorWrite::ALL,
             })
             .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-            .add_draw_target(resource_name::draw_target::MESHES)
+            .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
             .build(),
         )
     }

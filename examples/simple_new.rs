@@ -24,7 +24,7 @@ fn setup(world: &mut World) {
             },
             ..Default::default()
         })
-        // cube
+        // tan cube
         .add_archetype(NewMeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
@@ -32,6 +32,16 @@ fn setup(world: &mut World) {
                 everything_is_red: false,
             },
             translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
+        })
+        // red cube
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
+                everything_is_red: true,
+            },
+            translation: Translation::new(3.0, 0.0, 1.0),
             ..Default::default()
         })
         // light

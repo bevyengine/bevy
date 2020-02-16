@@ -1,6 +1,6 @@
 use crate::{
     asset::{AssetStorage, Handle},
-    render::{render_graph_2::RenderGraph, Shader, ShaderStages, ShaderSource},
+    render::{render_graph_2::RenderGraph, Shader, ShaderSource},
 };
 use legion::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -16,7 +16,9 @@ impl Default for Renderable {
     fn default() -> Self {
         Renderable {
             is_visible: true,
-            pipelines: Vec::new(),
+            pipelines: vec![
+                Handle::new(0), // TODO: this could be better
+            ],
             shader_defs: HashSet::new(),
         }
     }
@@ -98,7 +100,6 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                 let final_handle = if let Some((_shader_defs, macroed_pipeline_handle)) = compiled_shader_map.pipeline_to_macro_pipelines.get_mut(pipeline_handle).unwrap().iter().find(|(shader_defs, _macroed_pipeline_handle)| *shader_defs == renderable.shader_defs) {
                     macroed_pipeline_handle.clone()
                 } else {
-                    println!("Create pipeline {:?} {:?}", pipeline_handle, renderable.shader_defs);
                     let pipeline_descriptor = pipeline_descriptor_storage.get(pipeline_handle).unwrap();
                     let macroed_pipeline_handle = {
                         let mut macroed_vertex_handle = try_compiling_shader_with_macros(&mut compiled_shader_map, &mut shader_storage, &renderable, &pipeline_descriptor.shader_stages.vertex);
@@ -114,7 +115,10 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                                 macroed_pipeline.shader_stages.fragment = fragment;
                             }
 
-                            pipeline_descriptor_storage.add(macroed_pipeline)
+                            let macroed_pipeline_handle = pipeline_descriptor_storage.add(macroed_pipeline);
+                            // TODO: get correct pass name
+                            render_graph.add_pipeline("main", macroed_pipeline_handle.clone());
+                            macroed_pipeline_handle
                         } else {
                             pipeline_handle.clone()
                         }
@@ -125,7 +129,6 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                     macroed_pipeline_handle
                 };
 
-                // TODO: collecting assigments in a map means they won't be removed when the macro changes
                 // TODO: this will break down if pipeline layout changes. fix this with "autolayout"
                 if let None = shader_pipeline_assignments.assignments.get(&final_handle) {
                     shader_pipeline_assignments.assignments.insert(final_handle.clone(), Vec::new());

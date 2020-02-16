@@ -17,5 +17,6 @@ pub mod buffer {
 
 pub mod draw_target {
     pub const MESHES: &str = "Meshes";
+    pub const ASSIGNED_MESHES: &str = "AssignedMeshes";
     pub const UI: &str = "Ui";
 }

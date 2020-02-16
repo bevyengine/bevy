@@ -1,12 +1,12 @@
 use crate::{
-    asset::{AssetStorage, Mesh},
+    asset::{AssetStorage, Mesh, Handle},
     legion::prelude::*,
-    render::render_graph_2::{resource_name, RenderPass, ResourceInfo},
+    render::render_graph_2::{resource_name, RenderPass, ResourceInfo, PipelineDescriptor},
 };
 
 use zerocopy::AsBytes;
 
-pub fn ui_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
+pub fn ui_draw_target(world: &World, render_pass: &mut dyn RenderPass, _pipeline_handle: Handle<PipelineDescriptor>) {
     let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     // NOTE: this is ugly and borrowing is stupid
     let result = {

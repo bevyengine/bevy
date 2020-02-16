@@ -448,7 +448,7 @@ impl Renderer for WgpuRenderer {
 
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
                         let draw_target = render_graph.draw_targets.get(draw_target_name).unwrap();
-                        draw_target(world, &mut render_pass);
+                        draw_target(world, &mut render_pass, pass_pipeline.clone());
                     }
                 }
             }
