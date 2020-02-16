@@ -1,7 +1,7 @@
-use crate::render::{
+use crate::{asset::{AssetStorage, Handle}, render::{
     render_graph_2::{BindGroup, DrawTarget, PipelineLayout},
     shader::{Shader, ShaderStages},
-};
+}};
 
 pub struct VertexBufferDescriptor {
     pub stride: wgpu::BufferAddress,
@@ -55,7 +55,7 @@ pub struct PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
-    fn new(vertex_shader: Shader) -> Self {
+    fn new(vertex_shader: Handle<Shader>) -> Self {
         PipelineDescriptor {
             pipeline_layout: PipelineLayout::new(),
             color_states: Vec::new(),
@@ -80,19 +80,22 @@ impl PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
-    pub fn build(vertex_shader: Shader) -> PipelineBuilder {
-        PipelineBuilder::new(vertex_shader)
+    pub fn build(shader_storage: &mut AssetStorage<Shader>, vertex_shader: Shader) -> PipelineBuilder {
+        PipelineBuilder::new(shader_storage, vertex_shader)
     }
 }
 
-pub struct PipelineBuilder {
+pub struct PipelineBuilder<'a> {
     pipeline: PipelineDescriptor,
+    shader_storage: &'a mut AssetStorage<Shader>,
 }
 
-impl PipelineBuilder {
-    pub fn new(vertex_shader: Shader) -> Self {
+impl<'a> PipelineBuilder<'a> {
+    pub fn new(shader_storage: &'a mut AssetStorage<Shader>, vertex_shader: Shader) -> Self {
+        let vertex_shader_handle = shader_storage.add(vertex_shader);
         PipelineBuilder {
-            pipeline: PipelineDescriptor::new(vertex_shader),
+            pipeline: PipelineDescriptor::new(vertex_shader_handle),
+            shader_storage,
         }
     }
 
@@ -101,7 +104,8 @@ impl PipelineBuilder {
     }
 
     pub fn with_fragment_shader(mut self, fragment_shader: Shader) -> Self {
-        self.pipeline.shader_stages.fragment = Some(fragment_shader);
+        let fragment_shader_handle = self.shader_storage.add(fragment_shader);
+        self.pipeline.shader_stages.fragment = Some(fragment_shader_handle);
         self
     }
 

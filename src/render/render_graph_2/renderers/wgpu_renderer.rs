@@ -1,11 +1,15 @@
 use crate::{
+    asset::{AssetStorage, Handle},
     legion::prelude::*,
-    render::{Shader, render_graph_2::{
-        resource_name, update_shader_assignments, BindGroup, BindType, DynamicUniformBufferInfo,
-        PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
-        RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor, Renderer,
-        ResourceInfo, ShaderUniforms, TextureDescriptor,
-    }},
+    render::{
+        render_graph_2::{
+            resource_name, update_shader_assignments, BindGroup, BindType,
+            DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
+            RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor,
+            Renderer, ResourceInfo, TextureDescriptor,
+        },
+        Shader,
+    },
 };
 use std::{collections::HashMap, ops::Deref};
 
@@ -15,7 +19,7 @@ pub struct WgpuRenderer {
     pub surface: Option<wgpu::Surface>,
     pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
-    pub render_pipelines: HashMap<String, wgpu::RenderPipeline>,
+    pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub buffers: HashMap<String, wgpu::Buffer>,
     pub textures: HashMap<String, wgpu::TextureView>,
     pub resource_info: HashMap<String, ResourceInfo>,
@@ -69,12 +73,14 @@ impl WgpuRenderer {
         pipeline_descriptor: &mut PipelineDescriptor,
         bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
+        vertex_shader: &Shader,
+        fragment_shader: Option<&Shader>,
     ) -> wgpu::RenderPipeline {
-        let vertex_shader_module = Self::create_shader_module(device, &pipeline_descriptor
-            .shader_stages
-            .vertex, None);
-        let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(ref fragment_shader) => Some(Self::create_shader_module(device, fragment_shader, None)),
+        let vertex_shader_module = Self::create_shader_module(device, vertex_shader, None);
+        let fragment_shader_module = match fragment_shader {
+            Some(fragment_shader) => {
+                Some(Self::create_shader_module(device, fragment_shader, None))
+            }
             None => None,
         };
 
@@ -121,10 +127,10 @@ impl WgpuRenderer {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vertex_shader_module,
-                entry_point: &pipeline_descriptor.shader_stages.vertex.entry_point,
+                entry_point: &vertex_shader.entry_point,
             },
-            fragment_stage: match pipeline_descriptor.shader_stages.fragment {
-                Some(ref fragment_shader) => Some(wgpu::ProgrammableStageDescriptor {
+            fragment_stage: match fragment_shader {
+                Some(fragment_shader) => Some(wgpu::ProgrammableStageDescriptor {
                     entry_point: &fragment_shader.entry_point,
                     module: fragment_shader_module.as_ref().unwrap(),
                 }),
@@ -303,115 +309,11 @@ impl WgpuRenderer {
         bind_group_id
     }
 
-    // TODO: remove me
-    #[allow(dead_code)]
-    fn setup_dynamic_entity_shader_uniforms(
-        &mut self,
-        world: &World,
-        render_graph: &RenderGraph,
-        encoder: &mut wgpu::CommandEncoder,
-    ) {
-        // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
-        // TODO: this breaks down in multiple ways:
-        // (1) resource_info will be set after the first run so this won't update.
-        // (2) if we create new buffers, the old bind groups will be invalid
-        for pipeline in render_graph.pipeline_descriptors.values() {
-            for bind_group in pipeline.pipeline_layout.bind_groups.iter() {
-                for binding in bind_group.bindings.iter() {
-                    // if let None = self.resource_info.get(&binding.name) {
-                    if let BindType::Uniform { dynamic: true, .. } = &binding.bind_type {
-                        if self.dynamic_uniform_buffer_info.contains_key(&binding.name) {
-                            continue;
-                        }
-
-                        self.dynamic_uniform_buffer_info.insert(
-                            binding.name.to_string(),
-                            DynamicUniformBufferInfo {
-                                capacity: 0,
-                                count: 0,
-                                size: binding.bind_type.get_uniform_size().unwrap(),
-                                indices: HashMap::new(),
-                                offsets: HashMap::new(),
-                            },
-                        );
-                    }
-                    // }
-                }
-            }
-        }
-
-        // count the number of entities providing each uniform
-        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
-            info.count = 0;
-            for (entity, shader_uniforms) in <Read<ShaderUniforms>>::query().iter_entities(world) {
-                if let Some(_) = shader_uniforms.get_uniform_info(world, entity, name) {
-                    info.count += 1;
-                }
-            }
-        }
-
-        // allocate uniform buffers
-        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
-            if self.buffers.contains_key(name) && info.count < info.capacity {
-                continue;
-            }
-
-            if info.count >= info.capacity && info.capacity != 0 {
-                panic!("resizing dynamic uniform buffers isn't supported yet. we still need to support updating bind groups");
-            }
-
-            // allocate enough space for twice as many entities as there are currently;
-            info.capacity = info.count * 2;
-            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.capacity;
-
-            // TODO: remove this code duplication in favor of self.create_buffer(). this will likely require a refactor
-            // the following is a flattening of the content in self.create_buffer(), which can't be called because
-            // of rust's ownership rules. sometimes rust makes me unhappy
-
-            let buffer_usage = wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM;
-            let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                size,
-                usage: buffer_usage,
-            });
-
-            self.resource_info.insert(
-                name.to_string(),
-                ResourceInfo::Buffer { buffer_usage, size },
-            );
-
-            self.buffers.insert(name.to_string(), buffer);
-        }
-
-        // copy entity uniform data to buffers
-        for (name, info) in self.dynamic_uniform_buffer_info.iter_mut() {
-            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.count;
-            let mapped = self
-                .device
-                .create_buffer_mapped(size as usize, wgpu::BufferUsage::COPY_SRC);
-            let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
-            let mut offset = 0usize;
-
-            for (i, (entity, shader_uniforms)) in <Read<ShaderUniforms>>::query()
-                .iter_entities(world)
-                .enumerate()
-            {
-                // TODO: check if index has changed. if it has, then entity should be updated
-                // TODO: only mem-map entities if their data has changed
-                info.offsets.insert(entity, offset as u64);
-                info.indices.insert(i, entity);
-                if let Some(bytes) = shader_uniforms.get_uniform_bytes(world, entity, name) {
-                    mapped.data[offset..(offset + bytes.len())].copy_from_slice(bytes.as_slice());
-                    offset += alignment;
-                }
-            }
-
-            let temp_buffer = mapped.finish();
-            let uniform_buffer = self.buffers.get(name);
-            encoder.copy_buffer_to_buffer(&temp_buffer, 0, uniform_buffer.unwrap(), 0, size);
-        }
-    }
-
-    pub fn create_shader_module(device: &wgpu::Device, shader: &Shader, macros: Option<&[String]>) -> wgpu::ShaderModule {
+    pub fn create_shader_module(
+        device: &wgpu::Device,
+        shader: &Shader,
+        macros: Option<&[String]>,
+    ) -> wgpu::ShaderModule {
         device.create_shader_module(&shader.get_spirv(macros))
     }
 }
@@ -489,16 +391,38 @@ impl Renderer for WgpuRenderer {
         // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
-        for (pipeline_name, pipeline_descriptor) in render_graph.pipeline_descriptors.iter_mut() {
+        let mut pipeline_storage = world
+            .resources
+            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .unwrap();
+        let shader_storage = world.resources.get::<AssetStorage<Shader>>().unwrap();
+
+        for pipeline_descriptor_handle in render_graph.pipeline_descriptors.iter() {
+            let pipeline_descriptor = pipeline_storage
+                .get_mut(pipeline_descriptor_handle)
+                .unwrap();
             // create pipelines
-            if let None = self.render_pipelines.get(pipeline_name) {
+            if !self
+                .render_pipelines
+                .contains_key(pipeline_descriptor_handle)
+            {
+                let vertex_shader = shader_storage
+                    .get(&pipeline_descriptor.shader_stages.vertex)
+                    .unwrap();
+                let fragment_shader = pipeline_descriptor
+                    .shader_stages
+                    .fragment
+                    .as_ref()
+                    .map(|handle| &*shader_storage.get(&handle).unwrap());
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
                     pipeline_descriptor,
                     &mut self.bind_group_layouts,
                     &self.device,
+                    vertex_shader,
+                    fragment_shader,
                 );
                 self.render_pipelines
-                    .insert(pipeline_name.to_string(), render_pipeline);
+                    .insert(pipeline_descriptor_handle.clone(), render_pipeline);
             }
 
             // create bind groups
@@ -512,21 +436,18 @@ impl Renderer for WgpuRenderer {
             let mut render_pass = self.create_render_pass(pass_descriptor, &mut encoder, &frame);
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
-                    if let Some(pipeline_descriptor) =
-                        render_graph.pipeline_descriptors.get(pass_pipeline)
-                    {
-                        let render_pipeline = self.render_pipelines.get(pass_pipeline).unwrap();
-                        render_pass.set_pipeline(render_pipeline);
+                    let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
+                    let render_pipeline = self.render_pipelines.get(pass_pipeline).unwrap();
+                    render_pass.set_pipeline(render_pipeline);
 
-                        let mut render_pass = WgpuRenderPass {
-                            render_pass: &mut render_pass,
-                            renderer: self,
-                            pipeline_descriptor,
-                        };
+                    let mut render_pass = WgpuRenderPass {
+                        render_pass: &mut render_pass,
+                        renderer: self,
+                        pipeline_descriptor,
+                    };
 
-                        for draw_target in pipeline_descriptor.draw_targets.iter() {
-                            draw_target(world, &mut render_pass);
-                        }
+                    for draw_target in pipeline_descriptor.draw_targets.iter() {
+                        draw_target(world, &mut render_pass);
                     }
                 }
             }

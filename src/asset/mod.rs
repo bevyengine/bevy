@@ -3,16 +3,30 @@ mod mesh;
 mod texture;
 
 pub use self::gltf::load_gltf;
+use std::hash::{Hash, Hasher};
 pub use mesh::*;
 pub use texture::*;
 
 use std::{collections::HashMap, marker::PhantomData};
 
-#[derive(Hash, Eq, PartialEq)]
 pub struct Handle<T> {
     pub id: usize,
     marker: PhantomData<T>,
 }
+
+impl<T> Hash for Handle<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl<T> PartialEq for Handle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<T> Eq for Handle<T> {}
 
 // TODO: somehow handle this gracefully in asset managers. or alternatively remove Default
 impl<T> Default for Handle<T> {
@@ -75,11 +89,19 @@ impl<T> AssetStorage<T> {
         handle
     }
 
-    pub fn get_id(&mut self, id: usize) -> Option<&mut T> {
+    pub fn get_id(&self, id: usize) -> Option<&T> {
+        self.assets.get(&id)
+    }
+
+    pub fn get_id_mut(&mut self, id: usize) -> Option<&mut T> {
         self.assets.get_mut(&id)
     }
 
-    pub fn get(&mut self, handle: &Handle<T>) -> Option<&mut T> {
+    pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
+        self.assets.get(&handle.id)
+    }
+
+    pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         self.assets.get_mut(&handle.id)
     }
 }

@@ -157,7 +157,7 @@ impl Pipeline for ForwardPipeline {
             }
 
             if should_load_mesh {
-                if let Some(mesh_asset) = mesh_storage.get_id(mesh.id) {
+                if let Some(mesh_asset) = mesh_storage.get_id_mut(mesh.id) {
                     mesh_asset.setup_buffers(&render_graph.device);
                     pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
                     pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);

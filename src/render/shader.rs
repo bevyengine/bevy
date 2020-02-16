@@ -1,3 +1,4 @@
+use crate::asset::Handle;
 use std::marker::Copy;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone)]
@@ -69,9 +70,7 @@ impl Shader {
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => {
-                glsl_to_spirv(&source, self.stage, macros)
-            }
+            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
         }
     }
 
@@ -85,15 +84,44 @@ impl Shader {
 }
 
 pub struct ShaderStages {
-    pub vertex: Shader,
-    pub fragment: Option<Shader>,
+    pub vertex: Handle<Shader>,
+    pub fragment: Option<Handle<Shader>>,
 }
 
 impl ShaderStages {
-    pub fn new(vertex_shader: Shader) -> Self {
+    pub fn new(vertex_shader: Handle<Shader>) -> Self {
         ShaderStages {
             vertex: vertex_shader,
             fragment: None,
+        }
+    }
+
+    pub fn iter(&self) -> ShaderStagesIter {
+        ShaderStagesIter {
+            shader_stages: self,
+            index: 0,
+        }
+    }
+}
+
+pub struct ShaderStagesIter<'a> {
+    pub shader_stages: &'a ShaderStages,
+    pub index: usize,
+}
+
+impl<'a> Iterator for ShaderStagesIter<'a> {
+    type Item = &'a Handle<Shader>;
+    fn next(&mut self) -> Option<&'a Handle<Shader>> {
+        match self.index {
+            0 => Some(&self.shader_stages.vertex),
+            1 => {
+                if let Some(ref fragment) = self.shader_stages.fragment {
+                    Some(fragment)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }

@@ -16,7 +16,7 @@ use crate::{
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
-use render_graph_2::CompiledShaderMap;
+use render_graph_2::{CompiledShaderMap, PipelineDescriptor};
 use std::collections::HashMap;
 
 pub struct AppBuilder {
@@ -166,6 +166,7 @@ impl AppBuilder {
         resources.insert(AssetStorage::<Mesh>::new());
         resources.insert(AssetStorage::<Texture>::new());
         resources.insert(AssetStorage::<Shader>::new());
+        resources.insert(AssetStorage::<PipelineDescriptor>::new());
         resources.insert(ShaderAssignments::new());
         resources.insert(CompiledShaderMap::new());
         self
@@ -181,17 +182,29 @@ impl AppBuilder {
     }
 
     pub fn add_render_graph_defaults(mut self) -> Self {
-        self.render_graph_builder = self
-            .render_graph_builder
-            .add_resource_provider(Box::new(CameraResourceProvider))
-            .add_resource_provider(Box::new(Camera2dResourceProvider))
-            .add_resource_provider(Box::new(LightResourceProvider::new(10)))
-            .add_resource_provider(Box::new(UiResourceProvider::new()))
-            .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
-            .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
-            .add_forward_pass()
-            .add_forward_pipeline()
-            .add_ui_pipeline();
+        {
+            let mut pipeline_storage = self
+                .world
+                .resources
+                .get_mut::<AssetStorage<PipelineDescriptor>>()
+                .unwrap();
+            let mut shader_storage = self
+                .world
+                .resources
+                .get_mut::<AssetStorage<Shader>>()
+                .unwrap();
+            self.render_graph_builder = self
+                .render_graph_builder
+                .add_resource_provider(Box::new(CameraResourceProvider))
+                .add_resource_provider(Box::new(Camera2dResourceProvider))
+                .add_resource_provider(Box::new(LightResourceProvider::new(10)))
+                .add_resource_provider(Box::new(UiResourceProvider::new()))
+                .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
+                .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
+                .add_forward_pass()
+                .add_forward_pipeline(&mut pipeline_storage, &mut shader_storage)
+                .add_ui_pipeline(&mut pipeline_storage, &mut shader_storage);
+        }
 
         self
     }

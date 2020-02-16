@@ -7,7 +7,7 @@ use crate::{
 use zerocopy::AsBytes;
 
 pub fn ui_draw_target(world: &World, render_pass: &mut dyn RenderPass) {
-    let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     // NOTE: this is ugly and borrowing is stupid
     let result = {
         let renderer = render_pass.get_renderer();

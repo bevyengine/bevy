@@ -1,22 +1,22 @@
-use crate::render::{
+use crate::{asset::AssetStorage, render::{
     render_graph_2::{
         draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
     },
     shader::{Shader, ShaderStage},
     Vertex,
-};
+}};
 pub trait ForwardPipelineBuilder {
-    fn add_forward_pipeline(self) -> Self;
+    fn add_forward_pipeline(self, pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>, shader_storage: &mut AssetStorage<Shader>) -> Self;
 }
 
 impl ForwardPipelineBuilder for RenderGraphBuilder {
-    fn add_forward_pipeline(self) -> Self {
+    fn add_forward_pipeline(self, pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>, shader_storage: &mut AssetStorage<Shader>) -> Self {
         self.add_pipeline(
-            "forward",
-            PipelineDescriptor::build(Shader::from_glsl(
-                include_str!("forward.vert"),
-                ShaderStage::Vertex,
-            ))
+            pipeline_descriptor_storage,
+            PipelineDescriptor::build(
+                shader_storage,
+                Shader::from_glsl(include_str!("forward.vert"), ShaderStage::Vertex),
+            )
             .with_fragment_shader(Shader::from_glsl(
                 include_str!("forward.frag"),
                 ShaderStage::Fragment,

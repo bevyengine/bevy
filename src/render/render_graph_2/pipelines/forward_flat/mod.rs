@@ -1,22 +1,35 @@
-use crate::render::{
-    render_graph_2::{
-        draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor, RenderGraphBuilder,
+use crate::{
+    asset::AssetStorage,
+    render::{
+        render_graph_2::{
+            draw_targets::mesh_draw_target, pipeline_layout::*, PipelineDescriptor,
+            RenderGraphBuilder,
+        },
+        shader::{Shader, ShaderStage},
+        Vertex,
     },
-    shader::{Shader, ShaderStage},
-    Vertex,
 };
+
 pub trait ForwardFlatPipelineBuilder {
-    fn add_forward_flat_pipeline(self) -> Self;
+    fn add_forward_flat_pipeline(
+        self,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        shader_storage: &mut AssetStorage<Shader>,
+    ) -> Self;
 }
 
 impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
-    fn add_forward_flat_pipeline(self) -> Self {
+    fn add_forward_flat_pipeline(
+        self,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        shader_storage: &mut AssetStorage<Shader>,
+    ) -> Self {
         self.add_pipeline(
-            "forward_flat",
-            PipelineDescriptor::build(Shader::from_glsl(
-                include_str!("forward_flat.vert"),
-                ShaderStage::Vertex,
-            ))
+            pipeline_descriptor_storage,
+            PipelineDescriptor::build(
+                shader_storage,
+                Shader::from_glsl(include_str!("forward_flat.vert"), ShaderStage::Vertex),
+            )
             .with_fragment_shader(Shader::from_glsl(
                 include_str!("forward_flat.frag"),
                 ShaderStage::Fragment,

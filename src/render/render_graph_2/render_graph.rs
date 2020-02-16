@@ -1,13 +1,16 @@
-use crate::render::render_graph_2::{
-    PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
+use crate::{
+    asset::{AssetStorage, Handle},
+    render::{
+        render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor},
+    },
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct RenderGraph {
-    pub pipeline_descriptors: HashMap<String, PipelineDescriptor>,
+    pub pipeline_descriptors: HashSet<Handle<PipelineDescriptor>>,
     // TODO: make this ordered
     pub pass_descriptors: HashMap<String, PassDescriptor>,
-    pub pass_pipelines: HashMap<String, Vec<String>>,
+    pub pass_pipelines: HashMap<String, Vec<Handle<PipelineDescriptor>>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,
     pub queued_textures: Vec<(String, TextureDescriptor)>,
 }
@@ -15,7 +18,7 @@ pub struct RenderGraph {
 impl Default for RenderGraph {
     fn default() -> Self {
         RenderGraph {
-            pipeline_descriptors: HashMap::new(),
+            pipeline_descriptors: HashSet::new(),
             pass_descriptors: HashMap::new(),
             pass_pipelines: HashMap::new(),
             resource_providers: Vec::new(),
@@ -24,9 +27,23 @@ impl Default for RenderGraph {
     }
 }
 
+impl RenderGraph {
+    pub fn add_pipeline(&mut self, pass: &str, pipeline: Handle<PipelineDescriptor>) {
+        self.pipeline_descriptors.insert(pipeline.clone());
+
+        if let None = self.pass_pipelines.get(pass) {
+            self.pass_pipelines.insert(pass.to_string(), Vec::new());
+        }
+
+        let pass_pipelines = self.pass_pipelines.get_mut(pass).unwrap();
+        pass_pipelines.push(pipeline);
+    }
+}
+
 pub struct RenderGraphBuilder {
     render_graph: RenderGraph,
     current_pass: Option<String>,
+
 }
 
 impl RenderGraphBuilder {
@@ -45,24 +62,10 @@ impl RenderGraphBuilder {
         self
     }
 
-    pub fn add_pipeline(mut self, name: &str, pipeline: PipelineDescriptor) -> Self {
-        self.render_graph
-            .pipeline_descriptors
-            .insert(name.to_string(), pipeline);
-
-        if let Some(current_pass) = self.current_pass.as_ref() {
-            if let None = self.render_graph.pass_pipelines.get(current_pass) {
-                self.render_graph
-                    .pass_pipelines
-                    .insert(current_pass.to_string(), Vec::new());
-            }
-
-            let pass_pipelines = self
-                .render_graph
-                .pass_pipelines
-                .get_mut(current_pass)
-                .unwrap();
-            pass_pipelines.push(name.to_string());
+    pub fn add_pipeline(mut self, pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>, pipeline: PipelineDescriptor) -> Self {
+        if let Some(ref pass) = self.current_pass {
+            let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
+            self.render_graph.add_pipeline(&pass, pipeline_descriptor_handle);
         }
 
         self

@@ -1,23 +1,34 @@
-use crate::render::{
-    render_graph_2::{
-        draw_targets::ui_draw_target, pipeline_layout::*, resource_providers::RectData,
-        PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor,
+use crate::{
+    asset::AssetStorage,
+    render::{
+        render_graph_2::{
+            draw_targets::ui_draw_target, pipeline_layout::*, resource_providers::RectData,
+            PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor,
+        },
+        shader::{Shader, ShaderStage},
+        Vertex,
     },
-    shader::{Shader, ShaderStage},
-    Vertex,
 };
 pub trait UiPipelineBuilder {
-    fn add_ui_pipeline(self) -> Self;
+    fn add_ui_pipeline(
+        self,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        shader_storage: &mut AssetStorage<Shader>,
+    ) -> Self;
 }
 
 impl UiPipelineBuilder for RenderGraphBuilder {
-    fn add_ui_pipeline(self) -> Self {
+    fn add_ui_pipeline(
+        self,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        shader_storage: &mut AssetStorage<Shader>,
+    ) -> Self {
         self.add_pipeline(
-            "ui",
-            PipelineDescriptor::build(Shader::from_glsl(
-                include_str!("ui.vert"),
-                ShaderStage::Vertex,
-            ))
+            pipeline_descriptor_storage,
+            PipelineDescriptor::build(
+                shader_storage,
+                Shader::from_glsl(include_str!("ui.vert"), ShaderStage::Vertex),
+            )
             .with_fragment_shader(Shader::from_glsl(
                 include_str!("ui.frag"),
                 ShaderStage::Fragment,

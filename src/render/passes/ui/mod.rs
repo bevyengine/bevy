@@ -242,7 +242,7 @@ impl Pipeline for UiPipeline {
 
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for instance_buffer_info in instance_buffer_infos.as_ref().unwrap().iter() {
-            if let Some(mesh_asset) = mesh_storage.get_id(instance_buffer_info.mesh_id) {
+            if let Some(mesh_asset) = mesh_storage.get_id_mut(instance_buffer_info.mesh_id) {
                 mesh_asset.setup_buffers(&render_graph.device);
                 pass.set_index_buffer(mesh_asset.index_buffer.as_ref().unwrap(), 0);
                 pass.set_vertex_buffers(0, &[(&mesh_asset.vertex_buffer.as_ref().unwrap(), 0)]);
