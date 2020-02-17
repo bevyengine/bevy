@@ -96,7 +96,7 @@ pub enum UniformPropertyType {
     Vec3,
     Vec4,
     Mat4,
-    Struct(Vec<UniformPropertyType>),
+    Struct(Vec<UniformProperty>),
     Array(Box<UniformPropertyType>, usize),
 }
 
@@ -111,7 +111,7 @@ impl UniformPropertyType {
             UniformPropertyType::Mat4 => 4 * 4 * 4,
             UniformPropertyType::Struct(properties) => properties
                 .iter()
-                .map(|p| p.get_size())
+                .map(|p| p.property_type.get_size())
                 .fold(0, |total, size| total + size),
             UniformPropertyType::Array(property, length) => property.get_size() * *length as u64,
         }

@@ -45,9 +45,18 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
                                 name: "SceneLights".to_string(),
                                 property_type: UniformPropertyType::Array(
                                     Box::new(UniformPropertyType::Struct(vec![
-                                        UniformPropertyType::Mat4, // proj
-                                        UniformPropertyType::Vec4, // pos
-                                        UniformPropertyType::Vec4, // color
+                                        UniformProperty {
+                                            name: "proj".to_string(),
+                                            property_type: UniformPropertyType::Mat4,
+                                        },
+                                        UniformProperty {
+                                            name: "pos".to_string(),
+                                            property_type: UniformPropertyType::Vec4,
+                                        },
+                                        UniformProperty {
+                                            name: "color".to_string(),
+                                            property_type: UniformPropertyType::Vec4,
+                                        },
                                     ])),
                                     10, // max lights
                                 ),
