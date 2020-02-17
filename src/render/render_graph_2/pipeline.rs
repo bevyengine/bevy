@@ -21,9 +21,15 @@ impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDescriptor {
 }
 
 #[derive(Clone, Debug)]
+pub enum PipelineLayoutType {
+    Manual(PipelineLayout),
+    Reflected(Option<PipelineLayout>),
+}
+
+#[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
     pub draw_targets: Vec<String>,
-    pub pipeline_layout: PipelineLayout,
+    pub layout: PipelineLayoutType,
     pub shader_stages: ShaderStages,
     pub rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
 
@@ -59,7 +65,7 @@ pub struct PipelineDescriptor {
 impl PipelineDescriptor {
     fn new(vertex_shader: Handle<Shader>) -> Self {
         PipelineDescriptor {
-            pipeline_layout: PipelineLayout::new(),
+            layout: PipelineLayoutType::Reflected(None),
             color_states: Vec::new(),
             depth_stencil_state: None,
             draw_targets: Vec::new(),
@@ -78,6 +84,20 @@ impl PipelineDescriptor {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         }
+    }
+
+    pub fn get_layout(&self) -> Option<&PipelineLayout> {
+       match self.layout {
+           PipelineLayoutType::Reflected(ref layout) => layout.as_ref(),
+           PipelineLayoutType::Manual(ref layout) => Some(layout),
+       } 
+    }
+
+    pub fn get_layout_mut(&mut self) -> Option<&mut PipelineLayout> {
+       match self.layout {
+           PipelineLayoutType::Reflected(ref mut layout) => layout.as_mut(),
+           PipelineLayoutType::Manual(ref mut layout) => Some(layout),
+       } 
     }
 }
 
@@ -128,7 +148,14 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_bind_group(mut self, bind_group: BindGroup) -> Self {
-        self.pipeline.pipeline_layout.bind_groups.push(bind_group);
+        if let PipelineLayoutType::Reflected(_) = self.pipeline.layout {
+            self.pipeline.layout = PipelineLayoutType::Manual(PipelineLayout::new());
+        }
+
+        if let PipelineLayoutType::Manual(ref mut layout) = self.pipeline.layout {
+            layout.bind_groups.push(bind_group);
+        }
+
         self
     }
 

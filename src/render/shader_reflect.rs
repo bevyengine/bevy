@@ -1,12 +1,17 @@
-use crate::render::render_graph_2::{BindGroup, UniformPropertyType, Binding, BindType, UniformProperty};
+use crate::render::render_graph_2::{
+    BindGroup, BindType, Binding, UniformProperty, UniformPropertyType,
+};
 use spirv_reflect::{
-    types::{ReflectDescriptorSet, ReflectTypeDescription, ReflectDescriptorBinding, ReflectDescriptorType, ReflectTypeFlags},
+    types::{
+        ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType,
+        ReflectTypeDescription, ReflectTypeFlags,
+    },
     ShaderModule,
 };
 use zerocopy::AsBytes;
 // use rspirv::{binary::Parser, dr::Loader, lift::LiftContext};
 
-// TODO: pick rspirv vs spirv-reflect
+// TODO: use rspirv when structured representation is ready. this way we can remove spirv_reflect, which is a non-rust dependency
 // pub fn get_shader_layout(spirv_data: &[u32]) {
 //     let mut loader = Loader::new();  // You can use your own consumer here.
 //     {
@@ -18,37 +23,39 @@ use zerocopy::AsBytes;
 //     println!("{:?}", structured.types);
 // }
 
-pub fn get_shader_layout(spirv_data: &[u32]) {
+#[derive(Debug, Clone)]
+pub struct ShaderLayout {
+    pub bind_groups: Vec<BindGroup>,
+    pub entry_point: String,
+}
+
+pub fn get_shader_layout(spirv_data: &[u32]) -> ShaderLayout {
     match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
         Ok(ref mut module) => {
             let entry_point_name = module.get_entry_point_name();
-            let shader_stage = module.get_shader_stage();
-            println!("entry point: {}", entry_point_name);
-            println!("shader stage: {:?}", shader_stage);
-
             let mut bind_groups = Vec::new();
             for descriptor_set in module.enumerate_descriptor_sets(None).unwrap() {
                 let bind_group = reflect_bind_group(&descriptor_set);
                 bind_groups.push(bind_group);
             }
 
-            println!("  result {:?}", &bind_groups);
-
-            println!();
+            ShaderLayout {
+                bind_groups,
+                entry_point: entry_point_name,
+            }
         }
-        _ => {}
+        Err(err) => panic!("Failed to reflect shader layout: {:?}", err)
     }
 }
 
 fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet) -> BindGroup {
-    println!("  set {}", descriptor_set.set);
     let mut bindings = Vec::new();
     for descriptor_binding in descriptor_set.bindings.iter() {
         let binding = reflect_binding(descriptor_binding);
         bindings.push(binding);
     }
 
-    BindGroup::new(bindings)
+    BindGroup::new(descriptor_set.set, bindings)
 }
 
 fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
@@ -61,10 +68,10 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
-        // println!("  {:?}", binding);
-    Binding{
-        bind_type: bind_type,
-        name: type_description.type_name.to_string()
+    Binding {
+        index: binding.binding,
+        bind_type,
+        name: type_description.type_name.to_string(),
     }
 }
 
@@ -76,7 +83,10 @@ enum NumberType {
 }
 
 fn reflect_uniform(type_description: &ReflectTypeDescription) -> UniformProperty {
-    let uniform_property_type = if type_description.type_flags.contains(ReflectTypeFlags::STRUCT) {
+    let uniform_property_type = if type_description
+        .type_flags
+        .contains(ReflectTypeFlags::STRUCT)
+    {
         reflect_uniform_struct(type_description)
     } else {
         reflect_uniform_numeric(type_description)
@@ -89,8 +99,7 @@ fn reflect_uniform(type_description: &ReflectTypeDescription) -> UniformProperty
 }
 
 fn reflect_uniform_struct(type_description: &ReflectTypeDescription) -> UniformPropertyType {
-    println!("reflecting struct");
-    let mut properties =  Vec::new();
+    let mut properties = Vec::new();
     for member in type_description.members.iter() {
         properties.push(reflect_uniform(member));
     }
@@ -104,9 +113,12 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         match traits.numeric.scalar.signedness {
             0 => NumberType::UInt,
             1 => NumberType::Int,
-            signedness => panic!("unexpected signedness {}", signedness)
+            signedness => panic!("unexpected signedness {}", signedness),
         }
-    } else if type_description.type_flags.contains(ReflectTypeFlags::FLOAT) {
+    } else if type_description
+        .type_flags
+        .contains(ReflectTypeFlags::FLOAT)
+    {
         NumberType::Float
     } else {
         panic!("unexpected type flag {:?}", type_description.type_flags);
@@ -114,11 +126,28 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
 
     // TODO: handle scalar width here
 
-    match (number_type, traits.numeric.vector.component_count) {
-        (NumberType::Int, 1) => UniformPropertyType::Int,
-        (NumberType::Float, 3) => UniformPropertyType::Vec3,
-        (NumberType::Float, 4) => UniformPropertyType::Vec4,
-        (NumberType::UInt, 4) => UniformPropertyType::UVec4,
-        (number_type, component_count) => panic!("unexpected uniform property format {:?} {}", number_type, component_count),
+    if type_description
+        .type_flags
+        .contains(ReflectTypeFlags::MATRIX)
+    {
+        match (number_type, traits.numeric.matrix.column_count, traits.numeric.matrix.row_count) {
+            (NumberType::Float, 3, 3) => UniformPropertyType::Mat3,
+            (NumberType::Float, 4, 4) => UniformPropertyType::Mat4,
+            (number_type, column_count, row_count) => panic!(
+                "unexpected uniform property matrix format {:?} {}x{}",
+                number_type, column_count, row_count
+            ),
+        }
+    } else {
+        match (number_type, traits.numeric.vector.component_count) {
+            (NumberType::Int, 1) => UniformPropertyType::Int,
+            (NumberType::Float, 3) => UniformPropertyType::Vec3,
+            (NumberType::Float, 4) => UniformPropertyType::Vec4,
+            (NumberType::UInt, 4) => UniformPropertyType::UVec4,
+            (number_type, component_count) => panic!(
+                "unexpected uniform property format {:?} {}",
+                number_type, component_count
+            ),
+        }
     }
 }

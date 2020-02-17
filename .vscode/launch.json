@@ -30,11 +30,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--example=simple_new_graph",
+                    "--example=simple_new",
                     "--package=bevy"
                 ],
                 "filter": {
-                    "name": "simple_new_graph",
+                    "name": "simple_new",
                     "kind": "example"
                 }
             },
@@ -48,12 +48,12 @@
             "cargo": {
                 "args": [
                     "run",
-                    "--example=simple",
+                    "--example=simple_new",
                     "--package=bevy",
                     "--release"
                 ],
                 "filter": {
-                    "name": "simple",
+                    "name": "simple_new",
                     "kind": "example"
                 }
             },

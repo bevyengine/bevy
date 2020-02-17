@@ -1,5 +1,6 @@
+use crate::render::shader_reflect::ShaderLayout;
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{HashMap, hash_map::DefaultHasher, BTreeSet},
     hash::{Hash, Hasher},
 };
 
@@ -14,23 +15,61 @@ impl PipelineLayout {
             bind_groups: Vec::new(),
         }
     }
+
+    pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
+        let mut bind_groups = HashMap::<u32, BindGroup>::new();
+        for shader_layout in shader_layouts {
+            for shader_bind_group in shader_layout.bind_groups.iter_mut() {
+               match bind_groups.get_mut(&shader_bind_group.index) {
+                   Some(bind_group) => {
+                       for shader_binding in shader_bind_group.bindings.iter() {
+                           if let Some(binding) = bind_group.bindings.iter().find(|binding| binding.index == shader_binding.index) {
+                               if binding != shader_binding {
+                                   panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
+                               }
+                           } else {
+                               bind_group.bindings.insert(shader_binding.clone());
+                           }
+                       }
+                   },
+                   None => {
+                       bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
+                   }
+               }
+            }
+        }
+
+        PipelineLayout {
+           bind_groups: bind_groups.drain().map(|(_, value)| value).collect()
+        }
+    }
 }
 
-#[derive(Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct BindGroup {
-    pub bindings: Vec<Binding>,
+    pub index: u32,
+    pub bindings: BTreeSet<Binding>,
     hash: Option<u64>,
 }
 
 impl BindGroup {
-    pub fn new(bindings: Vec<Binding>) -> Self {
+    pub fn new(index: u32, bindings: Vec<Binding>) -> Self {
         BindGroup {
-            bindings,
+            index,
+            bindings: bindings.iter().cloned().collect(),
             hash: None,
         }
     }
 
-    pub fn get_hash(&self) -> u64 {
+    pub fn get_hash(&self) -> Option<u64> {
+        self.hash
+    }
+
+    pub fn get_or_update_hash(&mut self) -> u64 {
+        if self.hash.is_none() {
+            self.update_hash();
+        }
+
         self.hash.unwrap()
     }
 
@@ -41,14 +80,22 @@ impl BindGroup {
     }
 }
 
-#[derive(Hash, Clone, Debug)]
+impl Hash for BindGroup {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.index.hash(state);
+        self.bindings.hash(state);
+    }
+}
+
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Binding {
     pub name: String,
+    pub index: u32,
     pub bind_type: BindType,
     // TODO: ADD SHADER STAGE VISIBILITY
 }
 
-#[derive(Hash, Clone, Debug)]
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum BindType {
     Uniform {
         dynamic: bool,
@@ -81,13 +128,13 @@ impl BindType {
     }
 }
 
-#[derive(Hash, Clone, Debug)]
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct UniformProperty {
     pub name: String,
     pub property_type: UniformPropertyType,
 }
 
-#[derive(Hash, Clone, Debug)]
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum UniformPropertyType {
     // TODO: Add all types here
     Int,
@@ -95,6 +142,7 @@ pub enum UniformPropertyType {
     UVec4,
     Vec3,
     Vec4,
+    Mat3,
     Mat4,
     Struct(Vec<UniformProperty>),
     Array(Box<UniformPropertyType>, usize),
@@ -108,6 +156,7 @@ impl UniformPropertyType {
             UniformPropertyType::UVec4 => 4 * 4,
             UniformPropertyType::Vec3 => 4 * 3,
             UniformPropertyType::Vec4 => 4 * 4,
+            UniformPropertyType::Mat3 => 4 * 4 * 3,
             UniformPropertyType::Mat4 => 4 * 4 * 4,
             UniformPropertyType::Struct(properties) => properties
                 .iter()
@@ -118,7 +167,7 @@ impl UniformPropertyType {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureViewDimension {
     D1,
     D2,

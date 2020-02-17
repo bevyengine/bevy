@@ -4,9 +4,9 @@ use crate::{
     render::{
         render_graph_2::{
             resource_name, update_shader_assignments, BindGroup, BindType,
-            DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, RenderGraph, RenderPass,
-            RenderPassColorAttachmentDescriptor, RenderPassDepthStencilAttachmentDescriptor,
-            Renderer, ResourceInfo, TextureDescriptor,
+            DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, PipelineLayout,
+            PipelineLayoutType, RenderGraph, RenderPass, RenderPassColorAttachmentDescriptor,
+            RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, TextureDescriptor,
         },
         Shader,
     },
@@ -76,25 +76,37 @@ impl WgpuRenderer {
         vertex_shader: &Shader,
         fragment_shader: Option<&Shader>,
     ) -> wgpu::RenderPipeline {
-        let vertex_shader_module = Self::create_shader_module(device, vertex_shader, None);
+        let vertex_spirv = vertex_shader.get_spirv_shader(None);
+        let fragment_spirv = fragment_shader.map(|f| f.get_spirv_shader(None));
+
+        let vertex_shader_module = Self::create_shader_module(device, &vertex_spirv, None);
         let fragment_shader_module = match fragment_shader {
-            Some(fragment_shader) => {
-                Some(Self::create_shader_module(device, fragment_shader, None))
-            }
+            Some(fragment_spirv) => Some(Self::create_shader_module(device, fragment_spirv, None)),
             None => None,
         };
 
+        if let PipelineLayoutType::Reflected(None) = pipeline_descriptor.layout {
+            let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
+
+            if let Some(ref fragment_spirv) = fragment_spirv {
+                layouts.push(fragment_spirv.reflect_layout().unwrap());
+            }
+
+            pipeline_descriptor.layout =
+                PipelineLayoutType::Reflected(Some(PipelineLayout::from_shader_layouts(&mut layouts)));
+        }
+
+        let layout = pipeline_descriptor.get_layout_mut().unwrap();
+
         // setup new bind group layouts
-        for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter_mut() {
-            bind_group.update_hash();
-            let bind_group_id = bind_group.get_hash();
+        for bind_group in layout.bind_groups.iter_mut() {
+            let bind_group_id = bind_group.get_or_update_hash();
             if let None = bind_group_layouts.get(&bind_group_id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
-                    .enumerate()
-                    .map(|(i, binding)| wgpu::BindGroupLayoutBinding {
-                        binding: i as u32,
+                    .map(|binding| wgpu::BindGroupLayoutBinding {
+                        binding: binding.index,
                         visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                         ty: (&binding.bind_type).into(),
                     })
@@ -109,12 +121,11 @@ impl WgpuRenderer {
         }
 
         // collect bind group layout references
-        let bind_group_layouts = pipeline_descriptor
-            .pipeline_layout
+        let bind_group_layouts = layout
             .bind_groups
             .iter()
             .map(|bind_group| {
-                let bind_group_id = bind_group.get_hash();
+                let bind_group_id = bind_group.get_hash().unwrap();
                 bind_group_layouts.get(&bind_group_id).unwrap()
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
@@ -127,11 +138,11 @@ impl WgpuRenderer {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vertex_shader_module,
-                entry_point: &vertex_shader.entry_point,
+                entry_point: "main",
             },
             fragment_stage: match fragment_shader {
                 Some(fragment_shader) => Some(wgpu::ProgrammableStageDescriptor {
-                    entry_point: &fragment_shader.entry_point,
+                    entry_point: "main",
                     module: fragment_shader_module.as_ref().unwrap(),
                 }),
                 None => None,
@@ -233,7 +244,7 @@ impl WgpuRenderer {
 
     // TODO: consider moving this to a resource provider
     fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64 {
-        let bind_group_id = bind_group.get_hash();
+        let bind_group_id = bind_group.get_hash().unwrap();
 
         if let None = self.bind_groups.get(&bind_group_id) {
             let mut unset_uniforms = Vec::new();
@@ -260,12 +271,11 @@ impl WgpuRenderer {
             let bindings = bind_group
                 .bindings
                 .iter()
-                .enumerate()
-                .map(|(i, b)| {
-                    let resource_info = self.resource_info.get(&b.name).unwrap();
+                .map(|binding| {
+                    let resource_info = self.resource_info.get(&binding.name).unwrap();
                     wgpu::Binding {
-                        binding: i as u32,
-                        resource: match &b.bind_type {
+                        binding: binding.index,
+                        resource: match &binding.bind_type {
                             BindType::Uniform {
                                 dynamic: _,
                                 properties: _,
@@ -275,7 +285,7 @@ impl WgpuRenderer {
                                     buffer_usage: _,
                                 } = resource_info
                                 {
-                                    let buffer = self.buffers.get(&b.name).unwrap();
+                                    let buffer = self.buffers.get(&binding.name).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer,
                                         range: 0..*size,
@@ -426,7 +436,8 @@ impl Renderer for WgpuRenderer {
             }
 
             // create bind groups
-            for bind_group in pipeline_descriptor.pipeline_layout.bind_groups.iter() {
+            let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
+            for bind_group in pipeline_layout.bind_groups.iter() {
                 self.setup_bind_group(bind_group);
             }
         }
@@ -641,14 +652,9 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     }
 
     fn setup_bind_groups(&mut self, entity: Option<&Entity>) {
-        for (i, bind_group) in self
-            .pipeline_descriptor
-            .pipeline_layout
-            .bind_groups
-            .iter()
-            .enumerate()
-        {
-            let bind_group_id = bind_group.get_hash();
+        let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
+        for bind_group in pipeline_layout.bind_groups.iter() {
+            let bind_group_id = bind_group.get_hash().unwrap();
             let bind_group_info = self.renderer.bind_groups.get(&bind_group_id).unwrap();
 
             let mut dynamic_uniform_indices = Vec::new();
@@ -658,7 +664,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         continue;
                     }
 
-                    // PERF: This hashmap get is pretty expensive (10 fps per 10000 entities)
+                    // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
                     if let Some(dynamic_uniform_buffer_info) =
                         self.renderer.dynamic_uniform_buffer_info.get(&binding.name)
                     {
@@ -674,7 +680,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
 
             // TODO: check to see if bind group is already set
             self.render_pass.set_bind_group(
-                i as u32,
+                bind_group.index,
                 &bind_group_info.bind_group,
                 dynamic_uniform_indices.as_slice(),
             );

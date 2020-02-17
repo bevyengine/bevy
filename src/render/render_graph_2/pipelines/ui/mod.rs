@@ -33,7 +33,8 @@ impl UiPipelineBuilder for RenderGraphBuilder {
                 include_str!("ui.frag"),
                 ShaderStage::Fragment,
             ))
-            .add_bind_group(BindGroup::new(vec![Binding {
+            .add_bind_group(BindGroup::new(0, vec![Binding {
+                index: 0,
                 name: "Camera2d".to_string(),
                 bind_type: BindType::Uniform {
                     dynamic: false,

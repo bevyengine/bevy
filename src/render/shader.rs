@@ -1,4 +1,7 @@
-use crate::{asset::Handle, render::shader_reflect::get_shader_layout};
+use crate::{
+    asset::Handle,
+    render::shader_reflect::{get_shader_layout, ShaderLayout},
+};
 use std::marker::Copy;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -50,11 +53,10 @@ pub enum ShaderSource {
     Glsl(String),
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
-    pub entry_point: String,
     // TODO: add "precompile" flag?
 }
 
@@ -62,27 +64,29 @@ impl Shader {
     pub fn from_glsl(glsl: &str, stage: ShaderStage) -> Shader {
         Shader {
             source: ShaderSource::Glsl(glsl.to_string()),
-            entry_point: "main".to_string(),
             stage,
         }
     }
 
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
-        let result = match self.source {
+        match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
             ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
-        };
-
-        get_shader_layout(&result);
-
-        result
+        }
     }
 
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
         Shader {
             source: ShaderSource::Spirv(self.get_spirv(macros)),
-            entry_point: self.entry_point.clone(),
             stage: self.stage,
+        }
+    }
+
+    pub fn reflect_layout(&self) -> Option<ShaderLayout> {
+        if let ShaderSource::Spirv(ref spirv) = self.source {
+            Some(get_shader_layout(spirv.as_slice()))
+        } else {
+            panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader()");
         }
     }
 }

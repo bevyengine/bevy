@@ -34,7 +34,8 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
                 include_str!("forward_flat.frag"),
                 ShaderStage::Fragment,
             ))
-            .add_bind_group(BindGroup::new(vec![Binding {
+            .add_bind_group(BindGroup::new(0, vec![Binding {
+                index: 0,
                 name: "Camera".to_string(),
                 bind_type: BindType::Uniform {
                     dynamic: false,
@@ -44,8 +45,9 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
                     }],
                 },
             }]))
-            .add_bind_group(BindGroup::new(vec![
+            .add_bind_group(BindGroup::new(1, vec![
                 Binding {
+                    index: 0,
                     name: "Object".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: true,
@@ -56,6 +58,7 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
                     },
                 },
                 Binding {
+                    index: 1,
                     name: "StandardMaterial_albedo".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: true,
