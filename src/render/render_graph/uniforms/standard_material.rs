@@ -1,12 +1,6 @@
-use crate::{
-    math,
-    math::Vec4,
-    render::render_graph::{
-        uniform::{AsUniforms, GetBytes, UniformInfo},
-        BindType, ShaderDefSuffixProvider, UniformPropertyType,
-    },
-};
+use crate::{math, math::Vec4, render::render_graph::ShaderDefSuffixProvider};
 
+use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]

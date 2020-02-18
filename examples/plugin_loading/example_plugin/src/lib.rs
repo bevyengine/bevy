@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::plugin::AppPlugin;
 use bevy_derive::RegisterAppPlugin;
 
 #[derive(RegisterAppPlugin)]

@@ -1,14 +1,14 @@
 use bevy::{
     prelude::*,
     render::{
-        render_graph::{PipelineDescriptor, resource_name},
+        render_graph::{PipelineDescriptor, resource_name, resource_providers::UniformResourceProvider},
         Shader, ShaderStage, Vertex,
     },
 };
 
 use bevy_derive::Uniforms;
 
-// #[derive(Uniforms)]
+#[derive(Uniforms)]
 struct MyMaterial {
     pub color: Vec4
 }
@@ -19,7 +19,7 @@ fn main() {
         .setup_world(setup)
         .setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
-                // .add_resource_provider(UniformResourceProvider::<MyMaterial>::new())
+                .add_resource_provider(Box::new(UniformResourceProvider::<MyMaterial>::new()))
                 .add_pipeline_to_pass(
                     resource_name::pass::MAIN,
                     pipeline_storage,

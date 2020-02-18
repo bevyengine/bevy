@@ -21,8 +21,8 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     let field_name = fields.iter().map(|field| &field.ident);
 
     TokenStream::from(quote! {
-        impl EntityArchetype for #struct_name {
-            fn insert(self, world: &mut World) -> Entity {
+        impl bevy::prelude::EntityArchetype for #struct_name {
+            fn insert(self, world: &mut bevy::prelude::World) -> Entity {
                 *world.insert((), vec![(
                     #(self.#field_name,)*
                 )]).first().unwrap()
@@ -115,10 +115,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         (0..active_uniform_fields.len()).map(|i| quote!(&#info_ident[#i]));
 
     TokenStream::from(quote! {
-        const #info_ident: &[UniformInfo] = &[
-            #(UniformInfo {
+        const #info_ident: &[bevy::render::render_graph::UniformInfo] = &[
+            #(bevy::render::render_graph::UniformInfo {
                 name: #uniform_name_uniform_info,
-                bind_type: BindType::Uniform {
+                bind_type: bevy::render::render_graph::BindType::Uniform {
                     dynamic: false,
                     // TODO: fill this in with properties
                     properties: Vec::new(),
@@ -126,26 +126,27 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             },)*
         ];
 
-        const #layout_ident: &[&[UniformPropertyType]] = &[
+        const #layout_ident: &[&[bevy::render::render_graph::UniformPropertyType]] = &[
             #(#layout_arrays,)*
         ];
 
-        impl AsUniforms for #struct_name {
-            fn get_uniform_infos(&self) -> &[UniformInfo] {
+        impl bevy::render::render_graph::AsUniforms for #struct_name {
+            fn get_uniform_infos(&self) -> &[bevy::render::render_graph::UniformInfo] {
                 #info_ident
             }
 
-            fn get_uniform_layouts(&self) -> &[&[UniformPropertyType]] {
+            fn get_uniform_layouts(&self) -> &[&[bevy::render::render_graph::UniformPropertyType]] {
                 #layout_ident
             }
 
             fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
+                use bevy::core::bytes::GetBytes;
                 match name {
                     #(#get_uniform_bytes_uniform_name => Some(self.#get_uniform_bytes_field_name.get_bytes()),)*
                     _ => None,
                 }
             }
-            fn get_uniform_info(&self, name: &str) -> Option<&UniformInfo> {
+            fn get_uniform_info(&self, name: &str) -> Option<&bevy::render::render_graph::UniformInfo> {
                 match name {
                     #(#get_uniform_info_uniform_name => Some(#get_uniform_info_array_refs),)*
                     _ => None,
@@ -175,7 +176,7 @@ pub fn derive_app_plugin(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         #[no_mangle]
-        pub extern "C" fn _create_plugin() -> *mut AppPlugin {
+        pub extern "C" fn _create_plugin() -> *mut bevy::plugin::AppPlugin {
             // TODO: without this the assembly does nothing. why is that the case?
             print!("");
             // make sure the constructor is the correct type.
