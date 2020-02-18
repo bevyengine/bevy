@@ -31,7 +31,9 @@ impl<T> ResourceProvider for UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync + 'static,
 {
-    fn initialize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
+    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+        self.update(renderer, world);
+    }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
         let query = <(Read<T>, Read<Renderable>)>::query();

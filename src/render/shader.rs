@@ -61,7 +61,7 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn from_glsl(glsl: &str, stage: ShaderStage) -> Shader {
+    pub fn from_glsl(stage: ShaderStage, glsl: &str) -> Shader {
         Shader {
             source: ShaderSource::Glsl(glsl.to_string()),
             stage,

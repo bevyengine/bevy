@@ -1,7 +1,7 @@
 use crate::{
     asset::{AssetStorage, Handle},
-    render::{
-        render_graph_2::{PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor, DrawTarget},
+    render::render_graph_2::{
+        DrawTarget, PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
     },
 };
 use std::collections::{HashMap, HashSet};
@@ -45,7 +45,6 @@ impl RenderGraph {
 pub struct RenderGraphBuilder {
     render_graph: RenderGraph,
     current_pass: Option<String>,
-
 }
 
 impl RenderGraphBuilder {
@@ -64,11 +63,29 @@ impl RenderGraphBuilder {
         self
     }
 
-    pub fn add_pipeline(mut self, pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>, pipeline: PipelineDescriptor) -> Self {
+    pub fn add_pipeline(
+        mut self,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        pipeline: PipelineDescriptor,
+    ) -> Self {
         if let Some(ref pass) = self.current_pass {
             let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
-            self.render_graph.add_pipeline(&pass, pipeline_descriptor_handle);
+            self.render_graph
+                .add_pipeline(&pass, pipeline_descriptor_handle);
         }
+
+        self
+    }
+
+    pub fn add_pipeline_to_pass(
+        mut self,
+        pass: &str,
+        pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
+        pipeline: PipelineDescriptor,
+    ) -> Self {
+        let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
+        self.render_graph
+            .add_pipeline(pass, pipeline_descriptor_handle);
 
         self
     }
@@ -86,7 +103,9 @@ impl RenderGraphBuilder {
     }
 
     pub fn add_draw_target(mut self, name: &str, draw_target: DrawTarget) -> Self {
-        self.render_graph.draw_targets.insert(name.to_string(), draw_target);
+        self.render_graph
+            .draw_targets
+            .insert(name.to_string(), draw_target);
         self
     }
 

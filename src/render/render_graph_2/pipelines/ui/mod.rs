@@ -27,23 +27,12 @@ impl UiPipelineBuilder for RenderGraphBuilder {
             pipeline_descriptor_storage,
             PipelineDescriptor::build(
                 shader_storage,
-                Shader::from_glsl(include_str!("ui.vert"), ShaderStage::Vertex),
+                Shader::from_glsl(ShaderStage::Vertex, include_str!("ui.vert")),
             )
             .with_fragment_shader(Shader::from_glsl(
-                include_str!("ui.frag"),
                 ShaderStage::Fragment,
+                include_str!("ui.frag")
             ))
-            .add_bind_group(BindGroup::new(0, vec![Binding {
-                index: 0,
-                name: "Camera2d".to_string(),
-                bind_type: BindType::Uniform {
-                    dynamic: false,
-                    properties: vec![UniformProperty {
-                        name: "ViewProj".to_string(),
-                        property_type: UniformPropertyType::Mat4,
-                    }],
-                },
-            }]))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::None,

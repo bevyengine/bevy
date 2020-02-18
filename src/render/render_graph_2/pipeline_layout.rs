@@ -38,9 +38,12 @@ impl PipelineLayout {
                }
             }
         }
+        let mut bind_groups_result = bind_groups.drain().map(|(_, value)| value).collect::<Vec<BindGroup>>();
 
+        // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
+        bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
         PipelineLayout {
-           bind_groups: bind_groups.drain().map(|(_, value)| value).collect()
+           bind_groups: bind_groups_result
         }
     }
 }

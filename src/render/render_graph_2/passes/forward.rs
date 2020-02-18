@@ -27,7 +27,7 @@ impl ForwardPassBuilder for RenderGraphBuilder {
             },
         )))
         .add_pass(
-            "main",
+            resource_name::pass::MAIN,
             PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
                     attachment: resource_name::texture::SWAP_CHAIN.to_string(),

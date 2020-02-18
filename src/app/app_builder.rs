@@ -8,7 +8,7 @@ use crate::{
         passes::*,
         render_graph_2::{
             passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
-            ShaderPipelineAssignments, StandardMaterial,
+            ShaderPipelineAssignments, StandardMaterial, RenderGraphBuilder
         },
         *,
     },
@@ -181,7 +181,25 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_render_graph_defaults(mut self) -> Self {
+    pub fn add_render_graph_defaults(self) -> Self {
+        self.setup_render_graph(|builder, pipeline_storage, shader_storage| {
+            builder
+                .add_draw_target(resource_name::draw_target::MESHES, meshes_draw_target)
+                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES, assigned_meshes_draw_target)
+                .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
+                .add_resource_provider(Box::new(CameraResourceProvider))
+                .add_resource_provider(Box::new(Camera2dResourceProvider))
+                .add_resource_provider(Box::new(LightResourceProvider::new(10)))
+                .add_resource_provider(Box::new(UiResourceProvider::new()))
+                .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
+                .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
+                .add_forward_pass()
+                .add_forward_pipeline(pipeline_storage, shader_storage)
+                .add_ui_pipeline(pipeline_storage, shader_storage)
+        })
+    }
+
+    pub fn setup_render_graph(mut self, setup: impl Fn(RenderGraphBuilder, &mut AssetStorage<PipelineDescriptor>, &mut AssetStorage<Shader>) -> RenderGraphBuilder) -> Self {
         {
             let mut pipeline_storage = self
                 .world
@@ -193,20 +211,7 @@ impl AppBuilder {
                 .resources
                 .get_mut::<AssetStorage<Shader>>()
                 .unwrap();
-            self.render_graph_builder = self
-                .render_graph_builder
-                .add_draw_target(resource_name::draw_target::MESHES, meshes_draw_target)
-                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES, assigned_meshes_draw_target)
-                .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
-                .add_resource_provider(Box::new(CameraResourceProvider))
-                .add_resource_provider(Box::new(Camera2dResourceProvider))
-                .add_resource_provider(Box::new(LightResourceProvider::new(10)))
-                .add_resource_provider(Box::new(UiResourceProvider::new()))
-                .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
-                .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
-                .add_forward_pass()
-                .add_forward_pipeline(&mut pipeline_storage, &mut shader_storage)
-                .add_ui_pipeline(&mut pipeline_storage, &mut shader_storage);
+            self.render_graph_builder = setup(self.render_graph_builder, &mut pipeline_storage, &mut shader_storage);
         }
 
         self

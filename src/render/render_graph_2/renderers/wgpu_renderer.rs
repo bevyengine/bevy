@@ -70,6 +70,7 @@ impl WgpuRenderer {
     }
 
     pub fn create_render_pipeline(
+        dynamic_uniform_buffer_info: &HashMap<String, DynamicUniformBufferInfo>,
         pipeline_descriptor: &mut PipelineDescriptor,
         bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
@@ -92,11 +93,35 @@ impl WgpuRenderer {
                 layouts.push(fragment_spirv.reflect_layout().unwrap());
             }
 
-            pipeline_descriptor.layout =
-                PipelineLayoutType::Reflected(Some(PipelineLayout::from_shader_layouts(&mut layouts)));
+            let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
+
+            // set each uniform binding to dynamic if there is a matching dynamic uniform buffer info
+            for mut bind_group in layout.bind_groups.iter_mut() {
+                bind_group.bindings = bind_group
+                    .bindings
+                    .iter()
+                    .cloned()
+                    .map(|mut binding| {
+                        if let BindType::Uniform {
+                            ref mut dynamic, ..
+                        } = binding.bind_type
+                        {
+                            if dynamic_uniform_buffer_info.contains_key(&binding.name) {
+                                *dynamic = true;
+                            }
+                        }
+
+                        binding
+                    })
+                    .collect();
+            }
+
+            pipeline_descriptor.layout = PipelineLayoutType::Reflected(Some(layout));
         }
 
         let layout = pipeline_descriptor.get_layout_mut().unwrap();
+        // println!("{:#?}", layout);
+        // println!();
 
         // setup new bind group layouts
         for bind_group in layout.bind_groups.iter_mut() {
@@ -326,6 +351,24 @@ impl WgpuRenderer {
     ) -> wgpu::ShaderModule {
         device.create_shader_module(&shader.get_spirv(macros))
     }
+
+    pub fn initialize_resource_providers(
+        &mut self,
+        world: &mut World,
+        render_graph: &mut RenderGraph,
+    ) {
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+        );
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.initialize(self, world);
+        }
+
+        // consume current encoder
+        let command_buffer = self.encoder.take().unwrap().finish();
+        self.queue.submit(&[command_buffer]);
+    }
 }
 
 impl Renderer for WgpuRenderer {
@@ -338,9 +381,8 @@ impl Renderer for WgpuRenderer {
         };
 
         self.surface = Some(surface);
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.initialize(self, world);
-        }
+
+        self.initialize_resource_providers(world, render_graph);
 
         self.resize(world, render_graph, window_size.width, window_size.height);
     }
@@ -425,6 +467,7 @@ impl Renderer for WgpuRenderer {
                     .as_ref()
                     .map(|handle| &*shader_storage.get(&handle).unwrap());
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
+                    &self.dynamic_uniform_buffer_info,
                     pipeline_descriptor,
                     &mut self.bind_group_layouts,
                     &self.device,

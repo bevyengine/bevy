@@ -28,47 +28,12 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
             pipeline_descriptor_storage,
             PipelineDescriptor::build(
                 shader_storage,
-                Shader::from_glsl(include_str!("forward_flat.vert"), ShaderStage::Vertex),
+                Shader::from_glsl(ShaderStage::Vertex, include_str!("forward_flat.vert")),
             )
             .with_fragment_shader(Shader::from_glsl(
-                include_str!("forward_flat.frag"),
                 ShaderStage::Fragment,
+                include_str!("forward_flat.frag")
             ))
-            .add_bind_group(BindGroup::new(0, vec![Binding {
-                index: 0,
-                name: "Camera".to_string(),
-                bind_type: BindType::Uniform {
-                    dynamic: false,
-                    properties: vec![UniformProperty {
-                        name: "ViewProj".to_string(),
-                        property_type: UniformPropertyType::Mat4,
-                    }],
-                },
-            }]))
-            .add_bind_group(BindGroup::new(1, vec![
-                Binding {
-                    index: 0,
-                    name: "Object".to_string(),
-                    bind_type: BindType::Uniform {
-                        dynamic: true,
-                        properties: vec![UniformProperty {
-                            name: "Model".to_string(),
-                            property_type: UniformPropertyType::Mat4,
-                        }],
-                    },
-                },
-                Binding {
-                    index: 1,
-                    name: "StandardMaterial_albedo".to_string(),
-                    bind_type: BindType::Uniform {
-                        dynamic: true,
-                        properties: vec![UniformProperty {
-                            name: "Albedo".to_string(),
-                            property_type: UniformPropertyType::Vec4,
-                        }],
-                    },
-                },
-            ]))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: wgpu::CullMode::Back,

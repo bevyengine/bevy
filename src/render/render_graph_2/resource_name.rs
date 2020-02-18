@@ -20,3 +20,7 @@ pub mod draw_target {
     pub const ASSIGNED_MESHES: &str = "AssignedMeshes";
     pub const UI: &str = "Ui";
 }
+
+pub mod pass {
+    pub const MAIN: &str = "Main";
+}
