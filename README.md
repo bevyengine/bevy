@@ -28,6 +28,11 @@ Bevy is still in the _very_ stages of development. APIs can and will change. Imp
     * Modern and flexible low level "Render Graph" api
         * Easy to use high level defaults for beginners 
         * Experts can create their own Render Graphs or modify the defaults
+    * Powerful data-driven shader system
+        * Define your shaders in either GLSL or SPIR-V
+        * Automatically generates pipelines for shaders using SPIR-V reflection
+        * Easily and efficiently bind ECS component data to shader uniforms
+        * Use component data to define macros in shaders and automatically recompile them if the shader has changed
 * Expressive UI System
 * Fast iterative compile times
     * the example projects have less than 1 second iterative compiles
@@ -70,6 +75,9 @@ Bevy is only possible because of the hard work put into these foundational techn
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross platform window creation and management in Rust
 * [legion_transform](https://github.com/AThilenius/legion_transform): A hierarchical space transform system, implemented using Legion ECS
+* [shaderc](https://github.com/google/shaderc-rs): compiles GLSL and HLSL shaders to SPIR-V binaries
+* [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
+
 
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a game engine to build Rust games in, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others. 
 
@@ -81,9 +89,9 @@ Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/
 
 These experiences led me to want the following from a game engine:
 
-* It needs to be free and open source with no strings attached. Games are a huge part of our culture and humanity is investing _millions_ of hours into the development of games. Why are we (as game developers / engine developers) continuing to build up the ecosystems of closed-source monopolies that take cuts of our sales and deny us visibilty into the tech we use daily? As a community I believe we can do so much better.
+* It needs to be free and open source with no strings attached. Games are a huge part of our culture and humanity is investing _millions_ of hours into the development of games. Why are we (as game developers / engine developers) continuing to build up the ecosystems of closed-source monopolies that take cuts of our sales and deny us visibility into the tech we use daily? As a community I believe we can do so much better.
 * It needs to have fast build/run/test loops, which translates to either scripting languages or fast compile times in native languages. But scripting languages introduce runtime overhead, cognitive load, and a barrier between me and the actual engine, so my preference here is a native language with fast compile times. 
-* Ideally the engine is written in the same lanugage as games are. I found myself loving engines where game code is written in the same language as engine code. Being able to run an IDE "go to definition" command on a symbol in your game and hop directly into the engine source is an extremely powerful concept. And you don't need to worry about translation layers or lossy abstractions. Also, if an engine's community builds games in the same language as the engine, they are more likely (and able) to contribute back to the engine.
+* Ideally the engine is written in the same language as games are. I found myself loving engines where game code is written in the same language as engine code. Being able to run an IDE "go to definition" command on a symbol in your game and hop directly into the engine source is an extremely powerful concept. And you don't need to worry about translation layers or lossy abstractions. Also, if an engine's community builds games in the same language as the engine, they are more likely (and able) to contribute back to the engine.
 * It needs to be easy to use for common tasks, but it also can't hide the details from you. Many engines are either "easy to use but too high level" or "very low level but difficult to do common tasks in".
 * It needs to have an editor. Scene creation is a large part of game development and in many cases visual editors beat code. As a bonus, the editor should be built _in the engine_. Godot uses this approach and it is _so smart_. Doing so [dogfoods](https://en.wikipedia.org/wiki/Eating_your_own_dog_food) the engine's UI system. Improvements to the editor are also often improvements to the engine. And it makes sure your engine is flexible enough to build tooling (and not just games).
 * It needs to be data-driven/data-oriented/data-first. ECS is a common way of doing this, but it definitely isn't the only way. These paradigms can make your game faster (cache friendly, easier to parallelize), but they also make common tasks like game state serialization and synchronization delightfully straightforward.
