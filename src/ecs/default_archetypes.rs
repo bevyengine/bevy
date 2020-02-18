@@ -16,6 +16,15 @@ pub struct MeshEntity {
 }
 
 #[derive(EntityArchetype, Default)]
+pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
+    pub mesh: Handle<Mesh>,
+    pub material: T,
+    pub renderable: Renderable,
+    pub local_to_world: LocalToWorld,
+    pub translation: Translation,
+}
+
+#[derive(EntityArchetype, Default)]
 pub struct LightEntity {
     pub light: Light,
     pub local_to_world: LocalToWorld,

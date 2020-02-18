@@ -17,11 +17,14 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
     let struct_name = &ast.ident;
     let field_name = fields.iter().map(|field| &field.ident);
 
     TokenStream::from(quote! {
-        impl bevy::prelude::EntityArchetype for #struct_name {
+        impl #impl_generics bevy::prelude::EntityArchetype for #struct_name#ty_generics {
             fn insert(self, world: &mut bevy::prelude::World) -> Entity {
                 *world.insert((), vec![(
                     #(self.#field_name,)*

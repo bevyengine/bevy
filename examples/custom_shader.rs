@@ -1,16 +1,18 @@
 use bevy::{
     prelude::*,
     render::{
-        render_graph::{PipelineDescriptor, resource_name, resource_providers::UniformResourceProvider},
+        render_graph::{
+            resource_name, resource_providers::UniformResourceProvider, PipelineDescriptor,
+        },
         Shader, ShaderStage, Vertex,
     },
 };
 
 use bevy_derive::Uniforms;
 
-#[derive(Uniforms)]
+#[derive(Uniforms, Default)]
 struct MyMaterial {
-    pub color: Vec4
+    pub color: Vec4,
 }
 
 fn main() {
@@ -24,8 +26,10 @@ fn main() {
                     resource_name::pass::MAIN,
                     pipeline_storage,
                     PipelineDescriptor::build(
-                        shader_storage, Shader::from_glsl(
-                            ShaderStage::Vertex,r#"
+                        shader_storage,
+                        Shader::from_glsl(
+                            ShaderStage::Vertex,
+                            r#"
                                 #version 450
                                 layout(location = 0) in vec4 a_Pos;
                                 layout(location = 0) out vec4 v_Position;
@@ -39,11 +43,12 @@ fn main() {
                                     v_Position = Model * vec4(a_Pos);
                                     gl_Position = ViewProj * v_Position;
                                 }
-                            "#),
+                            "#,
+                        ),
                     )
-                    .with_fragment_shader(
-                        Shader::from_glsl(
-                            ShaderStage::Fragment, r#"
+                    .with_fragment_shader(Shader::from_glsl(
+                        ShaderStage::Fragment,
+                        r#"
                                 #version 450
                                 layout(location = 0) in vec4 v_Position;
                                 layout(location = 0) out vec4 o_Target;
@@ -53,8 +58,8 @@ fn main() {
                                 void main() {
                                     o_Target = color;
                                 }
-                        "#)
-                    )
+                        "#,
+                    ))
                     .with_depth_stencil_state(wgpu::DepthStencilStateDescriptor {
                         format: wgpu::TextureFormat::Depth32Float,
                         depth_write_enabled: true,
@@ -86,9 +91,16 @@ fn setup(world: &mut World) {
 
     world
         .build()
-        // red cube
-        .add_archetype(MeshEntity {
+        // cube
+        .add_archetype(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
+            renderable: Renderable {
+                pipelines: vec![Handle::new(2)],
+                ..Default::default()
+            },
+            material: MyMaterial {
+                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+            },
             ..Default::default()
         })
         // camera
