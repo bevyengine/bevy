@@ -13,6 +13,8 @@ use bevy_derive::Uniforms;
 #[derive(Uniforms, Default)]
 struct MyMaterial {
     pub color: Vec4,
+    #[uniform(ignore, shader_def)]
+    pub always_red: bool,
 }
 
 fn main() {
@@ -57,6 +59,10 @@ fn main() {
                                 };
                                 void main() {
                                     o_Target = color;
+
+                                # ifdef always_red
+                                    o_Target = vec4(0.8, 0.0, 0.0, 1.0);
+                                # endif
                                 }
                         "#,
                     ))
@@ -77,14 +83,29 @@ fn setup(world: &mut World) {
         .build()
         // cube
         .add_archetype(MeshMaterialEntity::<MyMaterial> {
+            mesh: cube_handle.clone(),
+            renderable: Renderable {
+                pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
+                ..Default::default()
+            },
+            material: MyMaterial {
+                color: Vec4::new(0.0, 0.8, 0.0, 1.0),
+                always_red: false,
+            },
+            ..Default::default()
+        })
+        // cube
+        .add_archetype(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
                 pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
                 ..Default::default()
             },
             material: MyMaterial {
-                color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+                color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+                always_red: true,
             },
+            translation: Translation::new(3.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera

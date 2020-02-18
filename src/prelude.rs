@@ -6,7 +6,7 @@ pub use crate::{
     ecs::{default_archetypes::*, EntityArchetype, WorldBuilder, WorldBuilderSource},
     render::{
         ActiveCamera, ActiveCamera2d, Camera, CameraType, Instanced, Light,
-        render_graph::{StandardMaterial, Renderable},
+        render_graph::{StandardMaterial, Renderable, ShaderDefSuffixProvider},
     },
     ui::{Anchors, Margins, Node},
 };
