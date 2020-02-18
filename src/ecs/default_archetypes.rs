@@ -1,28 +1,19 @@
 use crate::{
     prelude::*,
-    render::render_graph::{Renderable, ShaderUniforms, StandardMaterial},
+    render::render_graph::{Renderable, StandardMaterial},
 };
 use bevy_derive::EntityArchetype;
 
-#[derive(EntityArchetype)]
+#[derive(EntityArchetype, Default)]
 pub struct MeshEntity {
     pub mesh: Handle<Mesh>,
-    pub material: Material,
+    pub material: StandardMaterial,
+    pub renderable: Renderable,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,
 }
 
 #[derive(EntityArchetype, Default)]
-pub struct NewMeshEntity {
-    pub mesh: Handle<Mesh>,
-    pub material: StandardMaterial,
-    pub renderable: Renderable,
-    pub shader_uniforms: ShaderUniforms,
-    pub local_to_world: LocalToWorld,
-    pub translation: Translation,
-}
-
-#[derive(EntityArchetype)]
 pub struct LightEntity {
     pub light: Light,
     pub local_to_world: LocalToWorld,

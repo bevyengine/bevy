@@ -1,12 +1,9 @@
 use crate::{
-    legion::{
-        borrow::RefMap,
-        prelude::{Entity, World},
-    },
     math::Vec4,
     render::render_graph::{BindType, UniformPropertyType},
 };
-use legion::storage::Component;
+use legion::prelude::Entity;
+use std::collections::HashMap;
 use zerocopy::AsBytes;
 
 pub trait GetBytes {
@@ -70,79 +67,22 @@ pub struct UniformInfo<'a> {
     pub bind_type: BindType,
 }
 
-pub fn uniform_selector<T>(entity: Entity, world: &World) -> Option<RefMap<&dyn AsUniforms>>
-where
-    T: AsUniforms + Component,
-{
-    world
-        .get_component::<T>(entity)
-        .map(|c| c.map_into(|s| s as &dyn AsUniforms))
+pub struct DynamicUniformBufferInfo {
+    pub indices: HashMap<usize, Entity>,
+    pub offsets: HashMap<Entity, u64>,
+    pub capacity: u64,
+    pub count: u64,
+    pub size: u64,
 }
 
-// TODO: Remove these
-
-pub type ShaderUniformSelector = fn(Entity, &World) -> Option<RefMap<&dyn AsUniforms>>;
-
-#[derive(Default)]
-pub struct ShaderUniforms {
-    // used for distinguishing
-    pub uniform_selectors: Vec<ShaderUniformSelector>,
-}
-
-impl ShaderUniforms {
+impl DynamicUniformBufferInfo {
     pub fn new() -> Self {
-        ShaderUniforms {
-            uniform_selectors: Vec::new(),
+        DynamicUniformBufferInfo {
+            capacity: 0,
+            count: 0,
+            indices: HashMap::new(),
+            offsets: HashMap::new(),
+            size: 0,
         }
-    }
-
-    pub fn add(&mut self, selector: ShaderUniformSelector) {
-        self.uniform_selectors.push(selector);
-    }
-
-    pub fn get_uniform_info<'a>(
-        &'a self,
-        world: &'a World,
-        entity: Entity,
-        uniform_name: &str,
-    ) -> Option<&'a UniformInfo> {
-        for uniform_selector in self.uniform_selectors.iter().rev() {
-            let uniforms = uniform_selector(entity, world).unwrap_or_else(|| {
-                panic!(
-                    "ShaderUniform selector points to a missing component. Uniform: {}",
-                    uniform_name
-                )
-            });
-
-            let info = uniforms.get_uniform_info(uniform_name);
-            if let Some(_) = info {
-                return info;
-            }
-        }
-
-        None
-    }
-
-    pub fn get_uniform_bytes<'a>(
-        &'a self,
-        world: &'a World,
-        entity: Entity,
-        uniform_name: &str,
-    ) -> Option<Vec<u8>> {
-        for uniform_selector in self.uniform_selectors.iter().rev() {
-            let uniforms = uniform_selector(entity, world).unwrap_or_else(|| {
-                panic!(
-                    "ShaderUniform selector points to a missing component. Uniform: {}",
-                    uniform_name
-                )
-            });
-
-            let bytes = uniforms.get_uniform_bytes(uniform_name);
-            if let Some(_) = bytes {
-                return bytes;
-            }
-        }
-
-        None
     }
 }

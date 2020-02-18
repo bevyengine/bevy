@@ -41,18 +41,7 @@ fn setup(world: &mut World) {
         vec![
             // lights
             (
-                Light {
-                    color: wgpu::Color {
-                        r: 0.8,
-                        g: 0.8,
-                        b: 0.5,
-                        a: 1.0,
-                    },
-                    fov: f32::to_radians(60.0),
-                    depth: 0.1..50.0,
-                    target_view: None,
-                },
-                Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
+                Light::default(),
                 LocalToWorld::identity(),
                 Translation::new(4.0, -4.0, 5.0),
                 Rotation::from_euler_angles(0.0, 0.0, 0.0),
@@ -204,9 +193,10 @@ fn create_person(world: &mut World, mesh_handle: Handle<Mesh>, translation: Tran
                 value: math::vec3(0.0, 0.0, 0.0),
             },
             Instanced,
-            Material::new(Albedo::Color(
-                math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>(),
-            )),
+            StandardMaterial {
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>(),
+                everything_is_red: false,
+            },
             mesh_handle,
             LocalToWorld::identity(),
             translation,

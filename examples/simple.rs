@@ -16,7 +16,7 @@ fn setup(world: &mut World) {
     world
         .build()
         // plane
-        .add_archetype(NewMeshEntity {
+        .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
@@ -25,7 +25,7 @@ fn setup(world: &mut World) {
             ..Default::default()
         })
         // tan cube
-        .add_archetype(NewMeshEntity {
+        .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
@@ -35,7 +35,7 @@ fn setup(world: &mut World) {
             ..Default::default()
         })
         // red cube
-        .add_archetype(NewMeshEntity {
+        .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
@@ -46,20 +46,9 @@ fn setup(world: &mut World) {
         })
         // light
         .add_archetype(LightEntity {
-            light: Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.8,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            },
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(4.0, -4.0, 5.0),
             rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+            ..Default::default()
         })
         // camera
         .add_archetype(CameraEntity {

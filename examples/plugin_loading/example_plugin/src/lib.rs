@@ -26,14 +26,14 @@ pub fn setup(world: &mut World) {
 
     world.build()
         // plane
-        .add_archetype(MeshEntity {
+        .add_archetype(NewMeshEntity {
             mesh: plane_handle.clone(),
             material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
             local_to_world: LocalToWorld::identity(),
             translation: Translation::new(0.0, 0.0, 0.0),
         })
         // cube
-        .add_archetype(MeshEntity {
+        .add_archetype(NewMeshEntity {
             mesh: cube_handle,
             material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
             local_to_world: LocalToWorld::identity(),

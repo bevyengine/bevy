@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph::{resource_name, RenderPass, Renderable, ShaderUniforms, PipelineDescriptor},
+        render_graph::{resource_name, RenderPass, Renderable, PipelineDescriptor},
         Instanced,
     },
 };
@@ -13,9 +13,9 @@ pub fn meshes_draw_target(world: &World, render_pass: &mut dyn RenderPass, _pipe
     let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut current_mesh_id = None;
     let mut current_mesh_index_length = 0;
-    let mesh_query = <(Read<ShaderUniforms>, Read<Handle<Mesh>>, Read<Renderable>)>::query()
+    let mesh_query = <(Read<Handle<Mesh>>, Read<Renderable>)>::query()
         .filter(!component::<Instanced>());
-    for (entity, (_shader_uniforms, mesh, renderable)) in mesh_query.iter_entities(world) {
+    for (entity, (mesh, renderable)) in mesh_query.iter_entities(world) {
         if !renderable.is_visible {
             continue;
         }

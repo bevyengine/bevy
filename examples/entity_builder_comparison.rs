@@ -18,7 +18,10 @@ fn create_entities_insert_vec(
         (),
         vec![(
             plane_handle.clone(),
-            Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
+            StandardMaterial {
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+                everything_is_red: false,
+            },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0),
         )],
@@ -29,7 +32,10 @@ fn create_entities_insert_vec(
         (),
         vec![(
             cube_handle,
-            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
+            StandardMaterial {
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                everything_is_red: false,
+            },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 1.0),
         )],
@@ -39,17 +45,7 @@ fn create_entities_insert_vec(
     world.insert(
         (),
         vec![(
-            Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            },
+            Light::default(),
             LocalToWorld::identity(),
             Translation::new(4.0, -4.0, 5.0),
             Rotation::from_euler_angles(0.0, 0.0, 0.0),
@@ -87,28 +83,24 @@ fn create_entities_builder_add_component(
         // plane
         .build_entity()
         .add(plane_handle.clone())
-        .add(Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))))
+        .add(StandardMaterial {
+            albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+            everything_is_red: false,
+        })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 0.0))
         // cube
         .build_entity()
         .add(cube_handle)
-        .add(Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))))
+        .add(StandardMaterial {
+            albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+            everything_is_red: false,
+        })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 1.0))
         // light
         .build_entity()
-        .add(Light {
-            color: wgpu::Color {
-                r: 0.8,
-                g: 0.8,
-                b: 0.5,
-                a: 1.0,
-            },
-            fov: f32::to_radians(60.0),
-            depth: 0.1..50.0,
-            target_view: None,
-        })
+        .add(Light::default())
         .add(LocalToWorld::identity())
         .add(Translation::new(4.0, -4.0, 5.0))
         .add(Rotation::from_euler_angles(0.0, 0.0, 0.0))
@@ -139,33 +131,25 @@ fn create_entities_builder_archetype(
         // plane
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
-            material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 0.0),
+            material: StandardMaterial {
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+                everything_is_red: false
+            },
+            ..Default::default()
         })
         // cube
         .add_archetype(MeshEntity {
             mesh: cube_handle,
-            material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 1.0),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                everything_is_red: false
+            },
+            ..Default::default()
         })
         // light
         .add_archetype(LightEntity {
-            light: Light {
-                color: wgpu::Color {
-                    r: 0.8,
-                    g: 0.8,
-                    b: 0.5,
-                    a: 1.0,
-                },
-                fov: f32::to_radians(60.0),
-                depth: 0.1..50.0,
-                target_view: None,
-            },
-            local_to_world: LocalToWorld::identity(),
             translation: Translation::new(4.0, -4.0, 5.0),
-            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+            ..Default::default()
         })
         // camera
         .add_archetype(CameraEntity {

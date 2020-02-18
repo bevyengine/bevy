@@ -1,12 +1,21 @@
-use crate::{math, prelude::Translation, render::camera};
+use crate::{math, math::Vec4, prelude::Translation, render::camera};
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
 
 pub struct Light {
-    pub color: wgpu::Color,
+    pub color: Vec4,
     pub fov: f32,
     pub depth: Range<f32>,
-    pub target_view: Option<wgpu::TextureView>,
+}
+
+impl Default for Light {
+    fn default() -> Self {
+        Light {
+            color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+            depth: 0.1..50.0,
+            fov: f32::to_radians(60.0),
+        }
+    }
 }
 
 #[repr(C)]
@@ -29,12 +38,7 @@ impl LightRaw {
         LightRaw {
             proj: proj.to_cols_array_2d(),
             pos: [x, y, z, 1.0],
-            color: [
-                light.color.r as f32,
-                light.color.g as f32,
-                light.color.b as f32,
-                1.0,
-            ],
+            color: light.color.into(),
         }
     }
 }

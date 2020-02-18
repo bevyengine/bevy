@@ -1,6 +1,6 @@
 use crate::{
     render::render_graph::{
-        resource::DynamicUniformBufferInfo, AsUniforms, Renderable, Renderer, ResourceProvider,
+        DynamicUniformBufferInfo, AsUniforms, Renderable, Renderer, ResourceProvider,
     },
 };
 use legion::prelude::*;
@@ -36,7 +36,6 @@ where
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
         let query = <(Read<T>, Read<Renderable>)>::query();
-        // retrieve all uniforms buffers that aren't aleady set. these are "dynamic" uniforms, which are set by the user in ShaderUniforms
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
         // (2) if we create new buffers, the old bind groups will be invalid
