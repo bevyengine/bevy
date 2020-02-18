@@ -4,7 +4,7 @@ use bevy::{
         render_graph::{
             resource_name, resource_providers::UniformResourceProvider, PipelineDescriptor,
         },
-        Shader, ShaderStage, Vertex,
+        Shader, ShaderStage,
     },
 };
 
@@ -60,23 +60,7 @@ fn main() {
                                 }
                         "#,
                     ))
-                    .with_depth_stencil_state(wgpu::DepthStencilStateDescriptor {
-                        format: wgpu::TextureFormat::Depth32Float,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                        stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                        stencil_read_mask: 0,
-                        stencil_write_mask: 0,
-                    })
-                    .add_color_state(wgpu::ColorStateDescriptor {
-                        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                        color_blend: wgpu::BlendDescriptor::REPLACE,
-                        alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                        write_mask: wgpu::ColorWrite::ALL,
-                    })
-                    .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-                    .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
+                    .with_standard_config()
                     .build(),
                 )
         })
@@ -95,7 +79,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
-                pipelines: vec![Handle::new(2)],
+                pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
                 ..Default::default()
             },
             material: MyMaterial {
