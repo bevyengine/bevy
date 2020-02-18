@@ -89,8 +89,7 @@ fn setup(world: &mut World) {
         // red cube
         .add_archetype(MeshEntity {
             mesh: cube_handle,
-            translation: Translation::new(0.0, 0.0, 1.0),
-            ..MeshEntity::default()
+            ..Default::default()
         })
         // camera
         .add_archetype(CameraEntity {

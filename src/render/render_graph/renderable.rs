@@ -1,6 +1,6 @@
 use crate::{
     asset::{AssetStorage, Handle},
-    render::{render_graph::RenderGraph, Shader, ShaderSource},
+    render::{render_graph::{RenderGraph, resource_name}, Shader, ShaderSource},
 };
 use legion::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -117,7 +117,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
 
                             let macroed_pipeline_handle = pipeline_descriptor_storage.add(macroed_pipeline);
                             // TODO: get correct pass name
-                            render_graph.add_pipeline("main", macroed_pipeline_handle.clone());
+                            render_graph.add_pipeline(resource_name::pass::MAIN, macroed_pipeline_handle.clone());
                             macroed_pipeline_handle
                         } else {
                             pipeline_handle.clone()
