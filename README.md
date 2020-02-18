@@ -9,7 +9,7 @@ Bevy is a modern data-driven game engine built in Rust
 
 ## WARNING
 
-Bevy is still in the _very_ stages of development. APIs can and will change. Important features are missing. Please don't build any serious projects in Bevy unless you are prepared to be broken by api changes constantly.
+Bevy is still in the _very_ stages of development. APIs can and will change. Important features are missing. Documentation is non-existent. Please don't build any serious projects in Bevy unless you are prepared to be broken by api changes constantly.
 
 ## Design Goals
 
