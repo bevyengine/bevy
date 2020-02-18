@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new()
-        .add_defaults_legacy()
-        .setup_world(setup)
-        .run();
+    AppBuilder::new().add_defaults().setup_world(setup).run();
 }
 
 fn setup(world: &mut World) {
@@ -19,18 +16,33 @@ fn setup(world: &mut World) {
     world
         .build()
         // plane
-        .add_archetype(MeshEntity {
+        .add_archetype(NewMeshEntity {
             mesh: plane_handle.clone(),
-            material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 0.0),
+            material: StandardMaterial {
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
+                everything_is_red: false,
+            },
+            ..Default::default()
         })
-        // cube
-        .add_archetype(MeshEntity {
-            mesh: cube_handle,
-            material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
-            local_to_world: LocalToWorld::identity(),
+        // tan cube
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
+                everything_is_red: false,
+            },
             translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
+        })
+        // red cube
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0),
+                everything_is_red: true,
+            },
+            translation: Translation::new(3.0, 0.0, 1.0),
+            ..Default::default()
         })
         // light
         .add_archetype(LightEntity {
@@ -38,7 +50,7 @@ fn setup(world: &mut World) {
                 color: wgpu::Color {
                     r: 0.8,
                     g: 0.8,
-                    b: 0.5,
+                    b: 0.8,
                     a: 1.0,
                 },
                 fov: f32::to_radians(60.0),

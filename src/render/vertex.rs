@@ -1,4 +1,4 @@
-use crate::render::render_graph_2::VertexBufferDescriptor;
+use crate::render::render_graph::VertexBufferDescriptor;
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 

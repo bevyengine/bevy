@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new()
-        .add_defaults_legacy()
-        .setup_world(setup)
-        .run();
+    AppBuilder::new().add_defaults().setup_world(setup).run();
 }
 
 fn setup(world: &mut World) {
@@ -14,21 +11,21 @@ fn setup(world: &mut World) {
         mesh_storage.add(cube)
     };
 
-    // cube
-    world.insert(
-        (),
-        vec![(
-            cube_handle,
-            LocalToWorld::identity(),
-            Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
-        )],
-    );
-
-    // light
-    world.insert(
-        (),
-        vec![(
-            Light {
+    world
+        .build()
+        // cube
+        .add_archetype(NewMeshEntity {
+            mesh: cube_handle.clone(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
+                everything_is_red: false,
+            },
+            translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
+        })
+        // light
+        .add_archetype(LightEntity {
+            light: Light {
                 color: wgpu::Color {
                     r: 0.8,
                     g: 0.8,
@@ -39,39 +36,28 @@ fn setup(world: &mut World) {
                 depth: 0.1..50.0,
                 target_view: None,
             },
-            LocalToWorld::identity(),
-            Translation::new(4.0, -4.0, 5.0),
-            Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        )],
-    );
-
-    // 3d camera
-    world.insert(
-        (),
-        vec![
-            // camera
-            (
-                Camera::new(CameraType::Projection {
-                    fov: std::f32::consts::PI / 4.0,
-                    near: 1.0,
-                    far: 1000.0,
-                    aspect_ratio: 1.0,
-                }),
-                ActiveCamera,
-                LocalToWorld(Mat4::look_at_rh(
-                    Vec3::new(3.0, -5.0, 3.0),
-                    Vec3::new(0.0, 0.0, 0.0),
-                    Vec3::new(0.0, 0.0, 1.0),
-                )),
-            ),
-        ],
-    );
-
-    // 2d camera
-    world.insert(
-        (),
-        vec![(
-            Camera::new(CameraType::Orthographic {
+            local_to_world: LocalToWorld::identity(),
+            translation: Translation::new(4.0, -4.0, 5.0),
+            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+        })
+        // 3d camera
+        .add_archetype(CameraEntity {
+            camera: Camera::new(CameraType::Projection {
+                fov: std::f32::consts::PI / 4.0,
+                near: 1.0,
+                far: 1000.0,
+                aspect_ratio: 1.0,
+            }),
+            active_camera: ActiveCamera,
+            local_to_world: LocalToWorld(Mat4::look_at_rh(
+                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 1.0),
+            )),
+        })
+        // 2d camera
+        .add_archetype(Camera2dEntity {
+            camera: Camera::new(CameraType::Orthographic {
                 left: 0.0,
                 right: 0.0,
                 bottom: 0.0,
@@ -79,9 +65,9 @@ fn setup(world: &mut World) {
                 near: 0.0,
                 far: 1.0,
             }),
-            ActiveCamera2d,
-        )],
-    );
+            active_camera_2d: ActiveCamera2d,
+        })
+        .build();
 
     // bottom left anchor with vertical fill
     world.insert(

@@ -1,4 +1,4 @@
-use crate::render::render_graph_2::{
+use crate::render::render_graph::{
     BindGroup, BindType, Binding, UniformProperty, UniformPropertyType,
 };
 use spirv_reflect::{

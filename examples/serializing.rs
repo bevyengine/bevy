@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 fn main() {
     let app = AppBuilder::new()
-        .add_defaults_legacy()
+        .add_defaults()
         .setup_world(setup)
         .build();
 

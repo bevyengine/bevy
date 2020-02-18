@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        render_graph_2::{PipelineDescriptor, StandardMaterial, resource_name, resource_providers::UniformResourceProvider},
+        render_graph::{PipelineDescriptor, resource_name},
         Shader, ShaderStage, Vertex,
     },
 };

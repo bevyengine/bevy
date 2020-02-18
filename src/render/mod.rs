@@ -1,20 +1,16 @@
 pub mod camera;
 pub mod instancing;
-pub mod passes;
-pub mod render_graph_2;
-pub mod render_resources;
+pub mod render_graph;
 pub mod shader;
 pub mod shader_reflect;
 
 mod light;
 mod material;
-mod render_graph;
 mod vertex;
 
 pub use camera::*;
 pub use light::*;
 pub use material::*;
-pub use render_graph::*;
 pub use shader::*;
 
 use std::mem;

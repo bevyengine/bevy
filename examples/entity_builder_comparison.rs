@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     AppBuilder::new()
-        .add_defaults_legacy()
+        .add_defaults()
         .setup_world(setup)
         .run();
 }

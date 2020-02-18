@@ -5,10 +5,10 @@ use crate::{
     legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
     render::{
-        passes::*,
-        render_graph_2::{
-            passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer, resource_providers::*,
-            ShaderPipelineAssignments, StandardMaterial, RenderGraphBuilder
+        render_graph::{
+            draw_targets::*, passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer,
+            resource_name, resource_providers::*, CompiledShaderMap, PipelineDescriptor,
+            RenderGraphBuilder, Renderer, ShaderPipelineAssignments, StandardMaterial,
         },
         *,
     },
@@ -16,15 +16,13 @@ use crate::{
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
-use render_graph_2::{CompiledShaderMap, PipelineDescriptor, resource_name, draw_targets::{ui_draw_target, meshes_draw_target, assigned_meshes_draw_target}};
 use std::collections::HashMap;
 
 pub struct AppBuilder {
     pub world: World,
     pub universe: Universe,
-    pub legacy_render_graph: Option<RenderGraph>,
-    pub renderer: Option<Box<dyn render_graph_2::Renderer>>,
-    pub render_graph_builder: render_graph_2::RenderGraphBuilder,
+    pub renderer: Option<Box<dyn Renderer>>,
+    pub render_graph_builder: RenderGraphBuilder,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
@@ -37,8 +35,7 @@ impl AppBuilder {
         AppBuilder {
             universe,
             world,
-            render_graph_builder: render_graph_2::RenderGraphBuilder::new(),
-            legacy_render_graph: None,
+            render_graph_builder: RenderGraphBuilder::new(),
             renderer: None,
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
@@ -70,7 +67,6 @@ impl AppBuilder {
             self.universe,
             self.world,
             schedule_builder.build(),
-            self.legacy_render_graph,
             self.renderer,
             self.render_graph_builder.build(),
         )
@@ -120,46 +116,6 @@ impl AppBuilder {
         self
     }
 
-    pub fn with_legacy_render_graph(mut self) -> Self {
-        self.legacy_render_graph = Some(RenderGraph::new());
-        self
-    }
-
-    pub fn add_default_passes(mut self) -> Self {
-        let msaa_samples = 4;
-        {
-            let render_graph = &mut self.legacy_render_graph.as_mut().unwrap();
-            render_graph
-                .add_render_resource_manager(Box::new(render_resources::MaterialResourceManager));
-            render_graph.add_render_resource_manager(Box::new(
-                render_resources::LightResourceManager::new(10),
-            ));
-            render_graph
-                .add_render_resource_manager(Box::new(render_resources::GlobalResourceManager));
-            render_graph
-                .add_render_resource_manager(Box::new(render_resources::Global2dResourceManager));
-
-            let depth_format = wgpu::TextureFormat::Depth32Float;
-            render_graph.set_pass(
-                "forward",
-                Box::new(ForwardPass::new(depth_format, msaa_samples)),
-            );
-            render_graph.set_pipeline(
-                "forward",
-                "forward",
-                Box::new(ForwardPipeline::new(msaa_samples)),
-            );
-            render_graph.set_pipeline(
-                "forward",
-                "forward_instanced",
-                Box::new(ForwardInstancedPipeline::new(depth_format, msaa_samples)),
-            );
-            render_graph.set_pipeline("forward", "ui", Box::new(UiPipeline::new(msaa_samples)));
-        }
-
-        self
-    }
-
     pub fn add_default_resources(mut self) -> Self {
         let resources = &mut self.world.resources;
         resources.insert(Time::new());
@@ -185,7 +141,10 @@ impl AppBuilder {
         self.setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
                 .add_draw_target(resource_name::draw_target::MESHES, meshes_draw_target)
-                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES, assigned_meshes_draw_target)
+                .add_draw_target(
+                    resource_name::draw_target::ASSIGNED_MESHES,
+                    assigned_meshes_draw_target,
+                )
                 .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
                 .add_resource_provider(Box::new(CameraResourceProvider))
                 .add_resource_provider(Box::new(Camera2dResourceProvider))
@@ -199,7 +158,14 @@ impl AppBuilder {
         })
     }
 
-    pub fn setup_render_graph(mut self, setup: impl Fn(RenderGraphBuilder, &mut AssetStorage<PipelineDescriptor>, &mut AssetStorage<Shader>) -> RenderGraphBuilder) -> Self {
+    pub fn setup_render_graph(
+        mut self,
+        setup: impl Fn(
+            RenderGraphBuilder,
+            &mut AssetStorage<PipelineDescriptor>,
+            &mut AssetStorage<Shader>,
+        ) -> RenderGraphBuilder,
+    ) -> Self {
         {
             let mut pipeline_storage = self
                 .world
@@ -211,7 +177,11 @@ impl AppBuilder {
                 .resources
                 .get_mut::<AssetStorage<Shader>>()
                 .unwrap();
-            self.render_graph_builder = setup(self.render_graph_builder, &mut pipeline_storage, &mut shader_storage);
+            self.render_graph_builder = setup(
+                self.render_graph_builder,
+                &mut pipeline_storage,
+                &mut shader_storage,
+            );
         }
 
         self
@@ -220,13 +190,6 @@ impl AppBuilder {
     pub fn add_wgpu_renderer(mut self) -> Self {
         self.renderer = Some(Box::new(WgpuRenderer::new()));
         self
-    }
-
-    pub fn add_defaults_legacy(self) -> Self {
-        self.with_legacy_render_graph()
-            .add_default_resources()
-            .add_default_passes()
-            .add_default_systems()
     }
 
     pub fn add_defaults(self) -> Self {

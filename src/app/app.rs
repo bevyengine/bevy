@@ -9,14 +9,12 @@ use legion::prelude::*;
 use crate::{
     app::AppBuilder,
     core::Time,
-    render,
-    render::render_graph_2::{RenderGraph, Renderer},
+    render::render_graph::{RenderGraph, Renderer},
 };
 
 pub struct App {
     pub universe: Universe,
     pub world: World,
-    pub legacy_render_graph: Option<render::RenderGraph>,
     pub renderer: Option<Box<dyn Renderer>>,
     pub render_graph: RenderGraph,
     pub schedule: Schedule,
@@ -27,7 +25,6 @@ impl App {
         universe: Universe,
         world: World,
         schedule: Schedule,
-        legacy_render_graph: Option<render::RenderGraph>,
         renderer: Option<Box<dyn Renderer>>,
         render_graph: RenderGraph,
     ) -> App {
@@ -35,7 +32,6 @@ impl App {
             universe,
             world,
             schedule,
-            legacy_render_graph,
             renderer,
             render_graph,
         }
@@ -50,11 +46,6 @@ impl App {
             time.start();
         }
         self.schedule.execute(&mut self.world);
-
-        // TODO: remove me
-        if let Some(ref mut render_graph) = self.legacy_render_graph {
-            render_graph.render(&mut self.world);
-        }
 
         if let Some(ref mut renderer) = self.renderer {
             renderer.process_render_graph(&mut self.render_graph, &mut self.world);
@@ -79,9 +70,6 @@ impl App {
         self.world.resources.insert(window);
 
         log::info!("Initializing the example...");
-        if let Some(ref mut render_graph) = self.legacy_render_graph {
-            render_graph.initialize(&mut self.world);
-        }
 
         if let Some(ref mut renderer) = self.renderer {
             renderer.initialize(&mut self.world, &mut self.render_graph);
@@ -99,10 +87,6 @@ impl App {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
-                    if let Some(ref mut render_graph) = self.legacy_render_graph {
-                        render_graph.resize(size.width, size.height, &mut self.world);
-                    }
-
                     if let Some(ref mut renderer) = self.renderer {
                         renderer.resize(
                             &mut self.world,
