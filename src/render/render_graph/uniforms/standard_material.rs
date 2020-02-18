@@ -1,20 +1,17 @@
-use crate::{math, math::Vec4, render::render_graph::ShaderDefSuffixProvider};
+use crate::{math::Vec4, render::ColorSource};
 
 use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
 pub struct StandardMaterial {
-    pub albedo: Vec4,
-    #[uniform(ignore, shader_def)]
-    pub everything_is_red: bool,
+    pub albedo: ColorSource,
 }
 
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            albedo: math::vec4(0.3, 0.3, 0.3, 1.0),
-            everything_is_red: false,
+            albedo: ColorSource::Color(Vec4::new(0.3, 0.3, 0.3, 1.0)),
         }
     }
 }

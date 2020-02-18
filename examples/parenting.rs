@@ -36,8 +36,7 @@ fn setup(world: &mut World) {
         vec![(
             plane_handle.clone(),
             StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, -5.0),
@@ -51,8 +50,7 @@ fn setup(world: &mut World) {
             vec![(
                 cube_handle.clone(),
                 StandardMaterial {
-                    albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-                    everything_is_red: false,
+                    albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
                 },
                 LocalToWorld::identity(),
                 Translation::new(0.0, 0.0, 1.0),
@@ -69,8 +67,7 @@ fn setup(world: &mut World) {
         vec![(
             cube_handle,
             StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 3.0),

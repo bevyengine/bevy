@@ -17,8 +17,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()

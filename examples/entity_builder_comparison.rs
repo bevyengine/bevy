@@ -19,8 +19,7 @@ fn create_entities_insert_vec(
         vec![(
             plane_handle.clone(),
             StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0),
@@ -33,8 +32,7 @@ fn create_entities_insert_vec(
         vec![(
             cube_handle,
             StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 1.0),
@@ -84,8 +82,7 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(plane_handle.clone())
         .add(StandardMaterial {
-            albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
-            everything_is_red: false,
+            albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 0.0))
@@ -93,8 +90,7 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(cube_handle)
         .add(StandardMaterial {
-            albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-            everything_is_red: false,
+            albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 1.0))
@@ -132,8 +128,7 @@ fn create_entities_builder_archetype(
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
-                everything_is_red: false
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
             ..Default::default()
         })
@@ -141,8 +136,7 @@ fn create_entities_builder_archetype(
         .add_archetype(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0),
-                everything_is_red: false
+                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
             },
             ..Default::default()
         })

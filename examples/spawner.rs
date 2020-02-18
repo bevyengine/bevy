@@ -18,13 +18,15 @@ fn build_move_system() -> Box<dyn Schedulable> {
         .build(move |_, world, time, person_query| {
             for (mut translation, mut material) in person_query.iter_mut(world) {
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-                material.albedo = material.albedo
-                    + math::vec4(
-                        -time.delta_seconds,
-                        -time.delta_seconds,
-                        time.delta_seconds,
-                        0.0,
-                    );
+                if let ColorSource::Color(color) = material.albedo {
+                    material.albedo = (color
+                        + math::vec4(
+                            -time.delta_seconds,
+                            -time.delta_seconds,
+                            time.delta_seconds,
+                            0.0,
+                        )).into();
+                }
             }
         })
 }
@@ -73,8 +75,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshEntity {
             mesh: plane_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
             ..Default::default()
         })
@@ -82,8 +83,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(1.0, 1.0, 1.0, 1.0),
-                everything_is_red: false,
+                albedo: math::vec4(1.0, 1.0, 1.0, 1.0).into(),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
@@ -91,8 +91,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.0, 1.0, 0.0, 1.0),
-                everything_is_red: true,
+                albedo: math::vec4(0.0, 1.0, 0.0, 1.0).into(),
             },
             translation: Translation::new(-2.0, 0.0, 1.0),
             ..Default::default()
@@ -128,8 +127,7 @@ fn setup(world: &mut World) {
                     rng.gen_range(0.0, 1.0),
                     rng.gen_range(0.0, 1.0),
                     1.0,
-                ),
-                everything_is_red: false,
+                ).into(),
             },
             translation: Translation::new(
                 rng.gen_range(-50.0, 50.0),

@@ -43,8 +43,4 @@ void main() {
     }
     // multiply the light by material color
     o_Target = vec4(color, 1.0) * Albedo;
-
-# ifdef everything_is_red
-    o_Target = vec4(1.0, 0.0, 0.0, 1.0);
-# endif
 }
