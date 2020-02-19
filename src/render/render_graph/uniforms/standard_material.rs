@@ -5,6 +5,7 @@ use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
 pub struct StandardMaterial {
+    #[uniform(shader_def)]
     pub albedo: ColorSource,
 }
 
