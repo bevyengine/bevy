@@ -24,8 +24,8 @@ impl From<Handle<Texture>> for ColorSource {
 impl ShaderDefSuffixProvider for ColorSource {
     fn get_shader_def(&self) -> Option<&'static str> {
         match *self {
-            ColorSource::Color(_) => Some("_color"),
-            ColorSource::Texture(_) => Some("_texture"),
+            ColorSource::Color(_) => Some("_COLOR"),
+            ColorSource::Texture(_) => Some("_TEXTURE"),
         }
     }
 }

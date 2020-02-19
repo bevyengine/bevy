@@ -60,7 +60,7 @@ fn main() {
                                 void main() {
                                     o_Target = color;
 
-                                # ifdef MY_MATERIAL_always_red
+                                # ifdef MY_MATERIAL_ALWAYS_RED
                                     o_Target = vec4(0.8, 0.0, 0.0, 1.0);
                                 # endif
                                 }

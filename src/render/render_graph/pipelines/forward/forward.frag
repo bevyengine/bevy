@@ -23,7 +23,7 @@ layout(set = 0, binding = 1) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-# ifdef STANDARD_MATERIAL_albedo_texture
+# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
 layout(set = 1, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
 layout(set = 1, binding = 2) uniform sampler StandardMaterial_albedo_sampler;
 # else
@@ -33,7 +33,7 @@ layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
 # endif
 
 void main() {
-# ifdef STANDARD_MATERIAL_albedo_texture
+# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
     vec4 Albedo = texture(
         sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_sampler),
         v_Uv);

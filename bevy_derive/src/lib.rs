@@ -99,7 +99,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         .collect::<Vec<&Field>>();
 
     let shader_def_field_names = shader_def_fields.iter().map(|field| &field.ident);
-    let shader_def_field_name_strs = shader_def_fields.iter().map(|field| field.ident.as_ref().unwrap().to_string());
+    let shader_def_field_names_screaming_snake = shader_def_fields.iter().map(|field| field.ident.as_ref().unwrap().to_string().to_screaming_snake_case());
 
     let struct_name = &ast.ident;
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
@@ -161,7 +161,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             fn get_shader_defs(&self) -> Option<Vec<String>> {
                 use bevy::render::render_graph::ShaderDefSuffixProvider;
                 let mut potential_shader_defs: Vec<(&'static str, Option<&'static str>)> = vec![
-                    #((#shader_def_field_name_strs, self.#shader_def_field_names.get_shader_def()),)*
+                    #((#shader_def_field_names_screaming_snake, self.#shader_def_field_names.get_shader_def()),)*
                 ];
 
                 Some(potential_shader_defs.drain(..)

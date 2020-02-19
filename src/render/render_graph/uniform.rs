@@ -28,11 +28,6 @@ impl ShaderDefSuffixProvider for bool {
     }
 }
 
-// pub struct UniformInfo<'a> {
-//   pub name: &'a str,
-//   pub
-// }
-
 pub struct UniformInfo<'a> {
     pub name: &'a str,
     pub bind_type: BindType,
