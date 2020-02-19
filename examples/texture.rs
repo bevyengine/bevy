@@ -10,7 +10,7 @@ fn setup(world: &mut World) {
         mesh_storage.add(Mesh::load(MeshType::Cube))
     };
 
-    let _texture_handle = {
+    let texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
         let texture = Texture::load(TextureType::Data(asset::create_texels(256)));
         texture_storage.add(texture)
@@ -22,7 +22,7 @@ fn setup(world: &mut World) {
         .add_archetype(MeshEntity {
             mesh: cube_handle.clone(),
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
+                albedo: texture_handle.into(),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()

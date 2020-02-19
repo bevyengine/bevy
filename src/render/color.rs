@@ -15,6 +15,12 @@ impl From<Vec4> for ColorSource {
     }
 }
 
+impl From<Handle<Texture>> for ColorSource {
+    fn from(texture: Handle<Texture>) -> Self {
+        ColorSource::Texture(texture)
+    }
+}
+
 impl ShaderDefSuffixProvider for ColorSource {
     fn get_shader_def(&self) -> Option<&'static str> {
         match *self {

@@ -166,7 +166,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
                 Some(potential_shader_defs.drain(..)
                     .filter(|(f, shader_def)| shader_def.is_some())
-                    .map(|(f, shader_def)| format!("{}{}", f, shader_def.unwrap()))
+                    .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_screaming_snake, f, shader_def.unwrap()))
                     .collect::<Vec<String>>())
             }
         }
