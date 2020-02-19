@@ -1,10 +1,10 @@
 use crate::render::render_graph::{
-    BindGroup, BindType, Binding, UniformProperty, UniformPropertyType,
+    BindGroup, BindType, Binding, UniformProperty, UniformPropertyType, TextureViewDimension
 };
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType,
-        ReflectTypeDescription, ReflectTypeFlags,
+        ReflectTypeDescription, ReflectTypeFlags, ReflectDimension,
     },
     ShaderModule,
 };
@@ -58,6 +58,16 @@ fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet) -> BindGroup {
     BindGroup::new(descriptor_set.set, bindings)
 }
 
+fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDimension {
+    match type_description.traits.image.dim {
+        ReflectDimension::Type1d => TextureViewDimension::D1,
+        ReflectDimension::Type2d => TextureViewDimension::D2,
+        ReflectDimension::Type3d => TextureViewDimension::D3,
+        ReflectDimension::Cube => TextureViewDimension::Cube,
+        dimension => panic!("unsupported image dimension: {:?}", dimension),
+    }
+}
+
 fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
     let type_description = binding.type_description.as_ref().unwrap();
     let bind_type = match binding.descriptor_type {
@@ -65,6 +75,11 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
             dynamic: false,
             properties: vec![reflect_uniform(type_description)],
         },
+        ReflectDescriptorType::SampledImage => BindType::SampledTexture {
+            dimension: reflect_dimension(type_description),
+            multisampled: false,
+        },
+        ReflectDescriptorType::Sampler => BindType::Sampler,
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 

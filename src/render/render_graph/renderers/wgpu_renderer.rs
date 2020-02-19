@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle},
+    asset::{AssetStorage, Handle, Texture},
     legion::prelude::*,
     render::{
         render_graph::{
@@ -22,6 +22,7 @@ pub struct WgpuRenderer {
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub buffers: HashMap<String, wgpu::Buffer>,
     pub textures: HashMap<String, wgpu::TextureView>,
+    pub textures_from_handles: HashMap<Handle<Texture>, wgpu::TextureView>,
     pub resource_info: HashMap<String, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
@@ -62,6 +63,7 @@ impl WgpuRenderer {
             render_pipelines: HashMap::new(),
             buffers: HashMap::new(),
             textures: HashMap::new(),
+            textures_from_handles: HashMap::new(),
             resource_info: HashMap::new(),
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
