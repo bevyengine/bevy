@@ -1,7 +1,5 @@
-use crate::{
-    render::render_graph::{
-        DynamicUniformBufferInfo, AsUniforms, Renderable, Renderer, ResourceProvider,
-    },
+use crate::render::render_graph::{
+    AsUniforms, BindType, DynamicUniformBufferInfo, Renderable, Renderer, ResourceProvider,
 };
 use legion::prelude::*;
 use std::marker::PhantomData;
@@ -52,10 +50,23 @@ where
         let mut counts = Vec::new();
         for (uniforms, _renderable) in query.iter(world) {
             let uniform_layouts = uniforms.get_uniform_layouts();
-            for (i, uniform_info) in uniforms.get_uniform_infos().iter().enumerate() {
+            for (i, uniform_info) in uniforms
+                .get_uniform_infos()
+                .iter()
+                .filter(|u| {
+                    if let BindType::Uniform { .. } = u.bind_type {
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .enumerate()
+            {
                 // only add the first time a uniform info is processed
                 if self.uniform_buffer_info_names.len() <= i {
                     let uniform_layout = uniform_layouts[i];
+                    // TODO: size is 0 right now because uniform layout isn't populated
+                    // also size isn't even being used right now?
                     let size = uniform_layout
                         .iter()
                         .map(|u| u.get_size())
