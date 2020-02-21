@@ -1,6 +1,6 @@
 use crate::render::shader_reflect::ShaderLayout;
 use std::{
-    collections::{HashMap, hash_map::DefaultHasher, BTreeSet},
+    collections::{hash_map::DefaultHasher, BTreeSet, HashMap},
     hash::{Hash, Hasher},
 };
 
@@ -20,30 +20,37 @@ impl PipelineLayout {
         let mut bind_groups = HashMap::<u32, BindGroup>::new();
         for shader_layout in shader_layouts {
             for shader_bind_group in shader_layout.bind_groups.iter_mut() {
-               match bind_groups.get_mut(&shader_bind_group.index) {
-                   Some(bind_group) => {
-                       for shader_binding in shader_bind_group.bindings.iter() {
-                           if let Some(binding) = bind_group.bindings.iter().find(|binding| binding.index == shader_binding.index) {
-                               if binding != shader_binding {
-                                   panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
-                               }
-                           } else {
-                               bind_group.bindings.insert(shader_binding.clone());
-                           }
-                       }
-                   },
-                   None => {
-                       bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
-                   }
-               }
+                match bind_groups.get_mut(&shader_bind_group.index) {
+                    Some(bind_group) => {
+                        for shader_binding in shader_bind_group.bindings.iter() {
+                            if let Some(binding) = bind_group
+                                .bindings
+                                .iter()
+                                .find(|binding| binding.index == shader_binding.index)
+                            {
+                                if binding != shader_binding {
+                                    panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
+                                }
+                            } else {
+                                bind_group.bindings.insert(shader_binding.clone());
+                            }
+                        }
+                    }
+                    None => {
+                        bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
+                    }
+                }
             }
         }
-        let mut bind_groups_result = bind_groups.drain().map(|(_, value)| value).collect::<Vec<BindGroup>>();
+        let mut bind_groups_result = bind_groups
+            .drain()
+            .map(|(_, value)| value)
+            .collect::<Vec<BindGroup>>();
 
         // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
         PipelineLayout {
-           bind_groups: bind_groups_result
+            bind_groups: bind_groups_result,
         }
     }
 }

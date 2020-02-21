@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle, Texture},
+    asset::{AssetStorage, Handle},
     legion::prelude::*,
     render::{
         render_graph::{

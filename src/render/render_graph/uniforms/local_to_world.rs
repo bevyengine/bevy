@@ -1,6 +1,6 @@
 use crate::render::render_graph::{
     uniform::{AsUniforms, UniformInfo},
-    BindType, UniformPropertyType,
+    BindType, FieldBindType,
 };
 
 use zerocopy::AsBytes;
@@ -14,16 +14,9 @@ const LOCAL_TO_WORLD_UNIFORM_INFO: &[UniformInfo] = &[UniformInfo {
     },
 }];
 
-// these are separate from BindType::Uniform{properties} because they need to be const
-const LOCAL_TO_WORLD_UNIFORM_LAYOUTS: &[&[UniformPropertyType]] = &[&[]];
-
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     fn get_uniform_infos(&self) -> &[UniformInfo] {
         LOCAL_TO_WORLD_UNIFORM_INFO
-    }
-
-    fn get_uniform_layouts(&self) -> &[&[UniformPropertyType]] {
-        LOCAL_TO_WORLD_UNIFORM_LAYOUTS
     }
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
@@ -32,14 +25,11 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
             _ => None,
         }
     }
-    fn get_uniform_info(&self, name: &str) -> Option<&UniformInfo> {
-        match name {
-            "Object" => Some(&LOCAL_TO_WORLD_UNIFORM_INFO[0]),
-            _ => None,
-        }
-    }
 
     fn get_shader_defs(&self) -> Option<Vec<String>> {
         None
+    }
+    fn get_field_bind_type(&self, name: &str) -> FieldBindType {
+        FieldBindType::Uniform
     }
 }

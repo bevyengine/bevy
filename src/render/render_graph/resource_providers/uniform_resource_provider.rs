@@ -46,10 +46,8 @@ where
                 .count = 0;
         }
 
-        let mut sizes = Vec::new();
         let mut counts = Vec::new();
         for (uniforms, _renderable) in query.iter(world) {
-            let uniform_layouts = uniforms.get_uniform_layouts();
             for (i, uniform_info) in uniforms
                 .get_uniform_infos()
                 .iter()
@@ -64,15 +62,6 @@ where
             {
                 // only add the first time a uniform info is processed
                 if self.uniform_buffer_info_names.len() <= i {
-                    let uniform_layout = uniform_layouts[i];
-                    // TODO: size is 0 right now because uniform layout isn't populated
-                    // also size isn't even being used right now?
-                    let size = uniform_layout
-                        .iter()
-                        .map(|u| u.get_size())
-                        .fold(0, |total, current| total + current);
-                    sizes.push(size);
-
                     self.uniform_buffer_info_names
                         .push(uniform_info.name.to_string());
                 }
@@ -89,8 +78,7 @@ where
         // the expense of hashing for large numbers of entities
         for (i, name) in self.uniform_buffer_info_names.iter().enumerate() {
             if let None = renderer.get_dynamic_uniform_buffer_info(name) {
-                let mut info = DynamicUniformBufferInfo::new();
-                info.size = sizes[i];
+                let info = DynamicUniformBufferInfo::new();
                 renderer.add_dynamic_uniform_buffer_info(name, info);
             }
 
