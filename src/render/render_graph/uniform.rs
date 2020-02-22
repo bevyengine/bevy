@@ -1,13 +1,13 @@
-use crate::render::{color::ColorSource, render_graph::BindType};
+use crate::render::{color::ColorSource, render_graph::{BindType, TextureViewDimension}};
 use legion::prelude::Entity;
 use std::collections::HashMap;
 
 // TODO: add ability to specify specific pipeline for uniforms
 pub trait AsUniforms {
-    fn get_uniform_infos(&self) -> &[UniformInfo];
+    fn get_uniform_infos(&self) -> &[FieldUniformName];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
-    fn get_field_bind_type(&self, name: &str) -> FieldBindType;
+    fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
     // TODO: support zero-copy uniforms
     // fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
 }
@@ -28,6 +28,75 @@ impl ShaderDefSuffixProvider for bool {
 pub enum FieldBindType {
     Uniform,
     Texture,
+}
+
+pub struct UniformInfoIter<'a, T: AsUniforms> {
+    pub field_uniform_names: &'a [FieldUniformName],
+    pub uniforms: &'a T,
+    pub index: usize,
+    pub add_sampler: bool,
+
+
+}
+
+impl<'a, T> UniformInfoIter<'a, T> where T: AsUniforms {
+    pub fn new(field_uniform_names: &'a [FieldUniformName], uniforms: &'a T) -> Self {
+       UniformInfoIter {
+           field_uniform_names,
+           uniforms,
+           index: 0,
+           add_sampler: false,
+       } 
+    }
+}
+
+impl<'a, T> Iterator for UniformInfoIter<'a, T> where T: AsUniforms {
+    type Item = UniformInfo<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.add_sampler {
+            self.add_sampler = false;
+            Some(UniformInfo {
+                name: self.field_uniform_names[self.index - 1].sampler,
+                bind_type: BindType::Sampler,
+            })
+        } else {
+            if self.index == self.field_uniform_names.len() {
+                None
+            } else {
+                let index = self.index;
+                self.index += 1;
+                let field_uniform_name = self.field_uniform_names[index];
+                let bind_type = self.uniforms.get_field_bind_type(field_uniform_name.field).unwrap();
+                Some(match bind_type {
+                    FieldBindType::Uniform => UniformInfo {
+                        bind_type: BindType::Uniform {
+                            dynamic: false,
+                            properties: Vec::new(),
+                        },
+                        name: field_uniform_name.uniform,
+                    },
+                    FieldBindType::Texture => {
+                        self.add_sampler = true;
+                        UniformInfo {
+                            bind_type: BindType::SampledTexture {
+                                dimension: TextureViewDimension::D2,
+                                multisampled: false,
+                            },
+                            name: field_uniform_name.texture,
+                        }
+                    }
+                })
+            }
+        }
+    }
+    
+}
+
+pub struct FieldUniformName {
+    field: &'static str,
+    uniform: &'static str,
+    texture: &'static str,
+    sampler: &'static str,
 }
 
 pub trait AsFieldBindType {

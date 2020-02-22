@@ -41,13 +41,6 @@ struct UniformAttributeArgs {
     pub shader_def: Option<bool>,
 }
 
-struct FieldUniformName {
-    field: &'static str,
-    uniform: &'static str,
-    texture: &'static str,
-    sampler: &'static str,
-}
-
 #[proc_macro_derive(Uniforms, attributes(uniform))]
 pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     const UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
@@ -122,108 +115,47 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         &field.ident
     });
 
+    let active_uniform_field_name_strings = active_uniform_fields.iter().map(|field| {
+        field.ident.as_ref().unwrap().to_string()
+    }).collect::<Vec<String>>();
 
-    let field_uniform_names = active_uniform_fields.iter().map(|f| {
-        let name = f.ident.as_ref().unwrap().to_string();
-        let texture = format!("{}_texture", name);
-        let sampler = format!("{}_sampler", name);
-        quote!(FieldUniformName {
-            field: #name,
-            uniform: #name,
+
+    let field_uniform_names = active_uniform_field_name_strings.iter().map(|f| {
+        let uniform = format!("{}_{}", struct_name, f);
+        let texture = format!("{}_texture", uniform);
+        let sampler = format!("{}_sampler", uniform);
+        quote!(bevy::render::render_graph::FieldUniformName {
+            field: #f,
+            uniform: #uniform,
             texture: #texture,
             sampler: #sampler,     
         })
     });
 
-    let mut uniform_info = Vec::new();
-    let mut uniform_name_uniform_info = Vec::new();
-    for field in active_uniform_fields.iter() {
-        let name = format!("{}_{}", struct_name, field.ident.as_ref().unwrap());
-        if let Type::Path(ref type_path) = field.ty {
-            let field_type_name = type_path.path.get_ident().unwrap().to_string();
-            if field_type_name == "ColorSource" || field_type_name == "Handle<Texture>" {
-                let texture_name = format!("{}_texture", name);
-                let sampler_name = format!("{}_sampler", name);
-                uniform_name_uniform_info.push(texture_name.clone());
-                uniform_name_uniform_info.push(sampler_name.clone());
-                uniform_info.push(quote!(bevy::render::render_graph::UniformInfo {
-                    name: #texture_name,
-                    bind_type: bevy::render::render_graph::BindType::SampledTexture {
-                        multisampled: false,
-                        dimension: bevy::render::render_graph::TextureViewDimension::D2,
-                    },
-                }));
 
-                uniform_info.push(quote!(bevy::render::render_graph::UniformInfo {
-                    name: #sampler_name,
-                    bind_type: bevy::render::render_graph::BindType::Sampler,
-                }));
-            }
-        }
-        
-        uniform_name_uniform_info.push(name.clone());
-        uniform_info.push(quote!(bevy::render::render_graph::UniformInfo {
-            name: #name,
-            bind_type: bevy::render::render_graph::BindType::Uniform {
-                dynamic: false,
-                // TODO: fill this in with properties
-                properties: Vec::new(),
-            },
-        }));
-    };
-
-/*
-uniform infos
-
-x: ColorSource
-y: Vec4
-
-
-infos: [
-    "x_color",
-    "x_texture",
-    "x_sampler",
-    "y"
-]
-
-field_names = ["x", "y"]
-
-InfoIter { field_names, index = 0, needs_sampler = false}
-
-uniform-provider
-    for entity in entities
-        for info in entity.t.get_uniform_info_iter()
-            if info.bind_type == Uniform
-                entity.t.get_bytes()
-            elif info.bind_type == Texture
-                entity.get_texture()
-
-*/
-
-    TokenStream::from(quote! {
-        const #info_ident: &[bevy::render::render_graph::UniformInfo] = &[
-            #(#uniform_info,)*
-        ];
-
-        const #field_uniform_names_ident: &[FieldUniformName] = &[
+    let x = quote! {
+        const #field_uniform_names_ident: &[bevy::render::render_graph::FieldUniformName] = &[
             #(#field_uniform_names,)*
         ];
 
         impl bevy::render::render_graph::AsUniforms for #struct_name {
             // TODO: max this an iterator that feeds on field_uniform_names_ident
-            fn get_uniform_infos(&self) -> &[bevy::render::render_graph::UniformInfo] {
-                #info_ident
+            fn get_uniform_infos(&self) -> &[bevy::render::render_graph::FieldUniformName] {
+                #field_uniform_names_ident
             }
 
-            fn get_field_bind_type(&self, name: &str) -> bevy::render::render_graph::FieldBindType {
-                #(#field_names => #get_uniform_bytes_field_name,)*
+            fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::render_graph::FieldBindType> {
+                match name {
+                    #(#active_uniform_field_name_strings => #active_uniform_field_names.get_field_bind_type(),)*
+                    _ => None,
+                }
             }
 
             // TODO: Fix this so uniform_name_uniform_info lines up with getbytes
             fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
                 use bevy::core::bytes::GetBytes;
                 match name {
-                    #(#uniform_name_uniform_info => Some(self.#get_uniform_bytes_field_name.get_bytes()),)*
+                    // #(#uniform_name_uniform_info => Some(self.#get_uniform_bytes_field_name.get_bytes()),)*
                     _ => None,
                 }
             }
@@ -242,7 +174,9 @@ uniform-provider
                     .collect::<Vec<String>>())
             }
         }
-    })
+    };
+    eprintln!("{}", x.to_string());
+    TokenStream::from(x)
 }
 
 #[proc_macro_derive(RegisterAppPlugin)]
