@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
 
 #[proc_macro_derive(EntityArchetype)]
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
@@ -108,22 +108,22 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
-    let info_ident = format_ident!("{}_UNIFORM_INFO", struct_name_screaming_snake);
     let field_uniform_names_ident = format_ident!("{}_FIELD_UNIFORM_NAMES", struct_name_screaming_snake);
 
     let active_uniform_field_names = active_uniform_fields.iter().map(|field| {
         &field.ident
-    });
+    }).collect::<Vec<_>>();
 
     let active_uniform_field_name_strings = active_uniform_fields.iter().map(|field| {
         field.ident.as_ref().unwrap().to_string()
     }).collect::<Vec<String>>();
 
-
+    let mut uniform_name_strings = Vec::new();
     let field_uniform_names = active_uniform_field_name_strings.iter().map(|f| {
         let uniform = format!("{}_{}", struct_name, f);
         let texture = format!("{}_texture", uniform);
         let sampler = format!("{}_sampler", uniform);
+        uniform_name_strings.push(uniform.clone());
         quote!(bevy::render::render_graph::FieldUniformName {
             field: #f,
             uniform: #uniform,
@@ -132,21 +132,21 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         })
     });
 
-
-    let x = quote! {
+    TokenStream::from(quote! {
         const #field_uniform_names_ident: &[bevy::render::render_graph::FieldUniformName] = &[
             #(#field_uniform_names,)*
         ];
 
         impl bevy::render::render_graph::AsUniforms for #struct_name {
             // TODO: max this an iterator that feeds on field_uniform_names_ident
-            fn get_uniform_infos(&self) -> &[bevy::render::render_graph::FieldUniformName] {
+            fn get_field_uniform_names(&self) -> &[bevy::render::render_graph::FieldUniformName] {
                 #field_uniform_names_ident
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::render_graph::FieldBindType> {
+                use bevy::render::render_graph::AsFieldBindType;
                 match name {
-                    #(#active_uniform_field_name_strings => #active_uniform_field_names.get_field_bind_type(),)*
+                    #(#active_uniform_field_name_strings => Some(self.#active_uniform_field_names.get_field_bind_type()),)*
                     _ => None,
                 }
             }
@@ -155,7 +155,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
                 use bevy::core::bytes::GetBytes;
                 match name {
-                    // #(#uniform_name_uniform_info => Some(self.#get_uniform_bytes_field_name.get_bytes()),)*
+                    #(#uniform_name_strings => Some(self.#active_uniform_field_names.get_bytes()),)*
                     _ => None,
                 }
             }
@@ -174,9 +174,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                     .collect::<Vec<String>>())
             }
         }
-    };
-    eprintln!("{}", x.to_string());
-    TokenStream::from(x)
+    })
 }
 
 #[proc_macro_derive(RegisterAppPlugin)]

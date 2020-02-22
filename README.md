@@ -45,6 +45,10 @@ See our [ROADMAP.md](ROADMAP.md) for the current list of planned features.
 
 ## Getting Started
 
+### Nightly Compiler
+
+Bevy requires nightly rust right now. It currently uses [specialization](https://github.com/rust-lang/rfcs/blob/master/text/1210-impl-specialization.md) features, which are unstable. If specialization goes stable soon then we can go back to a stable compiler. In the meantime, we will try our best to remove specialization usage so we can go back to stable.
+
 ### Examples:
 
 ```
@@ -53,7 +57,7 @@ cargo run --example simple
 
 ### Fast Compiles
 
-* Bevy can be built using stable rust with default configuration (ex: ```cargo build```), but for optimal build times we recommend using a nightly compiler with the following settings:
+* Bevy can be built using default configuration (ex: ```cargo build```), but for optimal build times we recommend using a nightly compiler with the following settings:
     * LLD Linker: ```-Clink-arg=-fuse-ld=lld```
         * LLD will significantly speed up compile times in Bevy, but it doesn't work out of the box on some platforms / os-es.
         * See [this issue](https://github.com/rust-lang/rust/issues/39915) and [this issue](https://github.com/rust-gamedev/wg/issues/50) for more information.

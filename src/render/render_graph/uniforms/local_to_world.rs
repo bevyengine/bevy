@@ -1,22 +1,17 @@
-use crate::render::render_graph::{
-    uniform::{AsUniforms, UniformInfo},
-    BindType, FieldBindType,
-};
+use crate::render::render_graph::{uniform::AsUniforms, FieldBindType, FieldUniformName};
 
 use zerocopy::AsBytes;
 
-const LOCAL_TO_WORLD_UNIFORM_INFO: &[UniformInfo] = &[UniformInfo {
-    name: "Object",
-    bind_type: BindType::Uniform {
-        dynamic: false,
-        // TODO: maybe fill this in with properties (vec.push cant be const though)
-        properties: Vec::new(),
-    },
+const LOCAL_TO_WORLD_FIELD_UNIFORM_NAMES: &[FieldUniformName] = &[FieldUniformName {
+    field: "object",
+    uniform: "Object",
+    texture: "",
+    sampler: "",
 }];
 
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
-    fn get_uniform_infos(&self) -> &[UniformInfo] {
-        LOCAL_TO_WORLD_UNIFORM_INFO
+    fn get_field_uniform_names(&self) -> &[FieldUniformName] {
+        LOCAL_TO_WORLD_FIELD_UNIFORM_NAMES
     }
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
@@ -29,7 +24,10 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     fn get_shader_defs(&self) -> Option<Vec<String>> {
         None
     }
-    fn get_field_bind_type(&self, name: &str) -> FieldBindType {
-        FieldBindType::Uniform
+    fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType> {
+        match name {
+            "object" => Some(FieldBindType::Uniform),
+            _ => None,
+        }
     }
 }

@@ -1,8 +1,9 @@
 use crate::render::render_graph::{
     AsUniforms, BindType, DynamicUniformBufferInfo, Renderable, Renderer, ResourceProvider,
+    UniformInfoIter,
 };
 use legion::prelude::*;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 pub struct UniformResourceProvider<T>
 where
@@ -48,9 +49,8 @@ where
 
         let mut counts = Vec::new();
         for (uniforms, _renderable) in query.iter(world) {
-            for (i, uniform_info) in uniforms
-                .get_uniform_infos()
-                .iter()
+            let field_uniform_names = uniforms.get_field_uniform_names();
+            for (i, uniform_info) in UniformInfoIter::new(field_uniform_names, uniforms.deref())
                 .filter(|u| {
                     if let BindType::Uniform { .. } = u.bind_type {
                         true

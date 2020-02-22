@@ -30,7 +30,6 @@ impl ShaderDefSuffixProvider for ColorSource {
     }
 }
 
-
 impl GetBytes for ColorSource {
     fn get_bytes(&self) -> Vec<u8> {
         match *self {

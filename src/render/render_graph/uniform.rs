@@ -1,10 +1,16 @@
-use crate::render::{color::ColorSource, render_graph::{BindType, TextureViewDimension}};
+use crate::{
+    math::Vec4,
+    render::{
+        color::ColorSource,
+        render_graph::{BindType, TextureViewDimension},
+    }, core::GetBytes,
+};
 use legion::prelude::Entity;
 use std::collections::HashMap;
 
 // TODO: add ability to specify specific pipeline for uniforms
 pub trait AsUniforms {
-    fn get_uniform_infos(&self) -> &[FieldUniformName];
+    fn get_field_uniform_names(&self) -> &[FieldUniformName];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
@@ -30,27 +36,31 @@ pub enum FieldBindType {
     Texture,
 }
 
-pub struct UniformInfoIter<'a, T: AsUniforms> {
+pub struct UniformInfoIter<'a, 'b, T: AsUniforms> {
     pub field_uniform_names: &'a [FieldUniformName],
-    pub uniforms: &'a T,
+    pub uniforms: &'b T,
     pub index: usize,
     pub add_sampler: bool,
-
-
 }
 
-impl<'a, T> UniformInfoIter<'a, T> where T: AsUniforms {
-    pub fn new(field_uniform_names: &'a [FieldUniformName], uniforms: &'a T) -> Self {
-       UniformInfoIter {
-           field_uniform_names,
-           uniforms,
-           index: 0,
-           add_sampler: false,
-       } 
+impl<'a, 'b, T> UniformInfoIter<'a, 'b, T>
+where
+    T: AsUniforms,
+{
+    pub fn new(field_uniform_names: &'a [FieldUniformName], uniforms: &'b T) -> Self {
+        UniformInfoIter {
+            field_uniform_names,
+            uniforms,
+            index: 0,
+            add_sampler: false,
+        }
     }
 }
 
-impl<'a, T> Iterator for UniformInfoIter<'a, T> where T: AsUniforms {
+impl<'a, 'b, T> Iterator for UniformInfoIter<'a, 'b, T>
+where
+    T: AsUniforms,
+{
     type Item = UniformInfo<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.add_sampler {
@@ -65,8 +75,11 @@ impl<'a, T> Iterator for UniformInfoIter<'a, T> where T: AsUniforms {
             } else {
                 let index = self.index;
                 self.index += 1;
-                let field_uniform_name = self.field_uniform_names[index];
-                let bind_type = self.uniforms.get_field_bind_type(field_uniform_name.field).unwrap();
+                let ref field_uniform_name = self.field_uniform_names[index];
+                let bind_type = self
+                    .uniforms
+                    .get_field_bind_type(field_uniform_name.field)
+                    .unwrap();
                 Some(match bind_type {
                     FieldBindType::Uniform => UniformInfo {
                         bind_type: BindType::Uniform {
@@ -89,22 +102,21 @@ impl<'a, T> Iterator for UniformInfoIter<'a, T> where T: AsUniforms {
             }
         }
     }
-    
 }
 
 pub struct FieldUniformName {
-    field: &'static str,
-    uniform: &'static str,
-    texture: &'static str,
-    sampler: &'static str,
+    pub field: &'static str,
+    pub uniform: &'static str,
+    pub texture: &'static str,
+    pub sampler: &'static str,
 }
 
 pub trait AsFieldBindType {
-    fn get_field_uniform_type(&self) -> FieldBindType;
+    fn get_field_bind_type(&self) -> FieldBindType;
 }
 
 impl AsFieldBindType for ColorSource {
-    fn get_field_uniform_type(&self) -> FieldBindType {
+    fn get_field_bind_type(&self) -> FieldBindType {
         match *self {
             ColorSource::Texture(_) => FieldBindType::Texture,
             ColorSource::Color(_) => FieldBindType::Uniform,
@@ -112,14 +124,21 @@ impl AsFieldBindType for ColorSource {
     }
 }
 
-// impl<T> AsFieldBindType for T
-// where
-//     T: GetBytes,
-// {
-//     fn get_field_uniform_type(&self) -> FieldBindType {
-//         FieldBindType::Uniform
-//     }
-// }
+default impl<T> AsFieldBindType for T
+where
+    T: GetBytes,
+{
+    fn get_field_bind_type(&self) -> FieldBindType {
+        FieldBindType::Uniform
+    }
+}
+
+impl AsFieldBindType for Vec4
+{
+    fn get_field_bind_type(&self) -> FieldBindType {
+        FieldBindType::Uniform
+    }
+}
 
 pub struct UniformInfo<'a> {
     pub name: &'a str,

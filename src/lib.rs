@@ -1,3 +1,4 @@
+#![feature(specialization)]
 pub mod app;
 pub mod asset;
 pub mod core;
