@@ -1,10 +1,10 @@
 use crate::render::render_graph::{
-    BindGroup, BindType, Binding, UniformProperty, UniformPropertyType, TextureViewDimension
+    BindGroup, BindType, Binding, TextureViewDimension, UniformProperty, UniformPropertyType,
 };
 use spirv_reflect::{
     types::{
-        ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType,
-        ReflectTypeDescription, ReflectTypeFlags, ReflectDimension,
+        ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
+        ReflectTypeDescription, ReflectTypeFlags,
     },
     ShaderModule,
 };
@@ -44,7 +44,7 @@ pub fn get_shader_layout(spirv_data: &[u32]) -> ShaderLayout {
                 entry_point: entry_point_name,
             }
         }
-        Err(err) => panic!("Failed to reflect shader layout: {:?}", err)
+        Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
     }
 }
 
@@ -145,7 +145,11 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         .type_flags
         .contains(ReflectTypeFlags::MATRIX)
     {
-        match (number_type, traits.numeric.matrix.column_count, traits.numeric.matrix.row_count) {
+        match (
+            number_type,
+            traits.numeric.matrix.column_count,
+            traits.numeric.matrix.row_count,
+        ) {
             (NumberType::Float, 3, 3) => UniformPropertyType::Mat3,
             (NumberType::Float, 4, 4) => UniformPropertyType::Mat4,
             (number_type, column_count, row_count) => panic!(

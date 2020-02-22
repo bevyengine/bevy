@@ -1,8 +1,7 @@
 use crate::{
     legion::prelude::*,
     render::render_graph::{
-        DynamicUniformBufferInfo, PipelineDescriptor, RenderGraph, ResourceInfo,
-        TextureDescriptor,
+        DynamicUniformBufferInfo, PipelineDescriptor, RenderGraph, ResourceInfo, TextureDescriptor,
     },
 };
 use std::ops::Range;

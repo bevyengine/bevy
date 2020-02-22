@@ -1,4 +1,7 @@
-use crate::{asset::Handle, render::render_graph::{pipeline::PipelineDescriptor, RenderPass}};
+use crate::{
+    asset::Handle,
+    render::render_graph::{pipeline::PipelineDescriptor, RenderPass},
+};
 use legion::prelude::World;
 
 // A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc

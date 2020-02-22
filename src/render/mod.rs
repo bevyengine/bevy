@@ -8,9 +8,9 @@ mod light;
 mod vertex;
 
 pub use camera::*;
+pub use color::*;
 pub use light::*;
 pub use shader::*;
-pub use color::*;
 
 pub use vertex::Vertex;
 

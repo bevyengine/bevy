@@ -25,7 +25,8 @@ fn build_move_system() -> Box<dyn Schedulable> {
                             -time.delta_seconds,
                             time.delta_seconds,
                             0.0,
-                        )).into();
+                        ))
+                    .into();
                 }
             }
         })
@@ -127,7 +128,8 @@ fn setup(world: &mut World) {
                     rng.gen_range(0.0, 1.0),
                     rng.gen_range(0.0, 1.0),
                     1.0,
-                ).into(),
+                )
+                .into(),
             },
             translation: Translation::new(
                 rng.gen_range(-50.0, 50.0),

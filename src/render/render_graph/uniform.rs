@@ -1,9 +1,10 @@
 use crate::{
+    core::GetBytes,
     math::Vec4,
     render::{
         color::ColorSource,
         render_graph::{BindType, TextureViewDimension},
-    }, core::GetBytes,
+    },
 };
 use legion::prelude::Entity;
 use std::collections::HashMap;
@@ -133,8 +134,7 @@ where
     }
 }
 
-impl AsFieldBindType for Vec4
-{
+impl AsFieldBindType for Vec4 {
     fn get_field_bind_type(&self) -> FieldBindType {
         FieldBindType::Uniform
     }

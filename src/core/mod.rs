@@ -1,5 +1,5 @@
-pub mod time;
 pub mod bytes;
+pub mod time;
 
-pub use time::Time;
 pub use bytes::GetBytes;
+pub use time::Time;

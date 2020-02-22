@@ -1,5 +1,5 @@
 use crate::{
-    asset::{Texture, Handle},
+    asset::{Handle, Texture},
     math::Vec4,
 };
 use zerocopy::AsBytes;

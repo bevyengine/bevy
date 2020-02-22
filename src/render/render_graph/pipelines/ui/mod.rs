@@ -2,8 +2,8 @@ use crate::{
     asset::AssetStorage,
     render::{
         render_graph::{
-            resource_providers::RectData,
-            PipelineDescriptor, RenderGraphBuilder, VertexBufferDescriptor, resource_name,
+            resource_name, resource_providers::RectData, PipelineDescriptor, RenderGraphBuilder,
+            VertexBufferDescriptor,
         },
         shader::{Shader, ShaderStage},
         Vertex,
@@ -31,7 +31,7 @@ impl UiPipelineBuilder for RenderGraphBuilder {
             )
             .with_fragment_shader(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("ui.frag")
+                include_str!("ui.frag"),
             ))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,

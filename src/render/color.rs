@@ -1,7 +1,8 @@
 use crate::{
     asset::{Handle, Texture},
+    core::GetBytes,
     math::Vec4,
-    render::render_graph::ShaderDefSuffixProvider, core::GetBytes,
+    render::render_graph::ShaderDefSuffixProvider,
 };
 
 pub enum ColorSource {

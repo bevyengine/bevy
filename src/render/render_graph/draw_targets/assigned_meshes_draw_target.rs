@@ -1,8 +1,8 @@
 use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
-    render::{
-        render_graph::{resource_name, RenderPass, Renderable, PipelineDescriptor, ShaderPipelineAssignments},
+    render::render_graph::{
+        resource_name, PipelineDescriptor, RenderPass, Renderable, ShaderPipelineAssignments,
     },
 };
 

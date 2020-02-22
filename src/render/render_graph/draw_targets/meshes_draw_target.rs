@@ -2,19 +2,23 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph::{resource_name, RenderPass, Renderable, PipelineDescriptor},
+        render_graph::{resource_name, PipelineDescriptor, RenderPass, Renderable},
         Instanced,
     },
 };
 
 use zerocopy::AsBytes;
 
-pub fn meshes_draw_target(world: &World, render_pass: &mut dyn RenderPass, _pipeline_handle: Handle<PipelineDescriptor>) {
+pub fn meshes_draw_target(
+    world: &World,
+    render_pass: &mut dyn RenderPass,
+    _pipeline_handle: Handle<PipelineDescriptor>,
+) {
     let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut current_mesh_id = None;
     let mut current_mesh_index_length = 0;
-    let mesh_query = <(Read<Handle<Mesh>>, Read<Renderable>)>::query()
-        .filter(!component::<Instanced>());
+    let mesh_query =
+        <(Read<Handle<Mesh>>, Read<Renderable>)>::query().filter(!component::<Instanced>());
     for (entity, (mesh, renderable)) in mesh_query.iter_entities(world) {
         if !renderable.is_visible {
             continue;

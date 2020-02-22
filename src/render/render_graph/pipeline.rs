@@ -1,7 +1,11 @@
-use crate::{asset::{AssetStorage, Handle}, render::{
-    render_graph::{BindGroup, PipelineLayout, resource_name},
-    shader::{Shader, ShaderStages}, Vertex,
-}};
+use crate::{
+    asset::{AssetStorage, Handle},
+    render::{
+        render_graph::{resource_name, BindGroup, PipelineLayout},
+        shader::{Shader, ShaderStages},
+        Vertex,
+    },
+};
 
 #[derive(Clone, Debug)]
 pub struct VertexBufferDescriptor {
@@ -87,22 +91,25 @@ impl PipelineDescriptor {
     }
 
     pub fn get_layout(&self) -> Option<&PipelineLayout> {
-       match self.layout {
-           PipelineLayoutType::Reflected(ref layout) => layout.as_ref(),
-           PipelineLayoutType::Manual(ref layout) => Some(layout),
-       } 
+        match self.layout {
+            PipelineLayoutType::Reflected(ref layout) => layout.as_ref(),
+            PipelineLayoutType::Manual(ref layout) => Some(layout),
+        }
     }
 
     pub fn get_layout_mut(&mut self) -> Option<&mut PipelineLayout> {
-       match self.layout {
-           PipelineLayoutType::Reflected(ref mut layout) => layout.as_mut(),
-           PipelineLayoutType::Manual(ref mut layout) => Some(layout),
-       } 
+        match self.layout {
+            PipelineLayoutType::Reflected(ref mut layout) => layout.as_mut(),
+            PipelineLayoutType::Manual(ref mut layout) => Some(layout),
+        }
     }
 }
 
 impl PipelineDescriptor {
-    pub fn build(shader_storage: &mut AssetStorage<Shader>, vertex_shader: Shader) -> PipelineBuilder {
+    pub fn build(
+        shader_storage: &mut AssetStorage<Shader>,
+        vertex_shader: Shader,
+    ) -> PipelineBuilder {
         PipelineBuilder::new(shader_storage, vertex_shader)
     }
 }
@@ -208,23 +215,22 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn with_standard_config(self) -> Self {
-        self
-            .with_depth_stencil_state(wgpu::DepthStencilStateDescriptor {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_read_mask: 0,
-                stencil_write_mask: 0,
-            })
-            .add_color_state(wgpu::ColorStateDescriptor {
-                format: wgpu::TextureFormat::Bgra8UnormSrgb,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            })
-            .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-            .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
+        self.with_depth_stencil_state(wgpu::DepthStencilStateDescriptor {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+            stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+            stencil_read_mask: 0,
+            stencil_write_mask: 0,
+        })
+        .add_color_state(wgpu::ColorStateDescriptor {
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            color_blend: wgpu::BlendDescriptor::REPLACE,
+            alpha_blend: wgpu::BlendDescriptor::REPLACE,
+            write_mask: wgpu::ColorWrite::ALL,
+        })
+        .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
+        .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
     }
 }

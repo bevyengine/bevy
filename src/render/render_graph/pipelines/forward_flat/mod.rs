@@ -1,10 +1,7 @@
 use crate::{
     asset::AssetStorage,
     render::{
-        render_graph::{
-            resource_name, PipelineDescriptor,
-            RenderGraphBuilder,
-        },
+        render_graph::{resource_name, PipelineDescriptor, RenderGraphBuilder},
         shader::{Shader, ShaderStage},
         Vertex,
     },
@@ -32,7 +29,7 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
             )
             .with_fragment_shader(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("forward_flat.frag")
+                include_str!("forward_flat.frag"),
             ))
             .with_rasterization_state(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
