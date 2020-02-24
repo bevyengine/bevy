@@ -2,7 +2,7 @@ use crate::{
     asset::{Asset, AssetStorage, Handle, Mesh, MeshType},
     ecs, math,
     prelude::Node,
-    render::render_graph::{resource_name, Renderer, ResourceProvider},
+    render::render_graph::{resource_name, RenderResource, Renderer, ResourceProvider},
 };
 use bevy_transform::prelude::Parent;
 use legion::prelude::*;
@@ -19,11 +19,15 @@ pub struct RectData {
 
 pub struct UiResourceProvider {
     pub quad: Option<Handle<Mesh>>,
+    pub instance_buffer: Option<RenderResource>,
 }
 
 impl UiResourceProvider {
     pub fn new() -> Self {
-        UiResourceProvider { quad: None }
+        UiResourceProvider {
+            quad: None,
+            instance_buffer: None,
+        }
     }
 
     pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World) {
@@ -66,14 +70,20 @@ impl UiResourceProvider {
 
         let mesh_id = self.quad.as_ref().unwrap().id;
 
-        renderer.create_instance_buffer_with_data(
-            resource_name::buffer::UI_INSTANCES,
+        if let Some(old_instance_buffer) = self.instance_buffer {
+            renderer.remove_buffer(old_instance_buffer);
+        }
+
+        let buffer = renderer.create_instance_buffer_with_data(
             mesh_id,
             data.as_bytes(),
             size,
             data.len(),
             wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
         );
+
+        renderer.set_named_resource(resource_name::buffer::UI_INSTANCES, buffer);
+        self.instance_buffer = Some(buffer);
     }
 }
 

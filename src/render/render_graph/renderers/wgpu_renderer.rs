@@ -6,7 +6,8 @@ use crate::{
             resource_name, update_shader_assignments, BindGroup, BindType,
             DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, PipelineLayout,
             PipelineLayoutType, RenderGraph, RenderPass, RenderPassColorAttachmentDescriptor,
-            RenderPassDepthStencilAttachmentDescriptor, Renderer, ResourceInfo, TextureDescriptor,
+            RenderPassDepthStencilAttachmentDescriptor, RenderResource, RenderResources, Renderer,
+            ResourceInfo, TextureDescriptor,
         },
         Shader,
     },
@@ -20,12 +21,13 @@ pub struct WgpuRenderer {
     pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
-    pub buffers: HashMap<String, wgpu::Buffer>,
-    pub textures: HashMap<String, wgpu::TextureView>,
-    pub resource_info: HashMap<String, ResourceInfo>,
+    pub buffers: HashMap<RenderResource, wgpu::Buffer>,
+    pub textures: HashMap<RenderResource, wgpu::TextureView>,
+    pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
-    pub dynamic_uniform_buffer_info: HashMap<String, DynamicUniformBufferInfo>,
+    pub dynamic_uniform_buffer_info: HashMap<RenderResource, DynamicUniformBufferInfo>,
+    pub render_resources: RenderResources,
 }
 
 impl WgpuRenderer {
@@ -66,11 +68,13 @@ impl WgpuRenderer {
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
             dynamic_uniform_buffer_info: HashMap::new(),
+            render_resources: RenderResources::default(),
         }
     }
 
     pub fn create_render_pipeline(
-        dynamic_uniform_buffer_info: &HashMap<String, DynamicUniformBufferInfo>,
+        render_resources: &RenderResources,
+        dynamic_uniform_buffer_info: &HashMap<RenderResource, DynamicUniformBufferInfo>,
         pipeline_descriptor: &mut PipelineDescriptor,
         bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
@@ -106,8 +110,12 @@ impl WgpuRenderer {
                             ref mut dynamic, ..
                         } = binding.bind_type
                         {
-                            if dynamic_uniform_buffer_info.contains_key(&binding.name) {
-                                *dynamic = true;
+                            if let Some(resource) =
+                                render_resources.get_named_resource(&binding.name)
+                            {
+                                if dynamic_uniform_buffer_info.contains_key(&resource) {
+                                    *dynamic = true;
+                                }
                             }
                         }
 
@@ -216,16 +224,30 @@ impl WgpuRenderer {
     ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
         let attachment = match color_attachment_descriptor.attachment.as_str() {
             resource_name::texture::SWAP_CHAIN => &frame.view,
-            _ => self
-                .textures
-                .get(&color_attachment_descriptor.attachment)
-                .unwrap(),
+            _ => {
+                match self
+                    .render_resources
+                    .get_named_resource(&color_attachment_descriptor.attachment)
+                {
+                    Some(resource) => self.textures.get(&resource).unwrap(),
+                    None => panic!(
+                        "Color attachment {} does not exist",
+                        &color_attachment_descriptor.attachment
+                    ),
+                }
+            }
         };
 
         let resolve_target = match color_attachment_descriptor.resolve_target {
             Some(ref target) => match target.as_str() {
                 resource_name::texture::SWAP_CHAIN => Some(&frame.view),
-                _ => Some(&frame.view),
+                _ => match self.render_resources.get_named_resource(target.as_str()) {
+                    Some(resource) => Some(self.textures.get(&resource).unwrap()),
+                    None => panic!(
+                        "Color attachment {} does not exist",
+                        &color_attachment_descriptor.attachment
+                    ),
+                },
             },
             None => None,
         };
@@ -246,10 +268,18 @@ impl WgpuRenderer {
     ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView> {
         let attachment = match depth_stencil_attachment_descriptor.attachment.as_str() {
             resource_name::texture::SWAP_CHAIN => &frame.view,
-            _ => self
-                .textures
-                .get(&depth_stencil_attachment_descriptor.attachment)
-                .unwrap(),
+            _ => {
+                match self
+                    .render_resources
+                    .get_named_resource(&depth_stencil_attachment_descriptor.attachment)
+                {
+                    Some(ref resource) => self.textures.get(&resource).unwrap(),
+                    None => panic!(
+                        "Depth stencil attachment {} does not exist",
+                        &depth_stencil_attachment_descriptor.attachment
+                    ),
+                }
+            }
         };
 
         wgpu::RenderPassDepthStencilAttachmentDescriptor {
@@ -263,8 +293,8 @@ impl WgpuRenderer {
         }
     }
 
-    fn add_resource_info(&mut self, name: &str, resource_info: ResourceInfo) {
-        self.resource_info.insert(name.to_string(), resource_info);
+    fn add_resource_info(&mut self, resource: RenderResource, resource_info: ResourceInfo) {
+        self.resource_info.insert(resource, resource_info);
     }
 
     // TODO: consider moving this to a resource provider
@@ -273,31 +303,45 @@ impl WgpuRenderer {
 
         if let None = self.bind_groups.get(&bind_group_id) {
             let mut unset_uniforms = Vec::new();
+
+            let mut binding_resources = Vec::with_capacity(bind_group.bindings.len());
             // if a uniform resource buffer doesn't exist, create a new empty one
             for binding in bind_group.bindings.iter() {
-                if let None = self.resource_info.get(&binding.name) {
-                    println!(
-                        "Warning: creating new empty buffer for binding {}",
-                        binding.name
-                    );
-                    unset_uniforms.push(binding.name.to_string());
-                    if let BindType::Uniform { .. } = &binding.bind_type {
-                        let size = binding.bind_type.get_uniform_size().unwrap();
-                        self.create_buffer(
-                            &binding.name,
-                            size,
-                            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-                        )
+                let resource = match self.render_resources.get_named_resource(&binding.name) {
+                    Some(resource) => resource,
+                    None => {
+                        println!(
+                            "Warning: creating new empty buffer for binding {} {:?}",
+                            binding.name, binding
+                        );
+                        unset_uniforms.push(binding.name.to_string());
+                        match binding.bind_type {
+                            BindType::Uniform { .. } => {
+                                let size = binding.bind_type.get_uniform_size().unwrap();
+                                let resource = self.create_buffer(
+                                    size,
+                                    wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                                );
+
+                                self.render_resources
+                                    .set_named_resource(&binding.name, resource);
+                                resource
+                            }
+                            _ => panic!("unsupported bind type: {:?}", binding),
+                        }
                     }
-                }
+                };
+
+                binding_resources.push(resource);
             }
 
             // create wgpu Bindings
             let bindings = bind_group
                 .bindings
                 .iter()
-                .map(|binding| {
-                    let resource_info = self.resource_info.get(&binding.name).unwrap();
+                .zip(binding_resources)
+                .map(|(binding, resource)| {
+                    let resource_info = self.resource_info.get(&resource).unwrap();
                     wgpu::Binding {
                         binding: binding.index,
                         resource: match &binding.bind_type {
@@ -310,7 +354,7 @@ impl WgpuRenderer {
                                     buffer_usage: _,
                                 } = resource_info
                                 {
-                                    let buffer = self.buffers.get(&binding.name).unwrap();
+                                    let buffer = self.buffers.get(&resource).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer,
                                         range: 0..*size,
@@ -430,7 +474,8 @@ impl Renderer for WgpuRenderer {
         update_shader_assignments(world, render_graph);
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
-            self.create_texture(&name, &texture_descriptor);
+            let resource = self.create_texture(&texture_descriptor);
+            self.render_resources.set_named_resource(&name, resource);
         }
 
         let mut encoder = self.encoder.take().unwrap();
@@ -467,6 +512,7 @@ impl Renderer for WgpuRenderer {
                     .as_ref()
                     .map(|handle| &*shader_storage.get(&handle).unwrap());
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
+                    &self.render_resources,
                     &self.dynamic_uniform_buffer_info,
                     pipeline_descriptor,
                     &mut self.bind_group_layouts,
@@ -514,48 +560,51 @@ impl Renderer for WgpuRenderer {
 
     fn create_buffer_with_data(
         &mut self,
-        name: &str,
         data: &[u8],
         buffer_usage: wgpu::BufferUsage,
-    ) {
+    ) -> RenderResource {
+        let resource = self.render_resources.get_next_resource();
         let buffer = self.device.create_buffer_with_data(data, buffer_usage);
         self.add_resource_info(
-            name,
+            resource,
             ResourceInfo::Buffer {
                 buffer_usage,
                 size: data.len() as u64,
             },
         );
 
-        self.buffers.insert(name.to_string(), buffer);
+        self.buffers.insert(resource, buffer);
+        resource
     }
 
-    fn create_buffer(&mut self, name: &str, size: u64, buffer_usage: wgpu::BufferUsage) {
+    fn create_buffer(&mut self, size: u64, buffer_usage: wgpu::BufferUsage) -> RenderResource {
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size,
             usage: buffer_usage,
         });
 
-        self.add_resource_info(name, ResourceInfo::Buffer { buffer_usage, size });
+        let resource = self.render_resources.get_next_resource();
+        self.add_resource_info(resource, ResourceInfo::Buffer { buffer_usage, size });
 
-        self.buffers.insert(name.to_string(), buffer);
+        self.buffers.insert(resource, buffer);
+        resource
     }
 
     fn create_instance_buffer(
         &mut self,
-        name: &str,
         mesh_id: usize,
         size: usize,
         count: usize,
         buffer_usage: wgpu::BufferUsage,
-    ) {
+    ) -> RenderResource {
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: (size * count) as u64,
             usage: buffer_usage,
         });
 
+        let resource = self.render_resources.get_next_resource();
         self.add_resource_info(
-            name,
+            resource,
             ResourceInfo::InstanceBuffer {
                 buffer_usage,
                 size,
@@ -564,22 +613,23 @@ impl Renderer for WgpuRenderer {
             },
         );
 
-        self.buffers.insert(name.to_string(), buffer);
+        self.buffers.insert(resource, buffer);
+        resource
     }
 
     fn create_instance_buffer_with_data(
         &mut self,
-        name: &str,
         mesh_id: usize,
         data: &[u8],
         size: usize,
         count: usize,
         buffer_usage: wgpu::BufferUsage,
-    ) {
+    ) -> RenderResource {
         let buffer = self.device.create_buffer_with_data(data, buffer_usage);
+        let resource = self.render_resources.get_next_resource();
 
         self.add_resource_info(
-            name,
+            resource,
             ResourceInfo::InstanceBuffer {
                 buffer_usage,
                 size,
@@ -588,73 +638,131 @@ impl Renderer for WgpuRenderer {
             },
         );
 
-        self.buffers.insert(name.to_string(), buffer);
+        self.buffers.insert(resource, buffer);
+        resource
     }
 
-    fn get_resource_info(&self, name: &str) -> Option<&ResourceInfo> {
-        self.resource_info.get(name)
+    fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
+        self.resource_info.get(&resource)
     }
 
-    fn remove_buffer(&mut self, name: &str) {
-        self.buffers.remove(name);
+    fn remove_buffer(&mut self, resource: RenderResource) {
+        self.buffers.remove(&resource);
+        self.resource_info.remove(&resource);
     }
 
     fn create_buffer_mapped(
         &mut self,
-        name: &str,
         size: usize,
         buffer_usage: wgpu::BufferUsage,
         setup_data: &mut dyn FnMut(&mut [u8]),
-    ) {
+    ) -> RenderResource {
         let mut mapped = self.device.create_buffer_mapped(size, buffer_usage);
         setup_data(&mut mapped.data);
         let buffer = mapped.finish();
 
+        let resource = self.render_resources.get_next_resource();
         self.add_resource_info(
-            name,
+            resource,
             ResourceInfo::Buffer {
                 buffer_usage,
                 size: size as u64,
             },
         );
 
-        self.buffers.insert(name.to_string(), buffer);
+        self.buffers.insert(resource, buffer);
+        resource
     }
 
     fn copy_buffer_to_buffer(
         &mut self,
-        source_buffer: &str,
+        source_buffer: RenderResource,
         source_offset: u64,
-        destination_buffer: &str,
+        destination_buffer: RenderResource,
         destination_offset: u64,
         size: u64,
     ) {
-        let source = self.buffers.get(source_buffer).unwrap();
-        let destination = self.buffers.get(destination_buffer).unwrap();
+        let source = self.buffers.get(&source_buffer).unwrap();
+        let destination = self.buffers.get(&destination_buffer).unwrap();
         let encoder = self.encoder.as_mut().unwrap();
         encoder.copy_buffer_to_buffer(source, source_offset, destination, destination_offset, size);
     }
-    fn get_dynamic_uniform_buffer_info(&self, name: &str) -> Option<&DynamicUniformBufferInfo> {
-        self.dynamic_uniform_buffer_info.get(name)
+    fn get_dynamic_uniform_buffer_info(
+        &self,
+        resource: RenderResource,
+    ) -> Option<&DynamicUniformBufferInfo> {
+        self.dynamic_uniform_buffer_info.get(&resource)
     }
 
     fn get_dynamic_uniform_buffer_info_mut(
         &mut self,
-        name: &str,
+        resource: RenderResource,
     ) -> Option<&mut DynamicUniformBufferInfo> {
-        self.dynamic_uniform_buffer_info.get_mut(name)
+        self.dynamic_uniform_buffer_info.get_mut(&resource)
     }
 
-    fn add_dynamic_uniform_buffer_info(&mut self, name: &str, info: DynamicUniformBufferInfo) {
-        self.dynamic_uniform_buffer_info
-            .insert(name.to_string(), info);
+    fn add_dynamic_uniform_buffer_info(
+        &mut self,
+        resource: RenderResource,
+        info: DynamicUniformBufferInfo,
+    ) {
+        self.dynamic_uniform_buffer_info.insert(resource, info);
     }
 
-    fn create_texture(&mut self, name: &str, texture_descriptor: &TextureDescriptor) {
+    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource {
         let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).into();
         let texture = self.device.create_texture(&descriptor);
+        let resource = self.render_resources.get_next_resource();
         self.textures
-            .insert(name.to_string(), texture.create_default_view());
+            .insert(resource, texture.create_default_view());
+        resource
+    }
+
+    fn create_texture_with_data(
+        &mut self,
+        texture_descriptor: &TextureDescriptor,
+        bytes: Option<&[u8]>,
+    ) -> RenderResource {
+        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).into();
+        let texture = self.device.create_texture(&descriptor);
+        let texture_view = texture.create_default_view();
+        if let Some(bytes) = bytes {
+            let temp_buf = self
+                .device
+                .create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
+            self.encoder.as_mut().unwrap().copy_buffer_to_texture(
+                wgpu::BufferCopyView {
+                    buffer: &temp_buf,
+                    offset: 0,
+                    row_pitch: 4 * descriptor.size.width,
+                    image_height: descriptor.size.height,
+                },
+                wgpu::TextureCopyView {
+                    texture: &texture,
+                    mip_level: 0,
+                    array_layer: 0,
+                    origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+                },
+                descriptor.size,
+            );
+        }
+
+        let resource = self.render_resources.get_next_resource();
+        self.add_resource_info(resource, ResourceInfo::Texture);
+        resource
+    }
+
+    fn get_named_resource(&self, name: &str) -> Option<RenderResource> {
+        self.render_resources.get_named_resource(name)
+    }
+
+    fn set_named_resource(&mut self, name: &str, resource: RenderResource) {
+        self.render_resources.set_named_resource(name, resource);
+    }
+
+    fn remove_texture(&mut self, resource: RenderResource) {
+        self.textures.remove(&resource);
+        self.resource_info.remove(&resource);
     }
 }
 
@@ -673,14 +781,14 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         self.pipeline_descriptor
     }
 
-    fn set_vertex_buffer(&mut self, start_slot: u32, name: &str, offset: u64) {
-        let buffer = self.renderer.buffers.get(name).unwrap();
+    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
+        let buffer = self.renderer.buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffers(start_slot, &[(&buffer, offset)]);
     }
 
-    fn set_index_buffer(&mut self, name: &str, offset: u64) {
-        let buffer = self.renderer.buffers.get(name).unwrap();
+    fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
+        let buffer = self.renderer.buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset);
     }
 
@@ -707,16 +815,22 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         continue;
                     }
 
-                    // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
-                    if let Some(dynamic_uniform_buffer_info) =
-                        self.renderer.dynamic_uniform_buffer_info.get(&binding.name)
+                    if let Some(resource) = self
+                        .renderer
+                        .render_resources
+                        .get_named_resource(&binding.name)
                     {
-                        let index = dynamic_uniform_buffer_info
-                            .offsets
-                            .get(entity.unwrap())
-                            .unwrap();
+                        // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
+                        if let Some(dynamic_uniform_buffer_info) =
+                            self.renderer.dynamic_uniform_buffer_info.get(&resource)
+                        {
+                            let index = dynamic_uniform_buffer_info
+                                .offsets
+                                .get(entity.unwrap())
+                                .unwrap();
 
-                        dynamic_uniform_indices.push(*index);
+                            dynamic_uniform_indices.push(*index);
+                        }
                     }
                 }
             }

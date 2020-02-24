@@ -1,6 +1,6 @@
 use crate::render::render_graph::{
-    AsUniforms, BindType, DynamicUniformBufferInfo, Renderable, Renderer, ResourceProvider,
-    UniformInfoIter,
+    render_resource::RenderResource, AsUniforms, BindType, DynamicUniformBufferInfo, Renderable,
+    Renderer, ResourceProvider, UniformInfoIter,
 };
 use legion::prelude::*;
 use std::{marker::PhantomData, ops::Deref};
@@ -10,7 +10,7 @@ where
     T: AsUniforms + Send + Sync,
 {
     _marker: PhantomData<T>,
-    uniform_buffer_info_names: Vec<String>,
+    uniform_buffer_info_resources: Vec<(String, Option<RenderResource>)>,
 }
 
 impl<T> UniformResourceProvider<T>
@@ -19,7 +19,7 @@ where
 {
     pub fn new() -> Self {
         UniformResourceProvider {
-            uniform_buffer_info_names: Vec::new(),
+            uniform_buffer_info_resources: Vec::new(),
             _marker: PhantomData,
         }
     }
@@ -40,80 +40,86 @@ where
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
-        for name in self.uniform_buffer_info_names.iter() {
+        for (_name, resource) in self.uniform_buffer_info_resources.iter() {
             renderer
-                .get_dynamic_uniform_buffer_info_mut(name)
+                .get_dynamic_uniform_buffer_info_mut(resource.unwrap())
                 .unwrap()
                 .count = 0;
         }
 
         let mut counts = Vec::new();
         for (uniforms, _renderable) in query.iter(world) {
+            let mut uniform_index = 0;
             let field_uniform_names = uniforms.get_field_uniform_names();
-            for (i, uniform_info) in UniformInfoIter::new(field_uniform_names, uniforms.deref())
-                .filter(|u| {
-                    if let BindType::Uniform { .. } = u.bind_type {
-                        true
-                    } else {
-                        false
+            for uniform_info in UniformInfoIter::new(field_uniform_names, uniforms.deref()) {
+                match uniform_info.bind_type {
+                    BindType::Uniform { .. } => {
+                        // only add the first time a uniform info is processed
+                        if self.uniform_buffer_info_resources.len() <= uniform_index {
+                            self.uniform_buffer_info_resources
+                                .push((uniform_info.name.to_string(), None));
+                        }
+
+                        if counts.len() <= uniform_index {
+                            counts.push(0);
+                        }
+
+                        counts[uniform_index] += 1;
+                        uniform_index += 1;
                     }
-                })
-                .enumerate()
-            {
-                // only add the first time a uniform info is processed
-                if self.uniform_buffer_info_names.len() <= i {
-                    self.uniform_buffer_info_names
-                        .push(uniform_info.name.to_string());
+                    BindType::SampledTexture { .. } => {
+                        // TODO: look up Handle and load
+                    }
+                    BindType::Sampler { .. } => {
+                        // TODO: look up Handle and load
+                    }
+                    _ => panic!(
+                        "encountered unsupported bind_type {:?}",
+                        uniform_info.bind_type
+                    ),
                 }
-
-                if counts.len() <= i {
-                    counts.push(0);
-                }
-
-                counts[i] += 1;
             }
-        }
-
-        // create and update uniform buffer info. this is separate from the last block to avoid
-        // the expense of hashing for large numbers of entities
-        for (i, name) in self.uniform_buffer_info_names.iter().enumerate() {
-            if let None = renderer.get_dynamic_uniform_buffer_info(name) {
-                let info = DynamicUniformBufferInfo::new();
-                renderer.add_dynamic_uniform_buffer_info(name, info);
-            }
-
-            let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
-            info.count = counts[i];
         }
 
         // allocate uniform buffers
-        for name in self.uniform_buffer_info_names.iter() {
-            if let Some(_) = renderer.get_resource_info(name) {
+        for (i, (name, resource)) in self.uniform_buffer_info_resources.iter_mut().enumerate() {
+            if let Some(resource) = resource {
+                let mut info = renderer
+                    .get_dynamic_uniform_buffer_info_mut(*resource)
+                    .unwrap();
+                info.count = counts[i];
                 continue;
             }
 
-            let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
-
             // allocate enough space for twice as many entities as there are currently;
-            info.capacity = info.count * 2;
-            let size = wgpu::BIND_BUFFER_ALIGNMENT * info.capacity;
-            renderer.create_buffer(
-                name,
+            let capacity = counts[i] * 2;
+            let size = wgpu::BIND_BUFFER_ALIGNMENT * capacity;
+            let created_resource = renderer.create_buffer(
                 size,
                 wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
             );
+
+            let mut info = DynamicUniformBufferInfo::new();
+            info.count = counts[i];
+            info.capacity = capacity;
+            renderer.add_dynamic_uniform_buffer_info(created_resource, info);
+            *resource = Some(created_resource);
+            renderer.set_named_resource(name, created_resource);
         }
 
         // copy entity uniform data to buffers
-        for name in self.uniform_buffer_info_names.iter() {
+        for (name, resource) in self.uniform_buffer_info_resources.iter() {
+            let resource = resource.unwrap();
             let size = {
-                let info = renderer.get_dynamic_uniform_buffer_info(name).unwrap();
+                let info = renderer.get_dynamic_uniform_buffer_info(resource).unwrap();
                 wgpu::BIND_BUFFER_ALIGNMENT * info.count
             };
 
             let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
-            let info = renderer.get_dynamic_uniform_buffer_info_mut(name).unwrap();
+            let info = renderer
+                .get_dynamic_uniform_buffer_info_mut(resource)
+                .unwrap();
             for (i, (entity, _)) in query.iter_entities(world).enumerate() {
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
@@ -125,8 +131,7 @@ where
             }
 
             // let mut data = vec![Default::default(); size as usize];
-            renderer.create_buffer_mapped(
-                "tmp_uniform_mapped",
+            let mapped_buffer_resource = renderer.create_buffer_mapped(
                 size as usize,
                 wgpu::BufferUsage::COPY_SRC,
                 &mut |mapped| {
@@ -136,7 +141,7 @@ where
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed
                         // TODO: try getting bytes ref first
-                        if let Some(uniform_bytes) = uniforms.get_uniform_bytes(name) {
+                        if let Some(uniform_bytes) = uniforms.get_uniform_bytes(&name) {
                             mapped[offset..(offset + uniform_bytes.len())]
                                 .copy_from_slice(uniform_bytes.as_slice());
                             offset += alignment;
@@ -145,7 +150,10 @@ where
                 },
             );
 
-            renderer.copy_buffer_to_buffer("tmp_uniform_mapped", 0, name, 0, size);
+            renderer.copy_buffer_to_buffer(mapped_buffer_resource, 0, resource, 0, size);
+
+            // TODO: uncomment this to free resource?
+            renderer.remove_buffer(mapped_buffer_resource);
         }
 
         // update shader assignments based on current macro defs

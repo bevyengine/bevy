@@ -16,10 +16,6 @@ layout(set = 1, binding = 0) uniform Object {
     mat4 Model;
 };
 
-layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
-    vec4 Albedo;
-};
-
 void main() {
     v_Normal = mat3(Model) * vec3(a_Normal.xyz);
     v_Position = Model * vec4(a_Pos);

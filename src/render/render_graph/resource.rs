@@ -15,4 +15,5 @@ pub enum ResourceInfo {
         mesh_id: usize,
         // pub layout: Option<
     },
+    Texture,
 }

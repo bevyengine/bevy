@@ -146,8 +146,8 @@ impl AppBuilder {
                     assigned_meshes_draw_target,
                 )
                 .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
-                .add_resource_provider(Box::new(CameraResourceProvider))
-                .add_resource_provider(Box::new(Camera2dResourceProvider))
+                .add_resource_provider(Box::new(CameraResourceProvider::default()))
+                .add_resource_provider(Box::new(Camera2dResourceProvider::default()))
                 .add_resource_provider(Box::new(LightResourceProvider::new(10)))
                 .add_resource_provider(Box::new(UiResourceProvider::new()))
                 .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))

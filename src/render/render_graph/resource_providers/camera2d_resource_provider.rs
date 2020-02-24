@@ -1,19 +1,25 @@
 use crate::render::{
-    render_graph::{resource_name, Renderer, ResourceProvider},
+    render_graph::{resource_name, RenderResource, Renderer, ResourceProvider},
     ActiveCamera2d, Camera,
 };
 use legion::prelude::*;
 use zerocopy::AsBytes;
 
-pub struct Camera2dResourceProvider;
+#[derive(Default)]
+pub struct Camera2dResourceProvider {
+    pub camera_buffer: Option<RenderResource>,
+    pub tmp_buffer: Option<RenderResource>,
+}
 
 impl ResourceProvider for Camera2dResourceProvider {
     fn initialize(&mut self, renderer: &mut dyn Renderer, _world: &mut World) {
-        renderer.create_buffer(
-            resource_name::uniform::CAMERA2D,
+        let buffer = renderer.create_buffer(
             std::mem::size_of::<[[f32; 4]; 4]>() as u64,
             wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
         );
+
+        renderer.set_named_resource(resource_name::uniform::CAMERA2D, buffer);
+        self.camera_buffer = Some(buffer);
     }
 
     fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
@@ -23,19 +29,22 @@ impl ResourceProvider for Camera2dResourceProvider {
             camera.update(width, height);
             let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
 
-            renderer.create_buffer_mapped(
-                "camera2d_tmp",
+            if let Some(old_tmp_buffer) = self.tmp_buffer {
+                renderer.remove_buffer(old_tmp_buffer);
+            }
+
+            self.tmp_buffer = Some(renderer.create_buffer_mapped(
                 matrix_size,
                 wgpu::BufferUsage::COPY_SRC,
                 &mut |data| {
                     data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
                 },
-            );
+            ));
 
             renderer.copy_buffer_to_buffer(
-                "camera2d_tmp",
+                self.tmp_buffer.unwrap(),
                 0,
-                resource_name::uniform::CAMERA2D,
+                self.camera_buffer.unwrap(),
                 0,
                 matrix_size as u64,
             );

@@ -1,9 +1,7 @@
 use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
-    render::render_graph::{
-        resource_name, PipelineDescriptor, RenderPass, Renderable, ShaderPipelineAssignments,
-    },
+    render::render_graph::{PipelineDescriptor, RenderPass, Renderable, ShaderPipelineAssignments},
 };
 
 use zerocopy::AsBytes;
@@ -19,6 +17,8 @@ pub fn assigned_meshes_draw_target(
         .get_mut::<ShaderPipelineAssignments>()
         .unwrap();
     let mut current_mesh_id = None;
+    let mut current_mesh_vertex_buffer = None;
+    let mut current_mesh_index_buffer = None;
     let mut current_mesh_index_length = 0;
 
     let assigned_entities = shader_pipeline_assignments
@@ -42,25 +42,25 @@ pub fn assigned_meshes_draw_target(
             if should_load_mesh {
                 if let Some(mesh_asset) = mesh_storage.get_id(mesh.id) {
                     let renderer = render_pass.get_renderer();
-                    renderer.create_buffer_with_data(
-                        resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME,
+                    if let Some(buffer) = current_mesh_vertex_buffer {
+                        renderer.remove_buffer(buffer);
+                    }
+
+                    if let Some(buffer) = current_mesh_index_buffer {
+                        renderer.remove_buffer(buffer);
+                    }
+                    current_mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
                         mesh_asset.vertices.as_bytes(),
                         wgpu::BufferUsage::VERTEX,
-                    );
-                    renderer.create_buffer_with_data(
-                        resource_name::buffer::TEMP_MESH_INDEX_BUFFER_NAME,
+                    ));
+                    current_mesh_index_buffer = Some(renderer.create_buffer_with_data(
                         mesh_asset.indices.as_bytes(),
                         wgpu::BufferUsage::INDEX,
-                    );
+                    ));
 
                     // TODO: Verify buffer format matches render pass
-                    render_pass
-                        .set_index_buffer(resource_name::buffer::TEMP_MESH_INDEX_BUFFER_NAME, 0);
-                    render_pass.set_vertex_buffer(
-                        0,
-                        resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME,
-                        0,
-                    );
+                    render_pass.set_index_buffer(current_mesh_index_buffer.unwrap(), 0);
+                    render_pass.set_vertex_buffer(0, current_mesh_vertex_buffer.unwrap(), 0);
                     current_mesh_id = Some(mesh.id);
                     current_mesh_index_length = mesh_asset.indices.len() as u32;
                 };
@@ -73,7 +73,12 @@ pub fn assigned_meshes_draw_target(
 
         // cleanup buffers
         let renderer = render_pass.get_renderer();
-        renderer.remove_buffer(resource_name::buffer::TEMP_MESH_VERTEX_BUFFER_NAME);
-        renderer.remove_buffer(resource_name::buffer::TEMP_MESH_INDEX_BUFFER_NAME);
+        if let Some(buffer) = current_mesh_vertex_buffer {
+            renderer.remove_buffer(buffer);
+        }
+
+        if let Some(buffer) = current_mesh_index_buffer {
+            renderer.remove_buffer(buffer);
+        }
     }
 }
