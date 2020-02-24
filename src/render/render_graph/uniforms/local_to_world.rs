@@ -1,4 +1,4 @@
-use crate::render::render_graph::{uniform::AsUniforms, FieldBindType, FieldUniformName};
+use crate::{asset::{Handle, Texture}, render::render_graph::{uniform::AsUniforms, FieldBindType, FieldUniformName}};
 
 use zerocopy::AsBytes;
 
@@ -29,5 +29,8 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
             "object" => Some(FieldBindType::Uniform),
             _ => None,
         }
+    }
+    fn get_uniform_texture(&self, _name: &str) -> Option<Handle<Texture>> {
+        None
     }
 }

@@ -2,8 +2,8 @@ use crate::{
     legion::prelude::*,
     render::render_graph::{
         render_resource::RenderResource, DynamicUniformBufferInfo, PipelineDescriptor, RenderGraph,
-        ResourceInfo, TextureDescriptor,
-    },
+        ResourceInfo, TextureDescriptor, SamplerDescriptor
+    }, asset::{Handle, Texture},
 };
 use std::ops::Range;
 
@@ -23,8 +23,8 @@ pub trait Renderer {
         data: &[u8],
         buffer_usage: wgpu::BufferUsage,
     ) -> RenderResource;
-    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource;
-    fn create_texture_with_data(
+    fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
+    fn create_texture(
         &mut self,
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
@@ -67,6 +67,7 @@ pub trait Renderer {
     ) -> RenderResource;
     fn remove_buffer(&mut self, resource: RenderResource);
     fn remove_texture(&mut self, resource: RenderResource);
+    fn remove_sampler(&mut self, resource: RenderResource);
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo>;
     fn copy_buffer_to_buffer(
         &mut self,
@@ -78,6 +79,8 @@ pub trait Renderer {
     );
     fn get_named_resource(&self, name: &str) -> Option<RenderResource>;
     fn set_named_resource(&mut self, name: &str, resource: RenderResource);
+    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
+    fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource);
 }
 
 pub trait RenderPass {

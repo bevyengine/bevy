@@ -1,6 +1,9 @@
-use crate::render::render_graph::{
-    render_resource::RenderResource, AsUniforms, BindType, DynamicUniformBufferInfo, Renderable,
-    Renderer, ResourceProvider, UniformInfoIter,
+use crate::{
+    asset::{AssetStorage, Texture},
+    render::render_graph::{
+        render_resource::RenderResource, AsUniforms, BindType, DynamicUniformBufferInfo,
+        Renderable, Renderer, ResourceProvider, TextureDescriptor, UniformInfoIter,
+    },
 };
 use legion::prelude::*;
 use std::{marker::PhantomData, ops::Deref};
@@ -68,11 +71,18 @@ where
                         uniform_index += 1;
                     }
                     BindType::SampledTexture { .. } => {
-                        // TODO: look up Handle and load
+                        let texture_handle =
+                            uniforms.get_uniform_texture(&uniform_info.name).unwrap();
+                        let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
+                        let texture = storage.get(&texture_handle).unwrap();
+                        if let None = renderer.get_texture_resource(texture_handle.clone()) {
+                            let descriptor: TextureDescriptor = texture.into();
+                            let resource =
+                                renderer.create_texture(&descriptor, Some(&texture.data));
+                            renderer.set_texture_resource(texture_handle, resource);
+                        }
                     }
-                    BindType::Sampler { .. } => {
-                        // TODO: look up Handle and load
-                    }
+                    BindType::Sampler { .. } => {}
                     _ => panic!(
                         "encountered unsupported bind_type {:?}",
                         uniform_info.bind_type

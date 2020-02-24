@@ -1,6 +1,6 @@
 use crate::{
+    asset::{Handle, Texture},
     core::GetBytes,
-    math::Vec4,
     render::{
         color::ColorSource,
         render_graph::{BindType, TextureViewDimension},
@@ -13,6 +13,7 @@ use std::collections::HashMap;
 pub trait AsUniforms {
     fn get_field_uniform_names(&self) -> &[FieldUniformName];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
+    fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
     // TODO: support zero-copy uniforms
@@ -125,18 +126,42 @@ impl AsFieldBindType for ColorSource {
     }
 }
 
-default impl<T> AsFieldBindType for T
+impl<T> AsFieldBindType for T
 where
     T: GetBytes,
 {
-    fn get_field_bind_type(&self) -> FieldBindType {
+    default fn get_field_bind_type(&self) -> FieldBindType {
         FieldBindType::Uniform
     }
 }
 
-impl AsFieldBindType for Vec4 {
-    fn get_field_bind_type(&self) -> FieldBindType {
-        FieldBindType::Uniform
+pub trait GetTexture {
+    fn get_texture(&self) -> Option<Handle<Texture>> {
+        None
+    }
+}
+
+impl<T> GetTexture for T
+where
+    T: GetBytes,
+{
+    default fn get_texture(&self) -> Option<Handle<Texture>> {
+        None
+    }
+}
+
+impl GetTexture for Handle<Texture> {
+    fn get_texture(&self) -> Option<Handle<Texture>> {
+        Some(self.clone())
+    }
+}
+
+impl GetTexture for ColorSource {
+    fn get_texture(&self) -> Option<Handle<Texture>> {
+        match self {
+            ColorSource::Color(_) => None,
+            ColorSource::Texture(texture) => Some(texture.clone()),
+        }
     }
 }
 

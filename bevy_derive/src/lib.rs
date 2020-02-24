@@ -119,13 +119,20 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     }).collect::<Vec<String>>();
 
     let mut uniform_name_strings = Vec::new();
-    let field_uniform_names = active_uniform_field_name_strings.iter().map(|f| {
-        let uniform = format!("{}_{}", struct_name, f);
+    let mut texture_and_sampler_name_strings = Vec::new();
+    let mut texture_and_sampler_name_idents = Vec::new();
+    let field_uniform_names = active_uniform_fields.iter().map(|f| {
+        let field_name = f.ident.as_ref().unwrap().to_string();
+        let uniform = format!("{}_{}", struct_name, field_name);
         let texture = format!("{}_texture", uniform);
         let sampler = format!("{}_sampler", uniform);
         uniform_name_strings.push(uniform.clone());
+        texture_and_sampler_name_strings.push(texture.clone());
+        texture_and_sampler_name_strings.push(sampler.clone());
+        texture_and_sampler_name_idents.push(f.ident.clone());
+        texture_and_sampler_name_idents.push(f.ident.clone());
         quote!(bevy::render::render_graph::FieldUniformName {
-            field: #f,
+            field: #field_name,
             uniform: #uniform,
             texture: #texture,
             sampler: #sampler,     
@@ -156,6 +163,14 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 use bevy::core::bytes::GetBytes;
                 match name {
                     #(#uniform_name_strings => Some(self.#active_uniform_field_names.get_bytes()),)*
+                    _ => None,
+                }
+            }
+
+            fn get_uniform_texture(&self, name: &str) -> Option<bevy::asset::Handle<bevy::asset::Texture>> {
+                use bevy::render::render_graph::GetTexture;
+                match name {
+                    #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*
                     _ => None,
                 }
             }

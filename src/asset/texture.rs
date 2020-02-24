@@ -1,21 +1,42 @@
-use crate::asset::Asset;
+use crate::{render::render_graph::{TextureDimension, TextureDescriptor}, asset::Asset};
 
 pub enum TextureType {
-    Data(Vec<u8>),
+    Data(Vec<u8>, usize, usize),
 }
 
 pub struct Texture {
     pub data: Vec<u8>,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl Asset<TextureType> for Texture {
     fn load(descriptor: TextureType) -> Self {
-        let data = match descriptor {
-            TextureType::Data(data) => data.clone(),
+        let (data, width, height) = match descriptor {
+            TextureType::Data(data, width, height) => (data.clone(), width, height),
         };
 
-        Texture { data }
+        Texture { data, width, height }
     }
+}
+
+impl From<&Texture> for TextureDescriptor {
+    fn from(texture: &Texture) -> Self {
+       TextureDescriptor {
+            size: wgpu::Extent3d {
+                height: texture.height as u32,
+                width: texture.width as u32,
+                depth: 1,
+            },
+            array_layer_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+       } 
+    }
+    
 }
 
 pub fn create_texels(size: usize) -> Vec<u8> {

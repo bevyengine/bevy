@@ -12,7 +12,7 @@ fn setup(world: &mut World) {
 
     let texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
-        let texture = Texture::load(TextureType::Data(asset::create_texels(256)));
+        let texture = Texture::load(TextureType::Data(asset::create_texels(256), 256, 256));
         texture_storage.add(texture)
     };
 

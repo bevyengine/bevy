@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle},
+    asset::{AssetStorage, Handle, Texture},
     legion::prelude::*,
     render::{
         render_graph::{
@@ -7,7 +7,7 @@ use crate::{
             DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, PipelineLayout,
             PipelineLayoutType, RenderGraph, RenderPass, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor, RenderResource, RenderResources, Renderer,
-            ResourceInfo, TextureDescriptor,
+            ResourceInfo, SamplerDescriptor, TextureDescriptor,
         },
         Shader,
     },
@@ -23,6 +23,7 @@ pub struct WgpuRenderer {
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
+    pub samplers: HashMap<RenderResource, wgpu::Sampler>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
@@ -64,6 +65,7 @@ impl WgpuRenderer {
             render_pipelines: HashMap::new(),
             buffers: HashMap::new(),
             textures: HashMap::new(),
+            samplers: HashMap::new(),
             resource_info: HashMap::new(),
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
@@ -304,11 +306,11 @@ impl WgpuRenderer {
         if let None = self.bind_groups.get(&bind_group_id) {
             let mut unset_uniforms = Vec::new();
 
-            let mut binding_resources = Vec::with_capacity(bind_group.bindings.len());
+            let mut binding_resources = Vec::new();
             // if a uniform resource buffer doesn't exist, create a new empty one
             for binding in bind_group.bindings.iter() {
                 let resource = match self.render_resources.get_named_resource(&binding.name) {
-                    Some(resource) => resource,
+                    resource @ Some(_) => resource,
                     None => {
                         println!(
                             "Warning: creating new empty buffer for binding {} {:?}",
@@ -325,14 +327,20 @@ impl WgpuRenderer {
 
                                 self.render_resources
                                     .set_named_resource(&binding.name, resource);
-                                resource
-                            }
+                                Some(resource)
+                            },
+                            BindType::Sampler | BindType::SampledTexture { .. } => {
+                                // textures and samplers are handled per-entity
+                                None
+                            },
                             _ => panic!("unsupported bind type: {:?}", binding),
                         }
                     }
                 };
 
-                binding_resources.push(resource);
+                if let Some(resource) = resource {
+                    binding_resources.push(resource);
+                }
             }
 
             // create wgpu Bindings
@@ -474,7 +482,7 @@ impl Renderer for WgpuRenderer {
         update_shader_assignments(world, render_graph);
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
-            let resource = self.create_texture(&texture_descriptor);
+            let resource = self.create_texture(&texture_descriptor, None);
             self.render_resources.set_named_resource(&name, resource);
         }
 
@@ -709,16 +717,17 @@ impl Renderer for WgpuRenderer {
         self.dynamic_uniform_buffer_info.insert(resource, info);
     }
 
-    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource {
-        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).into();
-        let texture = self.device.create_texture(&descriptor);
+    fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
+        let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).into();
+        let sampler = self.device.create_sampler(&descriptor);
         let resource = self.render_resources.get_next_resource();
-        self.textures
-            .insert(resource, texture.create_default_view());
+        self.samplers.insert(resource, sampler);
+        self.add_resource_info(resource, ResourceInfo::Texture);
         resource
     }
 
-    fn create_texture_with_data(
+
+    fn create_texture(
         &mut self,
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
@@ -749,6 +758,7 @@ impl Renderer for WgpuRenderer {
 
         let resource = self.render_resources.get_next_resource();
         self.add_resource_info(resource, ResourceInfo::Texture);
+        self.textures.insert(resource, texture_view);
         resource
     }
 
@@ -763,6 +773,19 @@ impl Renderer for WgpuRenderer {
     fn remove_texture(&mut self, resource: RenderResource) {
         self.textures.remove(&resource);
         self.resource_info.remove(&resource);
+    }
+
+    fn remove_sampler(&mut self, resource: RenderResource) {
+        self.samplers.remove(&resource);
+        self.resource_info.remove(&resource);
+    }
+
+    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
+        self.render_resources.get_texture_resource(texture)
+    }
+
+    fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
+        self.render_resources.set_texture_resource(texture, resource);
     }
 }
 

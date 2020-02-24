@@ -26,7 +26,7 @@ impl FrameTextureResourceProvider {
             renderer.remove_texture(old_resource);
         }
 
-        let texture_resource = renderer.create_texture(&self.descriptor);
+        let texture_resource = renderer.create_texture(&self.descriptor, None);
         renderer.set_named_resource(&self.name, texture_resource);
     }
 }
