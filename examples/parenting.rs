@@ -34,7 +34,7 @@ fn setup(world: &mut World) {
     world.insert(
         (),
         vec![(
-            plane_handle.clone(),
+            plane_handle,
             StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
@@ -48,7 +48,7 @@ fn setup(world: &mut World) {
         .insert(
             (),
             vec![(
-                cube_handle.clone(),
+                cube_handle,
                 StandardMaterial {
                     albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
                 },

@@ -74,7 +74,7 @@ fn setup(world: &mut World) {
     for _ in 0..70000 {
         create_person(
             world,
-            cube_handle.clone(),
+            cube_handle,
             Translation::new(rng.gen_range(-50.0, 50.0), 0.0, rng.gen_range(-50.0, 50.0)),
         );
     }

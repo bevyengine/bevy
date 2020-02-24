@@ -15,7 +15,7 @@ fn setup(world: &mut World) {
         .build()
         // cube
         .add_archetype(MeshEntity {
-            mesh: cube_handle.clone(),
+            mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
             },

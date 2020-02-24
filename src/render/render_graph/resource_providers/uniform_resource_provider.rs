@@ -75,7 +75,7 @@ where
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
                         let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
-                        if let None = renderer.get_texture_resource(texture_handle.clone()) {
+                        if let None = renderer.get_texture_resource(texture_handle) {
                             let descriptor: TextureDescriptor = texture.into();
                             let resource =
                                 renderer.create_texture(&descriptor, Some(&texture.data));

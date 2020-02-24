@@ -14,7 +14,7 @@ fn create_entities_insert_vec(
     world.insert(
         (),
         vec![(
-            plane_handle.clone(),
+            plane_handle,
             StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },
@@ -77,7 +77,7 @@ fn create_entities_builder_add_component(
         .build()
         // plane
         .build_entity()
-        .add(plane_handle.clone())
+        .add(plane_handle)
         .add(StandardMaterial {
             albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
         })
@@ -123,7 +123,7 @@ fn create_entities_builder_archetype(
         .build()
         // plane
         .add_archetype(MeshEntity {
-            mesh: plane_handle.clone(),
+            mesh: plane_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
             },

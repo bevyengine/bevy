@@ -64,7 +64,7 @@ fn try_compiling_shader_with_macros(
     if let None = compiled_shader_map.source_to_compiled.get(shader_handle) {
         compiled_shader_map
             .source_to_compiled
-            .insert(shader_handle.clone(), Vec::new());
+            .insert(*shader_handle, Vec::new());
     }
 
     let compiled_shaders = compiled_shader_map
@@ -90,7 +90,7 @@ fn try_compiling_shader_with_macros(
             .cloned()
             .collect::<Vec<String>>();
         let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
-        compiled_shaders.push((renderable.shader_defs.clone(), shader_handle.clone()));
+        compiled_shaders.push((renderable.shader_defs.clone(), *shader_handle));
         let compiled_shader_handle = shader_storage.add(compiled_shader);
         Some(compiled_shader_handle)
     }
@@ -121,7 +121,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                 {
                     compiled_shader_map
                         .pipeline_to_macro_pipelines
-                        .insert(pipeline_handle.clone(), Vec::new());
+                        .insert(*pipeline_handle, Vec::new());
                 }
 
                 let final_handle = if let Some((_shader_defs, macroed_pipeline_handle)) =
@@ -133,7 +133,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                         .find(|(shader_defs, _macroed_pipeline_handle)| {
                             *shader_defs == renderable.shader_defs
                         }) {
-                    macroed_pipeline_handle.clone()
+                    *macroed_pipeline_handle
                 } else {
                     let pipeline_descriptor =
                         pipeline_descriptor_storage.get(pipeline_handle).unwrap();
@@ -172,11 +172,11 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                             // TODO: get correct pass name
                             render_graph.add_pipeline(
                                 resource_name::pass::MAIN,
-                                macroed_pipeline_handle.clone(),
+                                macroed_pipeline_handle,
                             );
                             macroed_pipeline_handle
                         } else {
-                            pipeline_handle.clone()
+                            *pipeline_handle
                         }
                     };
 
@@ -186,7 +186,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                         .unwrap();
                     macro_pipelines.push((
                         renderable.shader_defs.clone(),
-                        macroed_pipeline_handle.clone(),
+                        macroed_pipeline_handle,
                     ));
                     macroed_pipeline_handle
                 };
@@ -195,7 +195,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                 if let None = shader_pipeline_assignments.assignments.get(&final_handle) {
                     shader_pipeline_assignments
                         .assignments
-                        .insert(final_handle.clone(), Vec::new());
+                        .insert(final_handle, Vec::new());
                 }
 
                 let assignments = shader_pipeline_assignments

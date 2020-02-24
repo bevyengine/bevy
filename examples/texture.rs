@@ -20,7 +20,7 @@ fn setup(world: &mut World) {
         .build()
         // cube
         .add_archetype(MeshEntity {
-            mesh: cube_handle.clone(),
+            mesh: cube_handle,
             material: StandardMaterial {
                 albedo: texture_handle.into(),
             },

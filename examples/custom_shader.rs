@@ -83,7 +83,7 @@ fn setup(world: &mut World) {
         .build()
         // cube
         .add_archetype(MeshMaterialEntity::<MyMaterial> {
-            mesh: cube_handle.clone(),
+            mesh: cube_handle,
             renderable: Renderable {
                 pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
                 ..Default::default()

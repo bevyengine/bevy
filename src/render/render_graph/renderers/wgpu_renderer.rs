@@ -529,7 +529,7 @@ impl Renderer for WgpuRenderer {
                     fragment_shader,
                 );
                 self.render_pipelines
-                    .insert(pipeline_descriptor_handle.clone(), render_pipeline);
+                    .insert(*pipeline_descriptor_handle, render_pipeline);
             }
 
             // create bind groups
