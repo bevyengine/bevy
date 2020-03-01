@@ -16,7 +16,7 @@ pub fn ui_draw_target(
     let mut current_mesh_index_buffer = None;
     let ui_instances_buffer = {
         let renderer = render_pass.get_renderer();
-        match renderer.get_named_resource(resource_name::buffer::UI_INSTANCES) {
+        match renderer.get_render_resources().get_named_resource(resource_name::buffer::UI_INSTANCES) {
             Some(buffer) => buffer,
             None => return,
         }

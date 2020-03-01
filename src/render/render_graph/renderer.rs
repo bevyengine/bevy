@@ -1,9 +1,10 @@
 use crate::{
     legion::prelude::*,
     render::render_graph::{
-        render_resource::RenderResource, DynamicUniformBufferInfo, PipelineDescriptor, RenderGraph,
-        ResourceInfo, TextureDescriptor, SamplerDescriptor
-    }, asset::{Handle, Texture},
+        render_resource::{RenderResource, RenderResources},
+        DynamicUniformBufferInfo, PipelineDescriptor, RenderGraph, ResourceInfo, SamplerDescriptor,
+        TextureDescriptor,
+    },
 };
 use std::ops::Range;
 
@@ -77,10 +78,10 @@ pub trait Renderer {
         destination_offset: u64,
         size: u64,
     );
-    fn get_named_resource(&self, name: &str) -> Option<RenderResource>;
-    fn set_named_resource(&mut self, name: &str, resource: RenderResource);
-    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
-    fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource);
+    fn get_render_resources(&self) -> &RenderResources;
+    fn get_render_resources_mut(&mut self) -> &mut RenderResources;
+    fn set_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str, resource: RenderResource);
+    fn get_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str) -> Option<RenderResource>;
 }
 
 pub trait RenderPass {

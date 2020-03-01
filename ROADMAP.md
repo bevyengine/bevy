@@ -12,6 +12,7 @@ Here is the current list of planned features. All items are sorted in approximat
     * Macro to produce vertex buffer attributes (and maybe descriptors) from structs
     * Add runtime type safety to uniform bindings (and maybe compile time)
     * Inject layout set/bindings into shader source so they don't need to be defined in-shader. Specify set / binding indices in resource providers?
+    * Pull as much logic as possible from wgpu_renderer into a "render orchestrator" struct/trait
 * Error Handling
     * Custom error type?
     * Remove as many panics / unwraps as possible

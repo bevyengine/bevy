@@ -82,7 +82,7 @@ impl UiResourceProvider {
             wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
         );
 
-        renderer.set_named_resource(resource_name::buffer::UI_INSTANCES, buffer);
+        renderer.get_render_resources_mut().set_named_resource(resource_name::buffer::UI_INSTANCES, buffer);
         self.instance_buffer = Some(buffer);
     }
 }

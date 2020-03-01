@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Texture},
     render::render_graph::{
         render_resource::RenderResource, AsUniforms, BindType, DynamicUniformBufferInfo,
-        Renderable, Renderer, ResourceProvider, TextureDescriptor, UniformInfoIter,
+        Renderable, Renderer, ResourceProvider, TextureDescriptor, UniformInfoIter, SamplerDescriptor,
     },
 };
 use legion::prelude::*;
@@ -51,7 +51,7 @@ where
         }
 
         let mut counts = Vec::new();
-        for (uniforms, _renderable) in query.iter(world) {
+        for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
             let mut uniform_index = 0;
             let field_uniform_names = uniforms.get_field_uniform_names();
             for uniform_info in UniformInfoIter::new(field_uniform_names, uniforms.deref()) {
@@ -75,14 +75,37 @@ where
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
                         let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
-                        if let None = renderer.get_texture_resource(texture_handle) {
-                            let descriptor: TextureDescriptor = texture.into();
-                            let resource =
-                                renderer.create_texture(&descriptor, Some(&texture.data));
-                            renderer.set_texture_resource(texture_handle, resource);
-                        }
+                        let resource = match renderer.get_render_resources().get_texture_resource(texture_handle) {
+                            Some(resource) => resource,
+                            None => {
+                                let descriptor: TextureDescriptor = texture.into();
+                                let resource =
+                                    renderer.create_texture(&descriptor, Some(&texture.data));
+                                renderer.get_render_resources_mut().set_texture_resource(texture_handle, resource);
+                                resource
+                            }
+                        };
+                        
+                        renderer.assign_entity_uniform_resource(*entity, uniform_info.name, resource);
                     }
-                    BindType::Sampler { .. } => {}
+                    BindType::Sampler { .. } => {
+                        let texture_handle =
+                            uniforms.get_uniform_texture(&uniform_info.name).unwrap();
+                        let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
+                        let texture = storage.get(&texture_handle).unwrap();
+                        let resource = match renderer.get_render_resources().get_texture_sampler_resource(texture_handle) {
+                            Some(resource) => resource,
+                            None => {
+                                let descriptor: SamplerDescriptor = texture.into();
+                                let resource =
+                                    renderer.create_sampler(&descriptor);
+                                renderer.get_render_resources_mut().set_texture_sampler_resource(texture_handle, resource);
+                                resource
+                            }
+                        };
+
+                        renderer.assign_entity_uniform_resource(*entity, uniform_info.name, resource);
+                    }
                     _ => panic!(
                         "encountered unsupported bind_type {:?}",
                         uniform_info.bind_type
@@ -114,7 +137,7 @@ where
             info.capacity = capacity;
             renderer.add_dynamic_uniform_buffer_info(created_resource, info);
             *resource = Some(created_resource);
-            renderer.set_named_resource(name, created_resource);
+            renderer.get_render_resources_mut().set_named_resource(name, created_resource);
         }
 
         // copy entity uniform data to buffers

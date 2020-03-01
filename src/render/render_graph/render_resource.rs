@@ -4,10 +4,13 @@ use std::collections::HashMap;
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]
 pub struct RenderResource(pub u64);
 
+// TODO: consider scoping breaking these mappings up by type: Texture, Sampler, etc
+// the overlap could cause accidents.
 #[derive(Default)]
 pub struct RenderResources {
     pub name_to_resource: HashMap<String, RenderResource>,
     pub texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
+    pub texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
     pub resource_index: u64,
 }
 
@@ -26,6 +29,14 @@ impl RenderResources {
 
     pub fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
         self.texture_to_resource.get(&texture).cloned()
+    }
+
+    pub fn set_texture_sampler_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
+        self.texture_to_sampler_resource.insert(texture, resource);
+    }
+
+    pub fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
+        self.texture_to_sampler_resource.get(&texture).cloned()
     }
 
     pub fn get_next_resource(&mut self) -> RenderResource {

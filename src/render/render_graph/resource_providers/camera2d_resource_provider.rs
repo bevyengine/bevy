@@ -18,7 +18,7 @@ impl ResourceProvider for Camera2dResourceProvider {
             wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
         );
 
-        renderer.set_named_resource(resource_name::uniform::CAMERA2D, buffer);
+        renderer.get_render_resources_mut().set_named_resource(resource_name::uniform::CAMERA2D, buffer);
         self.camera_buffer = Some(buffer);
     }
 

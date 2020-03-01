@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle, Texture},
+    asset::{AssetStorage, Handle},
     legion::prelude::*,
     render::{
         render_graph::{
@@ -12,7 +12,7 @@ use crate::{
         Shader,
     },
 };
-use std::{collections::HashMap, ops::Deref};
+use std::{collections::HashMap, ops::Deref, borrow::Cow};
 
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
@@ -27,6 +27,8 @@ pub struct WgpuRenderer {
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
+    pub entity_bind_groups: HashMap<(Entity, u64), BindGroupInfo>,
+    pub entity_uniform_resources: HashMap<(Cow<'static, Entity>, Cow<'static, str>), RenderResource>,
     pub dynamic_uniform_buffer_info: HashMap<RenderResource, DynamicUniformBufferInfo>,
     pub render_resources: RenderResources,
 }
@@ -70,6 +72,8 @@ impl WgpuRenderer {
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
             dynamic_uniform_buffer_info: HashMap::new(),
+            entity_bind_groups: HashMap::new(),
+            entity_uniform_resources: HashMap::new(),
             render_resources: RenderResources::default(),
         }
     }
@@ -300,7 +304,7 @@ impl WgpuRenderer {
     }
 
     // TODO: consider moving this to a resource provider
-    fn setup_bind_group(&mut self, bind_group: &BindGroup) -> u64 {
+    fn setup_bind_group(&mut self, bind_group: &BindGroup) {
         let bind_group_id = bind_group.get_hash().unwrap();
 
         if let None = self.bind_groups.get(&bind_group_id) {
@@ -331,7 +335,7 @@ impl WgpuRenderer {
                             },
                             BindType::Sampler | BindType::SampledTexture { .. } => {
                                 // textures and samplers are handled per-entity
-                                None
+                                return;
                             },
                             _ => panic!("unsupported bind type: {:?}", binding),
                         }
@@ -392,8 +396,6 @@ impl WgpuRenderer {
                 },
             );
         }
-
-        bind_group_id
     }
 
     pub fn create_shader_module(
@@ -420,6 +422,139 @@ impl WgpuRenderer {
         // consume current encoder
         let command_buffer = self.encoder.take().unwrap().finish();
         self.queue.submit(&[command_buffer]);
+    }
+
+    pub fn get_entity_bind_group(&self, entity: Entity, bind_group_id: u64) -> Option<&BindGroupInfo> {
+        self.entity_bind_groups.get(&(entity, bind_group_id))
+    }
+
+    pub fn create_entity_bind_group(&mut self, bind_group: &BindGroup, entity: Entity) {
+        let bind_group_id = bind_group.get_hash().unwrap();
+        let mut binding_resources = Vec::new();
+        for binding in bind_group.bindings.iter() {
+            if let Some(resource) = self.get_entity_uniform_resource(entity, &binding.name) {
+                let resource_info = self.resource_info.get(&resource).unwrap();
+                match binding.bind_type {
+                    BindType::SampledTexture { .. } => {
+                    },
+                    BindType::Sampler => {
+                        
+                    },
+                    _ => panic!("Attempted to create an unsupported BindType for BindGroup. Binding: {:?}, BindGroup: {:?}, Entity: {:?}", binding, bind_group, entity),
+                }
+                wgpu::Binding {
+                    binding: binding.index,
+                    resource: match &binding.bind_type {
+                        BindType::SampledTexture {
+                        } => {
+                            if let ResourceInfo::Texture = resource_info {
+                                let texture = self.textures.get(&resource).unwrap();
+                                wgpu::BindingResource::TextureView(texture)
+                            } else {
+                                panic!("expected a Texture resource");
+                            }
+                        },
+                        _ => panic!("unsupported bind type"),
+                    },
+                }
+            }
+            else {
+                panic!("No resource assigned to uniform {} for entity {}", binding.name, entity),
+            }
+        }
+    }
+    fn setup_bind_group(&mut self, bind_group: &BindGroup) {
+        let bind_group_id = bind_group.get_hash().unwrap();
+
+        if let None = self.bind_groups.get(&bind_group_id) {
+            let mut unset_uniforms = Vec::new();
+
+            let mut binding_resources = Vec::new();
+            // if a uniform resource buffer doesn't exist, create a new empty one
+            for binding in bind_group.bindings.iter() {
+                let resource = match self.render_resources.get_named_resource(&binding.name) {
+                    resource @ Some(_) => resource,
+                    None => {
+                        println!(
+                            "Warning: creating new empty buffer for binding {} {:?}",
+                            binding.name, binding
+                        );
+                        unset_uniforms.push(binding.name.to_string());
+                        match binding.bind_type {
+                            BindType::Uniform { .. } => {
+                                let size = binding.bind_type.get_uniform_size().unwrap();
+                                let resource = self.create_buffer(
+                                    size,
+                                    wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                                );
+
+                                self.render_resources
+                                    .set_named_resource(&binding.name, resource);
+                                Some(resource)
+                            },
+                            BindType::Sampler | BindType::SampledTexture { .. } => {
+                                // textures and samplers are handled per-entity
+                                return;
+                            },
+                            _ => panic!("unsupported bind type: {:?}", binding),
+                        }
+                    }
+                };
+
+                if let Some(resource) = resource {
+                    binding_resources.push(resource);
+                }
+            }
+
+            // create wgpu Bindings
+            let bindings = bind_group
+                .bindings
+                .iter()
+                .zip(binding_resources)
+                .map(|(binding, resource)| {
+                    let resource_info = self.resource_info.get(&resource).unwrap();
+                    wgpu::Binding {
+                        binding: binding.index,
+                        resource: match &binding.bind_type {
+                            BindType::Uniform {
+                                dynamic: _,
+                                properties: _,
+                            } => {
+                                if let ResourceInfo::Buffer {
+                                    size,
+                                    buffer_usage: _,
+                                } = resource_info
+                                {
+                                    let buffer = self.buffers.get(&resource).unwrap();
+                                    wgpu::BindingResource::Buffer {
+                                        buffer,
+                                        range: 0..*size,
+                                    }
+                                } else {
+                                    panic!("expected a Buffer resource");
+                                }
+                            }
+                            _ => panic!("unsupported bind type"),
+                        },
+                    }
+                })
+                .collect::<Vec<wgpu::Binding>>();
+
+            let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
+            let bind_group_descriptor = wgpu::BindGroupDescriptor {
+                layout: bind_group_layout,
+                bindings: bindings.as_slice(),
+            };
+
+            let bind_group = self.device.create_bind_group(&bind_group_descriptor);
+            self.bind_groups.insert(
+                bind_group_id,
+                BindGroupInfo {
+                    bind_group,
+                    unset_uniforms,
+                },
+            );
+        }
     }
 }
 
@@ -762,14 +897,6 @@ impl Renderer for WgpuRenderer {
         resource
     }
 
-    fn get_named_resource(&self, name: &str) -> Option<RenderResource> {
-        self.render_resources.get_named_resource(name)
-    }
-
-    fn set_named_resource(&mut self, name: &str, resource: RenderResource) {
-        self.render_resources.set_named_resource(name, resource);
-    }
-
     fn remove_texture(&mut self, resource: RenderResource) {
         self.textures.remove(&resource);
         self.resource_info.remove(&resource);
@@ -780,12 +907,19 @@ impl Renderer for WgpuRenderer {
         self.resource_info.remove(&resource);
     }
 
-    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        self.render_resources.get_texture_resource(texture)
+    fn get_render_resources(&self) -> &RenderResources {
+        &self.render_resources
     }
 
-    fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
-        self.render_resources.set_texture_resource(texture, resource);
+    fn get_render_resources_mut(&mut self) -> &mut RenderResources {
+        &mut self.render_resources
+    }
+
+    fn set_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str, resource: RenderResource) {
+        self.entity_uniform_resources.insert((Cow::Owned(entity), Cow::Owned(uniform_name.to_string())), resource);
+    }
+    fn get_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str) -> Option<RenderResource> {
+        self.entity_uniform_resources.get(&(Cow::Owned(entity), Cow::Borrowed(uniform_name))).cloned()
     }
 }
 
@@ -829,7 +963,20 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
-            let bind_group_info = self.renderer.bind_groups.get(&bind_group_id).unwrap();
+            let bind_group_info = match self.renderer.bind_groups.get(&bind_group_id) {
+                Some(bind_group_info) => bind_group_info,
+                None => {
+                    if let Some(entity) = entity {
+                        if let None = self.renderer.get_entity_bind_group(*entity, bind_group_id) {
+                            self.renderer.create_entity_bind_group(bind_group, *entity);
+                        }
+
+                        self.renderer.get_entity_bind_group(*entity, bind_group_id).unwrap()
+                    } else {
+                        panic!("No bind group exists that matches: {:?}");
+                    }
+                }                
+            };
 
             let mut dynamic_uniform_indices = Vec::new();
             for binding in bind_group.bindings.iter() {
