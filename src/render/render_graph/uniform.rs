@@ -171,7 +171,6 @@ pub struct UniformInfo<'a> {
 }
 
 pub struct DynamicUniformBufferInfo {
-    pub indices: HashMap<usize, Entity>,
     pub offsets: HashMap<Entity, u64>,
     pub capacity: u64,
     pub count: u64,
@@ -182,7 +181,6 @@ impl DynamicUniformBufferInfo {
         DynamicUniformBufferInfo {
             capacity: 0,
             count: 0,
-            indices: HashMap::new(),
             offsets: HashMap::new(),
         }
     }

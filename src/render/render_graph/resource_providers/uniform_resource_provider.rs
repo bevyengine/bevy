@@ -6,14 +6,15 @@ use crate::{
     },
 };
 use legion::prelude::*;
-use std::{marker::PhantomData, ops::Deref};
+use std::{marker::PhantomData, ops::Deref, collections::{HashSet, HashMap}};
 
 pub struct UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync,
 {
     _marker: PhantomData<T>,
-    uniform_buffer_info_resources: Vec<(String, Option<RenderResource>)>,
+    // PERF: somehow remove this HashSet
+    uniform_buffer_info_resources: HashMap<String, (Option<RenderResource>, usize, HashSet<Entity>)>,
 }
 
 impl<T> UniformResourceProvider<T>
@@ -22,7 +23,7 @@ where
 {
     pub fn new() -> Self {
         UniformResourceProvider {
-            uniform_buffer_info_resources: Vec::new(),
+            uniform_buffer_info_resources: HashMap::new(),
             _marker: PhantomData,
         }
     }
@@ -43,32 +44,27 @@ where
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
-        for (_name, resource) in self.uniform_buffer_info_resources.iter() {
+        for (_name, (resource, _count, entities)) in self.uniform_buffer_info_resources.iter() {
             renderer
                 .get_dynamic_uniform_buffer_info_mut(resource.unwrap())
                 .unwrap()
                 .count = 0;
         }
 
-        let mut counts = Vec::new();
         for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
-            let mut uniform_index = 0;
             let field_uniform_names = uniforms.get_field_uniform_names();
             for uniform_info in UniformInfoIter::new(field_uniform_names, uniforms.deref()) {
                 match uniform_info.bind_type {
                     BindType::Uniform { .. } => {
                         // only add the first time a uniform info is processed
-                        if self.uniform_buffer_info_resources.len() <= uniform_index {
+                        if let None = self.uniform_buffer_info_resources.get(uniform_info.name) {
                             self.uniform_buffer_info_resources
-                                .push((uniform_info.name.to_string(), None));
+                                .insert(uniform_info.name.to_string(), (None, 0, HashSet::new()));
                         }
 
-                        if counts.len() <= uniform_index {
-                            counts.push(0);
-                        }
-
-                        counts[uniform_index] += 1;
-                        uniform_index += 1;
+                        let (resource, counts, entities) = self.uniform_buffer_info_resources.get_mut(uniform_info.name).unwrap();
+                        entities.insert(entity);
+                        *counts += 1;
                     }
                     BindType::SampledTexture { .. } => {
                         let texture_handle =
@@ -115,17 +111,18 @@ where
         }
 
         // allocate uniform buffers
-        for (i, (name, resource)) in self.uniform_buffer_info_resources.iter_mut().enumerate() {
+        for (name, (resource, count, entities)) in self.uniform_buffer_info_resources.iter_mut() {
+            let count = *count as u64;
             if let Some(resource) = resource {
                 let mut info = renderer
                     .get_dynamic_uniform_buffer_info_mut(*resource)
                     .unwrap();
-                info.count = counts[i];
+                info.count = count;
                 continue;
             }
 
             // allocate enough space for twice as many entities as there are currently;
-            let capacity = counts[i] * 2;
+            let capacity = count * 2;
             let size = wgpu::BIND_BUFFER_ALIGNMENT * capacity;
             let created_resource = renderer.create_buffer(
                 size,
@@ -133,7 +130,7 @@ where
             );
 
             let mut info = DynamicUniformBufferInfo::new();
-            info.count = counts[i];
+            info.count = count;
             info.capacity = capacity;
             renderer.add_dynamic_uniform_buffer_info(created_resource, info);
             *resource = Some(created_resource);
@@ -141,7 +138,7 @@ where
         }
 
         // copy entity uniform data to buffers
-        for (name, resource) in self.uniform_buffer_info_resources.iter() {
+        for (name, (resource, _count, entities)) in self.uniform_buffer_info_resources.iter() {
             let resource = resource.unwrap();
             let size = {
                 let info = renderer.get_dynamic_uniform_buffer_info(resource).unwrap();
@@ -153,24 +150,28 @@ where
             let info = renderer
                 .get_dynamic_uniform_buffer_info_mut(resource)
                 .unwrap();
-            for (i, (entity, _)) in query.iter_entities(world).enumerate() {
+            for (entity, _) in query.iter_entities(world) {
+                if !entities.contains(&entity) {
+                   continue; 
+                }
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
                 // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
                 info.offsets.insert(entity, offset as u64);
-                info.indices.insert(i, entity);
                 // TODO: try getting ref first
                 offset += alignment;
             }
 
-            // let mut data = vec![Default::default(); size as usize];
             let mapped_buffer_resource = renderer.create_buffer_mapped(
                 size as usize,
                 wgpu::BufferUsage::COPY_SRC,
                 &mut |mapped| {
                     let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
                     let mut offset = 0usize;
-                    for (uniforms, _renderable) in query.iter(world) {
+                    for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
+                        if !entities.contains(&entity) {
+                            continue; 
+                        }
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed
                         // TODO: try getting bytes ref first

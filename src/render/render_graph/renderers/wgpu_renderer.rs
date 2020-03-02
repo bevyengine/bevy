@@ -429,6 +429,7 @@ impl WgpuRenderer {
     }
 
     pub fn create_entity_bind_group(&mut self, bind_group: &BindGroup, entity: Entity) {
+        // TODO: don't make this per-entity. bind groups should be re-used across the same resource when possible
         let bind_group_id = bind_group.get_hash().unwrap();
         let bindings = bind_group.bindings.iter().map(|binding| {
             if let Some(resource) = self.get_entity_uniform_resource(entity, &binding.name) {
