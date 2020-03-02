@@ -69,11 +69,6 @@ fn setup(world: &mut World) {
         let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
-    // let texture_handle = {
-    //     let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
-    //     let texture = Texture::load(TextureType::Data(asset::create_texels(256), 256, 256));
-    //     texture_storage.add(texture)
-    // };
 
     let mut builder = world
         .build()
@@ -128,7 +123,6 @@ fn setup(world: &mut World) {
         builder = builder.add_archetype(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                // albedo: texture_handle.into(),
                 albedo: math::vec4(
                     rng.gen_range(0.0, 1.0),
                     rng.gen_range(0.0, 1.0),
