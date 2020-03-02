@@ -42,7 +42,7 @@ fn main() {
                                     mat4 Model;
                                 };
                                 void main() {
-                                    v_Position = Model * vec4(a_Pos);
+                                    v_Position = Model * a_Pos;
                                     gl_Position = ViewProj * v_Position;
                                 }
                             "#,

@@ -97,6 +97,15 @@ impl Hash for BindGroup {
     }
 }
 
+impl PartialEq for BindGroup {
+    fn eq(&self, other: &BindGroup) -> bool {
+        self.index == other.index &&
+        self.bindings == other.bindings
+    }
+}
+
+impl Eq for BindGroup {}
+
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Binding {
     pub name: String,

@@ -18,7 +18,7 @@ layout(set = 1, binding = 0) uniform Object {
 
 void main() {
     v_Normal = mat3(Model) * vec3(a_Normal.xyz);
-    v_Position = Model * vec4(a_Pos);
+    v_Position = Model * a_Pos;
     v_Uv = a_Uv;
     gl_Position = ViewProj * v_Position;
 }

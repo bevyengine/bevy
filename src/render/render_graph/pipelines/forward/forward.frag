@@ -24,10 +24,10 @@ layout(set = 0, binding = 1) uniform Lights {
 };
 
 # ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
-layout(set = 1, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
-layout(set = 1, binding = 2) uniform sampler StandardMaterial_albedo_sampler;
+layout(set = 2, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
+layout(set = 2, binding = 2) uniform sampler StandardMaterial_albedo_sampler;
 # else
-layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
+layout(set = 2, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 # endif

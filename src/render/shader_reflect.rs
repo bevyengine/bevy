@@ -23,7 +23,7 @@ use zerocopy::AsBytes;
 //     println!("{:?}", structured.types);
 // }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ShaderLayout {
     pub bind_groups: Vec<BindGroup>,
     pub entry_point: String,
@@ -70,23 +70,23 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
 
 fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
     let type_description = binding.type_description.as_ref().unwrap();
-    let bind_type = match binding.descriptor_type {
-        ReflectDescriptorType::UniformBuffer => BindType::Uniform {
+    let (name, bind_type) = match binding.descriptor_type {
+        ReflectDescriptorType::UniformBuffer => (&type_description.type_name, BindType::Uniform {
             dynamic: false,
             properties: vec![reflect_uniform(type_description)],
-        },
-        ReflectDescriptorType::SampledImage => BindType::SampledTexture {
+        }),
+        ReflectDescriptorType::SampledImage => (&binding.name, BindType::SampledTexture {
             dimension: reflect_dimension(type_description),
             multisampled: false,
-        },
-        ReflectDescriptorType::Sampler => BindType::Sampler,
+        }),
+        ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler),
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
     Binding {
         index: binding.binding,
         bind_type,
-        name: type_description.type_name.to_string(),
+        name: name.to_string(),
     }
 }
 
@@ -168,5 +168,76 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
                 number_type, component_count
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::render::{
+        render_graph::{BindGroup, BindType, Binding, UniformProperty, UniformPropertyType},
+        Shader, ShaderStage,
+    };
+
+    #[test]
+    fn test_reflection() {
+        let vertex_shader = Shader::from_glsl(
+            ShaderStage::Vertex,
+            r#"
+            #version 450
+            layout(location = 0) in vec4 a_Pos;
+            layout(location = 0) out vec4 v_Position;
+            layout(set = 0, binding = 0) uniform Camera {
+                mat4 ViewProj;
+            };
+            layout(set = 1, binding = 0) uniform texture2D Texture;
+
+            void main() {
+                v_Position = a_Pos;
+                gl_Position = ViewProj * v_Position;
+            }
+        "#,
+        )
+        .get_spirv_shader(None);
+
+        let layout = vertex_shader.reflect_layout().unwrap();
+        assert_eq!(
+            layout,
+            ShaderLayout {
+                entry_point: "main".to_string(),
+                bind_groups: vec![
+                    BindGroup::new(
+                        0,
+                        vec![Binding {
+                            index: 0,
+                            name: "Camera".to_string(),
+                            bind_type: BindType::Uniform {
+                                dynamic: false,
+                                properties: vec![UniformProperty {
+                                    name: "Camera".to_string(),
+                                    property_type: UniformPropertyType::Struct(vec![
+                                        UniformProperty {
+                                            name: "".to_string(),
+                                            property_type: UniformPropertyType::Mat4,
+                                        }
+                                    ]),
+                                }],
+                            },
+                        }]
+                    ),
+                    BindGroup::new(
+                        1,
+                        vec![Binding {
+                            index: 0,
+                            name: "Texture".to_string(),
+                            bind_type: BindType::SampledTexture {
+                                multisampled: false,
+                                dimension: TextureViewDimension::D2,
+                            },
+                        }]
+                    ),
+                ]
+            }
+        );
     }
 }

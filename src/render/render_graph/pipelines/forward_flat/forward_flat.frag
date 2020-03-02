@@ -15,7 +15,5 @@ layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
 };
 
 void main() {
-    // multiply the light by material color
-    o_Target = vec4(1.0, 0.0, 0.0, 1.0);
     o_Target = Albedo;
 }

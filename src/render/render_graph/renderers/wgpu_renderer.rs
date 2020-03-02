@@ -316,13 +316,13 @@ impl WgpuRenderer {
                 let resource = match self.render_resources.get_named_resource(&binding.name) {
                     resource @ Some(_) => resource,
                     None => {
-                        println!(
-                            "Warning: creating new empty buffer for binding {} {:?}",
-                            binding.name, binding
-                        );
-                        unset_uniforms.push(binding.name.to_string());
                         match binding.bind_type {
                             BindType::Uniform { .. } => {
+                                println!(
+                                    "Warning: creating new empty buffer for uniform binding {} {:?}",
+                                    binding.name, binding
+                                );
+                                unset_uniforms.push(binding.name.to_string());
                                 let size = binding.bind_type.get_uniform_size().unwrap();
                                 let resource = self.create_buffer(
                                     size,
@@ -430,23 +430,13 @@ impl WgpuRenderer {
 
     pub fn create_entity_bind_group(&mut self, bind_group: &BindGroup, entity: Entity) {
         let bind_group_id = bind_group.get_hash().unwrap();
-        let mut binding_resources = Vec::new();
-        for binding in bind_group.bindings.iter() {
+        let bindings = bind_group.bindings.iter().map(|binding| {
             if let Some(resource) = self.get_entity_uniform_resource(entity, &binding.name) {
                 let resource_info = self.resource_info.get(&resource).unwrap();
-                match binding.bind_type {
-                    BindType::SampledTexture { .. } => {
-                    },
-                    BindType::Sampler => {
-                        
-                    },
-                    _ => panic!("Attempted to create an unsupported BindType for BindGroup. Binding: {:?}, BindGroup: {:?}, Entity: {:?}", binding, bind_group, entity),
-                }
                 wgpu::Binding {
                     binding: binding.index,
                     resource: match &binding.bind_type {
-                        BindType::SampledTexture {
-                        } => {
+                        BindType::SampledTexture { .. } => {
                             if let ResourceInfo::Texture = resource_info {
                                 let texture = self.textures.get(&resource).unwrap();
                                 wgpu::BindingResource::TextureView(texture)
@@ -454,107 +444,34 @@ impl WgpuRenderer {
                                 panic!("expected a Texture resource");
                             }
                         },
+                        BindType::Sampler => {
+                            if let ResourceInfo::Sampler = resource_info {
+                                let sampler = self.samplers.get(&resource).unwrap();
+                                wgpu::BindingResource::Sampler(sampler)
+                            } else {
+                                panic!("expected a Sampler resource");
+                            }
+                        }
                         _ => panic!("unsupported bind type"),
                     },
                 }
             }
             else {
-                panic!("No resource assigned to uniform {} for entity {}", binding.name, entity),
+                panic!("No resource assigned to uniform \"{}\" for entity {}", binding.name, entity);
             }
-        }
-    }
-    fn setup_bind_group(&mut self, bind_group: &BindGroup) {
-        let bind_group_id = bind_group.get_hash().unwrap();
+        }).collect::<Vec<wgpu::Binding>>();
+        let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
+        let bind_group_descriptor = wgpu::BindGroupDescriptor {
+            layout: bind_group_layout,
+            bindings: bindings.as_slice(),
+        };
 
-        if let None = self.bind_groups.get(&bind_group_id) {
-            let mut unset_uniforms = Vec::new();
-
-            let mut binding_resources = Vec::new();
-            // if a uniform resource buffer doesn't exist, create a new empty one
-            for binding in bind_group.bindings.iter() {
-                let resource = match self.render_resources.get_named_resource(&binding.name) {
-                    resource @ Some(_) => resource,
-                    None => {
-                        println!(
-                            "Warning: creating new empty buffer for binding {} {:?}",
-                            binding.name, binding
-                        );
-                        unset_uniforms.push(binding.name.to_string());
-                        match binding.bind_type {
-                            BindType::Uniform { .. } => {
-                                let size = binding.bind_type.get_uniform_size().unwrap();
-                                let resource = self.create_buffer(
-                                    size,
-                                    wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-                                );
-
-                                self.render_resources
-                                    .set_named_resource(&binding.name, resource);
-                                Some(resource)
-                            },
-                            BindType::Sampler | BindType::SampledTexture { .. } => {
-                                // textures and samplers are handled per-entity
-                                return;
-                            },
-                            _ => panic!("unsupported bind type: {:?}", binding),
-                        }
-                    }
-                };
-
-                if let Some(resource) = resource {
-                    binding_resources.push(resource);
-                }
-            }
-
-            // create wgpu Bindings
-            let bindings = bind_group
-                .bindings
-                .iter()
-                .zip(binding_resources)
-                .map(|(binding, resource)| {
-                    let resource_info = self.resource_info.get(&resource).unwrap();
-                    wgpu::Binding {
-                        binding: binding.index,
-                        resource: match &binding.bind_type {
-                            BindType::Uniform {
-                                dynamic: _,
-                                properties: _,
-                            } => {
-                                if let ResourceInfo::Buffer {
-                                    size,
-                                    buffer_usage: _,
-                                } = resource_info
-                                {
-                                    let buffer = self.buffers.get(&resource).unwrap();
-                                    wgpu::BindingResource::Buffer {
-                                        buffer,
-                                        range: 0..*size,
-                                    }
-                                } else {
-                                    panic!("expected a Buffer resource");
-                                }
-                            }
-                            _ => panic!("unsupported bind type"),
-                        },
-                    }
-                })
-                .collect::<Vec<wgpu::Binding>>();
-
-            let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
-            let bind_group_descriptor = wgpu::BindGroupDescriptor {
-                layout: bind_group_layout,
-                bindings: bindings.as_slice(),
-            };
-
-            let bind_group = self.device.create_bind_group(&bind_group_descriptor);
-            self.bind_groups.insert(
-                bind_group_id,
-                BindGroupInfo {
-                    bind_group,
-                    unset_uniforms,
-                },
-            );
-        }
+        let bind_group = self.device.create_bind_group(&bind_group_descriptor);
+        // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
+        self.entity_bind_groups.insert((entity, bind_group_id), BindGroupInfo {
+            bind_group,
+            unset_uniforms: Vec::new(),
+        });
     }
 }
 
@@ -857,10 +774,9 @@ impl Renderer for WgpuRenderer {
         let sampler = self.device.create_sampler(&descriptor);
         let resource = self.render_resources.get_next_resource();
         self.samplers.insert(resource, sampler);
-        self.add_resource_info(resource, ResourceInfo::Texture);
+        self.add_resource_info(resource, ResourceInfo::Sampler);
         resource
     }
-
 
     fn create_texture(
         &mut self,
@@ -918,7 +834,7 @@ impl Renderer for WgpuRenderer {
     fn set_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str, resource: RenderResource) {
         self.entity_uniform_resources.insert((Cow::Owned(entity), Cow::Owned(uniform_name.to_string())), resource);
     }
-    fn get_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str) -> Option<RenderResource> {
+    fn get_entity_uniform_resource(&self, entity: Entity, uniform_name: &str) -> Option<RenderResource> {
         self.entity_uniform_resources.get(&(Cow::Owned(entity), Cow::Borrowed(uniform_name))).cloned()
     }
 }
@@ -964,7 +880,9 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
             let bind_group_info = match self.renderer.bind_groups.get(&bind_group_id) {
+                // if there is a "global" bind group, use that
                 Some(bind_group_info) => bind_group_info,
+                // otherwise try to get an entity-specific bind group
                 None => {
                     if let Some(entity) = entity {
                         if let None = self.renderer.get_entity_bind_group(*entity, bind_group_id) {

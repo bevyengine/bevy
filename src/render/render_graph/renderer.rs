@@ -81,7 +81,7 @@ pub trait Renderer {
     fn get_render_resources(&self) -> &RenderResources;
     fn get_render_resources_mut(&mut self) -> &mut RenderResources;
     fn set_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str, resource: RenderResource);
-    fn get_entity_uniform_resource(&mut self, entity: Entity, uniform_name: &str) -> Option<RenderResource>;
+    fn get_entity_uniform_resource(&self, entity: Entity, uniform_name: &str) -> Option<RenderResource>;
 }
 
 pub trait RenderPass {

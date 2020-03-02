@@ -85,8 +85,8 @@ where
                                 resource
                             }
                         };
-                        
-                        renderer.assign_entity_uniform_resource(*entity, uniform_info.name, resource);
+
+                        renderer.set_entity_uniform_resource(entity, uniform_info.name, resource);
                     }
                     BindType::Sampler { .. } => {
                         let texture_handle =
@@ -104,7 +104,7 @@ where
                             }
                         };
 
-                        renderer.assign_entity_uniform_resource(*entity, uniform_info.name, resource);
+                        renderer.set_entity_uniform_resource(entity, uniform_info.name, resource);
                     }
                     _ => panic!(
                         "encountered unsupported bind_type {:?}",

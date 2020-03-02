@@ -16,4 +16,5 @@ pub enum ResourceInfo {
         // pub layout: Option<
     },
     Texture,
+    Sampler,
 }
