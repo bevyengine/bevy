@@ -27,14 +27,14 @@ fn setup(world: &mut World) {
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
-        // .add_archetype(MeshEntity {
-        //     mesh: cube_handle,
-        //     material: StandardMaterial {
-        //         albedo: Vec4::new(1.0, 0.0, 0.0, 1.0).into(),
-        //     },
-        //     translation: Translation::new(2.0, 0.0, 0.0),
-        //     ..Default::default()
-        // })
+        .add_archetype(MeshEntity {
+            mesh: cube_handle,
+            material: StandardMaterial {
+                albedo: Vec4::new(1.0, 0.0, 0.0, 1.0).into(),
+            },
+            translation: Translation::new(2.0, 0.0, 0.0),
+            ..Default::default()
+        })
         // light
         .add_archetype(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),

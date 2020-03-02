@@ -44,11 +44,12 @@ where
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
-        for (_name, (resource, _count, entities)) in self.uniform_buffer_info_resources.iter() {
+        for (_name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             renderer
                 .get_dynamic_uniform_buffer_info_mut(resource.unwrap())
                 .unwrap()
                 .count = 0;
+            *count = 0;
         }
 
         for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
