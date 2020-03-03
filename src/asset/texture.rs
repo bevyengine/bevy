@@ -1,7 +1,9 @@
 use crate::{render::render_graph::{TextureDimension, TextureDescriptor}, asset::Asset};
+use std::fs::File;
 
 pub enum TextureType {
     Data(Vec<u8>, usize, usize),
+    Png(String) // TODO: please rethink this
 }
 
 pub struct Texture {
@@ -14,6 +16,13 @@ impl Asset<TextureType> for Texture {
     fn load(descriptor: TextureType) -> Self {
         let (data, width, height) = match descriptor {
             TextureType::Data(data, width, height) => (data.clone(), width, height),
+            TextureType::Png(path) => {
+                let decoder = png::Decoder::new(File::open(&path).unwrap());
+                let (info, mut reader) = decoder.read_info().unwrap();
+                let mut buf = vec![0; info.buffer_size()];
+                reader.next_frame(&mut buf).unwrap();
+                (buf, info.width as usize, info.height as usize)
+            }
         };
 
         Texture { data, width, height }

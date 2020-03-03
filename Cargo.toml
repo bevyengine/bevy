@@ -22,6 +22,7 @@ erased-serde = "0.3"
 type-uuid = "0.1"
 shaderc = "0.6"
 libloading = "0.5.2"
+png = "0.16.0"
 # rspirv = { git = "https://github.com/gfx-rs/rspirv.git", rev = "baa469eae2932271174593eb066894d7a7a38439" }
 spirv-reflect = "0.2.3"
 bevy_derive = { path = "bevy_derive" }
