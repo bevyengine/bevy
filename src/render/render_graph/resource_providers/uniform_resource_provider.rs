@@ -63,7 +63,7 @@ where
                                 .insert(uniform_info.name.to_string(), (None, 0, HashSet::new()));
                         }
 
-                        let (resource, counts, entities) = self.uniform_buffer_info_resources.get_mut(uniform_info.name).unwrap();
+                        let (_resource, counts, entities) = self.uniform_buffer_info_resources.get_mut(uniform_info.name).unwrap();
                         entities.insert(entity);
                         *counts += 1;
                     }
@@ -112,7 +112,7 @@ where
         }
 
         // allocate uniform buffers
-        for (name, (resource, count, entities)) in self.uniform_buffer_info_resources.iter_mut() {
+        for (name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             let count = *count as u64;
             if let Some(resource) = resource {
                 let mut info = renderer
@@ -158,7 +158,7 @@ where
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
                 // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
-                info.offsets.insert(entity, offset as u64);
+                info.offsets.insert(entity, offset as u32);
                 // TODO: try getting ref first
                 offset += alignment;
             }

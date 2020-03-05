@@ -18,7 +18,6 @@ pub struct WgpuResources {
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
-    pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
@@ -32,7 +31,6 @@ pub struct WgpuResources {
 impl WgpuResources {
     pub fn new() -> Self {
         WgpuResources {
-            render_pipelines: HashMap::new(),
             buffers: HashMap::new(),
             textures: HashMap::new(),
             samplers: HashMap::new(),
@@ -455,6 +453,7 @@ pub struct WgpuRenderer {
     pub surface: Option<wgpu::Surface>,
     pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
+    pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
 }
 
@@ -490,6 +489,7 @@ impl WgpuRenderer {
             encoder: None,
             swap_chain_descriptor,
             wgpu_resources: WgpuResources::new(),
+            render_pipelines: HashMap::new(),
         }
     }
 
@@ -620,7 +620,7 @@ impl WgpuRenderer {
     }
 
     pub fn create_render_pass<'a>(
-        wgpu_resources: &WgpuResources,
+        wgpu_resources: &'a WgpuResources,
         pass_descriptor: &PassDescriptor,
         encoder: &'a mut wgpu::CommandEncoder,
         frame: &'a wgpu::SwapChainOutput,
@@ -686,7 +686,7 @@ impl WgpuRenderer {
         wgpu_resources: &'a WgpuResources,
         depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
         frame: &'a wgpu::SwapChainOutput,
-    ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<&'a wgpu::TextureView> {
+    ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
         let attachment = match depth_stencil_attachment_descriptor.attachment.as_str() {
             resource_name::texture::SWAP_CHAIN => &frame.view,
             _ => {
@@ -828,7 +828,6 @@ impl Renderer for WgpuRenderer {
                 .unwrap();
             // create pipelines
             if !self
-                .wgpu_resources
                 .render_pipelines
                 .contains_key(pipeline_descriptor_handle)
             {
@@ -849,7 +848,7 @@ impl Renderer for WgpuRenderer {
                     vertex_shader,
                     fragment_shader,
                 );
-                self.wgpu_resources.render_pipelines
+                self.render_pipelines
                     .insert(*pipeline_descriptor_handle, render_pipeline);
             }
 
@@ -862,22 +861,23 @@ impl Renderer for WgpuRenderer {
 
         for (pass_name, pass_descriptor) in render_graph.pass_descriptors.iter() {
             // run passes
-            let mut render_pass = Self::create_render_pass(&mut self.wgpu_resources, pass_descriptor, &mut encoder, &frame);
+            let mut render_pass = Self::create_render_pass(&self.wgpu_resources, pass_descriptor, &mut encoder, &frame);
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
                     let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
-                    let render_pipeline = self.wgpu_resources.render_pipelines.get(pass_pipeline).unwrap();
+                    let render_pipeline = self.render_pipelines.get(pass_pipeline).unwrap();
                     render_pass.set_pipeline(render_pipeline);
 
-                    let mut render_pass = WgpuRenderPass {
+                    let mut wgpu_render_pass = WgpuRenderPass {
                         render_pass: &mut render_pass,
-                        renderer: self,
                         pipeline_descriptor,
+                        wgpu_resources: &self.wgpu_resources,
+                        renderer: &self
                     };
 
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
                         let draw_target = render_graph.draw_targets.get(draw_target_name).unwrap();
-                        draw_target(world, &mut render_pass, pass_pipeline.clone());
+                        draw_target(world, &mut wgpu_render_pass, *pass_pipeline);
                     }
                 }
             }
@@ -1018,11 +1018,12 @@ impl Renderer for WgpuRenderer {
 pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
     pub render_pass: &'b mut wgpu::RenderPass<'a>,
     pub pipeline_descriptor: &'c PipelineDescriptor,
-    pub renderer: &'d mut WgpuRenderer,
+    pub wgpu_resources: &'a WgpuResources,
+    pub renderer: &'d WgpuRenderer,
 }
 
 impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
-    fn get_renderer(&mut self) -> &mut dyn Renderer {
+    fn get_renderer(&mut self) -> &dyn Renderer {
         self.renderer
     }
 
@@ -1031,13 +1032,13 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
-        let buffer = self.renderer.wgpu_resources.buffers.get(&resource).unwrap();
+        let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffers(start_slot, &[(&buffer, offset)]);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
-        let buffer = self.renderer.wgpu_resources.buffers.get(&resource).unwrap();
+        let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset);
     }
 
@@ -1055,17 +1056,18 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
-            let bind_group_info = match self.renderer.wgpu_resources.bind_groups.get(&bind_group_id) {
+            let bind_group_info = match self.wgpu_resources.bind_groups.get(&bind_group_id) {
                 // if there is a "global" bind group, use that
                 Some(bind_group_info) => bind_group_info,
                 // otherwise try to get an entity-specific bind group
                 None => {
                     if let Some(entity) = entity {
-                        if let None = self.renderer.wgpu_resources.get_entity_bind_group(*entity, bind_group_id) {
-                            self.renderer.wgpu_resources.create_entity_bind_group(&self.renderer.device, bind_group, *entity);
+                        if let None = self.wgpu_resources.get_entity_bind_group(*entity, bind_group_id) {
+                            // TODO: Uncomment this
+                            // self.wgpu_resources.create_entity_bind_group(&self.renderer.device, bind_group, *entity);
                         }
 
-                        self.renderer.wgpu_resources
+                        self.wgpu_resources
                             .get_entity_bind_group(*entity, bind_group_id)
                             .unwrap()
                     } else {
@@ -1082,14 +1084,13 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                     }
 
                     if let Some(resource) = self
-                        .renderer
                         .wgpu_resources
                         .render_resources
                         .get_named_resource(&binding.name)
                     {
                         // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
                         if let Some(dynamic_uniform_buffer_info) =
-                            self.renderer.wgpu_resources.dynamic_uniform_buffer_info.get(&resource)
+                            self.wgpu_resources.dynamic_uniform_buffer_info.get(&resource)
                         {
                             let index = dynamic_uniform_buffer_info
                                 .offsets

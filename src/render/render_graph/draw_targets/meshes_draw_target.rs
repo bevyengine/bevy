@@ -1,24 +1,19 @@
 use crate::{
-    asset::{AssetStorage, Handle, Mesh},
+    asset::{Handle, Mesh},
     legion::prelude::*,
     render::{
-        render_graph::{PipelineDescriptor, RenderPass, Renderable},
+        render_graph::{PipelineDescriptor, RenderPass, Renderable, ResourceInfo},
         Instanced,
     },
 };
-
-use zerocopy::AsBytes;
 
 pub fn meshes_draw_target(
     world: &World,
     render_pass: &mut dyn RenderPass,
     _pipeline_handle: Handle<PipelineDescriptor>,
 ) {
-    let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let mut current_mesh_id = None;
-    let mut current_mesh_vertex_buffer = None;
-    let mut current_mesh_index_buffer = None;
-    let mut current_mesh_index_length = 0;
+    let mut current_mesh_handle = None;
+    let mut current_mesh_index_len = 0;
     let mesh_query =
         <(Read<Handle<Mesh>>, Read<Renderable>)>::query().filter(!component::<Instanced>());
 
@@ -27,51 +22,26 @@ pub fn meshes_draw_target(
             continue;
         }
 
-        let mut should_load_mesh = current_mesh_id == None;
-        if let Some(current) = current_mesh_id {
-            should_load_mesh = current != mesh.id;
-        }
-
-        if should_load_mesh {
-            if let Some(mesh_asset) = mesh_storage.get_id(mesh.id) {
-                let renderer = render_pass.get_renderer();
-                if let Some(buffer) = current_mesh_vertex_buffer {
-                    renderer.remove_buffer(buffer);
+        let renderer = render_pass.get_renderer();
+        let render_resources = renderer.get_render_resources();
+        if current_mesh_handle != Some(*mesh) {
+            if let Some(vertex_buffer_resource) = render_resources.get_mesh_vertices_resource(*mesh)
+            {
+                let index_buffer_resource =
+                    render_resources.get_mesh_indices_resource(*mesh).unwrap();
+                match renderer.get_resource_info(index_buffer_resource).unwrap() {
+                    ResourceInfo::Buffer { size, .. } => current_mesh_index_len = (size / 2) as u32,
+                    _ => panic!("expected a buffer type"),
                 }
-
-                if let Some(buffer) = current_mesh_index_buffer {
-                    renderer.remove_buffer(buffer);
-                }
-                current_mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
-                    mesh_asset.vertices.as_bytes(),
-                    wgpu::BufferUsage::VERTEX,
-                ));
-                current_mesh_index_buffer = Some(renderer.create_buffer_with_data(
-                    mesh_asset.indices.as_bytes(),
-                    wgpu::BufferUsage::INDEX,
-                ));
-
-                // TODO: Verify buffer format matches render pass
-                render_pass.set_index_buffer(current_mesh_index_buffer.unwrap(), 0);
-                render_pass.set_vertex_buffer(0, current_mesh_vertex_buffer.unwrap(), 0);
-                current_mesh_id = Some(mesh.id);
-                current_mesh_index_length = mesh_asset.indices.len() as u32;
-            };
+                render_pass.set_index_buffer(index_buffer_resource, 0);
+                render_pass.set_vertex_buffer(0, vertex_buffer_resource, 0);
+            }
+            // TODO: Verify buffer format matches render pass
+            current_mesh_handle = Some(*mesh);
         }
 
         // TODO: validate bind group properties against shader uniform properties at least once
         render_pass.setup_bind_groups(Some(&entity));
-        render_pass.draw_indexed(0..current_mesh_index_length, 0, 0..1);
-    }
-
-    // cleanup buffers
-    let renderer = render_pass.get_renderer();
-
-    if let Some(buffer) = current_mesh_vertex_buffer {
-        renderer.remove_buffer(buffer);
-    }
-
-    if let Some(buffer) = current_mesh_index_buffer {
-        renderer.remove_buffer(buffer);
+        render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
     }
 }

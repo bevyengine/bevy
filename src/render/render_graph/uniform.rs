@@ -171,7 +171,7 @@ pub struct UniformInfo<'a> {
 }
 
 pub struct DynamicUniformBufferInfo {
-    pub offsets: HashMap<Entity, u64>,
+    pub offsets: HashMap<Entity, u32>,
     pub capacity: u64,
     pub count: u64,
 }

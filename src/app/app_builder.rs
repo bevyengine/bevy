@@ -150,6 +150,7 @@ impl AppBuilder {
                 .add_resource_provider(Box::new(Camera2dResourceProvider::default()))
                 .add_resource_provider(Box::new(LightResourceProvider::new(10)))
                 .add_resource_provider(Box::new(UiResourceProvider::new()))
+                .add_resource_provider(Box::new(MeshResourceProvider::new()))
                 .add_resource_provider(Box::new(UniformResourceProvider::<StandardMaterial>::new()))
                 .add_resource_provider(Box::new(UniformResourceProvider::<LocalToWorld>::new()))
                 .add_forward_pass()

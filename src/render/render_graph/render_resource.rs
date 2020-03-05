@@ -1,4 +1,4 @@
-use crate::asset::{Handle, Texture};
+use crate::asset::{Handle, Texture, Mesh};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]
@@ -11,6 +11,8 @@ pub struct RenderResources {
     pub name_to_resource: HashMap<String, RenderResource>,
     pub texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
     pub texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
+    pub mesh_to_vertices_resource: HashMap<Handle<Mesh>, RenderResource>,
+    pub mesh_to_indices_resource: HashMap<Handle<Mesh>, RenderResource>,
     pub resource_index: u64,
 }
 
@@ -29,6 +31,22 @@ impl RenderResources {
 
     pub fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
         self.texture_to_resource.get(&texture).cloned()
+    }
+
+    pub fn set_mesh_vertices_resource(&mut self, mesh: Handle<Mesh>, resource: RenderResource) {
+        self.mesh_to_vertices_resource.insert(mesh, resource);
+    }
+
+    pub fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
+        self.mesh_to_vertices_resource.get(&mesh).cloned()
+    }
+
+    pub fn set_mesh_indices_resource(&mut self, mesh: Handle<Mesh>, resource: RenderResource) {
+        self.mesh_to_indices_resource.insert(mesh, resource);
+    }
+
+    pub fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
+        self.mesh_to_indices_resource.get(&mesh).cloned()
     }
 
     pub fn set_texture_sampler_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
