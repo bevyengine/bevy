@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 legion = { path = "../bevy_legion", features = ["serialize"]}
-glam = "0.8.3"
+glam = "0.8.6"
 log = "0.4"
 rayon = "1.2"
 serde = { version = "1", features = ["derive"] }
