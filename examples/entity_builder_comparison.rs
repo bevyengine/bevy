@@ -161,13 +161,9 @@ fn create_entities_builder_archetype(
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane { size: 10.0 });
-
-    let (cube_handle, plane_handle) = {
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        (mesh_storage.add(cube), mesh_storage.add(plane))
-    };
+    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
+    let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
 
     // no-archetype precompile: 1.24 sec
     // archetype precompile: 1.07 sec

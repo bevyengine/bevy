@@ -74,10 +74,8 @@ fn main() {
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let cube_handle = {
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        mesh_storage.add(Mesh::load(MeshType::Cube))
-    };
+    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
 
     world
         .build()

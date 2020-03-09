@@ -5,18 +5,14 @@ fn main() {
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let cube_handle = {
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        mesh_storage.add(Mesh::load(MeshType::Cube))
-    };
+    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
 
-    let texture_handle = {
-        let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
-        let texture = Texture::load(TextureType::Png(
-            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/temp_bevy_logo.png").to_string(),
-        ));
-        texture_storage.add(texture)
-    };
+    let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
+    let texture = Texture::load(TextureType::Png(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/assets/temp_bevy_logo.png").to_string(),
+    ));
+    let texture_handle = texture_storage.add(texture);
 
     world
         .build()

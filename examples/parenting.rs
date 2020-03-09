@@ -23,9 +23,8 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let cube = Mesh::load(MeshType::Cube);
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let cube_handle = mesh_storage.add(cube);
+    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
 
     world
         .build()
