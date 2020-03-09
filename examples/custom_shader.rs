@@ -23,7 +23,7 @@ fn main() {
         .setup_world(setup)
         .setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
-                .add_resource_provider(Box::new(UniformResourceProvider::<MyMaterial>::new()))
+                .add_resource_provider(UniformResourceProvider::<MyMaterial>::new())
                 .add_pipeline_to_pass(
                     resource_name::pass::MAIN,
                     pipeline_storage,

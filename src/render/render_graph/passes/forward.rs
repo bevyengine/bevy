@@ -10,7 +10,7 @@ pub trait ForwardPassBuilder {
 
 impl ForwardPassBuilder for RenderGraphBuilder {
     fn add_forward_pass(self) -> Self {
-        self.add_resource_provider(Box::new(FrameTextureResourceProvider::new(
+        self.add_resource_provider(FrameTextureResourceProvider::new(
             resource_name::texture::DEPTH,
             TextureDescriptor {
                 size: wgpu::Extent3d {
@@ -25,7 +25,7 @@ impl ForwardPassBuilder for RenderGraphBuilder {
                 format: wgpu::TextureFormat::Depth32Float,
                 usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             },
-        )))
+        ))
         .add_pass(
             resource_name::pass::MAIN,
             PassDescriptor {

@@ -86,8 +86,13 @@ impl RenderGraphBuilder {
         self
     }
 
-    pub fn add_resource_provider(mut self, resource_provider: Box<dyn ResourceProvider>) -> Self {
-        self.render_graph.resource_providers.push(resource_provider);
+    pub fn add_resource_provider<T>(mut self, resource_provider: T) -> Self
+    where
+        T: ResourceProvider + 'static,
+    {
+        self.render_graph
+            .resource_providers
+            .push(Box::new(resource_provider));
         self
     }
 
