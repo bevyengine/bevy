@@ -86,10 +86,9 @@ impl<'a> WorldBuilder<'a> {
     fn add_parent_to_current_entity(&mut self) {
         let current_entity = self.current_entity.unwrap();
         if let Some(parent_entity) = self.parent_entity {
-            let _ = self.world.add_component(
-                current_entity,
-                Parent(parent_entity),
-            );
+            let _ = self
+                .world
+                .add_component(current_entity, Parent(parent_entity));
             let _ = self
                 .world
                 .add_component(current_entity, LocalToParent::identity());
