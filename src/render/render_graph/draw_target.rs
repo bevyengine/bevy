@@ -17,7 +17,7 @@ pub trait DrawTarget {
     fn setup(
         &mut self,
         world: &World,
-        world: &Resources,
+        resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
     );
