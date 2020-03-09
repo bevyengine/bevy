@@ -10,12 +10,13 @@ fn main() {
         .run();
 }
 
+// rotates the parent, which will result in the child also rotating
 fn build_rotator_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("Rotator")
         .read_resource::<Time>()
         .with_query(<(Write<Rotator>, Write<Rotation>)>::query())
-        .build(move |_, world, time, light_query| {
-            for (_, mut rotation) in light_query.iter_mut(world) {
+        .build(move |_, world, time, rotator_query| {
+            for (_rotator, mut rotation) in rotator_query.iter_mut(world) {
                 rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
             }
         })
@@ -23,86 +24,51 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
 
 fn setup(world: &mut World, resources: &mut Resources) {
     let cube = Mesh::load(MeshType::Cube);
-    let plane = Mesh::load(MeshType::Plane { size: 10.0 });
+    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let cube_handle = mesh_storage.add(cube);
 
-    let (cube_handle, plane_handle) = {
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        (mesh_storage.add(cube), mesh_storage.add(plane))
-    };
-
-    // plane
-    world.insert(
-        (),
-        vec![(
-            plane_handle,
-            StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+    world
+        .build()
+        // parent cube
+        .add_archetype(MeshEntity {
+            mesh: cube_handle,
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
             },
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, -5.0),
-        )],
-    );
-
-    // cube
-    let parent_cube = *world
-        .insert(
-            (),
-            vec![(
-                cube_handle,
-                StandardMaterial {
-                    albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
-                },
-                LocalToWorld::identity(),
-                Translation::new(0.0, 0.0, 1.0),
-                Rotation::from_euler_angles(0.0, 0.0, 0.0),
-                Rotator,
-            )],
-        )
-        .first()
-        .unwrap();
-
-    // cube
-    world.insert(
-        (),
-        vec![(
-            cube_handle,
-            StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
+            translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
+        })
+        .add(Rotator)
+        // cube
+        .add_archetype(MeshEntity {
+            mesh: cube_handle,
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
             },
-            LocalToWorld::identity(),
-            Translation::new(0.0, 0.0, 3.0),
-            Parent(parent_cube),
-            LocalToParent::identity(),
-        )],
-    );
-
-    // light
-    world.insert(
-        (),
-        vec![(
-            Light::default(),
-            LocalToWorld::identity(),
-            Translation::new(4.0, -4.0, 5.0),
-            Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        )],
-    );
-
-    // camera
-    world.insert(
-        (),
-        vec![(
-            Camera::new(CameraType::Projection {
+            translation: Translation::new(0.0, 0.0, 3.0),
+            ..Default::default()
+        })
+        .set_last_entity_as_parent()
+        // light
+        .add_archetype(LightEntity {
+            translation: Translation::new(4.0, -4.0, 5.0),
+            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
+            ..Default::default()
+        })
+        // camera
+        .add_archetype(CameraEntity {
+            camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
                 far: 1000.0,
                 aspect_ratio: 1.0,
             }),
-            ActiveCamera,
-            LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, -15.0, 8.0),
+            active_camera: ActiveCamera,
+            local_to_world: LocalToWorld(Mat4::look_at_rh(
+                Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
-        )],
-    );
+        })
+        .build();
 }

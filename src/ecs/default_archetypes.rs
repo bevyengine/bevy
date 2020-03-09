@@ -13,6 +13,8 @@ pub struct MeshEntity {
     pub renderable: Renderable,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,
+    pub rotation: Rotation,
+    pub scale: Scale,
 }
 
 #[derive(EntityArchetype, Default)]
@@ -22,6 +24,8 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub renderable: Renderable,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,
+    pub rotation: Rotation,
+    pub scale: Scale,
 }
 
 #[derive(EntityArchetype, Default)]

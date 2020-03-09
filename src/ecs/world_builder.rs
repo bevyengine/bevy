@@ -1,4 +1,5 @@
 use crate::ecs::EntityArchetype;
+use bevy_transform::components::{LocalToParent, Parent};
 use legion::{
     filter::{ChunksetFilterData, Filter},
     prelude::*,
@@ -14,6 +15,7 @@ impl WorldBuilderSource for World {
         WorldBuilder {
             world: self,
             current_entity: None,
+            last_entity: None,
         }
     }
 }
@@ -21,11 +23,16 @@ impl WorldBuilderSource for World {
 pub struct WorldBuilder<'a> {
     world: &'a mut World,
     current_entity: Option<Entity>,
+    last_entity: Option<Entity>,
 }
 
 impl<'a> WorldBuilder<'a> {
     pub fn build_entity(mut self) -> Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();
+        if let Some(last_entity) = self.current_entity.take() {
+            self.last_entity = Some(last_entity);
+        }
+
         self.current_entity = Some(entity);
         self
     }
@@ -62,7 +69,24 @@ impl<'a> WorldBuilder<'a> {
     }
 
     pub fn add_archetype(mut self, entity_archetype: impl EntityArchetype) -> Self {
+        if let Some(last_entity) = self.current_entity.take() {
+            self.last_entity = Some(last_entity);
+        }
+
         self.current_entity = Some(entity_archetype.insert(self.world));
+        self
+    }
+
+    pub fn set_last_entity_as_parent(self) -> Self {
+        let current_entity = self.current_entity.unwrap();
+        let _ = self.world.add_component(
+            current_entity,
+            Parent(self.last_entity.unwrap()),
+        );
+        let _ = self
+            .world
+            .add_component(current_entity, LocalToParent::identity());
+
         self
     }
 }
