@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle, Mesh},
     legion::prelude::*,
     render::render_graph::{
-        resource_name, NewDrawTarget, PipelineDescriptor, RenderPass, Renderable, ResourceInfo,
+        resource_name, DrawTarget, PipelineDescriptor, RenderPass, Renderable, ResourceInfo,
         ShaderPipelineAssignments,
     },
 };
@@ -10,7 +10,7 @@ use crate::{
 #[derive(Default)]
 pub struct AssignedMeshesDrawTarget;
 
-impl NewDrawTarget for AssignedMeshesDrawTarget {
+impl DrawTarget for AssignedMeshesDrawTarget {
     fn draw(
         &self,
         world: &World,

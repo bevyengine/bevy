@@ -3,7 +3,7 @@ use crate::{
     legion::prelude::*,
     render::{
         render_graph::{
-            resource_name, NewDrawTarget, PipelineDescriptor, RenderPass, Renderable, ResourceInfo,
+            resource_name, DrawTarget, PipelineDescriptor, RenderPass, Renderable, ResourceInfo,
         },
         Instanced,
     },
@@ -12,7 +12,7 @@ use crate::{
 #[derive(Default)]
 pub struct MeshesDrawTarget;
 
-impl NewDrawTarget for MeshesDrawTarget {
+impl DrawTarget for MeshesDrawTarget {
     fn draw(
         &self,
         world: &World,

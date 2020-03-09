@@ -12,7 +12,7 @@ pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
 }
 
 impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
-    fn get_renderer(&mut self) -> &dyn Renderer {
+    fn get_renderer(&self) -> &dyn Renderer {
         self.renderer
     }
 

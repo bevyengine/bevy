@@ -1,5 +1,5 @@
 use super::{
-    NewDrawTarget, PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
+    DrawTarget, PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
 };
 use crate::asset::{AssetStorage, Handle};
 use std::collections::{HashMap, HashSet};
@@ -11,7 +11,7 @@ pub struct RenderGraph {
     pub pass_pipelines: HashMap<String, Vec<Handle<PipelineDescriptor>>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider>>,
     pub queued_textures: Vec<(String, TextureDescriptor)>,
-    pub draw_targets: HashMap<String, Box<dyn NewDrawTarget>>,
+    pub draw_targets: HashMap<String, Box<dyn DrawTarget>>,
 }
 
 impl Default for RenderGraph {
@@ -102,7 +102,7 @@ impl RenderGraphBuilder {
 
     pub fn add_draw_target<T>(mut self, draw_target: T) -> Self
     where
-        T: NewDrawTarget + 'static,
+        T: DrawTarget + 'static,
     {
         self.render_graph
             .draw_targets
