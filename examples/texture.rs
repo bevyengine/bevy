@@ -1,4 +1,4 @@
-use bevy::{asset, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     AppBuilder::new().add_defaults().setup_world(setup).run();
