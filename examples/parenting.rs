@@ -38,9 +38,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         .add(Rotator)
-        .add_children(|child_builder| {
+        .add_children(|builder| {
             // cube
-            child_builder.add_entity(MeshEntity {
+            builder.add_entity(MeshEntity {
                 mesh: cube_handle,
                 material: StandardMaterial {
                     albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),

@@ -72,18 +72,15 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_children(self, build_children: impl Fn(WorldBuilder) -> WorldBuilder) -> Self {
-        let mut child_builder = WorldBuilder {
-            world: self.world,
-            parent_entity: self.current_entity,
-            current_entity: None,
-        };
+    pub fn add_children(mut self, build_children: impl Fn(WorldBuilder) -> WorldBuilder) -> Self {
+        self.parent_entity = self.current_entity;
+        self.current_entity = None;
 
-        child_builder = build_children(child_builder);
+        self = build_children(self);
 
-        child_builder.current_entity = child_builder.parent_entity;
-        child_builder.parent_entity = None;
-        child_builder
+        self.current_entity = self.parent_entity;
+        self.parent_entity = None;
+        self
     }
 
     fn add_parent_to_current_entity(&mut self) {

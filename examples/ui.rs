@@ -111,8 +111,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec4(0.1, 0.1, 1.0, 1.0),
             ),
         })
-        .add_children(|child_builder| {
-            child_builder.add_entity(UiEntity {
+        .add_children(|builder| {
+            builder.add_entity(UiEntity {
                 node: Node::new(
                     math::vec2(0.0, 0.0),
                     Anchors::new(0.0, 1.0, 0.0, 1.0),
