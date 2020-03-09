@@ -92,6 +92,7 @@ fn setup(world: &mut World) {
                 color: Vec4::new(0.0, 0.8, 0.0, 1.0),
                 always_red: false,
             },
+            translation: Translation::new(-2.0, 0.0, 0.0),
             ..Default::default()
         })
         // cube
@@ -105,7 +106,7 @@ fn setup(world: &mut World) {
                 color: Vec4::new(0.0, 0.0, 0.0, 1.0),
                 always_red: true,
             },
-            translation: Translation::new(3.0, 0.0, 0.0),
+            translation: Translation::new(2.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera

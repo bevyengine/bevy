@@ -1,4 +1,4 @@
-use bevy::{asset, prelude::*};
+use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::collections::VecDeque;
 
