@@ -69,7 +69,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let mut builder = world
         .build()
         // plane
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
@@ -77,7 +77,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(1.0, 1.0, 1.0, 1.0).into(),
@@ -85,7 +85,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.0, 1.0, 0.0, 1.0).into(),
@@ -94,12 +94,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // light
-        .add_archetype(LightEntity {
+        .add_entity(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
@@ -116,7 +116,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
 
     let mut rng = StdRng::from_entropy();
     for _ in 0..10000 {
-        builder = builder.add_archetype(MeshEntity {
+        builder = builder.add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(

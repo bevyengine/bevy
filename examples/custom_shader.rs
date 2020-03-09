@@ -80,7 +80,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     world
         .build()
         // cube
-        .add_archetype(MeshMaterialEntity::<MyMaterial> {
+        .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
                 pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
@@ -94,7 +94,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // cube
-        .add_archetype(MeshMaterialEntity::<MyMaterial> {
+        .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
                 pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
@@ -108,7 +108,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,

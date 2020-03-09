@@ -122,7 +122,7 @@ fn create_entities_builder_archetype(
     world
         .build()
         // plane
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
@@ -130,7 +130,7 @@ fn create_entities_builder_archetype(
             ..Default::default()
         })
         // cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
@@ -138,12 +138,12 @@ fn create_entities_builder_archetype(
             ..Default::default()
         })
         // light
-        .add_archetype(LightEntity {
+        .add_entity(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,

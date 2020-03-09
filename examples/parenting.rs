@@ -29,7 +29,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     world
         .build()
         // parent cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
@@ -40,7 +40,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add(Rotator)
         .add_children(|child_builder| {
             // cube
-            child_builder.add_archetype(MeshEntity {
+            child_builder.add_entity(MeshEntity {
                 mesh: cube_handle,
                 material: StandardMaterial {
                     albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
@@ -50,13 +50,13 @@ fn setup(world: &mut World, resources: &mut Resources) {
             })
         })
         // light
-        .add_archetype(LightEntity {
+        .add_entity(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),
             rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,

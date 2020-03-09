@@ -65,7 +65,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_archetype(mut self, entity_archetype: impl EntityArchetype) -> Self {
+    pub fn add_entity(mut self, entity_archetype: impl EntityArchetype) -> Self {
         let current_entity = entity_archetype.insert(self.world);
         self.current_entity = Some(current_entity);
         self.add_parent_to_current_entity();

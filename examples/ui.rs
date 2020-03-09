@@ -11,7 +11,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     world
         .build()
         // cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
@@ -20,12 +20,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // light
-        .add_archetype(LightEntity {
+        .add_entity(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // 3d camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
@@ -40,7 +40,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             )),
         })
         // 2d camera
-        .add_archetype(Camera2dEntity {
+        .add_entity(Camera2dEntity {
             camera: Camera::new(CameraType::Orthographic {
                 left: 0.0,
                 right: 0.0,
@@ -52,7 +52,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             active_camera_2d: ActiveCamera2d,
         })
         // bottom left anchor with vertical fill
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
                 Anchors::new(0.0, 0.0, 0.0, 1.0),
@@ -61,7 +61,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ),
         })
         // top right anchor with vertical fill
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
                 Anchors::new(1.0, 1.0, 0.0, 1.0),
@@ -70,7 +70,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ),
         })
         // render order test: reddest in the back, whitest in the front
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(75.0, 75.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
@@ -78,7 +78,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec4(1.0, 0.1, 0.1, 1.0),
             ),
         })
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(50.0, 50.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
@@ -86,7 +86,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec4(1.0, 0.3, 0.3, 1.0),
             ),
         })
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(100.0, 100.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
@@ -94,7 +94,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec4(1.0, 0.5, 0.5, 1.0),
             ),
         })
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(150.0, 150.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
@@ -103,7 +103,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ),
         })
         // parenting
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(300.0, 300.0),
                 Anchors::new(0.0, 0.0, 0.0, 0.0),
@@ -112,7 +112,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ),
         })
         .add_children(|child_builder| {
-            child_builder.add_archetype(UiEntity {
+            child_builder.add_entity(UiEntity {
                 node: Node::new(
                     math::vec2(0.0, 0.0),
                     Anchors::new(0.0, 1.0, 0.0, 1.0),
@@ -122,7 +122,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             })
         })
         // alpha test
-        .add_archetype(UiEntity {
+        .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(200.0, 200.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),

@@ -17,7 +17,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     world
         .build()
         // cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: texture_handle.into(),
@@ -26,12 +26,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // light
-        .add_archetype(LightEntity {
+        .add_entity(LightEntity {
             translation: Translation::new(4.0, 4.0, 5.0),
             ..Default::default()
         })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
