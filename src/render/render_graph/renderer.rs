@@ -9,15 +9,26 @@ use crate::{
 use std::ops::Range;
 
 pub trait Renderer {
-    fn initialize(&mut self, world: &mut World, render_graph: &mut RenderGraph);
+    fn initialize(
+        &mut self,
+        world: &mut World,
+        resources: &mut Resources,
+        render_graph: &mut RenderGraph,
+    );
     fn resize(
         &mut self,
         world: &mut World,
+        resources: &mut Resources,
         render_graph: &mut RenderGraph,
         width: u32,
         height: u32,
     );
-    fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World);
+    fn process_render_graph(
+        &mut self,
+        render_graph: &mut RenderGraph,
+        world: &mut World,
+        resources: &mut Resources,
+    );
     // TODO: swap out wgpu::BufferUsage for non-wgpu type
     fn create_buffer_with_data(
         &mut self,

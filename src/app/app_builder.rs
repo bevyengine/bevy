@@ -2,7 +2,7 @@ use crate::{
     app::{system_stage, App},
     asset::*,
     core::Time,
-    legion::prelude::{Runnable, Schedulable, Schedule, Universe, World},
+    legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
     render::{
         render_graph::{
@@ -20,6 +20,7 @@ use std::collections::HashMap;
 
 pub struct AppBuilder {
     pub world: World,
+    pub resources: Resources,
     pub universe: Universe,
     pub renderer: Option<Box<dyn Renderer>>,
     pub render_graph_builder: RenderGraphBuilder,
@@ -32,9 +33,11 @@ impl AppBuilder {
     pub fn new() -> Self {
         let universe = Universe::new();
         let world = universe.create_world();
+        let resources = Resources::default();
         AppBuilder {
             universe,
             world,
+            resources,
             render_graph_builder: RenderGraphBuilder::new(),
             renderer: None,
             system_stages: HashMap::new(),
@@ -67,6 +70,7 @@ impl AppBuilder {
             self.universe,
             self.world,
             schedule_builder.build(),
+            self.resources,
             self.renderer,
             self.render_graph_builder.build(),
         )
@@ -81,8 +85,8 @@ impl AppBuilder {
         self
     }
 
-    pub fn setup_world(mut self, setup: impl Fn(&mut World)) -> Self {
-        setup(&mut self.world);
+    pub fn setup_world(mut self, setup: impl Fn(&mut World, &mut Resources)) -> Self {
+        setup(&mut self.world, &mut self.resources);
         self
     }
 
@@ -117,14 +121,14 @@ impl AppBuilder {
     }
 
     pub fn add_default_resources(mut self) -> Self {
-        let resources = &mut self.world.resources;
-        resources.insert(Time::new());
-        resources.insert(AssetStorage::<Mesh>::new());
-        resources.insert(AssetStorage::<Texture>::new());
-        resources.insert(AssetStorage::<Shader>::new());
-        resources.insert(AssetStorage::<PipelineDescriptor>::new());
-        resources.insert(ShaderPipelineAssignments::new());
-        resources.insert(CompiledShaderMap::new());
+        self.resources.insert(Time::new());
+        self.resources.insert(AssetStorage::<Mesh>::new());
+        self.resources.insert(AssetStorage::<Texture>::new());
+        self.resources.insert(AssetStorage::<Shader>::new());
+        self.resources
+            .insert(AssetStorage::<PipelineDescriptor>::new());
+        self.resources.insert(ShaderPipelineAssignments::new());
+        self.resources.insert(CompiledShaderMap::new());
         self
     }
 
@@ -166,15 +170,10 @@ impl AppBuilder {
     ) -> Self {
         {
             let mut pipeline_storage = self
-                .world
                 .resources
                 .get_mut::<AssetStorage<PipelineDescriptor>>()
                 .unwrap();
-            let mut shader_storage = self
-                .world
-                .resources
-                .get_mut::<AssetStorage<Shader>>()
-                .unwrap();
+            let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
             self.render_graph_builder = setup(
                 self.render_graph_builder,
                 &mut pipeline_storage,

@@ -2,6 +2,7 @@ use crate::{
     prelude::World,
     render::render_graph::{Renderer, ResourceProvider, TextureDescriptor},
 };
+use legion::prelude::Resources;
 
 pub struct FrameTextureResourceProvider {
     pub name: String,
@@ -16,8 +17,8 @@ impl FrameTextureResourceProvider {
         }
     }
 
-    pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World) {
-        let window = world.resources.get::<winit::window::Window>().unwrap();
+    pub fn update(&mut self, renderer: &mut dyn Renderer, _world: &World, resources: &Resources) {
+        let window = resources.get::<winit::window::Window>().unwrap();
         let window_size = window.inner_size();
         self.descriptor.size.width = window_size.width;
         self.descriptor.size.height = window_size.height;
@@ -37,19 +38,26 @@ impl FrameTextureResourceProvider {
 }
 
 impl ResourceProvider for FrameTextureResourceProvider {
-    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
-        self.update(renderer, world);
+    fn initialize(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        world: &mut World,
+        resources: &Resources,
+    ) {
+        self.update(renderer, world, resources);
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
+    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
+    }
 
     fn resize(
         &mut self,
         renderer: &mut dyn Renderer,
         world: &mut World,
+        resources: &Resources,
         _width: u32,
         _height: u32,
     ) {
-        self.update(renderer, world);
+        self.update(renderer, world, resources);
     }
 }

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, plugin::AppPlugin};
 use bevy_derive::RegisterAppPlugin;
 
 #[derive(RegisterAppPlugin)]
@@ -14,29 +14,32 @@ impl AppPlugin for ExamplePlugin {
     }
 }
 
-pub fn setup(world: &mut World) {
+pub fn setup(world: &mut World, resources: &mut Resources) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
     let (cube_handle, plane_handle) = {
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 
     world.build()
         // plane
-        .add_archetype(NewMeshEntity {
+        .add_archetype(MeshEntity {
             mesh: plane_handle,
-            material: Material::new(Albedo::Color(math::vec4(0.1, 0.2, 0.1, 1.0))),
-            local_to_world: LocalToWorld::identity(),
-            translation: Translation::new(0.0, 0.0, 0.0),
+            material: StandardMaterial {
+                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+            },
+            ..Default::default()
         })
         // cube
-        .add_archetype(NewMeshEntity {
+        .add_archetype(MeshEntity {
             mesh: cube_handle,
-            material: Material::new(Albedo::Color(math::vec4(0.5, 0.3, 0.3, 1.0))),
-            local_to_world: LocalToWorld::identity(),
+            material: StandardMaterial {
+                albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
+            },
             translation: Translation::new(0.0, 0.0, 1.0),
+            ..Default::default()
         })
         // light
         // .add_archetype(LightEntity {

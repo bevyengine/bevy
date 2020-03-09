@@ -33,7 +33,12 @@ impl LightResourceProvider {
 }
 
 impl ResourceProvider for LightResourceProvider {
-    fn initialize(&mut self, renderer: &mut dyn Renderer, _world: &mut World) {
+    fn initialize(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
         let light_uniform_size = (std::mem::size_of::<LightCount>()
             + self.max_lights * std::mem::size_of::<LightRaw>())
             as wgpu::BufferAddress;
@@ -48,7 +53,7 @@ impl ResourceProvider for LightResourceProvider {
         self.light_buffer = Some(buffer);
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {
         if self.lights_are_dirty {
             let light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
             let light_count = light_query.iter(world).count();
@@ -113,6 +118,7 @@ impl ResourceProvider for LightResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
+        _resources: &Resources,
         _width: u32,
         _height: u32,
     ) {

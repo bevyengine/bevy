@@ -19,6 +19,7 @@ impl DrawTarget for UiDrawTarget {
     fn draw(
         &self,
         _world: &World,
+        _resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
@@ -48,12 +49,16 @@ impl DrawTarget for UiDrawTarget {
         render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);
-        render_pass.draw_indexed(0..self.mesh_index_length as u32, 0, 0..(index_count.unwrap() as u32));
-
+        render_pass.draw_indexed(
+            0..self.mesh_index_length as u32,
+            0,
+            0..(index_count.unwrap() as u32),
+        );
     }
     fn setup(
         &mut self,
-        world: &World,
+        _world: &World,
+        resources: &Resources,
         renderer: &mut dyn crate::render::render_graph::Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
@@ -75,7 +80,7 @@ impl DrawTarget for UiDrawTarget {
         if let ResourceInfo::InstanceBuffer { mesh_id, .. } =
             renderer.get_resource_info(ui_instances_buffer).unwrap()
         {
-            let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+            let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
             if let Some(mesh_asset) = mesh_storage.get_id(*mesh_id) {
                 self.mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
                     mesh_asset.vertices.as_bytes(),

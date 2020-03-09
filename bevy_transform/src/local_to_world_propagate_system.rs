@@ -1,8 +1,5 @@
 #![allow(dead_code)]
-use crate::{
-    components::*,
-    ecs::{prelude::*, system::SubWorld},
-};
+use crate::{components::*, ecs::{prelude::*, systems::SubWorld}};
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldPropagateSystem")
@@ -59,7 +56,7 @@ mod test {
     use crate::{
         hierarchy_maintenance_system, local_to_parent_system, local_to_world_propagate_system,
         local_to_world_system,
-        math::{Vec3, Mat4}
+        math::{Mat4, Vec3},
     };
 
     #[test]

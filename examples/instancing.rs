@@ -29,10 +29,10 @@ fn main() {
         .run();
 }
 
-fn setup(world: &mut World) {
+fn setup(world: &mut World, resources: &mut Resources) {
     let cube = Mesh::load(MeshType::Cube);
     let cube_handle = {
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         mesh_storage.add(cube)
     };
 

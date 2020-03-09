@@ -1,6 +1,4 @@
-use super::{
-    DrawTarget, PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor,
-};
+use super::{DrawTarget, PassDescriptor, PipelineDescriptor, ResourceProvider, TextureDescriptor};
 use crate::asset::{AssetStorage, Handle};
 use std::collections::{HashMap, HashSet};
 

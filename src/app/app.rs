@@ -15,6 +15,7 @@ use crate::{
 pub struct App {
     pub universe: Universe,
     pub world: World,
+    pub resources: Resources,
     pub renderer: Option<Box<dyn Renderer>>,
     pub render_graph: RenderGraph,
     pub schedule: Schedule,
@@ -25,6 +26,7 @@ impl App {
         universe: Universe,
         world: World,
         schedule: Schedule,
+        resources: Resources,
         renderer: Option<Box<dyn Renderer>>,
         render_graph: RenderGraph,
     ) -> App {
@@ -33,6 +35,7 @@ impl App {
             world,
             schedule,
             renderer,
+            resources,
             render_graph,
         }
     }
@@ -42,16 +45,20 @@ impl App {
     }
 
     fn update(&mut self) {
-        if let Some(mut time) = self.world.resources.get_mut::<Time>() {
+        if let Some(mut time) = self.resources.get_mut::<Time>() {
             time.start();
         }
-        self.schedule.execute(&mut self.world);
+        self.schedule.execute(&mut self.world, &mut self.resources);
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.process_render_graph(&mut self.render_graph, &mut self.world);
+            renderer.process_render_graph(
+                &mut self.render_graph,
+                &mut self.world,
+                &mut self.resources,
+            );
         }
 
-        if let Some(mut time) = self.world.resources.get_mut::<Time>() {
+        if let Some(mut time) = self.resources.get_mut::<Time>() {
             time.stop();
         }
     }
@@ -67,12 +74,12 @@ impl App {
         window.set_title("bevy");
         window.set_inner_size(winit::dpi::LogicalSize::new(1280, 720));
 
-        self.world.resources.insert(window);
+        self.resources.insert(window);
 
         log::info!("Initializing the example...");
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.initialize(&mut self.world, &mut self.render_graph);
+            renderer.initialize(&mut self.world, &mut self.resources, &mut self.render_graph);
         }
 
         log::info!("Entering render loop...");
@@ -90,6 +97,7 @@ impl App {
                     if let Some(ref mut renderer) = self.renderer {
                         renderer.resize(
                             &mut self.world,
+                            &mut self.resources,
                             &mut self.render_graph,
                             size.width,
                             size.height,

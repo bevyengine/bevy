@@ -8,7 +8,7 @@ pub use world_builder::*;
 use bevy_transform::prelude::Children;
 use legion::{
     prelude::{Entity, World},
-    system::SubWorld,
+    systems::SubWorld,
 };
 
 pub fn run_on_hierarchy<T>(

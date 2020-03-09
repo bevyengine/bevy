@@ -35,10 +35,16 @@ impl MeshResourceProvider {
 }
 
 impl ResourceProvider for MeshResourceProvider {
-    fn initialize(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
+    fn initialize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
+    }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
-        let mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
+        let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         for (mesh_handle, _renderable) in self.mesh_query.iter(world) {
             if let None = renderer
                 .get_render_resources()
@@ -65,6 +71,7 @@ impl ResourceProvider for MeshResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
+        _resources: &Resources,
         _width: u32,
         _height: u32,
     ) {

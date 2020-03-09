@@ -16,6 +16,7 @@ impl DrawTarget for MeshesDrawTarget {
     fn draw(
         &self,
         world: &World,
+        _resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
@@ -59,6 +60,7 @@ impl DrawTarget for MeshesDrawTarget {
     fn setup(
         &mut self,
         _world: &World,
+        _resources: &Resources,
         _renderer: &mut dyn crate::render::render_graph::Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {

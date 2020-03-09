@@ -61,12 +61,12 @@ fn build_print_status_system() -> Box<dyn Schedulable> {
         })
 }
 
-fn setup(world: &mut World) {
+fn setup(world: &mut World, resources: &mut Resources) {
     let cube = Mesh::load(MeshType::Cube);
     let plane = Mesh::load(MeshType::Plane { size: 10.0 });
 
     let (cube_handle, plane_handle) = {
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         (mesh_storage.add(cube), mesh_storage.add(plane))
     };
 

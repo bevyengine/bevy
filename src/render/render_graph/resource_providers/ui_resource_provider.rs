@@ -90,9 +90,14 @@ impl UiResourceProvider {
 }
 
 impl ResourceProvider for UiResourceProvider {
-    fn initialize(&mut self, _renderer: &mut dyn Renderer, world: &mut World) {
+    fn initialize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
         // self.update(renderer, world);
-        let mut mesh_storage = world.resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         let quad = Mesh::load(MeshType::Quad {
             north_west: math::vec2(-0.5, 0.5),
             north_east: math::vec2(0.5, 0.5),
@@ -102,7 +107,7 @@ impl ResourceProvider for UiResourceProvider {
         self.quad = Some(mesh_storage.add(quad));
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {
         self.update(renderer, world);
     }
 
@@ -110,6 +115,7 @@ impl ResourceProvider for UiResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
+        _resources: &Resources,
         _width: u32,
         _height: u32,
     ) {

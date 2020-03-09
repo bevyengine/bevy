@@ -7,7 +7,8 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-legion = { path = "../bevy_legion" }
+# legion = { path = "../bevy_legion" }
+legion = { git = "https://github.com/TomGillen/legion", rev = "c5b9628630d4f9fc54b6843b5ce02d0669434a61", features = ["serialize"] }
 glam = "0.8.3"
 log = "0.4"
 rayon = "1.2"

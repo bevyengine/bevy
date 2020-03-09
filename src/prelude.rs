@@ -14,7 +14,9 @@ pub use bevy_transform::prelude::*;
 pub use glam as math;
 pub use legion::{
     prelude::*,
-    schedule::{Builder, Schedulable},
-    system::{SubWorld, SystemBuilder},
+    systems::{
+        schedule::{Builder, Schedulable},
+        SubWorld, SystemBuilder,
+    },
 };
 pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};

@@ -14,11 +14,11 @@ impl DrawTarget for AssignedMeshesDrawTarget {
     fn draw(
         &self,
         world: &World,
+        resources: &Resources,
         render_pass: &mut dyn RenderPass,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
-        let shader_pipeline_assignments =
-            world.resources.get::<ShaderPipelineAssignments>().unwrap();
+        let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
 
@@ -66,18 +66,15 @@ impl DrawTarget for AssignedMeshesDrawTarget {
     fn setup(
         &mut self,
         world: &World,
+        resources: &Resources,
         renderer: &mut dyn crate::render::render_graph::Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
-        let shader_pipeline_assignments =
-            world.resources.get::<ShaderPipelineAssignments>().unwrap();
+        let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
         let assigned_entities = shader_pipeline_assignments
             .assignments
             .get(&pipeline_handle);
-        let pipeline_storage = world
-            .resources
-            .get::<AssetStorage<PipelineDescriptor>>()
-            .unwrap();
+        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
         let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
         if let Some(assigned_entities) = assigned_entities {
             for entity in assigned_entities.iter() {

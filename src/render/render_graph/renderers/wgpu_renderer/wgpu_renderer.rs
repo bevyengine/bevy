@@ -295,6 +295,7 @@ impl WgpuRenderer {
     pub fn initialize_resource_providers(
         &mut self,
         world: &mut World,
+        resources: &mut Resources,
         render_graph: &mut RenderGraph,
     ) {
         self.encoder = Some(
@@ -302,7 +303,7 @@ impl WgpuRenderer {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.initialize(self, world);
+            resource_provider.initialize(self, world, resources);
         }
 
         // consume current encoder
@@ -312,9 +313,14 @@ impl WgpuRenderer {
 }
 
 impl Renderer for WgpuRenderer {
-    fn initialize(&mut self, world: &mut World, render_graph: &mut RenderGraph) {
+    fn initialize(
+        &mut self,
+        world: &mut World,
+        resources: &mut Resources,
+        render_graph: &mut RenderGraph,
+    ) {
         let (surface, window_size) = {
-            let window = world.resources.get::<winit::window::Window>().unwrap();
+            let window = resources.get::<winit::window::Window>().unwrap();
             let surface = wgpu::Surface::create(window.deref());
             let window_size = window.inner_size();
             (surface, window_size)
@@ -322,14 +328,21 @@ impl Renderer for WgpuRenderer {
 
         self.surface = Some(surface);
 
-        self.initialize_resource_providers(world, render_graph);
+        self.initialize_resource_providers(world, resources, render_graph);
 
-        self.resize(world, render_graph, window_size.width, window_size.height);
+        self.resize(
+            world,
+            resources,
+            render_graph,
+            window_size.width,
+            window_size.height,
+        );
     }
 
     fn resize(
         &mut self,
         world: &mut World,
+        resources: &mut Resources,
         render_graph: &mut RenderGraph,
         width: u32,
         height: u32,
@@ -345,9 +358,9 @@ impl Renderer for WgpuRenderer {
             .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
 
         // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
-        world.resources.insert(swap_chain);
+        resources.insert(swap_chain);
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.resize(self, world, width, height);
+            resource_provider.resize(self, world, resources, width, height);
         }
 
         // consume current encoder
@@ -355,7 +368,12 @@ impl Renderer for WgpuRenderer {
         self.queue.submit(&[command_buffer]);
     }
 
-    fn process_render_graph(&mut self, render_graph: &mut RenderGraph, world: &mut World) {
+    fn process_render_graph(
+        &mut self,
+        render_graph: &mut RenderGraph,
+        world: &mut World,
+        resources: &mut Resources,
+    ) {
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(
@@ -364,10 +382,10 @@ impl Renderer for WgpuRenderer {
         );
 
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.update(self, world);
+            resource_provider.update(self, world, resources);
         }
 
-        update_shader_assignments(world, render_graph);
+        update_shader_assignments(world, resources, render_graph);
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             let resource = self.create_texture(&texture_descriptor, None);
@@ -378,7 +396,7 @@ impl Renderer for WgpuRenderer {
 
         let mut encoder = self.encoder.take().unwrap();
 
-        let mut swap_chain = world.resources.get_mut::<wgpu::SwapChain>().unwrap();
+        let mut swap_chain = resources.get_mut::<wgpu::SwapChain>().unwrap();
         let frame = swap_chain
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
@@ -386,11 +404,10 @@ impl Renderer for WgpuRenderer {
         // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
-        let mut pipeline_storage = world
-            .resources
+        let mut pipeline_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
-        let shader_storage = world.resources.get::<AssetStorage<Shader>>().unwrap();
+        let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
 
         for pipeline_descriptor_handle in render_graph.pipeline_descriptors.iter() {
             let pipeline_descriptor = pipeline_storage
@@ -438,7 +455,7 @@ impl Renderer for WgpuRenderer {
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
                         let draw_target =
                             render_graph.draw_targets.get_mut(draw_target_name).unwrap();
-                        draw_target.setup(world, self, *pass_pipeline);
+                        draw_target.setup(world, resources, self, *pass_pipeline);
                     }
                 }
             }
@@ -467,7 +484,7 @@ impl Renderer for WgpuRenderer {
 
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
                         let draw_target = render_graph.draw_targets.get(draw_target_name).unwrap();
-                        draw_target.draw(world, &mut wgpu_render_pass, *pass_pipeline);
+                        draw_target.draw(world, resources, &mut wgpu_render_pass, *pass_pipeline);
                     }
                 }
             }

@@ -39,11 +39,16 @@ impl<T> ResourceProvider for UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync + 'static,
 {
-    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
-        self.update(renderer, world);
+    fn initialize(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        world: &mut World,
+        resources: &Resources,
+    ) {
+        self.update(renderer, world, resources);
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World) {
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
         let query = <(Read<T>, Read<Renderable>)>::query();
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
@@ -79,7 +84,7 @@ where
                     BindType::SampledTexture { .. } => {
                         let texture_handle =
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
-                        let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
+                        let storage = resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
                         let resource = match renderer
                             .get_render_resources()
@@ -102,7 +107,7 @@ where
                     BindType::Sampler { .. } => {
                         let texture_handle =
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
-                        let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
+                        let storage = resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
                         let resource = match renderer
                             .get_render_resources()
@@ -225,6 +230,7 @@ where
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
+        _resources: &Resources,
         _width: u32,
         _height: u32,
     ) {

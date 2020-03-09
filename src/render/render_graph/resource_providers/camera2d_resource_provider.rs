@@ -12,7 +12,12 @@ pub struct Camera2dResourceProvider {
 }
 
 impl ResourceProvider for Camera2dResourceProvider {
-    fn initialize(&mut self, renderer: &mut dyn Renderer, _world: &mut World) {
+    fn initialize(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
         let buffer = renderer.create_buffer(
             std::mem::size_of::<[[f32; 4]; 4]>() as u64,
             wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
@@ -24,8 +29,16 @@ impl ResourceProvider for Camera2dResourceProvider {
         self.camera_buffer = Some(buffer);
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World) {}
-    fn resize(&mut self, renderer: &mut dyn Renderer, world: &mut World, width: u32, height: u32) {
+    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
+    }
+    fn resize(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        world: &mut World,
+        _resources: &Resources,
+        width: u32,
+        height: u32,
+    ) {
         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
         for (mut camera, _) in <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter_mut(world) {
             camera.update(width, height);
