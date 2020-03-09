@@ -38,16 +38,17 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         .add(Rotator)
-        // cube
-        .add_archetype(MeshEntity {
-            mesh: cube_handle,
-            material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
-            },
-            translation: Translation::new(0.0, 0.0, 3.0),
-            ..Default::default()
+        .add_children(|child_builder| {
+            // cube
+            child_builder.add_archetype(MeshEntity {
+                mesh: cube_handle,
+                material: StandardMaterial {
+                    albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
+                },
+                translation: Translation::new(0.0, 0.0, 3.0),
+                ..Default::default()
+            })
         })
-        .set_last_entity_as_parent()
         // light
         .add_archetype(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),

@@ -15,7 +15,7 @@ impl WorldBuilderSource for World {
         WorldBuilder {
             world: self,
             current_entity: None,
-            last_entity: None,
+            parent_entity: None,
         }
     }
 }
@@ -23,17 +23,14 @@ impl WorldBuilderSource for World {
 pub struct WorldBuilder<'a> {
     world: &'a mut World,
     current_entity: Option<Entity>,
-    last_entity: Option<Entity>,
+    parent_entity: Option<Entity>,
 }
 
 impl<'a> WorldBuilder<'a> {
     pub fn build_entity(mut self) -> Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();
-        if let Some(last_entity) = self.current_entity.take() {
-            self.last_entity = Some(last_entity);
-        }
-
         self.current_entity = Some(entity);
+        self.add_parent_to_current_entity();
         self
     }
     pub fn build(self) {}
@@ -69,24 +66,36 @@ impl<'a> WorldBuilder<'a> {
     }
 
     pub fn add_archetype(mut self, entity_archetype: impl EntityArchetype) -> Self {
-        if let Some(last_entity) = self.current_entity.take() {
-            self.last_entity = Some(last_entity);
-        }
-
-        self.current_entity = Some(entity_archetype.insert(self.world));
+        let current_entity = entity_archetype.insert(self.world);
+        self.current_entity = Some(current_entity);
+        self.add_parent_to_current_entity();
         self
     }
 
-    pub fn set_last_entity_as_parent(self) -> Self {
-        let current_entity = self.current_entity.unwrap();
-        let _ = self.world.add_component(
-            current_entity,
-            Parent(self.last_entity.unwrap()),
-        );
-        let _ = self
-            .world
-            .add_component(current_entity, LocalToParent::identity());
+    pub fn add_children(self, build_children: impl Fn(WorldBuilder) -> WorldBuilder) -> Self {
+        let mut child_builder = WorldBuilder {
+            world: self.world,
+            parent_entity: self.current_entity,
+            current_entity: None,
+        };
 
-        self
+        child_builder = build_children(child_builder);
+
+        child_builder.current_entity = child_builder.parent_entity;
+        child_builder.parent_entity = None;
+        child_builder
+    }
+
+    fn add_parent_to_current_entity(&mut self) {
+        let current_entity = self.current_entity.unwrap();
+        if let Some(parent_entity) = self.parent_entity {
+            let _ = self.world.add_component(
+                current_entity,
+                Parent(parent_entity),
+            );
+            let _ = self
+                .world
+                .add_component(current_entity, LocalToParent::identity());
+        }
     }
 }
