@@ -4,13 +4,16 @@ use crate::entity::BlockAllocator;
 use crate::entity::Entity;
 use crate::entity::EntityAllocator;
 use crate::entity::EntityLocation;
+use crate::entity::Locations;
 use crate::event::Event;
 use crate::filter::ArchetypeFilterData;
 use crate::filter::ChunksetFilterData;
 use crate::filter::EntityFilter;
 use crate::filter::Filter;
+use crate::index::ArchetypeIndex;
+use crate::index::ComponentIndex;
+use crate::index::SetIndex;
 use crate::iterator::SliceVecIter;
-use crate::resource::Resources;
 use crate::storage::ArchetypeData;
 use crate::storage::ArchetypeDescription;
 use crate::storage::Component;
@@ -26,6 +29,8 @@ use crate::tuple::TupleEq;
 use parking_lot::Mutex;
 use std::cell::UnsafeCell;
 use std::iter::Enumerate;
+use std::iter::Fuse;
+use std::iter::FusedIterator;
 use std::iter::Peekable;
 use std::iter::Repeat;
 use std::iter::Take;
@@ -35,7 +40,14 @@ use std::ptr::NonNull;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use thiserror::Error;
 use tracing::{info, span, trace, Level};
+
+static NEXT_UNIVERSE_ID: AtomicUsize = AtomicUsize::new(1);
+static NEXT_WORLD_ID: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct UniverseId(usize);
 
 /// The `Universe` is a factory for creating `World`s.
 ///
@@ -43,42 +55,44 @@ use tracing::{info, span, trace, Level};
 /// unique `Entity` IDs, even across worlds.
 #[derive(Debug)]
 pub struct Universe {
+    id: UniverseId,
     allocator: Arc<Mutex<BlockAllocator>>,
-    world_count: AtomicUsize,
 }
 
 impl Universe {
     /// Creates a new `Universe`.
-    pub fn new() -> Self { Self::default() }
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            id: UniverseId(NEXT_UNIVERSE_ID.fetch_add(1, Ordering::SeqCst)),
+            allocator: Arc::new(Mutex::new(BlockAllocator::new())),
+        }
+    }
 
     /// Creates a new `World` within this `Universe`.
     ///
     /// Entities inserted into worlds created within the same universe are guarenteed to have
     /// unique `Entity` IDs, even across worlds. See also `World::new`.
     pub fn create_world(&self) -> World {
-        let id = self.world_count.fetch_add(1, Ordering::SeqCst);
-        let world =
-            World::new_in_universe(WorldId(id), EntityAllocator::new(self.allocator.clone()));
+        let id = WorldId::next(self.id.0);
+        let world = World::new_in_universe(id, EntityAllocator::new(self.allocator.clone()));
 
-        info!(world = world.id().0, "Created world");
+        info!(universe = self.id.0, world = world.id().1, "Created world");
         world
     }
 }
 
-impl Default for Universe {
-    fn default() -> Self {
-        Self {
-            world_count: AtomicUsize::from(0),
-            allocator: Arc::new(Mutex::new(BlockAllocator::new())),
-        }
-    }
-}
-
 #[derive(Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct WorldId(usize);
+pub struct WorldId(usize, usize);
 
 impl WorldId {
+    fn next(universe: usize) -> Self {
+        Self(universe, NEXT_WORLD_ID.fetch_add(1, Ordering::SeqCst))
+    }
+
     pub fn index(self) -> usize { self.0 }
+
+    pub fn is_same_universe(self, other: WorldId) -> bool { self.0 == other.0 }
 }
 
 /// Contains queryable collections of data associated with `Entity`s.
@@ -86,8 +100,8 @@ pub struct World {
     id: WorldId,
     storage: UnsafeCell<Storage>,
     pub(crate) entity_allocator: Arc<EntityAllocator>,
+    entity_locations: Locations,
     defrag_progress: usize,
-    pub resources: Resources,
     command_buffer_size: usize,
     pub(crate) allocation_buffer: Vec<Entity>,
 }
@@ -105,7 +119,7 @@ impl World {
     /// `Universe::create_world`.
     pub fn new() -> Self {
         Self::new_in_universe(
-            WorldId(0),
+            WorldId::next(0),
             EntityAllocator::new(Arc::new(Mutex::new(BlockAllocator::new()))),
         )
     }
@@ -115,8 +129,8 @@ impl World {
             id,
             storage: UnsafeCell::new(Storage::new(id)),
             entity_allocator: Arc::new(allocator),
+            entity_locations: Locations::new(),
             defrag_progress: 0,
-            resources: Resources::default(),
             command_buffer_size: Self::DEFAULT_COMMAND_BUFFER_SIZE,
             allocation_buffer: Vec::with_capacity(Self::DEFAULT_COMMAND_BUFFER_SIZE),
         }
@@ -137,7 +151,7 @@ impl World {
     /// # Examples
     ///
     /// ```
-    /// # use legion::prelude::*;
+    /// # use legion_core::prelude::*;
     /// # #[derive(Copy, Clone, Debug, PartialEq)]
     /// # struct Position(f32);
     /// # #[derive(Copy, Clone, Debug, PartialEq)]
@@ -159,12 +173,30 @@ impl World {
         self.storage_mut().subscribe(sender, filter);
     }
 
-    pub(crate) fn storage(&self) -> &Storage { unsafe { &*self.storage.get() } }
+    pub fn storage(&self) -> &Storage { unsafe { &*self.storage.get() } }
 
-    pub(crate) fn storage_mut(&mut self) -> &mut Storage { unsafe { &mut *self.storage.get() } }
+    pub fn storage_mut(&mut self) -> &mut Storage { unsafe { &mut *self.storage.get() } }
 
     /// Gets the unique ID of this world within its universe.
     pub fn id(&self) -> WorldId { self.id }
+
+    pub fn get_entity_location(&self, entity: Entity) -> Option<EntityLocation> {
+        if self.is_alive(entity) {
+            self.entity_locations.get(entity)
+        } else {
+            None
+        }
+    }
+
+    /// Iterate all entities in existence. Internally this iterates archetypes instead of
+    /// entity allocators because the data structures contains a list of free entities instead
+    /// of allocated entities
+    pub fn iter_entities<'a>(&'a self) -> impl Iterator<Item = Entity> + 'a {
+        self.storage()
+            .archetypes()
+            .iter()
+            .flat_map(|archetype_data| archetype_data.iter_entities().map(|entity| entity))
+    }
 
     /// Inserts new entities into the world. This insertion method should be preferred, as it performs
     /// no movement of components for inserting multiple entities and components.
@@ -174,7 +206,7 @@ impl World {
     /// Inserting entity tuples:
     ///
     /// ```
-    /// # use legion::prelude::*;
+    /// # use legion_core::prelude::*;
     /// # #[derive(Copy, Clone, Debug, PartialEq)]
     /// # struct Position(f32);
     /// # #[derive(Copy, Clone, Debug, PartialEq)]
@@ -215,84 +247,41 @@ impl World {
         let chunk_set_index = self.find_or_create_chunk(archetype_index, &mut tags);
 
         self.allocation_buffer.clear();
+        self.allocation_buffer.reserve(components.len());
 
         // insert components into chunks
         while !components.is_empty() {
             // get chunk component storage
-            let archetype = unsafe {
-                (&mut *self.storage.get())
-                    .archetypes_mut()
-                    .get_unchecked_mut(archetype_index)
-            };
+            let archetype =
+                unsafe { (&mut *self.storage.get()).archetype_unchecked_mut(archetype_index) };
             let chunk_index = archetype.get_free_chunk(chunk_set_index, 1);
             let chunk = unsafe {
                 archetype
-                    .chunksets_mut()
-                    .get_unchecked_mut(chunk_set_index)
-                    .get_unchecked_mut(chunk_index)
+                    .chunkset_unchecked_mut(chunk_set_index)
+                    .chunk_unchecked_mut(chunk_index)
             };
 
             // insert as many components as we can into the chunk
-            let allocated =
-                components.write(&self.entity_allocator, &mut self.allocation_buffer, chunk);
+            let allocated = components.write(self.entity_allocator.create_entities(), chunk);
 
             // record new entity locations
             let start = chunk.len() - allocated;
             let added = chunk.entities().iter().enumerate().skip(start);
             for (i, e) in added {
-                let location =
-                    EntityLocation::new(archetype_index, chunk_set_index, chunk_index, i);
-                self.entity_allocator.set_location(e.index(), location);
+                let location = EntityLocation::new(
+                    archetype_index,
+                    chunk_set_index,
+                    chunk_index,
+                    ComponentIndex(i),
+                );
+                self.entity_locations.set(*e, location);
+                self.allocation_buffer.push(*e);
             }
         }
 
         trace!(count = self.allocation_buffer.len(), "Inserted entities");
 
         &self.allocation_buffer
-    }
-
-    pub(crate) fn insert_buffered<T, C>(
-        &mut self,
-        entities: &[Entity],
-        mut tags: T,
-        mut components: C,
-    ) where
-        T: TagSet + TagLayout + for<'a> Filter<ChunksetFilterData<'a>>,
-        C: ComponentSource,
-    {
-        let archetype_index = self.find_or_create_archetype(&mut tags, &mut components);
-
-        // find or create chunk set
-        let chunk_set_index = self.find_or_create_chunk(archetype_index, &mut tags);
-
-        // insert components into chunks
-        while !components.is_empty() {
-            // get chunk component storage
-            let archetype = unsafe {
-                (&mut *self.storage.get())
-                    .archetypes_mut()
-                    .get_unchecked_mut(archetype_index)
-            };
-            let chunk_index = archetype.get_free_chunk(chunk_set_index, 1);
-            let chunk = unsafe {
-                archetype
-                    .chunksets_mut()
-                    .get_unchecked_mut(chunk_set_index)
-                    .get_unchecked_mut(chunk_index)
-            };
-
-            // insert as many components as we can into the chunk
-            let allocated = components.write_entities(entities, chunk);
-
-            // record new entity locations
-            let start = chunk.len() - allocated;
-            let added = chunk.entities().iter().enumerate().skip(start);
-            for (i, e) in added {
-                let location =
-                    EntityLocation::new(archetype_index, chunk_set_index, chunk_index, i);
-                self.entity_allocator.set_location(e.index(), location);
-            }
-        }
     }
 
     /// Removes the given `Entity` from the `World`.
@@ -303,24 +292,15 @@ impl World {
             return false;
         }
 
-        if let Some(location) = self.entity_allocator.delete_entity(entity) {
+        if self.entity_allocator.delete_entity(entity) {
             // find entity's chunk
-            let chunk = self
-                .storage_mut()
-                .archetypes_mut()
-                .get_mut(location.archetype())
-                .unwrap()
-                .chunksets_mut()
-                .get_mut(location.set())
-                .unwrap()
-                .get_mut(location.chunk())
-                .unwrap();
+            let location = self.entity_locations.get(entity).unwrap();
+            let chunk = self.storage_mut().chunk_mut(location).unwrap();
 
             // swap remove with last entity in chunk
             if let Some(swapped) = chunk.swap_remove(location.component(), true) {
                 // record swapped entity's new location
-                self.entity_allocator
-                    .set_location(swapped.index(), location);
+                self.entity_locations.set(swapped, location);
             }
 
             trace!(world = self.id().0, ?entity, "Deleted entity");
@@ -331,6 +311,15 @@ impl World {
         }
     }
 
+    /// Delete all entity data. This leaves subscriptions and the command buffer intact.
+    pub fn delete_all(&mut self) {
+        for archetype in self.storage_mut().archetypes_mut() {
+            archetype.delete_all();
+        }
+
+        self.entity_allocator.delete_all_entities();
+    }
+
     fn find_chunk_with_delta(
         &mut self,
         source_location: EntityLocation,
@@ -338,13 +327,12 @@ impl World {
         remove_components: &[ComponentTypeId],
         add_tags: &[(TagTypeId, TagMeta, NonNull<u8>)],
         remove_tags: &[TagTypeId],
-    ) -> (usize, usize) {
+    ) -> (ArchetypeIndex, SetIndex) {
         let archetype = {
             let result = {
                 let source_archetype = self
                     .storage()
-                    .archetypes()
-                    .get(source_location.archetype())
+                    .archetype(source_location.archetype())
                     .unwrap();
 
                 // find target chunk
@@ -357,7 +345,7 @@ impl World {
                 let mut tag_layout = DynamicTagLayout {
                     storage: self.storage(),
                     archetype: source_location.archetype(),
-                    chunk: source_location.chunk(),
+                    set: source_location.set(),
                     existing: source_archetype.description().tags(),
                     add: add_tags,
                     remove: remove_tags,
@@ -392,8 +380,7 @@ impl World {
         // slow path: create new chunk
         let source_archetype = self
             .storage()
-            .archetypes()
-            .get(source_location.archetype())
+            .archetype(source_location.archetype())
             .unwrap();
         let mut tags = source_archetype.tags().tag_set(source_location.set());
         for type_id in remove_tags.iter() {
@@ -416,10 +403,7 @@ impl World {
         add_tags: &[(TagTypeId, TagMeta, NonNull<u8>)],
         remove_tags: &[TagTypeId],
     ) -> &mut ComponentStorage {
-        let location = self
-            .entity_allocator
-            .get_location(entity.index())
-            .expect("entity not found");
+        let location = self.entity_locations.get(entity).expect("entity not found");
 
         // find or create the target chunk
         let (target_arch_index, target_chunkset_index) = self.find_chunk_with_delta(
@@ -437,43 +421,34 @@ impl World {
 
         // fetch entity's chunk
         let current_chunk = unsafe { &mut *self.storage.get() }
-            .archetypes_mut()
-            .get_mut(location.archetype())
-            .unwrap()
-            .chunksets_mut()
-            .get_mut(location.set())
-            .unwrap()
-            .get_mut(location.chunk())
+            .chunk_mut(location)
             .unwrap();
 
         // fetch target chunk
         let archetype = unsafe { &mut *self.storage.get() }
-            .archetypes_mut()
-            .get_mut(target_arch_index)
+            .archetype_mut(target_arch_index)
             .unwrap();
         let target_chunk_index = archetype.get_free_chunk(target_chunkset_index, 1);
         let target_chunk = unsafe {
             archetype
-                .chunksets_mut()
-                .get_unchecked_mut(target_chunkset_index)
-                .get_unchecked_mut(target_chunk_index)
+                .chunkset_unchecked_mut(target_chunkset_index)
+                .chunk_unchecked_mut(target_chunk_index)
         };
 
         // move existing data over into new chunk
         if let Some(swapped) = current_chunk.move_entity(target_chunk, location.component()) {
             // update location of any entity that was moved into the previous location
-            self.entity_allocator
-                .set_location(swapped.index(), location);
+            self.entity_locations.set(swapped, location);
         }
 
         // record the entity's new location
-        self.entity_allocator.set_location(
-            entity.index(),
+        self.entity_locations.set(
+            entity,
             EntityLocation::new(
                 target_arch_index,
                 target_chunkset_index,
                 target_chunk_index,
-                target_chunk.len() - 1,
+                ComponentIndex(target_chunk.len() - 1),
             ),
         );
 
@@ -493,9 +468,9 @@ impl World {
         &mut self,
         entity: Entity,
         component: T,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), EntityMutationError> {
         if !self.is_alive(entity) {
-            return Err("Attempted to add a component to a dead or non-existant entity.");
+            return Err(EntityMutationError::DoesNotExist);
         }
 
         if let Some(mut comp) = self.get_component_mut(entity) {
@@ -544,7 +519,14 @@ impl World {
     /// multiple times in successive order.
     ///
     /// `World::remove_components` should be used for adding multiple omponents to an entity at once.
-    pub fn remove_component<T: Component>(&mut self, entity: Entity) {
+    pub fn remove_component<T: Component>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<(), EntityMutationError> {
+        if !self.is_alive(entity) {
+            return Err(EntityMutationError::DoesNotExist);
+        }
+
         if self.get_component::<T>(entity).is_some() {
             trace!(
                 world = self.id().0,
@@ -556,30 +538,44 @@ impl World {
             // move the entity into a suitable chunk
             self.move_entity(entity, &[], &[ComponentTypeId::of::<T>()], &[], &[]);
         }
+
+        Ok(())
     }
 
-    /// Removes a component from an entity.
+    /// Removes
     ///
     /// # Notes
     /// This function is provided for bulk deleting components from an entity. This difference between this
     /// function and `remove_component` is this allows us to remove multiple components and still only
     /// perform a single move operation of the entity.
-    pub fn remove_components<T: ComponentTypeTupleSet>(&mut self, entity: Entity) {
+    pub fn remove_components<T: ComponentTypeTupleSet>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<(), EntityMutationError> {
+        if !self.is_alive(entity) {
+            return Err(EntityMutationError::DoesNotExist);
+        }
+
         let components = T::collect();
         for component in components.iter() {
             if !self.has_component_by_id(entity, *component) {
-                return;
+                return Ok(());
             }
         }
 
         self.move_entity(entity, &[], &components, &[], &[]);
+        Ok(())
     }
 
     /// Adds a tag to an entity, or sets its value if the tag is
     /// already present.
-    pub fn add_tag<T: Tag>(&mut self, entity: Entity, tag: T) {
+    pub fn add_tag<T: Tag>(&mut self, entity: Entity, tag: T) -> Result<(), EntityMutationError> {
+        if !self.is_alive(entity) {
+            return Err(EntityMutationError::DoesNotExist);
+        }
+
         if self.get_tag::<T>(entity).is_some() {
-            self.remove_tag::<T>(entity);
+            self.remove_tag::<T>(entity)?;
         }
 
         trace!(
@@ -601,10 +597,16 @@ impl World {
             )],
             &[],
         );
+
+        Ok(())
     }
 
     /// Removes a tag from an entity.
-    pub fn remove_tag<T: Tag>(&mut self, entity: Entity) {
+    pub fn remove_tag<T: Tag>(&mut self, entity: Entity) -> Result<(), EntityMutationError> {
+        if !self.is_alive(entity) {
+            return Err(EntityMutationError::DoesNotExist);
+        }
+
         if self.get_tag::<T>(entity).is_some() {
             trace!(
                 world = self.id().0,
@@ -616,6 +618,8 @@ impl World {
             // move the entity into a suitable chunk
             self.move_entity(entity, &[], &[], &[], &[TagTypeId::of::<T>()]);
         }
+
+        Ok(())
     }
 
     /// Borrows component data for the given entity.
@@ -627,32 +631,22 @@ impl World {
             return None;
         }
 
-        let location = self.entity_allocator.get_location(entity.index())?;
-        let archetype = self.storage().archetypes().get(location.archetype())?;
-        let chunk = archetype
-            .chunksets()
-            .get(location.set())?
-            .get(location.chunk())?;
+        let location = self.entity_locations.get(entity)?;
+        let chunk = self.storage().chunk(location)?;
         let (slice_borrow, slice) = unsafe {
             chunk
                 .components(ComponentTypeId::of::<T>())?
                 .data_slice::<T>()
                 .deconstruct()
         };
-        let component = slice.get(location.component())?;
+        let component = slice.get(*location.component())?;
 
         Some(Ref::new(slice_borrow, component))
     }
 
     fn get_component_storage(&self, entity: Entity) -> Option<&ComponentStorage> {
-        let location = self.entity_allocator.get_location(entity.index())?;
-        let archetype = self.storage().archetypes().get(location.archetype())?;
-        Some(
-            archetype
-                .chunksets()
-                .get(location.set())?
-                .get(location.chunk())?,
-        )
+        let location = self.entity_locations.get(entity)?;
+        self.storage().chunk(location)
     }
 
     /// Checks that the provided `ComponentTypeId` is present on a given entity.
@@ -698,17 +692,13 @@ impl World {
             return None;
         }
 
-        let location = self.entity_allocator.get_location(entity.index())?;
-        let archetype = self.storage().archetypes().get(location.archetype())?;
-        let chunk = archetype
-            .chunksets()
-            .get(location.set())?
-            .get(location.chunk())?;
+        let location = self.entity_locations.get(entity)?;
+        let chunk = self.storage().chunk(location)?;
         let (slice_borrow, slice) = chunk
             .components(ComponentTypeId::of::<T>())?
             .data_slice_mut::<T>()
             .deconstruct();
-        let component = slice.get_mut(location.component())?;
+        let component = slice.get_mut(*location.component())?;
 
         Some(RefMut::new(slice_borrow, component))
     }
@@ -722,11 +712,6 @@ impl World {
         unsafe { self.get_component_mut_unchecked(entity) }
     }
 
-    /// Mutably borrows entity data for the given entity.
-    ///
-    /// Returns `Some(data)` if the entity was found and contains the specified data.
-    /// Otherwise `None` is returned.
-
     /// Gets tag data for the given entity.
     ///
     /// Returns `Some(data)` if the entity was found and contains the specified data.
@@ -736,11 +721,11 @@ impl World {
             return None;
         }
 
-        let location = self.entity_allocator.get_location(entity.index())?;
-        let archetype = self.storage().archetypes().get(location.archetype())?;
+        let location = self.entity_locations.get(entity)?;
+        let archetype = self.storage().archetype(location.archetype())?;
         let tags = archetype.tags().get(TagTypeId::of::<T>())?;
 
-        unsafe { tags.data_slice::<T>().get(location.set()) }
+        unsafe { tags.data_slice::<T>().get(*location.set()) }
     }
 
     /// Determines if the given `Entity` is alive within this `World`.
@@ -769,7 +754,7 @@ impl World {
             // defragment the next archetype
             let complete =
                 (&mut archetypes[self.defrag_progress]).defrag(&mut budget, |e, location| {
-                    self.entity_allocator.set_location(e.index(), location);
+                    self.entity_locations.set(e, location);
                 });
             if complete {
                 // increment the index, looping it once we get to the end
@@ -801,34 +786,34 @@ impl World {
                     component_types: self.storage().component_types(),
                     tag_types: self.storage().tag_types(),
                 };
-                let matches = desc.matches(archetype_data).matching_indices().next();
+                let matches = desc
+                    .matches(archetype_data)
+                    .matching_indices()
+                    .next()
+                    .map(ArchetypeIndex);
                 if let Some(arch_index) = matches {
                     // similar archetype already exists, merge
                     self.storage_mut()
-                        .archetypes_mut()
-                        .get_mut(arch_index)
+                        .archetype_mut(arch_index)
                         .unwrap()
                         .merge(archetype);
                     arch_index
                 } else {
                     // archetype does not already exist, append
                     self.storage_mut().push(archetype);
-                    self.storage_mut().archetypes().len() - 1
+                    ArchetypeIndex(self.storage_mut().archetypes().len() - 1)
                 }
             };
 
             // update entity locations
             let archetype = &unsafe { &*self.storage.get() }.archetypes()[target_archetype];
-            for (entity, location) in archetype.enumerate_entities(target_archetype) {
-                self.entity_allocator.set_location(entity.index(), location);
+            for (entity, location) in archetype.iter_entity_locations(target_archetype) {
+                self.entity_locations.set(entity, location);
             }
         }
-
-        // Merge resources
-        self.resources.merge(world.resources);
     }
 
-    fn find_archetype<T, C>(&self, tags: &mut T, components: &mut C) -> Option<usize>
+    fn find_archetype<T, C>(&self, tags: &mut T, components: &mut C) -> Option<ArchetypeIndex>
     where
         T: for<'a> Filter<ArchetypeFilterData<'a>>,
         C: for<'a> Filter<ArchetypeFilterData<'a>>,
@@ -847,9 +832,10 @@ impl World {
             .filter(|(_, (a, b))| *a && *b)
             .map(|(i, _)| i)
             .next()
+            .map(ArchetypeIndex)
     }
 
-    fn create_archetype<T, C>(&mut self, tags: &T, components: &C) -> usize
+    fn create_archetype<T, C>(&mut self, tags: &T, components: &C) -> ArchetypeIndex
     where
         T: TagLayout,
         C: ComponentLayout,
@@ -862,7 +848,7 @@ impl World {
         index
     }
 
-    fn find_or_create_archetype<T, C>(&mut self, tags: &mut T, components: &mut C) -> usize
+    fn find_or_create_archetype<T, C>(&mut self, tags: &mut T, components: &mut C) -> ArchetypeIndex
     where
         T: TagLayout,
         C: ComponentLayout,
@@ -874,12 +860,12 @@ impl World {
         }
     }
 
-    fn find_chunk_set<T>(&self, archetype: usize, tags: &mut T) -> Option<usize>
+    fn find_chunk_set<T>(&self, archetype: ArchetypeIndex, tags: &mut T) -> Option<SetIndex>
     where
         T: for<'a> Filter<ChunksetFilterData<'a>>,
     {
         // fetch the archetype, we can already assume that the archetype index is valid
-        let archetype_data = unsafe { self.storage().archetypes().get_unchecked(archetype) };
+        let archetype_data = unsafe { self.storage().archetype_unchecked(archetype) };
 
         // find a chunk with the correct tags
         let chunk_filter_data = ChunksetFilterData {
@@ -887,25 +873,21 @@ impl World {
         };
 
         if let Some(i) = tags.matches(chunk_filter_data).matching_indices().next() {
-            return Some(i);
+            return Some(SetIndex(i));
         }
 
         None
     }
 
-    fn create_chunk_set<T>(&mut self, archetype: usize, tags: &T) -> usize
+    fn create_chunk_set<T>(&mut self, archetype: ArchetypeIndex, tags: &T) -> SetIndex
     where
         T: TagSet,
     {
-        let archetype_data = unsafe {
-            self.storage_mut()
-                .archetypes_mut()
-                .get_unchecked_mut(archetype)
-        };
+        let archetype_data = unsafe { self.storage_mut().archetype_unchecked_mut(archetype) };
         archetype_data.alloc_chunk_set(|chunk_tags| tags.write_tags(chunk_tags))
     }
 
-    fn find_or_create_chunk<T>(&mut self, archetype: usize, tags: &mut T) -> usize
+    fn find_or_create_chunk<T>(&mut self, archetype: ArchetypeIndex, tags: &mut T) -> SetIndex
     where
         T: TagSet + for<'a> Filter<ChunksetFilterData<'a>>,
     {
@@ -919,6 +901,12 @@ impl World {
 
 impl Default for World {
     fn default() -> Self { Self::new() }
+}
+
+#[derive(Error, Debug)]
+pub enum EntityMutationError {
+    #[error("entity does not exist")]
+    DoesNotExist,
 }
 
 /// Describes the types of a set of components attached to an entity.
@@ -956,21 +944,13 @@ pub trait ComponentSource: ComponentLayout {
     /// Determines if this component source has any more entity data to write.
     fn is_empty(&mut self) -> bool;
 
-    /// Retreives the nubmer of entities in this component source.
+    /// Retrieves the nubmer of entities in this component source.
     fn len(&self) -> usize;
 
     /// Writes as many components as possible into a chunk.
-    fn write(
+    fn write<T: Iterator<Item = Entity>>(
         &mut self,
-        allocator: &EntityAllocator,
-        allocation_buffer: &mut Vec<Entity>,
-        chunk: &mut ComponentStorage,
-    ) -> usize;
-
-    /// Writes as many components as possible into a chunk, from the provided entities list
-    fn write_entities(
-        &mut self,
-        provided_entities: &[Entity],
+        entities: T,
         chunk: &mut ComponentStorage,
     ) -> usize;
 }
@@ -1023,6 +1003,73 @@ where
             },
         }
     }
+}
+
+pub struct PreallocComponentSource<I: Iterator<Item = Entity> + FusedIterator, C: ComponentSource> {
+    entities: I,
+    components: C,
+}
+
+impl<I: Iterator<Item = Entity> + FusedIterator, C: ComponentSource> IntoComponentSource
+    for PreallocComponentSource<I, C>
+{
+    type Source = Self;
+
+    fn into(self) -> Self::Source { self }
+}
+
+impl<I: Iterator<Item = Entity>, C: ComponentSource> PreallocComponentSource<Fuse<I>, C> {
+    pub fn new(entities: I, components: C) -> Self {
+        Self {
+            entities: entities.fuse(),
+            components,
+        }
+    }
+}
+
+impl<I: Iterator<Item = Entity> + FusedIterator, C: ComponentSource> ComponentLayout
+    for PreallocComponentSource<I, C>
+{
+    type Filter = C::Filter;
+
+    fn get_filter(&mut self) -> &mut Self::Filter { self.components.get_filter() }
+
+    fn tailor_archetype(&self, archetype: &mut ArchetypeDescription) {
+        self.components.tailor_archetype(archetype)
+    }
+}
+
+impl<I: Iterator<Item = Entity> + FusedIterator, C: ComponentSource> ComponentSource
+    for PreallocComponentSource<I, C>
+{
+    fn is_empty(&mut self) -> bool { self.components.is_empty() }
+
+    fn len(&self) -> usize { self.components.len() }
+
+    fn write<T: Iterator<Item = Entity>>(
+        &mut self,
+        mut entities: T,
+        chunk: &mut ComponentStorage,
+    ) -> usize {
+        let iter = ConcatIter {
+            a: &mut self.entities,
+            b: &mut entities,
+        };
+        self.components.write(iter, chunk)
+    }
+}
+
+struct ConcatIter<'a, T, A: Iterator<Item = T> + FusedIterator, B: Iterator<Item = T>> {
+    a: &'a mut A,
+    b: &'a mut B,
+}
+
+impl<'a, T, A: Iterator<Item = T> + FusedIterator, B: Iterator<Item = T>> Iterator
+    for ConcatIter<'a, T, A, B>
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> { self.a.next().or_else(|| self.b.next()) }
 }
 
 pub struct ComponentTupleFilter<T> {
@@ -1081,8 +1128,7 @@ mod tuple_impls {
                 fn len(&self) -> usize {
                     self.iter.len()
                 }
-
-                fn write_entities(&mut self, provided_entities: &[Entity], chunk: &mut ComponentStorage) -> usize {
+                fn write<EntityIter: Iterator<Item = Entity>>(&mut self, mut allocator: EntityIter, chunk: &mut ComponentStorage) -> usize {
                     #![allow(unused_variables)]
                     #![allow(unused_unsafe)]
                     #![allow(non_snake_case)]
@@ -1097,45 +1143,9 @@ mod tuple_impls {
                         )*
 
                         while let Some(($( $id, )*)) = { if count == space { None } else { self.iter.next() } } {
-                            if count == provided_entities.len() {
-                                break;
-                            }
-
-                            entities.push(provided_entities[count]);
-
-                            // TODO: Trigger component addition events here
-                            $(
-                                let slice = [$id];
-                                $ty.push(&slice);
-                                std::mem::forget(slice);
-                            )*
-                            count += 1;
-                        }
-                    }
-
-                    count
-                }
-
-                fn write(&mut self, allocator: &EntityAllocator, allocation_buffer: &mut Vec<Entity>, chunk: &mut ComponentStorage) -> usize {
-                    #![allow(unused_variables)]
-                    #![allow(unused_unsafe)]
-                    #![allow(non_snake_case)]
-                    let space = chunk.capacity() - chunk.len();
-                    let mut writer = chunk.writer();
-                    let (entities, components) = writer.get();
-                    let mut count = 0;
-
-                    unsafe {
-                        $(
-                            let mut $ty = (&mut *components.get()).get_mut(ComponentTypeId::of::<$ty>()).unwrap().writer();
-                        )*
-
-                        while let Some(($( $id, )*)) = { if count == space { None } else { self.iter.next() } } {
-                            let entity = allocator.create_entity();
+                            let entity = allocator.next().unwrap();
                             entities.push(entity);
-                            allocation_buffer.push(entity);
 
-                            // TODO: Trigger component addition events here
                             $(
                                 let slice = [$id];
                                 $ty.push(&slice);
@@ -1349,8 +1359,8 @@ impl<'a, 'b> Filter<ArchetypeFilterData<'b>> for DynamicComponentLayout<'a> {
                     // all types are not in remove
                     !self.remove.contains(t)
                     // any are either in existing or add
-                        && (self.existing.iter().any(|(x, _)| x == t)
-                            || self.add.iter().any(|(x, _)| x == t))
+                    && (self.existing.iter().any(|(x, _)| x == t)
+                    || self.add.iter().any(|(x, _)| x == t))
                 }),
         )
     }
@@ -1358,8 +1368,8 @@ impl<'a, 'b> Filter<ArchetypeFilterData<'b>> for DynamicComponentLayout<'a> {
 
 struct DynamicTagLayout<'a> {
     storage: &'a Storage,
-    archetype: usize,
-    chunk: usize,
+    archetype: ArchetypeIndex,
+    set: SetIndex,
     existing: &'a [(TagTypeId, TagMeta)],
     add: &'a [(TagTypeId, TagMeta, NonNull<u8>)],
     remove: &'a [TagTypeId],
@@ -1405,8 +1415,8 @@ impl<'a, 'b> Filter<ArchetypeFilterData<'b>> for DynamicTagLayout<'a> {
                     // all types are not in remove
                     !self.remove.contains(t)
                     // any are either in existing or add
-                        && (self.existing.iter().any(|(x, _)| x == t)
-                            || self.add.iter().any(|(x, _, _)| x == t))
+                    && (self.existing.iter().any(|(x, _)| x == t)
+                    || self.add.iter().any(|(x, _, _)| x == t))
                 }),
         )
     }
@@ -1421,28 +1431,28 @@ impl<'a, 'b> Filter<ChunksetFilterData<'b>> for DynamicTagLayout<'a> {
             .take(source.archetype_data.len())
     }
 
-    fn is_match(&self, (chunk_index, arch): &<Self::Iter as Iterator>::Item) -> Option<bool> {
-        for (type_id, meta) in self.existing {
-            if self.remove.contains(type_id) {
+    fn is_match(&self, (set_index, arch): &<Self::Iter as Iterator>::Item) -> Option<bool> {
+        for &(type_id, ref meta) in self.existing {
+            if self.remove.contains(&type_id) {
                 continue;
             }
 
             unsafe {
-                // find the value of the tag in the source chunk
+                // find the value of the tag in the source set
                 let (slice_ptr, element_size, _) = self
                     .storage
-                    .archetypes()
-                    .get(self.archetype)
+                    .archetype(self.archetype)
                     .unwrap()
                     .tags()
-                    .get(*type_id)
+                    .get(type_id)
                     .unwrap()
                     .data_raw();
-                let current = slice_ptr.as_ptr().add(self.chunk * element_size);
+                let current = slice_ptr.as_ptr().add(*self.set * element_size);
 
-                // find the value of the tag in the candidate chunk
-                let (slice_ptr, element_size, _) = arch.tags().get(*type_id).unwrap().data_raw();
-                let candidate = slice_ptr.as_ptr().add(chunk_index * element_size);
+                // find the value of the tag in the candidate set
+                let (slice_ptr, element_size, count) = arch.tags().get(type_id).unwrap().data_raw();
+                debug_assert!(*set_index < count);
+                let candidate = slice_ptr.as_ptr().add(set_index * element_size);
 
                 if !meta.equals(current, candidate) {
                     return Some(false);
@@ -1450,10 +1460,11 @@ impl<'a, 'b> Filter<ChunksetFilterData<'b>> for DynamicTagLayout<'a> {
             }
         }
 
-        for (type_id, meta, ptr) in self.add {
+        for &(type_id, meta, ptr) in self.add {
             unsafe {
-                let (slice_ptr, element_size, _) = arch.tags().get(*type_id).unwrap().data_raw();
-                let candidate = slice_ptr.as_ptr().add(chunk_index * element_size);
+                let (slice_ptr, element_size, count) = arch.tags().get(type_id).unwrap().data_raw();
+                debug_assert!(*set_index < count);
+                let candidate = slice_ptr.as_ptr().add(set_index * element_size);
 
                 if !meta.equals(ptr.as_ptr(), candidate) {
                     return Some(false);
@@ -1493,7 +1504,7 @@ mod tests {
     fn create_universe() {
         let _ = tracing_subscriber::fmt::try_init();
 
-        Universe::default();
+        Universe::new();
     }
 
     #[test]
@@ -1546,7 +1557,13 @@ mod tests {
         ];
 
         let entities = world.insert((), vec![(), ()]).to_vec();
-        world.insert_buffered(&entities, (), IntoComponentSource::into(components.clone()));
+        world.insert(
+            (),
+            PreallocComponentSource::new(
+                entities.iter().copied(),
+                IntoComponentSource::into(components.clone()),
+            ),
+        );
 
         for (i, e) in entities.iter().enumerate() {
             world.add_component(*e, Scale(2., 2., 2.)).unwrap();
@@ -1730,7 +1747,7 @@ mod tests {
     }
 
     #[test]
-    fn add_component() {
+    fn add_component() -> Result<(), EntityMutationError> {
         let _ = tracing_subscriber::fmt::try_init();
 
         let mut world = create();
@@ -1743,7 +1760,7 @@ mod tests {
         let entities = world.insert((Static,), components.clone()).to_vec();
 
         for (i, e) in entities.iter().enumerate() {
-            world.add_component(*e, Scale(2., 2., 2.)).unwrap();
+            world.add_component(*e, Scale(2., 2., 2.))?;
             assert_eq!(
                 components.get(i).unwrap().0,
                 *world.get_component(*e).unwrap()
@@ -1754,10 +1771,12 @@ mod tests {
             );
             assert_eq!(Scale(2., 2., 2.), *world.get_component(*e).unwrap());
         }
+
+        Ok(())
     }
 
     #[test]
-    fn remove_component() {
+    fn remove_component() -> Result<(), EntityMutationError> {
         let _ = tracing_subscriber::fmt::try_init();
 
         let mut world = create();
@@ -1770,17 +1789,19 @@ mod tests {
         let entities = world.insert((Static,), components.clone()).to_vec();
 
         for (i, e) in entities.iter().enumerate() {
-            world.remove_component::<Rot>(*e);
+            world.remove_component::<Rot>(*e)?;
             assert_eq!(
                 components.get(i).unwrap().0,
                 *world.get_component(*e).unwrap()
             );
             assert!(world.get_component::<Rot>(*e).is_none());
         }
+
+        Ok(())
     }
 
     #[test]
-    fn add_tag() {
+    fn add_tag() -> Result<(), EntityMutationError> {
         let _ = tracing_subscriber::fmt::try_init();
 
         let mut world = create();
@@ -1793,7 +1814,7 @@ mod tests {
         let entities = world.insert((Static,), components.clone()).to_vec();
 
         for (i, e) in entities.iter().enumerate() {
-            world.add_tag(*e, Model(2));
+            world.add_tag(*e, Model(2))?;
             assert_eq!(
                 components.get(i).unwrap().0,
                 *world.get_component(*e).unwrap()
@@ -1805,10 +1826,12 @@ mod tests {
             assert_eq!(Static, *world.get_tag(*e).unwrap());
             assert_eq!(Model(2), *world.get_tag(*e).unwrap());
         }
+
+        Ok(())
     }
 
     #[test]
-    fn remove_tag() {
+    fn remove_tag() -> Result<(), EntityMutationError> {
         let _ = tracing_subscriber::fmt::try_init();
 
         let mut world = create();
@@ -1821,7 +1844,7 @@ mod tests {
         let entities = world.insert((Static,), components.clone()).to_vec();
 
         for (i, e) in entities.iter().enumerate() {
-            world.remove_tag::<Static>(*e);
+            world.remove_tag::<Static>(*e)?;
             assert_eq!(
                 components.get(i).unwrap().0,
                 *world.get_component(*e).unwrap()
@@ -1832,6 +1855,7 @@ mod tests {
             );
             assert!(world.get_tag::<Static>(*e).is_none());
         }
+        Ok(())
     }
 
     #[test]

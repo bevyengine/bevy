@@ -1,13 +1,42 @@
-use crate::borrow::{AtomicRefCell, Ref, RefMut, DowncastTypename};
-use crate::query::{Read, ReadOnly, Write};
+use legion_core::borrow::DowncastTypename;
 use downcast_rs::{impl_downcast, Downcast};
 use fxhash::FxHashMap;
+use legion_core::borrow::{AtomicRefCell, Ref, RefMut};
+use legion_core::query::{Read, ReadOnly, Write};
 use std::{
-    any::type_name,
+    any::{Any, type_name},
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+impl DowncastTypename for dyn Resource {
+    #[inline(always)]
+    fn downcast_typename_mut<T: Any>(&mut self) -> Option<&mut T> {
+        if self.is_typename::<T>() {
+            // SAFETY: just checked whether we are pointing to the correct type
+            unsafe { Some(&mut *(self.as_any_mut() as *mut dyn Any as *mut T)) }
+        } else {
+            None
+        }
+    }
 
+    #[inline(always)]
+    fn downcast_typename_ref<T: Any>(&self) -> Option<&T> {
+        if self.is_typename::<T>() {
+            // SAFETY: just checked whether we are pointing to the correct type
+            unsafe { Some(&*(self.as_any() as *const dyn Any as *const T)) }
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    fn is_typename<T: Any>(&self) -> bool {
+        true
+        // TODO: it would be nice to add type safety here, but the type names don't match
+        // println!("{} {}", type_name_of_val(self), type_name::<T>());
+        // type_name_of_val(self) == type_name::<T>()
+    }
+}
 #[cfg(not(feature = "ffi"))]
 /// A type ID identifying a component type.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -39,7 +68,8 @@ impl ResourceTypeId {
 /// struct TypeA(usize);
 /// struct TypeB(usize);
 ///
-/// use legion::prelude::*;
+/// use legion_core::prelude::*;
+/// use legion_systems::prelude::*;
 /// let mut resources = Resources::default();
 /// resources.insert(TypeA(55));
 /// resources.insert(TypeB(12));

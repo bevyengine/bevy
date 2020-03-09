@@ -14,40 +14,35 @@ edition = "2018"
 travis-ci = { repository = "TomGillen/legion", branch = "master" }
 
 [features]
-default = ["par-iter", "par-schedule", "events", "ffi"]
-par-iter = ["rayon"]
-par-schedule = ["rayon", "crossbeam-queue"]
+default = ["par-iter", "par-schedule", "ffi"]
+par-iter = ["legion-core/par-iter", "legion-systems/par-iter"]
+par-schedule = ["legion-systems/par-schedule"]
 log = ["tracing/log", "tracing/log-always"]
-ffi = []
-serde-1 = ["serde"]
-events = ["rayon"]
+ffi = ["legion-core/ffi"]
+serialize = ["legion-core/serialize"]
+metrics = ["legion-core/metrics"]
+
+[workspace]
+members = [
+    "legion_core",
+    "legion_systems",
+]
 
 [dependencies]
-parking_lot = "0.9"
-downcast-rs = "1.0"
-itertools = "0.8"
-rayon = { version = "1.2", optional = true }
-crossbeam-queue = { version = "0.2.0", optional = true }
-crossbeam-channel = "0.4.0"
-derivative = "1"
-smallvec = "0.6"
-bit-set = "0.5"
-paste = "0.1"
-tracing = "0.1"
-metrics = { version = "0.12", optional = true }
-serde = { version = "1", optional = true }
-fxhash = "0.2"
+legion-core = { path = "legion_core", version = "0.2.1", default-features = false }
+legion-systems = { path = "legion_systems", version = "0.2.1", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3"
 cgmath = "0.17"
-tracing-subscriber = "0.1.6"
-legion = { features = ["serde-1"], path = "." }
-serde_json = "1.0"
-type-uuid = "0.1"
+tracing-subscriber = "0.2"
 erased-serde = "0.3"
 serde = { version = "1", features = ["derive"]}
 uuid = { version = "0.8", features = ["v4"] }
+tracing = "0.1"
+itertools = "0.8"
+rayon = "1.2"
+crossbeam-channel = "0.4.0"
 
 [[bench]]
 name = "benchmarks"
@@ -59,4 +54,8 @@ harness = false
 
 [[bench]]
 name = "transform"
+harness = false
+
+[[bench]]
+name = "insertion"
 harness = false

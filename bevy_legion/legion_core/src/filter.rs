@@ -1,3 +1,6 @@
+use crate::index::ArchetypeIndex;
+use crate::index::ChunkIndex;
+use crate::index::SetIndex;
 use crate::iterator::FissileZip;
 use crate::iterator::SliceVecIter;
 use crate::storage::ArchetypeData;
@@ -364,12 +367,12 @@ pub struct FilterArchIter<'a, 'b, F: Filter<ArchetypeFilterData<'a>>> {
 }
 
 impl<'a, 'b, F: Filter<ArchetypeFilterData<'a>>> Iterator for FilterArchIter<'a, 'b, F> {
-    type Item = usize;
+    type Item = ArchetypeIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((i, data)) = self.archetypes.next() {
             if self.filter.is_match(&data).is_pass() {
-                return Some(i);
+                return Some(ArchetypeIndex(i));
             }
         }
 
@@ -384,12 +387,12 @@ pub struct FilterChunkIter<'a, 'b, F: Filter<ChunksetFilterData<'a>>> {
 }
 
 impl<'a, 'b, F: Filter<ChunksetFilterData<'a>>> Iterator for FilterChunkIter<'a, 'b, F> {
-    type Item = usize;
+    type Item = SetIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((i, data)) = self.chunks.next() {
             if self.filter.is_match(&data).is_pass() {
-                return Some(i);
+                return Some(SetIndex(i));
             }
         }
 
@@ -414,14 +417,14 @@ pub struct FilterEntityIter<
 impl<'a, 'b, Arch: Filter<ArchetypeFilterData<'a>>, Chunk: Filter<ChunksetFilterData<'a>>> Iterator
     for FilterEntityIter<'a, 'b, Arch, Chunk>
 {
-    type Item = (ArchetypeId, usize);
+    type Item = (ArchetypeId, ChunkIndex);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some((arch_id, ref mut chunks)) = self.chunks {
                 for (chunk_index, chunk_data) in chunks {
                     if self.chunk_filter.is_match(&chunk_data).is_pass() {
-                        return Some((arch_id, chunk_index));
+                        return Some((arch_id, ChunkIndex(chunk_index)));
                     }
                 }
             }
@@ -794,6 +797,12 @@ impl_and_filter!(A => a, B => b, C => c);
 impl_and_filter!(A => a, B => b, C => c, D => d);
 impl_and_filter!(A => a, B => b, C => c, D => d, E => e);
 impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k);
+impl_and_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l);
 
 /// A filter which requires that any filter within `T` match.
 #[derive(Debug, Clone)]
@@ -889,6 +898,12 @@ impl_or_filter!(A => a, B => b, C => c);
 impl_or_filter!(A => a, B => b, C => c, D => d);
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e);
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k);
+impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l);
 
 /// A filter qhich requires that all chunks contain entity data components of type `T`.
 #[derive(Debug)]

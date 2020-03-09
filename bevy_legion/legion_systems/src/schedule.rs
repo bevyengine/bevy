@@ -1,9 +1,15 @@
-use crate::system::SystemId;
 use crate::{
-    borrow::RefMut, command::CommandBuffer, resource::ResourceTypeId, storage::ComponentTypeId,
-    world::World,
+    resource::{ResourceTypeId, Resources},
+    system::SystemId,
 };
 use bit_set::BitSet;
+use legion_core::{
+    borrow::RefMut,
+    command::CommandBuffer,
+    storage::ComponentTypeId,
+    world::{World, WorldId},
+};
+use std::cell::UnsafeCell;
 
 #[cfg(feature = "par-schedule")]
 use tracing::{span, trace, Level};
@@ -52,13 +58,38 @@ impl ArchetypeAccess {
 
 /// Trait describing a schedulable type. This is implemented by `System`
 pub trait Runnable {
+    /// Gets the name of the system.
     fn name(&self) -> &SystemId;
+
+    /// Gets the resources and component types read by the system.
     fn reads(&self) -> (&[ResourceTypeId], &[ComponentTypeId]);
+
+    /// Gets the resources and component types written by the system.
     fn writes(&self) -> (&[ResourceTypeId], &[ComponentTypeId]);
+
+    /// Prepares the system for execution against a world.
     fn prepare(&mut self, world: &World);
+
+    /// Gets the set of archetypes the system will access when run,
+    /// as determined when the system was last prepared.
     fn accesses_archetypes(&self) -> &ArchetypeAccess;
-    fn run(&self, world: &World);
-    fn command_buffer_mut(&self) -> RefMut<CommandBuffer>;
+
+    /// Runs the system.
+    ///
+    /// # Safety
+    ///
+    /// The shared references to world and resources may result in
+    /// unsound mutable aliasing if other code is accessing the same components or
+    /// resources as this system. Prefer to use `run` when possible.
+    unsafe fn run_unsafe(&mut self, world: &World, resources: &Resources);
+
+    /// Gets the system's command buffer.
+    fn command_buffer_mut(&self, world: WorldId) -> Option<RefMut<CommandBuffer>>;
+
+    /// Runs the system.
+    fn run(&mut self, world: &mut World, resources: &mut Resources) {
+        unsafe { self.run_unsafe(world, resources) };
+    }
 }
 
 /// Executes a sequence of systems, potentially in parallel, and then commits their command buffers.
@@ -67,7 +98,7 @@ pub trait Runnable {
 /// may run some systems in parallel. The order in which side-effects (e.g. writes to resources
 /// or entities) are observed is maintained.
 pub struct Executor {
-    systems: Vec<Box<dyn Schedulable>>,
+    systems: Vec<SystemBox>,
     #[cfg(feature = "par-schedule")]
     static_dependants: Vec<Vec<usize>>,
     #[cfg(feature = "par-schedule")]
@@ -78,13 +109,38 @@ pub struct Executor {
     awaiting: Vec<AtomicUsize>,
 }
 
+struct SystemBox(UnsafeCell<Box<dyn Schedulable>>);
+
+// NOT SAFE:
+// This type is only safe to use as Send and Sync within
+// the constraints of how it is used inside Executor
+unsafe impl Send for SystemBox {}
+unsafe impl Sync for SystemBox {}
+
+impl SystemBox {
+    #[cfg(feature = "par-schedule")]
+    unsafe fn get(&self) -> &dyn Schedulable { std::ops::Deref::deref(&*self.0.get()) }
+
+    #[allow(clippy::mut_from_ref)]
+    unsafe fn get_mut(&self) -> &mut dyn Schedulable {
+        std::ops::DerefMut::deref_mut(&mut *self.0.get())
+    }
+}
+
 impl Executor {
     /// Constructs a new executor for all systems to be run in a single stage.
     ///
     /// Systems are provided in the order in which side-effects (e.g. writes to resources or entities)
     /// are to be observed.
     #[cfg(not(feature = "par-schedule"))]
-    pub fn new(systems: Vec<Box<dyn Schedulable>>) -> Self { Self { systems } }
+    pub fn new(systems: Vec<Box<dyn Schedulable>>) -> Self {
+        Self {
+            systems: systems
+                .into_iter()
+                .map(|s| SystemBox(UnsafeCell::new(s)))
+                .collect(),
+        }
+    }
 
     /// Constructs a new executor for all systems to be run in a single stage.
     ///
@@ -208,7 +264,10 @@ impl Executor {
                 static_dependants,
                 dynamic_dependants,
                 static_dependency_counts,
-                systems,
+                systems: systems
+                    .into_iter()
+                    .map(|s| SystemBox(UnsafeCell::new(s)))
+                    .collect(),
             }
         } else {
             Executor {
@@ -216,17 +275,22 @@ impl Executor {
                 static_dependants: Vec::with_capacity(0),
                 dynamic_dependants: Vec::with_capacity(0),
                 static_dependency_counts: Vec::with_capacity(0),
-                systems,
+                systems: systems
+                    .into_iter()
+                    .map(|s| SystemBox(UnsafeCell::new(s)))
+                    .collect(),
             }
         }
     }
 
     /// Converts this executor into a vector of its component systems.
-    pub fn into_vec(self) -> Vec<Box<dyn Schedulable>> { self.systems }
+    pub fn into_vec(self) -> Vec<Box<dyn Schedulable>> {
+        self.systems.into_iter().map(|s| s.0.into_inner()).collect()
+    }
 
     /// Executes all systems and then flushes their command buffers.
-    pub fn execute(&mut self, world: &mut World) {
-        self.run_systems(world);
+    pub fn execute(&mut self, world: &mut World, resources: &mut Resources) {
+        self.run_systems(world, resources);
         self.flush_command_buffers(world);
     }
 
@@ -234,15 +298,10 @@ impl Executor {
     ///
     /// Only enabled with par-schedule is disabled
     #[cfg(not(feature = "par-schedule"))]
-    pub fn run_systems(&mut self, world: &mut World) {
-        // preflush command buffers
-        // This also handles the first case of allocating them.
-        self.systems
-            .iter()
-            .for_each(|system| system.command_buffer_mut().write(world));
-
+    pub fn run_systems(&mut self, world: &mut World, resources: &mut Resources) {
         self.systems.iter_mut().for_each(|system| {
-            system.run(world);
+            let system = unsafe { system.get_mut() };
+            system.run(world, resources);
         });
     }
 
@@ -253,19 +312,14 @@ impl Executor {
     ///
     /// Call from within `rayon::ThreadPool::install()` to execute within a specific thread pool.
     #[cfg(feature = "par-schedule")]
-    pub fn run_systems(&mut self, world: &mut World) {
-        // preflush command buffers
-        // This also handles the first case of allocating them.
-        self.systems
-            .iter()
-            .for_each(|system| system.command_buffer_mut().write(world));
-
+    pub fn run_systems(&mut self, world: &mut World, resources: &mut Resources) {
         rayon::join(
             || {},
             || {
                 match self.systems.len() {
                     1 => {
-                        self.systems[0].run(world);
+                        // safety: we have exlusive access to all systems, world and resources here
+                        unsafe { self.systems[0].get_mut().run(world, resources) };
                     }
                     _ => {
                         let systems = &mut self.systems;
@@ -273,7 +327,9 @@ impl Executor {
                         let awaiting = &mut self.awaiting;
 
                         // prepare all systems - archetype filters are pre-executed here
-                        systems.par_iter_mut().for_each(|sys| sys.prepare(world));
+                        systems
+                            .par_iter_mut()
+                            .for_each(|sys| unsafe { sys.get_mut() }.prepare(world));
 
                         // determine dynamic dependencies
                         izip!(
@@ -283,10 +339,11 @@ impl Executor {
                         )
                         .par_bridge()
                         .for_each(|(sys, static_dep, dyn_dep)| {
-                            let archetypes = sys.accesses_archetypes();
+                            // safety: systems is held exclusively, and we are only reading each system
+                            let archetypes = unsafe { sys.get() }.accesses_archetypes();
                             for i in (0..dyn_dep.len()).rev() {
                                 let dep = dyn_dep[i];
-                                let other = &systems[dep];
+                                let other = unsafe { systems[dep].get() };
 
                                 // if the archetype sets intersect,
                                 // then we can move the dynamic dependant into the static dependants set
@@ -309,7 +366,9 @@ impl Executor {
                         (0..systems.len())
                             .filter(|i| awaiting[*i].load(Ordering::SeqCst) == 0)
                             .for_each(|i| {
-                                self.run_recursive(i, world);
+                                // safety: we are at the root of the execution tree, so we know each
+                                // index is exclusive here
+                                unsafe { self.run_recursive(i, world, resources) };
                             });
                     }
                 }
@@ -320,14 +379,23 @@ impl Executor {
     /// Flushes the recorded command buffers for all systems.
     pub fn flush_command_buffers(&mut self, world: &mut World) {
         self.systems.iter().for_each(|system| {
-            system.command_buffer_mut().write(world);
+            // safety: systems are exlcusive due to &mut self
+            let system = unsafe { system.get_mut() };
+            if let Some(mut cmd) = system.command_buffer_mut(world.id()) {
+                cmd.write(world);
+            }
         });
     }
 
     /// Recursively execute through the generated depedency cascade and exhaust it.
+    ///
+    /// # Safety
+    ///
+    /// Ensure the system indexed by `i` is only accessed once.
     #[cfg(feature = "par-schedule")]
-    fn run_recursive(&self, i: usize, world: &World) {
-        self.systems[i].run(world);
+    unsafe fn run_recursive(&self, i: usize, world: &World, resources: &Resources) {
+        // safety: the caller ensures nothing else is accessing systems[i]
+        self.systems[i].get_mut().run_unsafe(world, resources);
 
         self.static_dependants[i].par_iter().for_each(|dep| {
             match self.awaiting[*dep].compare_exchange(
@@ -337,7 +405,8 @@ impl Executor {
                 Ordering::Relaxed,
             ) {
                 Ok(_) => {
-                    self.run_recursive(*dep, world);
+                    // safety: each dependency is unique, so run_recursive is safe to call
+                    self.run_recursive(*dep, world, resources);
                 }
                 Err(_) => {
                     self.awaiting[*dep].fetch_sub(1, Ordering::Relaxed);
@@ -378,18 +447,21 @@ impl Builder {
     }
 
     /// Adds a thread local function to the schedule. This function will be executed on the main thread.
-    pub fn add_thread_local_fn<F: FnMut(&mut World) + 'static>(mut self, f: F) -> Self {
+    pub fn add_thread_local_fn<F: FnMut(&mut World, &mut Resources) + 'static>(
+        mut self,
+        f: F,
+    ) -> Self {
         self.finalize_executor();
         self.steps.push(Step::ThreadLocalFn(
-            Box::new(f) as Box<dyn FnMut(&mut World)>
+            Box::new(f) as Box<dyn FnMut(&mut World, &mut Resources)>
         ));
         self
     }
 
     /// Adds a thread local system to the schedule. This system will be executed on the main thread.
     pub fn add_thread_local<S: Into<Box<dyn Runnable>>>(self, system: S) -> Self {
-        let system = system.into();
-        self.add_thread_local_fn(move |world| system.run(world))
+        let mut system = system.into();
+        self.add_thread_local_fn(move |world, resources| system.run(world, resources))
     }
 
     /// Finalizes the builder into a `Schedule`.
@@ -412,7 +484,7 @@ pub enum Step {
     /// Flush system command buffers.
     FlushCmdBuffers,
     /// A thread local function.
-    ThreadLocalFn(Box<dyn FnMut(&mut World)>),
+    ThreadLocalFn(Box<dyn FnMut(&mut World, &mut Resources)>),
 }
 
 /// A schedule of systems for execution.
@@ -420,11 +492,13 @@ pub enum Step {
 /// # Examples
 ///
 /// ```rust
-/// # use legion::prelude::*;
+/// # use legion_core::prelude::*;
+/// # use legion_systems::prelude::*;
 /// # let find_collisions = SystemBuilder::new("find_collisions").build(|_,_,_,_| {});
 /// # let calculate_acceleration = SystemBuilder::new("calculate_acceleration").build(|_,_,_,_| {});
 /// # let update_positions = SystemBuilder::new("update_positions").build(|_,_,_,_| {});
-/// # let mut world = World::new();
+/// let mut world = World::new();
+/// let mut resources = Resources::default();
 /// let mut schedule = Schedule::builder()
 ///     .add_system(find_collisions)
 ///     .flush()
@@ -432,7 +506,7 @@ pub enum Step {
 ///     .add_system(update_positions)
 ///     .build();
 ///
-/// schedule.execute(&mut world);
+/// schedule.execute(&mut world, &mut resources);
 /// ```
 pub struct Schedule {
     steps: Vec<Step>,
@@ -443,18 +517,18 @@ impl Schedule {
     pub fn builder() -> Builder { Builder::default() }
 
     /// Executes all of the steps in the schedule.
-    pub fn execute(&mut self, world: &mut World) {
+    pub fn execute(&mut self, world: &mut World, resources: &mut Resources) {
         let mut waiting_flush: Vec<&mut Executor> = Vec::new();
         for step in &mut self.steps {
             match step {
                 Step::Systems(executor) => {
-                    executor.run_systems(world);
+                    executor.run_systems(world, resources);
                     waiting_flush.push(executor);
                 }
                 Step::FlushCmdBuffers => waiting_flush
                     .drain(..)
                     .for_each(|e| e.flush_command_buffers(world)),
-                Step::ThreadLocalFn(function) => function(world),
+                Step::ThreadLocalFn(function) => function(world, resources),
             }
         }
     }
@@ -480,6 +554,7 @@ mod tests {
     use super::*;
     use crate::prelude::*;
     use itertools::sorted;
+    use legion_core::prelude::*;
     use std::sync::{Arc, Mutex};
 
     #[test]
@@ -490,7 +565,8 @@ mod tests {
         #[derive(Default)]
         struct Resource;
 
-        world.resources.insert(Resource);
+        let mut resources = Resources::default();
+        resources.insert(Resource);
 
         let order = Arc::new(Mutex::new(Vec::new()));
 
@@ -513,7 +589,7 @@ mod tests {
             .add_system(system_three)
             .build();
 
-        schedule.execute(&mut world);
+        schedule.execute(&mut world, &mut resources);
 
         let order = order.lock().unwrap();
         let sorted: Vec<usize> = sorted(order.clone()).collect();
@@ -524,12 +600,13 @@ mod tests {
     fn flush() {
         let universe = Universe::new();
         let mut world = universe.create_world();
+        let mut resources = Resources::default();
 
         #[derive(Clone, Copy, Debug, PartialEq)]
         struct TestComp(f32, f32, f32);
 
         let system_one = SystemBuilder::new("one").build(move |cmd, _, _, _| {
-            cmd.insert((), vec![(TestComp(0., 0., 0.),)]).unwrap();
+            cmd.insert((), vec![(TestComp(0., 0., 0.),)]);
         });
         let system_two = SystemBuilder::new("two")
             .with_query(Write::<TestComp>::query())
@@ -545,6 +622,6 @@ mod tests {
             .add_system(system_three)
             .build();
 
-        schedule.execute(&mut world);
+        schedule.execute(&mut world, &mut resources);
     }
 }

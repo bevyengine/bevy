@@ -2,14 +2,22 @@
 
 [![Build Status][build_img]][build_lnk] [![Crates.io][crates_img]][crates_lnk] [![Docs.rs][doc_img]][doc_lnk]
 
-[build_img]: https://img.shields.io/travis/TomGillen/legion/master.svg
-[build_lnk]: https://travis-ci.org/TomGillen/legion
+[build_img]: https://github.com/TomGillen/legion/workflows/CI/badge.svg
+[build_lnk]: https://github.com/TomGillen/legion/actions
 [crates_img]: https://img.shields.io/crates/v/legion.svg
 [crates_lnk]: https://crates.io/crates/legion
 [doc_img]: https://docs.rs/legion/badge.svg
 [doc_lnk]: https://docs.rs/legion
 
 Legion aims to be a feature rich high performance ECS library for Rust game projects with minimal boilerplate.
+
+## Bevy Fork Info
+
+This is a fork that enables dynamic plugin loading in bevy.
+
+Here are the changes made:
+* ResourceTypeId, ComponentTypeId, TagTypeId use static str (std::any::type_name) instead of TypeId (std::any::TypeId is not constant across rust binaries) 
+* Implement "DowncastTypeName" to allow downcasting based on type name
 
 ## Benchmarks
 

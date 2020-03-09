@@ -17,16 +17,13 @@ fn main() {
     let universe = Universe::new();
     let mut world = universe.create_world();
 
-    // Insert resources into the world
-    // Resources are also dynamically scheduled just like components, so the accessed
-    // declared within a SystemBuilder is correct.
+    // Create resources
+    // Resources are also dynamically scheduled just like components, so the accesses
+    // declared within a SystemBuilder are correct.
     // Any resource accessed by systems *must be* manually inserted beforehand, otherwise it will panic.
-    world
-        .resources
-        .insert(ExampleResource1("ExampleResource1".to_string()));
-    world
-        .resources
-        .insert(ExampleResource2("ExampleResource2".to_string()));
+    let mut resources = Resources::default();
+    resources.insert(ExampleResource1("ExampleResource1".to_string()));
+    resources.insert(ExampleResource2("ExampleResource2".to_string()));
 
     // create entities
     // An insert call is used to insert matching entities into the world.
@@ -89,7 +86,7 @@ fn main() {
             );
         });
 
-    let thread_local_example = Box::new(|world: &mut World| {
+    let thread_local_example = Box::new(|world: &mut World, _resources: &mut Resources| {
         // This is an example of a thread local system which has full, exclusive mutable access to the world.
         let query = <(Write<Pos>, Read<Vel>)>::query();
         for (mut pos, vel) in query.iter_mut(world) {
@@ -110,5 +107,5 @@ fn main() {
         .build();
 
     // Execute a frame of the schedule.
-    schedule.execute(&mut world);
+    schedule.execute(&mut world, &mut resources);
 }

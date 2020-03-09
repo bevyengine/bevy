@@ -2,6 +2,9 @@ use crate::entity::Entity;
 use crate::filter::{
     ArchetypeFilterData, ChunkFilterData, ChunksetFilterData, EntityFilter, Filter, FilterResult,
 };
+use crate::index::ArchetypeIndex;
+use crate::index::ChunkIndex;
+use crate::index::SetIndex;
 use crate::storage::ArchetypeId;
 use crate::storage::ChunkId;
 use crossbeam_channel::{Sender, TrySendError};
@@ -21,15 +24,19 @@ pub enum Event {
 }
 
 pub(crate) trait EventFilter: Send + Sync + 'static {
-    fn matches_archetype(&self, data: ArchetypeFilterData, index: usize) -> bool;
-    fn matches_chunkset(&self, data: ChunksetFilterData, index: usize) -> bool;
-    fn matches_chunk(&self, data: ChunkFilterData, index: usize) -> bool;
+    fn matches_archetype(&self, data: ArchetypeFilterData, index: ArchetypeIndex) -> bool;
+    fn matches_chunkset(&self, data: ChunksetFilterData, index: SetIndex) -> bool;
+    fn matches_chunk(&self, data: ChunkFilterData, index: ChunkIndex) -> bool;
 }
 
 pub(crate) struct EventFilterWrapper<T: EntityFilter + Sync + 'static>(pub T);
 
 impl<T: EntityFilter + Sync + 'static> EventFilter for EventFilterWrapper<T> {
-    fn matches_archetype(&self, data: ArchetypeFilterData, index: usize) -> bool {
+    fn matches_archetype(
+        &self,
+        data: ArchetypeFilterData,
+        ArchetypeIndex(index): ArchetypeIndex,
+    ) -> bool {
         let (filter, _, _) = self.0.filters();
         if let Some(element) = filter.collect(data).nth(index) {
             return filter.is_match(&element).is_pass();
@@ -38,7 +45,7 @@ impl<T: EntityFilter + Sync + 'static> EventFilter for EventFilterWrapper<T> {
         false
     }
 
-    fn matches_chunkset(&self, data: ChunksetFilterData, index: usize) -> bool {
+    fn matches_chunkset(&self, data: ChunksetFilterData, SetIndex(index): SetIndex) -> bool {
         let (_, filter, _) = self.0.filters();
         if let Some(element) = filter.collect(data).nth(index) {
             return filter.is_match(&element).is_pass();
@@ -47,7 +54,7 @@ impl<T: EntityFilter + Sync + 'static> EventFilter for EventFilterWrapper<T> {
         false
     }
 
-    fn matches_chunk(&self, data: ChunkFilterData, index: usize) -> bool {
+    fn matches_chunk(&self, data: ChunkFilterData, ChunkIndex(index): ChunkIndex) -> bool {
         let (_, _, filter) = self.0.filters();
         if let Some(element) = filter.collect(data).nth(index) {
             return filter.is_match(&element).is_pass();
@@ -93,7 +100,7 @@ impl Subscribers {
         }
     }
 
-    pub fn matches_archetype(&self, data: ArchetypeFilterData, index: usize) -> Self {
+    pub fn matches_archetype(&self, data: ArchetypeFilterData, index: ArchetypeIndex) -> Self {
         let subscribers = self
             .subscribers
             .iter()
@@ -103,7 +110,7 @@ impl Subscribers {
         Self { subscribers }
     }
 
-    pub fn matches_chunkset(&self, data: ChunksetFilterData, index: usize) -> Self {
+    pub fn matches_chunkset(&self, data: ChunksetFilterData, index: SetIndex) -> Self {
         let subscribers = self
             .subscribers
             .iter()
@@ -113,7 +120,7 @@ impl Subscribers {
         Self { subscribers }
     }
 
-    pub fn matches_chunk(&self, data: ChunkFilterData, index: usize) -> Self {
+    pub fn matches_chunk(&self, data: ChunkFilterData, index: ChunkIndex) -> Self {
         let subscribers = self
             .subscribers
             .iter()

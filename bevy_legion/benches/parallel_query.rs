@@ -55,23 +55,27 @@ fn setup(data: &[Variants]) -> World {
         match i {
             0 => world.insert(
                 (),
-                group.map(|x| {
-                    if let Variants::AB(a, b) = x {
-                        (*a, *b)
-                    } else {
-                        panic!();
-                    }
-                }),
+                group
+                    .map(|x| {
+                        if let Variants::AB(a, b) = x {
+                            (*a, *b)
+                        } else {
+                            panic!();
+                        }
+                    })
+                    .collect::<Vec<_>>(),
             ),
             _ => world.insert(
                 (),
-                group.map(|x| {
-                    if let Variants::AC(a, c) = x {
-                        (*a, *c)
-                    } else {
-                        panic!();
-                    }
-                }),
+                group
+                    .map(|x| {
+                        if let Variants::AC(a, c) = x {
+                            (*a, *c)
+                        } else {
+                            panic!();
+                        }
+                    })
+                    .collect::<Vec<_>>(),
             ),
         };
     }

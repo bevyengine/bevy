@@ -1,31 +1,32 @@
-use crate::borrow::{AtomicRefCell, Ref, RefMut};
-use crate::command::CommandBuffer;
-use crate::cons::{ConsAppend, ConsFlatten};
-use crate::entity::Entity;
-use crate::filter::EntityFilter;
-use crate::query::ReadOnly;
-use crate::query::{ChunkDataIter, ChunkEntityIter, ChunkViewIter, Query, Read, View, Write};
-use crate::resource::{Resource, ResourceSet, ResourceTypeId};
+use crate::resource::{Resource, ResourceSet, ResourceTypeId, Resources};
 use crate::schedule::ArchetypeAccess;
 use crate::schedule::{Runnable, Schedulable};
-use crate::storage::Tag;
-use crate::storage::{Component, ComponentTypeId, TagTypeId};
-use crate::world::World;
 use bit_set::BitSet;
 use derivative::Derivative;
+use fxhash::FxHashMap;
+use legion_core::borrow::{AtomicRefCell, Ref, RefMut};
+use legion_core::command::CommandBuffer;
+use legion_core::cons::{ConsAppend, ConsFlatten};
+use legion_core::entity::Entity;
+use legion_core::filter::EntityFilter;
+use legion_core::index::ArchetypeIndex;
+use legion_core::query::ReadOnly;
+use legion_core::query::{ChunkDataIter, ChunkEntityIter, ChunkViewIter, Query, Read, View, Write};
+use legion_core::storage::Tag;
+use legion_core::storage::{Component, ComponentTypeId, TagTypeId};
+use legion_core::world::World;
+use legion_core::world::WorldId;
 use std::any::TypeId;
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use tracing::{debug, info, span, Level};
 
 #[cfg(feature = "par-iter")]
-use crate::filter::{ArchetypeFilterData, ChunkFilterData, ChunksetFilterData, Filter};
-
-#[cfg(feature = "par-iter")]
-use crate::iterator::FissileIterator;
-
-#[cfg(feature = "par-iter")]
-use crate::query::Chunk;
+use legion_core::{
+    filter::{ArchetypeFilterData, ChunkFilterData, ChunksetFilterData, Filter},
+    iterator::FissileIterator,
+    query::Chunk,
+};
 
 /// Structure used by `SystemAccess` for describing access to the provided `T`
 #[derive(Derivative, Debug, Clone)]
@@ -559,7 +560,7 @@ macro_rules! impl_queryset_tuple {
 
                     $(
                         let storage = world.storage();
-                        $ty.filter.iter_archetype_indexes(storage).for_each(|id| { bitset.insert(id); });
+                        $ty.filter.iter_archetype_indexes(storage).for_each(|ArchetypeIndex(id)| { bitset.insert(id); });
                     )*
                 }
                 unsafe fn prepare(&mut self) -> Self::Queries {
@@ -585,9 +586,11 @@ where
     type Queries = SystemQuery<AV, AF>;
     fn filter_archetypes(&mut self, world: &World, bitset: &mut BitSet) {
         let storage = world.storage();
-        self.filter.iter_archetype_indexes(storage).for_each(|id| {
-            bitset.insert(id);
-        });
+        self.filter
+            .iter_archetype_indexes(storage)
+            .for_each(|ArchetypeIndex(id)| {
+                bitset.insert(id);
+            });
     }
     unsafe fn prepare(&mut self) -> Self::Queries { SystemQuery::<AV, AF>::new(self) }
 }
@@ -652,9 +655,8 @@ impl SubWorld {
     fn validate_archetype_access(&self, entity: Entity) -> bool {
         unsafe {
             if let Some(archetypes) = self.archetypes {
-                if let Some(location) = (*self.world).entity_allocator.get_location(entity.index())
-                {
-                    return (*archetypes).contains(location.archetype());
+                if let Some(location) = (*self.world).get_entity_location(entity) {
+                    return (*archetypes).contains(*location.archetype());
                 }
             }
         }
@@ -806,7 +808,7 @@ where
     >,
 {
     name: SystemId,
-    resources: R,
+    _resources: PhantomData<R>,
     queries: AtomicRefCell<Q>,
     run_fn: AtomicRefCell<F>,
     archetypes: ArchetypeAccess,
@@ -816,7 +818,7 @@ where
     access: SystemAccess,
 
     // We pre-allocate a command buffer for ourself. Writes are self-draining so we never have to rellocate.
-    command_buffer: AtomicRefCell<CommandBuffer>,
+    command_buffer: FxHashMap<WorldId, AtomicRefCell<CommandBuffer>>,
 }
 
 impl<R, Q, F> Runnable for System<R, Q, F>
@@ -848,28 +850,29 @@ where
 
     fn accesses_archetypes(&self) -> &ArchetypeAccess { &self.archetypes }
 
-    fn command_buffer_mut(&self) -> RefMut<CommandBuffer> { self.command_buffer.get_mut() }
+    fn command_buffer_mut(&self, world: WorldId) -> Option<RefMut<CommandBuffer>> {
+        self.command_buffer.get(&world).map(|cmd| cmd.get_mut())
+    }
 
-    fn run(&self, world: &World) {
+    unsafe fn run_unsafe(&mut self, world: &World, resources: &Resources) {
         let span = span!(Level::INFO, "System", system = %self.name);
         let _guard = span.enter();
 
         debug!("Initializing");
-        let mut resources = unsafe { R::fetch_unchecked(&world.resources) };
+        let mut resources = R::fetch_unchecked(resources);
         let mut queries = self.queries.get_mut();
-        let mut prepared_queries = unsafe { queries.prepare() };
-        let mut world_shim =
-            unsafe { SubWorld::new(world, &self.access.components, &self.archetypes) };
-
-        // Give the command buffer a new entity block.
-        // This should usually just pull a free block, or allocate a new one...
-        // TODO: The BlockAllocator should *ensure* keeping at least 1 free block so this prevents an allocation
+        let mut prepared_queries = queries.prepare();
+        let mut world_shim = SubWorld::new(world, &self.access.components, &self.archetypes);
+        let cmd = self
+            .command_buffer
+            .entry(world.id())
+            .or_insert_with(|| AtomicRefCell::new(CommandBuffer::new(world)));
 
         info!("Running");
         use std::ops::DerefMut;
         let mut borrow = self.run_fn.get_mut();
         borrow.deref_mut().run(
-            &mut self.command_buffer.get_mut(),
+            &mut cmd.get_mut(),
             &mut world_shim,
             &mut resources,
             &mut prepared_queries,
@@ -924,7 +927,8 @@ where
 /// as singular closures for a given system - providing queries which should be cached for that
 /// system, as well as resource access and other metadata.
 /// ```rust
-/// # use legion::prelude::*;
+/// # use legion_core::prelude::*;
+/// # use legion_systems::prelude::*;
 /// # #[derive(Copy, Clone, Debug, PartialEq)]
 /// # struct Position;
 /// # #[derive(Copy, Clone, Debug, PartialEq)]
@@ -1119,7 +1123,7 @@ where
         Box::new(System {
             name: self.name,
             run_fn: AtomicRefCell::new(run_fn),
-            resources: self.resources.flatten(),
+            _resources: PhantomData::<<R as ConsFlatten>::Output>,
             queries: AtomicRefCell::new(self.queries.flatten()),
             archetypes: if self.access_all_archetypes {
                 ArchetypeAccess::All
@@ -1131,7 +1135,7 @@ where
                 components: self.component_access,
                 tags: Access::default(),
             },
-            command_buffer: AtomicRefCell::new(CommandBuffer::default()),
+            command_buffer: FxHashMap::default(),
         })
     }
 
@@ -1154,7 +1158,7 @@ where
         Box::new(System {
             name: self.name,
             run_fn: AtomicRefCell::new(run_fn),
-            resources: self.resources.flatten(),
+            _resources: PhantomData::<<R as ConsFlatten>::Output>,
             queries: AtomicRefCell::new(self.queries.flatten()),
             archetypes: if self.access_all_archetypes {
                 ArchetypeAccess::All
@@ -1166,7 +1170,7 @@ where
                 components: self.component_access,
                 tags: Access::default(),
             },
-            command_buffer: AtomicRefCell::new(CommandBuffer::default()),
+            command_buffer: FxHashMap::default(),
         })
     }
 }
@@ -1174,8 +1178,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
     use crate::schedule::*;
+    use legion_core::prelude::*;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
@@ -1206,8 +1210,10 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
-        world.resources.insert(TestResource(123));
-        world.resources.insert(TestResourceTwo(123));
+
+        let mut resources = Resources::default();
+        resources.insert(TestResource(123));
+        resources.insert(TestResourceTwo(123));
 
         let components = vec![
             (Pos(1., 2., 3.), Vel(0.1, 0.2, 0.3)),
@@ -1290,7 +1296,7 @@ mod tests {
         let systems = vec![system_one, system_two, system_three, system_four];
 
         let mut executor = Executor::new(systems);
-        executor.execute(&mut world);
+        executor.execute(&mut world, &mut resources);
 
         assert_eq!(*(runs.lock().unwrap()), order);
     }
@@ -1301,7 +1307,9 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
-        world.resources.insert(TestResource(123));
+
+        let mut resources = Resources::default();
+        resources.insert(TestResource(123));
 
         let components = vec![
             (Pos(1., 2., 3.), Vel(0.1, 0.2, 0.3)),
@@ -1333,7 +1341,7 @@ mod tests {
                 assert_eq!(components.len(), count);
             });
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -1342,7 +1350,9 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
-        world.resources.insert(TestResource(123));
+
+        let mut resources = Resources::default();
+        resources.insert(TestResource(123));
 
         let components = vec![
             (Pos(1., 2., 3.), Vel(0.1, 0.2, 0.3)),
@@ -1367,7 +1377,7 @@ mod tests {
             });
 
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -1376,6 +1386,7 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
+        let mut resources = Resources::default();
 
         #[derive(Default, Clone, Copy)]
         pub struct Balls(u32);
@@ -1410,14 +1421,14 @@ mod tests {
             });
 
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
 
         world
             .add_component(*(expected.keys().nth(0).unwrap()), Balls::default())
             .unwrap();
 
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -1426,6 +1437,7 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
+        let mut resources = Resources::default();
 
         #[derive(Default, Clone, Copy)]
         pub struct Balls(u32);
@@ -1461,12 +1473,15 @@ mod tests {
             });
 
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
 
-        system.command_buffer_mut().write(&mut world);
+        system
+            .command_buffer_mut(world.id())
+            .unwrap()
+            .write(&mut world);
 
         system.prepare(&world);
-        system.run(&world);
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
@@ -1480,7 +1495,9 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
-        world.resources.insert(AtomicRes::default());
+
+        let mut resources = Resources::default();
+        resources.insert(AtomicRes::default());
 
         let system1 = SystemBuilder::<()>::new("TestSystem1")
             .write_resource::<AtomicRes>()
@@ -1521,13 +1538,12 @@ mod tests {
         let mut executor = Executor::new(systems);
         pool.install(|| {
             for _ in 0..1000 {
-                executor.execute(&mut world);
+                executor.execute(&mut world, &mut resources);
             }
         });
 
         assert_eq!(
-            world
-                .resources
+            resources
                 .get::<AtomicRes>()
                 .unwrap()
                 .0
@@ -1548,7 +1564,9 @@ mod tests {
 
         let universe = Universe::new();
         let mut world = universe.create_world();
-        world.resources.insert(AtomicRes::default());
+
+        let mut resources = Resources::default();
+        resources.insert(AtomicRes::default());
 
         let system1 = SystemBuilder::<()>::new("TestSystem1")
             .read_resource::<AtomicRes>()
@@ -1589,7 +1607,7 @@ mod tests {
         let mut executor = Executor::new(systems);
         pool.install(|| {
             for _ in 0..1000 {
-                executor.execute(&mut world);
+                executor.execute(&mut world, &mut resources);
             }
         });
     }
@@ -1722,7 +1740,7 @@ mod tests {
         let mut executor = Executor::new(systems);
         pool.install(|| {
             for _ in 0..1000 {
-                executor.execute(&mut world);
+                executor.execute(&mut world, &mut Resources::default());
             }
         });
     }

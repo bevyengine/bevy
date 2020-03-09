@@ -225,41 +225,12 @@
 //!  * `par-schedule`: Configures system schedulers to try and run systems in parallel where possible (enabled by default).
 //!  * `log`: Configures `tracing` to redirect events to the `log` crate. This is a convenience feature for applications
 //!  that use `log` and do not wish to interact with `tracing`.
-//!  * `events`: Enables eventing APIs on worlds (enabled by default).
 #![allow(dead_code)]
 
-pub mod borrow;
-pub mod command;
-#[cfg(feature = "serde-1")]
-pub mod de;
-pub mod entity;
-pub mod event;
-pub mod filter;
-pub mod iterator;
-pub mod query;
-pub mod resource;
-pub mod schedule;
-#[cfg(feature = "serde-1")]
-pub mod ser;
-pub mod storage;
-pub mod system;
-pub mod world;
-
-mod cons;
-mod tuple;
-mod zip;
-
-pub use bit_set;
+pub use legion_core::*;
+pub use legion_systems as systems;
 
 pub mod prelude {
-    pub use crate::command::CommandBuffer;
-    pub use crate::entity::Entity;
-    pub use crate::event::Event;
-    pub use crate::filter::filter_fns::*;
-    pub use crate::query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write};
-    pub use crate::resource::{ResourceSet, Resources};
-    pub use crate::schedule::{Executor, Runnable, Schedulable, Schedule};
-    pub use crate::system::{System, SystemBuilder};
-    pub use crate::world::{Universe, World};
-    pub use bit_set::BitSet;
+    pub use legion_core::prelude::*;
+    pub use legion_systems::prelude::*;
 }

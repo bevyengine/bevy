@@ -6,8 +6,7 @@ edition = "2018"
 
 [dependencies]
 # Modified to use std::any::type_name instead of std::any::TypeId
-# legion = { path = "bevy_legion", features = ["serde-1"] }
-legion = { git = "https://github.com/TomGillen/legion", rev = "c5b9628630d4f9fc54b6843b5ce02d0669434a61", features = ["serialize"] }
+legion = { path = "bevy_legion", features = ["serialize"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "a7b0d5ae5bc0934439ef559ed145e93f0117c39a"}
 glam = "0.8.4"
 winit = "0.21.0"

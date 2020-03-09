@@ -1,5 +1,6 @@
 use crate::{
     entity::{Entity, EntityAllocator},
+    index::{ArchetypeIndex, ChunkIndex, SetIndex},
     storage::{
         ArchetypeData, ArchetypeDescription, Chunkset, ComponentMeta, ComponentTypeId, TagMeta,
         TagStorage, TagTypeId,
@@ -246,7 +247,7 @@ struct ArchetypeDescriptionDeserialize<'a, 'b, WD: WorldDeserializer> {
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
     for ArchetypeDescriptionDeserialize<'a, 'b, WD>
 {
-    type Value = usize;
+    type Value = ArchetypeIndex;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, <D as Deserializer<'de>>::Error>
     where
@@ -262,6 +263,7 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
             .archetypes()
             .iter()
             .position(|a| a.description() == &archetype_desc)
+            .map(ArchetypeIndex)
             .unwrap_or_else(|| {
                 let (idx, _) = storage.alloc_archetype(archetype_desc);
                 idx
@@ -269,7 +271,7 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
     }
 }
 
-type ChunkSetMapping = HashMap<usize, usize>;
+type ChunkSetMapping = HashMap<usize, SetIndex>;
 
 struct TagsDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
@@ -306,11 +308,11 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for TagsDeserializ
             world_tag_storages
         };
 
-        let num_world_values = world_tag_storages.iter().map(|ts| ts.len()).nth(0);
+        let num_world_values = world_tag_storages.iter().map(|ts| ts.len()).next();
         let num_tag_values = deserialized_tags
             .iter()
             .map(|ts| ts.len())
-            .nth(0)
+            .next()
             .unwrap_or(0);
         let mut chunksets_to_add = Vec::new();
         for i in 0..num_tag_values {
@@ -344,7 +346,7 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for TagsDeserializ
             // All temporary TagStorages in `deserialized_tags` will be forgotten later
             // because we move data into World when allocating a new chunkset
             if let Some(world_idx) = matching_idx {
-                chunkset_map.insert(i, world_idx);
+                chunkset_map.insert(i, SetIndex(world_idx));
                 for tag_idx in 0..tag_types.len() {
                     unsafe {
                         let (_, tag_meta) = tag_types[tag_idx];
@@ -438,7 +440,7 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
 struct ChunkSetDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
     world: &'a mut World,
-    archetype_idx: usize,
+    archetype_idx: ArchetypeIndex,
     chunkset_map: &'a ChunkSetMapping,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for ChunkSetDeserializer<'a, 'b, WD> {
@@ -483,8 +485,8 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> Visitor<'de> for ChunkSetDeserializer<'
 struct ChunkListDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
     world: &'a mut World,
-    archetype_idx: usize,
-    chunkset_idx: Option<usize>,
+    archetype_idx: ArchetypeIndex,
+    chunkset_idx: Option<SetIndex>,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
     for ChunkListDeserializer<'a, 'b, WD>
@@ -535,8 +537,8 @@ enum ChunkField {
 struct ChunkDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
     world: &'a mut World,
-    archetype_idx: usize,
-    chunkset_idx: usize,
+    archetype_idx: ArchetypeIndex,
+    chunkset_idx: SetIndex,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for ChunkDeserializer<'a, 'b, WD> {
     type Value = ();
@@ -612,11 +614,11 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> Visitor<'de> for ChunkDeserializer<'a, 
 struct EntitiesDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
     world: &'a mut World,
-    archetype_idx: usize,
-    chunkset_idx: usize,
+    archetype_idx: ArchetypeIndex,
+    chunkset_idx: SetIndex,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for EntitiesDeserializer<'a, 'b, WD> {
-    type Value = Vec<(usize, usize)>;
+    type Value = Vec<(ChunkIndex, usize)>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, <D as Deserializer<'de>>::Error>
     where
@@ -657,9 +659,9 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de> for EntitiesDeseri
 struct ComponentsDeserializer<'a, 'b, WD: WorldDeserializer> {
     user: &'b WD,
     world: &'a mut World,
-    archetype_idx: usize,
-    chunkset_idx: usize,
-    chunk_ranges: &'a Vec<(usize, usize)>,
+    archetype_idx: ArchetypeIndex,
+    chunkset_idx: SetIndex,
+    chunk_ranges: &'a Vec<(ChunkIndex, usize)>,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
     for ComponentsDeserializer<'a, 'b, WD>
@@ -711,7 +713,7 @@ struct ComponentDataDeserializer<'a, 'b, WD: WorldDeserializer> {
     comp_type: &'a ComponentTypeId,
     comp_meta: &'a ComponentMeta,
     chunkset: &'a mut Chunkset,
-    chunk_ranges: &'a Vec<(usize, usize)>,
+    chunk_ranges: &'a Vec<(ChunkIndex, usize)>,
 }
 impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
     for ComponentDataDeserializer<'a, 'b, WD>
@@ -728,19 +730,16 @@ impl<'de, 'a, 'b, WD: WorldDeserializer> DeserializeSeed<'de>
             self.comp_type,
             self.comp_meta,
             &mut || -> Option<(NonNull<u8>, usize)> {
-                self.chunk_ranges.get(range_idx).map(|chunk_range| {
+                self.chunk_ranges.get(range_idx).map(|&(chunk, size)| {
                     range_idx += 1;
-                    let chunk = &mut self.chunkset[chunk_range.0];
+                    let chunk = &mut self.chunkset[chunk];
                     unsafe {
                         let comp_storage = (&mut *chunk.writer().get().1.get())
                             .get_mut(*self.comp_type)
                             .expect(
                                 "expected ComponentResourceSet when deserializing component data",
                             );
-                        (
-                            comp_storage.writer().reserve_raw(chunk_range.1),
-                            chunk_range.1,
-                        )
+                        (comp_storage.writer().reserve_raw(size), size)
                     }
                 })
             },
