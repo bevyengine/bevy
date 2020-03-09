@@ -42,7 +42,9 @@ impl ResourceProvider for LightResourceProvider {
             light_uniform_size,
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::COPY_DST,
         );
-        renderer.get_render_resources_mut().set_named_resource(resource_name::uniform::LIGHTS, buffer);
+        renderer
+            .get_render_resources_mut()
+            .set_named_resource(resource_name::uniform::LIGHTS, buffer);
         self.light_buffer = Some(buffer);
     }
 

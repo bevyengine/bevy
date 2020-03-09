@@ -99,8 +99,7 @@ impl Hash for BindGroup {
 
 impl PartialEq for BindGroup {
     fn eq(&self, other: &BindGroup) -> bool {
-        self.index == other.index &&
-        self.bindings == other.bindings
+        self.index == other.index && self.bindings == other.bindings
     }
 }
 
@@ -292,6 +291,6 @@ impl From<&Texture> for SamplerDescriptor {
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
             compare_function: wgpu::CompareFunction::Always,
-        }       
+        }
     }
 }

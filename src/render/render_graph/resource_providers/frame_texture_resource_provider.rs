@@ -22,12 +22,17 @@ impl FrameTextureResourceProvider {
         self.descriptor.size.width = window_size.width;
         self.descriptor.size.height = window_size.height;
 
-        if let Some(old_resource) = renderer.get_render_resources().get_named_resource(&self.name) {
+        if let Some(old_resource) = renderer
+            .get_render_resources()
+            .get_named_resource(&self.name)
+        {
             renderer.remove_texture(old_resource);
         }
 
         let texture_resource = renderer.create_texture(&self.descriptor, None);
-        renderer.get_render_resources_mut().set_named_resource(&self.name, texture_resource);
+        renderer
+            .get_render_resources_mut()
+            .set_named_resource(&self.name, texture_resource);
     }
 }
 

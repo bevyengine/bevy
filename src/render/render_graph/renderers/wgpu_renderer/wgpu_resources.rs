@@ -1,11 +1,8 @@
 use crate::{
     legion::prelude::*,
-    render::{
-        render_graph::{
-            BindGroup, BindType,
-            DynamicUniformBufferInfo, RenderResource, RenderResources,
-            ResourceInfo, SamplerDescriptor, TextureDescriptor,
-        },
+    render::render_graph::{
+        BindGroup, BindType, DynamicUniformBufferInfo, RenderResource, RenderResources,
+        ResourceInfo, SamplerDescriptor, TextureDescriptor,
     },
 };
 use std::{borrow::Cow, collections::HashMap};
@@ -152,7 +149,12 @@ impl WgpuResources {
         self.entity_bind_groups.get(&(entity, bind_group_id))
     }
 
-    pub fn create_entity_bind_group(&mut self, device: &wgpu::Device, bind_group: &BindGroup, entity: Entity) {
+    pub fn create_entity_bind_group(
+        &mut self,
+        device: &wgpu::Device,
+        bind_group: &BindGroup,
+        entity: Entity,
+    ) {
         // TODO: don't make this per-entity. bind groups should be re-used across the same resource when possible
         let bind_group_id = bind_group.get_hash().unwrap();
         let bindings = bind_group
@@ -208,7 +210,12 @@ impl WgpuResources {
         );
     }
 
-    pub fn create_buffer(&mut self, device: &wgpu::Device, size: u64, buffer_usage: wgpu::BufferUsage) -> RenderResource {
+    pub fn create_buffer(
+        &mut self,
+        device: &wgpu::Device,
+        size: u64,
+        buffer_usage: wgpu::BufferUsage,
+    ) -> RenderResource {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size,
             usage: buffer_usage,
@@ -364,7 +371,11 @@ impl WgpuResources {
         self.dynamic_uniform_buffer_info.insert(resource, info);
     }
 
-    pub fn create_sampler(&mut self, device: &wgpu::Device, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
+    pub fn create_sampler(
+        &mut self,
+        device: &wgpu::Device,
+        sampler_descriptor: &SamplerDescriptor,
+    ) -> RenderResource {
         let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).into();
         let sampler = device.create_sampler(&descriptor);
         let resource = self.render_resources.get_next_resource();
@@ -384,8 +395,7 @@ impl WgpuResources {
         let texture = device.create_texture(&descriptor);
         let texture_view = texture.create_default_view();
         if let Some(bytes) = bytes {
-            let temp_buf = device
-                .create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
+            let temp_buf = device.create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
             encoder.copy_buffer_to_texture(
                 wgpu::BufferCopyView {
                     buffer: &temp_buf,

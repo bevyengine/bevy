@@ -12,7 +12,9 @@ fn setup(world: &mut World) {
 
     let texture_handle = {
         let mut texture_storage = world.resources.get_mut::<AssetStorage<Texture>>().unwrap();
-        let texture = Texture::load(TextureType::Png(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/temp_bevy_logo.png").to_string()));
+        let texture = Texture::load(TextureType::Png(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/assets/temp_bevy_logo.png").to_string(),
+        ));
         texture_storage.add(texture)
     };
 

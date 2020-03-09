@@ -1,4 +1,4 @@
-use crate::asset::{Handle, Texture, Mesh};
+use crate::asset::{Handle, Mesh, Texture};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]
@@ -49,7 +49,11 @@ impl RenderResources {
         self.mesh_to_indices_resource.get(&mesh).cloned()
     }
 
-    pub fn set_texture_sampler_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
+    pub fn set_texture_sampler_resource(
+        &mut self,
+        texture: Handle<Texture>,
+        resource: RenderResource,
+    ) {
         self.texture_to_sampler_resource.insert(texture, resource);
     }
 

@@ -1,4 +1,7 @@
-use crate::{asset::{Handle, Texture}, render::render_graph::{uniform::AsUniforms, FieldBindType, FieldUniformName}};
+use crate::{
+    asset::{Handle, Texture},
+    render::render_graph::{uniform::AsUniforms, FieldBindType, FieldUniformName},
+};
 
 use zerocopy::AsBytes;
 

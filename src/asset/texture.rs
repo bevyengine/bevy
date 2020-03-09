@@ -1,9 +1,12 @@
-use crate::{render::render_graph::{TextureDimension, TextureDescriptor}, asset::Asset};
+use crate::{
+    asset::Asset,
+    render::render_graph::{TextureDescriptor, TextureDimension},
+};
 use std::fs::File;
 
 pub enum TextureType {
     Data(Vec<u8>, usize, usize),
-    Png(String) // TODO: please rethink this
+    Png(String), // TODO: please rethink this
 }
 
 pub struct Texture {
@@ -25,13 +28,17 @@ impl Asset<TextureType> for Texture {
             }
         };
 
-        Texture { data, width, height }
+        Texture {
+            data,
+            width,
+            height,
+        }
     }
 }
 
 impl From<&Texture> for TextureDescriptor {
     fn from(texture: &Texture) -> Self {
-       TextureDescriptor {
+        TextureDescriptor {
             size: wgpu::Extent3d {
                 height: texture.height as u32,
                 width: texture.width as u32,
@@ -43,9 +50,8 @@ impl From<&Texture> for TextureDescriptor {
             dimension: TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-       } 
+        }
     }
-    
 }
 
 pub fn create_texels(size: usize) -> Vec<u8> {

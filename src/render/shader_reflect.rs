@@ -71,14 +71,20 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
 fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
     let type_description = binding.type_description.as_ref().unwrap();
     let (name, bind_type) = match binding.descriptor_type {
-        ReflectDescriptorType::UniformBuffer => (&type_description.type_name, BindType::Uniform {
-            dynamic: false,
-            properties: vec![reflect_uniform(type_description)],
-        }),
-        ReflectDescriptorType::SampledImage => (&binding.name, BindType::SampledTexture {
-            dimension: reflect_dimension(type_description),
-            multisampled: false,
-        }),
+        ReflectDescriptorType::UniformBuffer => (
+            &type_description.type_name,
+            BindType::Uniform {
+                dynamic: false,
+                properties: vec![reflect_uniform(type_description)],
+            },
+        ),
+        ReflectDescriptorType::SampledImage => (
+            &binding.name,
+            BindType::SampledTexture {
+                dimension: reflect_dimension(type_description),
+                multisampled: false,
+            },
+        ),
         ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler),
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };

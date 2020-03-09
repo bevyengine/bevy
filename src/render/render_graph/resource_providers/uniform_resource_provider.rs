@@ -2,11 +2,16 @@ use crate::{
     asset::{AssetStorage, Texture},
     render::render_graph::{
         render_resource::RenderResource, AsUniforms, BindType, DynamicUniformBufferInfo,
-        Renderable, Renderer, ResourceProvider, TextureDescriptor, UniformInfoIter, SamplerDescriptor,
+        Renderable, Renderer, ResourceProvider, SamplerDescriptor, TextureDescriptor,
+        UniformInfoIter,
     },
 };
 use legion::prelude::*;
-use std::{marker::PhantomData, ops::Deref, collections::{HashSet, HashMap}};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+    ops::Deref,
+};
 
 pub struct UniformResourceProvider<T>
 where
@@ -14,7 +19,8 @@ where
 {
     _marker: PhantomData<T>,
     // PERF: somehow remove this HashSet
-    uniform_buffer_info_resources: HashMap<String, (Option<RenderResource>, usize, HashSet<Entity>)>,
+    uniform_buffer_info_resources:
+        HashMap<String, (Option<RenderResource>, usize, HashSet<Entity>)>,
 }
 
 impl<T> UniformResourceProvider<T>
@@ -63,7 +69,10 @@ where
                                 .insert(uniform_info.name.to_string(), (None, 0, HashSet::new()));
                         }
 
-                        let (_resource, counts, entities) = self.uniform_buffer_info_resources.get_mut(uniform_info.name).unwrap();
+                        let (_resource, counts, entities) = self
+                            .uniform_buffer_info_resources
+                            .get_mut(uniform_info.name)
+                            .unwrap();
                         entities.insert(entity);
                         *counts += 1;
                     }
@@ -72,13 +81,18 @@ where
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
                         let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
-                        let resource = match renderer.get_render_resources().get_texture_resource(texture_handle) {
+                        let resource = match renderer
+                            .get_render_resources()
+                            .get_texture_resource(texture_handle)
+                        {
                             Some(resource) => resource,
                             None => {
                                 let descriptor: TextureDescriptor = texture.into();
                                 let resource =
                                     renderer.create_texture(&descriptor, Some(&texture.data));
-                                renderer.get_render_resources_mut().set_texture_resource(texture_handle, resource);
+                                renderer
+                                    .get_render_resources_mut()
+                                    .set_texture_resource(texture_handle, resource);
                                 resource
                             }
                         };
@@ -90,13 +104,17 @@ where
                             uniforms.get_uniform_texture(&uniform_info.name).unwrap();
                         let storage = world.resources.get::<AssetStorage<Texture>>().unwrap();
                         let texture = storage.get(&texture_handle).unwrap();
-                        let resource = match renderer.get_render_resources().get_texture_sampler_resource(texture_handle) {
+                        let resource = match renderer
+                            .get_render_resources()
+                            .get_texture_sampler_resource(texture_handle)
+                        {
                             Some(resource) => resource,
                             None => {
                                 let descriptor: SamplerDescriptor = texture.into();
-                                let resource =
-                                    renderer.create_sampler(&descriptor);
-                                renderer.get_render_resources_mut().set_texture_sampler_resource(texture_handle, resource);
+                                let resource = renderer.create_sampler(&descriptor);
+                                renderer
+                                    .get_render_resources_mut()
+                                    .set_texture_sampler_resource(texture_handle, resource);
                                 resource
                             }
                         };
@@ -135,7 +153,9 @@ where
             info.capacity = capacity;
             renderer.add_dynamic_uniform_buffer_info(created_resource, info);
             *resource = Some(created_resource);
-            renderer.get_render_resources_mut().set_named_resource(name, created_resource);
+            renderer
+                .get_render_resources_mut()
+                .set_named_resource(name, created_resource);
         }
 
         // copy entity uniform data to buffers
@@ -153,7 +173,7 @@ where
                 .unwrap();
             for (entity, _) in query.iter_entities(world) {
                 if !entities.contains(&entity) {
-                   continue; 
+                    continue;
                 }
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
@@ -171,7 +191,7 @@ where
                     let mut offset = 0usize;
                     for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
                         if !entities.contains(&entity) {
-                            continue; 
+                            continue;
                         }
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed

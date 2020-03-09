@@ -170,10 +170,8 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                             let macroed_pipeline_handle =
                                 pipeline_descriptor_storage.add(macroed_pipeline);
                             // TODO: get correct pass name
-                            render_graph.add_pipeline(
-                                resource_name::pass::MAIN,
-                                macroed_pipeline_handle,
-                            );
+                            render_graph
+                                .add_pipeline(resource_name::pass::MAIN, macroed_pipeline_handle);
                             macroed_pipeline_handle
                         } else {
                             *pipeline_handle
@@ -184,10 +182,7 @@ pub fn update_shader_assignments(world: &mut World, render_graph: &mut RenderGra
                         .pipeline_to_macro_pipelines
                         .get_mut(pipeline_handle)
                         .unwrap();
-                    macro_pipelines.push((
-                        renderable.shader_defs.clone(),
-                        macroed_pipeline_handle,
-                    ));
+                    macro_pipelines.push((renderable.shader_defs.clone(), macroed_pipeline_handle));
                     macroed_pipeline_handle
                 };
 

@@ -1,21 +1,19 @@
+use super::WgpuRenderPass;
 use crate::{
     asset::{AssetStorage, Handle},
     legion::prelude::*,
     render::{
         render_graph::{
-            resource_name, update_shader_assignments, BindType,
-            DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, PipelineLayout,
+            renderers::wgpu_renderer::WgpuResources, resource_name, update_shader_assignments,
+            BindType, DynamicUniformBufferInfo, PassDescriptor, PipelineDescriptor, PipelineLayout,
             PipelineLayoutType, RenderGraph, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor, RenderResource, RenderResources, Renderer,
             ResourceInfo, SamplerDescriptor, TextureDescriptor,
-            renderers::wgpu_renderer::WgpuResources,
         },
         Shader,
     },
 };
 use std::{collections::HashMap, ops::Deref};
-use super::WgpuRenderPass;
-
 
 pub struct WgpuRenderer {
     pub device: wgpu::Device,
@@ -201,10 +199,9 @@ impl WgpuRenderer {
                 .iter()
                 .map(|c| Self::create_wgpu_color_attachment_descriptor(wgpu_resources, c, frame))
                 .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
-            depth_stencil_attachment: pass_descriptor
-                .depth_stencil_attachment
-                .as_ref()
-                .map(|d| Self::create_wgpu_depth_stencil_attachment_descriptor(wgpu_resources, d, frame)),
+            depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
+                Self::create_wgpu_depth_stencil_attachment_descriptor(wgpu_resources, d, frame)
+            }),
         })
     }
 
@@ -232,7 +229,10 @@ impl WgpuRenderer {
         let resolve_target = match color_attachment_descriptor.resolve_target {
             Some(ref target) => match target.as_str() {
                 resource_name::texture::SWAP_CHAIN => Some(&frame.view),
-                _ => match wgpu_resources.render_resources.get_named_resource(target.as_str()) {
+                _ => match wgpu_resources
+                    .render_resources
+                    .get_named_resource(target.as_str())
+                {
                     Some(resource) => Some(wgpu_resources.textures.get(&resource).unwrap()),
                     None => panic!(
                         "Color attachment {} does not exist",
@@ -284,7 +284,6 @@ impl WgpuRenderer {
         }
     }
 
-
     pub fn create_shader_module(
         device: &wgpu::Device,
         shader: &Shader,
@@ -310,7 +309,6 @@ impl WgpuRenderer {
         let command_buffer = self.encoder.take().unwrap().finish();
         self.queue.submit(&[command_buffer]);
     }
-
 }
 
 impl Renderer for WgpuRenderer {
@@ -373,7 +371,9 @@ impl Renderer for WgpuRenderer {
 
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             let resource = self.create_texture(&texture_descriptor, None);
-            self.wgpu_resources.render_resources.set_named_resource(&name, resource);
+            self.wgpu_resources
+                .render_resources
+                .set_named_resource(&name, resource);
         }
 
         let mut encoder = self.encoder.take().unwrap();
@@ -425,13 +425,33 @@ impl Renderer for WgpuRenderer {
             // create bind groups
             let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
             for bind_group in pipeline_layout.bind_groups.iter() {
-                self.wgpu_resources.setup_bind_group(&self.device, bind_group);
+                self.wgpu_resources
+                    .setup_bind_group(&self.device, bind_group);
             }
         }
 
+        // setup draw targets
+        for (pass_name, _pass_descriptor) in render_graph.pass_descriptors.iter() {
+            if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
+                for pass_pipeline in pass_pipelines.iter() {
+                    let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
+                    for draw_target_name in pipeline_descriptor.draw_targets.iter() {
+                        let draw_target =
+                            render_graph.draw_targets.get_mut(draw_target_name).unwrap();
+                        draw_target.setup(world, self, *pass_pipeline);
+                    }
+                }
+            }
+        }
+
+        // begin render passes
         for (pass_name, pass_descriptor) in render_graph.pass_descriptors.iter() {
-            // run passes
-            let mut render_pass = Self::create_render_pass(&self.wgpu_resources, pass_descriptor, &mut encoder, &frame);
+            let mut render_pass = Self::create_render_pass(
+                &self.wgpu_resources,
+                pass_descriptor,
+                &mut encoder,
+                &frame,
+            );
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
                     let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
@@ -442,12 +462,12 @@ impl Renderer for WgpuRenderer {
                         render_pass: &mut render_pass,
                         pipeline_descriptor,
                         wgpu_resources: &self.wgpu_resources,
-                        renderer: &self
+                        renderer: &self,
                     };
 
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
                         let draw_target = render_graph.draw_targets.get(draw_target_name).unwrap();
-                        draw_target(world, &mut wgpu_render_pass, *pass_pipeline);
+                        draw_target.draw(world, &mut wgpu_render_pass, *pass_pipeline);
                     }
                 }
             }
@@ -462,11 +482,13 @@ impl Renderer for WgpuRenderer {
         data: &[u8],
         buffer_usage: wgpu::BufferUsage,
     ) -> RenderResource {
-        self.wgpu_resources.create_buffer_with_data(&self.device, data, buffer_usage)
+        self.wgpu_resources
+            .create_buffer_with_data(&self.device, data, buffer_usage)
     }
 
     fn create_buffer(&mut self, size: u64, buffer_usage: wgpu::BufferUsage) -> RenderResource {
-        self.wgpu_resources.create_buffer(&self.device, size, buffer_usage)
+        self.wgpu_resources
+            .create_buffer(&self.device, size, buffer_usage)
     }
 
     fn create_instance_buffer(
@@ -476,7 +498,8 @@ impl Renderer for WgpuRenderer {
         count: usize,
         buffer_usage: wgpu::BufferUsage,
     ) -> RenderResource {
-        self.wgpu_resources.create_instance_buffer(&self.device, mesh_id, size, count, buffer_usage)
+        self.wgpu_resources
+            .create_instance_buffer(&self.device, mesh_id, size, count, buffer_usage)
     }
 
     fn create_instance_buffer_with_data(
@@ -487,7 +510,14 @@ impl Renderer for WgpuRenderer {
         count: usize,
         buffer_usage: wgpu::BufferUsage,
     ) -> RenderResource {
-        self.wgpu_resources.create_instance_buffer_with_data(&self.device, mesh_id, data, size, count, buffer_usage)
+        self.wgpu_resources.create_instance_buffer_with_data(
+            &self.device,
+            mesh_id,
+            data,
+            size,
+            count,
+            buffer_usage,
+        )
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -504,7 +534,8 @@ impl Renderer for WgpuRenderer {
         buffer_usage: wgpu::BufferUsage,
         setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        self.wgpu_resources.create_buffer_mapped(&self.device, size, buffer_usage, setup_data)
+        self.wgpu_resources
+            .create_buffer_mapped(&self.device, size, buffer_usage, setup_data)
     }
 
     fn copy_buffer_to_buffer(
@@ -515,21 +546,30 @@ impl Renderer for WgpuRenderer {
         destination_offset: u64,
         size: u64,
     ) {
-        self.wgpu_resources.copy_buffer_to_buffer(self.encoder.as_mut().unwrap(), source_buffer, source_offset, destination_buffer, destination_offset, size);
+        self.wgpu_resources.copy_buffer_to_buffer(
+            self.encoder.as_mut().unwrap(),
+            source_buffer,
+            source_offset,
+            destination_buffer,
+            destination_offset,
+            size,
+        );
     }
 
     fn get_dynamic_uniform_buffer_info(
         &self,
         resource: RenderResource,
     ) -> Option<&DynamicUniformBufferInfo> {
-        self.wgpu_resources.get_dynamic_uniform_buffer_info(resource)
+        self.wgpu_resources
+            .get_dynamic_uniform_buffer_info(resource)
     }
 
     fn get_dynamic_uniform_buffer_info_mut(
         &mut self,
         resource: RenderResource,
     ) -> Option<&mut DynamicUniformBufferInfo> {
-        self.wgpu_resources.get_dynamic_uniform_buffer_info_mut(resource)
+        self.wgpu_resources
+            .get_dynamic_uniform_buffer_info_mut(resource)
     }
 
     fn add_dynamic_uniform_buffer_info(
@@ -537,11 +577,13 @@ impl Renderer for WgpuRenderer {
         resource: RenderResource,
         info: DynamicUniformBufferInfo,
     ) {
-        self.wgpu_resources.add_dynamic_uniform_buffer_info(resource, info);
+        self.wgpu_resources
+            .add_dynamic_uniform_buffer_info(resource, info);
     }
 
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
-        self.wgpu_resources.create_sampler(&self.device, sampler_descriptor)
+        self.wgpu_resources
+            .create_sampler(&self.device, sampler_descriptor)
     }
 
     fn create_texture(
@@ -549,7 +591,12 @@ impl Renderer for WgpuRenderer {
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
     ) -> RenderResource {
-        self.wgpu_resources.create_texture(&self.device, self.encoder.as_mut().unwrap(), texture_descriptor, bytes)
+        self.wgpu_resources.create_texture(
+            &self.device,
+            self.encoder.as_mut().unwrap(),
+            texture_descriptor,
+            bytes,
+        )
     }
 
     fn remove_texture(&mut self, resource: RenderResource) {
@@ -574,14 +621,37 @@ impl Renderer for WgpuRenderer {
         uniform_name: &str,
         resource: RenderResource,
     ) {
-        self.wgpu_resources.set_entity_uniform_resource(entity, uniform_name, resource)
+        self.wgpu_resources
+            .set_entity_uniform_resource(entity, uniform_name, resource)
     }
     fn get_entity_uniform_resource(
         &self,
         entity: Entity,
         uniform_name: &str,
     ) -> Option<RenderResource> {
-        self.wgpu_resources.get_entity_uniform_resource(entity, uniform_name)
+        self.wgpu_resources
+            .get_entity_uniform_resource(entity, uniform_name)
+    }
+
+    fn setup_entity_bind_groups(
+        &mut self,
+        entity: Entity,
+        pipeline_descriptor: &PipelineDescriptor,
+    ) {
+        let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
+        for bind_group in pipeline_layout.bind_groups.iter() {
+            let bind_group_id = bind_group.get_hash().unwrap();
+            // only setup entity bind groups if there isn't already a "global" bind group created
+            if let None = self.wgpu_resources.bind_groups.get(&bind_group_id) {
+                if let None = self
+                    .wgpu_resources
+                    .get_entity_bind_group(entity, bind_group_id)
+                {
+                    self.wgpu_resources
+                        .create_entity_bind_group(&self.device, bind_group, entity);
+                }
+            }
+        }
     }
 }
 

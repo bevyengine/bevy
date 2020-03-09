@@ -19,7 +19,9 @@ impl ResourceProvider for CameraResourceProvider {
             wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
         );
 
-        renderer.get_render_resources_mut().set_named_resource(resource_name::uniform::CAMERA, buffer);
+        renderer
+            .get_render_resources_mut()
+            .set_named_resource(resource_name::uniform::CAMERA, buffer);
         self.camera_buffer = Some(buffer);
     }
 

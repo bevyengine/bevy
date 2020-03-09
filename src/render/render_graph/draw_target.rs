@@ -1,3 +1,4 @@
+use super::Renderer;
 use crate::{
     asset::Handle,
     render::render_graph::{pipeline::PipelineDescriptor, RenderPass},
@@ -12,3 +13,19 @@ pub type DrawTarget = fn(
     render_pass: &mut dyn RenderPass,
     pipeline_handle: Handle<PipelineDescriptor>,
 );
+
+pub trait NewDrawTarget {
+    fn draw(
+        &self,
+        world: &World,
+        render_pass: &mut dyn RenderPass,
+        pipeline_handle: Handle<PipelineDescriptor>,
+    );
+    fn setup(
+        &mut self,
+        world: &World,
+        renderer: &mut dyn Renderer,
+        pipeline_handle: Handle<PipelineDescriptor>,
+    );
+    fn get_name(&self) -> String;
+}

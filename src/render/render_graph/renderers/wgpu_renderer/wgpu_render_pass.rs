@@ -1,5 +1,7 @@
 use super::{WgpuRenderer, WgpuResources};
-use crate::render::render_graph::{RenderPass, PipelineDescriptor, Renderer, RenderResource, BindType};
+use crate::render::render_graph::{
+    BindType, PipelineDescriptor, RenderPass, RenderResource, Renderer,
+};
 use legion::prelude::Entity;
 
 pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
@@ -39,7 +41,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .draw_indexed(indices, base_vertex, instances);
     }
 
-    fn setup_bind_groups(&mut self, entity: Option<&Entity>) {
+    fn set_bind_groups(&mut self, entity: Option<&Entity>) {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
@@ -49,14 +51,6 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 // otherwise try to get an entity-specific bind group
                 None => {
                     if let Some(entity) = entity {
-                        if let None = self
-                            .wgpu_resources
-                            .get_entity_bind_group(*entity, bind_group_id)
-                        {
-                            // TODO: Uncomment this
-                            // self.wgpu_resources.create_entity_bind_group(&self.renderer.device, bind_group, *entity);
-                        }
-
                         self.wgpu_resources
                             .get_entity_bind_group(*entity, bind_group_id)
                             .unwrap()

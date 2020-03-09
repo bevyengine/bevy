@@ -7,8 +7,8 @@ use crate::{
     render::{
         render_graph::{
             draw_targets::*, passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer,
-            resource_name, resource_providers::*, CompiledShaderMap, PipelineDescriptor,
-            RenderGraphBuilder, Renderer, ShaderPipelineAssignments, StandardMaterial,
+            resource_providers::*, CompiledShaderMap, PipelineDescriptor, RenderGraphBuilder,
+            Renderer, ShaderPipelineAssignments, StandardMaterial,
         },
         *,
     },
@@ -140,12 +140,9 @@ impl AppBuilder {
     pub fn add_render_graph_defaults(self) -> Self {
         self.setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
-                .add_draw_target(resource_name::draw_target::MESHES, meshes_draw_target)
-                .add_draw_target(
-                    resource_name::draw_target::ASSIGNED_MESHES,
-                    assigned_meshes_draw_target,
-                )
-                .add_draw_target(resource_name::draw_target::UI, ui_draw_target)
+                .add_draw_target(MeshesDrawTarget::default())
+                .add_draw_target(AssignedMeshesDrawTarget::default())
+                .add_draw_target(UiDrawTarget::default())
                 .add_resource_provider(Box::new(CameraResourceProvider::default()))
                 .add_resource_provider(Box::new(Camera2dResourceProvider::default()))
                 .add_resource_provider(Box::new(LightResourceProvider::new(10)))
