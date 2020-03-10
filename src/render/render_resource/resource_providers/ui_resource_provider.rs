@@ -113,14 +113,4 @@ impl ResourceProvider for UiResourceProvider {
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {
         self.update(renderer, world);
     }
-
-    fn resize(
-        &mut self,
-        _renderer: &mut dyn Renderer,
-        _world: &mut World,
-        _resources: &Resources,
-        _width: u32,
-        _height: u32,
-    ) {
-    }
 }

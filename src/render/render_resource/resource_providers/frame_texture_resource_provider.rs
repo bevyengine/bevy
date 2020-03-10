@@ -47,9 +47,6 @@ impl ResourceProvider for FrameTextureResourceProvider {
         self.update(renderer, world, resources);
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
-    }
-
     fn resize(
         &mut self,
         renderer: &mut dyn Renderer,

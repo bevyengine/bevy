@@ -31,8 +31,6 @@ impl ResourceProvider for CameraResourceProvider {
         self.camera_buffer = Some(buffer);
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
-    }
     fn resize(
         &mut self,
         renderer: &mut dyn Renderer,

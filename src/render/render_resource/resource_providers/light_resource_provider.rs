@@ -114,14 +114,4 @@ impl ResourceProvider for LightResourceProvider {
             );
         }
     }
-
-    fn resize(
-        &mut self,
-        _renderer: &mut dyn Renderer,
-        _world: &mut World,
-        _resources: &Resources,
-        _width: u32,
-        _height: u32,
-    ) {
-    }
 }

@@ -2,14 +2,21 @@ use crate::render::renderer::Renderer;
 use legion::prelude::*;
 
 pub trait ResourceProvider {
-    fn initialize(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources);
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources);
+    fn initialize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
+    }
+    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {}
     fn resize(
         &mut self,
-        renderer: &mut dyn Renderer,
-        world: &mut World,
-        resources: &Resources,
-        width: u32,
-        height: u32,
-    );
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+        _width: u32,
+        _height: u32,
+    ) {
+    }
 }
