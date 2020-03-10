@@ -21,7 +21,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
 
     world.build()
         // plane
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
                 albedo: Color::rgb(0.1, 0.2, 0.1).into(),
@@ -29,7 +29,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // cube
-        .add_archetype(MeshEntity {
+        .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
                 albedo: Color::rgb(0.5, 0.4, 0.3).into(),
@@ -38,24 +38,17 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // light
-        // .add_archetype(LightEntity {
-        //     light: Light {
-        //         color: wgpu::Color {
-        //             r: 0.8,
-        //             g: 0.8,
-        //             b: 0.5,
-        //             a: 1.0,
-        //         },
-        //         fov: f32::to_radians(60.0),
-        //         depth: 0.1..50.0,
-        //         target_view: None,
-        //     },
-        //     local_to_world: LocalToWorld::identity(),
-        //     translation: Translation::new(4.0, -4.0, 5.0),
-        //     rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
-        // })
+        .add_entity(LightEntity {
+            light: Light {
+                color: Color::rgb(0.8, 0.8, 0.5),
+                fov: f32::to_radians(60.0),
+                depth: 0.1..50.0,
+            },
+            translation: Translation::new(4.0, -4.0, 5.0),
+            ..Default::default()
+        })
         // camera
-        .add_archetype(CameraEntity {
+        .add_entity(CameraEntity {
             camera: Camera::new(CameraType::Projection {
                 fov: std::f32::consts::PI / 4.0,
                 near: 1.0,
