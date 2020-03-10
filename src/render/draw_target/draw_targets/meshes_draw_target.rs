@@ -5,7 +5,7 @@ use crate::{
         draw_target::DrawTarget,
         pipeline::PipelineDescriptor,
         render_resource::{resource_name, ResourceInfo},
-        renderer::{RenderPass, Renderer},
+        renderer::RenderPass,
         Instanced, Renderable,
     },
 };

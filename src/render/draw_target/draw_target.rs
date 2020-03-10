@@ -23,7 +23,6 @@ pub trait DrawTarget {
         _renderer: &mut dyn Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
-        
     }
     fn get_name(&self) -> String;
 }

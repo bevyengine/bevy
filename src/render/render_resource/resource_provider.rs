@@ -9,7 +9,8 @@ pub trait ResourceProvider {
         _resources: &Resources,
     ) {
     }
-    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {}
+    fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
+    }
     fn resize(
         &mut self,
         _renderer: &mut dyn Renderer,
