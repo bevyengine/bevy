@@ -8,7 +8,7 @@ pub use crate::{
         pipeline::PipelineDescriptor,
         render_resource::{resource_name, resource_providers::UniformResourceProvider},
         shader::{uniforms::StandardMaterial, Shader, ShaderDefSuffixProvider, ShaderStage},
-        ActiveCamera, ActiveCamera2d, Camera, CameraType, ColorSource, Instanced, Light,
+        ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Instanced, Light,
         Renderable,
     },
     ui::{Anchors, Margins, Node},

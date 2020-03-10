@@ -24,7 +24,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
         .add_archetype(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
             },
             ..Default::default()
         })
@@ -32,7 +32,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
         .add_archetype(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.4, 0.3, 1.0).into(),
+                albedo: Color::rgb(0.5, 0.4, 0.3).into(),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()

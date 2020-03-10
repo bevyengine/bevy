@@ -1,6 +1,7 @@
 use crate::{
     math,
-    math::{Vec2, Vec4},
+    math::Vec2,
+    prelude::Color,
     ui::{Anchors, Margins},
 };
 
@@ -16,7 +17,7 @@ pub struct Node {
     pub parent_dimensions: Vec2,
     pub anchors: Anchors,
     pub margins: Margins,
-    pub color: Vec4,
+    pub color: Color,
 }
 
 impl Default for Node {
@@ -28,13 +29,13 @@ impl Default for Node {
             parent_dimensions: Vec2::default(),
             anchors: Anchors::default(),
             margins: Margins::default(),
-            color: math::vec4(0.0, 0.0, 0.0, 1.0),
+            color: Color::rgb(0.0, 0.0, 0.0),
         }
     }
 }
 
 impl Node {
-    pub fn new(position: Vec2, anchors: Anchors, margins: Margins, color: Vec4) -> Self {
+    pub fn new(position: Vec2, anchors: Anchors, margins: Margins, color: Color) -> Self {
         Node {
             position,
             global_position: Vec2::default(),

@@ -1,9 +1,10 @@
-use crate::{math, math::Vec4, prelude::Translation, render::camera};
+use super::Color;
+use crate::{math, prelude::Translation, render::camera};
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
 
 pub struct Light {
-    pub color: Vec4,
+    pub color: Color,
     pub fov: f32,
     pub depth: Range<f32>,
 }
@@ -11,7 +12,7 @@ pub struct Light {
 impl Default for Light {
     fn default() -> Self {
         Light {
-            color: Vec4::new(1.0, 1.0, 1.0, 1.0),
+            color: Color::rgb(1.0, 1.0, 1.0),
             depth: 0.1..50.0,
             fov: f32::to_radians(60.0),
         }

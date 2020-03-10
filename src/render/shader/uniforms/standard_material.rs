@@ -1,4 +1,4 @@
-use crate::{math::Vec4, render::ColorSource};
+use crate::render::{Color, ColorSource};
 
 use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;
@@ -12,7 +12,7 @@ pub struct StandardMaterial {
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            albedo: ColorSource::Color(Vec4::new(0.3, 0.3, 0.3, 1.0)),
+            albedo: Color::rgb(0.3, 0.3, 0.3).into(),
         }
     }
 }

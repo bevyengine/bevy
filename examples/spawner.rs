@@ -20,12 +20,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
                 if let ColorSource::Color(color) = material.albedo {
                     material.albedo = (color
-                        + math::vec4(
-                            -time.delta_seconds,
-                            -time.delta_seconds,
-                            time.delta_seconds,
-                            0.0,
-                        ))
+                        + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds))
                     .into();
                 }
             }
@@ -72,7 +67,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
             },
             ..Default::default()
         })
@@ -80,7 +75,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(1.0, 1.0, 1.0, 1.0).into(),
+                albedo: Color::rgb(1.0, 1.0, 1.0).into(),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
@@ -88,7 +83,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.0, 1.0, 0.0, 1.0).into(),
+                albedo: Color::rgb(0.0, 1.0, 0.0).into(),
             },
             translation: Translation::new(-2.0, 0.0, 1.0),
             ..Default::default()
@@ -119,11 +114,10 @@ fn setup(world: &mut World, resources: &mut Resources) {
         builder = builder.add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(
+                albedo: Color::rgb(
                     rng.gen_range(0.0, 1.0),
                     rng.gen_range(0.0, 1.0),
                     rng.gen_range(0.0, 1.0),
-                    1.0,
                 )
                 .into(),
             },

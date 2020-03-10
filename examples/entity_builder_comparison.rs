@@ -16,7 +16,7 @@ fn create_entities_insert_vec(
         vec![(
             plane_handle,
             StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0),
@@ -29,7 +29,7 @@ fn create_entities_insert_vec(
         vec![(
             cube_handle,
             StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
+                albedo: Color::rgb(0.5, 0.3, 0.3).into(),
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 1.0),
@@ -79,7 +79,7 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(plane_handle)
         .add(StandardMaterial {
-            albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+            albedo: Color::rgb(0.1, 0.2, 0.1).into(),
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 0.0))
@@ -87,7 +87,7 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(cube_handle)
         .add(StandardMaterial {
-            albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
+            albedo: Color::rgb(0.5, 0.3, 0.3).into(),
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 1.0))
@@ -125,7 +125,7 @@ fn create_entities_builder_archetype(
         .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.1, 0.2, 0.1, 1.0).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
             },
             ..Default::default()
         })
@@ -133,7 +133,7 @@ fn create_entities_builder_archetype(
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: math::vec4(0.5, 0.3, 0.3, 1.0).into(),
+                albedo: Color::rgb(0.5, 0.3, 0.3).into(),
             },
             ..Default::default()
         })

@@ -4,7 +4,7 @@ use bevy_derive::Uniforms;
 
 #[derive(Uniforms, Default)]
 struct MyMaterial {
-    pub color: Vec4,
+    pub color: Color,
     #[uniform(ignore, shader_def)]
     pub always_red: bool,
 }
@@ -79,7 +79,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 ..Default::default()
             },
             material: MyMaterial {
-                color: Vec4::new(0.0, 0.8, 0.0, 1.0),
+                color: Color::rgb(0.0, 0.8, 0.0).into(),
                 always_red: false,
             },
             translation: Translation::new(-2.0, 0.0, 0.0),
@@ -93,7 +93,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 ..Default::default()
             },
             material: MyMaterial {
-                color: Vec4::new(0.0, 0.0, 0.0, 1.0),
+                color: Color::rgb(0.0, 0.0, 0.0).into(),
                 always_red: true,
             },
             translation: Translation::new(2.0, 0.0, 0.0),
