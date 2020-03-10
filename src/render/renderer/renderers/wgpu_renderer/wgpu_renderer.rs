@@ -690,29 +690,3 @@ impl Renderer for WgpuRenderer {
         }
     }
 }
-
-impl From<&BindType> for wgpu::BindingType {
-    fn from(bind_type: &BindType) -> Self {
-        match bind_type {
-            BindType::Uniform {
-                dynamic,
-                properties: _,
-            } => wgpu::BindingType::UniformBuffer { dynamic: *dynamic },
-            BindType::Buffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
-                dynamic: *dynamic,
-                readonly: *readonly,
-            },
-            BindType::SampledTexture {
-                dimension,
-                multisampled,
-            } => wgpu::BindingType::SampledTexture {
-                dimension: (*dimension).into(),
-                multisampled: *multisampled,
-            },
-            BindType::Sampler => wgpu::BindingType::Sampler,
-            BindType::StorageTexture { dimension } => wgpu::BindingType::StorageTexture {
-                dimension: (*dimension).into(),
-            },
-        }
-    }
-}
