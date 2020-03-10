@@ -1,7 +1,4 @@
-use crate::{
-    prelude::*,
-    render::render_graph::{Renderable, StandardMaterial},
-};
+use crate::{prelude::*, render::Renderable};
 
 use crate as bevy; // for macro imports
 use bevy_derive::EntityArchetype;

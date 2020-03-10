@@ -4,18 +4,22 @@ use crate::{
     core::Time,
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
+    prelude::StandardMaterial,
     render::{
-        render_graph::{
-            draw_targets::*, passes::*, pipelines::*, renderers::wgpu_renderer::WgpuRenderer,
-            resource_providers::*, CompiledShaderMap, PipelineDescriptor, RenderGraphBuilder,
-            Renderer, ShaderPipelineAssignments, StandardMaterial,
-        },
+        draw_target::draw_targets::*,
+        pass::passes::*,
+        pipeline::pipelines::*,
+        render_resource::resource_providers::*,
+        renderer::{renderers::wgpu_renderer::WgpuRenderer, Renderer},
         *,
     },
     ui,
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
+use pipeline::PipelineDescriptor;
+use render_graph::RenderGraphBuilder;
+use shader::Shader;
 use std::collections::HashMap;
 
 pub struct AppBuilder {

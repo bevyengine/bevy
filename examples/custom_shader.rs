@@ -1,12 +1,4 @@
-use bevy::{
-    prelude::*,
-    render::{
-        render_graph::{
-            resource_name, resource_providers::UniformResourceProvider, PipelineDescriptor,
-        },
-        Shader, ShaderStage,
-    },
-};
+use bevy::prelude::*;
 
 use bevy_derive::Uniforms;
 

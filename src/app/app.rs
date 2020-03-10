@@ -9,7 +9,7 @@ use legion::prelude::*;
 use crate::{
     app::AppBuilder,
     core::Time,
-    render::render_graph::{RenderGraph, Renderer},
+    render::{render_graph::RenderGraph, renderer::Renderer},
 };
 
 pub struct App {

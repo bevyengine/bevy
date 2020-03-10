@@ -1,0 +1,43 @@
+use super::UniformProperty;
+use crate::render::texture::TextureViewDimension;
+
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Binding {
+    pub name: String,
+    pub index: u32,
+    pub bind_type: BindType,
+    // TODO: ADD SHADER STAGE VISIBILITY
+}
+
+#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum BindType {
+    Uniform {
+        dynamic: bool,
+        properties: Vec<UniformProperty>,
+    },
+    Buffer {
+        dynamic: bool,
+        readonly: bool,
+    },
+    Sampler,
+    SampledTexture {
+        multisampled: bool,
+        dimension: TextureViewDimension,
+    },
+    StorageTexture {
+        dimension: TextureViewDimension,
+    },
+}
+
+impl BindType {
+    pub fn get_uniform_size(&self) -> Option<u64> {
+        match self {
+            BindType::Uniform { properties, .. } => {
+                Some(properties.iter().fold(0, |total, property| {
+                    total + property.property_type.get_size()
+                }))
+            }
+            _ => None,
+        }
+    }
+}

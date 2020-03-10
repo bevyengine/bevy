@@ -131,7 +131,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         texture_and_sampler_name_strings.push(sampler.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
-        quote!(bevy::render::render_graph::FieldUniformName {
+        quote!(bevy::render::shader::FieldUniformName {
             field: #field_name,
             uniform: #uniform,
             texture: #texture,
@@ -140,18 +140,18 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     });
 
     TokenStream::from(quote! {
-        const #field_uniform_names_ident: &[bevy::render::render_graph::FieldUniformName] = &[
+        const #field_uniform_names_ident: &[bevy::render::shader::FieldUniformName] = &[
             #(#field_uniform_names,)*
         ];
 
-        impl bevy::render::render_graph::AsUniforms for #struct_name {
+        impl bevy::render::shader::AsUniforms for #struct_name {
             // TODO: max this an iterator that feeds on field_uniform_names_ident
-            fn get_field_uniform_names(&self) -> &[bevy::render::render_graph::FieldUniformName] {
+            fn get_field_uniform_names(&self) -> &[bevy::render::shader::FieldUniformName] {
                 #field_uniform_names_ident
             }
 
-            fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::render_graph::FieldBindType> {
-                use bevy::render::render_graph::AsFieldBindType;
+            fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::shader::FieldBindType> {
+                use bevy::render::shader::AsFieldBindType;
                 match name {
                     #(#active_uniform_field_name_strings => Some(self.#active_uniform_field_names.get_field_bind_type()),)*
                     _ => None,
@@ -168,7 +168,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_uniform_texture(&self, name: &str) -> Option<bevy::asset::Handle<bevy::asset::Texture>> {
-                use bevy::render::render_graph::GetTexture;
+                use bevy::render::shader::GetTexture;
                 match name {
                     #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*
                     _ => None,
@@ -178,7 +178,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             // TODO: this will be very allocation heavy. find a way to either make this allocation free
             // or alternatively only run it when the shader_defs have changed
             fn get_shader_defs(&self) -> Option<Vec<String>> {
-                use bevy::render::render_graph::ShaderDefSuffixProvider;
+                use bevy::render::shader::ShaderDefSuffixProvider;
                 let mut potential_shader_defs: Vec<(&'static str, Option<&'static str>)> = vec![
                     #((#shader_def_field_names_screaming_snake, self.#shader_def_field_names.get_shader_def()),)*
                 ];
