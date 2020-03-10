@@ -1,11 +1,12 @@
 use crate::render::{
     pass::{
-        PassDescriptor, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor,
+        LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, StoreOp,
     },
     render_graph::RenderGraphBuilder,
     render_resource::{resource_name, resource_providers::FrameTextureResourceProvider},
     texture::{TextureDescriptor, TextureDimension},
+    Color,
 };
 
 pub trait ForwardPassBuilder {
@@ -36,21 +37,16 @@ impl ForwardPassBuilder for RenderGraphBuilder {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
                     attachment: resource_name::texture::SWAP_CHAIN.to_string(),
                     resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color {
-                        r: 0.3,
-                        g: 0.4,
-                        b: 0.5,
-                        a: 1.0,
-                    },
+                    load_op: LoadOp::Clear,
+                    store_op: StoreOp::Store,
+                    clear_color: Color::rgb(0.3, 0.4, 0.5),
                 }],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
                     attachment: resource_name::texture::DEPTH.to_string(),
-                    depth_load_op: wgpu::LoadOp::Clear,
-                    depth_store_op: wgpu::StoreOp::Store,
-                    stencil_load_op: wgpu::LoadOp::Clear,
-                    stencil_store_op: wgpu::StoreOp::Store,
+                    depth_load_op: LoadOp::Clear,
+                    depth_store_op: StoreOp::Store,
+                    stencil_load_op: LoadOp::Clear,
+                    stencil_store_op: StoreOp::Store,
                     clear_depth: 1.0,
                     clear_stencil: 0,
                 }),

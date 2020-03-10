@@ -1,3 +1,6 @@
+use super::{LoadOp, StoreOp};
+use crate::prelude::Color;
+
 pub struct RenderPassColorAttachmentDescriptor {
     /// The actual color attachment.
     pub attachment: String,
@@ -6,22 +9,22 @@ pub struct RenderPassColorAttachmentDescriptor {
     pub resolve_target: Option<String>,
 
     /// The beginning-of-pass load operation for this color attachment.
-    pub load_op: wgpu::LoadOp,
+    pub load_op: LoadOp,
 
     /// The end-of-pass store operation for this color attachment.
-    pub store_op: wgpu::StoreOp,
+    pub store_op: StoreOp,
 
     /// The color that will be assigned to every pixel of this attachment when cleared.
-    pub clear_color: wgpu::Color,
+    pub clear_color: Color,
 }
 
 pub struct RenderPassDepthStencilAttachmentDescriptor {
     pub attachment: String,
-    pub depth_load_op: wgpu::LoadOp,
-    pub depth_store_op: wgpu::StoreOp,
+    pub depth_load_op: LoadOp,
+    pub depth_store_op: StoreOp,
     pub clear_depth: f32,
-    pub stencil_load_op: wgpu::LoadOp,
-    pub stencil_store_op: wgpu::StoreOp,
+    pub stencil_load_op: LoadOp,
+    pub stencil_store_op: StoreOp,
     pub clear_stencil: u32,
 }
 

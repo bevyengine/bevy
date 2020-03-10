@@ -1,7 +1,10 @@
 use crate::{
     asset::{AssetStorage, Handle, Mesh},
     prelude::Renderable,
-    render::{render_resource::ResourceProvider, renderer::Renderer},
+    render::{
+        render_resource::{BufferUsage, ResourceProvider},
+        renderer::Renderer,
+    },
 };
 use legion::{filter::*, prelude::*};
 use zerocopy::AsBytes;
@@ -51,14 +54,10 @@ impl ResourceProvider for MeshResourceProvider {
                 .get_mesh_vertices_resource(*mesh_handle)
             {
                 let mesh_asset = mesh_storage.get(&mesh_handle).unwrap();
-                let vertex_buffer = renderer.create_buffer_with_data(
-                    mesh_asset.vertices.as_bytes(),
-                    wgpu::BufferUsage::VERTEX,
-                );
-                let index_buffer = renderer.create_buffer_with_data(
-                    mesh_asset.indices.as_bytes(),
-                    wgpu::BufferUsage::INDEX,
-                );
+                let vertex_buffer = renderer
+                    .create_buffer_with_data(mesh_asset.vertices.as_bytes(), BufferUsage::VERTEX);
+                let index_buffer = renderer
+                    .create_buffer_with_data(mesh_asset.indices.as_bytes(), BufferUsage::INDEX);
 
                 let render_resources = renderer.get_render_resources_mut();
                 render_resources.set_mesh_vertices_resource(*mesh_handle, vertex_buffer);

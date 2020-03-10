@@ -1,7 +1,10 @@
 use crate::{
     asset::AssetStorage,
     render::{
-        pipeline::{PipelineDescriptor, VertexBufferDescriptor},
+        pipeline::{
+            InputStepMode, PipelineDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
+            VertexFormat,
+        },
         render_graph::RenderGraphBuilder,
         render_resource::{resource_name, resource_providers::RectData},
         shader::{Shader, ShaderStage},
@@ -65,25 +68,25 @@ impl UiPipelineBuilder for RenderGraphBuilder {
             .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
             .add_vertex_buffer_descriptor(VertexBufferDescriptor {
                 stride: std::mem::size_of::<RectData>() as u64,
-                step_mode: wgpu::InputStepMode::Instance,
+                step_mode: InputStepMode::Instance,
                 attributes: vec![
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float2,
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float2,
                         offset: 0,
                         shader_location: 3,
                     },
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float2,
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float2,
                         offset: 2 * 4,
                         shader_location: 4,
                     },
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float4,
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float4,
                         offset: 4 * 4,
                         shader_location: 5,
                     },
-                    wgpu::VertexAttributeDescriptor {
-                        format: wgpu::VertexFormat::Float,
+                    VertexAttributeDescriptor {
+                        format: VertexFormat::Float,
                         offset: 8 * 4,
                         shader_location: 6,
                     },

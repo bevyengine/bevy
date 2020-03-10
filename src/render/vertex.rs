@@ -1,4 +1,5 @@
-use super::pipeline::VertexBufferDescriptor;
+use super::pipeline::{InputStepMode, VertexBufferDescriptor, VertexFormat};
+use crate::render::pipeline::VertexAttributeDescriptor;
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -11,24 +12,23 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    // TODO: generate from macro
     pub fn get_vertex_buffer_descriptor() -> VertexBufferDescriptor {
         VertexBufferDescriptor {
             stride: std::mem::size_of::<Vertex>() as u64,
-            step_mode: wgpu::InputStepMode::Vertex,
+            step_mode: InputStepMode::Vertex,
             attributes: vec![
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float4,
+                VertexAttributeDescriptor {
+                    format: VertexFormat::Float4,
                     offset: 0,
                     shader_location: 0,
                 },
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float4,
+                VertexAttributeDescriptor {
+                    format: VertexFormat::Float4,
                     offset: 4 * 4,
                     shader_location: 1,
                 },
-                wgpu::VertexAttributeDescriptor {
-                    format: wgpu::VertexFormat::Float2,
+                VertexAttributeDescriptor {
+                    format: VertexFormat::Float2,
                     offset: 8 * 4,
                     shader_location: 2,
                 },

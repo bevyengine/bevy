@@ -4,7 +4,7 @@ use crate::{
     render::{
         draw_target::DrawTarget,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, RenderResource, ResourceInfo},
+        render_resource::{resource_name, BufferUsage, RenderResource, ResourceInfo},
         renderer::{RenderPass, Renderer},
     },
 };
@@ -85,14 +85,15 @@ impl DrawTarget for UiDrawTarget {
         {
             let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
             if let Some(mesh_asset) = mesh_storage.get_id(*mesh_id) {
-                self.mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
-                    mesh_asset.vertices.as_bytes(),
-                    wgpu::BufferUsage::VERTEX,
-                ));
-                self.mesh_index_buffer = Some(renderer.create_buffer_with_data(
-                    mesh_asset.indices.as_bytes(),
-                    wgpu::BufferUsage::INDEX,
-                ));
+                self.mesh_vertex_buffer =
+                    Some(renderer.create_buffer_with_data(
+                        mesh_asset.vertices.as_bytes(),
+                        BufferUsage::VERTEX,
+                    ));
+                self.mesh_index_buffer = Some(
+                    renderer
+                        .create_buffer_with_data(mesh_asset.indices.as_bytes(), BufferUsage::INDEX),
+                );
                 self.mesh_index_length = mesh_asset.indices.len();
             };
         }

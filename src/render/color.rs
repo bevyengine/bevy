@@ -5,52 +5,74 @@ use crate::{
     render::shader::ShaderDefSuffixProvider,
 };
 use std::ops::Add;
+use zerocopy::AsBytes;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct Color(Vec4);
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, AsBytes)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
 
 impl Color {
     pub fn rgb(r: f32, g: f32, b: f32) -> Color {
-        Color(Vec4::new(r, g, b, 1.0))
+        Color { r, g, b, a: 1.0 }
     }
 
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
-        Color(Vec4::new(r, g, b, a))
+        Color { r, g, b, a }
     }
 }
 
 impl Add<Color> for Color {
     type Output = Color;
     fn add(self, rhs: Color) -> Self::Output {
-        Color(self.0 + rhs.0)
+        Color {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+            a: self.a + rhs.a,
+        }
     }
 }
 
 impl Add<Vec4> for Color {
     type Output = Color;
     fn add(self, rhs: Vec4) -> Self::Output {
-        Color(self.0 + rhs)
+        Color {
+            r: self.r + rhs.x(),
+            g: self.g + rhs.y(),
+            b: self.b + rhs.z(),
+            a: self.a + rhs.w(),
+        }
     }
 }
 
 impl From<Vec4> for Color {
     fn from(vec4: Vec4) -> Self {
-        Color(vec4)
+        Color {
+            r: vec4.x(),
+            g: vec4.y(),
+            b: vec4.z(),
+            a: vec4.w(),
+        }
     }
 }
 
 impl Into<[f32; 4]> for Color {
     fn into(self) -> [f32; 4] {
-        self.0.into()
+        [self.r, self.g, self.b, self.a]
     }
 }
 
 impl GetBytes for Color {
     fn get_bytes(&self) -> Vec<u8> {
-        self.0.get_bytes()
+        self.as_bytes().iter().map(|v| *v).collect::<Vec<u8>>()
     }
     fn get_bytes_ref(&self) -> Option<&[u8]> {
-        self.0.get_bytes_ref()
+        Some(self.as_bytes())
     }
 }
 

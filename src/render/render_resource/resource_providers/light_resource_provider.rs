@@ -1,5 +1,5 @@
 use crate::render::{
-    render_resource::{resource_name, RenderResource, ResourceProvider},
+    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
     renderer::Renderer,
     Light, LightRaw,
 };
@@ -46,7 +46,7 @@ impl ResourceProvider for LightResourceProvider {
 
         let buffer = renderer.create_buffer(
             light_uniform_size,
-            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::COPY_DST,
+            BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
         );
         renderer
             .get_render_resources_mut()
@@ -78,7 +78,7 @@ impl ResourceProvider for LightResourceProvider {
 
             self.tmp_light_buffer = Some(renderer.create_buffer_mapped(
                 total_size,
-                wgpu::BufferUsage::COPY_SRC,
+                BufferUsage::COPY_SRC,
                 &mut |data| {
                     for ((light, local_to_world, translation), slot) in
                         light_query.iter(world).zip(data.chunks_exact_mut(size))
@@ -91,7 +91,7 @@ impl ResourceProvider for LightResourceProvider {
             ));
             self.tmp_count_buffer = Some(renderer.create_buffer_mapped(
                 light_count_size,
-                wgpu::BufferUsage::COPY_SRC,
+                BufferUsage::COPY_SRC,
                 &mut |data| {
                     data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
                 },

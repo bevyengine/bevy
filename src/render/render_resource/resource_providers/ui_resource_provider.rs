@@ -3,7 +3,7 @@ use crate::{
     ecs, math,
     prelude::Node,
     render::{
-        render_resource::{resource_name, RenderResource, ResourceProvider},
+        render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
         renderer::Renderer,
     },
 };
@@ -82,7 +82,7 @@ impl UiResourceProvider {
             data.as_bytes(),
             size,
             data.len(),
-            wgpu::BufferUsage::COPY_SRC | wgpu::BufferUsage::VERTEX,
+            BufferUsage::COPY_SRC | BufferUsage::VERTEX,
         );
 
         renderer

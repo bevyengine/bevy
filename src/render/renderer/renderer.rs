@@ -3,7 +3,7 @@ use crate::{
     render::{
         pipeline::PipelineDescriptor,
         render_graph::RenderGraph,
-        render_resource::{RenderResource, RenderResources, ResourceInfo},
+        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
         shader::DynamicUniformBufferInfo,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
@@ -31,12 +31,8 @@ pub trait Renderer {
         world: &mut World,
         resources: &mut Resources,
     );
-    // TODO: swap out wgpu::BufferUsage for non-wgpu type
-    fn create_buffer_with_data(
-        &mut self,
-        data: &[u8],
-        buffer_usage: wgpu::BufferUsage,
-    ) -> RenderResource;
+    fn create_buffer_with_data(&mut self, data: &[u8], buffer_usage: BufferUsage)
+        -> RenderResource;
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
     fn create_texture(
         &mut self,
@@ -57,13 +53,13 @@ pub trait Renderer {
         resource: RenderResource,
         info: DynamicUniformBufferInfo,
     );
-    fn create_buffer(&mut self, size: u64, buffer_usage: wgpu::BufferUsage) -> RenderResource;
+    fn create_buffer(&mut self, size: u64, buffer_usage: BufferUsage) -> RenderResource;
     fn create_instance_buffer(
         &mut self,
         mesh_id: usize,
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource;
     fn create_instance_buffer_with_data(
         &mut self,
@@ -71,12 +67,12 @@ pub trait Renderer {
         data: &[u8],
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource;
     fn create_buffer_mapped(
         &mut self,
         size: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
         func: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource;
     fn remove_buffer(&mut self, resource: RenderResource);

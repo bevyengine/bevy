@@ -1,5 +1,5 @@
 use crate::render::{
-    render_resource::{resource_name, RenderResource, ResourceProvider},
+    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
     renderer::Renderer,
     ActiveCamera2d, Camera,
 };
@@ -21,7 +21,7 @@ impl ResourceProvider for Camera2dResourceProvider {
     ) {
         let buffer = renderer.create_buffer(
             std::mem::size_of::<[[f32; 4]; 4]>() as u64,
-            wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
+            BufferUsage::COPY_DST | BufferUsage::UNIFORM,
         );
 
         renderer
@@ -51,7 +51,7 @@ impl ResourceProvider for Camera2dResourceProvider {
 
             self.tmp_buffer = Some(renderer.create_buffer_mapped(
                 matrix_size,
-                wgpu::BufferUsage::COPY_SRC,
+                BufferUsage::COPY_SRC,
                 &mut |data| {
                     data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
                 },

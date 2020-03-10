@@ -1,6 +1,4 @@
 use crate::{asset::Asset, math::*, render::Vertex};
-use wgpu::{Buffer, Device};
-use zerocopy::AsBytes;
 
 pub enum MeshType {
     Cube,
@@ -18,26 +16,6 @@ pub enum MeshType {
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
     pub indices: Vec<u16>,
-
-    // TODO: remove me
-    pub vertex_buffer: Option<Buffer>,
-    pub index_buffer: Option<Buffer>,
-}
-
-impl Mesh {
-    pub fn setup_buffers(&mut self, device: &Device) {
-        if let None = self.vertex_buffer {
-            self.vertex_buffer = Some(
-                device.create_buffer_with_data(self.vertices.as_bytes(), wgpu::BufferUsage::VERTEX),
-            );
-        }
-
-        if let None = self.index_buffer {
-            self.index_buffer = Some(
-                device.create_buffer_with_data(self.indices.as_bytes(), wgpu::BufferUsage::INDEX),
-            );
-        }
-    }
 }
 
 impl Asset<MeshType> for Mesh {
@@ -53,12 +31,7 @@ impl Asset<MeshType> for Mesh {
             } => create_quad(north_west, north_east, south_west, south_east),
         };
 
-        Mesh {
-            vertices,
-            indices,
-            vertex_buffer: None,
-            index_buffer: None,
-        }
+        Mesh { vertices, indices }
     }
 }
 

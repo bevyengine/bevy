@@ -1,4 +1,4 @@
-use super::{BindGroup, PipelineLayout};
+use super::{BindGroup, PipelineLayout, VertexBufferDescriptor};
 use crate::{
     asset::{AssetStorage, Handle},
     render::{
@@ -7,23 +7,6 @@ use crate::{
         Vertex,
     },
 };
-
-#[derive(Clone, Debug)]
-pub struct VertexBufferDescriptor {
-    pub stride: wgpu::BufferAddress,
-    pub step_mode: wgpu::InputStepMode,
-    pub attributes: Vec<wgpu::VertexAttributeDescriptor>,
-}
-
-impl<'a> Into<wgpu::VertexBufferDescriptor<'a>> for &'a VertexBufferDescriptor {
-    fn into(self) -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            step_mode: self.step_mode,
-            stride: self.stride,
-            attributes: &self.attributes,
-        }
-    }
-}
 
 #[derive(Clone, Debug)]
 pub enum PipelineLayoutType {

@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Texture},
     render::{
         pipeline::BindType,
-        render_resource::{RenderResource, ResourceProvider},
+        render_resource::{BufferUsage, RenderResource, ResourceProvider},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
         texture::{SamplerDescriptor, TextureDescriptor},
@@ -151,10 +151,8 @@ where
             // allocate enough space for twice as many entities as there are currently;
             let capacity = count * 2;
             let size = wgpu::BIND_BUFFER_ALIGNMENT * capacity;
-            let created_resource = renderer.create_buffer(
-                size,
-                wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::UNIFORM,
-            );
+            let created_resource =
+                renderer.create_buffer(size, BufferUsage::COPY_DST | BufferUsage::UNIFORM);
 
             let mut info = DynamicUniformBufferInfo::new();
             info.count = count;
@@ -193,7 +191,7 @@ where
 
             let mapped_buffer_resource = renderer.create_buffer_mapped(
                 size as usize,
-                wgpu::BufferUsage::COPY_SRC,
+                BufferUsage::COPY_SRC,
                 &mut |mapped| {
                     let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
                     let mut offset = 0usize;

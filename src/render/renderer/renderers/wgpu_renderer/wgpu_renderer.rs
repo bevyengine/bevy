@@ -1,4 +1,4 @@
-use super::{WgpuRenderPass, WgpuResources};
+use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
     legion::prelude::*,
@@ -9,7 +9,9 @@ use crate::{
         },
         pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType},
         render_graph::RenderGraph,
-        render_resource::{resource_name, RenderResource, RenderResources, ResourceInfo},
+        render_resource::{
+            resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo,
+        },
         renderer::Renderer,
         shader::{DynamicUniformBufferInfo, Shader},
         texture::{SamplerDescriptor, TextureDescriptor},
@@ -159,6 +161,12 @@ impl WgpuRenderer {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
+        let owned_vertex_buffer_descriptors = pipeline_descriptor
+            .vertex_buffer_descriptors
+            .iter()
+            .map(|v| v.into())
+            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
+
         let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -177,8 +185,7 @@ impl WgpuRenderer {
             color_states: &pipeline_descriptor.color_states,
             depth_stencil_state: pipeline_descriptor.depth_stencil_state.clone(),
             index_format: pipeline_descriptor.index_format,
-            vertex_buffers: &pipeline_descriptor
-                .vertex_buffer_descriptors
+            vertex_buffers: &owned_vertex_buffer_descriptors
                 .iter()
                 .map(|v| v.into())
                 .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
@@ -247,9 +254,9 @@ impl WgpuRenderer {
         };
 
         wgpu::RenderPassColorAttachmentDescriptor {
-            store_op: color_attachment_descriptor.store_op,
-            load_op: color_attachment_descriptor.load_op,
-            clear_color: color_attachment_descriptor.clear_color,
+            store_op: color_attachment_descriptor.store_op.into(),
+            load_op: color_attachment_descriptor.load_op.into(),
+            clear_color: color_attachment_descriptor.clear_color.into(),
             attachment,
             resolve_target,
         }
@@ -280,10 +287,10 @@ impl WgpuRenderer {
             attachment,
             clear_depth: depth_stencil_attachment_descriptor.clear_depth,
             clear_stencil: depth_stencil_attachment_descriptor.clear_stencil,
-            depth_load_op: depth_stencil_attachment_descriptor.depth_load_op,
-            depth_store_op: depth_stencil_attachment_descriptor.depth_store_op,
-            stencil_load_op: depth_stencil_attachment_descriptor.stencil_load_op,
-            stencil_store_op: depth_stencil_attachment_descriptor.stencil_store_op,
+            depth_load_op: depth_stencil_attachment_descriptor.depth_load_op.into(),
+            depth_store_op: depth_stencil_attachment_descriptor.depth_store_op.into(),
+            stencil_load_op: depth_stencil_attachment_descriptor.stencil_load_op.into(),
+            stencil_store_op: depth_stencil_attachment_descriptor.stencil_store_op.into(),
         }
     }
 
@@ -500,15 +507,15 @@ impl Renderer for WgpuRenderer {
     fn create_buffer_with_data(
         &mut self,
         data: &[u8],
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
         self.wgpu_resources
-            .create_buffer_with_data(&self.device, data, buffer_usage)
+            .create_buffer_with_data(&self.device, data, buffer_usage.into())
     }
 
-    fn create_buffer(&mut self, size: u64, buffer_usage: wgpu::BufferUsage) -> RenderResource {
+    fn create_buffer(&mut self, size: u64, buffer_usage: BufferUsage) -> RenderResource {
         self.wgpu_resources
-            .create_buffer(&self.device, size, buffer_usage)
+            .create_buffer(&self.device, size, buffer_usage.into())
     }
 
     fn create_instance_buffer(
@@ -516,10 +523,15 @@ impl Renderer for WgpuRenderer {
         mesh_id: usize,
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
-        self.wgpu_resources
-            .create_instance_buffer(&self.device, mesh_id, size, count, buffer_usage)
+        self.wgpu_resources.create_instance_buffer(
+            &self.device,
+            mesh_id,
+            size,
+            count,
+            buffer_usage.into(),
+        )
     }
 
     fn create_instance_buffer_with_data(
@@ -528,7 +540,7 @@ impl Renderer for WgpuRenderer {
         data: &[u8],
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
         self.wgpu_resources.create_instance_buffer_with_data(
             &self.device,
@@ -536,7 +548,7 @@ impl Renderer for WgpuRenderer {
             data,
             size,
             count,
-            buffer_usage,
+            buffer_usage.into(),
         )
     }
 
@@ -551,11 +563,15 @@ impl Renderer for WgpuRenderer {
     fn create_buffer_mapped(
         &mut self,
         size: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
         setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        self.wgpu_resources
-            .create_buffer_mapped(&self.device, size, buffer_usage, setup_data)
+        self.wgpu_resources.create_buffer_mapped(
+            &self.device,
+            size,
+            buffer_usage.into(),
+            setup_data,
+        )
     }
 
     fn copy_buffer_to_buffer(
