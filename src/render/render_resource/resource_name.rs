@@ -24,3 +24,9 @@ pub mod draw_target {
 pub mod pass {
     pub const MAIN: &str = "Main";
 }
+
+pub mod pipeline {
+    pub const FORWARD: &str = "Forward";
+    pub const FORWARD_FLAT: &str = "ForwardFlat";
+    pub const UI: &str = "Ui";
+}

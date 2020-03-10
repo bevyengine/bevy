@@ -16,6 +16,7 @@ pub enum PipelineLayoutType {
 
 #[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
+    pub name: Option<String>,
     pub draw_targets: Vec<String>,
     pub layout: PipelineLayoutType,
     pub shader_stages: ShaderStages,
@@ -51,8 +52,9 @@ pub struct PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
-    fn new(vertex_shader: Handle<Shader>) -> Self {
+    fn new(name: Option<&str>, vertex_shader: Handle<Shader>) -> Self {
         PipelineDescriptor {
+            name: name.map(|name| name.to_string()),
             layout: PipelineLayoutType::Reflected(None),
             color_states: Vec::new(),
             depth_stencil_state: None,
@@ -90,11 +92,12 @@ impl PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
-    pub fn build(
-        shader_storage: &mut AssetStorage<Shader>,
+    pub fn build<'a>(
+        name: &str,
+        shader_storage: &'a mut AssetStorage<Shader>,
         vertex_shader: Shader,
-    ) -> PipelineBuilder {
-        PipelineBuilder::new(shader_storage, vertex_shader)
+    ) -> PipelineBuilder<'a> {
+        PipelineBuilder::new(name, shader_storage, vertex_shader)
     }
 }
 
@@ -104,10 +107,10 @@ pub struct PipelineBuilder<'a> {
 }
 
 impl<'a> PipelineBuilder<'a> {
-    pub fn new(shader_storage: &'a mut AssetStorage<Shader>, vertex_shader: Shader) -> Self {
+    pub fn new(name: &str, shader_storage: &'a mut AssetStorage<Shader>, vertex_shader: Shader) -> Self {
         let vertex_shader_handle = shader_storage.add(vertex_shader);
         PipelineBuilder {
-            pipeline: PipelineDescriptor::new(vertex_shader_handle),
+            pipeline: PipelineDescriptor::new(Some(name), vertex_shader_handle),
             shader_storage,
         }
     }

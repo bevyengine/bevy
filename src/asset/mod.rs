@@ -73,7 +73,7 @@ pub trait Asset<D> {
 
 pub struct AssetStorage<T> {
     assets: HashMap<usize, T>,
-    names: HashMap<String, usize>,
+    names: HashMap<String, Handle<T>>,
     current_index: usize,
 }
 
@@ -86,11 +86,8 @@ impl<T> AssetStorage<T> {
         }
     }
 
-    pub fn get_named(&mut self, name: &str) -> Option<&mut T> {
-        match self.names.get(name) {
-            Some(id) => self.assets.get_mut(id),
-            None => None,
-        }
+    pub fn get_named(&mut self, name: &str) -> Option<Handle<T>> {
+        self.names.get(name).map(|handle| *handle)
     }
 
     pub fn add(&mut self, asset: T) -> Handle<T> {
@@ -103,10 +100,8 @@ impl<T> AssetStorage<T> {
         }
     }
 
-    pub fn add_named(&mut self, asset: T, name: &str) -> Handle<T> {
-        let handle = self.add(asset);
-        self.names.insert(name.to_string(), handle.id);
-        handle
+    pub fn set_name(&mut self, name: &str, handle: Handle<T>) {
+        self.names.insert(name.to_string(), handle);
     }
 
     pub fn get_id(&self, id: usize) -> Option<&T> {

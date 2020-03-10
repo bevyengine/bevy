@@ -26,6 +26,7 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
         self.add_pipeline(
             pipeline_descriptor_storage,
             PipelineDescriptor::build(
+                resource_name::pipeline::FORWARD_FLAT,
                 shader_storage,
                 Shader::from_glsl(ShaderStage::Vertex, include_str!("forward_flat.vert")),
             )

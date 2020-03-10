@@ -34,7 +34,9 @@ impl RenderGraphBuilder {
         pipeline: PipelineDescriptor,
     ) -> Self {
         if let Some(ref pass) = self.current_pass {
+            let name = pipeline.name.clone();
             let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
+            pipeline_descriptor_storage.set_name(name.unwrap().as_str(), pipeline_descriptor_handle);
             self.render_graph
                 .add_pipeline(&pass, pipeline_descriptor_handle);
         }
@@ -48,7 +50,9 @@ impl RenderGraphBuilder {
         pipeline_descriptor_storage: &mut AssetStorage<PipelineDescriptor>,
         pipeline: PipelineDescriptor,
     ) -> Self {
+        let name = pipeline.name.clone();
         let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
+        pipeline_descriptor_storage.set_name(name.unwrap().as_str(), pipeline_descriptor_handle);
         self.render_graph
             .add_pipeline(pass, pipeline_descriptor_handle);
 

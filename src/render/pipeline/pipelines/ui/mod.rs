@@ -28,6 +28,7 @@ impl UiPipelineBuilder for RenderGraphBuilder {
         self.add_pipeline(
             pipeline_descriptor_storage,
             PipelineDescriptor::build(
+                resource_name::pipeline::UI,
                 shader_storage,
                 Shader::from_glsl(ShaderStage::Vertex, include_str!("ui.vert")),
             )

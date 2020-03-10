@@ -12,7 +12,6 @@ struct MyMaterial {
 fn main() {
     AppBuilder::new()
         .add_defaults()
-        .setup_world(setup)
         .setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
                 .add_resource_provider(UniformResourceProvider::<MyMaterial>::new())
@@ -20,6 +19,7 @@ fn main() {
                     resource_name::pass::MAIN,
                     pipeline_storage,
                     PipelineDescriptor::build(
+                        "MyMaterial",
                         shader_storage,
                         Shader::from_glsl(
                             ShaderStage::Vertex,
@@ -62,6 +62,7 @@ fn main() {
                     .finish(),
                 )
         })
+        .setup_world(setup)
         .run();
 }
 
@@ -69,13 +70,16 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
 
+    let mut pipeline_storage = resources.get_mut::<AssetStorage<PipelineDescriptor>>().unwrap();
+    let material_handle = pipeline_storage.get_named("MyMaterial").unwrap();
+
     world
         .build()
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
-                pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
+                pipelines: vec![material_handle],
                 ..Default::default()
             },
             material: MyMaterial {
@@ -89,7 +93,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
             renderable: Renderable {
-                pipelines: vec![Handle::new(2)], // TODO: make this pipeline assignment cleaner
+                pipelines: vec![material_handle],
                 ..Default::default()
             },
             material: MyMaterial {
