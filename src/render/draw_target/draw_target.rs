@@ -18,10 +18,12 @@ pub trait DrawTarget {
     );
     fn setup(
         &mut self,
-        world: &World,
-        resources: &Resources,
-        renderer: &mut dyn Renderer,
-        pipeline_handle: Handle<PipelineDescriptor>,
-    );
+        _world: &World,
+        _resources: &Resources,
+        _renderer: &mut dyn Renderer,
+        _pipeline_handle: Handle<PipelineDescriptor>,
+    ) {
+        
+    }
     fn get_name(&self) -> String;
 }

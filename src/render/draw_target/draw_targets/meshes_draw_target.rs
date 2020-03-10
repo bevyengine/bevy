@@ -58,15 +58,6 @@ impl DrawTarget for MeshesDrawTarget {
         }
     }
 
-    fn setup(
-        &mut self,
-        _world: &World,
-        _resources: &Resources,
-        _renderer: &mut dyn Renderer,
-        _pipeline_handle: Handle<PipelineDescriptor>,
-    ) {
-    }
-
     fn get_name(&self) -> String {
         resource_name::draw_target::MESHES.to_string()
     }
