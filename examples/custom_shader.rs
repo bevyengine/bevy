@@ -59,7 +59,7 @@ fn main() {
                         "#,
                     ))
                     .with_standard_config()
-                    .build(),
+                    .finish(),
                 )
         })
         .run();

@@ -64,7 +64,7 @@ impl ForwardPipelineBuilder for RenderGraphBuilder {
             })
             .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
             .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
-            .build(),
+            .finish(),
         )
     }
 }

@@ -93,7 +93,7 @@ impl UiPipelineBuilder for RenderGraphBuilder {
                 ],
             })
             .add_draw_target(resource_name::draw_target::UI)
-            .build(),
+            .finish(),
         )
     }
 }

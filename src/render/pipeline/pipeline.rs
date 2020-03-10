@@ -112,7 +112,7 @@ impl<'a> PipelineBuilder<'a> {
         }
     }
 
-    pub fn build(self) -> PipelineDescriptor {
+    pub fn finish(self) -> PipelineDescriptor {
         self.pipeline
     }
 
