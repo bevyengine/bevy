@@ -6,12 +6,8 @@ use crate::{
     plugin::load_plugin,
     prelude::StandardMaterial,
     render::{
-        draw_target::draw_targets::*,
-        pass::passes::*,
-        pipeline::pipelines::*,
-        render_resource::resource_providers::*,
-        renderer::{renderers::wgpu_renderer::WgpuRenderer, Renderer},
-        *,
+        draw_target::draw_targets::*, pass::passes::*, pipeline::pipelines::*,
+        render_resource::resource_providers::*, renderer::Renderer, *,
     },
     ui,
 };
@@ -188,8 +184,14 @@ impl AppBuilder {
         self
     }
 
+    #[cfg(feature = "wgpu")]
     pub fn add_wgpu_renderer(mut self) -> Self {
-        self.renderer = Some(Box::new(WgpuRenderer::new()));
+        self.renderer = Some(Box::new(renderer::renderers::wgpu_renderer::WgpuRenderer::new()));
+        self
+    }
+
+    #[cfg(not(feature = "wgpu"))]
+    fn add_wgpu_renderer(self) -> Self {
         self
     }
 
@@ -199,6 +201,8 @@ impl AppBuilder {
             .add_render_graph_defaults()
             .add_wgpu_renderer()
     }
+
+
 
     pub fn load_plugin(mut self, path: &str) -> Self {
         let (_lib, plugin) = load_plugin(path);
