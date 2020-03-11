@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct Anchors {
     pub left: f32,
     pub right: f32,

@@ -5,11 +5,13 @@ use crate::{
     ui::{Anchors, Margins},
 };
 
+#[derive(Debug, Clone)]
 enum GrowDirection {
     Negative,
     Positive,
 }
 
+#[derive(Debug, Clone)]
 pub struct Node {
     pub position: Vec2,
     pub global_position: Vec2,
