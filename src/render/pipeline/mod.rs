@@ -4,6 +4,7 @@ mod pipeline;
 mod pipeline_layout;
 pub mod pipelines;
 mod vertex_buffer_descriptor;
+pub mod state_descriptors;
 
 pub use bind_group::*;
 pub use binding::*;

@@ -5,7 +5,7 @@ use crate::render::{
     },
     render_graph::RenderGraphBuilder,
     render_resource::{resource_name, resource_providers::FrameTextureResourceProvider},
-    texture::{TextureDescriptor, TextureDimension},
+    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
 
@@ -18,7 +18,7 @@ impl ForwardPassBuilder for RenderGraphBuilder {
         self.add_resource_provider(FrameTextureResourceProvider::new(
             resource_name::texture::DEPTH,
             TextureDescriptor {
-                size: wgpu::Extent3d {
+                size: Extent3d {
                     depth: 1,
                     width: 1,
                     height: 1,
@@ -27,8 +27,8 @@ impl ForwardPassBuilder for RenderGraphBuilder {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                format: TextureFormat::Depth32Float,
+                usage: TextureUsage::OUTPUT_ATTACHMENT,
             },
         ))
         .add_pass(

@@ -2,7 +2,7 @@ use crate::{
     legion::prelude::*,
     render::{
         pipeline::{BindGroup, BindType},
-        render_resource::{RenderResource, RenderResources, ResourceInfo},
+        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
         shader::DynamicUniformBufferInfo,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
@@ -72,7 +72,7 @@ impl WgpuResources {
                                 let resource = self.create_buffer(
                                     device,
                                     size,
-                                    wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                                    BufferUsage::UNIFORM | BufferUsage::COPY_DST,
                                 );
 
                                 self.render_resources
@@ -216,11 +216,11 @@ impl WgpuResources {
         &mut self,
         device: &wgpu::Device,
         size: u64,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size,
-            usage: buffer_usage,
+            usage: buffer_usage.into(),
         });
 
         let resource = self.render_resources.get_next_resource();
@@ -234,10 +234,10 @@ impl WgpuResources {
         &mut self,
         device: &wgpu::Device,
         data: &[u8],
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
         let resource = self.render_resources.get_next_resource();
-        let buffer = device.create_buffer_with_data(data, buffer_usage);
+        let buffer = device.create_buffer_with_data(data, buffer_usage.into());
         self.add_resource_info(
             resource,
             ResourceInfo::Buffer {
@@ -256,11 +256,11 @@ impl WgpuResources {
         mesh_id: usize,
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             size: (size * count) as u64,
-            usage: buffer_usage,
+            usage: buffer_usage.into(),
         });
 
         let resource = self.render_resources.get_next_resource();
@@ -285,9 +285,9 @@ impl WgpuResources {
         data: &[u8],
         size: usize,
         count: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
     ) -> RenderResource {
-        let buffer = device.create_buffer_with_data(data, buffer_usage);
+        let buffer = device.create_buffer_with_data(data, buffer_usage.into());
         let resource = self.render_resources.get_next_resource();
 
         self.add_resource_info(
@@ -317,10 +317,10 @@ impl WgpuResources {
         &mut self,
         device: &wgpu::Device,
         size: usize,
-        buffer_usage: wgpu::BufferUsage,
+        buffer_usage: BufferUsage,
         setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        let mut mapped = device.create_buffer_mapped(size, buffer_usage);
+        let mut mapped = device.create_buffer_mapped(size, buffer_usage.into());
         setup_data(&mut mapped.data);
         let buffer = mapped.finish();
 

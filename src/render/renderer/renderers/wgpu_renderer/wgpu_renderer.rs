@@ -167,6 +167,12 @@ impl WgpuRenderer {
             .map(|v| v.into())
             .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
 
+        let color_states = pipeline_descriptor
+            .color_states
+            .iter()
+            .map(|c| c.into())
+            .collect::<Vec<wgpu::ColorStateDescriptor>>();
+
         let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -180,11 +186,17 @@ impl WgpuRenderer {
                 }),
                 None => None,
             },
-            rasterization_state: pipeline_descriptor.rasterization_state.clone(),
-            primitive_topology: pipeline_descriptor.primitive_topology,
-            color_states: &pipeline_descriptor.color_states,
-            depth_stencil_state: pipeline_descriptor.depth_stencil_state.clone(),
-            index_format: pipeline_descriptor.index_format,
+            rasterization_state: pipeline_descriptor
+                .rasterization_state
+                .as_ref()
+                .map(|r| r.into()),
+            primitive_topology: pipeline_descriptor.primitive_topology.into(),
+            color_states: &color_states,
+            depth_stencil_state: pipeline_descriptor
+                .depth_stencil_state
+                .as_ref()
+                .map(|d| d.into()),
+            index_format: pipeline_descriptor.index_format.into(),
             vertex_buffers: &owned_vertex_buffer_descriptors
                 .iter()
                 .map(|v| v.into())

@@ -1,9 +1,17 @@
-use super::{BindGroup, PipelineLayout, VertexBufferDescriptor};
+use super::{
+    state_descriptors::{
+        BlendDescriptor, ColorStateDescriptor, ColorWrite, CompareFunction, CullMode,
+        DepthStencilStateDescriptor, FrontFace, PrimitiveTopology, RasterizationStateDescriptor,
+        StencilStateFaceDescriptor, IndexFormat,
+    },
+    BindGroup, PipelineLayout, VertexBufferDescriptor,
+};
 use crate::{
     asset::{AssetStorage, Handle},
     render::{
         render_resource::resource_name,
         shader::{Shader, ShaderStages},
+        texture::TextureFormat,
         Vertex,
     },
 };
@@ -20,19 +28,19 @@ pub struct PipelineDescriptor {
     pub draw_targets: Vec<String>,
     pub layout: PipelineLayoutType,
     pub shader_stages: ShaderStages,
-    pub rasterization_state: Option<wgpu::RasterizationStateDescriptor>,
+    pub rasterization_state: Option<RasterizationStateDescriptor>,
 
     /// The primitive topology used to interpret vertices.
-    pub primitive_topology: wgpu::PrimitiveTopology,
+    pub primitive_topology: PrimitiveTopology,
 
     /// The effect of draw calls on the color aspect of the output target.
-    pub color_states: Vec<wgpu::ColorStateDescriptor>,
+    pub color_states: Vec<ColorStateDescriptor>,
 
     /// The effect of draw calls on the depth and stencil aspects of the output target, if any.
-    pub depth_stencil_state: Option<wgpu::DepthStencilStateDescriptor>,
+    pub depth_stencil_state: Option<DepthStencilStateDescriptor>,
 
     /// The format of any index buffers used with this pipeline.
-    pub index_format: wgpu::IndexFormat,
+    pub index_format: IndexFormat,
 
     /// The format of any vertex buffers used with this pipeline.
     pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
@@ -61,15 +69,15 @@ impl PipelineDescriptor {
             draw_targets: Vec::new(),
             shader_stages: ShaderStages::new(vertex_shader),
             vertex_buffer_descriptors: Vec::new(),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+            rasterization_state: Some(RasterizationStateDescriptor {
+                front_face: FrontFace::Ccw,
+                cull_mode: CullMode::Back,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
             }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            index_format: wgpu::IndexFormat::Uint16,
+            primitive_topology: PrimitiveTopology::TriangleList,
+            index_format: IndexFormat::Uint16,
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -107,7 +115,11 @@ pub struct PipelineBuilder<'a> {
 }
 
 impl<'a> PipelineBuilder<'a> {
-    pub fn new(name: &str, shader_storage: &'a mut AssetStorage<Shader>, vertex_shader: Shader) -> Self {
+    pub fn new(
+        name: &str,
+        shader_storage: &'a mut AssetStorage<Shader>,
+        vertex_shader: Shader,
+    ) -> Self {
         let vertex_shader_handle = shader_storage.add(vertex_shader);
         PipelineBuilder {
             pipeline: PipelineDescriptor::new(Some(name), vertex_shader_handle),
@@ -125,14 +137,14 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn add_color_state(mut self, color_state_descriptor: wgpu::ColorStateDescriptor) -> Self {
+    pub fn add_color_state(mut self, color_state_descriptor: ColorStateDescriptor) -> Self {
         self.pipeline.color_states.push(color_state_descriptor);
         self
     }
 
     pub fn with_depth_stencil_state(
         mut self,
-        depth_stencil_state: wgpu::DepthStencilStateDescriptor,
+        depth_stencil_state: DepthStencilStateDescriptor,
     ) -> Self {
         if let Some(_) = self.pipeline.depth_stencil_state {
             panic!("Depth stencil state has already been set");
@@ -163,7 +175,7 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn with_index_format(mut self, index_format: wgpu::IndexFormat) -> Self {
+    pub fn with_index_format(mut self, index_format: IndexFormat) -> Self {
         self.pipeline.index_format = index_format;
         self
     }
@@ -175,13 +187,13 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn with_rasterization_state(
         mut self,
-        rasterization_state: wgpu::RasterizationStateDescriptor,
+        rasterization_state: RasterizationStateDescriptor,
     ) -> Self {
         self.pipeline.rasterization_state = Some(rasterization_state);
         self
     }
 
-    pub fn with_primitive_topology(mut self, primitive_topology: wgpu::PrimitiveTopology) -> Self {
+    pub fn with_primitive_topology(mut self, primitive_topology: PrimitiveTopology) -> Self {
         self.pipeline.primitive_topology = primitive_topology;
         self
     }
@@ -202,20 +214,20 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn with_standard_config(self) -> Self {
-        self.with_depth_stencil_state(wgpu::DepthStencilStateDescriptor {
-            format: wgpu::TextureFormat::Depth32Float,
+        self.with_depth_stencil_state(DepthStencilStateDescriptor {
+            format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
-            stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-            stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+            depth_compare: CompareFunction::Less,
+            stencil_front: StencilStateFaceDescriptor::IGNORE,
+            stencil_back: StencilStateFaceDescriptor::IGNORE,
             stencil_read_mask: 0,
             stencil_write_mask: 0,
         })
-        .add_color_state(wgpu::ColorStateDescriptor {
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
+        .add_color_state(ColorStateDescriptor {
+            format: TextureFormat::Bgra8UnormSrgb,
+            color_blend: BlendDescriptor::REPLACE,
+            alpha_blend: BlendDescriptor::REPLACE,
+            write_mask: ColorWrite::ALL,
         })
         .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
         .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)

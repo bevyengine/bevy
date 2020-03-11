@@ -3,9 +3,20 @@ use crate::{
     render::{
         pass::{LoadOp, StoreOp},
         pipeline::{
-            InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, BindType
+            state_descriptors::{
+                BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
+                CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
+                PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
+                StencilStateFaceDescriptor,
+            },
+            BindType, InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor,
+            VertexFormat,
         },
         render_resource::BufferUsage,
+        texture::{
+            AddressMode, Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension,
+            TextureFormat, TextureUsage, TextureViewDimension, FilterMode,
+        },
     },
 };
 
@@ -154,6 +165,311 @@ impl From<&BindType> for wgpu::BindingType {
             BindType::StorageTexture { dimension } => wgpu::BindingType::StorageTexture {
                 dimension: (*dimension).into(),
             },
+        }
+    }
+}
+
+impl From<Extent3d> for wgpu::Extent3d {
+    fn from(val: Extent3d) -> Self {
+        wgpu::Extent3d {
+            depth: val.depth,
+            height: val.height,
+            width: val.width,
+        }
+    }
+}
+
+impl From<TextureDescriptor> for wgpu::TextureDescriptor {
+    fn from(texture_descriptor: TextureDescriptor) -> Self {
+        wgpu::TextureDescriptor {
+            size: texture_descriptor.size.into(),
+            array_layer_count: texture_descriptor.array_layer_count,
+            mip_level_count: texture_descriptor.mip_level_count,
+            sample_count: texture_descriptor.sample_count,
+            dimension: texture_descriptor.dimension.into(),
+            format: texture_descriptor.format.into(),
+            usage: texture_descriptor.usage.into(),
+        }
+    }
+}
+
+impl From<TextureViewDimension> for wgpu::TextureViewDimension {
+    fn from(dimension: TextureViewDimension) -> Self {
+        match dimension {
+            TextureViewDimension::D1 => wgpu::TextureViewDimension::D1,
+            TextureViewDimension::D2 => wgpu::TextureViewDimension::D2,
+            TextureViewDimension::D2Array => wgpu::TextureViewDimension::D2Array,
+            TextureViewDimension::Cube => wgpu::TextureViewDimension::Cube,
+            TextureViewDimension::CubeArray => wgpu::TextureViewDimension::CubeArray,
+            TextureViewDimension::D3 => wgpu::TextureViewDimension::D3,
+        }
+    }
+}
+
+impl From<TextureDimension> for wgpu::TextureDimension {
+    fn from(dimension: TextureDimension) -> Self {
+        match dimension {
+            TextureDimension::D1 => wgpu::TextureDimension::D1,
+            TextureDimension::D2 => wgpu::TextureDimension::D2,
+            TextureDimension::D3 => wgpu::TextureDimension::D3,
+        }
+    }
+}
+
+impl From<TextureFormat> for wgpu::TextureFormat {
+    fn from(val: TextureFormat) -> Self {
+        match val {
+            TextureFormat::R8Unorm => wgpu::TextureFormat::R8Unorm,
+            TextureFormat::R8Snorm => wgpu::TextureFormat::R8Snorm,
+            TextureFormat::R8Uint => wgpu::TextureFormat::R8Uint,
+            TextureFormat::R8Sint => wgpu::TextureFormat::R8Sint,
+            TextureFormat::R16Unorm => wgpu::TextureFormat::R16Unorm,
+            TextureFormat::R16Snorm => wgpu::TextureFormat::R16Snorm,
+            TextureFormat::R16Uint => wgpu::TextureFormat::R16Uint,
+            TextureFormat::R16Sint => wgpu::TextureFormat::R16Sint,
+            TextureFormat::R16Float => wgpu::TextureFormat::R16Float,
+            TextureFormat::Rg8Unorm => wgpu::TextureFormat::Rg8Unorm,
+            TextureFormat::Rg8Snorm => wgpu::TextureFormat::Rg8Snorm,
+            TextureFormat::Rg8Uint => wgpu::TextureFormat::Rg8Uint,
+            TextureFormat::Rg8Sint => wgpu::TextureFormat::Rg8Sint,
+            TextureFormat::R32Uint => wgpu::TextureFormat::R32Uint,
+            TextureFormat::R32Sint => wgpu::TextureFormat::R32Sint,
+            TextureFormat::R32Float => wgpu::TextureFormat::R32Float,
+            TextureFormat::Rg16Unorm => wgpu::TextureFormat::Rg16Unorm,
+            TextureFormat::Rg16Snorm => wgpu::TextureFormat::Rg16Snorm,
+            TextureFormat::Rg16Uint => wgpu::TextureFormat::Rg16Uint,
+            TextureFormat::Rg16Sint => wgpu::TextureFormat::Rg16Sint,
+            TextureFormat::Rg16Float => wgpu::TextureFormat::Rg16Float,
+            TextureFormat::Rgba8Unorm => wgpu::TextureFormat::Rgba8Unorm,
+            TextureFormat::Rgba8UnormSrgb => wgpu::TextureFormat::Rgba8UnormSrgb,
+            TextureFormat::Rgba8Snorm => wgpu::TextureFormat::Rgba8Snorm,
+            TextureFormat::Rgba8Uint => wgpu::TextureFormat::Rgba8Uint,
+            TextureFormat::Rgba8Sint => wgpu::TextureFormat::Rgba8Sint,
+            TextureFormat::Bgra8Unorm => wgpu::TextureFormat::Bgra8Unorm,
+            TextureFormat::Bgra8UnormSrgb => wgpu::TextureFormat::Bgra8UnormSrgb,
+            TextureFormat::Rgb10a2Unorm => wgpu::TextureFormat::Rgb10a2Unorm,
+            TextureFormat::Rg11b10Float => wgpu::TextureFormat::Rg11b10Float,
+            TextureFormat::Rg32Uint => wgpu::TextureFormat::Rg32Uint,
+            TextureFormat::Rg32Sint => wgpu::TextureFormat::Rg32Sint,
+            TextureFormat::Rg32Float => wgpu::TextureFormat::Rg32Float,
+            TextureFormat::Rgba16Unorm => wgpu::TextureFormat::Rgba16Unorm,
+            TextureFormat::Rgba16Snorm => wgpu::TextureFormat::Rgba16Snorm,
+            TextureFormat::Rgba16Uint => wgpu::TextureFormat::Rgba16Uint,
+            TextureFormat::Rgba16Sint => wgpu::TextureFormat::Rgba16Sint,
+            TextureFormat::Rgba16Float => wgpu::TextureFormat::Rgba16Float,
+            TextureFormat::Rgba32Uint => wgpu::TextureFormat::Rgba32Uint,
+            TextureFormat::Rgba32Sint => wgpu::TextureFormat::Rgba32Sint,
+            TextureFormat::Rgba32Float => wgpu::TextureFormat::Rgba32Float,
+            TextureFormat::Depth32Float => wgpu::TextureFormat::Depth32Float,
+            TextureFormat::Depth24Plus => wgpu::TextureFormat::Depth24Plus,
+            TextureFormat::Depth24PlusStencil8 => wgpu::TextureFormat::Depth24PlusStencil8,
+        }
+    }
+}
+
+impl From<TextureUsage> for wgpu::TextureUsage {
+    fn from(val: TextureUsage) -> Self {
+        wgpu::TextureUsage::from_bits(val.bits()).unwrap()
+    }
+}
+
+impl From<&DepthStencilStateDescriptor> for wgpu::DepthStencilStateDescriptor {
+    fn from(val: &DepthStencilStateDescriptor) -> Self {
+        wgpu::DepthStencilStateDescriptor {
+            depth_compare: val.depth_compare.into(),
+            depth_write_enabled: val.depth_write_enabled,
+            format: val.format.into(),
+            stencil_back: (&val.stencil_back).into(),
+            stencil_front: (&val.stencil_front).into(),
+            stencil_read_mask: val.stencil_read_mask,
+            stencil_write_mask: val.stencil_write_mask,
+        }
+    }
+}
+
+impl From<&StencilStateFaceDescriptor> for wgpu::StencilStateFaceDescriptor {
+    fn from(val: &StencilStateFaceDescriptor) -> Self {
+        wgpu::StencilStateFaceDescriptor {
+            compare: val.compare.into(),
+            depth_fail_op: val.depth_fail_op.into(),
+            fail_op: val.fail_op.into(),
+            pass_op: val.pass_op.into(),
+        }
+    }
+}
+
+impl From<CompareFunction> for wgpu::CompareFunction {
+    fn from(val: CompareFunction) -> Self {
+        match val {
+            CompareFunction::Never => wgpu::CompareFunction::Never,
+            CompareFunction::Less => wgpu::CompareFunction::Less,
+            CompareFunction::Equal => wgpu::CompareFunction::Equal,
+            CompareFunction::LessEqual => wgpu::CompareFunction::LessEqual,
+            CompareFunction::Greater => wgpu::CompareFunction::Greater,
+            CompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
+            CompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
+            CompareFunction::Always => wgpu::CompareFunction::Always,
+        }
+    }
+}
+
+impl From<StencilOperation> for wgpu::StencilOperation {
+    fn from(val: StencilOperation) -> Self {
+        match val {
+            StencilOperation::Keep => wgpu::StencilOperation::Keep,
+            StencilOperation::Zero => wgpu::StencilOperation::Zero,
+            StencilOperation::Replace => wgpu::StencilOperation::Replace,
+            StencilOperation::Invert => wgpu::StencilOperation::Invert,
+            StencilOperation::IncrementClamp => wgpu::StencilOperation::IncrementClamp,
+            StencilOperation::DecrementClamp => wgpu::StencilOperation::DecrementClamp,
+            StencilOperation::IncrementWrap => wgpu::StencilOperation::IncrementWrap,
+            StencilOperation::DecrementWrap => wgpu::StencilOperation::DecrementWrap,
+        }
+    }
+}
+
+impl From<PrimitiveTopology> for wgpu::PrimitiveTopology {
+    fn from(val: PrimitiveTopology) -> Self {
+        match val {
+            PrimitiveTopology::PointList => wgpu::PrimitiveTopology::PointList,
+            PrimitiveTopology::LineList => wgpu::PrimitiveTopology::LineList,
+            PrimitiveTopology::LineStrip => wgpu::PrimitiveTopology::LineStrip,
+            PrimitiveTopology::TriangleList => wgpu::PrimitiveTopology::TriangleList,
+            PrimitiveTopology::TriangleStrip => wgpu::PrimitiveTopology::TriangleStrip,
+        }
+    }
+}
+
+impl From<FrontFace> for wgpu::FrontFace {
+    fn from(val: FrontFace) -> Self {
+        match val {
+            FrontFace::Ccw => wgpu::FrontFace::Ccw,
+            FrontFace::Cw => wgpu::FrontFace::Cw,
+        }
+    }
+}
+
+impl From<CullMode> for wgpu::CullMode {
+    fn from(val: CullMode) -> Self {
+        match val {
+            CullMode::None => wgpu::CullMode::None,
+            CullMode::Front => wgpu::CullMode::Front,
+            CullMode::Back => wgpu::CullMode::Back,
+        }
+    }
+}
+
+impl From<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescriptor {
+    fn from(val: &RasterizationStateDescriptor) -> Self {
+        wgpu::RasterizationStateDescriptor {
+            front_face: val.front_face.into(),
+            cull_mode: val.cull_mode.into(),
+            depth_bias: val.depth_bias,
+            depth_bias_slope_scale: val.depth_bias_slope_scale,
+            depth_bias_clamp: val.depth_bias_clamp,
+        }
+    }
+}
+
+impl From<&ColorStateDescriptor> for wgpu::ColorStateDescriptor {
+    fn from(val: &ColorStateDescriptor) -> Self {
+        wgpu::ColorStateDescriptor {
+            format: val.format.into(),
+            alpha_blend: (&val.alpha_blend).into(),
+            color_blend: (&val.color_blend).into(),
+            write_mask: val.write_mask.into(),
+        }
+    }
+}
+
+impl From<ColorWrite> for wgpu::ColorWrite {
+    fn from(val: ColorWrite) -> Self {
+        wgpu::ColorWrite::from_bits(val.bits()).unwrap()
+    }
+}
+
+impl From<&BlendDescriptor> for wgpu::BlendDescriptor {
+    fn from(val: &BlendDescriptor) -> Self {
+        wgpu::BlendDescriptor {
+            src_factor: val.src_factor.into(),
+            dst_factor: val.dst_factor.into(),
+            operation: val.operation.into(),
+        }
+    }
+}
+
+impl From<BlendFactor> for wgpu::BlendFactor {
+    fn from(val: BlendFactor) -> Self {
+        match val {
+            BlendFactor::Zero => wgpu::BlendFactor::Zero,
+            BlendFactor::One => wgpu::BlendFactor::One,
+            BlendFactor::SrcColor => wgpu::BlendFactor::SrcColor,
+            BlendFactor::OneMinusSrcColor => wgpu::BlendFactor::OneMinusSrcColor,
+            BlendFactor::SrcAlpha => wgpu::BlendFactor::SrcAlpha,
+            BlendFactor::OneMinusSrcAlpha => wgpu::BlendFactor::OneMinusSrcAlpha,
+            BlendFactor::DstColor => wgpu::BlendFactor::DstColor,
+            BlendFactor::OneMinusDstColor => wgpu::BlendFactor::OneMinusDstColor,
+            BlendFactor::DstAlpha => wgpu::BlendFactor::DstAlpha,
+            BlendFactor::OneMinusDstAlpha => wgpu::BlendFactor::OneMinusDstAlpha,
+            BlendFactor::SrcAlphaSaturated => wgpu::BlendFactor::SrcAlphaSaturated,
+            BlendFactor::BlendColor => wgpu::BlendFactor::BlendColor,
+            BlendFactor::OneMinusBlendColor => wgpu::BlendFactor::OneMinusBlendColor,
+        }
+    }
+}
+
+impl From<BlendOperation> for wgpu::BlendOperation {
+    fn from(val: BlendOperation) -> Self {
+        match val {
+            BlendOperation::Add => wgpu::BlendOperation::Add,
+            BlendOperation::Subtract => wgpu::BlendOperation::Subtract,
+            BlendOperation::ReverseSubtract => wgpu::BlendOperation::ReverseSubtract,
+            BlendOperation::Min => wgpu::BlendOperation::Min,
+            BlendOperation::Max => wgpu::BlendOperation::Max,
+        }
+    }
+}
+
+impl From<IndexFormat> for wgpu::IndexFormat {
+    fn from(val: IndexFormat) -> Self {
+        match val {
+            IndexFormat::Uint16 => wgpu::IndexFormat::Uint16,
+            IndexFormat::Uint32 => wgpu::IndexFormat::Uint32,
+        }
+    }
+}
+
+impl From<SamplerDescriptor> for wgpu::SamplerDescriptor {
+    fn from(sampler_descriptor: SamplerDescriptor) -> Self {
+        wgpu::SamplerDescriptor {
+            address_mode_u: sampler_descriptor.address_mode_u.into(),
+            address_mode_v: sampler_descriptor.address_mode_v.into(),
+            address_mode_w: sampler_descriptor.address_mode_w.into(),
+            mag_filter: sampler_descriptor.mag_filter.into(),
+            min_filter: sampler_descriptor.min_filter.into(),
+            mipmap_filter: sampler_descriptor.mipmap_filter.into(),
+            lod_min_clamp: sampler_descriptor.lod_min_clamp,
+            lod_max_clamp: sampler_descriptor.lod_max_clamp,
+            compare_function: sampler_descriptor.compare_function.into(),
+        }
+    }
+}
+
+impl From<AddressMode> for wgpu::AddressMode {
+    fn from(val: AddressMode) -> Self {
+        match val {
+            AddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
+            AddressMode::Repeat => wgpu::AddressMode::Repeat,
+            AddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
+        }
+    }
+}
+
+impl From<FilterMode> for wgpu::FilterMode {
+    fn from(val: FilterMode) -> Self {
+        match val {
+            FilterMode::Nearest => wgpu::FilterMode::Nearest,
+            FilterMode::Linear => wgpu::FilterMode::Linear,
         }
     }
 }

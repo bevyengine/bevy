@@ -42,7 +42,7 @@ impl ResourceProvider for LightResourceProvider {
     ) {
         let light_uniform_size = (std::mem::size_of::<LightCount>()
             + self.max_lights * std::mem::size_of::<LightRaw>())
-            as wgpu::BufferAddress;
+            as u64;
 
         let buffer = renderer.create_buffer(
             light_uniform_size,
@@ -102,7 +102,7 @@ impl ResourceProvider for LightResourceProvider {
                 0,
                 self.light_buffer.unwrap(),
                 0,
-                light_count_size as wgpu::BufferAddress,
+                light_count_size as u64,
             );
 
             renderer.copy_buffer_to_buffer(
@@ -110,7 +110,7 @@ impl ResourceProvider for LightResourceProvider {
                 0,
                 self.light_buffer.unwrap(),
                 light_count_size as u64,
-                total_size as wgpu::BufferAddress,
+                total_size as u64,
             );
         }
     }

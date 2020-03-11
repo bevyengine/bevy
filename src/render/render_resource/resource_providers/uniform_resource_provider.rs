@@ -15,7 +15,7 @@ use std::{
     marker::PhantomData,
     ops::Deref,
 };
-
+pub const BIND_BUFFER_ALIGNMENT: u64 = 256;
 pub struct UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync,
@@ -150,7 +150,7 @@ where
 
             // allocate enough space for twice as many entities as there are currently;
             let capacity = count * 2;
-            let size = wgpu::BIND_BUFFER_ALIGNMENT * capacity;
+            let size = BIND_BUFFER_ALIGNMENT * capacity;
             let created_resource =
                 renderer.create_buffer(size, BufferUsage::COPY_DST | BufferUsage::UNIFORM);
 
@@ -169,10 +169,10 @@ where
             let resource = resource.unwrap();
             let size = {
                 let info = renderer.get_dynamic_uniform_buffer_info(resource).unwrap();
-                wgpu::BIND_BUFFER_ALIGNMENT * info.count
+                BIND_BUFFER_ALIGNMENT * info.count
             };
 
-            let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+            let alignment = BIND_BUFFER_ALIGNMENT as usize;
             let mut offset = 0usize;
             let info = renderer
                 .get_dynamic_uniform_buffer_info_mut(resource)
@@ -193,7 +193,7 @@ where
                 size as usize,
                 BufferUsage::COPY_SRC,
                 &mut |mapped| {
-                    let alignment = wgpu::BIND_BUFFER_ALIGNMENT as usize;
+                    let alignment = BIND_BUFFER_ALIGNMENT as usize;
                     let mut offset = 0usize;
                     for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
                         if !entities.contains(&entity) {
