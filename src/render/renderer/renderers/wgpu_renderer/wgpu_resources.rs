@@ -63,10 +63,10 @@ impl WgpuResources {
                     None => {
                         match binding.bind_type {
                             BindType::Uniform { .. } => {
-                                println!(
-                                    "Warning: creating new empty buffer for uniform binding {} {:?}",
-                                    binding.name, binding
-                                );
+                                // println!(
+                                //     "Warning: creating new empty buffer for uniform binding {} {:?}",
+                                //     binding.name, binding
+                                // );
                                 unset_uniforms.push(binding.name.to_string());
                                 let size = binding.bind_type.get_uniform_size().unwrap();
                                 let resource = self.create_buffer(
