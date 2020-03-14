@@ -1,9 +1,10 @@
 use crate::{
-    asset::{AssetStorage, Handle, Mesh},
+    asset::{AssetStorage, Handle},
     prelude::Renderable,
     render::{
         render_resource::{BufferUsage, ResourceProvider},
         renderer::Renderer,
+        mesh::Mesh,
     },
 };
 use legion::{filter::*, prelude::*};

@@ -1,4 +1,5 @@
-pub mod camera;
+mod camera;
+pub mod mesh;
 pub mod render_graph;
 pub mod shader;
 

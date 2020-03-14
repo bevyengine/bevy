@@ -1,8 +1,9 @@
 use crate::{
-    asset::{AssetStorage, Handle, Mesh},
+    asset::{AssetStorage, Handle},
     legion::prelude::*,
     render::{
         draw_target::DrawTarget,
+        mesh::Mesh,
         pipeline::PipelineDescriptor,
         render_resource::{resource_name, BufferUsage, RenderResource, ResourceInfo},
         renderer::{RenderPass, Renderer},

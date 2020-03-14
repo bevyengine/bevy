@@ -1,4 +1,7 @@
-use crate::asset::{Handle, Mesh, Texture};
+use crate::{
+    asset::Handle,
+    render::{mesh::Mesh, texture::Texture},
+};
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]

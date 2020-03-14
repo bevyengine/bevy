@@ -1,8 +1,9 @@
 use crate::{
-    asset::{Asset, AssetStorage, Handle, Mesh, MeshType},
+    asset::{Asset, AssetStorage, Handle},
     ecs, math,
     prelude::Node,
     render::{
+        mesh::{Mesh, MeshType},
         render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
         renderer::Renderer,
     },

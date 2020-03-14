@@ -1,6 +1,9 @@
 use crate::{
-    asset::{Handle, Texture},
-    render::shader::{AsUniforms, FieldBindType, FieldUniformName},
+    asset::Handle,
+    render::{
+        shader::{AsUniforms, FieldBindType, FieldUniformName},
+        texture::Texture,
+    },
 };
 
 use zerocopy::AsBytes;

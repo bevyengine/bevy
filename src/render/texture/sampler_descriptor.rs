@@ -1,4 +1,5 @@
-use crate::{asset::Texture, render::pipeline::state_descriptors::CompareFunction};
+use super::Texture;
+use crate::render::pipeline::state_descriptors::CompareFunction;
 
 #[derive(Copy, Clone)]
 pub struct SamplerDescriptor {

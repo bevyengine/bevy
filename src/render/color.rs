@@ -1,9 +1,5 @@
-use crate::{
-    asset::{Handle, Texture},
-    core::GetBytes,
-    math::Vec4,
-    render::shader::ShaderDefSuffixProvider,
-};
+use super::texture::Texture;
+use crate::{asset::Handle, core::GetBytes, math::Vec4, render::shader::ShaderDefSuffixProvider};
 use std::ops::Add;
 use zerocopy::AsBytes;
 

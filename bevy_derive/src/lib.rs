@@ -167,7 +167,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn get_uniform_texture(&self, name: &str) -> Option<bevy::asset::Handle<bevy::asset::Texture>> {
+            fn get_uniform_texture(&self, name: &str) -> Option<bevy::asset::Handle<bevy::render::texture::Texture>> {
                 use bevy::render::shader::GetTexture;
                 match name {
                     #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*

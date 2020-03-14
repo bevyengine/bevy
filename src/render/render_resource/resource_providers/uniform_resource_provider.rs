@@ -1,11 +1,11 @@
 use crate::{
-    asset::{AssetStorage, Texture},
+    asset::AssetStorage,
     render::{
         pipeline::BindType,
         render_resource::{BufferUsage, RenderResource, ResourceProvider},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
-        texture::{SamplerDescriptor, TextureDescriptor},
+        texture::{SamplerDescriptor, Texture, TextureDescriptor},
         Renderable,
     },
 };

@@ -1,5 +1,5 @@
-use super::{Extent3d, TextureDimension, TextureFormat};
-use crate::{asset::Texture, render::texture::TextureUsage};
+use super::{Extent3d, Texture, TextureDimension, TextureFormat};
+use crate::render::texture::TextureUsage;
 
 #[derive(Copy, Clone)]
 pub struct TextureDescriptor {

@@ -1,7 +1,4 @@
-use crate::{
-    asset::{Handle, Texture},
-    math::Vec4,
-};
+use crate::{asset::Handle, math::Vec4, render::texture::Texture};
 use zerocopy::AsBytes;
 
 pub trait GetBytes {

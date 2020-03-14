@@ -1,7 +1,11 @@
 use crate::{
-    asset::{Handle, Texture},
+    asset::Handle,
     core::GetBytes,
-    render::{color::ColorSource, pipeline::BindType, texture::TextureViewDimension},
+    render::{
+        color::ColorSource,
+        pipeline::BindType,
+        texture::{Texture, TextureViewDimension},
+    },
 };
 use legion::prelude::Entity;
 use std::collections::HashMap;
