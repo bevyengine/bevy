@@ -7,7 +7,7 @@ use crate::{
         pipeline::PipelineDescriptor,
         render_resource::{resource_name, ResourceInfo},
         renderer::RenderPass,
-        Instanced, Renderable,
+        Renderable,
     },
 };
 
@@ -25,7 +25,7 @@ impl DrawTarget for MeshesDrawTarget {
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
         let mesh_query =
-            <(Read<Handle<Mesh>>, Read<Renderable>)>::query().filter(!component::<Instanced>());
+            <(Read<Handle<Mesh>>, Read<Renderable>)>::query();
 
         for (entity, (mesh, renderable)) in mesh_query.iter_entities(world) {
             if !renderable.is_visible {

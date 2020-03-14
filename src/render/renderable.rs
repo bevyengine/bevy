@@ -13,6 +13,7 @@ pub struct Renderable {
     pub is_visible: bool,
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
     pub shader_defs: HashSet<String>,
+    pub instanced: bool,
 }
 
 impl Default for Renderable {
@@ -23,6 +24,7 @@ impl Default for Renderable {
                 Handle::new(0), // TODO: this could be better
             ],
             shader_defs: HashSet::new(),
+            instanced: false,
         }
     }
 }

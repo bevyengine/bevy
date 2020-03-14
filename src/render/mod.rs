@@ -21,5 +21,3 @@ pub mod render_resource;
 mod renderable;
 pub mod renderer;
 pub mod texture;
-
-pub struct Instanced;

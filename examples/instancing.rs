@@ -157,9 +157,12 @@ fn create_person(world: &mut World, mesh_handle: Handle<Mesh>, translation: Tran
             Velocity {
                 value: math::vec3(0.0, 0.0, 0.0),
             },
-            Instanced,
             StandardMaterial {
                 albedo: (math::vec4(0.5, 0.3, 0.3, 1.0) * random::<f32>()).into(),
+            },
+            Renderable {
+                instanced: true,
+                ..Default::default()
             },
             mesh_handle,
             LocalToWorld::identity(),
