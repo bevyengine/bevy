@@ -67,8 +67,8 @@ where
         }
 
         for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
-            let field_uniform_names = uniforms.get_field_uniform_names();
-            for uniform_info in UniformInfoIter::new(field_uniform_names, uniforms.deref()) {
+            let field_infos = uniforms.get_field_infos();
+            for uniform_info in UniformInfoIter::new(field_infos, uniforms.deref()) {
                 match uniform_info.bind_type {
                     BindType::Uniform { .. } => {
                         // only add the first time a uniform info is processed

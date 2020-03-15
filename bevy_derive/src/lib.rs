@@ -108,7 +108,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
-    let field_uniform_names_ident = format_ident!("{}_FIELD_UNIFORM_NAMES", struct_name_screaming_snake);
+    let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_screaming_snake);
 
     let active_uniform_field_names = active_uniform_fields.iter().map(|field| {
         &field.ident
@@ -121,7 +121,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let mut uniform_name_strings = Vec::new();
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
-    let field_uniform_names = active_uniform_fields.iter().map(|f| {
+    let field_infos = active_uniform_fields.iter().map(|f| {
         let field_name = f.ident.as_ref().unwrap().to_string();
         let uniform = format!("{}_{}", struct_name, field_name);
         let texture = format!("{}_texture", uniform);
@@ -131,23 +131,24 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         texture_and_sampler_name_strings.push(sampler.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
-        quote!(bevy::render::shader::FieldUniformName {
-            field: #field_name,
-            uniform: #uniform,
-            texture: #texture,
-            sampler: #sampler,     
+        quote!(bevy::render::shader::FieldInfo {
+            name: #field_name,
+            uniform_name: #uniform,
+            texture_name: #texture,
+            sampler_name: #sampler,  
+            is_vertex_buffer_member: false,
         })
     });
 
     TokenStream::from(quote! {
-        const #field_uniform_names_ident: &[bevy::render::shader::FieldUniformName] = &[
-            #(#field_uniform_names,)*
+        const #field_infos_ident: &[bevy::render::shader::FieldInfo] = &[
+            #(#field_infos,)*
         ];
 
         impl bevy::render::shader::AsUniforms for #struct_name {
             // TODO: max this an iterator that feeds on field_uniform_names_ident
-            fn get_field_uniform_names(&self) -> &[bevy::render::shader::FieldUniformName] {
-                #field_uniform_names_ident
+            fn get_field_infos(&self) -> &[bevy::render::shader::FieldInfo] {
+                #field_infos_ident
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::shader::FieldBindType> {

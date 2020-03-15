@@ -1,23 +1,24 @@
 use crate::{
     asset::Handle,
     render::{
-        shader::{AsUniforms, FieldBindType, FieldUniformName},
+        shader::{AsUniforms, FieldBindType, FieldInfo},
         texture::Texture,
     },
 };
 
 use zerocopy::AsBytes;
 
-const LOCAL_TO_WORLD_FIELD_UNIFORM_NAMES: &[FieldUniformName] = &[FieldUniformName {
-    field: "object",
-    uniform: "Object",
-    texture: "",
-    sampler: "",
+const LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
+    name: "object",
+    uniform_name: "Object",
+    texture_name: "",
+    sampler_name: "",
+    is_vertex_buffer_member: false,
 }];
 
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
-    fn get_field_uniform_names(&self) -> &[FieldUniformName] {
-        LOCAL_TO_WORLD_FIELD_UNIFORM_NAMES
+    fn get_field_infos(&self) -> &[FieldInfo] {
+        LOCAL_TO_WORLD_FIELD_INFOS
     }
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
