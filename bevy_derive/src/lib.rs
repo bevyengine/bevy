@@ -39,6 +39,8 @@ struct UniformAttributeArgs {
     pub ignore: Option<bool>,
     #[darling(default)]
     pub shader_def: Option<bool>,
+    #[darling(default)]
+    pub vertex_buffer: Option<bool>,
 }
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
@@ -121,7 +123,13 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let mut uniform_name_strings = Vec::new();
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
-    let field_infos = active_uniform_fields.iter().map(|f| {
+    let field_infos = uniform_fields.iter().filter(|(_field, attrs)| {
+        attrs.is_none()
+            || match attrs.as_ref().unwrap().ignore {
+                Some(ignore) => !ignore,
+                None => true,
+            }
+    }).map(|(f, attrs)| {
         let field_name = f.ident.as_ref().unwrap().to_string();
         let uniform = format!("{}_{}", struct_name, field_name);
         let texture = format!("{}_texture", uniform);
@@ -131,12 +139,21 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         texture_and_sampler_name_strings.push(sampler.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
+        let is_vertex_buffer_member = match attrs {
+            Some(attrs) => {
+                match attrs.vertex_buffer {
+                    Some(vertex_buffer) => vertex_buffer,
+                    None => false,
+                }
+            },
+            None => false,
+        };
         quote!(bevy::render::shader::FieldInfo {
             name: #field_name,
             uniform_name: #uniform,
             texture_name: #texture,
             sampler_name: #sampler,  
-            is_vertex_buffer_member: false,
+            is_vertex_buffer_member: #is_vertex_buffer_member,
         })
     });
 
