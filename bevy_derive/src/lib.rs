@@ -158,11 +158,18 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             }
 
-            // TODO: Fix this so uniform_name_uniform_info lines up with getbytes
             fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
                 use bevy::core::bytes::GetBytes;
                 match name {
                     #(#uniform_name_strings => Some(self.#active_uniform_field_names.get_bytes()),)*
+                    _ => None,
+                }
+            }
+
+            fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
+                use bevy::core::bytes::GetBytes;
+                match name {
+                    #(#uniform_name_strings => self.#active_uniform_field_names.get_bytes_ref(),)*
                     _ => None,
                 }
             }

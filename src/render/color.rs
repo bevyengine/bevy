@@ -112,6 +112,9 @@ impl GetBytes for ColorSource {
         }
     }
     fn get_bytes_ref(&self) -> Option<&[u8]> {
-        None
+        match *self {
+            ColorSource::Color(ref color) => color.get_bytes_ref(),
+            ColorSource::Texture(ref texture) => texture.get_bytes_ref(), // Texture is not a uniform
+        }
     }
 }

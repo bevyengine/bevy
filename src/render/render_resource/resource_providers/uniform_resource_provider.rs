@@ -201,8 +201,12 @@ where
                         }
                         // TODO: check if index has changed. if it has, then entity should be updated
                         // TODO: only mem-map entities if their data has changed
-                        // TODO: try getting bytes ref first
-                        if let Some(uniform_bytes) = uniforms.get_uniform_bytes(&name) {
+                        if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
+                            mapped[offset..(offset + uniform_bytes.len())]
+                                .copy_from_slice(uniform_bytes);
+                            offset += alignment;
+                        }
+                        else if let Some(uniform_bytes) = uniforms.get_uniform_bytes(&name) {
                             mapped[offset..(offset + uniform_bytes.len())]
                                 .copy_from_slice(uniform_bytes.as_slice());
                             offset += alignment;

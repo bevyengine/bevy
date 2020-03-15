@@ -22,7 +22,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
         match name {
-            "Object" => Some(self.0.to_cols_array_2d().as_bytes().into()),
+            "Object" => Some(self.0.as_ref().as_bytes().into()),
             _ => None,
         }
     }
@@ -38,5 +38,12 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     }
     fn get_uniform_texture(&self, _name: &str) -> Option<Handle<Texture>> {
         None
+    }
+
+    fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
+        match name {
+            "Object" => Some(self.0.as_ref().as_bytes()),
+            _ => None,
+        }
     }
 }

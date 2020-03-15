@@ -17,8 +17,7 @@ pub trait AsUniforms {
     fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
-    // TODO: support zero-copy uniforms
-    // fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
+    fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
 }
 
 pub trait ShaderDefSuffixProvider {
