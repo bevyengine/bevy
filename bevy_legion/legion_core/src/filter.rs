@@ -380,7 +380,7 @@ impl<'a, 'b, F: Filter<ArchetypeFilterData<'a>>> Iterator for FilterArchIter<'a,
     }
 }
 
-/// An iterator which yields the index of chuinks that match a filter.
+/// An iterator which yields the index of chunks that match a filter.
 pub struct FilterChunkIter<'a, 'b, F: Filter<ChunksetFilterData<'a>>> {
     filter: &'b F,
     chunks: Enumerate<F::Iter>,
@@ -905,7 +905,7 @@ impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, 
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k);
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l);
 
-/// A filter qhich requires that all chunks contain entity data components of type `T`.
+/// A filter which requires that all chunks contain entity data components of type `T`.
 #[derive(Debug)]
 pub struct ComponentFilter<T>(PhantomData<T>);
 

@@ -6,25 +6,30 @@ fn main() {
 
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let mut material_storage = resources
+        .get_mut::<AssetStorage<StandardMaterial>>()
+        .unwrap();
     let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
     let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
+    let cube_material_handle = material_storage.add(StandardMaterial {
+        albedo: Color::rgb(0.5, 0.4, 0.3).into(),
+    });
+    let plane_material_handle = material_storage.add(StandardMaterial {
+        albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+    });
 
     world
         .build()
         // plane
         .add_entity(MeshEntity {
             mesh: plane_handle,
-            material: StandardMaterial {
-                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
-            },
+            material: plane_material_handle,
             ..Default::default()
         })
         // cube
         .add_entity(MeshEntity {
             mesh: cube_handle,
-            material: StandardMaterial {
-                albedo: Color::rgb(0.5, 0.4, 0.3).into(),
-            },
+            material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })

@@ -24,16 +24,21 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
 
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let mut material_storage = resources
+        .get_mut::<AssetStorage<StandardMaterial>>()
+        .unwrap();
+
     let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
+    let cube_material_handle = material_storage.add(StandardMaterial {
+        albedo: Color::rgb(0.5, 0.4, 0.3).into(),
+    });
 
     world
         .build()
         // parent cube
         .add_entity(MeshEntity {
             mesh: cube_handle,
-            material: StandardMaterial {
-                albedo: Color::rgb(0.5, 0.4, 0.3).into(),
-            },
+            material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
@@ -42,9 +47,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             // cube
             builder.add_entity(MeshEntity {
                 mesh: cube_handle,
-                material: StandardMaterial {
-                    albedo: Color::rgb(0.5, 0.4, 0.3).into(),
-                },
+                material: cube_material_handle,
                 translation: Translation::new(0.0, 0.0, 3.0),
                 ..Default::default()
             })

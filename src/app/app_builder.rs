@@ -126,6 +126,8 @@ impl AppBuilder {
         self.resources.insert(AssetStorage::<Texture>::new());
         self.resources.insert(AssetStorage::<Shader>::new());
         self.resources
+            .insert(AssetStorage::<StandardMaterial>::new());
+        self.resources
             .insert(AssetStorage::<PipelineDescriptor>::new());
         self.resources.insert(ShaderPipelineAssignments::new());
         self.resources.insert(CompiledShaderMap::new());

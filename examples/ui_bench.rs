@@ -14,7 +14,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
         .read_resource::<Time>()
         .with_query(<Write<Node>>::query())
         .build(move |_, world, time, query| {
-            for (i, mut node) in query.iter_mut(world).enumerate() {
+            for (_i, mut node) in query.iter_mut(world).enumerate() {
                 if node.color.r > 0.2 {
                     node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
                     // println!("{}", node.position.x());

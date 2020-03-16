@@ -11,7 +11,6 @@ use std::{borrow::Cow, collections::HashMap};
 
 pub struct BindGroupInfo {
     pub bind_group: wgpu::BindGroup,
-    pub unset_uniforms: Vec<String>,
 }
 
 pub struct WgpuResources {
@@ -53,38 +52,13 @@ impl WgpuResources {
         let bind_group_id = bind_group.get_hash().unwrap();
 
         if let None = self.bind_groups.get(&bind_group_id) {
-            let mut unset_uniforms = Vec::new();
-
             let mut binding_resources = Vec::new();
             // if a uniform resource buffer doesn't exist, create a new empty one
             for binding in bind_group.bindings.iter() {
                 let resource = match self.render_resources.get_named_resource(&binding.name) {
                     resource @ Some(_) => resource,
                     None => {
-                        match binding.bind_type {
-                            BindType::Uniform { .. } => {
-                                // println!(
-                                //     "Warning: creating new empty buffer for uniform binding {} {:?}",
-                                //     binding.name, binding
-                                // );
-                                unset_uniforms.push(binding.name.to_string());
-                                let size = binding.bind_type.get_uniform_size().unwrap();
-                                let resource = self.create_buffer(
-                                    device,
-                                    size,
-                                    BufferUsage::UNIFORM | BufferUsage::COPY_DST,
-                                );
-
-                                self.render_resources
-                                    .set_named_resource(&binding.name, resource);
-                                Some(resource)
-                            }
-                            BindType::Sampler | BindType::SampledTexture { .. } => {
-                                // textures and samplers are handled per-entity
-                                return;
-                            }
-                            _ => panic!("unsupported bind type: {:?}", binding),
-                        }
+                        return
                     }
                 };
 
@@ -138,7 +112,6 @@ impl WgpuResources {
                 bind_group_id,
                 BindGroupInfo {
                     bind_group,
-                    unset_uniforms,
                 },
             );
         }
@@ -184,6 +157,17 @@ impl WgpuResources {
                                     panic!("expected a Sampler resource");
                                 }
                             }
+                            BindType::Uniform { .. } => {
+                                if let ResourceInfo::Buffer { size, .. } = resource_info {
+                                    let buffer = self.buffers.get(&resource).unwrap();
+                                    wgpu::BindingResource::Buffer {
+                                        buffer,
+                                        range: 0..*size,
+                                    }
+                                } else {
+                                    panic!("expected a Buffer resource");
+                                }
+                            }
                             _ => panic!("unsupported bind type"),
                         },
                     }
@@ -207,7 +191,6 @@ impl WgpuResources {
             (entity, bind_group_id),
             BindGroupInfo {
                 bind_group,
-                unset_uniforms: Vec::new(),
             },
         );
     }

@@ -6,7 +6,7 @@ use bevy_derive::EntityArchetype;
 #[derive(EntityArchetype, Default)]
 pub struct MeshEntity {
     pub mesh: Handle<Mesh>,
-    pub material: StandardMaterial,
+    pub material: Handle<StandardMaterial>,
     pub renderable: Renderable,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,

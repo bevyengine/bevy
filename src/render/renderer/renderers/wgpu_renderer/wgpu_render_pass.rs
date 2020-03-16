@@ -62,6 +62,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 }
             };
 
+            // setup dynamic uniform instances
             let mut dynamic_uniform_indices = Vec::new();
             for binding in bind_group.bindings.iter() {
                 if let BindType::Uniform { dynamic, .. } = binding.bind_type {

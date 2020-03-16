@@ -14,14 +14,20 @@ fn setup(world: &mut World, resources: &mut Resources) {
     ));
     let texture_handle = texture_storage.add(texture);
 
+    let mut material_storage = resources
+        .get_mut::<AssetStorage<StandardMaterial>>()
+        .unwrap();
+
+    let cube_material_handle = material_storage.add(StandardMaterial {
+        albedo: texture_handle.into(),
+    });
+
     world
         .build()
         // cube
         .add_entity(MeshEntity {
             mesh: cube_handle,
-            material: StandardMaterial {
-                albedo: texture_handle.into(),
-            },
+            material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
