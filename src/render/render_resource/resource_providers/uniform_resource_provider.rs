@@ -76,7 +76,7 @@ where
                         uniforms,
                         renderer,
                         resources,
-                        false,
+                        true,
                         Some(*handle),
                     )
                 }
@@ -112,7 +112,9 @@ where
                         entities.insert(entity);
                         *counts += 1;
                     } else {
-                        let handle = asset_handle.unwrap();
+                        let handle = asset_handle.expect(
+                            "non-dynamic uniform currently only works with Handle<T> types",
+                        );
                         if let None = self.asset_resources.get(&handle) {
                             self.asset_resources.insert(handle, HashMap::new());
                         }
@@ -123,6 +125,7 @@ where
                             Some(render_resource) => *render_resource,
                             None => {
                                 // let size = uniform_info.bind_type.get_uniform_size().unwrap();
+                                // TODO: get actual size here
                                 let size = BIND_BUFFER_ALIGNMENT;
                                 let resource = renderer.create_buffer(
                                     size,
@@ -231,7 +234,12 @@ where
         }
     }
 
-    fn setup_dynamic_uniform_buffers(&mut self, renderer: &mut dyn Renderer, world: &World) {
+    fn setup_dynamic_uniform_buffers(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        world: &World,
+        resources: &Resources,
+    ) {
         // allocate uniform buffers
         for (name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             let count = *count as u64;
@@ -273,18 +281,25 @@ where
             let info = renderer
                 .get_dynamic_uniform_buffer_info_mut(resource)
                 .unwrap();
+
+            // TODO: check if index has changed. if it has, then entity should be updated
+            // TODO: only mem-map entities if their data has changed
+            // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
             for (entity, _) in self.resource_query.iter_entities(world) {
                 if !entities.contains(&entity) {
                     continue;
                 }
-                // TODO: check if index has changed. if it has, then entity should be updated
-                // TODO: only mem-map entities if their data has changed
-                // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
                 info.offsets.insert(entity, offset as u32);
-                // TODO: try getting ref first
                 offset += alignment;
             }
 
+            for (entity, _) in self.handle_query.as_ref().unwrap().iter_entities(world) {
+                info.offsets.insert(entity, offset as u32);
+                offset += alignment;
+            }
+
+            // TODO: check if index has changed. if it has, then entity should be updated
+            // TODO: only mem-map entities if their data has changed
             let mapped_buffer_resource = renderer.create_buffer_mapped(
                 size as usize,
                 BufferUsage::COPY_SRC,
@@ -297,8 +312,6 @@ where
                         if !entities.contains(&entity) {
                             continue;
                         }
-                        // TODO: check if index has changed. if it has, then entity should be updated
-                        // TODO: only mem-map entities if their data has changed
                         if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
                             mapped[offset..(offset + uniform_bytes.len())]
                                 .copy_from_slice(uniform_bytes);
@@ -307,6 +320,26 @@ where
                             mapped[offset..(offset + uniform_bytes.len())]
                                 .copy_from_slice(uniform_bytes.as_slice());
                             offset += alignment;
+                        }
+                    }
+
+                    if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
+                        for (entity, (handle, _renderable)) in
+                            self.handle_query.as_ref().unwrap().iter_entities(world)
+                        {
+                            let uniforms = asset_storage.get(&handle).unwrap();
+                            if !entities.contains(&entity) {
+                                continue;
+                            }
+                            if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
+                                mapped[offset..(offset + uniform_bytes.len())]
+                                    .copy_from_slice(uniform_bytes);
+                                offset += alignment;
+                            } else if let Some(uniform_bytes) = uniforms.get_uniform_bytes(&name) {
+                                mapped[offset..(offset + uniform_bytes.len())]
+                                    .copy_from_slice(uniform_bytes.as_slice());
+                                offset += alignment;
+                            }
                         }
                     }
                 },
@@ -354,7 +387,7 @@ where
             self.setup_entity_uniform_resources(entity, &uniforms, renderer, resources, true, None);
         }
 
-        self.setup_dynamic_uniform_buffers(renderer, world);
+        self.setup_dynamic_uniform_buffers(renderer, world, resources);
 
         // update shader assignments based on current macro defs
         for (uniforms, mut renderable) in <(Read<T>, Write<Renderable>)>::query().iter_mut(world) {
