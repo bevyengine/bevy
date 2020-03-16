@@ -40,7 +40,7 @@ struct UniformAttributeArgs {
     #[darling(default)]
     pub shader_def: Option<bool>,
     #[darling(default)]
-    pub vertex_buffer: Option<bool>,
+    pub instanceable: Option<bool>,
 }
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
@@ -139,10 +139,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         texture_and_sampler_name_strings.push(sampler.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
         texture_and_sampler_name_idents.push(f.ident.clone());
-        let is_vertex_buffer_member = match attrs {
+        let is_instanceable = match attrs {
             Some(attrs) => {
-                match attrs.vertex_buffer {
-                    Some(vertex_buffer) => vertex_buffer,
+                match attrs.instanceable {
+                    Some(instanceable) => instanceable,
                     None => false,
                 }
             },
@@ -153,7 +153,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             uniform_name: #uniform,
             texture_name: #texture,
             sampler_name: #sampler,  
-            is_vertex_buffer_member: #is_vertex_buffer_member,
+            is_instanceable: #is_instanceable,
         })
     });
 

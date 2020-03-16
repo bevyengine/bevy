@@ -110,7 +110,7 @@ pub struct FieldInfo {
     pub uniform_name: &'static str,
     pub texture_name: &'static str,
     pub sampler_name: &'static str,
-    pub is_vertex_buffer_member: bool, 
+    pub is_instanceable: bool, 
 }
 
 pub trait AsFieldBindType {

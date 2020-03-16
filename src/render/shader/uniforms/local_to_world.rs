@@ -13,7 +13,7 @@ const LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
     uniform_name: "Object",
     texture_name: "",
     sampler_name: "",
-    is_vertex_buffer_member: false,
+    is_instanceable: false,
 }];
 
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
