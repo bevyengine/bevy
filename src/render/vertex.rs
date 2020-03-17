@@ -1,5 +1,3 @@
-use super::pipeline::{InputStepMode, VertexBufferDescriptor, VertexFormat};
-use crate::render::pipeline::VertexAttributeDescriptor;
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 
@@ -9,32 +7,6 @@ pub struct Vertex {
     pub position: [f32; 4],
     pub normal: [f32; 4],
     pub uv: [f32; 2],
-}
-
-impl Vertex {
-    pub fn get_vertex_buffer_descriptor() -> VertexBufferDescriptor {
-        VertexBufferDescriptor {
-            stride: std::mem::size_of::<Vertex>() as u64,
-            step_mode: InputStepMode::Vertex,
-            attributes: vec![
-                VertexAttributeDescriptor {
-                    format: VertexFormat::Float4,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                VertexAttributeDescriptor {
-                    format: VertexFormat::Float4,
-                    offset: 4 * 4,
-                    shader_location: 1,
-                },
-                VertexAttributeDescriptor {
-                    format: VertexFormat::Float2,
-                    offset: 8 * 4,
-                    shader_location: 2,
-                },
-            ],
-        }
-    }
 }
 
 impl From<([f32; 4], [f32; 4], [f32; 2])> for Vertex {

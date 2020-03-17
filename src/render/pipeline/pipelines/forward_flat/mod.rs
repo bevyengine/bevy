@@ -13,7 +13,6 @@ use crate::{
         render_resource::resource_name,
         shader::{Shader, ShaderStage},
         texture::TextureFormat,
-        Vertex,
     },
 };
 
@@ -64,7 +63,6 @@ impl ForwardFlatPipelineBuilder for RenderGraphBuilder {
                 alpha_blend: BlendDescriptor::REPLACE,
                 write_mask: ColorWrite::ALL,
             })
-            .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
             .add_draw_target(resource_name::draw_target::MESHES)
             .finish(),
         )

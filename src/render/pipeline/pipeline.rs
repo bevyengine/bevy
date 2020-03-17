@@ -12,7 +12,6 @@ use crate::{
         render_resource::resource_name,
         shader::{Shader, ShaderStages},
         texture::TextureFormat,
-        Vertex,
     },
 };
 
@@ -23,11 +22,18 @@ pub enum PipelineLayoutType {
 }
 
 #[derive(Clone, Debug)]
+pub enum DescriptorType<T> {
+    Manual(T),
+    Reflected(Option<T>),
+}
+
+#[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
     pub name: Option<String>,
     pub draw_targets: Vec<String>,
     pub layout: PipelineLayoutType,
     pub shader_stages: ShaderStages,
+    pub reflect_vertex_buffer_descriptors: bool,
     pub rasterization_state: Option<RasterizationStateDescriptor>,
 
     /// The primitive topology used to interpret vertices.
@@ -76,6 +82,7 @@ impl PipelineDescriptor {
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
             }),
+            reflect_vertex_buffer_descriptors: true,
             primitive_topology: PrimitiveTopology::TriangleList,
             index_format: IndexFormat::Uint16,
             sample_count: 1,
@@ -169,6 +176,7 @@ impl<'a> PipelineBuilder<'a> {
         mut self,
         vertex_buffer_descriptor: VertexBufferDescriptor,
     ) -> Self {
+        self.pipeline.reflect_vertex_buffer_descriptors = false;
         self.pipeline
             .vertex_buffer_descriptors
             .push(vertex_buffer_descriptor);
@@ -229,7 +237,6 @@ impl<'a> PipelineBuilder<'a> {
             alpha_blend: BlendDescriptor::REPLACE,
             write_mask: ColorWrite::ALL,
         })
-        .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
         .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
     }
 }

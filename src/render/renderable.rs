@@ -16,6 +16,15 @@ pub struct Renderable {
     pub instanced: bool,
 }
 
+impl Renderable {
+    pub fn instanced() -> Self {
+        Renderable {
+            instanced: false,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for Renderable {
     fn default() -> Self {
         Renderable {
@@ -116,7 +125,12 @@ pub fn update_shader_assignments(
         // reset assignments so they are updated every frame
         shader_pipeline_assignments.assignments = HashMap::new();
 
-        for (entity, renderable) in <Read<Renderable>>::query().iter_entities(world) {
+        for (entity, mut renderable) in <Write<Renderable>>::query().iter_entities_mut(world) {
+            // if instancing is enabled, set the def here
+            if renderable.instanced {
+                renderable.shader_defs.insert("INSTANCING".to_string());
+            }
+
             for pipeline_handle in renderable.pipelines.iter() {
                 if let None = compiled_shader_map
                     .pipeline_to_macro_pipelines

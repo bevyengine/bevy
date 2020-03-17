@@ -1,15 +1,13 @@
 #version 450
 
-// vertex attributes
-layout(location = 0) in vec4 a_Pos;
-layout(location = 1) in vec4 a_Normal;
-layout(location = 2) in vec2 a_Uv;
+layout(location = 0) in vec4 Vertex_Position;
+layout(location = 1) in vec4 Vertex_Normal;
+layout(location = 2) in vec2 Vertex_Uv;
 
-// instanced attributes (RectData)
-layout (location = 3) in vec2 a_RectPosition;
-layout (location = 4) in vec2 a_RectSize;
-layout (location = 5) in vec4 a_RectColor;
-layout (location = 6) in float a_RectZIndex;
+layout (location = 3) in vec2 I_Rect_Position;
+layout (location = 4) in vec2 I_Rect_Size;
+layout (location = 5) in vec4 I_Rect_Color;
+layout (location = 6) in float I_Rect_ZIndex;
 
 layout(location = 0) out vec4 v_Color;
 
@@ -18,8 +16,8 @@ layout(set = 0, binding = 0) uniform Camera2d {
 };
 
 void main() {
-    v_Color = a_RectColor;
-    vec4 position = a_Pos * vec4(a_RectSize, 0.0, 1.0);
-    position = position + vec4(a_RectPosition + a_RectSize / 2.0, -a_RectZIndex, 0.0);
+    v_Color = I_Rect_Color;
+    vec4 position = Vertex_Position * vec4(I_Rect_Size, 0.0, 1.0);
+    position = position + vec4(I_Rect_Position + I_Rect_Size / 2.0, -I_Rect_ZIndex, 0.0);
     gl_Position = ViewProj * position;
 }

@@ -6,15 +6,12 @@ use crate::{
                 BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
                 CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace,
                 RasterizationStateDescriptor, StencilStateFaceDescriptor,
-            },
-            InputStepMode, PipelineDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
-            VertexFormat,
+            }, PipelineDescriptor,
         },
         render_graph::RenderGraphBuilder,
-        render_resource::{resource_name, resource_providers::RectData},
+        render_resource::{resource_name},
         shader::{Shader, ShaderStage},
         texture::TextureFormat,
-        Vertex,
     },
 };
 pub trait UiPipelineBuilder {
@@ -71,33 +68,6 @@ impl UiPipelineBuilder for RenderGraphBuilder {
                     operation: BlendOperation::Add,
                 },
                 write_mask: ColorWrite::ALL,
-            })
-            .add_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor())
-            .add_vertex_buffer_descriptor(VertexBufferDescriptor {
-                stride: std::mem::size_of::<RectData>() as u64,
-                step_mode: InputStepMode::Instance,
-                attributes: vec![
-                    VertexAttributeDescriptor {
-                        format: VertexFormat::Float2,
-                        offset: 0,
-                        shader_location: 3,
-                    },
-                    VertexAttributeDescriptor {
-                        format: VertexFormat::Float2,
-                        offset: 2 * 4,
-                        shader_location: 4,
-                    },
-                    VertexAttributeDescriptor {
-                        format: VertexFormat::Float4,
-                        offset: 4 * 4,
-                        shader_location: 5,
-                    },
-                    VertexAttributeDescriptor {
-                        format: VertexFormat::Float,
-                        offset: 8 * 4,
-                        shader_location: 6,
-                    },
-                ],
             })
             .add_draw_target(resource_name::draw_target::UI)
             .finish(),

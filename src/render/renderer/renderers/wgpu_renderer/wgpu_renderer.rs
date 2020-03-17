@@ -7,7 +7,9 @@ use crate::{
             PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor,
         },
-        pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType},
+        pipeline::{
+            BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType,
+        },
         render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo,
@@ -161,8 +163,19 @@ impl WgpuRenderer {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
-        let owned_vertex_buffer_descriptors = pipeline_descriptor
-            .vertex_buffer_descriptors
+        let reflected_vertex_layout = if pipeline_descriptor.reflect_vertex_buffer_descriptors {
+            Some(vertex_spirv.reflect_layout().unwrap())
+        } else {
+            None
+        };
+
+        let vertex_buffer_descriptors = if let Some(ref layout) = reflected_vertex_layout {
+            &layout.vertex_buffer_descriptors
+        } else {
+            &pipeline_descriptor.vertex_buffer_descriptors
+        };
+
+        let owned_vertex_buffer_descriptors = vertex_buffer_descriptors
             .iter()
             .map(|v| v.into())
             .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
