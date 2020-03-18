@@ -8,7 +8,6 @@ edition = "2018"
 default = ["wgpu"]
 
 [dependencies]
-# Modified to use std::any::type_name instead of std::any::TypeId
 legion = { path = "bevy_legion", features = ["serialize"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "a7b0d5ae5bc0934439ef559ed145e93f0117c39a", optional = true }
 bitflags = "1.0"
@@ -27,10 +26,11 @@ type-uuid = "0.1"
 shaderc = "0.6"
 libloading = "0.5.2"
 png = "0.16.0"
-# rspirv = { git = "https://github.com/gfx-rs/rspirv.git", rev = "baa469eae2932271174593eb066894d7a7a38439" }
 spirv-reflect = "0.2.3"
 bevy_derive = { path = "bevy_derive" }
 bevy_transform = { path = "bevy_transform" }
+# TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
+once_cell = "1.3.1"
 
 [profile.release]
 debug = true

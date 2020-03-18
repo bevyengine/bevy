@@ -3,7 +3,7 @@ use crate::{
     core::GetBytes,
     render::{
         color::ColorSource,
-        pipeline::BindType,
+        pipeline::{VertexBufferDescriptor, BindType},
         texture::{Texture, TextureViewDimension},
     },
 };
@@ -17,6 +17,7 @@ pub trait AsUniforms {
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
     fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
+    fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
 }
 
 pub trait ShaderDefSuffixProvider {

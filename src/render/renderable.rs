@@ -84,7 +84,7 @@ fn try_compiling_shader_with_macros(
         .unwrap();
     let shader = shader_storage.get(shader_handle).unwrap();
 
-    // don't produce new shader if the input source is already spriv
+    // don't produce new shader if the input source is already spirv
     if let ShaderSource::Spirv(_) = shader.source {
         return None;
     }
@@ -203,7 +203,7 @@ pub fn update_shader_assignments(
                     macroed_pipeline_handle
                 };
 
-                // TODO: this will break down if pipeline layout changes. fix this with "autolayout"
+                // TODO: this will break down if pipeline layout changes. fix this with "auto-layout"
                 if let None = shader_pipeline_assignments.assignments.get(&final_handle) {
                     shader_pipeline_assignments
                         .assignments

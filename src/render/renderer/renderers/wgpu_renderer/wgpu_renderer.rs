@@ -7,9 +7,7 @@ use crate::{
             PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor,
         },
-        pipeline::{
-            BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType,
-        },
+        pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptor},
         render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo,
@@ -29,6 +27,7 @@ pub struct WgpuRenderer {
     pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
+    pub vertex_buffer_descriptors: HashMap<String, VertexBufferDescriptor>,
     pub wgpu_resources: WgpuResources,
 }
 
@@ -65,6 +64,7 @@ impl WgpuRenderer {
             swap_chain_descriptor,
             wgpu_resources: WgpuResources::new(),
             render_pipelines: HashMap::new(),
+            vertex_buffer_descriptors: HashMap::new(),
         }
     }
 
@@ -124,8 +124,6 @@ impl WgpuRenderer {
         }
 
         let layout = pipeline_descriptor.get_layout_mut().unwrap();
-        // println!("{:#?}", layout);
-        // println!();
 
         // setup new bind group layouts
         for bind_group in layout.bind_groups.iter_mut() {
@@ -713,5 +711,17 @@ impl Renderer for WgpuRenderer {
                 }
             }
         }
+    }
+    fn set_vertex_buffer_descriptor(
+        &mut self,
+        vertex_buffer_descriptor: VertexBufferDescriptor,
+    ) {
+        self.vertex_buffer_descriptors.insert(vertex_buffer_descriptor.name.to_string(), vertex_buffer_descriptor);
+    }
+    fn get_vertex_buffer_descriptor(
+        &self,
+        name: &str
+    ) -> Option<&VertexBufferDescriptor> {
+        self.vertex_buffer_descriptors.get(name)
     }
 }

@@ -13,3 +13,4 @@ pub mod diagnostics;
 pub use bevy_transform as transform;
 pub use glam as math;
 pub use legion;
+pub use once_cell;

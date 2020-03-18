@@ -1,10 +1,18 @@
 {
     "cSpell.words": [
+        "Bitmask",
+        "MSAA",
         "Wgpu",
+        "Zunstable",
         "bools",
         "chunkset",
         "chunksets",
+        "eprintln",
+        "hashset",
         "multizip",
-        "passthrough"
+        "passthrough",
+        "rspirv",
+        "rustc",
+        "spirv"
     ]
 }

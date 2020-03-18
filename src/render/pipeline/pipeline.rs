@@ -58,7 +58,7 @@ pub struct PipelineDescriptor {
     pub sample_mask: u32,
 
     /// When enabled, produces another sample mask per pixel based on the alpha output value, that
-    /// is ANDed with the sample_mask and the primitive coverage to restrict the set of samples
+    /// is AND-ed with the sample_mask and the primitive coverage to restrict the set of samples
     /// affected by a primitive.
     /// The implicit mask produced for alpha of zero is guaranteed to be zero, and for alpha of one
     /// is guaranteed to be all 1-s.

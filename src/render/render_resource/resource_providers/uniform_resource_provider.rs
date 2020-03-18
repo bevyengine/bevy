@@ -346,9 +346,16 @@ where
             );
 
             renderer.copy_buffer_to_buffer(mapped_buffer_resource, 0, resource, 0, size);
-
-            // TODO: uncomment this to free resource?
             renderer.remove_buffer(mapped_buffer_resource);
+        }
+    }
+
+    fn initialize_vertex_buffer_descriptor(&self, renderer: &mut dyn Renderer) {
+        let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
+        if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
+            if let None = renderer.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name) {
+                renderer.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
+            }
         }
     }
 }
@@ -367,12 +374,14 @@ where
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
-        let query = <(Read<T>, Read<Renderable>)>::query();
+        self.initialize_vertex_buffer_descriptor(renderer);
+
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
+        let query = <(Read<T>, Read<Renderable>)>::query();
         for (_name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             renderer
                 .get_dynamic_uniform_buffer_info_mut(resource.unwrap())

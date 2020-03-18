@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
 
 #[proc_macro_derive(EntityArchetype)]
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
@@ -45,7 +45,7 @@ struct UniformAttributeArgs {
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
 pub fn derive_uniforms(input: TokenStream) -> TokenStream {
-    const UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
+    static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
     let ast = parse_macro_input!(input as DeriveInput);
 
     let fields = match &ast.data {
@@ -85,6 +85,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         })
         .map(|(f, _attr)| *f)
         .collect::<Vec<&Field>>();
+    let active_uniform_field_types = active_uniform_fields
+        .iter()
+        .map(|f| &f.ty)
+        .collect::<Vec<&Type>>();
 
     let shader_def_fields = uniform_fields
         .iter()
@@ -109,8 +113,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     });
 
     let struct_name = &ast.ident;
+    let struct_name_string = struct_name.to_string();
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
     let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_screaming_snake);
+    let vertex_buffer_descriptor_ident = format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_screaming_snake);
 
     let active_uniform_field_names = active_uniform_fields.iter().map(|field| {
         &field.ident
@@ -158,9 +164,24 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     });
 
     TokenStream::from(quote! {
-        const #field_infos_ident: &[bevy::render::shader::FieldInfo] = &[
+        static #field_infos_ident: &[bevy::render::shader::FieldInfo] = &[
             #(#field_infos,)*
         ];
+
+        static #vertex_buffer_descriptor_ident: bevy::once_cell::sync::Lazy<bevy::render::pipeline::VertexBufferDescriptor> = 
+            bevy::once_cell::sync::Lazy::new(|| {
+                use bevy::render::pipeline::AsVertexFormats;
+                // let vertex_formats = vec![
+                //     #(#active_uniform_field_types::as_vertex_formats(),)*
+                // ];
+
+                bevy::render::pipeline::VertexBufferDescriptor {
+                    attributes: Vec::new(),
+                    name: #struct_name_string.to_string(),
+                    step_mode: bevy::render::pipeline::InputStepMode::Instance,
+                    stride: 0,
+                }
+            });
 
         impl bevy::render::shader::AsUniforms for #struct_name {
             // TODO: max this an iterator that feeds on field_uniform_names_ident
@@ -212,6 +233,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                     .filter(|(f, shader_def)| shader_def.is_some())
                     .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_screaming_snake, f, shader_def.unwrap()))
                     .collect::<Vec<String>>())
+            }
+
+            fn get_vertex_buffer_descriptor() -> Option<&'static bevy::render::pipeline::VertexBufferDescriptor> {
+                Some(&#vertex_buffer_descriptor_ident)
             }
         }
     })

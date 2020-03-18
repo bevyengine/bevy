@@ -1,7 +1,7 @@
 use crate::{
     legion::prelude::*,
     render::{
-        pipeline::PipelineDescriptor,
+        pipeline::{VertexBufferDescriptor, PipelineDescriptor},
         render_graph::RenderGraph,
         render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
         shader::DynamicUniformBufferInfo,
@@ -105,6 +105,8 @@ pub trait Renderer {
         entity: Entity,
         pipeline_descriptor: &PipelineDescriptor,
     );
+    fn set_vertex_buffer_descriptor(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor);
+    fn get_vertex_buffer_descriptor(&self, name: &str) -> Option<&VertexBufferDescriptor>;
 }
 
 pub trait RenderPass {
