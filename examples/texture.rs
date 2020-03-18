@@ -19,7 +19,14 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .unwrap();
 
     let cube_material_handle = material_storage.add(StandardMaterial {
-        albedo: texture_handle.into(),
+        albedo_texture: Some(texture_handle),
+        ..Default::default()
+    });
+
+    let modulated_cube_material_handle = material_storage.add(StandardMaterial {
+        albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
+        albedo_texture: Some(texture_handle),
+        ..Default::default()
     });
 
     world
@@ -28,7 +35,14 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: cube_material_handle,
-            translation: Translation::new(0.0, 0.0, 0.0),
+            translation: Translation::new(1.0, 0.0, 0.0),
+            ..Default::default()
+        })
+        // cube modulated
+        .add_entity(MeshEntity {
+            mesh: cube_handle,
+            material: modulated_cube_material_handle,
+            translation: Translation::new(-1.0, 0.0, 0.0),
             ..Default::default()
         })
         // light

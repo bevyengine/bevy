@@ -5,8 +5,6 @@ run_example() {
     timeout "$duration" cargo run --release --example $1
 }
 
-
-
 for entry in examples/*
 do
     IFS='/'

@@ -19,10 +19,8 @@ fn build_move_system() -> Box<dyn Schedulable> {
             for (mut translation, material_handle) in person_query.iter_mut(world) {
                 let material = material_storage.get_mut(&material_handle).unwrap();
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-                if let ColorSource::Color(ref mut color) = material.albedo {
-                    *color = *color
-                        + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
-                }
+                material.albedo = material.albedo
+                    + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
             }
         })
 }
@@ -35,10 +33,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
     let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
     let cube_material_handle = material_storage.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.4, 0.3).into(),
+        albedo: Color::rgb(0.5, 0.4, 0.3),
+        ..Default::default()
     });
     let plane_material_handle = material_storage.add(StandardMaterial {
-        albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+        albedo: Color::rgb(0.1, 0.2, 0.1),
+        ..Default::default()
     });
 
     let mut builder = world
@@ -84,8 +84,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 rng.gen_range(0.0, 1.0),
                 rng.gen_range(0.0, 1.0),
                 rng.gen_range(0.0, 1.0),
-            )
-            .into(),
+            ),
+            ..Default::default()
         });
         builder = builder.add_entity(MeshEntity {
             mesh: cube_handle,

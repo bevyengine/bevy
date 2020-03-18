@@ -1,4 +1,8 @@
-use crate::asset::Asset;
+use crate::{
+    asset::{Asset, Handle},
+    core::GetBytes,
+    render::shader::ShaderDefSuffixProvider,
+};
 use std::fs::File;
 
 pub enum TextureType {
@@ -54,4 +58,23 @@ pub fn create_texels(size: usize) -> Vec<u8> {
                 .chain(iter::once(1))
         })
         .collect()
+}
+
+impl ShaderDefSuffixProvider for Option<Handle<Texture>> {
+    fn get_shader_def(&self) -> Option<&'static str> {
+        match *self {
+            Some(_) => Some(""),
+            None => None,
+        }
+    }
+}
+
+impl GetBytes for Option<Handle<Texture>> {
+    fn get_bytes(&self) -> Vec<std::primitive::u8> {
+        Vec::new()
+    }
+
+    fn get_bytes_ref(&self) -> Option<&[std::primitive::u8]> {
+        None
+    }
 }

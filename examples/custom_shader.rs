@@ -85,7 +85,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 ..Default::default()
             },
             material: MyMaterial {
-                color: Color::rgb(0.0, 0.8, 0.0).into(),
+                color: Color::rgb(0.0, 0.8, 0.0),
                 always_red: false,
             },
             translation: Translation::new(-2.0, 0.0, 0.0),
@@ -99,7 +99,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 ..Default::default()
             },
             material: MyMaterial {
-                color: Color::rgb(0.0, 0.0, 0.0).into(),
+                color: Color::rgb(0.0, 0.0, 0.0),
                 always_red: true,
             },
             translation: Translation::new(2.0, 0.0, 0.0),

@@ -1,18 +1,20 @@
-use crate::render::{Color, ColorSource};
+use crate::{asset::Handle, render::{Color, texture::Texture}};
 
 use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
 pub struct StandardMaterial {
+    pub albedo: Color,
     #[uniform(shader_def)]
-    pub albedo: ColorSource,
+    pub albedo_texture: Option<Handle<Texture>>,
 }
 
 impl Default for StandardMaterial {
     fn default() -> Self {
         StandardMaterial {
-            albedo: Color::rgb(0.3, 0.3, 0.3).into(),
+            albedo: Color::rgb(1.0, 1.0, 1.0),
+            albedo_texture: None,
         }
     }
 }

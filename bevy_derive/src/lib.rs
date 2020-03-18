@@ -138,7 +138,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     }).map(|(f, attrs)| {
         let field_name = f.ident.as_ref().unwrap().to_string();
         let uniform = format!("{}_{}", struct_name, field_name);
-        let texture = format!("{}_texture", uniform);
+        let texture = format!("{}", uniform);
         let sampler = format!("{}_sampler", uniform);
         uniform_name_strings.push(uniform.clone());
         texture_and_sampler_name_strings.push(texture.clone());
@@ -184,7 +184,6 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             });
 
         impl bevy::render::shader::AsUniforms for #struct_name {
-            // TODO: max this an iterator that feeds on field_uniform_names_ident
             fn get_field_infos(&self) -> &[bevy::render::shader::FieldInfo] {
                 #field_infos_ident
             }
@@ -192,7 +191,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::shader::FieldBindType> {
                 use bevy::render::shader::AsFieldBindType;
                 match name {
-                    #(#active_uniform_field_name_strings => Some(self.#active_uniform_field_names.get_field_bind_type()),)*
+                    #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_field_bind_type(),)*
                     _ => None,
                 }
             }

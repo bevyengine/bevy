@@ -16,7 +16,8 @@ fn create_entities_insert_vec(
         vec![(
             plane_handle,
             StandardMaterial {
-                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1),
+                ..Default::default()
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 0.0),
@@ -29,7 +30,8 @@ fn create_entities_insert_vec(
         vec![(
             cube_handle,
             StandardMaterial {
-                albedo: Color::rgb(0.5, 0.3, 0.3).into(),
+                albedo: Color::rgb(0.5, 0.3, 0.3),
+                ..Default::default()
             },
             LocalToWorld::identity(),
             Translation::new(0.0, 0.0, 1.0),
@@ -79,7 +81,8 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(plane_handle)
         .add(StandardMaterial {
-            albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+            albedo: Color::rgb(0.1, 0.2, 0.1),
+            ..Default::default()
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 0.0))
@@ -87,7 +90,8 @@ fn create_entities_builder_add_component(
         .build_entity()
         .add(cube_handle)
         .add(StandardMaterial {
-            albedo: Color::rgb(0.5, 0.3, 0.3).into(),
+            albedo: Color::rgb(0.5, 0.3, 0.3),
+            ..Default::default()
         })
         .add(LocalToWorld::identity())
         .add(Translation::new(0.0, 0.0, 1.0))
@@ -167,10 +171,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
 
     let cube_material_handle = material_storage.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.3, 0.3).into(),
+        albedo: Color::rgb(0.5, 0.3, 0.3),
+        ..Default::default()
     });
     let plane_material_handle = material_storage.add(StandardMaterial {
-        albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+        albedo: Color::rgb(0.1, 0.2, 0.1),
+        ..Default::default()
     });
 
     // no-archetype precompile: 1.24 sec

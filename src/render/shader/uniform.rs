@@ -3,7 +3,7 @@ use crate::{
     core::GetBytes,
     render::{
         color::ColorSource,
-        pipeline::{VertexBufferDescriptor, BindType},
+        pipeline::{BindType, VertexBufferDescriptor},
         texture::{Texture, TextureViewDimension},
     },
 };
@@ -72,35 +72,36 @@ where
                 bind_type: BindType::Sampler,
             })
         } else {
-            if self.index == self.field_infos.len() {
+            if self.index >= self.field_infos.len() {
                 None
             } else {
                 let index = self.index;
                 self.index += 1;
                 let ref field_info = self.field_infos[index];
-                let bind_type = self
-                    .uniforms
-                    .get_field_bind_type(field_info.name)
-                    .unwrap();
-                Some(match bind_type {
-                    FieldBindType::Uniform => UniformInfo {
-                        bind_type: BindType::Uniform {
-                            dynamic: false,
-                            properties: Vec::new(),
-                        },
-                        name: field_info.uniform_name,
-                    },
-                    FieldBindType::Texture => {
-                        self.add_sampler = true;
-                        UniformInfo {
-                            bind_type: BindType::SampledTexture {
-                                dimension: TextureViewDimension::D2,
-                                multisampled: false,
+                let bind_type = self.uniforms.get_field_bind_type(field_info.name);
+                if let Some(bind_type) = bind_type {
+                    Some(match bind_type {
+                        FieldBindType::Uniform => UniformInfo {
+                            bind_type: BindType::Uniform {
+                                dynamic: false,
+                                properties: Vec::new(),
                             },
-                            name: field_info.texture_name,
+                            name: field_info.uniform_name,
+                        },
+                        FieldBindType::Texture => {
+                            self.add_sampler = true;
+                            UniformInfo {
+                                bind_type: BindType::SampledTexture {
+                                    dimension: TextureViewDimension::D2,
+                                    multisampled: false,
+                                },
+                                name: field_info.texture_name,
+                            }
                         }
-                    }
-                })
+                    })
+                } else {
+                    self.next()
+                }
             }
         }
     }
@@ -111,19 +112,34 @@ pub struct FieldInfo {
     pub uniform_name: &'static str,
     pub texture_name: &'static str,
     pub sampler_name: &'static str,
-    pub is_instanceable: bool, 
+    pub is_instanceable: bool,
 }
 
 pub trait AsFieldBindType {
-    fn get_field_bind_type(&self) -> FieldBindType;
+    fn get_field_bind_type(&self) -> Option<FieldBindType>;
 }
 
 impl AsFieldBindType for ColorSource {
-    fn get_field_bind_type(&self) -> FieldBindType {
-        match *self {
+    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+        Some(match *self {
             ColorSource::Texture(_) => FieldBindType::Texture,
             ColorSource::Color(_) => FieldBindType::Uniform,
+        })
+    }
+}
+
+impl AsFieldBindType for Option<Handle<Texture>> {
+    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+        match *self {
+            Some(_) => Some(FieldBindType::Texture),
+            None => None,
         }
+    }
+}
+
+impl AsFieldBindType for Handle<Texture> {
+    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+        Some(FieldBindType::Texture)
     }
 }
 
@@ -131,8 +147,8 @@ impl<T> AsFieldBindType for T
 where
     T: GetBytes,
 {
-    default fn get_field_bind_type(&self) -> FieldBindType {
-        FieldBindType::Uniform
+    default fn get_field_bind_type(&self) -> Option<FieldBindType> {
+        Some(FieldBindType::Uniform)
     }
 }
 
@@ -154,6 +170,12 @@ where
 impl GetTexture for Handle<Texture> {
     fn get_texture(&self) -> Option<Handle<Texture>> {
         Some(self.clone())
+    }
+}
+
+impl GetTexture for Option<Handle<Texture>> {
+    fn get_texture(&self) -> Option<Handle<Texture>> {
+        *self
     }
 }
 

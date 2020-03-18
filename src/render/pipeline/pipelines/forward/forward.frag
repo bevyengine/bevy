@@ -23,19 +23,20 @@ layout(set = 0, binding = 1) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
-# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
-layout(set = 2, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
-layout(set = 2, binding = 2) uniform sampler StandardMaterial_albedo_sampler;
-# else
 layout(set = 2, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
+
+# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
+layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
+layout(set = 3, binding = 2) uniform sampler StandardMaterial_albedo_texture_sampler;
 # endif
 
 void main() {
+    vec4 albedo = Albedo;
 # ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
-    vec4 Albedo = texture(
-        sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_sampler),
+    albedo *= texture(
+        sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_texture_sampler),
         v_Uv);
 # endif
     vec3 normal = normalize(v_Normal);
@@ -51,5 +52,5 @@ void main() {
         color += diffuse * light.color.xyz;
     }
     // multiply the light by material color
-    o_Target = vec4(color, 1.0) * Albedo;
+    o_Target = vec4(color, 1.0) * albedo;
 }

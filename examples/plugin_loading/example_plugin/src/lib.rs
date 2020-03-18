@@ -24,7 +24,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: plane_handle,
             material: StandardMaterial {
-                albedo: Color::rgb(0.1, 0.2, 0.1).into(),
+                albedo: Color::rgb(0.1, 0.2, 0.1),
             },
             ..Default::default()
         })
@@ -32,7 +32,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: StandardMaterial {
-                albedo: Color::rgb(0.5, 0.4, 0.3).into(),
+                albedo: Color::rgb(0.5, 0.4, 0.3),
             },
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
