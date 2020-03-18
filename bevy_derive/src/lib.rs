@@ -6,7 +6,13 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
 
-#[proc_macro_derive(EntityArchetype)]
+#[derive(FromMeta, Debug, Default)]
+struct EntityArchetypeAttributeArgs {
+    #[darling(default)]
+    pub tag: Option<bool>,
+}
+
+#[proc_macro_derive(EntityArchetype, attributes(tag))]
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match &ast.data {
@@ -17,18 +23,39 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
+    let tag_fields = fields
+        .iter()
+        .filter(|f| {
+            f.attrs
+                .iter()
+                .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == "tag")
+                .is_some()
+        })
+        .map(|field| &field.ident);
+
+    let component_fields = fields
+        .iter()
+        .filter(|f| {
+            f.attrs
+                .iter()
+                .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == "tag")
+                .is_none()
+        })
+        .map(|field| &field.ident);
+
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
 
     let struct_name = &ast.ident;
-    let field_name = fields.iter().map(|field| &field.ident);
 
     TokenStream::from(quote! {
         impl #impl_generics bevy::prelude::EntityArchetype for #struct_name#ty_generics {
             fn insert(self, world: &mut bevy::prelude::World) -> Entity {
-                *world.insert((), vec![(
-                    #(self.#field_name,)*
-                )]).first().unwrap()
+                *world.insert((#(self.#tag_fields,)*),
+                    vec![(
+                        #(self.#component_fields,)*
+                    )
+                ]).first().unwrap()
             }
         }
     })
@@ -116,59 +143,63 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let struct_name_string = struct_name.to_string();
     let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
     let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_screaming_snake);
-    let vertex_buffer_descriptor_ident = format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_screaming_snake);
+    let vertex_buffer_descriptor_ident =
+        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_screaming_snake);
 
-    let active_uniform_field_names = active_uniform_fields.iter().map(|field| {
-        &field.ident
-    }).collect::<Vec<_>>();
+    let active_uniform_field_names = active_uniform_fields
+        .iter()
+        .map(|field| &field.ident)
+        .collect::<Vec<_>>();
 
-    let active_uniform_field_name_strings = active_uniform_fields.iter().map(|field| {
-        field.ident.as_ref().unwrap().to_string()
-    }).collect::<Vec<String>>();
+    let active_uniform_field_name_strings = active_uniform_fields
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap().to_string())
+        .collect::<Vec<String>>();
 
     let mut uniform_name_strings = Vec::new();
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
-    let field_infos = uniform_fields.iter().filter(|(_field, attrs)| {
-        attrs.is_none()
-            || match attrs.as_ref().unwrap().ignore {
-                Some(ignore) => !ignore,
-                None => true,
-            }
-    }).map(|(f, attrs)| {
-        let field_name = f.ident.as_ref().unwrap().to_string();
-        let uniform = format!("{}_{}", struct_name, field_name);
-        let texture = format!("{}", uniform);
-        let sampler = format!("{}_sampler", uniform);
-        uniform_name_strings.push(uniform.clone());
-        texture_and_sampler_name_strings.push(texture.clone());
-        texture_and_sampler_name_strings.push(sampler.clone());
-        texture_and_sampler_name_idents.push(f.ident.clone());
-        texture_and_sampler_name_idents.push(f.ident.clone());
-        let is_instanceable = match attrs {
-            Some(attrs) => {
-                match attrs.instanceable {
+    let field_infos = uniform_fields
+        .iter()
+        .filter(|(_field, attrs)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, attrs)| {
+            let field_name = f.ident.as_ref().unwrap().to_string();
+            let uniform = format!("{}_{}", struct_name, field_name);
+            let texture = format!("{}", uniform);
+            let sampler = format!("{}_sampler", uniform);
+            uniform_name_strings.push(uniform.clone());
+            texture_and_sampler_name_strings.push(texture.clone());
+            texture_and_sampler_name_strings.push(sampler.clone());
+            texture_and_sampler_name_idents.push(f.ident.clone());
+            texture_and_sampler_name_idents.push(f.ident.clone());
+            let is_instanceable = match attrs {
+                Some(attrs) => match attrs.instanceable {
                     Some(instanceable) => instanceable,
                     None => false,
-                }
-            },
-            None => false,
-        };
-        quote!(bevy::render::shader::FieldInfo {
-            name: #field_name,
-            uniform_name: #uniform,
-            texture_name: #texture,
-            sampler_name: #sampler,  
-            is_instanceable: #is_instanceable,
-        })
-    });
+                },
+                None => false,
+            };
+            quote!(bevy::render::shader::FieldInfo {
+                name: #field_name,
+                uniform_name: #uniform,
+                texture_name: #texture,
+                sampler_name: #sampler,
+                is_instanceable: #is_instanceable,
+            })
+        });
 
     TokenStream::from(quote! {
         static #field_infos_ident: &[bevy::render::shader::FieldInfo] = &[
             #(#field_infos,)*
         ];
 
-        static #vertex_buffer_descriptor_ident: bevy::once_cell::sync::Lazy<bevy::render::pipeline::VertexBufferDescriptor> = 
+        static #vertex_buffer_descriptor_ident: bevy::once_cell::sync::Lazy<bevy::render::pipeline::VertexBufferDescriptor> =
             bevy::once_cell::sync::Lazy::new(|| {
                 use bevy::render::pipeline::AsVertexFormats;
                 // let vertex_formats = vec![
