@@ -17,6 +17,7 @@ use pipeline::PipelineDescriptor;
 use render_graph::RenderGraphBuilder;
 use shader::Shader;
 use std::collections::HashMap;
+use render_resource::AssetBatchers;
 
 pub struct AppBuilder {
     pub world: World,
@@ -131,6 +132,7 @@ impl AppBuilder {
             .insert(AssetStorage::<PipelineDescriptor>::new());
         self.resources.insert(ShaderPipelineAssignments::new());
         self.resources.insert(CompiledShaderMap::new());
+        self.resources.insert(AssetBatchers::default());
         self
     }
 

@@ -8,13 +8,15 @@ use std::{
 
 use std::{collections::HashMap, marker::PhantomData};
 
+pub type HandleId = usize;
+
 pub struct Handle<T> {
-    pub id: usize,
+    pub id: HandleId,
     marker: PhantomData<T>,
 }
 
 impl<T> Handle<T> {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: HandleId) -> Self {
         Handle {
             id,
             marker: PhantomData,
@@ -68,9 +70,9 @@ pub trait Asset<D> {
 }
 
 pub struct AssetStorage<T> {
-    assets: HashMap<usize, T>,
+    assets: HashMap<HandleId, T>,
     names: HashMap<String, Handle<T>>,
-    current_index: usize,
+    current_index: HandleId,
 }
 
 impl<T> AssetStorage<T> {
@@ -100,11 +102,11 @@ impl<T> AssetStorage<T> {
         self.names.insert(name.to_string(), handle);
     }
 
-    pub fn get_id(&self, id: usize) -> Option<&T> {
+    pub fn get_id(&self, id: HandleId) -> Option<&T> {
         self.assets.get(&id)
     }
 
-    pub fn get_id_mut(&mut self, id: usize) -> Option<&mut T> {
+    pub fn get_id_mut(&mut self, id: HandleId) -> Option<&mut T> {
         self.assets.get_mut(&id)
     }
 
