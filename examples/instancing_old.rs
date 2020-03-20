@@ -162,7 +162,7 @@ fn create_person(world: &mut World, mesh_handle: Handle<Mesh>, translation: Tran
                 ..Default::default()
             },
             Renderable {
-                instanced: true,
+                is_instanced: true,
                 ..Default::default()
             },
             mesh_handle,

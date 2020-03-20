@@ -34,11 +34,11 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             for entity in assigned_entities.iter() {
                 // TODO: hopefully legion has better random access apis that are more like queries?
                 let renderable = world.get_component::<Renderable>(*entity).unwrap();
-                let mesh = *world.get_component::<Handle<Mesh>>(*entity).unwrap();
-                if !renderable.is_visible {
+                if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 
+                let mesh = *world.get_component::<Handle<Mesh>>(*entity).unwrap();
                 let renderer = render_pass.get_renderer();
                 let render_resources = renderer.get_render_resources();
                 if current_mesh_handle != Some(mesh) {
@@ -85,7 +85,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             for entity in assigned_entities.iter() {
                 // TODO: hopefully legion has better random access apis that are more like queries?
                 let renderable = world.get_component::<Renderable>(*entity).unwrap();
-                if !renderable.is_visible {
+                if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 

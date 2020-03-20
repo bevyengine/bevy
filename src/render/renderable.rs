@@ -11,15 +11,15 @@ use std::collections::{HashMap, HashSet};
 
 pub struct Renderable {
     pub is_visible: bool,
+    pub is_instanced: bool,
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
     pub shader_defs: HashSet<String>,
-    pub instanced: bool,
 }
 
 impl Renderable {
     pub fn instanced() -> Self {
         Renderable {
-            instanced: false,
+            is_instanced: true,
             ..Default::default()
         }
     }
@@ -33,7 +33,7 @@ impl Default for Renderable {
                 Handle::new(0), // TODO: this could be better
             ],
             shader_defs: HashSet::new(),
-            instanced: false,
+            is_instanced: false,
         }
     }
 }
@@ -127,7 +127,7 @@ pub fn update_shader_assignments(
 
         for (entity, mut renderable) in <Write<Renderable>>::query().iter_entities_mut(world) {
             // if instancing is enabled, set the def here
-            if renderable.instanced {
+            if renderable.is_instanced {
                 renderable.shader_defs.insert("INSTANCING".to_string());
             }
 

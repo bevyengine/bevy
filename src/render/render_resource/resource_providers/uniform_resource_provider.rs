@@ -71,19 +71,22 @@ where
         let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
         // TODO: only update handle values when Asset value has changed
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
-            for (entity, (handle, _renderable)) in handle_query.iter_entities(world) {
-                asset_batchers.set_entity_handle(entity, *handle);
-                let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
-                if let Some(uniforms) = asset_storage.get(&handle) {
-                    self.setup_entity_uniform_resources(
-                        entity,
-                        uniforms,
-                        renderer,
-                        resources,
-                        render_resource_assignments,
-                        true,
-                        Some(*handle),
-                    )
+            for (entity, (handle, renderable)) in handle_query.iter_entities(world) {
+                if renderable.is_instanced {
+                    asset_batchers.set_entity_handle(entity, *handle);
+                } else {
+                    let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
+                    if let Some(uniforms) = asset_storage.get(&handle) {
+                        self.setup_entity_uniform_resources(
+                            entity,
+                            uniforms,
+                            renderer,
+                            resources,
+                            render_resource_assignments,
+                            true,
+                            Some(*handle),
+                        )
+                    }
                 }
             }
         }
@@ -273,6 +276,7 @@ where
         }
 
         // copy entity uniform data to buffers
+        // PERF: consider iter_chunks here and calling get_bytes() on each chunk? 
         for (name, (resource, _count, entities)) in self.uniform_buffer_info_resources.iter() {
             let resource = resource.unwrap();
             let size = {
@@ -290,15 +294,20 @@ where
             // TODO: check if index has changed. if it has, then entity should be updated
             // TODO: only mem-map entities if their data has changed
             // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
-            for (entity, _) in self.resource_query.iter_entities(world) {
-                if !entities.contains(&entity) {
+            for (entity, (_, renderable)) in self.resource_query.iter_entities(world) {
+                if renderable.is_instanced || !entities.contains(&entity) {
                     continue;
                 }
+
                 info.offsets.insert(entity, offset as u32);
                 offset += alignment;
             }
 
-            for (entity, _) in self.handle_query.as_ref().unwrap().iter_entities(world) {
+            for (entity, (_, renderable)) in self.handle_query.as_ref().unwrap().iter_entities(world) {
+                if renderable.is_instanced {
+                    continue;
+                }
+
                 info.offsets.insert(entity, offset as u32);
                 offset += alignment;
             }
@@ -311,10 +320,10 @@ where
                 &mut |mapped| {
                     let alignment = BIND_BUFFER_ALIGNMENT as usize;
                     let mut offset = 0usize;
-                    for (entity, (uniforms, _renderable)) in
+                    for (entity, (uniforms, renderable)) in
                         self.resource_query.iter_entities(world)
                     {
-                        if !entities.contains(&entity) {
+                        if renderable.is_instanced || !entities.contains(&entity) {
                             continue;
                         }
                         if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
@@ -329,13 +338,14 @@ where
                     }
 
                     if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
-                        for (entity, (handle, _renderable)) in
+                        for (entity, (handle, renderable)) in
                             self.handle_query.as_ref().unwrap().iter_entities(world)
                         {
-                            let uniforms = asset_storage.get(&handle).unwrap();
-                            if !entities.contains(&entity) {
+                            if renderable.is_instanced ||!entities.contains(&entity) {
                                 continue;
                             }
+
+                            let uniforms = asset_storage.get(&handle).unwrap();
                             if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
                                 mapped[offset..(offset + uniform_bytes.len())]
                                     .copy_from_slice(uniform_bytes);
@@ -398,7 +408,11 @@ where
         self.update_asset_uniforms(renderer, world, resources);
 
         let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
-        for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
+        for (entity, (uniforms, renderable)) in query.iter_entities(world) {
+            if renderable.is_instanced {
+                continue;
+            }
+
             let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
             self.setup_entity_uniform_resources(entity, &uniforms, renderer, resources, render_resource_assignments, true, None);
         }

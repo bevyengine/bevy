@@ -96,7 +96,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 0.0,
             ),
             renderable: Renderable {
-                instanced: true,
+                is_instanced: true,
                 ..Default::default()
             },
             ..Default::default()

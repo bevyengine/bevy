@@ -27,7 +27,7 @@ impl DrawTarget for MeshesDrawTarget {
         let mesh_query = <(Read<Handle<Mesh>>, Read<Renderable>)>::query();
 
         for (entity, (mesh, renderable)) in mesh_query.iter_entities(world) {
-            if !renderable.is_visible {
+            if !renderable.is_visible || renderable.is_instanced {
                 continue;
             }
 
