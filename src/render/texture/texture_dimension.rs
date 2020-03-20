@@ -10,7 +10,6 @@ pub enum TextureViewDimension {
     D3,
 }
 
-
 #[derive(Copy, Clone, Debug, Hash)]
 pub enum TextureDimension {
     D1,

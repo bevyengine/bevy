@@ -57,9 +57,7 @@ impl WgpuResources {
             for binding in bind_group.bindings.iter() {
                 let resource = match self.render_resources.get_named_resource(&binding.name) {
                     resource @ Some(_) => resource,
-                    None => {
-                        return
-                    }
+                    None => return,
                 };
 
                 if let Some(resource) = resource {
@@ -108,12 +106,8 @@ impl WgpuResources {
             };
 
             let bind_group = device.create_bind_group(&bind_group_descriptor);
-            self.bind_groups.insert(
-                bind_group_id,
-                BindGroupInfo {
-                    bind_group,
-                },
-            );
+            self.bind_groups
+                .insert(bind_group_id, BindGroupInfo { bind_group });
         }
     }
     pub fn get_entity_bind_group(
@@ -187,12 +181,8 @@ impl WgpuResources {
 
         let bind_group = device.create_bind_group(&bind_group_descriptor);
         // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
-        self.entity_bind_groups.insert(
-            (entity, bind_group_id),
-            BindGroupInfo {
-                bind_group,
-            },
-        );
+        self.entity_bind_groups
+            .insert((entity, bind_group_id), BindGroupInfo { bind_group });
     }
 
     pub fn create_buffer(

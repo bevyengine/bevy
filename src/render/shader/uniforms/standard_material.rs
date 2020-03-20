@@ -1,4 +1,7 @@
-use crate::{asset::Handle, render::{Color, texture::Texture}};
+use crate::{
+    asset::Handle,
+    render::{texture::Texture, Color},
+};
 
 use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;

@@ -1,7 +1,7 @@
 use crate::{
     legion::prelude::*,
     render::{
-        pipeline::{VertexBufferDescriptor, PipelineDescriptor},
+        pipeline::{PipelineDescriptor, VertexBufferDescriptor},
         render_graph::RenderGraph,
         render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
         shader::DynamicUniformBufferInfo,

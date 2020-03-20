@@ -1,4 +1,4 @@
-use crate::math::{Vec2, Vec3, Vec4, Mat4};
+use crate::math::{Mat4, Vec2, Vec3, Vec4};
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum VertexFormat {

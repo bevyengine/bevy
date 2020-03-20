@@ -383,14 +383,12 @@ mod tests {
                     },
                     VertexBufferDescriptor {
                         name: "TestInstancing".to_string(),
-                        attributes: vec![
-                            VertexAttributeDescriptor {
-                                name: "I_TestInstancing_Property".to_string(),
-                                format: VertexFormat::Uint4,
-                                offset: 0,
-                                shader_location: 2,
-                            },
-                        ],
+                        attributes: vec![VertexAttributeDescriptor {
+                            name: "I_TestInstancing_Property".to_string(),
+                            format: VertexFormat::Uint4,
+                            offset: 0,
+                            shader_location: 2,
+                        },],
                         step_mode: InputStepMode::Instance,
                         stride: 16,
                     }

@@ -72,7 +72,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
 
-    let mut pipeline_storage = resources.get_mut::<AssetStorage<PipelineDescriptor>>().unwrap();
+    let mut pipeline_storage = resources
+        .get_mut::<AssetStorage<PipelineDescriptor>>()
+        .unwrap();
     let material_handle = pipeline_storage.get_named("MyMaterial").unwrap();
 
     world

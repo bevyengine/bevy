@@ -1,8 +1,8 @@
 use super::{
     state_descriptors::{
         BlendDescriptor, ColorStateDescriptor, ColorWrite, CompareFunction, CullMode,
-        DepthStencilStateDescriptor, FrontFace, PrimitiveTopology, RasterizationStateDescriptor,
-        StencilStateFaceDescriptor, IndexFormat,
+        DepthStencilStateDescriptor, FrontFace, IndexFormat, PrimitiveTopology,
+        RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
     BindGroup, PipelineLayout, VertexBufferDescriptor,
 };

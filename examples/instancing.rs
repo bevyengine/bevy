@@ -20,7 +20,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
                 let material = material_storage.get_mut(&material_handle).unwrap();
                 translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
                 material.albedo = material.albedo
-                        + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
+                    + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
             }
         })
 }

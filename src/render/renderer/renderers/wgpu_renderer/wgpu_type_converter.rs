@@ -14,8 +14,8 @@ use crate::{
         },
         render_resource::BufferUsage,
         texture::{
-            AddressMode, Extent3d, SamplerDescriptor, TextureDescriptor, TextureDimension,
-            TextureFormat, TextureUsage, TextureViewDimension, FilterMode,
+            AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor,
+            TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
         },
     },
 };

@@ -7,7 +7,10 @@ use crate::{
             PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor,
         },
-        pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptor},
+        pipeline::{
+            BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType,
+            VertexBufferDescriptor,
+        },
         render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo,
@@ -712,16 +715,13 @@ impl Renderer for WgpuRenderer {
             }
         }
     }
-    fn set_vertex_buffer_descriptor(
-        &mut self,
-        vertex_buffer_descriptor: VertexBufferDescriptor,
-    ) {
-        self.vertex_buffer_descriptors.insert(vertex_buffer_descriptor.name.to_string(), vertex_buffer_descriptor);
+    fn set_vertex_buffer_descriptor(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor) {
+        self.vertex_buffer_descriptors.insert(
+            vertex_buffer_descriptor.name.to_string(),
+            vertex_buffer_descriptor,
+        );
     }
-    fn get_vertex_buffer_descriptor(
-        &self,
-        name: &str
-    ) -> Option<&VertexBufferDescriptor> {
+    fn get_vertex_buffer_descriptor(&self, name: &str) -> Option<&VertexBufferDescriptor> {
         self.vertex_buffer_descriptors.get(name)
     }
 }

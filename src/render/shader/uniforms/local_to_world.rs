@@ -19,37 +19,38 @@ static LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
     is_instanceable: true,
 }];
 
-static VERTEX_BUFFER_DESCRIPTOR: Lazy<VertexBufferDescriptor> = Lazy::new(|| VertexBufferDescriptor {
-    attributes: vec![
-        VertexAttributeDescriptor {
-            name: "I_Object_Matrix_0".to_string(),
-            format: VertexFormat::Float4,
-            offset: 0,
-            shader_location: 0,
-        },
-        VertexAttributeDescriptor {
-            name: "I_Object_Matrix_1".to_string(),
-            format: VertexFormat::Float4,
-            offset: 16,
-            shader_location: 0,
-        },
-        VertexAttributeDescriptor {
-            name: "I_Object_Matrix_2".to_string(),
-            format: VertexFormat::Float4,
-            offset: 32,
-            shader_location: 0,
-        },
-        VertexAttributeDescriptor {
-            name: "I_Object_Matrix_3".to_string(),
-            format: VertexFormat::Float4,
-            offset: 48,
-            shader_location: 0,
-        },
-    ],
-    name: "Object".to_string(),
-    step_mode: InputStepMode::Instance,
-    stride: 64,
-});
+static VERTEX_BUFFER_DESCRIPTOR: Lazy<VertexBufferDescriptor> =
+    Lazy::new(|| VertexBufferDescriptor {
+        attributes: vec![
+            VertexAttributeDescriptor {
+                name: "I_Object_Matrix_0".to_string(),
+                format: VertexFormat::Float4,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttributeDescriptor {
+                name: "I_Object_Matrix_1".to_string(),
+                format: VertexFormat::Float4,
+                offset: 16,
+                shader_location: 0,
+            },
+            VertexAttributeDescriptor {
+                name: "I_Object_Matrix_2".to_string(),
+                format: VertexFormat::Float4,
+                offset: 32,
+                shader_location: 0,
+            },
+            VertexAttributeDescriptor {
+                name: "I_Object_Matrix_3".to_string(),
+                format: VertexFormat::Float4,
+                offset: 48,
+                shader_location: 0,
+            },
+        ],
+        name: "Object".to_string(),
+        step_mode: InputStepMode::Instance,
+        stride: 64,
+    });
 
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     fn get_field_infos(&self) -> &[FieldInfo] {

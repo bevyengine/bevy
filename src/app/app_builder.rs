@@ -15,9 +15,9 @@ use crate::{
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use pipeline::PipelineDescriptor;
 use render_graph::RenderGraphBuilder;
+use render_resource::AssetBatchers;
 use shader::Shader;
 use std::collections::HashMap;
-use render_resource::AssetBatchers;
 
 pub struct AppBuilder {
     pub world: World,

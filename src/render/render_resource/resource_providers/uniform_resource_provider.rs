@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     render::{
         pipeline::BindType,
-        render_resource::{BufferUsage, RenderResource, ResourceProvider, AssetBatchers},
+        render_resource::{AssetBatchers, BufferUsage, RenderResource, ResourceProvider},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
         texture::{SamplerDescriptor, Texture, TextureDescriptor},

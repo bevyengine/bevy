@@ -281,10 +281,7 @@ mod tests {
         // entity[0] is added to batch when it has both Handle<A> and Handle<B>
         let mut expected_batch = Batch::default();
         expected_batch.add_entity(entities[0]);
-        assert_eq!(
-            asset_batchers.get_batch2(a1, b1).unwrap(),
-            &expected_batch
-        );
+        assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
         asset_batchers.set_entity_handle(entities[0], c1);
 
         asset_batchers.set_entity_handle(entities[1], a1);
@@ -294,10 +291,7 @@ mod tests {
         let mut expected_batch = Batch::default();
         expected_batch.add_entity(entities[0]);
         expected_batch.add_entity(entities[1]);
-        assert_eq!(
-            asset_batchers.get_batch2(a1, b1).unwrap(),
-            &expected_batch
-        );
+        assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
 
         // uncreated batches are empty
         assert_eq!(asset_batchers.get_batch2(a1, c1), None);
@@ -323,14 +317,14 @@ mod tests {
                     handle1: a1.id,
                     handle2: b1.id,
                 },
-                expected_batch1
+                expected_batch1,
             ),
             (
                 BatchKey2 {
                     handle1: a2.id,
                     handle2: b2.id,
                 },
-                expected_batch2
+                expected_batch2,
             ),
         ];
         expected_batches.sort_by(|a, b| a.0.cmp(&b.0));

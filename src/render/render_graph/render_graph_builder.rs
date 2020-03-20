@@ -36,7 +36,8 @@ impl RenderGraphBuilder {
         if let Some(ref pass) = self.current_pass {
             let name = pipeline.name.clone();
             let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
-            pipeline_descriptor_storage.set_name(name.unwrap().as_str(), pipeline_descriptor_handle);
+            pipeline_descriptor_storage
+                .set_name(name.unwrap().as_str(), pipeline_descriptor_handle);
             self.render_graph
                 .add_pipeline(&pass, pipeline_descriptor_handle);
         }
