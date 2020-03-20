@@ -2,12 +2,14 @@ use crate::{
     legion::prelude::*,
     render::{
         pipeline::{BindGroup, BindType},
-        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
+        render_resource::{
+            BufferUsage, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo,
+        },
         shader::DynamicUniformBufferInfo,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
 };
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 pub struct BindGroupInfo {
     pub bind_group: wgpu::BindGroup,
@@ -21,8 +23,6 @@ pub struct WgpuResources {
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
     pub entity_bind_groups: HashMap<(Entity, u64), BindGroupInfo>,
-    pub entity_uniform_resources:
-        HashMap<(Cow<'static, Entity>, Cow<'static, str>), RenderResource>,
     pub dynamic_uniform_buffer_info: HashMap<RenderResource, DynamicUniformBufferInfo>,
     pub render_resources: RenderResources,
 }
@@ -38,7 +38,6 @@ impl WgpuResources {
             bind_group_layouts: HashMap::new(),
             dynamic_uniform_buffer_info: HashMap::new(),
             entity_bind_groups: HashMap::new(),
-            entity_uniform_resources: HashMap::new(),
             render_resources: RenderResources::default(),
         }
     }
@@ -123,6 +122,7 @@ impl WgpuResources {
         device: &wgpu::Device,
         bind_group: &BindGroup,
         entity: Entity,
+        render_resource_assignments: &RenderResourceAssignments,
     ) {
         // TODO: don't make this per-entity. bind groups should be re-used across the same resource when possible
         let bind_group_id = bind_group.get_hash().unwrap();
@@ -130,7 +130,7 @@ impl WgpuResources {
             .bindings
             .iter()
             .map(|binding| {
-                if let Some(resource) = self.get_entity_uniform_resource(entity, &binding.name) {
+                if let Some(resource) = render_resource_assignments.get(&binding.name) {
                     let resource_info = self.resource_info.get(&resource).unwrap();
                     wgpu::Binding {
                         binding: binding.index,
@@ -410,26 +410,5 @@ impl WgpuResources {
 
     pub fn get_render_resources_mut(&mut self) -> &mut RenderResources {
         &mut self.render_resources
-    }
-
-    pub fn set_entity_uniform_resource(
-        &mut self,
-        entity: Entity,
-        uniform_name: &str,
-        resource: RenderResource,
-    ) {
-        self.entity_uniform_resources.insert(
-            (Cow::Owned(entity), Cow::Owned(uniform_name.to_string())),
-            resource,
-        );
-    }
-    pub fn get_entity_uniform_resource(
-        &self,
-        entity: Entity,
-        uniform_name: &str,
-    ) -> Option<RenderResource> {
-        self.entity_uniform_resources
-            .get(&(Cow::Owned(entity), Cow::Borrowed(uniform_name)))
-            .cloned()
     }
 }

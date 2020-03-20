@@ -13,7 +13,7 @@ use crate::{
         },
         render_graph::RenderGraph,
         render_resource::{
-            resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo,
+            resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments,
         },
         renderer::Renderer,
         shader::{DynamicUniformBufferInfo, Shader},
@@ -677,27 +677,10 @@ impl Renderer for WgpuRenderer {
         &mut self.wgpu_resources.render_resources
     }
 
-    fn set_entity_uniform_resource(
-        &mut self,
-        entity: Entity,
-        uniform_name: &str,
-        resource: RenderResource,
-    ) {
-        self.wgpu_resources
-            .set_entity_uniform_resource(entity, uniform_name, resource)
-    }
-    fn get_entity_uniform_resource(
-        &self,
-        entity: Entity,
-        uniform_name: &str,
-    ) -> Option<RenderResource> {
-        self.wgpu_resources
-            .get_entity_uniform_resource(entity, uniform_name)
-    }
-
     fn setup_entity_bind_groups(
         &mut self,
         entity: Entity,
+        render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
         let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
@@ -710,7 +693,7 @@ impl Renderer for WgpuRenderer {
                     .get_entity_bind_group(entity, bind_group_id)
                 {
                     self.wgpu_resources
-                        .create_entity_bind_group(&self.device, bind_group, entity);
+                        .create_entity_bind_group(&self.device, bind_group, entity, render_resource_assignments);
                 }
             }
         }

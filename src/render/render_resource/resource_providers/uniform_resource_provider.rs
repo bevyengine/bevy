@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     render::{
         pipeline::BindType,
-        render_resource::{AssetBatchers, BufferUsage, RenderResource, ResourceProvider},
+        render_resource::{AssetBatchers, BufferUsage, RenderResource, ResourceProvider, RenderResourceAssignments, EntityRenderResourceAssignments},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
         texture::{SamplerDescriptor, Texture, TextureDescriptor},
@@ -68,16 +68,19 @@ where
     ) {
         let handle_query = self.handle_query.take().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
+        let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
         // TODO: only update handle values when Asset value has changed
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
             for (entity, (handle, _renderable)) in handle_query.iter_entities(world) {
                 asset_batchers.set_entity_handle(entity, *handle);
+                let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
                 if let Some(uniforms) = asset_storage.get(&handle) {
                     self.setup_entity_uniform_resources(
                         entity,
                         uniforms,
                         renderer,
                         resources,
+                        render_resource_assignments,
                         true,
                         Some(*handle),
                     )
@@ -94,6 +97,7 @@ where
         uniforms: &T,
         renderer: &mut dyn Renderer,
         resources: &Resources,
+        render_resource_assignments: &mut RenderResourceAssignments,
         dynamic_unforms: bool,
         asset_handle: Option<Handle<T>>,
     ) {
@@ -138,8 +142,7 @@ where
                             }
                         };
 
-                        renderer.set_entity_uniform_resource(
-                            entity,
+                        render_resource_assignments.set(
                             uniform_info.name,
                             render_resource,
                         );
@@ -205,7 +208,7 @@ where
                         }
                     };
 
-                    renderer.set_entity_uniform_resource(entity, uniform_info.name, resource);
+                    render_resource_assignments.set(uniform_info.name, resource);
                 }
                 BindType::Sampler { .. } => {
                     let texture_handle = uniforms.get_uniform_texture(&uniform_info.name).unwrap();
@@ -226,7 +229,7 @@ where
                         }
                     };
 
-                    renderer.set_entity_uniform_resource(entity, uniform_info.name, resource);
+                    render_resource_assignments.set(uniform_info.name, resource);
                 }
                 _ => panic!(
                     "encountered unsupported bind_type {:?}",
@@ -394,8 +397,10 @@ where
 
         self.update_asset_uniforms(renderer, world, resources);
 
+        let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
         for (entity, (uniforms, _renderable)) in query.iter_entities(world) {
-            self.setup_entity_uniform_resources(entity, &uniforms, renderer, resources, true, None);
+            let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
+            self.setup_entity_uniform_resources(entity, &uniforms, renderer, resources, render_resource_assignments, true, None);
         }
 
         self.setup_dynamic_uniform_buffers(renderer, world, resources);

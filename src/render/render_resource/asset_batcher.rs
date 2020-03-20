@@ -45,17 +45,18 @@ impl Batch {
 }
 
 // TODO: consider merging this with entity_uniform_resource
+// PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default)]
 pub struct RenderResourceAssignments {
     render_resources: HashMap<String, RenderResource>,
 }
 
 impl RenderResourceAssignments {
-    pub fn get_render_resource(&self, name: &str) -> Option<RenderResource> {
+    pub fn get(&self, name: &str) -> Option<RenderResource> {
         self.render_resources.get(name).cloned()
     }
 
-    pub fn set_render_resource(&mut self, name: &str, resource: RenderResource) {
+    pub fn set(&mut self, name: &str, resource: RenderResource) {
         self.render_resources.insert(name.to_string(), resource);
     }
 }

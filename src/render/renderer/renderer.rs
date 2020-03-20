@@ -3,7 +3,7 @@ use crate::{
     render::{
         pipeline::{PipelineDescriptor, VertexBufferDescriptor},
         render_graph::RenderGraph,
-        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo},
+        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments},
         shader::DynamicUniformBufferInfo,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
@@ -89,20 +89,10 @@ pub trait Renderer {
     );
     fn get_render_resources(&self) -> &RenderResources;
     fn get_render_resources_mut(&mut self) -> &mut RenderResources;
-    fn set_entity_uniform_resource(
-        &mut self,
-        entity: Entity,
-        uniform_name: &str,
-        resource: RenderResource,
-    );
-    fn get_entity_uniform_resource(
-        &self,
-        entity: Entity,
-        uniform_name: &str,
-    ) -> Option<RenderResource>;
     fn setup_entity_bind_groups(
         &mut self,
         entity: Entity,
+        render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     );
     fn set_vertex_buffer_descriptor(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor);

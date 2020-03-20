@@ -5,7 +5,7 @@ use crate::{
         draw_target::DrawTarget,
         mesh::Mesh,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, ResourceInfo},
+        render_resource::{resource_name, ResourceInfo, EntityRenderResourceAssignments},
         renderer::{RenderPass, Renderer},
         Renderable, ShaderPipelineAssignments,
     },
@@ -79,6 +79,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             .assignments
             .get(&pipeline_handle);
         let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
+        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
         let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
         if let Some(assigned_entities) = assigned_entities {
             for entity in assigned_entities.iter() {
@@ -88,7 +89,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     continue;
                 }
 
-                renderer.setup_entity_bind_groups(*entity, pipeline_descriptor);
+                if let Some(render_resource_assignments) = entity_render_resource_assignments.get(*entity) {
+                    renderer.setup_entity_bind_groups(*entity, render_resource_assignments, pipeline_descriptor);
+                }
             }
         }
     }

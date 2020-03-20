@@ -15,7 +15,7 @@ use crate::{
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use pipeline::PipelineDescriptor;
 use render_graph::RenderGraphBuilder;
-use render_resource::AssetBatchers;
+use render_resource::{EntityRenderResourceAssignments, AssetBatchers};
 use shader::Shader;
 use std::collections::HashMap;
 
@@ -134,6 +134,7 @@ impl AppBuilder {
             .insert(AssetStorage::<PipelineDescriptor>::new());
         self.resources.insert(ShaderPipelineAssignments::new());
         self.resources.insert(CompiledShaderMap::new());
+        self.resources.insert(EntityRenderResourceAssignments::default());
         self.resources.insert(asset_batchers);
         self
     }
