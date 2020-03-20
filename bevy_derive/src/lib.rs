@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
 
 #[derive(FromMeta, Debug, Default)]
 struct EntityArchetypeAttributeArgs {
@@ -112,10 +112,6 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         })
         .map(|(f, _attr)| *f)
         .collect::<Vec<&Field>>();
-    let active_uniform_field_types = active_uniform_fields
-        .iter()
-        .map(|f| &f.ty)
-        .collect::<Vec<&Type>>();
 
     let shader_def_fields = uniform_fields
         .iter()

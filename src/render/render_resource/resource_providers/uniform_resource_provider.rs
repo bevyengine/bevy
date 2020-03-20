@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     render::{
         pipeline::BindType,
-        render_resource::{BufferUsage, RenderResource, ResourceProvider},
+        render_resource::{BufferUsage, RenderResource, ResourceProvider, AssetBatchers},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
         texture::{SamplerDescriptor, Texture, TextureDescriptor},
@@ -67,9 +67,11 @@ where
         resources: &Resources,
     ) {
         let handle_query = self.handle_query.take().unwrap();
+        let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
         // TODO: only update handle values when Asset value has changed
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
             for (entity, (handle, _renderable)) in handle_query.iter_entities(world) {
+                asset_batchers.set_entity_handle(entity, *handle);
                 if let Some(uniforms) = asset_storage.get(&handle) {
                     self.setup_entity_uniform_resources(
                         entity,

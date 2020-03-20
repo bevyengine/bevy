@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     prelude::Renderable,
     render::{
-        render_resource::{BufferUsage, ResourceProvider},
+        render_resource::{BufferUsage, ResourceProvider, AssetBatchers},
         renderer::Renderer,
         mesh::Mesh,
     },
@@ -41,7 +41,9 @@ impl MeshResourceProvider {
 impl ResourceProvider for MeshResourceProvider {
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
         let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        for (mesh_handle, _renderable) in self.mesh_query.iter(world) {
+        let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
+        for (entity, (mesh_handle, _renderable)) in self.mesh_query.iter_entities(world) {
+            asset_batchers.set_entity_handle(entity, *mesh_handle);
             if let None = renderer
                 .get_render_resources()
                 .get_mesh_vertices_resource(*mesh_handle)

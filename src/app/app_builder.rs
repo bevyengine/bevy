@@ -122,6 +122,8 @@ impl AppBuilder {
     }
 
     pub fn add_default_resources(mut self) -> Self {
+        let mut asset_batchers = AssetBatchers::default();
+        asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         self.resources.insert(Time::new());
         self.resources.insert(AssetStorage::<Mesh>::new());
         self.resources.insert(AssetStorage::<Texture>::new());
@@ -132,7 +134,7 @@ impl AppBuilder {
             .insert(AssetStorage::<PipelineDescriptor>::new());
         self.resources.insert(ShaderPipelineAssignments::new());
         self.resources.insert(CompiledShaderMap::new());
-        self.resources.insert(AssetBatchers::default());
+        self.resources.insert(asset_batchers);
         self
     }
 
@@ -149,6 +151,7 @@ impl AppBuilder {
         self.setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder
                 .add_draw_target(MeshesDrawTarget::default())
+                .add_draw_target(AssignedBatchesDrawTarget::default())
                 .add_draw_target(AssignedMeshesDrawTarget::default())
                 .add_draw_target(UiDrawTarget::default())
                 .add_resource_provider(CameraResourceProvider::default())
