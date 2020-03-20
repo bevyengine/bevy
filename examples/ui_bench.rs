@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new()
+    App::build()
         .add_defaults()
         .setup_world(setup)
         .add_system(build_move_system())

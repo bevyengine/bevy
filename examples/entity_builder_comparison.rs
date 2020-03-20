@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new().add_defaults().setup_world(setup).run();
+    App::build().add_defaults().setup_world(setup).run();
 }
 
 #[allow(dead_code)]

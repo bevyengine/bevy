@@ -10,7 +10,7 @@ struct MyMaterial {
 }
 
 fn main() {
-    AppBuilder::new()
+    App::build()
         .add_defaults()
         .setup_render_graph(|builder, pipeline_storage, shader_storage| {
             builder

@@ -16,6 +16,7 @@ pub struct BindGroupInfo {
 }
 
 pub struct WgpuResources {
+    pub render_resources: RenderResources,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
@@ -24,7 +25,6 @@ pub struct WgpuResources {
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
     pub entity_bind_groups: HashMap<(Entity, u64), BindGroupInfo>,
     pub dynamic_uniform_buffer_info: HashMap<RenderResource, DynamicUniformBufferInfo>,
-    pub render_resources: RenderResources,
 }
 
 impl WgpuResources {

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
-    AppBuilder::new()
+    App::build()
         .add_defaults()
         .add_system(build_move_system())
         .add_system(bevy::diagnostics::build_fps_printer_system())

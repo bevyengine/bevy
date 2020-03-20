@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    AppBuilder::new()
+    App::build()
         .add_defaults()
         .load_plugin(concat!(
             env!("CARGO_MANIFEST_DIR"),
