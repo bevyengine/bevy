@@ -7,8 +7,6 @@ use crate::{
         texture::{Texture, TextureViewDimension},
     },
 };
-use legion::prelude::Entity;
-use std::collections::HashMap;
 
 pub trait AsUniforms {
     fn get_field_infos(&self) -> &[FieldInfo];
@@ -191,20 +189,4 @@ impl GetTexture for ColorSource {
 pub struct UniformInfo<'a> {
     pub name: &'a str,
     pub bind_type: BindType,
-}
-
-pub struct DynamicUniformBufferInfo {
-    pub offsets: HashMap<Entity, u32>,
-    pub capacity: u64,
-    pub count: u64,
-}
-
-impl DynamicUniformBufferInfo {
-    pub fn new() -> Self {
-        DynamicUniformBufferInfo {
-            capacity: 0,
-            count: 0,
-            offsets: HashMap::new(),
-        }
-    }
 }

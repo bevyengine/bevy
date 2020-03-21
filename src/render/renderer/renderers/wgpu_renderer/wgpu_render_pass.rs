@@ -1,7 +1,7 @@
 use super::{WgpuRenderer, WgpuResources};
 use crate::render::{
     pipeline::{BindType, PipelineDescriptor},
-    render_resource::{RenderResource, RenderResourceAssignments},
+    render_resource::{RenderResource, RenderResourceAssignments, ResourceInfo, BufferInfo},
     renderer::{RenderPass, Renderer},
 };
 use std::ops::Range;
@@ -65,23 +65,22 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         continue;
                     }
 
+                    // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
                     if let Some(resource) = self
                         .wgpu_resources
                         .render_resources
                         .get_named_resource(&binding.name)
                     {
-                        // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
-                        if let Some(dynamic_uniform_buffer_info) = self
-                            .wgpu_resources
-                            .dynamic_uniform_buffer_info
-                            .get(&resource)
-                        {
-                            // let index = dynamic_uniform_buffer_info
-                            //     .offsets
-                            //     .get(entity.unwrap())
-                            //     .unwrap();
+                        if let Some(ResourceInfo::Buffer(BufferInfo {
+                            dynamic_uniform_info: Some(dynamic_uniform_info),
+                            ..
+                        })) = self.wgpu_resources.resource_info.get(&resource) {
+                            let index = dynamic_uniform_info
+                                .offsets
+                                .get(&render_resource_assignments.unwrap().get_id())
+                                .unwrap();
 
-                            // dynamic_uniform_indices.push(*index);
+                            dynamic_uniform_indices.push(*index);
                         }
                     }
                 }

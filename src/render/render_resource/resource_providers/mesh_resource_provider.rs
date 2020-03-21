@@ -3,7 +3,7 @@ use crate::{
     prelude::Renderable,
     render::{
         mesh::Mesh,
-        render_resource::{AssetBatchers, BufferUsage, ResourceProvider},
+        render_resource::{AssetBatchers, BufferInfo, BufferUsage, ResourceProvider},
         renderer::Renderer,
     },
 };
@@ -49,10 +49,20 @@ impl ResourceProvider for MeshResourceProvider {
                 .get_mesh_vertices_resource(*mesh_handle)
             {
                 let mesh_asset = mesh_storage.get(&mesh_handle).unwrap();
-                let vertex_buffer = renderer
-                    .create_buffer_with_data(mesh_asset.vertices.as_bytes(), BufferUsage::VERTEX);
-                let index_buffer = renderer
-                    .create_buffer_with_data(mesh_asset.indices.as_bytes(), BufferUsage::INDEX);
+                let vertex_buffer = renderer.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    mesh_asset.vertices.as_bytes(),
+                );
+                let index_buffer = renderer.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::INDEX,
+                        ..Default::default()
+                    },
+                    mesh_asset.indices.as_bytes(),
+                );
 
                 let render_resources = renderer.get_render_resources_mut();
                 render_resources.set_mesh_vertices_resource(*mesh_handle, vertex_buffer);

@@ -3,8 +3,7 @@ use crate::{
     render::{
         pipeline::{PipelineDescriptor, VertexBufferDescriptor},
         render_graph::RenderGraph,
-        render_resource::{BufferUsage, RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments},
-        shader::DynamicUniformBufferInfo,
+        render_resource::{RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments, BufferInfo},
         texture::{SamplerDescriptor, TextureDescriptor},
     },
 };
@@ -31,7 +30,7 @@ pub trait Renderer {
         world: &mut World,
         resources: &mut Resources,
     );
-    fn create_buffer_with_data(&mut self, data: &[u8], buffer_usage: BufferUsage)
+    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8])
         -> RenderResource;
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
     fn create_texture(
@@ -39,46 +38,17 @@ pub trait Renderer {
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
     ) -> RenderResource;
-    // TODO: remove this and replace it with ResourceInfo
-    fn get_dynamic_uniform_buffer_info(
-        &self,
-        resource: RenderResource,
-    ) -> Option<&DynamicUniformBufferInfo>;
-    fn get_dynamic_uniform_buffer_info_mut(
-        &mut self,
-        resource: RenderResource,
-    ) -> Option<&mut DynamicUniformBufferInfo>;
-    fn add_dynamic_uniform_buffer_info(
-        &mut self,
-        resource: RenderResource,
-        info: DynamicUniformBufferInfo,
-    );
-    fn create_buffer(&mut self, size: u64, buffer_usage: BufferUsage) -> RenderResource;
-    fn create_instance_buffer(
-        &mut self,
-        mesh_id: usize,
-        size: usize,
-        count: usize,
-        buffer_usage: BufferUsage,
-    ) -> RenderResource;
-    fn create_instance_buffer_with_data(
-        &mut self,
-        mesh_id: usize,
-        data: &[u8],
-        size: usize,
-        count: usize,
-        buffer_usage: BufferUsage,
-    ) -> RenderResource;
+    fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource;
     fn create_buffer_mapped(
         &mut self,
-        size: usize,
-        buffer_usage: BufferUsage,
+        buffer_info: BufferInfo,
         func: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource;
     fn remove_buffer(&mut self, resource: RenderResource);
     fn remove_texture(&mut self, resource: RenderResource);
     fn remove_sampler(&mut self, resource: RenderResource);
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo>;
+    fn get_resource_info_mut(&mut self, resource: RenderResource) -> Option<&mut ResourceInfo>;
     fn copy_buffer_to_buffer(
         &mut self,
         source_buffer: RenderResource,

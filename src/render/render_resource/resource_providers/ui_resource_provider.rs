@@ -1,10 +1,8 @@
 use crate::{
-    asset::{Asset, AssetStorage, Handle},
-    ecs, math,
+    ecs,
     prelude::Node,
     render::{
-        mesh::{Mesh, MeshType},
-        render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
+        render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider, BufferInfo, BufferArrayInfo},
         renderer::Renderer,
     },
 };
@@ -22,14 +20,12 @@ pub struct RectData {
 }
 
 pub struct UiResourceProvider {
-    pub quad: Option<Handle<Mesh>>,
     pub instance_buffer: Option<RenderResource>,
 }
 
 impl UiResourceProvider {
     pub fn new() -> Self {
         UiResourceProvider {
-            quad: None,
             instance_buffer: None,
         }
     }
@@ -70,20 +66,26 @@ impl UiResourceProvider {
             return;
         }
 
-        let size = std::mem::size_of::<RectData>();
+        let size = std::mem::size_of::<RectData>() as u64;
+        let data_len = data.len() as u64;
 
-        let mesh_id = self.quad.as_ref().unwrap().id;
 
         if let Some(old_instance_buffer) = self.instance_buffer {
             renderer.remove_buffer(old_instance_buffer);
         }
 
-        let buffer = renderer.create_instance_buffer_with_data(
-            mesh_id,
+        let buffer = renderer.create_buffer_with_data(
+            BufferInfo {
+                size,
+                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::VERTEX,
+                array_info: Some(BufferArrayInfo {
+                    item_capacity: data_len,
+                    item_count: data_len,
+                    item_size: size, 
+                }),
+                ..Default::default()
+            },
             data.as_bytes(),
-            size,
-            data.len(),
-            BufferUsage::COPY_SRC | BufferUsage::VERTEX,
         );
 
         renderer
@@ -98,17 +100,8 @@ impl ResourceProvider for UiResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
-        resources: &Resources,
+        _resources: &Resources,
     ) {
-        // self.update(renderer, world);
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        let quad = Mesh::load(MeshType::Quad {
-            north_west: math::vec2(-0.5, 0.5),
-            north_east: math::vec2(0.5, 0.5),
-            south_west: math::vec2(-0.5, -0.5),
-            south_east: math::vec2(0.5, -0.5),
-        });
-        self.quad = Some(mesh_storage.add(quad));
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {

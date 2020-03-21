@@ -49,8 +49,8 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                         let index_buffer_resource =
                             render_resources.get_mesh_indices_resource(mesh).unwrap();
                         match renderer.get_resource_info(index_buffer_resource).unwrap() {
-                            ResourceInfo::Buffer { size, .. } => {
-                                current_mesh_index_len = (size / 2) as u32
+                            ResourceInfo::Buffer(buffer_info) => {
+                                current_mesh_index_len = (buffer_info.size / 2) as u32
                             }
                             _ => panic!("expected a buffer type"),
                         }

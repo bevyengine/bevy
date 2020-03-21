@@ -1,5 +1,5 @@
 use crate::render::{
-    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
+    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider, BufferInfo},
     renderer::Renderer,
     ActiveCamera, Camera,
 };
@@ -21,8 +21,11 @@ impl ResourceProvider for CameraResourceProvider {
         _resources: &Resources,
     ) {
         let buffer = renderer.create_buffer(
-            std::mem::size_of::<[[f32; 4]; 4]>() as u64,
-            BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            BufferInfo {
+                size: std::mem::size_of::<[[f32; 4]; 4]>() as u64,
+                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                ..Default::default()
+            }
         );
 
         renderer
@@ -52,8 +55,11 @@ impl ResourceProvider for CameraResourceProvider {
             }
 
             self.tmp_buffer = Some(renderer.create_buffer_mapped(
-                matrix_size,
-                BufferUsage::COPY_SRC,
+                BufferInfo {
+                    size: matrix_size as u64,
+                    buffer_usage: BufferUsage::COPY_SRC,
+                    ..Default::default()
+                },
                 &mut |data| {
                     data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
                 },

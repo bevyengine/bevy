@@ -1,11 +1,13 @@
 use crate::{
-    asset::{AssetStorage, Handle},
+    asset::{Asset, Handle},
     legion::prelude::*,
+    math,
+    prelude::MeshType,
     render::{
         draw_target::DrawTarget,
         mesh::Mesh,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, BufferUsage, RenderResource, ResourceInfo},
+        render_resource::{resource_name, BufferInfo, BufferUsage, RenderResource, ResourceInfo},
         renderer::{RenderPass, Renderer},
     },
 };
@@ -17,6 +19,7 @@ pub struct UiDrawTarget {
     pub mesh_vertex_buffer: Option<RenderResource>,
     pub mesh_index_buffer: Option<RenderResource>,
     pub mesh_index_length: usize,
+    pub mesh: Option<Handle<Mesh>>,
 }
 
 impl DrawTarget for UiDrawTarget {
@@ -40,10 +43,12 @@ impl DrawTarget for UiDrawTarget {
 
         let index_count = {
             let renderer = render_pass.get_renderer();
-            if let Some(ResourceInfo::InstanceBuffer { count, .. }) =
-                renderer.get_resource_info(ui_instances_buffer)
+            if let Some(ResourceInfo::Buffer(BufferInfo {
+                array_info: Some(array_info),
+                ..
+            })) = renderer.get_resource_info(ui_instances_buffer)
             {
-                Some(*count)
+                Some(array_info.item_count)
             } else {
                 None
             }
@@ -62,7 +67,7 @@ impl DrawTarget for UiDrawTarget {
     fn setup(
         &mut self,
         _world: &World,
-        resources: &Resources,
+        _resources: &Resources,
         renderer: &mut dyn Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
@@ -71,33 +76,27 @@ impl DrawTarget for UiDrawTarget {
             return;
         }
 
-        let ui_instances_buffer = {
-            match renderer
-                .get_render_resources()
-                .get_named_resource(resource_name::buffer::UI_INSTANCES)
-            {
-                Some(buffer) => buffer,
-                None => return,
-            }
-        };
-
-        if let ResourceInfo::InstanceBuffer { mesh_id, .. } =
-            renderer.get_resource_info(ui_instances_buffer).unwrap()
-        {
-            let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-            if let Some(mesh_asset) = mesh_storage.get_id(*mesh_id) {
-                self.mesh_vertex_buffer =
-                    Some(renderer.create_buffer_with_data(
-                        mesh_asset.vertices.as_bytes(),
-                        BufferUsage::VERTEX,
-                    ));
-                self.mesh_index_buffer = Some(
-                    renderer
-                        .create_buffer_with_data(mesh_asset.indices.as_bytes(), BufferUsage::INDEX),
-                );
-                self.mesh_index_length = mesh_asset.indices.len();
-            };
-        }
+        let quad = Mesh::load(MeshType::Quad {
+            north_west: math::vec2(-0.5, 0.5),
+            north_east: math::vec2(0.5, 0.5),
+            south_west: math::vec2(-0.5, -0.5),
+            south_east: math::vec2(0.5, -0.5),
+        });
+        self.mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
+            BufferInfo {
+                buffer_usage: BufferUsage::VERTEX,
+                ..Default::default()
+            },
+            quad.vertices.as_bytes(),
+        ));
+        self.mesh_index_buffer = Some(renderer.create_buffer_with_data(
+            BufferInfo {
+                buffer_usage: BufferUsage::INDEX,
+                ..Default::default()
+            },
+            quad.indices.as_bytes(),
+        ));
+        self.mesh_index_length = quad.indices.len();
     }
     fn get_name(&self) -> String {
         resource_name::draw_target::UI.to_string()

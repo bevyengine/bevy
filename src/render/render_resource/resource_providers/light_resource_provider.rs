@@ -1,5 +1,5 @@
 use crate::render::{
-    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider},
+    render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider, BufferInfo},
     renderer::Renderer,
     Light, LightRaw,
 };
@@ -45,8 +45,11 @@ impl ResourceProvider for LightResourceProvider {
             as u64;
 
         let buffer = renderer.create_buffer(
-            light_uniform_size,
-            BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+            BufferInfo {
+                size: light_uniform_size,
+                buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+                ..Default::default()
+            }
         );
         renderer
             .get_render_resources_mut()
@@ -77,8 +80,11 @@ impl ResourceProvider for LightResourceProvider {
             }
 
             self.tmp_light_buffer = Some(renderer.create_buffer_mapped(
-                total_size,
-                BufferUsage::COPY_SRC,
+                BufferInfo {
+                    size: total_size as u64,
+                    buffer_usage: BufferUsage::COPY_SRC,
+                    ..Default::default()
+                },
                 &mut |data| {
                     for ((light, local_to_world, translation), slot) in
                         light_query.iter(world).zip(data.chunks_exact_mut(size))
@@ -90,8 +96,11 @@ impl ResourceProvider for LightResourceProvider {
                 },
             ));
             self.tmp_count_buffer = Some(renderer.create_buffer_mapped(
-                light_count_size,
-                BufferUsage::COPY_SRC,
+                BufferInfo {
+                    size: light_count_size as u64,
+                    buffer_usage: BufferUsage::COPY_SRC,
+                    ..Default::default() 
+                },
                 &mut |data| {
                     data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
                 },

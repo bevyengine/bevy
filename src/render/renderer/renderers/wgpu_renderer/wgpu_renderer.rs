@@ -13,10 +13,11 @@ use crate::{
         },
         render_graph::RenderGraph,
         render_resource::{
-            resource_name, BufferUsage, RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments,
+            resource_name, BufferInfo, RenderResource, RenderResourceAssignments,
+            RenderResources, ResourceInfo,
         },
         renderer::Renderer,
-        shader::{DynamicUniformBufferInfo, Shader},
+        shader::{Shader},
         texture::{SamplerDescriptor, TextureDescriptor},
         update_shader_assignments,
     },
@@ -72,10 +73,8 @@ impl WgpuRenderer {
     }
 
     pub fn create_render_pipeline(
-        render_resources: &RenderResources,
-        dynamic_uniform_buffer_info: &HashMap<RenderResource, DynamicUniformBufferInfo>,
+        wgpu_resources: &mut WgpuResources,
         pipeline_descriptor: &mut PipelineDescriptor,
-        bind_group_layouts: &mut HashMap<u64, wgpu::BindGroupLayout>,
         device: &wgpu::Device,
         vertex_shader: &Shader,
         fragment_shader: Option<&Shader>,
@@ -109,11 +108,14 @@ impl WgpuRenderer {
                             ref mut dynamic, ..
                         } = binding.bind_type
                         {
-                            if let Some(resource) =
-                                render_resources.get_named_resource(&binding.name)
+                            if let Some(resource) = wgpu_resources
+                                .render_resources
+                                .get_named_resource(&binding.name)
                             {
-                                if dynamic_uniform_buffer_info.contains_key(&resource) {
-                                    *dynamic = true;
+                                if let Some(ResourceInfo::Buffer(buffer_info)) =
+                                    wgpu_resources.resource_info.get(&resource)
+                                {
+                                    *dynamic = buffer_info.dynamic_uniform_info.is_some();
                                 }
                             }
                         }
@@ -131,7 +133,7 @@ impl WgpuRenderer {
         // setup new bind group layouts
         for bind_group in layout.bind_groups.iter_mut() {
             let bind_group_id = bind_group.get_or_update_hash();
-            if let None = bind_group_layouts.get(&bind_group_id) {
+            if let None = wgpu_resources.bind_group_layouts.get(&bind_group_id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
@@ -146,7 +148,9 @@ impl WgpuRenderer {
                         bindings: bind_group_layout_binding.as_slice(),
                     });
 
-                bind_group_layouts.insert(bind_group_id, bind_group_layout);
+                wgpu_resources
+                    .bind_group_layouts
+                    .insert(bind_group_id, bind_group_layout);
             }
         }
 
@@ -156,7 +160,10 @@ impl WgpuRenderer {
             .iter()
             .map(|bind_group| {
                 let bind_group_id = bind_group.get_hash().unwrap();
-                bind_group_layouts.get(&bind_group_id).unwrap()
+                wgpu_resources
+                    .bind_group_layouts
+                    .get(&bind_group_id)
+                    .unwrap()
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
 
@@ -463,10 +470,8 @@ impl Renderer for WgpuRenderer {
                     .as_ref()
                     .map(|handle| &*shader_storage.get(&handle).unwrap());
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
-                    &self.wgpu_resources.render_resources,
-                    &self.wgpu_resources.dynamic_uniform_buffer_info,
+                    &mut self.wgpu_resources,
                     pipeline_descriptor,
-                    &mut self.wgpu_resources.bind_group_layouts,
                     &self.device,
                     vertex_shader,
                     fragment_shader,
@@ -530,56 +535,21 @@ impl Renderer for WgpuRenderer {
         self.queue.submit(&[command_buffer]);
     }
 
-    fn create_buffer_with_data(
-        &mut self,
-        data: &[u8],
-        buffer_usage: BufferUsage,
-    ) -> RenderResource {
+    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
         self.wgpu_resources
-            .create_buffer_with_data(&self.device, data, buffer_usage.into())
+            .create_buffer_with_data(&self.device, buffer_info, data)
     }
 
-    fn create_buffer(&mut self, size: u64, buffer_usage: BufferUsage) -> RenderResource {
-        self.wgpu_resources
-            .create_buffer(&self.device, size, buffer_usage.into())
-    }
-
-    fn create_instance_buffer(
-        &mut self,
-        mesh_id: usize,
-        size: usize,
-        count: usize,
-        buffer_usage: BufferUsage,
-    ) -> RenderResource {
-        self.wgpu_resources.create_instance_buffer(
-            &self.device,
-            mesh_id,
-            size,
-            count,
-            buffer_usage.into(),
-        )
-    }
-
-    fn create_instance_buffer_with_data(
-        &mut self,
-        mesh_id: usize,
-        data: &[u8],
-        size: usize,
-        count: usize,
-        buffer_usage: BufferUsage,
-    ) -> RenderResource {
-        self.wgpu_resources.create_instance_buffer_with_data(
-            &self.device,
-            mesh_id,
-            data,
-            size,
-            count,
-            buffer_usage.into(),
-        )
+    fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
+        self.wgpu_resources.create_buffer(&self.device, buffer_info)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
         self.wgpu_resources.resource_info.get(&resource)
+    }
+
+    fn get_resource_info_mut(&mut self, resource: RenderResource) -> Option<&mut ResourceInfo> {
+        self.wgpu_resources.resource_info.get_mut(&resource)
     }
 
     fn remove_buffer(&mut self, resource: RenderResource) {
@@ -588,16 +558,11 @@ impl Renderer for WgpuRenderer {
 
     fn create_buffer_mapped(
         &mut self,
-        size: usize,
-        buffer_usage: BufferUsage,
+        buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        self.wgpu_resources.create_buffer_mapped(
-            &self.device,
-            size,
-            buffer_usage.into(),
-            setup_data,
-        )
+        self.wgpu_resources
+            .create_buffer_mapped(&self.device, buffer_info, setup_data)
     }
 
     fn copy_buffer_to_buffer(
@@ -616,31 +581,6 @@ impl Renderer for WgpuRenderer {
             destination_offset,
             size,
         );
-    }
-
-    fn get_dynamic_uniform_buffer_info(
-        &self,
-        resource: RenderResource,
-    ) -> Option<&DynamicUniformBufferInfo> {
-        self.wgpu_resources
-            .get_dynamic_uniform_buffer_info(resource)
-    }
-
-    fn get_dynamic_uniform_buffer_info_mut(
-        &mut self,
-        resource: RenderResource,
-    ) -> Option<&mut DynamicUniformBufferInfo> {
-        self.wgpu_resources
-            .get_dynamic_uniform_buffer_info_mut(resource)
-    }
-
-    fn add_dynamic_uniform_buffer_info(
-        &mut self,
-        resource: RenderResource,
-        info: DynamicUniformBufferInfo,
-    ) {
-        self.wgpu_resources
-            .add_dynamic_uniform_buffer_info(resource, info);
     }
 
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
@@ -691,8 +631,11 @@ impl Renderer for WgpuRenderer {
                     .wgpu_resources
                     .get_assignments_bind_group(render_resource_assignments.get_id(), bind_group_id)
                 {
-                    self.wgpu_resources
-                        .create_assignments_bind_group(&self.device, bind_group, render_resource_assignments);
+                    self.wgpu_resources.create_assignments_bind_group(
+                        &self.device,
+                        bind_group,
+                        render_resource_assignments,
+                    );
                 }
             }
         }
