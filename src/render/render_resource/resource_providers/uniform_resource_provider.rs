@@ -2,7 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     render::{
         pipeline::BindType,
-        render_resource::{AssetBatchers, BufferUsage, RenderResource, ResourceProvider, RenderResourceAssignments, EntityRenderResourceAssignments},
+        render_resource::{AssetBatchers, BufferUsage, RenderResource, ResourceProvider, RenderResourceAssignments, EntityRenderResourceAssignments, RenderResourceAssignmentsProvider},
         renderer::Renderer,
         shader::{AsUniforms, DynamicUniformBufferInfo, UniformInfoIter},
         texture::{SamplerDescriptor, Texture, TextureDescriptor},
@@ -69,13 +69,19 @@ where
         let handle_query = self.handle_query.take().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
         let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
+        let mut render_resource_assignments_provider = resources.get_mut::<RenderResourceAssignmentsProvider>().unwrap();
         // TODO: only update handle values when Asset value has changed
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
             for (entity, (handle, renderable)) in handle_query.iter_entities(world) {
                 if renderable.is_instanced {
                     asset_batchers.set_entity_handle(entity, *handle);
                 } else {
-                    let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
+                    let render_resource_assignments = if let Some(assignments) = entity_render_resource_assignments.get_mut(entity) {
+                        assignments
+                    } else {
+                        entity_render_resource_assignments.set(entity, render_resource_assignments_provider.next());
+                        entity_render_resource_assignments.get_mut(entity).unwrap()
+                    };
                     if let Some(uniforms) = asset_storage.get(&handle) {
                         self.setup_entity_uniform_resources(
                             entity,
@@ -408,12 +414,18 @@ where
         self.update_asset_uniforms(renderer, world, resources);
 
         let mut entity_render_resource_assignments = resources.get_mut::<EntityRenderResourceAssignments>().unwrap();
+        let mut render_resource_assignments_provider = resources.get_mut::<RenderResourceAssignmentsProvider>().unwrap();
         for (entity, (uniforms, renderable)) in query.iter_entities(world) {
             if renderable.is_instanced {
                 continue;
             }
 
-            let render_resource_assignments = entity_render_resource_assignments.get_mut_or_create(entity);
+            let render_resource_assignments = if let Some(assignments) = entity_render_resource_assignments.get_mut(entity) {
+                assignments
+            } else {
+                entity_render_resource_assignments.set(entity, render_resource_assignments_provider.next());
+                entity_render_resource_assignments.get_mut(entity).unwrap()
+            };
             self.setup_entity_uniform_resources(entity, &uniforms, renderer, resources, render_resource_assignments, true, None);
         }
 

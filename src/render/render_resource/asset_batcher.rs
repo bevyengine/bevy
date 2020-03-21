@@ -1,4 +1,4 @@
-use super::RenderResource;
+use super::{RenderResourceAssignments};
 use crate::asset::{Handle, HandleId};
 use legion::prelude::Entity;
 use std::{any::TypeId, collections::HashMap, hash::Hash};
@@ -32,7 +32,7 @@ impl EntitySetState2 {
 pub struct Batch {
     pub entity_indices: HashMap<Entity, usize>,
     pub current_index: usize,
-    pub render_resource_assignments: RenderResourceAssignments,
+    pub render_resource_assignments: Option<RenderResourceAssignments>,
 }
 
 impl Batch {
@@ -41,23 +41,6 @@ impl Batch {
             self.entity_indices.insert(entity, self.current_index);
             self.current_index += 1;
         }
-    }
-}
-
-// TODO: consider merging this with entity_uniform_resource
-// PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
-#[derive(Eq, PartialEq, Debug, Default)]
-pub struct RenderResourceAssignments {
-    render_resources: HashMap<String, RenderResource>,
-}
-
-impl RenderResourceAssignments {
-    pub fn get(&self, name: &str) -> Option<RenderResource> {
-        self.render_resources.get(name).cloned()
-    }
-
-    pub fn set(&mut self, name: &str, resource: RenderResource) {
-        self.render_resources.insert(name.to_string(), resource);
     }
 }
 
