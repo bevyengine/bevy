@@ -5,7 +5,7 @@ use crate::{
         draw_target::DrawTarget,
         mesh::Mesh,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, ResourceInfo},
+        render_resource::{resource_name, ResourceInfo, EntityRenderResourceAssignments},
         renderer::RenderPass,
         Renderable,
     },
@@ -18,13 +18,14 @@ impl DrawTarget for MeshesDrawTarget {
     fn draw(
         &self,
         world: &World,
-        _resources: &Resources,
+        resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
         let mesh_query = <(Read<Handle<Mesh>>, Read<Renderable>)>::query();
+        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
 
         for (entity, (mesh, renderable)) in mesh_query.iter_entities(world) {
             if !renderable.is_visible || renderable.is_instanced {
@@ -53,7 +54,8 @@ impl DrawTarget for MeshesDrawTarget {
             }
 
             // TODO: validate bind group properties against shader uniform properties at least once
-            render_pass.set_bind_groups(Some(&entity));
+            let render_resource_assignments = entity_render_resource_assignments.get(entity);
+            render_pass.set_bind_groups(render_resource_assignments);
             render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
         }
     }

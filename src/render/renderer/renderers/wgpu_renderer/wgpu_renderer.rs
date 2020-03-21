@@ -677,9 +677,8 @@ impl Renderer for WgpuRenderer {
         &mut self.wgpu_resources.render_resources
     }
 
-    fn setup_entity_bind_groups(
+    fn setup_bind_groups(
         &mut self,
-        entity: Entity,
         render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
@@ -690,10 +689,10 @@ impl Renderer for WgpuRenderer {
             if let None = self.wgpu_resources.bind_groups.get(&bind_group_id) {
                 if let None = self
                     .wgpu_resources
-                    .get_entity_bind_group(entity, bind_group_id)
+                    .get_assignments_bind_group(render_resource_assignments.get_id(), bind_group_id)
                 {
                     self.wgpu_resources
-                        .create_entity_bind_group(&self.device, bind_group, entity, render_resource_assignments);
+                        .create_assignments_bind_group(&self.device, bind_group, render_resource_assignments);
                 }
             }
         }

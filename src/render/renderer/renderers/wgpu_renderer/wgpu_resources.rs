@@ -1,9 +1,8 @@
 use crate::{
-    legion::prelude::*,
     render::{
         pipeline::{BindGroup, BindType},
         render_resource::{
-            BufferUsage, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo,
+            BufferUsage, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo, RenderResourceAssignmentsId,
         },
         shader::DynamicUniformBufferInfo,
         texture::{SamplerDescriptor, TextureDescriptor},
@@ -23,7 +22,7 @@ pub struct WgpuResources {
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub bind_groups: HashMap<u64, BindGroupInfo>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
-    pub entity_bind_groups: HashMap<(Entity, u64), BindGroupInfo>,
+    pub assignment_bind_groups: HashMap<(RenderResourceAssignmentsId, u64), BindGroupInfo>,
     pub dynamic_uniform_buffer_info: HashMap<RenderResource, DynamicUniformBufferInfo>,
 }
 
@@ -37,7 +36,7 @@ impl WgpuResources {
             bind_groups: HashMap::new(),
             bind_group_layouts: HashMap::new(),
             dynamic_uniform_buffer_info: HashMap::new(),
-            entity_bind_groups: HashMap::new(),
+            assignment_bind_groups: HashMap::new(),
             render_resources: RenderResources::default(),
         }
     }
@@ -109,19 +108,18 @@ impl WgpuResources {
                 .insert(bind_group_id, BindGroupInfo { bind_group });
         }
     }
-    pub fn get_entity_bind_group(
+    pub fn get_assignments_bind_group(
         &self,
-        entity: Entity,
+        render_resource_assignment_id: RenderResourceAssignmentsId,
         bind_group_id: u64,
     ) -> Option<&BindGroupInfo> {
-        self.entity_bind_groups.get(&(entity, bind_group_id))
+        self.assignment_bind_groups.get(&(render_resource_assignment_id, bind_group_id))
     }
 
-    pub fn create_entity_bind_group(
+    pub fn create_assignments_bind_group(
         &mut self,
         device: &wgpu::Device,
         bind_group: &BindGroup,
-        entity: Entity,
         render_resource_assignments: &RenderResourceAssignments,
     ) {
         // TODO: don't make this per-entity. bind groups should be re-used across the same resource when possible
@@ -167,8 +165,8 @@ impl WgpuResources {
                     }
                 } else {
                     panic!(
-                        "No resource assigned to uniform \"{}\" for entity {}",
-                        binding.name, entity
+                        "No resource assigned to uniform \"{}\" for RenderResourceAssignments {:?}",
+                        binding.name, render_resource_assignments.get_id()
                     );
                 }
             })
@@ -181,8 +179,8 @@ impl WgpuResources {
 
         let bind_group = device.create_bind_group(&bind_group_descriptor);
         // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
-        self.entity_bind_groups
-            .insert((entity, bind_group_id), BindGroupInfo { bind_group });
+        self.assignment_bind_groups
+            .insert((render_resource_assignments.get_id(), bind_group_id), BindGroupInfo { bind_group });
     }
 
     pub fn create_buffer(

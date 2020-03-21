@@ -254,6 +254,7 @@ where
         world: &World,
         resources: &Resources,
     ) {
+        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
         // allocate uniform buffers
         for (name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             let count = *count as u64;

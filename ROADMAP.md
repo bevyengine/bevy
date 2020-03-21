@@ -19,6 +19,9 @@ Here is the current list of planned features. All items are sorted in approximat
     * Add feature docs
     * Add "template" projects
     * Add ```#![deny(warnings, missing_docs)]``` to ensure future contributions meet style/doc standards
+* ECS
+    * Remove as many references to Resources as possible in favor of resolved resource types
+    * Consider adding Renderer and World to Resources
 * Error Handling
     * Custom error type?
     * Remove as many panics / unwraps as possible

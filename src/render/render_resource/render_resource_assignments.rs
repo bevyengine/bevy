@@ -23,7 +23,7 @@ impl RenderResourceAssignments {
     }
 }
 
-#[derive(Eq, PartialEq, Debug, Copy, Clone)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 pub struct RenderResourceAssignmentsId(usize);
 
 #[derive(Default)]

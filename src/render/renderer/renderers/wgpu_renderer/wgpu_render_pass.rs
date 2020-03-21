@@ -1,10 +1,10 @@
 use super::{WgpuRenderer, WgpuResources};
 use crate::render::{
     pipeline::{BindType, PipelineDescriptor},
-    render_resource::RenderResource,
+    render_resource::{RenderResource, RenderResourceAssignments},
     renderer::{RenderPass, Renderer},
 };
-use legion::prelude::Entity;
+use std::ops::Range;
 
 pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
     pub render_pass: &'b mut wgpu::RenderPass<'a>,
@@ -33,17 +33,12 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         self.render_pass.set_index_buffer(&buffer, offset);
     }
 
-    fn draw_indexed(
-        &mut self,
-        indices: core::ops::Range<u32>,
-        base_vertex: i32,
-        instances: core::ops::Range<u32>,
-    ) {
+    fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         self.render_pass
             .draw_indexed(indices, base_vertex, instances);
     }
 
-    fn set_bind_groups(&mut self, entity: Option<&Entity>) {
+    fn set_bind_groups(&mut self, render_resource_assignments: Option<&RenderResourceAssignments>) {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
@@ -52,9 +47,9 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 Some(bind_group_info) => bind_group_info,
                 // otherwise try to get an entity-specific bind group
                 None => {
-                    if let Some(entity) = entity {
+                    if let Some(assignments) = render_resource_assignments {
                         self.wgpu_resources
-                            .get_entity_bind_group(*entity, bind_group_id)
+                            .get_assignments_bind_group(assignments.get_id(), bind_group_id)
                             .unwrap()
                     } else {
                         panic!("No bind group exists that matches: {:?}");
@@ -81,12 +76,12 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                             .dynamic_uniform_buffer_info
                             .get(&resource)
                         {
-                            let index = dynamic_uniform_buffer_info
-                                .offsets
-                                .get(entity.unwrap())
-                                .unwrap();
+                            // let index = dynamic_uniform_buffer_info
+                            //     .offsets
+                            //     .get(entity.unwrap())
+                            //     .unwrap();
 
-                            dynamic_uniform_indices.push(*index);
+                            // dynamic_uniform_indices.push(*index);
                         }
                     }
                 }

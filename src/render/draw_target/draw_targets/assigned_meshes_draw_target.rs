@@ -23,6 +23,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
+        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
 
@@ -61,7 +62,8 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 }
 
                 // TODO: validate bind group properties against shader uniform properties at least once
-                render_pass.set_bind_groups(Some(&entity));
+                let render_resource_assignments = entity_render_resource_assignments.get(*entity);
+                render_pass.set_bind_groups(render_resource_assignments);
                 render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
             }
         }
@@ -90,7 +92,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 }
 
                 if let Some(render_resource_assignments) = entity_render_resource_assignments.get(*entity) {
-                    renderer.setup_entity_bind_groups(*entity, render_resource_assignments, pipeline_descriptor);
+                    renderer.setup_bind_groups(render_resource_assignments, pipeline_descriptor);
                 }
             }
         }

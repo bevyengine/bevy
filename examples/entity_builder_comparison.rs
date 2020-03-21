@@ -184,7 +184,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     // create_entities_insert_vec(world, plane_handle, cube_handle);
 
     // no-archetype precompile: .93
-    // noarchetype precompile: .93
+    // no-archetype precompile: .93
     // create_entities_builder_add_component(world, plane_handle, cube_handle);
 
     // archetype precompile: 0.65
