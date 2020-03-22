@@ -1,11 +1,17 @@
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 
+use crate as bevy;
+use bevy_derive::Uniforms;
+
 #[repr(C)]
-#[derive(Clone, Copy, AsBytes, FromBytes)]
+#[derive(Clone, Copy, AsBytes, FromBytes, Uniforms)]
 pub struct Vertex {
+    #[uniform(vertex)]
     pub position: [f32; 4],
+    #[uniform(vertex)]
     pub normal: [f32; 4],
+    #[uniform(vertex)]
     pub uv: [f32; 2],
 }
 

@@ -26,14 +26,14 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: plane_handle,
             material: plane_material_handle,
-            // renderable: Renderable::instanced(),
+            renderable: Renderable::instanced(),
             ..Default::default()
         })
         // cube
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: cube_material_handle,
-            // renderable: Renderable::instanced(),
+            renderable: Renderable::instanced(),
             translation: Translation::new(-1.5, 0.0, 1.0),
             ..Default::default()
         })
@@ -41,7 +41,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: cube_material_handle,
-            // renderable: Renderable::instanced(),
+            renderable: Renderable::instanced(),
             translation: Translation::new(1.5, 0.0, 1.0),
             ..Default::default()
         })

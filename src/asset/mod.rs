@@ -6,7 +6,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, marker::PhantomData, any::TypeId};
 
 pub type HandleId = usize;
 
@@ -62,6 +62,32 @@ impl<T> Clone for Handle<T> {
             id: self.id.clone(),
             marker: PhantomData,
         }
+    }
+}
+
+#[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
+pub struct HandleUntyped {
+    pub id: HandleId,
+    pub type_id: TypeId,
+}
+
+
+impl<T> From<Handle<T>> for HandleUntyped where T: 'static {
+    fn from(handle: Handle<T>) -> Self {
+        HandleUntyped {
+            id: handle.id,
+            type_id: TypeId::of::<T>(),
+        }
+    }
+}
+
+impl<T> From<HandleUntyped> for Handle<T> where T: 'static {
+    fn from(handle: HandleUntyped) -> Self {
+        if TypeId::of::<T>() != handle.type_id {
+            panic!("attempted to convert untyped handle to incorrect typed handle");
+        }
+
+        Handle::new(handle.id)
     }
 }
 

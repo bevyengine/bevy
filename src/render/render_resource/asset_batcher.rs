@@ -1,5 +1,5 @@
-use super::{RenderResourceAssignments};
-use crate::asset::{Handle, HandleId};
+use super::RenderResourceAssignments;
+use crate::asset::{Handle, HandleId, HandleUntyped};
 use legion::prelude::Entity;
 use std::{any::TypeId, collections::HashMap, hash::Hash};
 
@@ -30,6 +30,7 @@ impl EntitySetState2 {
 
 #[derive(PartialEq, Eq, Debug, Default)]
 pub struct Batch {
+    pub handles: Vec<HandleUntyped>,
     pub entity_indices: HashMap<Entity, usize>,
     pub current_index: usize,
     pub render_resource_assignments: Option<RenderResourceAssignments>,
@@ -73,6 +74,16 @@ impl AssetSetBatcher2 {
             }
             None => {
                 let mut batch = Batch::default();
+
+                batch.handles.push(HandleUntyped {
+                    id: key.handle1,
+                    type_id: self.key.handle1_type,
+                });
+                batch.handles.push(HandleUntyped {
+                    id: key.handle2,
+                    type_id: self.key.handle2_type,
+                });
+
                 batch.add_entity(entity);
                 self.set_batches.insert(key, batch);
             }
@@ -141,6 +152,10 @@ impl AssetBatcher for AssetSetBatcher2 {
     fn get_batches<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Batch> + 'a> {
         Box::new(self.set_batches.values())
     }
+
+    fn get_batches_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &'a mut Batch> + 'a> {
+        Box::new(self.set_batches.values_mut())
+    }
 }
 
 pub trait AssetBatcher {
@@ -149,12 +164,14 @@ pub trait AssetBatcher {
     // TODO: add pipeline handle here
     fn get_batches2(&self) -> std::collections::hash_map::Iter<'_, BatchKey2, Batch>;
     fn get_batches<'a>(&'a self) -> Box<dyn Iterator<Item = &Batch> + 'a>;
+    fn get_batches_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &mut Batch> + 'a>;
 }
 
 #[derive(Default)]
 pub struct AssetBatchers {
     asset_batchers: Vec<Box<dyn AssetBatcher + Send + Sync>>,
     asset_batcher_indices2: HashMap<AssetSetBatcherKey2, usize>,
+    handle_batchers: HashMap<TypeId, Vec<usize>>,
 }
 
 impl AssetBatchers {
@@ -163,8 +180,10 @@ impl AssetBatchers {
         T: 'static,
     {
         let handle_type = TypeId::of::<T>();
-        for asset_batcher in self.asset_batchers.iter_mut() {
-            asset_batcher.set_entity_handle(entity, handle_type, handle.id);
+        if let Some(batcher_indices) = self.handle_batchers.get(&handle_type) {
+            for index in batcher_indices.iter() {
+                self.asset_batchers[*index].set_entity_handle(entity, handle_type, handle.id);
+            }
         }
     }
 
@@ -181,8 +200,21 @@ impl AssetBatchers {
         self.asset_batchers
             .push(Box::new(AssetSetBatcher2::new(key.clone())));
 
-        self.asset_batcher_indices2
-            .insert(key, self.asset_batchers.len() - 1);
+        let index = self.asset_batchers.len() - 1;
+
+        let handle1_batchers = self
+            .handle_batchers
+            .entry(key.handle1_type.clone())
+            .or_insert_with(|| Vec::new());
+        handle1_batchers.push(index);
+
+        let handle2_batchers = self
+            .handle_batchers
+            .entry(key.handle2_type.clone())
+            .or_insert_with(|| Vec::new());
+        handle2_batchers.push(index);
+
+        self.asset_batcher_indices2.insert(key, index);
     }
 
     pub fn get_batches2<T1, T2>(
@@ -226,14 +258,58 @@ impl AssetBatchers {
         }
     }
 
-    pub fn get_batches<'a>(&'a self) -> Box<dyn Iterator<Item = &Batch> + 'a> {
-        Box::new(
-            self.asset_batchers
-                .iter()
-                .map(|a| a.get_batches())
-                .flatten(),
-        )
+    pub fn get_batches(&self) -> impl Iterator<Item = &Batch> {
+        self.asset_batchers
+            .iter()
+            .map(|a| a.get_batches())
+            .flatten()
     }
+
+    pub fn get_batcher_indices<T>(&self) -> impl Iterator<Item = &usize>
+    where
+        T: 'static,
+    {
+        let handle_type = TypeId::of::<T>();
+        self.handle_batchers
+            .get(&handle_type)
+            .unwrap()
+            .iter()
+    }
+
+    pub fn get_batches_from_batcher(&self, index: usize) -> impl Iterator<Item = &Batch>
+    {
+        self.asset_batchers[index].get_batches()
+    }
+
+    pub fn get_batches_from_batcher_mut(&mut self, index: usize) -> impl Iterator<Item = &mut Batch>
+    {
+        self.asset_batchers[index].get_batches_mut()
+    }
+
+    // pub fn get_handle_batches<T>(&self) -> Option<impl Iterator<Item = &Batch>>
+    // where
+    //     T: 'static,
+    // {
+    //     let handle_type = TypeId::of::<T>();
+    //     if let Some(batcher_indices) = self.handle_batchers.get(&handle_type) {
+    //         Some(
+    //             self.asset_batchers
+    //                 .iter()
+    //                 .enumerate()
+    //                 .filter(|(index, a)| {
+    //                     let handle_type = TypeId::of::<T>();
+    //                     self.handle_batchers
+    //                         .get(&handle_type)
+    //                         .unwrap()
+    //                         .contains(index)
+    //                 })
+    //                 .map(|(index, a)| a.get_batches())
+    //                 .flatten(),
+    //         )
+    //     } else {
+    //         None
+    //     }
+    // }
 }
 
 #[cfg(test)]
@@ -263,7 +339,10 @@ mod tests {
         assert_eq!(asset_batchers.get_batch2(a1, b1), None);
         asset_batchers.set_entity_handle(entities[0], b1);
         // entity[0] is added to batch when it has both Handle<A> and Handle<B>
-        let mut expected_batch = Batch::default();
+        let mut expected_batch = Batch {
+            handles: vec![a1.into(), b1.into()],
+            ..Default::default()
+        };
         expected_batch.add_entity(entities[0]);
         assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
         asset_batchers.set_entity_handle(entities[0], c1);
@@ -272,7 +351,10 @@ mod tests {
         asset_batchers.set_entity_handle(entities[1], b1);
 
         // all entities with Handle<A> and Handle<B> are returned
-        let mut expected_batch = Batch::default();
+        let mut expected_batch = Batch {
+            handles: vec![a1.into(), b1.into()],
+            ..Default::default()
+        };
         expected_batch.add_entity(entities[0]);
         expected_batch.add_entity(entities[1]);
         assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
@@ -290,10 +372,16 @@ mod tests {
             .collect::<Vec<(&BatchKey2, &Batch)>>();
 
         batches.sort_by(|a, b| a.0.cmp(b.0));
-        let mut expected_batch1 = Batch::default();
+        let mut expected_batch1 = Batch {
+            handles: vec![a1.into(), b1.into()],
+            ..Default::default()
+        };
         expected_batch1.add_entity(entities[0]);
         expected_batch1.add_entity(entities[1]);
-        let mut expected_batch2 = Batch::default();
+        let mut expected_batch2 = Batch {
+            handles: vec![a2.into(), b2.into()],
+            ..Default::default()
+        };
         expected_batch2.add_entity(entities[2]);
         let mut expected_batches = vec![
             (

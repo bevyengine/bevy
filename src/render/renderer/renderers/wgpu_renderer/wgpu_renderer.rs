@@ -19,7 +19,7 @@ use crate::{
         renderer::Renderer,
         shader::{Shader},
         texture::{SamplerDescriptor, TextureDescriptor},
-        update_shader_assignments,
+        update_shader_assignments, Vertex,
     },
 };
 use std::{collections::HashMap, ops::Deref};
@@ -426,6 +426,10 @@ impl Renderer for WgpuRenderer {
 
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world, resources);
+        }
+
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.finish_update(self, world, resources);
         }
 
         update_shader_assignments(world, resources, render_graph);

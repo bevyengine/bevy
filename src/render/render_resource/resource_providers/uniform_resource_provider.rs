@@ -3,9 +3,10 @@ use crate::{
     render::{
         pipeline::BindType,
         render_resource::{
-            AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage,
+            AssetBatchers, BufferArrayInfo, BufferDynamicUniformInfo, BufferInfo, BufferUsage,
             EntityRenderResourceAssignments, RenderResource, RenderResourceAssignments,
-            RenderResourceAssignmentsProvider, ResourceInfo, ResourceProvider, BufferDynamicUniformInfo,
+            RenderResourceAssignmentsId, RenderResourceAssignmentsProvider, ResourceInfo,
+            ResourceProvider,
         },
         renderer::Renderer,
         shader::{AsUniforms, UniformInfoIter},
@@ -27,8 +28,14 @@ where
 {
     _marker: PhantomData<T>,
     // PERF: somehow remove this HashSet
-    uniform_buffer_info_resources:
-        HashMap<String, (Option<RenderResource>, usize, HashSet<Entity>)>,
+    uniform_buffer_info_resources: HashMap<
+        String,
+        (
+            Option<RenderResource>,
+            usize,
+            HashSet<RenderResourceAssignmentsId>,
+        ),
+    >,
     asset_resources: HashMap<Handle<T>, HashMap<String, RenderResource>>,
     resource_query: Query<
         (Read<T>, Read<Renderable>),
@@ -94,8 +101,7 @@ where
                         entity_render_resource_assignments.get_mut(entity).unwrap()
                     };
                     if let Some(uniforms) = asset_storage.get(&handle) {
-                        self.setup_entity_uniform_resources(
-                            entity,
+                        self.setup_uniform_resources(
                             uniforms,
                             renderer,
                             resources,
@@ -111,9 +117,8 @@ where
         self.handle_query = Some(handle_query);
     }
 
-    fn setup_entity_uniform_resources(
+    fn setup_uniform_resources(
         &mut self,
-        entity: Entity,
         uniforms: &T,
         renderer: &mut dyn Renderer,
         resources: &Resources,
@@ -131,11 +136,12 @@ where
                                 .insert(uniform_info.name.to_string(), (None, 0, HashSet::new()));
                         }
 
-                        let (_resource, counts, entities) = self
+                        let (_resource, counts, render_resource_assignments_ids) = self
                             .uniform_buffer_info_resources
                             .get_mut(uniform_info.name)
                             .unwrap();
-                        entities.insert(entity);
+                        render_resource_assignments_ids
+                            .insert(render_resource_assignments.get_id());
                         *counts += 1;
                     } else {
                         let handle = asset_handle.expect(
@@ -269,9 +275,8 @@ where
         world: &World,
         resources: &Resources,
     ) {
-        let entity_render_resource_assignments = resources
-            .get::<EntityRenderResourceAssignments>()
-            .unwrap();
+        let entity_render_resource_assignments =
+            resources.get::<EntityRenderResourceAssignments>().unwrap();
         // allocate uniform buffers
         for (name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             let count = *count as u64;
@@ -317,6 +322,7 @@ where
                 ..
             })) = resource_info
             {
+                // TODO: properly handle alignments > BIND_BUFFER_ALIGNMENT
                 let size = BIND_BUFFER_ALIGNMENT * *count as u64;
                 let alignment = BIND_BUFFER_ALIGNMENT as usize;
                 let mut offset = 0usize;
@@ -324,13 +330,20 @@ where
                 // TODO: only mem-map entities if their data has changed
                 // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
                 for (entity, (_, renderable)) in self.resource_query.iter_entities(world) {
-                    if renderable.is_instanced || !entities.contains(&entity) {
+                    if renderable.is_instanced {
                         continue;
                     }
 
-                    if let Some(render_resource) = entity_render_resource_assignments.get(entity) {
-                        dynamic_uniform_info.offsets.insert(render_resource.get_id(), offset as u32);
+                    // this unwrap is safe because the assignments were created in the calling function
+                    let render_resource_assignments =
+                        entity_render_resource_assignments.get(entity).unwrap();
+                    if !entities.contains(&render_resource_assignments.get_id()) {
+                        continue;
                     }
+
+                    dynamic_uniform_info
+                        .offsets
+                        .insert(render_resource_assignments.get_id(), offset as u32);
 
                     offset += alignment;
                 }
@@ -342,9 +355,14 @@ where
                         continue;
                     }
 
-                    if let Some(render_resource) = entity_render_resource_assignments.get(entity) {
-                        dynamic_uniform_info.offsets.insert(render_resource.get_id(), offset as u32);
+                    let render_resource_assignments =
+                        entity_render_resource_assignments.get(entity).unwrap();
+                    if !entities.contains(&render_resource_assignments.get_id()) {
+                        continue;
                     }
+                    dynamic_uniform_info
+                        .offsets
+                        .insert(render_resource_assignments.get_id(), offset as u32);
 
                     offset += alignment;
                 }
@@ -363,7 +381,13 @@ where
                         for (entity, (uniforms, renderable)) in
                             self.resource_query.iter_entities(world)
                         {
-                            if renderable.is_instanced || !entities.contains(&entity) {
+                            if renderable.is_instanced {
+                                continue;
+                            }
+
+                            let render_resource_assignments =
+                                entity_render_resource_assignments.get(entity).unwrap();
+                            if !entities.contains(&render_resource_assignments.get_id()) {
                                 continue;
                             }
                             if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
@@ -381,7 +405,13 @@ where
                             for (entity, (handle, renderable)) in
                                 self.handle_query.as_ref().unwrap().iter_entities(world)
                             {
-                                if renderable.is_instanced || !entities.contains(&entity) {
+                                if renderable.is_instanced {
+                                    continue;
+                                }
+
+                                let render_resource_assignments =
+                                    entity_render_resource_assignments.get(entity).unwrap();
+                                if !entities.contains(&render_resource_assignments.get_id()) {
                                     continue;
                                 }
 
@@ -412,6 +442,7 @@ where
         let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
         if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
             if let None = renderer.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name) {
+                println!("{:#?}", vertex_buffer_descriptor);
                 renderer.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
             }
         }
@@ -473,8 +504,7 @@ where
                         .set(entity, render_resource_assignments_provider.next());
                     entity_render_resource_assignments.get_mut(entity).unwrap()
                 };
-            self.setup_entity_uniform_resources(
-                entity,
+            self.setup_uniform_resources(
                 &uniforms,
                 renderer,
                 resources,
@@ -503,6 +533,50 @@ where
                 if let Some(shader_defs) = uniforms.get_shader_defs() {
                     for shader_def in shader_defs {
                         renderable.shader_defs.insert(shader_def);
+                    }
+                }
+            }
+        }
+    }
+
+    fn finish_update(
+        &mut self,
+        renderer: &mut dyn Renderer,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
+            let handle_type = std::any::TypeId::of::<T>();
+            let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
+            let mut render_resource_assignments_provider = resources
+                .get_mut::<RenderResourceAssignmentsProvider>()
+                .unwrap();
+            // TODO: work out lifetime issues here so allocation isn't necessary
+            for index in asset_batchers
+                .get_batcher_indices::<T>()
+                .map(|i| *i)
+                .collect::<Vec<usize>>()
+            {
+                for batch in asset_batchers.get_batches_from_batcher_mut(index) {
+                    let handle: Handle<T> = batch
+                        .handles
+                        .iter()
+                        .find(|h| h.type_id == handle_type)
+                        .map(|h| (*h).into())
+                        .unwrap();
+
+                    let render_resource_assignments = batch
+                        .render_resource_assignments
+                        .get_or_insert_with(|| render_resource_assignments_provider.next());
+                    if let Some(uniforms) = asset_storage.get(&handle) {
+                        self.setup_uniform_resources(
+                            uniforms,
+                            renderer,
+                            resources,
+                            render_resource_assignments,
+                            false,
+                            Some(handle),
+                        );
                     }
                 }
             }

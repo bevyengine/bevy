@@ -1,4 +1,7 @@
-use crate::math::{Mat4, Vec2, Vec3, Vec4};
+use crate::{
+    math::{Mat4, Vec2, Vec3, Vec4},
+    render::Color,
+};
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum VertexFormat {
@@ -107,5 +110,29 @@ impl AsVertexFormats for Mat4 {
             VertexFormat::Float4,
             VertexFormat::Float4,
         ]
+    }
+}
+
+impl AsVertexFormats for Color {
+    fn as_vertex_formats() -> &'static [VertexFormat] {
+        &[VertexFormat::Float4]
+    }
+}
+
+impl AsVertexFormats for [f32; 2] {
+    fn as_vertex_formats() -> &'static [VertexFormat] {
+        &[VertexFormat::Float2]
+    }
+}
+
+impl AsVertexFormats for [f32; 3] {
+    fn as_vertex_formats() -> &'static [VertexFormat] {
+        &[VertexFormat::Float3]
+    }
+}
+
+impl AsVertexFormats for [f32; 4] {
+    fn as_vertex_formats() -> &'static [VertexFormat] {
+        &[VertexFormat::Float4]
     }
 }

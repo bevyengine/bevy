@@ -8,6 +8,7 @@ use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
 pub struct StandardMaterial {
+    #[uniform(instance)]
     pub albedo: Color,
     #[uniform(shader_def)]
     pub albedo_texture: Option<Handle<Texture>>,

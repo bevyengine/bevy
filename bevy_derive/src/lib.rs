@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
 
 #[derive(FromMeta, Debug, Default)]
 struct EntityArchetypeAttributeArgs {
@@ -67,7 +67,9 @@ struct UniformAttributeArgs {
     #[darling(default)]
     pub shader_def: Option<bool>,
     #[darling(default)]
-    pub instanceable: Option<bool>,
+    pub instance: Option<bool>,
+    #[darling(default)]
+    pub vertex: Option<bool>,
 }
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
@@ -152,6 +154,53 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         .map(|field| field.ident.as_ref().unwrap().to_string())
         .collect::<Vec<String>>();
 
+    let vertex_buffer_fields = uniform_fields
+        .iter()
+        .map(|(field, attrs)| {
+            (
+                field,
+                match attrs {
+                    Some(attrs) => (
+                        (match attrs.instance {
+                            Some(instance) => instance,
+                            None => false,
+                        }),
+                        (match attrs.vertex {
+                            Some(vertex) => vertex,
+                            None => false,
+                        }),
+                    ),
+                    None => (false, false),
+                },
+            )
+        })
+        .filter(|(_f, (instance, vertex))| *instance || *vertex);
+
+    let vertex_buffer_field_types = vertex_buffer_fields
+        .clone()
+        .map(|(f, _)| &f.ty)
+        .collect::<Vec<&Type>>();
+
+    let vertex_buffer_field_names_pascal = vertex_buffer_fields
+        .map(|(f, (instance, _vertex))| {
+            let pascal_field =                     f.ident.as_ref().unwrap().to_string().to_pascal_case();
+            if instance {
+                format!(
+                    "I_{}_{}",
+                    struct_name,
+                    pascal_field
+                )
+                
+            } else {
+                format!(
+                    "{}_{}",
+                    struct_name,
+                    pascal_field
+                )
+            }
+        })
+        .collect::<Vec<String>>();
+
     let mut uniform_name_strings = Vec::new();
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
@@ -175,8 +224,8 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             texture_and_sampler_name_idents.push(f.ident.clone());
             texture_and_sampler_name_idents.push(f.ident.clone());
             let is_instanceable = match attrs {
-                Some(attrs) => match attrs.instanceable {
-                    Some(instanceable) => instanceable,
+                Some(attrs) => match attrs.instance {
+                    Some(instance) => instance,
                     None => false,
                 },
                 None => false,
@@ -197,16 +246,39 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
         static #vertex_buffer_descriptor_ident: bevy::once_cell::sync::Lazy<bevy::render::pipeline::VertexBufferDescriptor> =
             bevy::once_cell::sync::Lazy::new(|| {
-                use bevy::render::pipeline::AsVertexFormats;
-                // let vertex_formats = vec![
-                //     #(#active_uniform_field_types::as_vertex_formats(),)*
-                // ];
+                use bevy::render::pipeline::{VertexFormat, AsVertexFormats, VertexAttributeDescriptor};
+
+                let mut vertex_formats: Vec<(&str,&[VertexFormat])>  = vec![
+                    #((#vertex_buffer_field_names_pascal, <#vertex_buffer_field_types>::as_vertex_formats()),)*
+                ];
+
+                let mut shader_location = 0;
+                let mut offset = 0;
+                let vertex_attribute_descriptors = vertex_formats.drain(..).map(|(name, formats)| {
+                    formats.iter().enumerate().map(|(i, format)| {
+                        let size = format.get_size();
+                        let formatted_name = if formats.len() > 1 {
+                            format!("{}_{}", name, i)
+                        } else {
+                            format!("{}", name)
+                        };
+                        let descriptor = VertexAttributeDescriptor {
+                            name: formatted_name,
+                            offset,
+                            format: *format,
+                            shader_location,
+                        };
+                        offset += size;
+                        shader_location += 1;
+                        descriptor
+                    }).collect::<Vec<VertexAttributeDescriptor>>()
+                }).flatten().collect::<Vec<VertexAttributeDescriptor>>();
 
                 bevy::render::pipeline::VertexBufferDescriptor {
-                    attributes: Vec::new(),
+                    attributes: vertex_attribute_descriptors,
                     name: #struct_name_string.to_string(),
                     step_mode: bevy::render::pipeline::InputStepMode::Instance,
-                    stride: 0,
+                    stride: offset,
                 }
             });
 
