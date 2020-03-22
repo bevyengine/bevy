@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub trait AsUniforms {
-    fn get_field_infos(&self) -> &[FieldInfo];
+    fn get_field_infos() -> &'static [FieldInfo];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
     fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;

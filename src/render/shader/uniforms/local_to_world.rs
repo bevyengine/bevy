@@ -53,7 +53,7 @@ static VERTEX_BUFFER_DESCRIPTOR: Lazy<VertexBufferDescriptor> =
     });
 
 impl AsUniforms for bevy_transform::prelude::LocalToWorld {
-    fn get_field_infos(&self) -> &[FieldInfo] {
+    fn get_field_infos() -> &'static [FieldInfo] {
         LOCAL_TO_WORLD_FIELD_INFOS
     }
 

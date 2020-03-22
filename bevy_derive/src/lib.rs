@@ -293,7 +293,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             });
 
         impl bevy::render::shader::AsUniforms for #struct_name {
-            fn get_field_infos(&self) -> &[bevy::render::shader::FieldInfo] {
+            fn get_field_infos() -> &'static [bevy::render::shader::FieldInfo] {
                 #field_infos_ident
             }
 
