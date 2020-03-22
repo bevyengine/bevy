@@ -108,64 +108,69 @@ impl PipelineDescriptor {
 
 impl PipelineDescriptor {
     pub fn build<'a>(
-        name: &str,
+        name: &'a str,
         shader_storage: &'a mut AssetStorage<Shader>,
-        vertex_shader: Shader,
     ) -> PipelineBuilder<'a> {
-        PipelineBuilder::new(name, shader_storage, vertex_shader)
+        PipelineBuilder::new(name, shader_storage)
     }
 }
 
 pub struct PipelineBuilder<'a> {
-    pipeline: PipelineDescriptor,
+    pipeline: Option<PipelineDescriptor>,
     shader_storage: &'a mut AssetStorage<Shader>,
+    name: &'a str,
 }
 
 impl<'a> PipelineBuilder<'a> {
     pub fn new(
-        name: &str,
+        name: &'a str,
         shader_storage: &'a mut AssetStorage<Shader>,
-        vertex_shader: Shader,
     ) -> Self {
-        let vertex_shader_handle = shader_storage.add(vertex_shader);
         PipelineBuilder {
-            pipeline: PipelineDescriptor::new(Some(name), vertex_shader_handle),
+            pipeline: None,
             shader_storage,
+            name,
         }
     }
 
-    pub fn finish(self) -> PipelineDescriptor {
-        self.pipeline
+    pub fn finish(&mut self) -> PipelineDescriptor {
+        self.pipeline.take().unwrap()
     }
 
-    pub fn with_fragment_shader(mut self, fragment_shader: Shader) -> Self {
-        let fragment_shader_handle = self.shader_storage.add(fragment_shader);
-        self.pipeline.shader_stages.fragment = Some(fragment_shader_handle);
+    pub fn with_vertex_shader(&mut self, vertex_shader: Shader) -> &mut Self {
+        let vertex_shader_handle = self.shader_storage.add(vertex_shader);
+        self.pipeline = Some(PipelineDescriptor::new(Some(&self.name), vertex_shader_handle));
         self
     }
 
-    pub fn add_color_state(mut self, color_state_descriptor: ColorStateDescriptor) -> Self {
-        self.pipeline.color_states.push(color_state_descriptor);
+    pub fn with_fragment_shader(&mut self, fragment_shader: Shader) -> &mut Self {
+        let fragment_shader_handle = self.shader_storage.add(fragment_shader);
+        self.pipeline.as_mut().unwrap().shader_stages.fragment = Some(fragment_shader_handle);
+        self
+    }
+
+    pub fn add_color_state(&mut self, color_state_descriptor: ColorStateDescriptor) -> &mut Self {
+        self.pipeline.as_mut().unwrap().color_states.push(color_state_descriptor);
         self
     }
 
     pub fn with_depth_stencil_state(
-        mut self,
+        &mut self,
         depth_stencil_state: DepthStencilStateDescriptor,
-    ) -> Self {
-        if let Some(_) = self.pipeline.depth_stencil_state {
+    ) -> &mut Self {
+        if let Some(_) = self.pipeline.as_ref().unwrap().depth_stencil_state {
             panic!("Depth stencil state has already been set");
         }
-        self.pipeline.depth_stencil_state = Some(depth_stencil_state);
+        self.pipeline.as_mut().unwrap().depth_stencil_state = Some(depth_stencil_state);
         self
     }
 
-    pub fn add_bind_group(mut self, bind_group: BindGroup) -> Self {
-        if let PipelineLayoutType::Reflected(_) = self.pipeline.layout {
-            self.pipeline.layout = PipelineLayoutType::Manual(PipelineLayout::new());
+    pub fn add_bind_group(&mut self, bind_group: BindGroup) -> &mut Self {
+        if let PipelineLayoutType::Reflected(_) = self.pipeline.as_ref().unwrap().layout {
+            self.pipeline.as_mut().unwrap().layout = PipelineLayoutType::Manual(PipelineLayout::new());
         }
 
-        if let PipelineLayoutType::Manual(ref mut layout) = self.pipeline.layout {
+        if let PipelineLayoutType::Manual(ref mut layout) = self.pipeline.as_mut().unwrap().layout {
             layout.bind_groups.push(bind_group);
         }
 
@@ -173,55 +178,55 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_vertex_buffer_descriptor(
-        mut self,
+        &mut self,
         vertex_buffer_descriptor: VertexBufferDescriptor,
-    ) -> Self {
-        self.pipeline.reflect_vertex_buffer_descriptors = false;
-        self.pipeline
+    ) -> &mut Self {
+        self.pipeline.as_mut().unwrap().reflect_vertex_buffer_descriptors = false;
+        self.pipeline.as_mut().unwrap()
             .vertex_buffer_descriptors
             .push(vertex_buffer_descriptor);
         self
     }
 
-    pub fn with_index_format(mut self, index_format: IndexFormat) -> Self {
-        self.pipeline.index_format = index_format;
+    pub fn with_index_format(&mut self, index_format: IndexFormat) -> &mut Self {
+        self.pipeline.as_mut().unwrap().index_format = index_format;
         self
     }
 
-    pub fn add_draw_target(mut self, name: &str) -> Self {
-        self.pipeline.draw_targets.push(name.to_string());
+    pub fn add_draw_target(&mut self, name: &str) -> &mut Self {
+        self.pipeline.as_mut().unwrap().draw_targets.push(name.to_string());
         self
     }
 
     pub fn with_rasterization_state(
-        mut self,
+        &mut self,
         rasterization_state: RasterizationStateDescriptor,
-    ) -> Self {
-        self.pipeline.rasterization_state = Some(rasterization_state);
+    ) -> &mut Self {
+        self.pipeline.as_mut().unwrap().rasterization_state = Some(rasterization_state);
         self
     }
 
-    pub fn with_primitive_topology(mut self, primitive_topology: PrimitiveTopology) -> Self {
-        self.pipeline.primitive_topology = primitive_topology;
+    pub fn with_primitive_topology(&mut self, primitive_topology: PrimitiveTopology) -> &mut Self {
+        self.pipeline.as_mut().unwrap().primitive_topology = primitive_topology;
         self
     }
 
-    pub fn with_sample_count(mut self, sample_count: u32) -> Self {
-        self.pipeline.sample_count = sample_count;
+    pub fn with_sample_count(&mut self, sample_count: u32) -> &mut Self {
+        self.pipeline.as_mut().unwrap().sample_count = sample_count;
         self
     }
 
-    pub fn with_alpha_to_coverage_enabled(mut self, alpha_to_coverage_enabled: bool) -> Self {
-        self.pipeline.alpha_to_coverage_enabled = alpha_to_coverage_enabled;
+    pub fn with_alpha_to_coverage_enabled(&mut self, alpha_to_coverage_enabled: bool) -> &mut Self {
+        self.pipeline.as_mut().unwrap().alpha_to_coverage_enabled = alpha_to_coverage_enabled;
         self
     }
 
-    pub fn with_sample_mask(mut self, sample_mask: u32) -> Self {
-        self.pipeline.sample_mask = sample_mask;
+    pub fn with_sample_mask(&mut self, sample_mask: u32) -> &mut Self {
+        self.pipeline.as_mut().unwrap().sample_mask = sample_mask;
         self
     }
 
-    pub fn with_standard_config(self) -> Self {
+    pub fn with_standard_config(&mut self) -> &mut Self {
         self.with_depth_stencil_state(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,

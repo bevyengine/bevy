@@ -1,5 +1,6 @@
 use crate::{
     asset::Handle,
+    prelude::Resources,
     render::{
         draw_target::DrawTarget,
         pass::PassDescriptor,
@@ -9,6 +10,7 @@ use crate::{
     },
 };
 use std::collections::{HashMap, HashSet};
+use super::RenderGraphBuilder;
 
 #[derive(Default)]
 pub struct RenderGraph {
@@ -23,6 +25,14 @@ pub struct RenderGraph {
 }
 
 impl RenderGraph {
+    pub fn build(self, resources: &mut Resources) -> RenderGraphBuilder {
+        RenderGraphBuilder {
+            resources,
+            current_pass: None,
+            render_graph: Some(self),
+        }
+    }
+
     pub fn add_pipeline(&mut self, pass: &str, pipeline: Handle<PipelineDescriptor>) {
         self.pipeline_descriptors.insert(pipeline.clone());
 

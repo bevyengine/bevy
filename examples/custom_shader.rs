@@ -10,16 +10,12 @@ struct MyMaterial {
 fn main() {
     App::build()
         .add_defaults()
-        .setup_render_graph(|builder, pipeline_storage, shader_storage| {
-            builder
+        .setup_render_graph(|render_graph_builder| {
+            render_graph_builder
                 .add_resource_provider(UniformResourceProvider::<MyMaterial>::new())
-                .add_pipeline_to_pass(
-                    resource_name::pass::MAIN,
-                    pipeline_storage,
-                    PipelineDescriptor::build(
-                        "MyMaterial",
-                        shader_storage,
-                        Shader::from_glsl(
+                .add_pipeline_to_pass(resource_name::pass::MAIN, "MyMaterial", |builder| {
+                    builder
+                        .with_vertex_shader(Shader::from_glsl(
                             ShaderStage::Vertex,
                             r#"
                                 #version 450
@@ -36,11 +32,10 @@ fn main() {
                                     gl_Position = ViewProj * v_Position;
                                 }
                             "#,
-                        ),
-                    )
-                    .with_fragment_shader(Shader::from_glsl(
-                        ShaderStage::Fragment,
-                        r#"
+                        ))
+                        .with_fragment_shader(Shader::from_glsl(
+                            ShaderStage::Fragment,
+                            r#"
                                 #version 450
                                 layout(location = 0) in vec4 v_Position;
                                 layout(location = 0) out vec4 o_Target;
@@ -55,10 +50,9 @@ fn main() {
                                 # endif
                                 }
                         "#,
-                    ))
-                    .with_standard_config()
-                    .finish(),
-                )
+                        ))
+                        .with_standard_config();
+                });
         })
         .setup_world(setup)
         .run();

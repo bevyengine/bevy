@@ -3,7 +3,7 @@ use libloading::{Library, Symbol};
 use std::any::Any;
 
 pub trait AppPlugin: Any + Send + Sync {
-    fn build(&self, app_builder: AppBuilder) -> AppBuilder;
+    fn build(&self, app_builder: &mut AppBuilder) -> &mut AppBuilder;
     fn name(&self) -> &'static str;
 }
 

@@ -10,11 +10,11 @@ use crate::render::{
 };
 
 pub trait ForwardPassBuilder {
-    fn add_forward_pass(self) -> Self;
+    fn add_forward_pass(&mut self) -> &mut Self;
 }
 
-impl ForwardPassBuilder for RenderGraphBuilder {
-    fn add_forward_pass(self) -> Self {
+impl<'a> ForwardPassBuilder for RenderGraphBuilder<'a> {
+    fn add_forward_pass(&mut self) -> &mut Self {
         self.add_resource_provider(FrameTextureResourceProvider::new(
             resource_name::texture::DEPTH,
             TextureDescriptor {
