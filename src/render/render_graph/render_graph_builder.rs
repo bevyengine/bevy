@@ -29,12 +29,12 @@ impl<'a> RenderGraphBuilder<'a> {
     }
 
     pub fn add_pipeline(&mut self, name: &str, build: impl Fn(&mut PipelineBuilder)) -> &mut Self {
-        let mut pipeline_descriptor_storage = self
-            .resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
-            .unwrap();
-        let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
         if let Some(ref pass) = self.current_pass {
+            let mut pipeline_descriptor_storage = self
+                .resources
+                .get_mut::<AssetStorage<PipelineDescriptor>>()
+                .unwrap();
+            let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
             let mut builder = PipelineBuilder::new(name, &mut shader_storage);
             build(&mut builder);
             let pipeline = builder.finish();
@@ -55,20 +55,22 @@ impl<'a> RenderGraphBuilder<'a> {
         name: &str,
         build: impl Fn(&mut PipelineBuilder),
     ) -> &mut Self {
-        let mut pipeline_descriptor_storage = self
-            .resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
-            .unwrap();
-        let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
-        let mut builder = PipelineBuilder::new(name, &mut shader_storage);
-        build(&mut builder);
-        let pipeline = builder.finish();
-        let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
-        pipeline_descriptor_storage.set_name(name, pipeline_descriptor_handle);
-        self.render_graph
-            .as_mut()
-            .unwrap()
-            .add_pipeline(pass, pipeline_descriptor_handle);
+        {
+            let mut pipeline_descriptor_storage = self
+                .resources
+                .get_mut::<AssetStorage<PipelineDescriptor>>()
+                .unwrap();
+            let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
+            let mut builder = PipelineBuilder::new(name, &mut shader_storage);
+            build(&mut builder);
+            let pipeline = builder.finish();
+            let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
+            pipeline_descriptor_storage.set_name(name, pipeline_descriptor_handle);
+            self.render_graph
+                .as_mut()
+                .unwrap()
+                .add_pipeline(pass, pipeline_descriptor_handle);
+        }
 
         self
     }
