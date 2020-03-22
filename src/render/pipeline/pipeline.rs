@@ -122,10 +122,7 @@ pub struct PipelineBuilder<'a> {
 }
 
 impl<'a> PipelineBuilder<'a> {
-    pub fn new(
-        name: &'a str,
-        shader_storage: &'a mut AssetStorage<Shader>,
-    ) -> Self {
+    pub fn new(name: &'a str, shader_storage: &'a mut AssetStorage<Shader>) -> Self {
         PipelineBuilder {
             pipeline: None,
             shader_storage,
@@ -139,7 +136,10 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn with_vertex_shader(&mut self, vertex_shader: Shader) -> &mut Self {
         let vertex_shader_handle = self.shader_storage.add(vertex_shader);
-        self.pipeline = Some(PipelineDescriptor::new(Some(&self.name), vertex_shader_handle));
+        self.pipeline = Some(PipelineDescriptor::new(
+            Some(&self.name),
+            vertex_shader_handle,
+        ));
         self
     }
 
@@ -150,7 +150,11 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_color_state(&mut self, color_state_descriptor: ColorStateDescriptor) -> &mut Self {
-        self.pipeline.as_mut().unwrap().color_states.push(color_state_descriptor);
+        self.pipeline
+            .as_mut()
+            .unwrap()
+            .color_states
+            .push(color_state_descriptor);
         self
     }
 
@@ -167,7 +171,8 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn add_bind_group(&mut self, bind_group: BindGroup) -> &mut Self {
         if let PipelineLayoutType::Reflected(_) = self.pipeline.as_ref().unwrap().layout {
-            self.pipeline.as_mut().unwrap().layout = PipelineLayoutType::Manual(PipelineLayout::new());
+            self.pipeline.as_mut().unwrap().layout =
+                PipelineLayoutType::Manual(PipelineLayout::new());
         }
 
         if let PipelineLayoutType::Manual(ref mut layout) = self.pipeline.as_mut().unwrap().layout {
@@ -181,8 +186,9 @@ impl<'a> PipelineBuilder<'a> {
         &mut self,
         vertex_buffer_descriptor: VertexBufferDescriptor,
     ) -> &mut Self {
-        self.pipeline.as_mut().unwrap().reflect_vertex_buffer_descriptors = false;
-        self.pipeline.as_mut().unwrap()
+        let pipeline = self.pipeline.as_mut().unwrap();
+        pipeline.reflect_vertex_buffer_descriptors = false;
+        pipeline
             .vertex_buffer_descriptors
             .push(vertex_buffer_descriptor);
         self
@@ -194,7 +200,11 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_draw_target(&mut self, name: &str) -> &mut Self {
-        self.pipeline.as_mut().unwrap().draw_targets.push(name.to_string());
+        self.pipeline
+            .as_mut()
+            .unwrap()
+            .draw_targets
+            .push(name.to_string());
         self
     }
 

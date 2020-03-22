@@ -1,3 +1,4 @@
+use super::RenderGraphBuilder;
 use crate::{
     asset::Handle,
     prelude::Resources,
@@ -10,7 +11,6 @@ use crate::{
     },
 };
 use std::collections::{HashMap, HashSet};
-use super::RenderGraphBuilder;
 
 #[derive(Default)]
 pub struct RenderGraph {

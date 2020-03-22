@@ -547,7 +547,7 @@ where
         resources: &Resources,
     ) {
         // update batch resources. this needs to run in "finish_update" because batches aren't finalized across
-        // all members of the batch until "UniformResourceProvider.update" has run for all members of the batch 
+        // all members of the batch until "UniformResourceProvider.update" has run for all members of the batch
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
             let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
             let mut render_resource_assignments_provider = resources

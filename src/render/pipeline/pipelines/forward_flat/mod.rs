@@ -1,17 +1,13 @@
-use crate::{
-    render::{
-        pipeline::{
-            state_descriptors::{
-                BlendDescriptor, ColorStateDescriptor, ColorWrite, CompareFunction, CullMode,
-                DepthStencilStateDescriptor, FrontFace, RasterizationStateDescriptor,
-                StencilStateFaceDescriptor,
-            },
-        },
-        render_graph::RenderGraphBuilder,
-        render_resource::resource_name,
-        shader::{Shader, ShaderStage},
-        texture::TextureFormat,
+use crate::render::{
+    pipeline::state_descriptors::{
+        BlendDescriptor, ColorStateDescriptor, ColorWrite, CompareFunction, CullMode,
+        DepthStencilStateDescriptor, FrontFace, RasterizationStateDescriptor,
+        StencilStateFaceDescriptor,
     },
+    render_graph::RenderGraphBuilder,
+    render_resource::resource_name,
+    shader::{Shader, ShaderStage},
+    texture::TextureFormat,
 };
 
 pub trait ForwardFlatPipelineBuilder {

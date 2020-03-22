@@ -49,7 +49,8 @@ impl ResourceProvider for MeshResourceProvider {
         resources: &Resources,
     ) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.set_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
+        render_graph
+            .set_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {

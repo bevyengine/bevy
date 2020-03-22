@@ -19,7 +19,7 @@ pub fn setup() -> Box<dyn Schedulable> {
                 albedo: Color::rgb(0.1, 0.2, 0.1),
                 ..Default::default()
             });
-            
+
             command_buffer
                 .build()
                 // plane

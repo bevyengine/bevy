@@ -162,7 +162,10 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn add_children(mut self, build_children: impl Fn(CommandBufferBuilder) -> CommandBufferBuilder) -> Self {
+    pub fn add_children(
+        mut self,
+        build_children: impl Fn(CommandBufferBuilder) -> CommandBufferBuilder,
+    ) -> Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 

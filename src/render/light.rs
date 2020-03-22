@@ -1,4 +1,4 @@
-use super::{PerspectiveCamera, Color};
+use super::{Color, PerspectiveCamera};
 use crate::{math, prelude::Translation};
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
