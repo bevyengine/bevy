@@ -6,6 +6,15 @@ pub trait GetBytes {
     fn get_bytes_ref(&self) -> Option<&[u8]>;
 }
 
+impl GetBytes for f32 {
+    fn get_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+    fn get_bytes_ref(&self) -> Option<&[u8]> {
+        Some(self.as_bytes())
+    }
+}
+
 impl GetBytes for [f32; 2] {
     fn get_bytes(&self) -> Vec<u8> {
         self.as_bytes().to_vec()

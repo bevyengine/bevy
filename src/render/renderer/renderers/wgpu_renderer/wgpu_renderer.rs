@@ -67,10 +67,46 @@ impl WgpuRenderer {
         }
     }
 
+    pub fn setup_vertex_buffer_descriptors(
+        render_graph: &RenderGraph,
+        vertex_spirv: &Shader,
+        pipeline_descriptor: &PipelineDescriptor,
+    ) -> Vec<OwnedWgpuVertexBufferDescriptor> {
+        let mut reflected_vertex_layout = if pipeline_descriptor.reflect_vertex_buffer_descriptors {
+            Some(vertex_spirv.reflect_layout().unwrap())
+        } else {
+            None
+        };
+
+        let vertex_buffer_descriptors = if let Some(ref mut layout) = reflected_vertex_layout {
+            for vertex_buffer_descriptor in layout.vertex_buffer_descriptors.iter_mut() {
+                if let Some(graph_descriptor) =
+                    render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
+                {
+                    vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
+                } else {
+                    panic!(
+                        "Encountered unsupported Vertex Buffer: {}",
+                        vertex_buffer_descriptor.name
+                    );
+                }
+            }
+            &layout.vertex_buffer_descriptors
+        } else {
+            &pipeline_descriptor.vertex_buffer_descriptors
+        };
+
+        vertex_buffer_descriptors
+            .iter()
+            .map(|v| v.into())
+            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>()
+    }
+
     pub fn create_render_pipeline(
         wgpu_resources: &mut WgpuResources,
         pipeline_descriptor: &mut PipelineDescriptor,
         device: &wgpu::Device,
+        render_graph: &RenderGraph,
         vertex_shader: &Shader,
         fragment_shader: Option<&Shader>,
     ) -> wgpu::RenderPipeline {
@@ -166,22 +202,8 @@ impl WgpuRenderer {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
-        let reflected_vertex_layout = if pipeline_descriptor.reflect_vertex_buffer_descriptors {
-            Some(vertex_spirv.reflect_layout().unwrap())
-        } else {
-            None
-        };
-
-        let vertex_buffer_descriptors = if let Some(ref layout) = reflected_vertex_layout {
-            &layout.vertex_buffer_descriptors
-        } else {
-            &pipeline_descriptor.vertex_buffer_descriptors
-        };
-
-        let owned_vertex_buffer_descriptors = vertex_buffer_descriptors
-            .iter()
-            .map(|v| v.into())
-            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
+        let owned_vertex_buffer_descriptors =
+            Self::setup_vertex_buffer_descriptors(render_graph, &vertex_spirv, pipeline_descriptor);
 
         let color_states = pipeline_descriptor
             .color_states
@@ -462,6 +484,7 @@ impl Renderer for WgpuRenderer {
                     &mut self.wgpu_resources,
                     pipeline_descriptor,
                     &self.device,
+                    &render_graph,
                     vertex_shader,
                     fragment_shader,
                 );

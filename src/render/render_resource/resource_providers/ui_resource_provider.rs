@@ -1,24 +1,32 @@
+use crate as bevy;
 use crate::{
     ecs,
     prelude::Node,
     render::{
+        render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
             ResourceProvider,
         },
         renderer::Renderer,
+        shader::AsUniforms,
     },
 };
+use bevy_derive::Uniforms;
 use bevy_transform::prelude::Parent;
 use legion::prelude::*;
 use zerocopy::{AsBytes, FromBytes};
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AsBytes, FromBytes)]
-pub struct RectData {
+#[derive(Clone, Copy, Debug, AsBytes, FromBytes, Uniforms)]
+pub struct Rect {
+    #[uniform(instance)]
     pub position: [f32; 2],
+    #[uniform(instance)]
     pub size: [f32; 2],
+    #[uniform(instance)]
     pub color: [f32; 4],
+    #[uniform(instance)]
     pub z_index: f32,
 }
 
@@ -44,7 +52,7 @@ impl UiResourceProvider {
                 let mut add_data: Box<dyn FnMut(&World, Entity, ()) -> Option<()>> =
                     Box::new(|world, entity, _| {
                         let node = world.get_component::<Node>(entity).unwrap();
-                        data.push(RectData {
+                        data.push(Rect {
                             position: node.global_position.into(),
                             size: node.size.into(),
                             color: node.color.into(),
@@ -69,7 +77,7 @@ impl UiResourceProvider {
             return;
         }
 
-        let size = std::mem::size_of::<RectData>() as u64;
+        let size = std::mem::size_of::<Rect>() as u64;
         let data_len = data.len() as u64;
 
         if let Some(old_instance_buffer) = self.instance_buffer {
@@ -102,8 +110,10 @@ impl ResourceProvider for UiResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
-        _resources: &Resources,
+        resources: &Resources,
     ) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        render_graph.set_vertex_buffer_descriptor(Rect::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {

@@ -444,7 +444,6 @@ where
         if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
             if let None = render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
             {
-                println!("{:#?}", vertex_buffer_descriptor);
                 render_graph.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
             }
         }
@@ -461,13 +460,12 @@ where
         world: &mut World,
         resources: &Resources,
     ) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        self.initialize_vertex_buffer_descriptor(&mut render_graph);
         self.update(renderer, world, resources);
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        self.initialize_vertex_buffer_descriptor(&mut render_graph);
-
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
         // (2) if we create new buffers, the old bind groups will be invalid

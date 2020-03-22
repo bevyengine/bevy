@@ -334,7 +334,11 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_vertex_buffer_descriptor() -> Option<&'static bevy::render::pipeline::VertexBufferDescriptor> {
-                Some(&#vertex_buffer_descriptor_ident)
+                if #vertex_buffer_descriptor_ident.attributes.len() == 0 {
+                    None
+                } else {
+                    Some(&#vertex_buffer_descriptor_ident)
+                }
             }
         }
     })

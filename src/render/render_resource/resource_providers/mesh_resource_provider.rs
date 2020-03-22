@@ -3,8 +3,11 @@ use crate::{
     prelude::Renderable,
     render::{
         mesh::Mesh,
+        render_graph::RenderGraph,
         render_resource::{AssetBatchers, BufferInfo, BufferUsage, ResourceProvider},
         renderer::Renderer,
+        shader::AsUniforms,
+        Vertex,
     },
 };
 use legion::{filter::*, prelude::*};
@@ -39,6 +42,16 @@ impl MeshResourceProvider {
 }
 
 impl ResourceProvider for MeshResourceProvider {
+    fn initialize(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        render_graph.set_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
+    }
+
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
         let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
