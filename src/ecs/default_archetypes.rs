@@ -35,7 +35,7 @@ pub struct LightEntity {
     pub rotation: Rotation,
 }
 
-#[derive(EntityArchetype)]
+#[derive(EntityArchetype, Default)]
 pub struct CameraEntity {
     pub camera: Camera,
     pub active_camera: ActiveCamera,
@@ -46,6 +46,15 @@ pub struct CameraEntity {
 pub struct Camera2dEntity {
     pub camera: Camera,
     pub active_camera_2d: ActiveCamera2d,
+}
+
+impl Default for Camera2dEntity {
+    fn default() -> Self {
+        Camera2dEntity {
+            camera: Camera::new(CameraType::default_orthographic()),
+            active_camera_2d: ActiveCamera2d,
+        }
+    }
 }
 
 #[derive(EntityArchetype)]

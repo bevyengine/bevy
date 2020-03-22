@@ -25,15 +25,8 @@ fn build_move_system() -> Box<dyn Schedulable> {
 
 fn setup(world: &mut World, _resources: &mut Resources) {
     let mut builder = world.build().add_entity(Camera2dEntity {
-        camera: Camera::new(CameraType::Orthographic {
-            left: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            top: 0.0,
-            near: 0.0,
-            far: 1.0,
-        }),
-        active_camera_2d: ActiveCamera2d,
+        camera: Camera::new(CameraType::default_orthographic()),
+        ..Default::default()
     });
 
     let mut prev = Vec2::default();

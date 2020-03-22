@@ -56,23 +56,16 @@ fn setup(world: &mut World, resources: &mut Resources) {
         // light
         .add_entity(LightEntity {
             translation: Translation::new(4.0, -4.0, 5.0),
-            rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera
         .add_entity(CameraEntity {
-            camera: Camera::new(CameraType::Projection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 1.0,
-                far: 1000.0,
-                aspect_ratio: 1.0,
-            }),
-            active_camera: ActiveCamera,
             local_to_world: LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
+            ..Default::default()
         })
         .build();
 }

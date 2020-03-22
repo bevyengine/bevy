@@ -1,25 +1,94 @@
 use crate::math::Mat4;
 
+#[derive(Default)]
 pub struct ActiveCamera;
+
+#[derive(Default)]
 pub struct ActiveCamera2d;
 
-pub enum CameraType {
-    Projection {
-        fov: f32,
-        aspect_ratio: f32,
-        near: f32,
-        far: f32,
-    },
-    Orthographic {
-        left: f32,
-        right: f32,
-        bottom: f32,
-        top: f32,
-        near: f32,
-        far: f32,
-    },
+pub struct OrthographicCamera {
+    pub left: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub top: f32,
+    pub near: f32,
+    pub far: f32,
 }
 
+impl OrthographicCamera {
+    fn get_view_matrix(&self) -> Mat4 {
+        let projection = Mat4::orthographic_rh_gl(
+            self.left,
+            self.right,
+            self.bottom,
+            self.top,
+            self.near,
+            self.far,
+        );
+        opengl_to_wgpu_matrix() * projection
+    }
+}
+
+impl Default for OrthographicCamera {
+    fn default() -> Self {
+        OrthographicCamera {
+            left: 0.0,
+            right: 0.0,
+            bottom: 0.0,
+            top: 0.0,
+            near: 0.0,
+            far: 1.0,
+        }
+    }
+}
+
+pub struct PerspectiveCamera {
+    pub fov: f32,
+    pub aspect_ratio: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+impl PerspectiveCamera {
+    pub fn get_view_matrix(&self) -> Mat4 {
+        let projection = Mat4::perspective_rh_gl(self.fov, self.aspect_ratio, self.near, self.far);
+        opengl_to_wgpu_matrix() * projection
+    }
+}
+
+impl Default for PerspectiveCamera {
+    fn default() -> Self {
+        PerspectiveCamera {
+            fov: std::f32::consts::PI / 4.0,
+            near: 1.0,
+            far: 1000.0,
+            aspect_ratio: 1.0,
+        }
+    }
+}
+
+pub enum CameraType {
+    Perspective(PerspectiveCamera),
+    Orthographic(OrthographicCamera),
+}
+
+impl CameraType {
+    pub fn default_perspective() -> CameraType {
+        CameraType::Perspective(PerspectiveCamera::default())
+    }
+
+    pub fn default_orthographic() -> CameraType {
+        CameraType::Orthographic(OrthographicCamera::default())
+    }
+}
+
+impl Default for CameraType {
+    fn default() -> Self {
+        CameraType::default_perspective()
+    }
+}
+
+#[derive(Default)]
 pub struct Camera {
     pub view_matrix: Mat4,
     pub camera_type: CameraType,
@@ -34,51 +103,18 @@ impl Camera {
     }
 
     pub fn update(&mut self, width: u32, height: u32) {
-        match &mut self.camera_type {
-            CameraType::Projection {
-                aspect_ratio,
-                fov,
-                near,
-                far,
-            } => {
-                *aspect_ratio = width as f32 / height as f32;
-                self.view_matrix =
-                    get_perspective_projection_matrix(*fov, *aspect_ratio, *near, *far)
+        self.view_matrix = match &mut self.camera_type {
+            CameraType::Perspective(projection) => {
+                projection.aspect_ratio = width as f32 / height as f32;
+                projection.get_view_matrix()
             }
-            CameraType::Orthographic {
-                left,
-                right,
-                bottom,
-                top,
-                near,
-                far,
-            } => {
-                *right = width as f32;
-                *top = height as f32;
-                self.view_matrix =
-                    get_orthographic_projection_matrix(*left, *right, *bottom, *top, *near, *far)
+            CameraType::Orthographic(orthographic) => {
+                orthographic.right = width as f32;
+                orthographic.top = height as f32;
+                orthographic.get_view_matrix()
             }
         }
     }
-}
-
-pub fn get_perspective_projection_matrix(fov: f32, aspect_ratio: f32, near: f32, far: f32) -> Mat4 {
-    let projection = Mat4::perspective_rh_gl(fov, aspect_ratio, near, far);
-
-    opengl_to_wgpu_matrix() * projection
-}
-
-pub fn get_orthographic_projection_matrix(
-    left: f32,
-    right: f32,
-    bottom: f32,
-    top: f32,
-    near: f32,
-    far: f32,
-) -> Mat4 {
-    let projection = Mat4::orthographic_rh_gl(left, right, bottom, top, near, far);
-
-    opengl_to_wgpu_matrix() * projection
 }
 
 pub fn opengl_to_wgpu_matrix() -> Mat4 {

@@ -50,12 +50,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         vec![
             // camera
             (
-                Camera::new(CameraType::Projection {
-                    fov: std::f32::consts::PI / 4.0,
-                    near: 1.0,
-                    far: 1000.0,
-                    aspect_ratio: 1.0,
-                }),
+                Camera::default(),
                 ActiveCamera,
                 LocalToWorld(Mat4::look_at_rh(
                     Vec3::new(6.0, -40.0, 20.0),

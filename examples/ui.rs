@@ -31,30 +31,16 @@ fn setup(world: &mut World, resources: &mut Resources) {
         })
         // 3d camera
         .add_entity(CameraEntity {
-            camera: Camera::new(CameraType::Projection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 1.0,
-                far: 1000.0,
-                aspect_ratio: 1.0,
-            }),
-            active_camera: ActiveCamera,
             local_to_world: LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(3.0, 8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
+            ..Default::default()
         })
         // 2d camera
         .add_entity(Camera2dEntity {
-            camera: Camera::new(CameraType::Orthographic {
-                left: 0.0,
-                right: 0.0,
-                bottom: 0.0,
-                top: 0.0,
-                near: 0.0,
-                far: 1.0,
-            }),
-            active_camera_2d: ActiveCamera2d,
+            ..Default::default()
         })
         // bottom left anchor with vertical fill
         .add_entity(UiEntity {

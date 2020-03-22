@@ -53,12 +53,7 @@ fn create_entities_insert_vec(
     world.insert(
         (),
         vec![(
-            Camera::new(CameraType::Projection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 1.0,
-                far: 1000.0,
-                aspect_ratio: 1.0,
-            }),
+            Camera::default(),
             ActiveCamera,
             LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(3.0, 8.0, 5.0),
@@ -103,12 +98,7 @@ fn create_entities_builder_add_component(
         .add(Rotation::from_euler_angles(0.0, 0.0, 0.0))
         // camera
         .build_entity()
-        .add(Camera::new(CameraType::Projection {
-            fov: std::f32::consts::PI / 4.0,
-            near: 1.0,
-            far: 1000.0,
-            aspect_ratio: 1.0,
-        }))
+        .add(Camera::default())
         .add(ActiveCamera)
         .add(LocalToWorld(Mat4::look_at_rh(
             Vec3::new(3.0, 8.0, 5.0),
@@ -137,6 +127,7 @@ fn create_entities_builder_archetype(
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: cube_material_handle,
+            translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
         // light
@@ -146,18 +137,12 @@ fn create_entities_builder_archetype(
         })
         // camera
         .add_entity(CameraEntity {
-            camera: Camera::new(CameraType::Projection {
-                fov: std::f32::consts::PI / 4.0,
-                near: 1.0,
-                far: 1000.0,
-                aspect_ratio: 1.0,
-            }),
-            active_camera: ActiveCamera,
             local_to_world: LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(3.0, 8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
+            ..Default::default()
         })
         .build();
 }
