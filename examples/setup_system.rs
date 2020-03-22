@@ -48,7 +48,6 @@ pub fn setup() -> Box<dyn Schedulable> {
                 // light
                 .add_entity(LightEntity {
                     translation: Translation::new(4.0, -4.0, 5.0),
-                    rotation: Rotation::from_euler_angles(0.0, 0.0, 0.0),
                     ..Default::default()
                 })
                 // camera
