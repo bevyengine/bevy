@@ -265,49 +265,45 @@ impl AssetBatchers {
             .flatten()
     }
 
-    pub fn get_batcher_indices<T>(&self) -> impl Iterator<Item = &usize>
+    pub fn get_handle_batches<T>(&self) -> Option<impl Iterator<Item = &Batch>>
     where
         T: 'static,
     {
         let handle_type = TypeId::of::<T>();
-        self.handle_batchers.get(&handle_type).unwrap().iter()
+        if let Some(batcher_indices) = self.handle_batchers.get(&handle_type) {
+            Some(
+                // NOTE: it would be great to use batcher_indices.iter().map(|i| self.asset_batchers[*i].get_batches()) here
+                // but unfortunately the lifetimes don't work out for some reason
+                self.asset_batchers
+                    .iter()
+                    .enumerate()
+                    .filter(move |(index, _a)| batcher_indices.contains(index))
+                    .map(|(_index, a)| a.get_batches())
+                    .flatten(),
+            )
+        } else {
+            None
+        }
     }
 
-    pub fn get_batches_from_batcher(&self, index: usize) -> impl Iterator<Item = &Batch> {
-        self.asset_batchers[index].get_batches()
+    pub fn get_handle_batches_mut<T>(&mut self) -> Option<impl Iterator<Item = &mut Batch>>
+    where
+        T: 'static,
+    {
+        let handle_type = TypeId::of::<T>();
+        if let Some(batcher_indices) = self.handle_batchers.get(&handle_type) {
+            Some(
+                self.asset_batchers
+                    .iter_mut()
+                    .enumerate()
+                    .filter(move |(index, _a)| batcher_indices.contains(index))
+                    .map(|(_index, a)| a.get_batches_mut())
+                    .flatten(),
+            )
+        } else {
+            None
+        }
     }
-
-    pub fn get_batches_from_batcher_mut(
-        &mut self,
-        index: usize,
-    ) -> impl Iterator<Item = &mut Batch> {
-        self.asset_batchers[index].get_batches_mut()
-    }
-
-    // pub fn get_handle_batches<T>(&self) -> Option<impl Iterator<Item = &Batch>>
-    // where
-    //     T: 'static,
-    // {
-    //     let handle_type = TypeId::of::<T>();
-    //     if let Some(batcher_indices) = self.handle_batchers.get(&handle_type) {
-    //         Some(
-    //             self.asset_batchers
-    //                 .iter()
-    //                 .enumerate()
-    //                 .filter(|(index, a)| {
-    //                     let handle_type = TypeId::of::<T>();
-    //                     self.handle_batchers
-    //                         .get(&handle_type)
-    //                         .unwrap()
-    //                         .contains(index)
-    //                 })
-    //                 .map(|(index, a)| a.get_batches())
-    //                 .flatten(),
-    //         )
-    //     } else {
-    //         None
-    //     }
-    // }
 }
 
 #[cfg(test)]

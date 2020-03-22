@@ -546,39 +546,34 @@ where
         _world: &mut World,
         resources: &Resources,
     ) {
+        // update batch resources. this needs to run in "finish_update" because batches aren't finalized across
+        // all members of the batch until "UniformResourceProvider.update" has run for all members of the batch 
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
-            let handle_type = std::any::TypeId::of::<T>();
             let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
             let mut render_resource_assignments_provider = resources
                 .get_mut::<RenderResourceAssignmentsProvider>()
                 .unwrap();
-            // TODO: work out lifetime issues here so allocation isn't necessary
-            for index in asset_batchers
-                .get_batcher_indices::<T>()
-                .map(|i| *i)
-                .collect::<Vec<usize>>()
-            {
-                for batch in asset_batchers.get_batches_from_batcher_mut(index) {
-                    let handle: Handle<T> = batch
-                        .handles
-                        .iter()
-                        .find(|h| h.type_id == handle_type)
-                        .map(|h| (*h).into())
-                        .unwrap();
+            let handle_type = std::any::TypeId::of::<T>();
+            for batch in asset_batchers.get_handle_batches_mut::<T>().unwrap() {
+                let handle: Handle<T> = batch
+                    .handles
+                    .iter()
+                    .find(|h| h.type_id == handle_type)
+                    .map(|h| (*h).into())
+                    .unwrap();
 
-                    let render_resource_assignments = batch
-                        .render_resource_assignments
-                        .get_or_insert_with(|| render_resource_assignments_provider.next());
-                    if let Some(uniforms) = asset_storage.get(&handle) {
-                        self.setup_uniform_resources(
-                            uniforms,
-                            renderer,
-                            resources,
-                            render_resource_assignments,
-                            false,
-                            Some(handle),
-                        );
-                    }
+                let render_resource_assignments = batch
+                    .render_resource_assignments
+                    .get_or_insert_with(|| render_resource_assignments_provider.next());
+                if let Some(uniforms) = asset_storage.get(&handle) {
+                    self.setup_uniform_resources(
+                        uniforms,
+                        renderer,
+                        resources,
+                        render_resource_assignments,
+                        false,
+                        Some(handle),
+                    );
                 }
             }
         }
