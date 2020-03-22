@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Type};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Type};
 
 #[derive(FromMeta, Debug, Default)]
 struct EntityArchetypeAttributeArgs {
@@ -31,7 +31,8 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
                 .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == "tag")
                 .is_some()
         })
-        .map(|field| &field.ident);
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<&Ident>>();
 
     let component_fields = fields
         .iter()
@@ -41,7 +42,8 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
                 .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == "tag")
                 .is_none()
         })
-        .map(|field| &field.ident);
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<&Ident>>();
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
@@ -52,6 +54,14 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
         impl #impl_generics bevy::prelude::EntityArchetype for #struct_name#ty_generics {
             fn insert(self, world: &mut bevy::prelude::World) -> Entity {
                 *world.insert((#(self.#tag_fields,)*),
+                    vec![(
+                        #(self.#component_fields,)*
+                    )
+                ]).first().unwrap()
+            }
+
+            fn insert_command_buffer(self, command_buffer: &mut bevy::prelude::CommandBuffer) -> Entity {
+                *command_buffer.insert((#(self.#tag_fields,)*),
                     vec![(
                         #(self.#component_fields,)*
                     )

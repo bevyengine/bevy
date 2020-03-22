@@ -3,7 +3,7 @@ pub use crate::{
     asset::{Asset, AssetStorage, Handle},
     core::Time,
     ecs,
-    ecs::{default_archetypes::*, EntityArchetype, WorldBuilder, WorldBuilderSource},
+    ecs::{default_archetypes::*, EntityArchetype, WorldBuilder, WorldBuilderSource, CommandBufferBuilderSource},
     render::{
         mesh::{Mesh, MeshType},
         pipeline::PipelineDescriptor,

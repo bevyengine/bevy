@@ -27,6 +27,7 @@ pub struct AppBuilder {
     pub universe: Universe,
     pub renderer: Option<Box<dyn Renderer>>,
     pub render_graph_builder: RenderGraphBuilder,
+    pub setup_systems: Vec<Box<dyn Schedulable>>,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
     pub stage_order: Vec<String>,
@@ -43,6 +44,7 @@ impl AppBuilder {
             resources,
             render_graph_builder: RenderGraphBuilder::new(),
             renderer: None,
+            setup_systems: Vec::new(),
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
             stage_order: Vec::new(),
@@ -50,6 +52,14 @@ impl AppBuilder {
     }
 
     pub fn build(mut self) -> App {
+        let mut setup_schedule_builder = Schedule::builder();
+        for setup_system in self.setup_systems {
+            setup_schedule_builder = setup_schedule_builder.add_system(setup_system);    
+        }
+
+        let mut setup_schedule = setup_schedule_builder.build();
+        setup_schedule.execute(&mut self.world, &mut self.resources);
+
         let mut schedule_builder = Schedule::builder();
         for stage_name in self.stage_order.iter() {
             if let Some((_name, stage_systems)) = self.system_stages.remove_entry(stage_name) {
@@ -97,6 +107,11 @@ impl AppBuilder {
 
     pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
         self.add_system_to_stage(system_stage::UPDATE, system)
+    }
+
+    pub fn add_setup_system(mut self, system: Box<dyn Schedulable>) -> Self {
+        self.setup_systems.push(system);
+        self
     }
 
     pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
