@@ -62,7 +62,7 @@ impl RenderGraphBuilder {
 
     pub fn add_resource_provider<T>(mut self, resource_provider: T) -> Self
     where
-        T: ResourceProvider + 'static,
+        T: ResourceProvider + Send + Sync + 'static,
     {
         self.render_graph
             .resource_providers
@@ -79,7 +79,7 @@ impl RenderGraphBuilder {
 
     pub fn add_draw_target<T>(mut self, draw_target: T) -> Self
     where
-        T: DrawTarget + 'static,
+        T: DrawTarget + Send + Sync + 'static,
     {
         self.render_graph
             .draw_targets

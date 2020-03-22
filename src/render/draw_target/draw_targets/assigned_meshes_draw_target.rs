@@ -5,7 +5,7 @@ use crate::{
         draw_target::DrawTarget,
         mesh::Mesh,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, ResourceInfo, EntityRenderResourceAssignments},
+        render_resource::{resource_name, EntityRenderResourceAssignments, ResourceInfo},
         renderer::{RenderPass, Renderer},
         Renderable, ShaderPipelineAssignments,
     },
@@ -23,7 +23,8 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
-        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
+        let entity_render_resource_assignments =
+            resources.get::<EntityRenderResourceAssignments>().unwrap();
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
 
@@ -81,7 +82,8 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             .assignments
             .get(&pipeline_handle);
         let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let entity_render_resource_assignments = resources.get::<EntityRenderResourceAssignments>().unwrap();
+        let entity_render_resource_assignments =
+            resources.get::<EntityRenderResourceAssignments>().unwrap();
         let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
         if let Some(assigned_entities) = assigned_entities {
             for entity in assigned_entities.iter() {
@@ -91,7 +93,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     continue;
                 }
 
-                if let Some(render_resource_assignments) = entity_render_resource_assignments.get(*entity) {
+                if let Some(render_resource_assignments) =
+                    entity_render_resource_assignments.get(*entity)
+                {
                     renderer.setup_bind_groups(render_resource_assignments, pipeline_descriptor);
                 }
             }

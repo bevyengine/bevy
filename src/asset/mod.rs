@@ -6,7 +6,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use std::{collections::HashMap, marker::PhantomData, any::TypeId};
+use std::{any::TypeId, collections::HashMap, marker::PhantomData};
 
 pub type HandleId = usize;
 
@@ -71,8 +71,10 @@ pub struct HandleUntyped {
     pub type_id: TypeId,
 }
 
-
-impl<T> From<Handle<T>> for HandleUntyped where T: 'static {
+impl<T> From<Handle<T>> for HandleUntyped
+where
+    T: 'static,
+{
     fn from(handle: Handle<T>) -> Self {
         HandleUntyped {
             id: handle.id,
@@ -81,7 +83,10 @@ impl<T> From<Handle<T>> for HandleUntyped where T: 'static {
     }
 }
 
-impl<T> From<HandleUntyped> for Handle<T> where T: 'static {
+impl<T> From<HandleUntyped> for Handle<T>
+where
+    T: 'static,
+{
     fn from(handle: HandleUntyped) -> Self {
         if TypeId::of::<T>() != handle.type_id {
             panic!("attempted to convert untyped handle to incorrect typed handle");

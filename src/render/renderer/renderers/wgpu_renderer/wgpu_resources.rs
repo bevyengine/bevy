@@ -1,11 +1,10 @@
-use crate::{
-    render::{
-        pipeline::{BindGroup, BindType},
-        render_resource::{
-            RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo, RenderResourceAssignmentsId, BufferInfo,
-        },
-        texture::{SamplerDescriptor, TextureDescriptor},
+use crate::render::{
+    pipeline::{BindGroup, BindType},
+    render_resource::{
+        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceAssignmentsId,
+        RenderResources, ResourceInfo,
     },
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
 use std::collections::HashMap;
 
@@ -74,8 +73,7 @@ impl WgpuResources {
                                 dynamic: _,
                                 properties: _,
                             } => {
-                                if let ResourceInfo::Buffer(buffer_info) = resource_info
-                                {
+                                if let ResourceInfo::Buffer(buffer_info) = resource_info {
                                     let buffer = self.buffers.get(&resource).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer,
@@ -107,7 +105,8 @@ impl WgpuResources {
         render_resource_assignment_id: RenderResourceAssignmentsId,
         bind_group_id: u64,
     ) -> Option<&BindGroupInfo> {
-        self.assignment_bind_groups.get(&(render_resource_assignment_id, bind_group_id))
+        self.assignment_bind_groups
+            .get(&(render_resource_assignment_id, bind_group_id))
     }
 
     pub fn create_assignments_bind_group(
@@ -160,7 +159,8 @@ impl WgpuResources {
                 } else {
                     panic!(
                         "No resource assigned to uniform \"{}\" for RenderResourceAssignments {:?}",
-                        binding.name, render_resource_assignments.get_id()
+                        binding.name,
+                        render_resource_assignments.get_id()
                     );
                 }
             })
@@ -173,8 +173,10 @@ impl WgpuResources {
 
         let bind_group = device.create_bind_group(&bind_group_descriptor);
         // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
-        self.assignment_bind_groups
-            .insert((render_resource_assignments.get_id(), bind_group_id), BindGroupInfo { bind_group });
+        self.assignment_bind_groups.insert(
+            (render_resource_assignments.get_id(), bind_group_id),
+            BindGroupInfo { bind_group },
+        );
     }
 
     pub fn create_buffer(
@@ -203,10 +205,7 @@ impl WgpuResources {
         buffer_info.size = data.len() as u64;
         let resource = self.render_resources.get_next_resource();
         let buffer = device.create_buffer_with_data(data, buffer_info.buffer_usage.into());
-        self.add_resource_info(
-            resource,
-            ResourceInfo::Buffer(buffer_info),
-        );
+        self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
 
         self.buffers.insert(resource, buffer);
         resource
@@ -227,15 +226,13 @@ impl WgpuResources {
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        let mut mapped = device.create_buffer_mapped(buffer_info.size as usize, buffer_info.buffer_usage.into());
+        let mut mapped =
+            device.create_buffer_mapped(buffer_info.size as usize, buffer_info.buffer_usage.into());
         setup_data(&mut mapped.data);
         let buffer = mapped.finish();
 
         let resource = self.render_resources.get_next_resource();
-        self.add_resource_info(
-            resource,
-            ResourceInfo::Buffer(buffer_info),
-        );
+        self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
 
         self.buffers.insert(resource, buffer);
         resource

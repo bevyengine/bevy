@@ -15,7 +15,9 @@ use crate::{
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use pipeline::PipelineDescriptor;
 use render_graph::RenderGraphBuilder;
-use render_resource::{EntityRenderResourceAssignments, AssetBatchers, RenderResourceAssignmentsProvider};
+use render_resource::{
+    AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignmentsProvider,
+};
 use shader::Shader;
 use std::collections::HashMap;
 
@@ -67,13 +69,15 @@ impl AppBuilder {
             }
         }
 
+        let render_graph = self.render_graph_builder.build();
+        self.resources.insert(render_graph);
+
         App::new(
             self.universe,
             self.world,
             schedule_builder.build(),
             self.resources,
             self.renderer,
-            self.render_graph_builder.build(),
         )
     }
 
@@ -134,8 +138,10 @@ impl AppBuilder {
             .insert(AssetStorage::<PipelineDescriptor>::new());
         self.resources.insert(ShaderPipelineAssignments::new());
         self.resources.insert(CompiledShaderMap::new());
-        self.resources.insert(RenderResourceAssignmentsProvider::default());
-        self.resources.insert(EntityRenderResourceAssignments::default());
+        self.resources
+            .insert(RenderResourceAssignmentsProvider::default());
+        self.resources
+            .insert(EntityRenderResourceAssignments::default());
         self.resources.insert(asset_batchers);
         self
     }

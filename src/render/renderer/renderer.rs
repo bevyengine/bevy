@@ -1,37 +1,20 @@
 use crate::{
     legion::prelude::*,
     render::{
-        pipeline::{PipelineDescriptor, VertexBufferDescriptor},
-        render_graph::RenderGraph,
-        render_resource::{RenderResource, RenderResources, ResourceInfo, RenderResourceAssignments, BufferInfo},
+        pipeline::PipelineDescriptor,
+        render_resource::{
+            BufferInfo, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo,
+        },
         texture::{SamplerDescriptor, TextureDescriptor},
     },
 };
 use std::ops::Range;
 
 pub trait Renderer {
-    fn initialize(
-        &mut self,
-        world: &mut World,
-        resources: &mut Resources,
-        render_graph: &mut RenderGraph,
-    );
-    fn resize(
-        &mut self,
-        world: &mut World,
-        resources: &mut Resources,
-        render_graph: &mut RenderGraph,
-        width: u32,
-        height: u32,
-    );
-    fn process_render_graph(
-        &mut self,
-        render_graph: &mut RenderGraph,
-        world: &mut World,
-        resources: &mut Resources,
-    );
-    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8])
-        -> RenderResource;
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources);
+    fn resize(&mut self, world: &mut World, resources: &mut Resources);
+    fn update(&mut self, world: &mut World, resources: &mut Resources);
+    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
     fn create_texture(
         &mut self,
@@ -64,8 +47,6 @@ pub trait Renderer {
         render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     );
-    fn set_vertex_buffer_descriptor(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor);
-    fn get_vertex_buffer_descriptor(&self, name: &str) -> Option<&VertexBufferDescriptor>;
 }
 
 pub trait RenderPass {

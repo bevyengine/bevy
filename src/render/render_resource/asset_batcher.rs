@@ -270,19 +270,17 @@ impl AssetBatchers {
         T: 'static,
     {
         let handle_type = TypeId::of::<T>();
-        self.handle_batchers
-            .get(&handle_type)
-            .unwrap()
-            .iter()
+        self.handle_batchers.get(&handle_type).unwrap().iter()
     }
 
-    pub fn get_batches_from_batcher(&self, index: usize) -> impl Iterator<Item = &Batch>
-    {
+    pub fn get_batches_from_batcher(&self, index: usize) -> impl Iterator<Item = &Batch> {
         self.asset_batchers[index].get_batches()
     }
 
-    pub fn get_batches_from_batcher_mut(&mut self, index: usize) -> impl Iterator<Item = &mut Batch>
-    {
+    pub fn get_batches_from_batcher_mut(
+        &mut self,
+        index: usize,
+    ) -> impl Iterator<Item = &mut Batch> {
         self.asset_batchers[index].get_batches_mut()
     }
 

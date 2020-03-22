@@ -7,19 +7,16 @@ use crate::{
             PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor,
         },
-        pipeline::{
-            BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType,
-            VertexBufferDescriptor,
-        },
+        pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType},
         render_graph::RenderGraph,
         render_resource::{
-            resource_name, BufferInfo, RenderResource, RenderResourceAssignments,
-            RenderResources, ResourceInfo,
+            resource_name, BufferInfo, RenderResource, RenderResourceAssignments, RenderResources,
+            ResourceInfo,
         },
         renderer::Renderer,
-        shader::{Shader},
+        shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
-        update_shader_assignments, Vertex,
+        update_shader_assignments,
     },
 };
 use std::{collections::HashMap, ops::Deref};
@@ -31,7 +28,6 @@ pub struct WgpuRenderer {
     pub encoder: Option<wgpu::CommandEncoder>,
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
-    pub vertex_buffer_descriptors: HashMap<String, VertexBufferDescriptor>,
     pub wgpu_resources: WgpuResources,
 }
 
@@ -68,7 +64,6 @@ impl WgpuRenderer {
             swap_chain_descriptor,
             wgpu_resources: WgpuResources::new(),
             render_pipelines: HashMap::new(),
-            vertex_buffer_descriptors: HashMap::new(),
         }
     }
 
@@ -335,12 +330,8 @@ impl WgpuRenderer {
         device.create_shader_module(&shader.get_spirv(macros))
     }
 
-    pub fn initialize_resource_providers(
-        &mut self,
-        world: &mut World,
-        resources: &mut Resources,
-        render_graph: &mut RenderGraph,
-    ) {
+    pub fn initialize_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         self.encoder = Some(
             self.device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
@@ -353,77 +344,9 @@ impl WgpuRenderer {
         let command_buffer = self.encoder.take().unwrap().finish();
         self.queue.submit(&[command_buffer]);
     }
-}
 
-impl Renderer for WgpuRenderer {
-    fn initialize(
-        &mut self,
-        world: &mut World,
-        resources: &mut Resources,
-        render_graph: &mut RenderGraph,
-    ) {
-        let (surface, window_size) = {
-            let window = resources.get::<winit::window::Window>().unwrap();
-            let surface = wgpu::Surface::create(window.deref());
-            let window_size = window.inner_size();
-            (surface, window_size)
-        };
-
-        self.surface = Some(surface);
-
-        self.initialize_resource_providers(world, resources, render_graph);
-
-        self.resize(
-            world,
-            resources,
-            render_graph,
-            window_size.width,
-            window_size.height,
-        );
-    }
-
-    fn resize(
-        &mut self,
-        world: &mut World,
-        resources: &mut Resources,
-        render_graph: &mut RenderGraph,
-        width: u32,
-        height: u32,
-    ) {
-        self.encoder = Some(
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
-        );
-        self.swap_chain_descriptor.width = width;
-        self.swap_chain_descriptor.height = height;
-        let swap_chain = self
-            .device
-            .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
-
-        // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
-        resources.insert(swap_chain);
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.resize(self, world, resources, width, height);
-        }
-
-        // consume current encoder
-        let command_buffer = self.encoder.take().unwrap().finish();
-        self.queue.submit(&[command_buffer]);
-    }
-
-    fn process_render_graph(
-        &mut self,
-        render_graph: &mut RenderGraph,
-        world: &mut World,
-        resources: &mut Resources,
-    ) {
-        // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
-        // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
-        self.encoder = Some(
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
-        );
-
+    pub fn update_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.update(self, world, resources);
         }
@@ -431,15 +354,76 @@ impl Renderer for WgpuRenderer {
         for resource_provider in render_graph.resource_providers.iter_mut() {
             resource_provider.finish_update(self, world, resources);
         }
+    }
 
-        update_shader_assignments(world, resources, render_graph);
-
+    pub fn create_queued_textures(&mut self, resources: &mut Resources) {
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             let resource = self.create_texture(&texture_descriptor, None);
             self.wgpu_resources
                 .render_resources
                 .set_named_resource(&name, resource);
         }
+    }
+
+    pub fn create_surface(&mut self, resources: &Resources) {
+        let window = resources.get::<winit::window::Window>().unwrap();
+        let surface = wgpu::Surface::create(window.deref());
+        self.surface = Some(surface);
+    }
+}
+
+impl Renderer for WgpuRenderer {
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        self.create_surface(resources);
+        self.initialize_resource_providers(world, resources);
+        self.resize(world, resources);
+    }
+
+    fn resize(&mut self, world: &mut World, resources: &mut Resources) {
+        let window_size = {
+            let window = resources.get::<winit::window::Window>().unwrap();
+            window.inner_size()
+        };
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+        );
+        self.swap_chain_descriptor.width = window_size.width;
+        self.swap_chain_descriptor.height = window_size.height;
+        let swap_chain = self
+            .device
+            .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
+
+        // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
+        resources.insert(swap_chain);
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        for resource_provider in render_graph.resource_providers.iter_mut() {
+            resource_provider.resize(
+                self,
+                world,
+                resources,
+                window_size.width,
+                window_size.height,
+            );
+        }
+
+        // consume current encoder
+        let command_buffer = self.encoder.take().unwrap().finish();
+        self.queue.submit(&[command_buffer]);
+    }
+
+    fn update(&mut self, world: &mut World, resources: &mut Resources) {
+        // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
+        // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+        );
+
+        self.update_resource_providers(world, resources);
+        update_shader_assignments(world, resources);
+        self.create_queued_textures(resources);
 
         let mut encoder = self.encoder.take().unwrap();
 
@@ -455,7 +439,8 @@ impl Renderer for WgpuRenderer {
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
         let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
-
+        let render_graph = resources.get::<RenderGraph>().unwrap();
+        let mut render_graph_mut = resources.get_mut::<RenderGraph>().unwrap();
         for pipeline_descriptor_handle in render_graph.pipeline_descriptors.iter() {
             let pipeline_descriptor = pipeline_storage
                 .get_mut(pipeline_descriptor_handle)
@@ -498,8 +483,10 @@ impl Renderer for WgpuRenderer {
                 for pass_pipeline in pass_pipelines.iter() {
                     let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
                     for draw_target_name in pipeline_descriptor.draw_targets.iter() {
-                        let draw_target =
-                            render_graph.draw_targets.get_mut(draw_target_name).unwrap();
+                        let draw_target = render_graph_mut
+                            .draw_targets
+                            .get_mut(draw_target_name)
+                            .unwrap();
                         draw_target.setup(world, resources, self, *pass_pipeline);
                     }
                 }
@@ -643,14 +630,5 @@ impl Renderer for WgpuRenderer {
                 }
             }
         }
-    }
-    fn set_vertex_buffer_descriptor(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor) {
-        self.vertex_buffer_descriptors.insert(
-            vertex_buffer_descriptor.name.to_string(),
-            vertex_buffer_descriptor,
-        );
-    }
-    fn get_vertex_buffer_descriptor(&self, name: &str) -> Option<&VertexBufferDescriptor> {
-        self.vertex_buffer_descriptors.get(name)
     }
 }

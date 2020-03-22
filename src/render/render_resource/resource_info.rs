@@ -1,5 +1,5 @@
-use crate::render::render_resource::BufferUsage;
 use super::RenderResourceAssignmentsId;
+use crate::render::render_resource::BufferUsage;
 use std::collections::HashMap;
 
 #[derive(Default)]

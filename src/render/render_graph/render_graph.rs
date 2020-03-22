@@ -1,33 +1,25 @@
 use crate::{
     asset::Handle,
     render::{
-        draw_target::DrawTarget, pass::PassDescriptor, pipeline::PipelineDescriptor,
-        render_resource::ResourceProvider, texture::TextureDescriptor,
+        draw_target::DrawTarget,
+        pass::PassDescriptor,
+        pipeline::{PipelineDescriptor, VertexBufferDescriptor},
+        render_resource::ResourceProvider,
+        texture::TextureDescriptor,
     },
 };
 use std::collections::{HashMap, HashSet};
 
+#[derive(Default)]
 pub struct RenderGraph {
     pub pipeline_descriptors: HashSet<Handle<PipelineDescriptor>>,
     // TODO: make this ordered
     pub pass_descriptors: HashMap<String, PassDescriptor>,
     pub pass_pipelines: HashMap<String, Vec<Handle<PipelineDescriptor>>>,
-    pub resource_providers: Vec<Box<dyn ResourceProvider>>,
+    pub resource_providers: Vec<Box<dyn ResourceProvider + Send + Sync>>,
     pub queued_textures: Vec<(String, TextureDescriptor)>,
-    pub draw_targets: HashMap<String, Box<dyn DrawTarget>>,
-}
-
-impl Default for RenderGraph {
-    fn default() -> Self {
-        RenderGraph {
-            pipeline_descriptors: HashSet::new(),
-            pass_descriptors: HashMap::new(),
-            pass_pipelines: HashMap::new(),
-            resource_providers: Vec::new(),
-            queued_textures: Vec::new(),
-            draw_targets: HashMap::new(),
-        }
-    }
+    pub draw_targets: HashMap<String, Box<dyn DrawTarget + Send + Sync>>,
+    pub vertex_buffer_descriptors: HashMap<String, VertexBufferDescriptor>,
 }
 
 impl RenderGraph {
@@ -40,5 +32,19 @@ impl RenderGraph {
 
         let pass_pipelines = self.pass_pipelines.get_mut(pass).unwrap();
         pass_pipelines.push(pipeline);
+    }
+
+    pub fn set_vertex_buffer_descriptor(
+        &mut self,
+        vertex_buffer_descriptor: VertexBufferDescriptor,
+    ) {
+        self.vertex_buffer_descriptors.insert(
+            vertex_buffer_descriptor.name.to_string(),
+            vertex_buffer_descriptor,
+        );
+    }
+
+    pub fn get_vertex_buffer_descriptor(&self, name: &str) -> Option<&VertexBufferDescriptor> {
+        self.vertex_buffer_descriptors.get(name)
     }
 }

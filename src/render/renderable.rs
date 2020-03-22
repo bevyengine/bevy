@@ -106,11 +106,7 @@ fn try_compiling_shader_with_macros(
         Some(compiled_shader_handle)
     }
 }
-pub fn update_shader_assignments(
-    world: &mut World,
-    resources: &mut Resources,
-    render_graph: &mut RenderGraph,
-) {
+pub fn update_shader_assignments(world: &mut World, resources: &mut Resources) {
     // PERF: this seems like a lot of work for things that don't change that often.
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
     {
@@ -118,6 +114,7 @@ pub fn update_shader_assignments(
             resources.get_mut::<ShaderPipelineAssignments>().unwrap();
         let mut compiled_shader_map = resources.get_mut::<CompiledShaderMap>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();

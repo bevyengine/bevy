@@ -17,13 +17,13 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         &self,
         _world: &World,
         resources: &Resources,
-        render_pass: &mut dyn RenderPass,
+        _render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         let asset_batches = resources.get::<AssetBatchers>().unwrap();
         // let renderer = render_pass.get_renderer();
         // println!("Drawing batches");
-        for batch in asset_batches.get_batches() {
+        for _batch in asset_batches.get_batches() {
             // println!("{:?}", batch);
             // render_pass.set_bind_groups(batch.render_resource_assignments.as_ref());
             // render_pass.draw_indexed(0..1, 0, 0..1);

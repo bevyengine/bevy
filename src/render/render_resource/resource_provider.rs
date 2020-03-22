@@ -11,7 +11,12 @@ pub trait ResourceProvider {
     }
     fn update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
     }
-    fn finish_update(&mut self, _renderer: &mut dyn Renderer, _world: &mut World, _resources: &Resources) {
+    fn finish_update(
+        &mut self,
+        _renderer: &mut dyn Renderer,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
     }
     fn resize(
         &mut self,

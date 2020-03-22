@@ -6,18 +6,13 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{
-    app::AppBuilder,
-    core::Time,
-    render::{render_graph::RenderGraph, renderer::Renderer},
-};
+use crate::{app::AppBuilder, core::Time, render::renderer::Renderer};
 
 pub struct App {
     pub universe: Universe,
     pub world: World,
     pub resources: Resources,
     pub renderer: Option<Box<dyn Renderer>>,
-    pub render_graph: RenderGraph,
     pub schedule: Schedule,
 }
 
@@ -28,7 +23,6 @@ impl App {
         schedule: Schedule,
         resources: Resources,
         renderer: Option<Box<dyn Renderer>>,
-        render_graph: RenderGraph,
     ) -> App {
         App {
             universe,
@@ -36,7 +30,6 @@ impl App {
             schedule,
             renderer,
             resources,
-            render_graph,
         }
     }
 
@@ -51,11 +44,7 @@ impl App {
         self.schedule.execute(&mut self.world, &mut self.resources);
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.process_render_graph(
-                &mut self.render_graph,
-                &mut self.world,
-                &mut self.resources,
-            );
+            renderer.update(&mut self.world, &mut self.resources);
         }
 
         if let Some(mut time) = self.resources.get_mut::<Time>() {
@@ -79,7 +68,7 @@ impl App {
         log::info!("Initializing the example...");
 
         if let Some(ref mut renderer) = self.renderer {
-            renderer.initialize(&mut self.world, &mut self.resources, &mut self.render_graph);
+            renderer.initialize(&mut self.world, &mut self.resources);
         }
 
         log::info!("Entering render loop...");
@@ -91,17 +80,11 @@ impl App {
             };
             match event {
                 event::Event::WindowEvent {
-                    event: WindowEvent::Resized(size),
+                    event: WindowEvent::Resized(_size),
                     ..
                 } => {
                     if let Some(ref mut renderer) = self.renderer {
-                        renderer.resize(
-                            &mut self.world,
-                            &mut self.resources,
-                            &mut self.render_graph,
-                            size.width,
-                            size.height,
-                        );
+                        renderer.resize(&mut self.world, &mut self.resources);
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {

@@ -1,7 +1,7 @@
 use super::{WgpuRenderer, WgpuResources};
 use crate::render::{
     pipeline::{BindType, PipelineDescriptor},
-    render_resource::{RenderResource, RenderResourceAssignments, ResourceInfo, BufferInfo},
+    render_resource::{BufferInfo, RenderResource, RenderResourceAssignments, ResourceInfo},
     renderer::{RenderPass, Renderer},
 };
 use std::ops::Range;
@@ -74,7 +74,8 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         if let Some(ResourceInfo::Buffer(BufferInfo {
                             dynamic_uniform_info: Some(dynamic_uniform_info),
                             ..
-                        })) = self.wgpu_resources.resource_info.get(&resource) {
+                        })) = self.wgpu_resources.resource_info.get(&resource)
+                        {
                             let index = dynamic_uniform_info
                                 .offsets
                                 .get(&render_resource_assignments.unwrap().get_id())

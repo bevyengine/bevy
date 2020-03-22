@@ -2,7 +2,10 @@ use crate::{
     ecs,
     prelude::Node,
     render::{
-        render_resource::{resource_name, BufferUsage, RenderResource, ResourceProvider, BufferInfo, BufferArrayInfo},
+        render_resource::{
+            resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
+            ResourceProvider,
+        },
         renderer::Renderer,
     },
 };
@@ -69,7 +72,6 @@ impl UiResourceProvider {
         let size = std::mem::size_of::<RectData>() as u64;
         let data_len = data.len() as u64;
 
-
         if let Some(old_instance_buffer) = self.instance_buffer {
             renderer.remove_buffer(old_instance_buffer);
         }
@@ -81,7 +83,7 @@ impl UiResourceProvider {
                 array_info: Some(BufferArrayInfo {
                     item_capacity: data_len,
                     item_count: data_len,
-                    item_size: size, 
+                    item_size: size,
                 }),
                 ..Default::default()
             },

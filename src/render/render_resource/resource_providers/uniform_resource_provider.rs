@@ -2,6 +2,7 @@ use crate::{
     asset::{AssetStorage, Handle},
     render::{
         pipeline::BindType,
+        render_graph::RenderGraph,
         render_resource::{
             AssetBatchers, BufferArrayInfo, BufferDynamicUniformInfo, BufferInfo, BufferUsage,
             EntityRenderResourceAssignments, RenderResource, RenderResourceAssignments,
@@ -438,12 +439,13 @@ where
         }
     }
 
-    fn initialize_vertex_buffer_descriptor(&self, renderer: &mut dyn Renderer) {
+    fn initialize_vertex_buffer_descriptor(&self, render_graph: &mut RenderGraph) {
         let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
         if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
-            if let None = renderer.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name) {
+            if let None = render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
+            {
                 println!("{:#?}", vertex_buffer_descriptor);
-                renderer.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
+                render_graph.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
             }
         }
     }
@@ -463,7 +465,8 @@ where
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
-        self.initialize_vertex_buffer_descriptor(renderer);
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        self.initialize_vertex_buffer_descriptor(&mut render_graph);
 
         // TODO: this breaks down in multiple ways:
         // (SOLVED 1) resource_info will be set after the first run so this won't update.
