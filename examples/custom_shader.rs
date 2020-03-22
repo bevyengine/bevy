@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use bevy_derive::Uniforms;
-
 #[derive(Uniforms, Default)]
 struct MyMaterial {
     pub color: Color,

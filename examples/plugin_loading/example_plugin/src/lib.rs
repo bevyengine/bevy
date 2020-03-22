@@ -1,5 +1,4 @@
 use bevy::{prelude::*, plugin::AppPlugin};
-use bevy_derive::RegisterAppPlugin;
 
 #[derive(RegisterAppPlugin)]
 pub struct ExamplePlugin;

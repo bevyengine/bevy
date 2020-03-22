@@ -24,3 +24,4 @@ pub use legion::{
     },
 };
 pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};
+pub use bevy_derive::*;

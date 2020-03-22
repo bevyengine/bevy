@@ -9,7 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bevy = { path = "../../../../bevy" }
-bevy_derive = { path = "../../../bevy_derive" }
 
 [profile.release]
 debug = true
