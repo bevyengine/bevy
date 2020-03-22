@@ -36,20 +36,18 @@ pub enum FieldBindType {
     Texture,
 }
 
-pub struct UniformInfoIter<'a, 'b, T: AsUniforms> {
-    pub field_infos: &'a [FieldInfo],
-    pub uniforms: &'b T,
+pub struct UniformInfoIter<'a, T: AsUniforms> {
+    pub uniforms: &'a T,
     pub index: usize,
     pub add_sampler: bool,
 }
 
-impl<'a, 'b, T> UniformInfoIter<'a, 'b, T>
+impl<'a, T> UniformInfoIter<'a, T>
 where
     T: AsUniforms,
 {
-    pub fn new(field_infos: &'a [FieldInfo], uniforms: &'b T) -> Self {
+    pub fn new(uniforms: &'a T) -> Self {
         UniformInfoIter {
-            field_infos,
             uniforms,
             index: 0,
             add_sampler: false,
@@ -57,25 +55,26 @@ where
     }
 }
 
-impl<'a, 'b, T> Iterator for UniformInfoIter<'a, 'b, T>
+impl<'a, T> Iterator for UniformInfoIter<'a, T>
 where
     T: AsUniforms,
 {
     type Item = UniformInfo<'a>;
     fn next(&mut self) -> Option<Self::Item> {
+        let field_infos = T::get_field_infos();
         if self.add_sampler {
             self.add_sampler = false;
             Some(UniformInfo {
-                name: self.field_infos[self.index - 1].sampler_name,
+                name: field_infos[self.index - 1].sampler_name,
                 bind_type: BindType::Sampler,
             })
         } else {
-            if self.index >= self.field_infos.len() {
+            if self.index >= field_infos.len() {
                 None
             } else {
                 let index = self.index;
                 self.index += 1;
-                let ref field_info = self.field_infos[index];
+                let ref field_info = field_infos[index];
                 let bind_type = self.uniforms.get_field_bind_type(field_info.name);
                 if let Some(bind_type) = bind_type {
                     Some(match bind_type {
