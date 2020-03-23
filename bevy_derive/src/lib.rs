@@ -70,6 +70,8 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
         }
     })
 }
+
+// TODO: ensure shader_def and instance/vertex are mutually exclusive
 #[derive(FromMeta, Debug, Default)]
 struct UniformAttributeArgs {
     #[darling(default)]
@@ -329,6 +331,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             }
 
+            // TODO: move this to field_info and add has_shader_def(&self, &str) -> bool
             // TODO: this will be very allocation heavy. find a way to either make this allocation free
             // or alternatively only run it when the shader_defs have changed
             fn get_shader_defs(&self) -> Option<Vec<String>> {

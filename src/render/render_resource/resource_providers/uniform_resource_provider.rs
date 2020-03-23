@@ -5,9 +5,8 @@ use crate::{
         render_graph::RenderGraph,
         render_resource::{
             AssetBatchers, BufferArrayInfo, BufferDynamicUniformInfo, BufferInfo, BufferUsage,
-            EntityRenderResourceAssignments, RenderResource, RenderResourceAssignments,
-            RenderResourceAssignmentsId, RenderResourceAssignmentsProvider, ResourceInfo,
-            ResourceProvider,
+            RenderResource, RenderResourceAssignments, RenderResourceAssignmentsId,
+            RenderResourceAssignmentsProvider, ResourceInfo, ResourceProvider,
         },
         renderer::Renderer,
         shader::{AsUniforms, UniformInfoIter},
@@ -39,7 +38,7 @@ where
     >,
     asset_resources: HashMap<Handle<T>, HashMap<String, RenderResource>>,
     resource_query: Query<
-        (Read<T>, Read<Renderable>),
+        (Read<T>, Write<Renderable>),
         EntityFilterTuple<
             And<(ComponentFilter<T>, ComponentFilter<Renderable>)>,
             And<(Passthrough, Passthrough)>,
@@ -48,7 +47,7 @@ where
     >,
     handle_query: Option<
         Query<
-            (Read<Handle<T>>, Read<Renderable>),
+            (Read<Handle<T>>, Write<Renderable>),
             EntityFilterTuple<
                 And<(ComponentFilter<Handle<T>>, ComponentFilter<Renderable>)>,
                 And<(Passthrough, Passthrough)>,
@@ -67,46 +66,31 @@ where
             uniform_buffer_info_resources: Default::default(),
             asset_resources: Default::default(),
             _marker: PhantomData,
-            resource_query: <(Read<T>, Read<Renderable>)>::query(),
-            handle_query: Some(<(Read<Handle<T>>, Read<Renderable>)>::query()),
+            resource_query: <(Read<T>, Write<Renderable>)>::query(),
+            handle_query: Some(<(Read<Handle<T>>, Write<Renderable>)>::query()),
         }
     }
 
     fn update_asset_uniforms(
         &mut self,
         renderer: &mut dyn Renderer,
-        world: &World,
+        world: &mut World,
         resources: &Resources,
     ) {
         let handle_query = self.handle_query.take().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
-        let mut entity_render_resource_assignments = resources
-            .get_mut::<EntityRenderResourceAssignments>()
-            .unwrap();
-        let mut render_resource_assignments_provider = resources
-            .get_mut::<RenderResourceAssignmentsProvider>()
-            .unwrap();
         // TODO: only update handle values when Asset value has changed
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
-            for (entity, (handle, renderable)) in handle_query.iter_entities(world) {
+            for (entity, (handle, mut renderable)) in handle_query.iter_entities_mut(world) {
                 if renderable.is_instanced {
                     asset_batchers.set_entity_handle(entity, *handle);
                 } else {
-                    let render_resource_assignments = if let Some(assignments) =
-                        entity_render_resource_assignments.get_mut(entity)
-                    {
-                        assignments
-                    } else {
-                        entity_render_resource_assignments
-                            .set(entity, render_resource_assignments_provider.next());
-                        entity_render_resource_assignments.get_mut(entity).unwrap()
-                    };
                     if let Some(uniforms) = asset_storage.get(&handle) {
                         self.setup_uniform_resources(
                             uniforms,
                             renderer,
                             resources,
-                            render_resource_assignments,
+                            renderable.render_resource_assignments.as_mut().unwrap(),
                             true,
                             Some(*handle),
                         )
@@ -127,8 +111,7 @@ where
         dynamic_unforms: bool,
         asset_handle: Option<Handle<T>>,
     ) {
-        let field_infos = uniforms.get_field_infos();
-        for uniform_info in UniformInfoIter::new(field_infos, uniforms.deref()) {
+        for uniform_info in UniformInfoIter::new(uniforms.deref()) {
             match uniform_info.bind_type {
                 BindType::Uniform { .. } => {
                     if dynamic_unforms {
@@ -273,11 +256,9 @@ where
     fn setup_dynamic_uniform_buffers(
         &mut self,
         renderer: &mut dyn Renderer,
-        world: &World,
+        world: &mut World,
         resources: &Resources,
     ) {
-        let entity_render_resource_assignments =
-            resources.get::<EntityRenderResourceAssignments>().unwrap();
         // allocate uniform buffers
         for (name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             let count = *count as u64;
@@ -330,40 +311,40 @@ where
                 // TODO: check if index has changed. if it has, then entity should be updated
                 // TODO: only mem-map entities if their data has changed
                 // PERF: These hashmap inserts are pretty expensive (10 fps for 10000 entities)
-                for (entity, (_, renderable)) in self.resource_query.iter_entities(world) {
+                for (_, renderable) in self.resource_query.iter_mut(world) {
                     if renderable.is_instanced {
                         continue;
                     }
 
+                    let id = renderable
+                        .render_resource_assignments
+                        .as_ref()
+                        .unwrap()
+                        .get_id();
+
                     // this unwrap is safe because the assignments were created in the calling function
-                    let render_resource_assignments =
-                        entity_render_resource_assignments.get(entity).unwrap();
-                    if !entities.contains(&render_resource_assignments.get_id()) {
+                    if !entities.contains(&id) {
                         continue;
                     }
 
-                    dynamic_uniform_info
-                        .offsets
-                        .insert(render_resource_assignments.get_id(), offset as u32);
+                    dynamic_uniform_info.offsets.insert(id, offset as u32);
 
                     offset += alignment;
                 }
 
-                for (entity, (_, renderable)) in
-                    self.handle_query.as_ref().unwrap().iter_entities(world)
-                {
+                for (_, renderable) in self.handle_query.as_ref().unwrap().iter_mut(world) {
                     if renderable.is_instanced {
                         continue;
                     }
 
-                    let render_resource_assignments =
-                        entity_render_resource_assignments.get(entity).unwrap();
-                    if !entities.contains(&render_resource_assignments.get_id()) {
-                        continue;
-                    }
-                    dynamic_uniform_info
-                        .offsets
-                        .insert(render_resource_assignments.get_id(), offset as u32);
+                    dynamic_uniform_info.offsets.insert(
+                        renderable
+                            .render_resource_assignments
+                            .as_ref()
+                            .unwrap()
+                            .get_id(),
+                        offset as u32,
+                    );
 
                     offset += alignment;
                 }
@@ -379,16 +360,18 @@ where
                     &mut |mapped| {
                         let alignment = BIND_BUFFER_ALIGNMENT as usize;
                         let mut offset = 0usize;
-                        for (entity, (uniforms, renderable)) in
-                            self.resource_query.iter_entities(world)
-                        {
+                        for (uniforms, renderable) in self.resource_query.iter_mut(world) {
                             if renderable.is_instanced {
                                 continue;
                             }
 
-                            let render_resource_assignments =
-                                entity_render_resource_assignments.get(entity).unwrap();
-                            if !entities.contains(&render_resource_assignments.get_id()) {
+                            if !entities.contains(
+                                &renderable
+                                    .render_resource_assignments
+                                    .as_ref()
+                                    .unwrap()
+                                    .get_id(),
+                            ) {
                                 continue;
                             }
                             if let Some(uniform_bytes) = uniforms.get_uniform_bytes_ref(&name) {
@@ -403,16 +386,20 @@ where
                         }
 
                         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
-                            for (entity, (handle, renderable)) in
-                                self.handle_query.as_ref().unwrap().iter_entities(world)
+                            for (handle, renderable) in
+                                self.handle_query.as_ref().unwrap().iter_mut(world)
                             {
                                 if renderable.is_instanced {
                                     continue;
                                 }
 
-                                let render_resource_assignments =
-                                    entity_render_resource_assignments.get(entity).unwrap();
-                                if !entities.contains(&render_resource_assignments.get_id()) {
+                                if !entities.contains(
+                                    &renderable
+                                        .render_resource_assignments
+                                        .as_ref()
+                                        .unwrap()
+                                        .get_id(),
+                                ) {
                                     continue;
                                 }
 
@@ -471,7 +458,7 @@ where
         // (2) if we create new buffers, the old bind groups will be invalid
 
         // reset all uniform buffer info counts
-        let query = <(Read<T>, Read<Renderable>)>::query();
+        let query = <(Read<T>, Write<Renderable>)>::query();
         for (_name, (resource, count, _entities)) in self.uniform_buffer_info_resources.iter_mut() {
             if let Some(ResourceInfo::Buffer(BufferInfo {
                 array_info: Some(array_info),
@@ -486,30 +473,16 @@ where
 
         self.update_asset_uniforms(renderer, world, resources);
 
-        let mut entity_render_resource_assignments = resources
-            .get_mut::<EntityRenderResourceAssignments>()
-            .unwrap();
-        let mut render_resource_assignments_provider = resources
-            .get_mut::<RenderResourceAssignmentsProvider>()
-            .unwrap();
-        for (entity, (uniforms, renderable)) in query.iter_entities(world) {
+        for (uniforms, mut renderable) in query.iter_mut(world) {
             if renderable.is_instanced {
                 continue;
             }
 
-            let render_resource_assignments =
-                if let Some(assignments) = entity_render_resource_assignments.get_mut(entity) {
-                    assignments
-                } else {
-                    entity_render_resource_assignments
-                        .set(entity, render_resource_assignments_provider.next());
-                    entity_render_resource_assignments.get_mut(entity).unwrap()
-                };
             self.setup_uniform_resources(
                 &uniforms,
                 renderer,
                 resources,
-                render_resource_assignments,
+                renderable.render_resource_assignments.as_mut().unwrap(),
                 true,
                 None,
             );
@@ -521,7 +494,12 @@ where
         for (uniforms, mut renderable) in <(Read<T>, Write<Renderable>)>::query().iter_mut(world) {
             if let Some(shader_defs) = uniforms.get_shader_defs() {
                 for shader_def in shader_defs {
-                    renderable.shader_defs.insert(shader_def);
+                    renderable
+                        .render_resource_assignments
+                        .as_mut()
+                        .unwrap()
+                        .shader_defs
+                        .insert(shader_def);
                 }
             }
         }
@@ -533,7 +511,12 @@ where
                 let uniforms = asset_storage.get(&handle).unwrap();
                 if let Some(shader_defs) = uniforms.get_shader_defs() {
                     for shader_def in shader_defs {
-                        renderable.shader_defs.insert(shader_def);
+                        renderable
+                            .render_resource_assignments
+                            .as_mut()
+                            .unwrap()
+                            .shader_defs
+                            .insert(shader_def);
                     }
                 }
             }

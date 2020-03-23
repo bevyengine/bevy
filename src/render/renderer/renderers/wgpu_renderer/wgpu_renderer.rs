@@ -29,6 +29,7 @@ pub struct WgpuRenderer {
     pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
+    pub intialized: bool,
 }
 
 impl WgpuRenderer {
@@ -61,10 +62,23 @@ impl WgpuRenderer {
             queue,
             surface: None,
             encoder: None,
+            intialized: false,
             swap_chain_descriptor,
             wgpu_resources: WgpuResources::new(),
             render_pipelines: HashMap::new(),
         }
+    }
+
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        if self.intialized {
+            return;
+        }
+
+        self.create_surface(resources);
+        self.initialize_resource_providers(world, resources);
+        self.resize(world, resources);
+
+        self.intialized = true;
     }
 
     pub fn setup_vertex_buffer_descriptors(
@@ -396,12 +410,6 @@ impl WgpuRenderer {
 }
 
 impl Renderer for WgpuRenderer {
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        self.create_surface(resources);
-        self.initialize_resource_providers(world, resources);
-        self.resize(world, resources);
-    }
-
     fn resize(&mut self, world: &mut World, resources: &mut Resources) {
         let window_size = {
             let window = resources.get::<winit::window::Window>().unwrap();
@@ -436,6 +444,7 @@ impl Renderer for WgpuRenderer {
     }
 
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
+        self.initialize(world, resources);
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(

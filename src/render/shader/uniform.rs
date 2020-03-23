@@ -36,6 +36,7 @@ pub enum FieldBindType {
     Texture,
 }
 
+// TODO: Remove this
 pub struct UniformInfoIter<'a, T: AsUniforms> {
     pub uniforms: &'a T,
     pub index: usize,

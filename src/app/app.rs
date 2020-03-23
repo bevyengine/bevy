@@ -65,12 +65,6 @@ impl App {
 
         self.resources.insert(window);
 
-        log::info!("Initializing the example...");
-
-        if let Some(ref mut renderer) = self.renderer {
-            renderer.initialize(&mut self.world, &mut self.resources);
-        }
-
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
             *control_flow = if cfg!(feature = "metal-auto-capture") {

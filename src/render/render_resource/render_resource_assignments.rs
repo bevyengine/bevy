@@ -1,12 +1,14 @@
 use super::RenderResource;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-// TODO: consider merging this with entity_uniform_resource
 // PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug)]
 pub struct RenderResourceAssignments {
     id: RenderResourceAssignmentsId,
     render_resources: HashMap<String, RenderResource>,
+    pub(crate) shader_defs: HashSet<String>,
+    // TODO: move offsets here to reduce hashing costs?
+    // render_resource_offsets: HashMap<String, >,
 }
 
 impl RenderResourceAssignments {
@@ -36,6 +38,7 @@ impl RenderResourceAssignmentsProvider {
         let assignments = RenderResourceAssignments {
             id: RenderResourceAssignmentsId(self.current_id),
             render_resources: HashMap::new(),
+            shader_defs: HashSet::new(),
         };
 
         self.current_id += 1;

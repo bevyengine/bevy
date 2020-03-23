@@ -28,13 +28,16 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
 
-        let assigned_entities = shader_pipeline_assignments
+        let assigned_render_resource_assignments = shader_pipeline_assignments
             .assignments
             .get(&pipeline_handle);
 
-        if let Some(assigned_entities) = assigned_entities {
-            for entity in assigned_entities.iter() {
+        if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
+            for assignment_id in assigned_render_resource_assignments.iter() {
                 // TODO: hopefully legion has better random access apis that are more like queries?
+                let entity = entity_render_resource_assignments
+                    .get(*assignment_id)
+                    .unwrap();
                 let renderable = world.get_component::<Renderable>(*entity).unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
@@ -63,8 +66,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 }
 
                 // TODO: validate bind group properties against shader uniform properties at least once
-                let render_resource_assignments = entity_render_resource_assignments.get(*entity);
-                render_pass.set_bind_groups(render_resource_assignments);
+                render_pass.set_bind_groups(renderable.render_resource_assignments.as_ref());
                 render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
             }
         }
@@ -78,26 +80,28 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
-        let assigned_entities = shader_pipeline_assignments
+        let entity_render_resource_assignments =
+            resources.get::<EntityRenderResourceAssignments>().unwrap();
+        let assigned_render_resource_assignments = shader_pipeline_assignments
             .assignments
             .get(&pipeline_handle);
         let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let entity_render_resource_assignments =
-            resources.get::<EntityRenderResourceAssignments>().unwrap();
         let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
-        if let Some(assigned_entities) = assigned_entities {
-            for entity in assigned_entities.iter() {
+        if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
+            for assignment_id in assigned_render_resource_assignments.iter() {
                 // TODO: hopefully legion has better random access apis that are more like queries?
+                let entity = entity_render_resource_assignments
+                    .get(*assignment_id)
+                    .unwrap();
                 let renderable = world.get_component::<Renderable>(*entity).unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 
-                if let Some(render_resource_assignments) =
-                    entity_render_resource_assignments.get(*entity)
-                {
-                    renderer.setup_bind_groups(render_resource_assignments, pipeline_descriptor);
-                }
+                renderer.setup_bind_groups(
+                    renderable.render_resource_assignments.as_ref().unwrap(),
+                    pipeline_descriptor,
+                );
             }
         }
     }

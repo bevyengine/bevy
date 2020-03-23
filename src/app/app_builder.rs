@@ -16,7 +16,8 @@ use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use pipeline::PipelineDescriptor;
 use render_graph::{RenderGraph, RenderGraphBuilder};
 use render_resource::{
-    AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignmentsProvider,
+    build_entity_render_resource_assignments_system, AssetBatchers,
+    EntityRenderResourceAssignments, RenderResourceAssignmentsProvider,
 };
 use shader::Shader;
 use std::collections::HashMap;
@@ -175,6 +176,7 @@ impl AppBuilder {
     }
 
     pub fn add_default_systems(&mut self) -> &mut Self {
+        self.add_system(build_entity_render_resource_assignments_system());
         self.add_system(ui::ui_update_system::build_ui_update_system());
         for transform_system in
             transform_system_bundle::build(self.world.as_mut().unwrap()).drain(..)
