@@ -1,4 +1,8 @@
-use crate::{asset::Handle, math::Vec4, render::texture::Texture};
+use crate::{
+    asset::Handle,
+    math::{Mat4, Vec4},
+    render::texture::Texture,
+};
 use zerocopy::AsBytes;
 
 pub trait GetBytes {
@@ -46,6 +50,20 @@ impl GetBytes for Vec4 {
     fn get_bytes(&self) -> Vec<u8> {
         let vec4_array: [f32; 4] = (*self).into();
         vec4_array.as_bytes().into()
+    }
+
+    fn get_bytes_ref(&self) -> Option<&[u8]> {
+        Some(self.as_ref().as_bytes())
+    }
+}
+
+impl GetBytes for Mat4 {
+    fn get_bytes(&self) -> Vec<u8> {
+        self.as_ref()
+            .as_bytes()
+            .iter()
+            .cloned()
+            .collect::<Vec<u8>>()
     }
 
     fn get_bytes_ref(&self) -> Option<&[u8]> {

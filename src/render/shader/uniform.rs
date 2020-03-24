@@ -5,7 +5,7 @@ use crate::{
         color::ColorSource,
         pipeline::{BindType, VertexBufferDescriptor},
         texture::{Texture, TextureViewDimension},
-    },
+    }, prelude::Color,
 };
 
 pub trait AsUniforms {
@@ -32,7 +32,7 @@ impl ShaderDefSuffixProvider for bool {
 }
 
 pub enum FieldBindType {
-    Uniform,
+    Uniform { size: usize },
     Texture,
 }
 
@@ -79,7 +79,7 @@ where
                 let bind_type = self.uniforms.get_field_bind_type(field_info.name);
                 if let Some(bind_type) = bind_type {
                     Some(match bind_type {
-                        FieldBindType::Uniform => UniformInfo {
+                        FieldBindType::Uniform { .. }=> UniformInfo {
                             bind_type: BindType::Uniform {
                                 dynamic: false,
                                 properties: Vec::new(),
@@ -119,10 +119,10 @@ pub trait AsFieldBindType {
 
 impl AsFieldBindType for ColorSource {
     fn get_field_bind_type(&self) -> Option<FieldBindType> {
-        Some(match *self {
-            ColorSource::Texture(_) => FieldBindType::Texture,
-            ColorSource::Color(_) => FieldBindType::Uniform,
-        })
+        match *self {
+            ColorSource::Texture(_) => Some(FieldBindType::Texture),
+            ColorSource::Color(color) => color.get_field_bind_type(),
+        }
     }
 }
 
@@ -145,8 +145,9 @@ impl<T> AsFieldBindType for T
 where
     T: GetBytes,
 {
+    // TODO: this breaks if get_bytes_ref() isn't supported for a datatype
     default fn get_field_bind_type(&self) -> Option<FieldBindType> {
-        Some(FieldBindType::Uniform)
+        Some(FieldBindType::Uniform { size: self.get_bytes_ref().unwrap().len() })
     }
 }
 

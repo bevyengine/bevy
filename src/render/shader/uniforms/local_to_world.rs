@@ -1,15 +1,15 @@
 use crate::{
     asset::Handle,
+    core::GetBytes,
     render::{
         pipeline::{
             InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
         },
-        shader::{AsUniforms, FieldBindType, FieldInfo},
+        shader::{AsUniforms, FieldBindType, FieldInfo, AsFieldBindType},
         texture::Texture,
     },
 };
 use once_cell::sync::Lazy;
-use zerocopy::AsBytes;
 
 static LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
     name: "object",
@@ -59,7 +59,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
         match name {
-            "Object" => Some(self.0.as_ref().as_bytes().into()),
+            "Object" => Some(self.0.get_bytes()),
             _ => None,
         }
     }
@@ -69,7 +69,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     }
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType> {
         match name {
-            "object" => Some(FieldBindType::Uniform),
+            "object" => self.0.get_field_bind_type(),
             _ => None,
         }
     }
@@ -79,7 +79,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
 
     fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
         match name {
-            "Object" => Some(self.0.as_ref().as_bytes()),
+            "Object" => self.0.get_bytes_ref(),
             _ => None,
         }
     }

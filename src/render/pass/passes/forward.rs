@@ -27,7 +27,7 @@ impl<'a> ForwardPassBuilder for RenderGraphBuilder<'a> {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Depth32Float,
+                format: TextureFormat::Depth32Float, // PERF: vulkan recommends using 24 bit depth for better performance
                 usage: TextureUsage::OUTPUT_ATTACHMENT,
             },
         ))
