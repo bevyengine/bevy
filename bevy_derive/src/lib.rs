@@ -151,10 +151,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
     let struct_name_string = struct_name.to_string();
-    let struct_name_screaming_snake = struct_name.to_string().to_screaming_snake_case();
-    let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_screaming_snake);
+    let struct_name_uppercase = struct_name.to_string().to_uppercase();
+    let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_uppercase);
     let vertex_buffer_descriptor_ident =
-        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_screaming_snake);
+        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_uppercase);
 
     let active_uniform_field_names = active_uniform_fields
         .iter()
@@ -342,7 +342,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
                 Some(potential_shader_defs.drain(..)
                     .filter(|(f, shader_def)| shader_def.is_some())
-                    .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_screaming_snake, f, shader_def.unwrap()))
+                    .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_uppercase, f, shader_def.unwrap()))
                     .collect::<Vec<String>>())
             }
 

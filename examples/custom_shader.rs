@@ -12,7 +12,7 @@ fn main() {
         .add_defaults()
         .setup_render_graph(|render_graph_builder| {
             render_graph_builder
-                .add_resource_provider(UniformResourceProvider::<MyMaterial>::new())
+                .add_resource_provider(UniformResourceProvider::<MyMaterial>::new(true))
                 .add_pipeline_to_pass(resource_name::pass::MAIN, "MyMaterial", |builder| {
                     builder
                         .with_vertex_shader(Shader::from_glsl(
@@ -45,13 +45,13 @@ fn main() {
                                 void main() {
                                     o_Target = color;
 
-                                # ifdef MY_MATERIAL_ALWAYS_RED
+                                # ifdef MYMATERIAL_ALWAYS_RED
                                     o_Target = vec4(0.8, 0.0, 0.0, 1.0);
                                 # endif
                                 }
                         "#,
                         ))
-                        .with_standard_config();
+                        .with_default_config();
                 });
         })
         .setup_world(setup)

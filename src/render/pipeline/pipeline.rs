@@ -236,7 +236,7 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn with_standard_config(&mut self) -> &mut Self {
+    pub fn with_default_config(&mut self) -> &mut Self {
         self.with_depth_stencil_state(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,

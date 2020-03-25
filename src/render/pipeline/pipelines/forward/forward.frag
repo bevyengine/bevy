@@ -27,14 +27,14 @@ layout(set = 2, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 
-# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
+# ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
 layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
 layout(set = 3, binding = 2) uniform sampler StandardMaterial_albedo_texture_sampler;
 # endif
 
 void main() {
     vec4 albedo = Albedo;
-# ifdef STANDARD_MATERIAL_ALBEDO_TEXTURE
+# ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
     albedo *= texture(
         sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_texture_sampler),
         v_Uv);
