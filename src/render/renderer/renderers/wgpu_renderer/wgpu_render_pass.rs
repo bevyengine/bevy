@@ -58,6 +58,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             };
 
             // setup dynamic uniform instances
+            // TODO: these indices could be stored in RenderResourceAssignments so they dont need to be collected on each draw
             let mut dynamic_uniform_indices = Vec::new();
             for binding in bind_group.bindings.iter() {
                 if let BindType::Uniform { dynamic, .. } = binding.bind_type {
@@ -72,16 +73,17 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         .get_named_resource(&binding.name)
                     {
                         if let Some(ResourceInfo::Buffer(BufferInfo {
-                            dynamic_uniform_info: Some(dynamic_uniform_info),
+                            array_info: Some(array_info),
+                            is_dynamic: true,
                             ..
                         })) = self.wgpu_resources.resource_info.get(&resource)
                         {
-                            let index = dynamic_uniform_info
-                                .offsets
+                            let index = array_info
+                                .indices
                                 .get(&render_resource_assignments.unwrap().get_id())
                                 .unwrap();
 
-                            dynamic_uniform_indices.push(*index);
+                            dynamic_uniform_indices.push((*index * array_info.item_size) as u32);
                         }
                     }
                 }

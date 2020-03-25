@@ -4,21 +4,39 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct BufferArrayInfo {
-    pub item_count: u64,
-    pub item_size: u64,
-    pub item_capacity: u64,
+    pub item_count: usize,
+    pub item_size: usize,
+    pub item_capacity: usize,
+    pub indices: HashMap<RenderResourceAssignmentsId, usize>,
+    pub current_index: usize,
 }
 
-#[derive(Default)]
-pub struct BufferDynamicUniformInfo {
-    pub offsets: HashMap<RenderResourceAssignmentsId, u32>,
+impl BufferArrayInfo {
+    pub fn get_index(&self, id: RenderResourceAssignmentsId) -> Option<usize> {
+        self.indices.get(&id).map(|offset| *offset)
+    }
+
+    pub fn get_or_assign_index(&mut self, id: RenderResourceAssignmentsId) -> usize {
+        if let Some(offset) = self.indices.get(&id) {
+            *offset
+        } else {
+            if self.current_index == self.item_capacity {
+                panic!("no empty slots available in array");
+            }
+
+            let index = self.current_index;
+            self.indices.insert(id, index);
+            self.current_index += 1;
+            index
+        }
+    }
 }
 
 pub struct BufferInfo {
-    pub size: u64,
+    pub size: usize,
     pub buffer_usage: BufferUsage,
     pub array_info: Option<BufferArrayInfo>,
-    pub dynamic_uniform_info: Option<BufferDynamicUniformInfo>,
+    pub is_dynamic: bool,
 }
 
 impl Default for BufferInfo {
@@ -27,7 +45,7 @@ impl Default for BufferInfo {
             size: 0,
             buffer_usage: BufferUsage::NONE,
             array_info: None,
-            dynamic_uniform_info: None,
+            is_dynamic: false,
         }
     }
 }

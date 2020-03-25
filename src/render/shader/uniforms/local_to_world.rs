@@ -5,7 +5,7 @@ use crate::{
         pipeline::{
             InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
         },
-        shader::{AsUniforms, FieldBindType, FieldInfo, AsFieldBindType},
+        shader::{AsFieldBindType, AsUniforms, FieldBindType, FieldInfo},
         texture::Texture,
     },
 };

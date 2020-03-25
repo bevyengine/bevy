@@ -1,9 +1,11 @@
+use super::WgpuRenderer;
 use crate::render::{
     pipeline::{BindGroup, BindType},
     render_resource::{
         BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceAssignmentsId,
         RenderResources, ResourceInfo,
     },
+    renderer::Renderer,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use std::collections::HashMap;
@@ -77,7 +79,7 @@ impl WgpuResources {
                                     let buffer = self.buffers.get(&resource).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer,
-                                        range: 0..buffer_info.size,
+                                        range: 0..buffer_info.size as u64,
                                     }
                                 } else {
                                     panic!("expected a Buffer resource");
@@ -147,7 +149,7 @@ impl WgpuResources {
                                     let buffer = self.buffers.get(&resource).unwrap();
                                     wgpu::BindingResource::Buffer {
                                         buffer,
-                                        range: 0..buffer_info.size,
+                                        range: 0..buffer_info.size as u64,
                                     }
                                 } else {
                                     panic!("expected a Buffer resource");
@@ -185,7 +187,7 @@ impl WgpuResources {
         buffer_info: BufferInfo,
     ) -> RenderResource {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            size: buffer_info.size,
+            size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.into(),
         });
 
@@ -202,13 +204,9 @@ impl WgpuResources {
         mut buffer_info: BufferInfo,
         data: &[u8],
     ) -> RenderResource {
-        buffer_info.size = data.len() as u64;
-        let resource = self.render_resources.get_next_resource();
+        buffer_info.size = data.len();
         let buffer = device.create_buffer_with_data(data, buffer_info.buffer_usage.into());
-        self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
-
-        self.buffers.insert(resource, buffer);
-        resource
+        self.assign_buffer(buffer, buffer_info)
     }
 
     pub fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -220,22 +218,29 @@ impl WgpuResources {
         self.resource_info.remove(&resource);
     }
 
-    pub fn create_buffer_mapped(
+    pub fn assign_buffer(
         &mut self,
-        device: &wgpu::Device,
+        buffer: wgpu::Buffer,
         buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8]),
     ) -> RenderResource {
-        let mut mapped =
-            device.create_buffer_mapped(buffer_info.size as usize, buffer_info.buffer_usage.into());
-        setup_data(&mut mapped.data);
-        let buffer = mapped.finish();
-
         let resource = self.render_resources.get_next_resource();
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
-
         self.buffers.insert(resource, buffer);
         resource
+    }
+
+    pub fn begin_create_buffer_mapped(
+        buffer_info: &BufferInfo,
+        renderer: &mut WgpuRenderer,
+        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
+    ) -> wgpu::Buffer {
+        let device_rc = renderer.device.clone();
+        let device = device_rc.borrow();
+
+        let mut mapped =
+            device.create_buffer_mapped(buffer_info.size as usize, buffer_info.buffer_usage.into());
+        setup_data(&mut mapped.data, renderer);
+        mapped.finish()
     }
 
     pub fn copy_buffer_to_buffer(

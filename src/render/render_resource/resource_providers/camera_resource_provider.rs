@@ -21,7 +21,7 @@ impl ResourceProvider for CameraResourceProvider {
         _resources: &Resources,
     ) {
         let buffer = renderer.create_buffer(BufferInfo {
-            size: std::mem::size_of::<[[f32; 4]; 4]>() as u64,
+            size: std::mem::size_of::<[[f32; 4]; 4]>(),
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
         });
@@ -54,11 +54,11 @@ impl ResourceProvider for CameraResourceProvider {
 
             self.tmp_buffer = Some(renderer.create_buffer_mapped(
                 BufferInfo {
-                    size: matrix_size as u64,
+                    size: matrix_size,
                     buffer_usage: BufferUsage::COPY_SRC,
                     ..Default::default()
                 },
-                &mut |data| {
+                &mut |data, _renderer| {
                     data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
                 },
             ));

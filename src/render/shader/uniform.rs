@@ -5,7 +5,7 @@ use crate::{
         color::ColorSource,
         pipeline::{BindType, VertexBufferDescriptor},
         texture::{Texture, TextureViewDimension},
-    }, prelude::Color,
+    },
 };
 
 pub trait AsUniforms {
@@ -79,7 +79,7 @@ where
                 let bind_type = self.uniforms.get_field_bind_type(field_info.name);
                 if let Some(bind_type) = bind_type {
                     Some(match bind_type {
-                        FieldBindType::Uniform { .. }=> UniformInfo {
+                        FieldBindType::Uniform { .. } => UniformInfo {
                             bind_type: BindType::Uniform {
                                 dynamic: false,
                                 properties: Vec::new(),
@@ -147,7 +147,9 @@ where
 {
     // TODO: this breaks if get_bytes_ref() isn't supported for a datatype
     default fn get_field_bind_type(&self) -> Option<FieldBindType> {
-        Some(FieldBindType::Uniform { size: self.get_bytes_ref().unwrap().len() })
+        Some(FieldBindType::Uniform {
+            size: self.get_bytes_ref().unwrap().len(),
+        })
     }
 }
 

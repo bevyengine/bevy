@@ -40,9 +40,8 @@ impl ResourceProvider for LightResourceProvider {
         _world: &mut World,
         _resources: &Resources,
     ) {
-        let light_uniform_size = (std::mem::size_of::<LightCount>()
-            + self.max_lights * std::mem::size_of::<LightRaw>())
-            as u64;
+        let light_uniform_size =
+            std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
 
         let buffer = renderer.create_buffer(BufferInfo {
             size: light_uniform_size,
@@ -79,11 +78,11 @@ impl ResourceProvider for LightResourceProvider {
 
             self.tmp_light_buffer = Some(renderer.create_buffer_mapped(
                 BufferInfo {
-                    size: total_size as u64,
+                    size: total_size,
                     buffer_usage: BufferUsage::COPY_SRC,
                     ..Default::default()
                 },
-                &mut |data| {
+                &mut |data, _renderer| {
                     for ((light, local_to_world, translation), slot) in
                         light_query.iter(world).zip(data.chunks_exact_mut(size))
                     {
@@ -95,11 +94,11 @@ impl ResourceProvider for LightResourceProvider {
             ));
             self.tmp_count_buffer = Some(renderer.create_buffer_mapped(
                 BufferInfo {
-                    size: light_count_size as u64,
+                    size: light_count_size,
                     buffer_usage: BufferUsage::COPY_SRC,
                     ..Default::default()
                 },
-                &mut |data| {
+                &mut |data, _renderer| {
                     data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
                 },
             ));

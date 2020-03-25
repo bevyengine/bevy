@@ -19,10 +19,10 @@ use crate::{
         update_shader_assignments,
     },
 };
-use std::{collections::HashMap, ops::Deref};
+use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
 
 pub struct WgpuRenderer {
-    pub device: wgpu::Device,
+    pub device: Rc<RefCell<wgpu::Device>>,
     pub queue: wgpu::Queue,
     pub surface: Option<wgpu::Surface>,
     pub encoder: Option<wgpu::CommandEncoder>,
@@ -58,7 +58,7 @@ impl WgpuRenderer {
         };
 
         WgpuRenderer {
-            device,
+            device: Rc::new(RefCell::new(device)),
             queue,
             surface: None,
             encoder: None,
@@ -160,7 +160,7 @@ impl WgpuRenderer {
                                 if let Some(ResourceInfo::Buffer(buffer_info)) =
                                     wgpu_resources.resource_info.get(&resource)
                                 {
-                                    *dynamic = buffer_info.dynamic_uniform_info.is_some();
+                                    *dynamic = buffer_info.is_dynamic;
                                 }
                             }
                         }
@@ -370,6 +370,7 @@ impl WgpuRenderer {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         self.encoder = Some(
             self.device
+                .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
         for resource_provider in render_graph.resource_providers.iter_mut() {
@@ -417,12 +418,14 @@ impl Renderer for WgpuRenderer {
         };
         self.encoder = Some(
             self.device
+                .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
         self.swap_chain_descriptor.width = window_size.width;
         self.swap_chain_descriptor.height = window_size.height;
         let swap_chain = self
             .device
+            .borrow()
             .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
 
         // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
@@ -449,6 +452,7 @@ impl Renderer for WgpuRenderer {
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(
             self.device
+                .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
 
@@ -492,7 +496,7 @@ impl Renderer for WgpuRenderer {
                 let render_pipeline = WgpuRenderer::create_render_pipeline(
                     &mut self.wgpu_resources,
                     pipeline_descriptor,
-                    &self.device,
+                    &self.device.borrow(),
                     &render_graph,
                     vertex_shader,
                     fragment_shader,
@@ -505,7 +509,7 @@ impl Renderer for WgpuRenderer {
             let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
             for bind_group in pipeline_layout.bind_groups.iter() {
                 self.wgpu_resources
-                    .setup_bind_group(&self.device, bind_group);
+                    .setup_bind_group(&self.device.borrow(), bind_group);
             }
         }
 
@@ -560,11 +564,12 @@ impl Renderer for WgpuRenderer {
 
     fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
         self.wgpu_resources
-            .create_buffer_with_data(&self.device, buffer_info, data)
+            .create_buffer_with_data(&self.device.borrow(), buffer_info, data)
     }
 
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.wgpu_resources.create_buffer(&self.device, buffer_info)
+        self.wgpu_resources
+            .create_buffer(&self.device.borrow(), buffer_info)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -582,10 +587,10 @@ impl Renderer for WgpuRenderer {
     fn create_buffer_mapped(
         &mut self,
         buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8]),
+        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> RenderResource {
-        self.wgpu_resources
-            .create_buffer_mapped(&self.device, buffer_info, setup_data)
+        let buffer = WgpuResources::begin_create_buffer_mapped(&buffer_info, self, setup_data);
+        self.wgpu_resources.assign_buffer(buffer, buffer_info)
     }
 
     fn copy_buffer_to_buffer(
@@ -608,7 +613,7 @@ impl Renderer for WgpuRenderer {
 
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
         self.wgpu_resources
-            .create_sampler(&self.device, sampler_descriptor)
+            .create_sampler(&self.device.borrow(), sampler_descriptor)
     }
 
     fn create_texture(
@@ -617,7 +622,7 @@ impl Renderer for WgpuRenderer {
         bytes: Option<&[u8]>,
     ) -> RenderResource {
         self.wgpu_resources.create_texture(
-            &self.device,
+            &self.device.borrow(),
             self.encoder.as_mut().unwrap(),
             texture_descriptor,
             bytes,
@@ -655,7 +660,7 @@ impl Renderer for WgpuRenderer {
                     .get_assignments_bind_group(render_resource_assignments.get_id(), bind_group_id)
                 {
                     self.wgpu_resources.create_assignments_bind_group(
-                        &self.device,
+                        &self.device.borrow(),
                         bind_group,
                         render_resource_assignments,
                     );

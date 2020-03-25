@@ -24,7 +24,7 @@ pub trait Renderer {
     fn create_buffer_mapped(
         &mut self,
         buffer_info: BufferInfo,
-        func: &mut dyn FnMut(&mut [u8]),
+        func: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> RenderResource;
     fn remove_buffer(&mut self, resource: RenderResource);
     fn remove_texture(&mut self, resource: RenderResource);

@@ -77,8 +77,8 @@ impl UiResourceProvider {
             return;
         }
 
-        let size = std::mem::size_of::<Rect>() as u64;
-        let data_len = data.len() as u64;
+        let size = std::mem::size_of::<Rect>();
+        let data_len = data.len();
 
         if let Some(old_instance_buffer) = self.instance_buffer {
             renderer.remove_buffer(old_instance_buffer);
@@ -92,6 +92,7 @@ impl UiResourceProvider {
                     item_capacity: data_len,
                     item_count: data_len,
                     item_size: size,
+                    ..Default::default()
                 }),
                 ..Default::default()
             },
