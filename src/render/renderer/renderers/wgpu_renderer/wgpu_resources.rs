@@ -10,19 +10,15 @@ use crate::render::{
 };
 use std::collections::HashMap;
 
-pub struct BindGroupInfo {
-    pub bind_group: wgpu::BindGroup,
-}
-
 pub struct WgpuResources {
     pub render_resources: RenderResources,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
-    pub bind_groups: HashMap<u64, BindGroupInfo>,
+    pub bind_groups: HashMap<u64, wgpu::BindGroup>,
     pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
-    pub assignment_bind_groups: HashMap<(RenderResourceAssignmentsId, u64), BindGroupInfo>,
+    pub assignment_bind_groups: HashMap<(RenderResourceAssignmentsId, u64), wgpu::BindGroup>,
 }
 
 impl WgpuResources {
@@ -99,14 +95,14 @@ impl WgpuResources {
 
             let bind_group = device.create_bind_group(&bind_group_descriptor);
             self.bind_groups
-                .insert(bind_group_id, BindGroupInfo { bind_group });
+                .insert(bind_group_id, bind_group);
         }
     }
     pub fn get_assignments_bind_group(
         &self,
         render_resource_assignment_id: RenderResourceAssignmentsId,
         bind_group_id: u64,
-    ) -> Option<&BindGroupInfo> {
+    ) -> Option<&wgpu::BindGroup> {
         self.assignment_bind_groups
             .get(&(render_resource_assignment_id, bind_group_id))
     }
@@ -177,7 +173,7 @@ impl WgpuResources {
         // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
         self.assignment_bind_groups.insert(
             (render_resource_assignments.get_id(), bind_group_id),
-            BindGroupInfo { bind_group },
+            bind_group,
         );
     }
 

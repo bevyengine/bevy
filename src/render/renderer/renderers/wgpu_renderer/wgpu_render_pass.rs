@@ -45,9 +45,9 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
-            let bind_group_info = match self.wgpu_resources.bind_groups.get(&bind_group_id) {
+            let wgpu_bind_group = match self.wgpu_resources.bind_groups.get(&bind_group_id) {
                 // if there is a "global" bind group, use that
-                Some(bind_group_info) => bind_group_info,
+                Some(wgpu_bind_group) => wgpu_bind_group,
                 // otherwise try to get an entity-specific bind group
                 None => {
                     if let Some(assignments) = render_resource_assignments {
@@ -95,7 +95,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             // TODO: check to see if bind group is already set
             self.render_pass.set_bind_group(
                 bind_group.index,
-                &bind_group_info.bind_group,
+                &wgpu_bind_group,
                 dynamic_uniform_indices.as_slice(),
             );
         }
