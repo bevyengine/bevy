@@ -1,6 +1,6 @@
 use super::WgpuRenderer;
 use crate::render::{
-    pipeline::{BindGroup, BindType},
+    pipeline::{BindGroupDescriptor, BindType, BindGroupDescriptorId},
     render_resource::{
         BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceAssignmentsId,
         RenderResources, ResourceInfo,
@@ -16,9 +16,9 @@ pub struct WgpuResources {
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
-    pub bind_groups: HashMap<u64, wgpu::BindGroup>,
-    pub bind_group_layouts: HashMap<u64, wgpu::BindGroupLayout>,
-    pub assignment_bind_groups: HashMap<(RenderResourceAssignmentsId, u64), wgpu::BindGroup>,
+    pub bind_groups: HashMap<BindGroupDescriptorId, wgpu::BindGroup>,
+    pub bind_group_layouts: HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>,
+    pub assignment_bind_groups: HashMap<(RenderResourceAssignmentsId, BindGroupDescriptorId), wgpu::BindGroup>,
 }
 
 impl WgpuResources {
@@ -40,13 +40,13 @@ impl WgpuResources {
     }
 
     // TODO: consider moving this to a resource provider
-    pub fn setup_bind_group(&mut self, device: &wgpu::Device, bind_group: &BindGroup) {
-        let bind_group_id = bind_group.get_hash().unwrap();
+    pub fn setup_bind_group(&mut self, device: &wgpu::Device, bind_group_descriptor: &BindGroupDescriptor) {
+        let bind_group_descriptor_id = bind_group_descriptor.get_id().unwrap();
 
-        if let None = self.bind_groups.get(&bind_group_id) {
+        if let None = self.bind_groups.get(&bind_group_descriptor_id) {
             let mut binding_resources = Vec::new();
             // if a uniform resource buffer doesn't exist, create a new empty one
-            for binding in bind_group.bindings.iter() {
+            for binding in bind_group_descriptor.bindings.iter() {
                 let resource = match self.render_resources.get_named_resource(&binding.name) {
                     resource @ Some(_) => resource,
                     None => return,
@@ -58,7 +58,7 @@ impl WgpuResources {
             }
 
             // create wgpu Bindings
-            let bindings = bind_group
+            let bindings = bind_group_descriptor
                 .bindings
                 .iter()
                 .zip(binding_resources)
@@ -87,7 +87,7 @@ impl WgpuResources {
                 })
                 .collect::<Vec<wgpu::Binding>>();
 
-            let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
+            let bind_group_layout = self.bind_group_layouts.get(&bind_group_descriptor_id).unwrap();
             let bind_group_descriptor = wgpu::BindGroupDescriptor {
                 layout: bind_group_layout,
                 bindings: bindings.as_slice(),
@@ -95,27 +95,27 @@ impl WgpuResources {
 
             let bind_group = device.create_bind_group(&bind_group_descriptor);
             self.bind_groups
-                .insert(bind_group_id, bind_group);
+                .insert(bind_group_descriptor_id, bind_group);
         }
     }
     pub fn get_assignments_bind_group(
         &self,
         render_resource_assignment_id: RenderResourceAssignmentsId,
-        bind_group_id: u64,
+        bind_group_descriptor_id: BindGroupDescriptorId,
     ) -> Option<&wgpu::BindGroup> {
         self.assignment_bind_groups
-            .get(&(render_resource_assignment_id, bind_group_id))
+            .get(&(render_resource_assignment_id, bind_group_descriptor_id))
     }
 
     pub fn create_assignments_bind_group(
         &mut self,
         device: &wgpu::Device,
-        bind_group: &BindGroup,
+        bind_group_descriptor: &BindGroupDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) {
         // TODO: don't make this per-entity. bind groups should be re-used across the same resource when possible
-        let bind_group_id = bind_group.get_hash().unwrap();
-        let bindings = bind_group
+        let bind_group_descriptor_id = bind_group_descriptor.get_id().unwrap();
+        let bindings = bind_group_descriptor
             .bindings
             .iter()
             .map(|binding| {
@@ -163,7 +163,7 @@ impl WgpuResources {
                 }
             })
             .collect::<Vec<wgpu::Binding>>();
-        let bind_group_layout = self.bind_group_layouts.get(&bind_group_id).unwrap();
+        let bind_group_layout = self.bind_group_layouts.get(&bind_group_descriptor_id).unwrap();
         let bind_group_descriptor = wgpu::BindGroupDescriptor {
             layout: bind_group_layout,
             bindings: bindings.as_slice(),
@@ -172,7 +172,7 @@ impl WgpuResources {
         let bind_group = device.create_bind_group(&bind_group_descriptor);
         // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
         self.assignment_bind_groups.insert(
-            (render_resource_assignments.get_id(), bind_group_id),
+            (render_resource_assignments.get_id(), bind_group_descriptor_id),
             bind_group,
         );
     }

@@ -2,7 +2,7 @@ use super::UniformProperty;
 use crate::render::texture::TextureViewDimension;
 
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Binding {
+pub struct BindingDescriptor {
     pub name: String,
     pub index: u32,
     pub bind_type: BindType,

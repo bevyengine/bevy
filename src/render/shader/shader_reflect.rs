@@ -1,6 +1,6 @@
 use crate::render::{
     pipeline::{
-        BindGroup, BindType, Binding, InputStepMode, UniformProperty, UniformPropertyType,
+        BindGroupDescriptor, BindType, BindingDescriptor, InputStepMode, UniformProperty, UniformPropertyType,
         VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     texture::TextureViewDimension,
@@ -30,7 +30,7 @@ use zerocopy::AsBytes;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ShaderLayout {
-    pub bind_groups: Vec<BindGroup>,
+    pub bind_groups: Vec<BindGroupDescriptor>,
     pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
     pub entry_point: String,
 }
@@ -149,14 +149,14 @@ fn reflect_vertex_attribute_descriptor(
     }
 }
 
-fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet) -> BindGroup {
+fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet) -> BindGroupDescriptor {
     let mut bindings = Vec::new();
     for descriptor_binding in descriptor_set.bindings.iter() {
         let binding = reflect_binding(descriptor_binding);
         bindings.push(binding);
     }
 
-    BindGroup::new(descriptor_set.set, bindings)
+    BindGroupDescriptor::new(descriptor_set.set, bindings)
 }
 
 fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDimension {
@@ -169,7 +169,7 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
     }
 }
 
-fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
+fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
     let type_description = binding.type_description.as_ref().unwrap();
     let (name, bind_type) = match binding.descriptor_type {
         ReflectDescriptorType::UniformBuffer => (
@@ -190,7 +190,7 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> Binding {
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
-    Binding {
+    BindingDescriptor {
         index: binding.binding,
         bind_type,
         name: name.to_string(),
@@ -394,9 +394,9 @@ mod tests {
                     }
                 ],
                 bind_groups: vec![
-                    BindGroup::new(
+                    BindGroupDescriptor::new(
                         0,
-                        vec![Binding {
+                        vec![BindingDescriptor {
                             index: 0,
                             name: "Camera".to_string(),
                             bind_type: BindType::Uniform {
@@ -413,9 +413,9 @@ mod tests {
                             },
                         }]
                     ),
-                    BindGroup::new(
+                    BindGroupDescriptor::new(
                         1,
-                        vec![Binding {
+                        vec![BindingDescriptor {
                             index: 0,
                             name: "Texture".to_string(),
                             bind_type: BindType::SampledTexture {

@@ -1,10 +1,10 @@
-use super::BindGroup;
+use super::BindGroupDescriptor;
 use crate::render::shader::ShaderLayout;
 use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug)]
 pub struct PipelineLayout {
-    pub bind_groups: Vec<BindGroup>,
+    pub bind_groups: Vec<BindGroupDescriptor>,
 }
 
 impl PipelineLayout {
@@ -15,7 +15,7 @@ impl PipelineLayout {
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
-        let mut bind_groups = HashMap::<u32, BindGroup>::new();
+        let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
         for shader_layout in shader_layouts {
             for shader_bind_group in shader_layout.bind_groups.iter_mut() {
                 match bind_groups.get_mut(&shader_bind_group.index) {
@@ -43,7 +43,7 @@ impl PipelineLayout {
         let mut bind_groups_result = bind_groups
             .drain()
             .map(|(_, value)| value)
-            .collect::<Vec<BindGroup>>();
+            .collect::<Vec<BindGroupDescriptor>>();
 
         // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());

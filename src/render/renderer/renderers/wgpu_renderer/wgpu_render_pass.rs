@@ -44,7 +44,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     ) -> Option<Range<u32>> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
-            let bind_group_id = bind_group.get_hash().unwrap();
+            let bind_group_id = bind_group.get_id().unwrap();
             let wgpu_bind_group = match self.wgpu_resources.bind_groups.get(&bind_group_id) {
                 // if there is a "global" bind group, use that
                 Some(wgpu_bind_group) => wgpu_bind_group,

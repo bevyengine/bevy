@@ -177,7 +177,7 @@ impl WgpuRenderer {
 
         // setup new bind group layouts
         for bind_group in layout.bind_groups.iter_mut() {
-            let bind_group_id = bind_group.get_or_update_hash();
+            let bind_group_id = bind_group.get_or_update_id();
             if let None = wgpu_resources.bind_group_layouts.get(&bind_group_id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
@@ -204,7 +204,7 @@ impl WgpuRenderer {
             .bind_groups
             .iter()
             .map(|bind_group| {
-                let bind_group_id = bind_group.get_hash().unwrap();
+                let bind_group_id = bind_group.get_id().unwrap();
                 wgpu_resources
                     .bind_group_layouts
                     .get(&bind_group_id)
@@ -652,7 +652,7 @@ impl Renderer for WgpuRenderer {
     ) {
         let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
-            let bind_group_id = bind_group.get_hash().unwrap();
+            let bind_group_id = bind_group.get_id().unwrap();
             // only setup entity bind groups if there isn't already a "global" bind group created
             if let None = self.wgpu_resources.bind_groups.get(&bind_group_id) {
                 if let None = self

@@ -4,7 +4,7 @@ use super::{
         DepthStencilStateDescriptor, FrontFace, IndexFormat, PrimitiveTopology,
         RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindGroup, PipelineLayout, VertexBufferDescriptor,
+    BindGroupDescriptor, PipelineLayout, VertexBufferDescriptor,
 };
 use crate::{
     asset::{AssetStorage, Handle},
@@ -169,7 +169,7 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn add_bind_group(&mut self, bind_group: BindGroup) -> &mut Self {
+    pub fn add_bind_group(&mut self, bind_group: BindGroupDescriptor) -> &mut Self {
         if let PipelineLayoutType::Reflected(_) = self.pipeline.as_ref().unwrap().layout {
             self.pipeline.as_mut().unwrap().layout =
                 PipelineLayoutType::Manual(PipelineLayout::new());
