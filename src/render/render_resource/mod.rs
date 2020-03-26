@@ -1,4 +1,4 @@
-mod asset_batcher;
+mod batching;
 mod buffer;
 mod entity_render_resource_assignments;
 mod render_resource;
@@ -8,7 +8,7 @@ pub mod resource_name;
 mod resource_provider;
 pub mod resource_providers;
 
-pub use asset_batcher::*;
+pub use batching::*;
 pub use buffer::*;
 pub use entity_render_resource_assignments::*;
 pub use render_resource::*;

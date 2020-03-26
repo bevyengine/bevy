@@ -55,5 +55,5 @@ pub trait RenderPass {
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64);
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
-    fn set_bind_groups(&mut self, render_resource_assignments: Option<&RenderResourceAssignments>);
+    fn set_render_resource_assignments(&mut self, render_resource_assignments: Option<&RenderResourceAssignments>) -> Option<Range<u32>>;
 }

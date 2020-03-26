@@ -20,7 +20,7 @@ rand = "0.7.2"
 gltf = "0.14.0"
 serde = { version = "1", features = ["derive"]}
 serde_json = "1.0"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
 erased-serde = "0.3"
 type-uuid = "0.1"
 shaderc = "0.6"

@@ -55,8 +55,8 @@ impl<'a> ForwardPipelineBuilder for RenderGraphBuilder<'a> {
                     },
                     write_mask: ColorWrite::ALL,
                 })
-                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES)
-                .add_draw_target(resource_name::draw_target::ASSIGNED_BATCHES);
+                .add_draw_target(resource_name::draw_target::ASSIGNED_MESHES);
+                // .add_draw_target(resource_name::draw_target::ASSIGNED_BATCHES);
         })
     }
 }

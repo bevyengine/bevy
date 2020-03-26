@@ -54,7 +54,7 @@ impl DrawTarget for UiDrawTarget {
             }
         };
 
-        render_pass.set_bind_groups(None);
+        render_pass.set_render_resource_assignments(None);
         render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);

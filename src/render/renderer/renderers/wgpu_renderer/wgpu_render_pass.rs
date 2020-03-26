@@ -38,7 +38,10 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .draw_indexed(indices, base_vertex, instances);
     }
 
-    fn set_bind_groups(&mut self, render_resource_assignments: Option<&RenderResourceAssignments>) {
+    fn set_render_resource_assignments(
+        &mut self,
+        render_resource_assignments: Option<&RenderResourceAssignments>,
+    ) -> Option<Range<u32>> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
             let bind_group_id = bind_group.get_hash().unwrap();
@@ -96,5 +99,7 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 dynamic_uniform_indices.as_slice(),
             );
         }
+
+        None
     }
 }

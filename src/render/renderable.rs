@@ -16,7 +16,7 @@ pub struct Renderable {
 
     // TODO: make these hidden if possible
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
-    pub render_resource_assignments: Option<RenderResourceAssignments>,
+    pub render_resource_assignments: RenderResourceAssignments,
 }
 
 impl Renderable {
@@ -35,7 +35,7 @@ impl Default for Renderable {
             pipelines: vec![
                 Handle::new(0), // TODO: this could be better
             ],
-            render_resource_assignments: None,
+            render_resource_assignments: RenderResourceAssignments::default(),
             is_instanced: false,
         }
     }
@@ -232,14 +232,12 @@ pub fn update_shader_assignments(world: &mut World, resources: &mut Resources) {
                 &mut pipeline_descriptor_storage,
                 &mut shader_storage,
                 &renderable.pipelines,
-                renderable.render_resource_assignments.as_ref().unwrap(),
+                &renderable.render_resource_assignments,
             );
 
             // reset shader_defs so they can be changed next frame
             renderable
                 .render_resource_assignments
-                .as_mut()
-                .unwrap()
                 .shader_defs
                 .clear();
         }

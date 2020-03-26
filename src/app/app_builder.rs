@@ -16,8 +16,7 @@ use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
 use pipeline::PipelineDescriptor;
 use render_graph::{RenderGraph, RenderGraphBuilder};
 use render_resource::{
-    build_entity_render_resource_assignments_system, AssetBatchers,
-    EntityRenderResourceAssignments, RenderResourceAssignmentsProvider,
+    build_entity_render_resource_assignments_system, AssetBatchers, EntityRenderResourceAssignments,
 };
 use shader::Shader;
 use std::collections::HashMap;
@@ -158,8 +157,6 @@ impl AppBuilder {
     }
 
     pub fn add_default_resources(&mut self) -> &mut Self {
-        let mut asset_batchers = AssetBatchers::default();
-        asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         let resources = self.resources.as_mut().unwrap();
         resources.insert(Time::new());
         resources.insert(AssetStorage::<Mesh>::new());
@@ -169,9 +166,25 @@ impl AppBuilder {
         resources.insert(AssetStorage::<PipelineDescriptor>::new());
         resources.insert(ShaderPipelineAssignments::new());
         resources.insert(CompiledShaderMap::new());
-        resources.insert(RenderResourceAssignmentsProvider::default());
         resources.insert(EntityRenderResourceAssignments::default());
-        resources.insert(asset_batchers);
+        self.batch_types2::<Mesh, StandardMaterial>();
+        self
+    }
+
+    pub fn batch_types2<T1, T2>(&mut self) -> &mut Self
+    where
+        T1: 'static,
+        T2: 'static,
+    {
+        {
+            let resources = self.resources.as_mut().unwrap();
+            let mut asset_batchers = resources
+                .get_mut_or_insert_with(|| AssetBatchers::default())
+                .unwrap();
+
+            asset_batchers.batch_types2::<T1, T2>();
+        }
+
         self
     }
 

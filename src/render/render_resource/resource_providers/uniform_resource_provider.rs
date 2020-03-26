@@ -4,7 +4,7 @@ use crate::{
         render_graph::RenderGraph,
         render_resource::{
             AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-            RenderResourceAssignments, RenderResourceAssignmentsProvider, ResourceInfo,
+            RenderResourceAssignments, ResourceInfo,
             ResourceProvider,
         },
         renderer::Renderer,
@@ -51,6 +51,7 @@ type UniformHandleQuery<T> = Query<
     >,
 >;
 
+// TODO: rename to RenderResourceProvider
 pub struct UniformResourceProvider<T>
 where
     T: AsUniforms + Send + Sync + 'static,
@@ -123,7 +124,7 @@ where
 
             Self::update_shader_defs(
                 &uniforms,
-                renderable.render_resource_assignments.as_mut().unwrap(),
+                &mut renderable.render_resource_assignments,
             );
         }
 
@@ -142,7 +143,6 @@ where
 
                 if renderable.is_instanced {
                     if self.is_instanceable {
-                        asset_batchers.set_entity_handle(entity, *handle);
                         self.increment_instance_count(|| {
                             let uniforms = assets.get(&handle).unwrap();
                             Self::get_instance_size(uniforms)
@@ -154,12 +154,13 @@ where
                         );
                     }
                 } else {
+                    asset_batchers.set_entity_handle(entity, *handle);
                     let uniforms = assets
                         .get(&handle)
                         .expect("Handle points to a non-existent resource");
                     Self::update_shader_defs(
                         uniforms,
-                        renderable.render_resource_assignments.as_mut().unwrap(),
+                        &mut renderable.render_resource_assignments,
                     );
 
                     self.increment_uniform_counts(&uniforms);
@@ -391,7 +392,7 @@ where
                     &uniforms,
                     renderer,
                     resources,
-                    renderable.render_resource_assignments.as_mut().unwrap(),
+                    &mut renderable.render_resource_assignments,
                     staging_buffer,
                 )
             }
@@ -422,7 +423,7 @@ where
                     &uniforms,
                     renderer,
                     resources,
-                    renderable.render_resource_assignments.as_mut().unwrap(),
+                    &mut renderable.render_resource_assignments,
                     staging_buffer,
                 )
             }
@@ -443,9 +444,6 @@ where
         // all members of the batch until "UniformResourceProvider.update" has run for all members of the batch
         if let Some(asset_storage) = resources.get::<AssetStorage<T>>() {
             let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
-            let mut render_resource_assignments_provider = resources
-                .get_mut::<RenderResourceAssignmentsProvider>()
-                .unwrap();
             let handle_type = std::any::TypeId::of::<T>();
             for batch in asset_batchers.get_handle_batches_mut::<T>().unwrap() {
                 let handle: Handle<T> = batch
@@ -455,19 +453,16 @@ where
                     .map(|h| (*h).into())
                     .unwrap();
 
-                let render_resource_assignments = batch
-                    .render_resource_assignments
-                    .get_or_insert_with(|| render_resource_assignments_provider.next());
                 if let Some(uniforms) = asset_storage.get(&handle) {
                     self.setup_uniform_resources(
                         uniforms,
                         renderer,
                         resources,
-                        render_resource_assignments,
+                        &mut batch.render_resource_assignments,
                         staging_buffer,
                     );
 
-                    Self::update_shader_defs(&uniforms, render_resource_assignments);
+                    Self::update_shader_defs(&uniforms, &mut batch.render_resource_assignments);
                 }
             }
         }
@@ -628,7 +623,7 @@ where
             let mut staging_buffer: [u8; 0] = [];
             self.setup_uniforms_resources(world, resources, renderer, &mut staging_buffer);
             self.setup_handles_resources(world, resources, renderer, &mut staging_buffer);
-        // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
+            // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
         } else {
             let staging_buffer = renderer.create_buffer_mapped(
                 BufferInfo {
@@ -643,7 +638,8 @@ where
                 },
             );
 
-            self.copy_staging_buffer_to_final_buffers(renderer, staging_buffer)
+            self.copy_staging_buffer_to_final_buffers(renderer, staging_buffer);
+            renderer.remove_buffer(staging_buffer);
         }
     }
 }
