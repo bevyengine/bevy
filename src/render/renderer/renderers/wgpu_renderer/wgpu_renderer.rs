@@ -17,7 +17,7 @@ use crate::{
         shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
         update_shader_assignments,
-    },
+    }, core::Window,
 };
 use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
 
@@ -76,7 +76,13 @@ impl WgpuRenderer {
 
         self.create_surface(resources);
         self.initialize_resource_providers(world, resources);
-        self.resize(world, resources);
+
+        let (width, height) = {
+            let window = resources.get::<Window>().unwrap();
+            (window.width, window.height)
+        };
+
+        self.resize(world, resources, width, height);
 
         self.intialized = true;
     }
@@ -411,18 +417,14 @@ impl WgpuRenderer {
 }
 
 impl Renderer for WgpuRenderer {
-    fn resize(&mut self, world: &mut World, resources: &mut Resources) {
-        let window_size = {
-            let window = resources.get::<winit::window::Window>().unwrap();
-            window.inner_size()
-        };
+    fn resize(&mut self, world: &mut World, resources: &mut Resources, width: u32, height: u32) {
         self.encoder = Some(
             self.device
                 .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
-        self.swap_chain_descriptor.width = window_size.width;
-        self.swap_chain_descriptor.height = window_size.height;
+        self.swap_chain_descriptor.width = width;
+        self.swap_chain_descriptor.height = height;
         let swap_chain = self
             .device
             .borrow()
@@ -436,8 +438,8 @@ impl Renderer for WgpuRenderer {
                 self,
                 world,
                 resources,
-                window_size.width,
-                window_size.height,
+                width,
+                height,
             );
         }
 

@@ -70,11 +70,11 @@ impl ShaderDefSuffixProvider for Option<Handle<Texture>> {
 }
 
 impl GetBytes for Option<Handle<Texture>> {
-    fn get_bytes(&self) -> Vec<std::primitive::u8> {
+    fn get_bytes(&self) -> Vec<u8> {
         Vec::new()
     }
 
-    fn get_bytes_ref(&self) -> Option<&[std::primitive::u8]> {
+    fn get_bytes_ref(&self) -> Option<&[u8]> {
         None
     }
 }

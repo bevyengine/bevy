@@ -1,7 +1,7 @@
 pub use crate::{
     app::{App, AppBuilder},
     asset::{Asset, AssetStorage, Handle},
-    core::Time,
+    core::{Time, Window},
     ecs,
     ecs::{
         default_archetypes::*, CommandBufferBuilderSource, EntityArchetype, WorldBuilder,

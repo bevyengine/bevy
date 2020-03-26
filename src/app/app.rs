@@ -6,7 +6,7 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{app::AppBuilder, core::Time, render::renderer::Renderer};
+use crate::{app::AppBuilder, core::{Window, Time}, render::renderer::Renderer};
 
 pub struct App {
     pub universe: Universe,
@@ -59,11 +59,17 @@ impl App {
         let event_loop = EventLoop::new();
         log::info!("Initializing the window...");
 
-        let window = winit::window::Window::new(&event_loop).unwrap();
-        window.set_title("bevy");
-        window.set_inner_size(winit::dpi::LogicalSize::new(1280, 720));
+        let window = Window {
+            width: 1280,
+            height: 720,
+        };
+
+        let winit_window = winit::window::Window::new(&event_loop).unwrap();
+        winit_window.set_title("bevy");
+        winit_window.set_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height));
 
         self.resources.insert(window);
+        self.resources.insert(winit_window);
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
@@ -74,11 +80,19 @@ impl App {
             };
             match event {
                 event::Event::WindowEvent {
-                    event: WindowEvent::Resized(_size),
+                    event: WindowEvent::Resized(size),
                     ..
                 } => {
                     if let Some(ref mut renderer) = self.renderer {
-                        renderer.resize(&mut self.world, &mut self.resources);
+                        {
+                            let mut window = self.resources.get_mut::<Window>().unwrap();
+                            window.width = size.width;
+                            window.height = size.height;
+                        }
+
+                        renderer.resize(&mut self.world, &mut self.resources, size.width, size.height);
+                    } else {
+                        println!("no renderer {} {}", size.width, size.height);
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {
