@@ -1,6 +1,7 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
+    core::Window,
     legion::prelude::*,
     render::{
         pass::{
@@ -17,7 +18,7 @@ use crate::{
         shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
         update_shader_assignments,
-    }, core::Window,
+    },
 };
 use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
 
@@ -183,8 +184,7 @@ impl WgpuRenderer {
 
         // setup new bind group layouts
         for bind_group in layout.bind_groups.iter_mut() {
-            let bind_group_id = bind_group.get_or_update_id();
-            if let None = wgpu_resources.bind_group_layouts.get(&bind_group_id) {
+            if let None = wgpu_resources.bind_group_layouts.get(&bind_group.id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
@@ -201,7 +201,7 @@ impl WgpuRenderer {
 
                 wgpu_resources
                     .bind_group_layouts
-                    .insert(bind_group_id, bind_group_layout);
+                    .insert(bind_group.id, bind_group_layout);
             }
         }
 
@@ -210,10 +210,9 @@ impl WgpuRenderer {
             .bind_groups
             .iter()
             .map(|bind_group| {
-                let bind_group_id = bind_group.get_id().unwrap();
                 wgpu_resources
                     .bind_group_layouts
-                    .get(&bind_group_id)
+                    .get(&bind_group.id)
                     .unwrap()
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
@@ -434,13 +433,7 @@ impl Renderer for WgpuRenderer {
         resources.insert(swap_chain);
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.resize(
-                self,
-                world,
-                resources,
-                width,
-                height,
-            );
+            resource_provider.resize(self, world, resources, width, height);
         }
 
         // consume current encoder
@@ -505,13 +498,6 @@ impl Renderer for WgpuRenderer {
                 );
                 self.render_pipelines
                     .insert(*pipeline_descriptor_handle, render_pipeline);
-            }
-
-            // create bind groups
-            let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
-            for bind_group in pipeline_layout.bind_groups.iter() {
-                self.wgpu_resources
-                    .setup_bind_group(&self.device.borrow(), bind_group);
             }
         }
 
@@ -649,19 +635,19 @@ impl Renderer for WgpuRenderer {
 
     fn setup_bind_groups(
         &mut self,
-        render_resource_assignments: &RenderResourceAssignments,
+        render_resource_assignments: &mut RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
         let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
-            let bind_group_id = bind_group.get_id().unwrap();
-            // only setup entity bind groups if there isn't already a "global" bind group created
-            if let None = self.wgpu_resources.bind_groups.get(&bind_group_id) {
+            if let Some(render_resource_set_id) =
+                render_resource_assignments.get_or_update_render_resource_set_id(bind_group)
+            {
                 if let None = self
                     .wgpu_resources
-                    .get_assignments_bind_group(render_resource_assignments.get_id(), bind_group_id)
+                    .get_bind_group(bind_group.id, render_resource_set_id)
                 {
-                    self.wgpu_resources.create_assignments_bind_group(
+                    self.wgpu_resources.create_bind_group(
                         &self.device.borrow(),
                         bind_group,
                         render_resource_assignments,

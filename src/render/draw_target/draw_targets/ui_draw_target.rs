@@ -26,7 +26,7 @@ impl DrawTarget for UiDrawTarget {
     fn draw(
         &self,
         _world: &World,
-        _resources: &Resources,
+        resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
@@ -54,19 +54,21 @@ impl DrawTarget for UiDrawTarget {
             }
         };
 
-        render_pass.set_render_resource_assignments(None);
-        render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
-        render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
-        render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);
-        render_pass.draw_indexed(
-            0..self.mesh_index_length as u32,
-            0,
-            0..(index_count.unwrap() as u32),
-        );
+        // TODO: set global render resources
+        // render_pass.set_render_resources(None);
+        // render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
+        // render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
+        // render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);
+        // render_pass.draw_indexed(
+        //     0..self.mesh_index_length as u32,
+        //     0,
+        //     0..(index_count.unwrap() as u32),
+        // );
     }
+
     fn setup(
         &mut self,
-        _world: &World,
+        _world: &mut World,
         _resources: &Resources,
         renderer: &mut dyn Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,

@@ -24,8 +24,8 @@ pub fn build_entity_render_resource_assignments_system() -> Box<dyn Schedulable>
         .write_resource::<EntityRenderResourceAssignments>()
         .with_query(<Write<Renderable>>::query().filter(changed::<Renderable>()))
         .build(|_, world, entity_assignments, query| {
-            for (entity, mut renderable) in query.iter_entities_mut(world) {
-                    entity_assignments.set(renderable.render_resource_assignments.get_id(), entity);
+            for (entity, renderable) in query.iter_entities_mut(world) {
+                    entity_assignments.set(renderable.render_resource_assignments.id, entity);
             }
         })
 }

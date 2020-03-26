@@ -43,7 +43,7 @@ pub trait Renderer {
     fn get_render_resources_mut(&mut self) -> &mut RenderResources;
     fn setup_bind_groups(
         &mut self,
-        render_resource_assignments: &RenderResourceAssignments,
+        render_resource_assignments: &mut RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     );
 }
@@ -55,5 +55,5 @@ pub trait RenderPass {
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64);
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
-    fn set_render_resource_assignments(&mut self, render_resource_assignments: Option<&RenderResourceAssignments>) -> Option<Range<u32>>;
+    fn set_render_resources(&mut self, render_resource_assignments: &RenderResourceAssignments) -> Option<Range<u32>>;
 }

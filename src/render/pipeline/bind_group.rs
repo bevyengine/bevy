@@ -8,7 +8,7 @@ use std::{
 pub struct BindGroupDescriptor {
     pub index: u32,
     pub bindings: BTreeSet<BindingDescriptor>,
-    hash: Option<BindGroupDescriptorId>,
+    pub id: BindGroupDescriptorId,
 }
 
 #[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
@@ -19,7 +19,7 @@ impl BindGroupDescriptor {
         let mut descriptor = BindGroupDescriptor {
             index,
             bindings: bindings.iter().cloned().collect(),
-            hash: None,
+            id: BindGroupDescriptorId(0),
         };
 
         // TODO: remove all instances of get_or_update_id
@@ -27,27 +27,17 @@ impl BindGroupDescriptor {
         descriptor
     }
 
-    pub fn get_id(&self) -> Option<BindGroupDescriptorId> {
-        self.hash
-    }
-
-    pub fn get_or_update_id(&mut self) -> BindGroupDescriptorId {
-        if self.hash.is_none() {
-            self.update_id();
-        }
-
-        self.hash.unwrap()
-    }
-
     pub fn update_id(&mut self) {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
-        self.hash = Some(BindGroupDescriptorId(hasher.finish()));
+        self.id = BindGroupDescriptorId(hasher.finish());
     }
 }
 
 impl Hash for BindGroupDescriptor {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // TODO: remove index from hash state (or at least id). index is not considered a part of a bind group on the gpu.
+        // bind groups are bound to indices in pipelines
         self.index.hash(state);
         self.bindings.hash(state);
     }

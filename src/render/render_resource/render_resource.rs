@@ -3,6 +3,7 @@ use crate::{
     render::{mesh::Mesh, texture::Texture},
 };
 use std::collections::HashMap;
+use super::RenderResourceAssignments;
 
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]
 pub struct RenderResource(pub u64);
@@ -11,7 +12,7 @@ pub struct RenderResource(pub u64);
 // the overlap could cause accidents.
 #[derive(Default)]
 pub struct RenderResources {
-    pub name_to_resource: HashMap<String, RenderResource>,
+    pub global_assignments: RenderResourceAssignments,
     pub texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
     pub texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
     pub mesh_to_vertices_resource: HashMap<Handle<Mesh>, RenderResource>,
@@ -21,11 +22,11 @@ pub struct RenderResources {
 
 impl RenderResources {
     pub fn set_named_resource(&mut self, name: &str, resource: RenderResource) {
-        self.name_to_resource.insert(name.to_string(), resource);
+        self.global_assignments.set(name, resource);
     }
 
     pub fn get_named_resource(&self, name: &str) -> Option<RenderResource> {
-        self.name_to_resource.get(name).cloned()
+        self.global_assignments.get(name).map(|(r, _i)| r)
     }
 
     pub fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {

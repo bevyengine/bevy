@@ -265,8 +265,8 @@ where
                         })) = renderer.get_resource_info_mut(buffer)
                         {
                             let index = array_info
-                                .get_or_assign_index(render_resource_assignments.get_id());
-                            render_resource_assignments.set(&field_info.uniform_name, buffer);
+                                .get_or_assign_index(render_resource_assignments.id);
+                            render_resource_assignments.set_indexed(&field_info.uniform_name, buffer, index as u32);
                             (buffer, index * uniform_buffer_status.aligned_size)
                         } else {
                             panic!("Expected a dynamic uniform buffer");
@@ -275,7 +275,7 @@ where
                         let resource = match render_resource_assignments
                             .get(field_info.uniform_name)
                         {
-                            Some(render_resource) => render_resource,
+                            Some((render_resource, _index)) => render_resource,
                             None => {
                                 let resource = renderer.create_buffer(BufferInfo {
                                     size,

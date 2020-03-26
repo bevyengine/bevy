@@ -38,66 +38,33 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             .draw_indexed(indices, base_vertex, instances);
     }
 
-    fn set_render_resource_assignments(
+    fn set_render_resources(
         &mut self,
-        render_resource_assignments: Option<&RenderResourceAssignments>,
+        render_resource_assignments: &RenderResourceAssignments,
     ) -> Option<Range<u32>> {
         let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
-            let bind_group_id = bind_group.get_id().unwrap();
-            let wgpu_bind_group = match self.wgpu_resources.bind_groups.get(&bind_group_id) {
-                // if there is a "global" bind group, use that
-                Some(wgpu_bind_group) => wgpu_bind_group,
-                // otherwise try to get an entity-specific bind group
-                None => {
-                    if let Some(assignments) = render_resource_assignments {
-                        self.wgpu_resources
-                            .get_assignments_bind_group(assignments.get_id(), bind_group_id)
-                            .unwrap()
+            if let Some((render_resource_set_id, dynamic_uniform_indices)) =
+                render_resource_assignments.get_render_resource_set_id(bind_group.id)
+            {
+                if let Some(wgpu_bind_group) = self
+                    .wgpu_resources
+                    .get_bind_group(bind_group.id, *render_resource_set_id)
+                {
+                    // TODO: check to see if bind group is already set
+                    let empty = &[];
+                    let dynamic_uniform_indices = if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
+                        dynamic_uniform_indices.as_slice()
                     } else {
-                        panic!("No bind group exists that matches: {:?}");
-                    }
-                }
-            };
-
-            // setup dynamic uniform instances
-            // TODO: these indices could be stored in RenderResourceAssignments so they dont need to be collected on each draw
-            let mut dynamic_uniform_indices = Vec::new();
-            for binding in bind_group.bindings.iter() {
-                if let BindType::Uniform { dynamic, .. } = binding.bind_type {
-                    if !dynamic {
-                        continue;
-                    }
-
-                    // PERF: This hashmap get is pretty expensive (10 fps for 10000 entities)
-                    if let Some(resource) = self
-                        .wgpu_resources
-                        .render_resources
-                        .get_named_resource(&binding.name)
-                    {
-                        if let Some(ResourceInfo::Buffer(BufferInfo {
-                            array_info: Some(array_info),
-                            is_dynamic: true,
-                            ..
-                        })) = self.wgpu_resources.resource_info.get(&resource)
-                        {
-                            let index = array_info
-                                .indices
-                                .get(&render_resource_assignments.unwrap().get_id())
-                                .unwrap();
-
-                            dynamic_uniform_indices.push((*index * array_info.item_size) as u32);
-                        }
-                    }
-                }
+                        empty
+                    };
+                    self.render_pass.set_bind_group(
+                        bind_group.index,
+                        &wgpu_bind_group,
+                        dynamic_uniform_indices,
+                    );
+                };
             }
-
-            // TODO: check to see if bind group is already set
-            self.render_pass.set_bind_group(
-                bind_group.index,
-                &wgpu_bind_group,
-                dynamic_uniform_indices.as_slice(),
-            );
         }
 
         None

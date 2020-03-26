@@ -1,5 +1,5 @@
 use super::RenderResource;
-use crate::render::pipeline::BindGroupDescriptor;
+use crate::render::pipeline::{BindGroupDescriptor, BindGroupDescriptorId};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -9,21 +9,42 @@ use uuid::Uuid;
 // PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default)]
 pub struct RenderResourceAssignments {
-    id: RenderResourceAssignmentsId,
-    render_resources: HashMap<String, RenderResource>,
+    pub id: RenderResourceAssignmentsId,
+    render_resources: HashMap<String, (RenderResource, Option<u32>)>,
     vertex_buffers: HashMap<String, (RenderResource, Option<RenderResource>)>,
+    bind_group_resource_sets:
+        HashMap<BindGroupDescriptorId, (RenderResourceSetId, Option<Vec<u32>>)>,
+    dirty_bind_groups: HashSet<BindGroupDescriptorId>,
     pub(crate) shader_defs: HashSet<String>,
     // TODO: move offsets here to reduce hashing costs?
-    // render_resource_offsets: HashMap<String, >,
 }
 
 impl RenderResourceAssignments {
-    pub fn get(&self, name: &str) -> Option<RenderResource> {
+    pub fn get(&self, name: &str) -> Option<(RenderResource, Option<u32>)> {
         self.render_resources.get(name).cloned()
     }
 
     pub fn set(&mut self, name: &str, resource: RenderResource) {
-        self.render_resources.insert(name.to_string(), resource);
+        self.try_set_dirty(name, resource);
+        self.render_resources
+            .insert(name.to_string(), (resource, None));
+    }
+
+    pub fn set_indexed(&mut self, name: &str, resource: RenderResource, index: u32) {
+        self.try_set_dirty(name, resource);
+        self.render_resources
+            .insert(name.to_string(), (resource, Some(index)));
+    }
+
+    fn try_set_dirty(&mut self, name: &str, resource: RenderResource) {
+        if let Some((render_resource, _)) = self.render_resources.get(name) {
+            if *render_resource != resource {
+                // TODO: this is pretty crude. can we do better?
+                for bind_group_id in self.bind_group_resource_sets.keys() {
+                    self.dirty_bind_groups.insert(*bind_group_id);
+                }
+            }
+        }
     }
 
     pub fn get_vertex_buffer(
@@ -43,24 +64,55 @@ impl RenderResourceAssignments {
             .insert(name.to_string(), (vertices_resource, indices_resource));
     }
 
-    pub fn get_id(&self) -> RenderResourceAssignmentsId {
-        self.id
+    pub fn get_or_update_render_resource_set_id(
+        &mut self,
+        bind_group_descriptor: &BindGroupDescriptor,
+    ) -> Option<RenderResourceSetId> {
+        if !self
+            .bind_group_resource_sets
+            .contains_key(&bind_group_descriptor.id)
+            || self.dirty_bind_groups.contains(&bind_group_descriptor.id)
+        {
+            let result = self.generate_render_resource_set_id(bind_group_descriptor);
+            if let Some((set_id, indices)) = result {
+                self.bind_group_resource_sets
+                    .insert(bind_group_descriptor.id, (set_id, indices));
+                Some(set_id)
+            } else {
+                None
+            }
+        } else {
+            self.bind_group_resource_sets
+                .get(&bind_group_descriptor.id)
+                .map(|(set_id, indices)| *set_id)
+        }
     }
 
     pub fn get_render_resource_set_id(
         &self,
+        bind_group_descriptor_id: BindGroupDescriptorId,
+    ) -> Option<&(RenderResourceSetId, Option<Vec<u32>>)> {
+        self.bind_group_resource_sets.get(&bind_group_descriptor_id)
+    }
+
+    fn generate_render_resource_set_id(
+        &self,
         bind_group_descriptor: &BindGroupDescriptor,
-    ) -> Option<RenderResourceSetId> {
+    ) -> Option<(RenderResourceSetId, Option<Vec<u32>>)> {
         let mut hasher = DefaultHasher::new();
+        let mut indices = Vec::new();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
-            if let Some(render_resource) = self.get(&binding_descriptor.name) {
+            if let Some((render_resource, index)) = self.get(&binding_descriptor.name) {
                 render_resource.hash(&mut hasher);
+                if let Some(index) = index {
+                    indices.push(index);
+                }
             } else {
                 return None;
             }
         }
 
-        Some(RenderResourceSetId(hasher.finish()))
+        Some((RenderResourceSetId(hasher.finish()), if indices.is_empty() { None } else { Some(indices) }))
     }
 }
 
@@ -95,12 +147,10 @@ mod tests {
                         dynamic: false,
                         properties: vec![UniformProperty {
                             name: "A".to_string(),
-                            property_type: UniformPropertyType::Struct(vec![
-                                UniformProperty {
-                                    name: "".to_string(),
-                                    property_type: UniformPropertyType::Mat4,
-                                }
-                            ]),
+                            property_type: UniformPropertyType::Struct(vec![UniformProperty {
+                                name: "".to_string(),
+                                property_type: UniformPropertyType::Mat4,
+                            }]),
                         }],
                     },
                 },
@@ -111,10 +161,10 @@ mod tests {
                         dynamic: false,
                         properties: vec![UniformProperty {
                             name: "B".to_string(),
-                            property_type: UniformPropertyType::Float
+                            property_type: UniformPropertyType::Float,
                         }],
                     },
-                }
+                },
             ],
         );
 
@@ -130,20 +180,22 @@ mod tests {
         equal_assignments.set("a", RenderResource(1));
         equal_assignments.set("b", RenderResource(2));
 
-        let set_id = assignments.get_render_resource_set_id(&bind_group_descriptor);
+        let set_id = assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(set_id, None);
 
-        let different_set_id = different_assignments.get_render_resource_set_id(&bind_group_descriptor);
+        let different_set_id =
+            different_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(different_set_id, None);
         assert_ne!(different_set_id, set_id);
 
-        let equal_set_id = equal_assignments.get_render_resource_set_id(&bind_group_descriptor);
+        let equal_set_id = equal_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(equal_set_id, None);
         assert_eq!(equal_set_id, set_id);
 
         let mut unmatched_assignments = RenderResourceAssignments::default();
         unmatched_assignments.set("a", RenderResource(1));
-        let unmatched_set_id = unmatched_assignments.get_render_resource_set_id(&bind_group_descriptor);
+        let unmatched_set_id =
+            unmatched_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
         assert_eq!(unmatched_set_id, None);
     }
 }

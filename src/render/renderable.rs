@@ -145,7 +145,7 @@ impl CompiledShaderMap {
                 .assignments
                 .get_mut(&final_handle)
                 .unwrap();
-            assignments.push(render_resource_assignments.get_id());
+            assignments.push(render_resource_assignments.id);
         }
     }
 }

@@ -66,7 +66,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 }
 
                 // TODO: validate bind group properties against shader uniform properties at least once
-                render_pass.set_render_resource_assignments(Some(&renderable.render_resource_assignments));
+                render_pass.set_render_resources(&renderable.render_resource_assignments);
                 render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
             }
         }
@@ -74,7 +74,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
 
     fn setup(
         &mut self,
-        world: &World,
+        world: &mut World,
         resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
@@ -93,13 +93,13 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 let entity = entity_render_resource_assignments
                     .get(*assignment_id)
                     .unwrap();
-                let renderable = world.get_component::<Renderable>(*entity).unwrap();
+                let mut renderable = world.get_component_mut::<Renderable>(*entity).unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 
                 renderer.setup_bind_groups(
-                    &renderable.render_resource_assignments,
+                    &mut renderable.render_resource_assignments,
                     pipeline_descriptor,
                 );
             }
