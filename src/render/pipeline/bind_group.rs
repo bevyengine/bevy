@@ -16,11 +16,15 @@ pub struct BindGroupDescriptorId(u64);
 
 impl BindGroupDescriptor {
     pub fn new(index: u32, bindings: Vec<BindingDescriptor>) -> Self {
-        BindGroupDescriptor {
+        let mut descriptor = BindGroupDescriptor {
             index,
             bindings: bindings.iter().cloned().collect(),
             hash: None,
-        }
+        };
+
+        // TODO: remove all instances of get_or_update_id
+        descriptor.update_id();
+        descriptor
     }
 
     pub fn get_id(&self) -> Option<BindGroupDescriptorId> {
