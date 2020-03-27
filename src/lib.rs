@@ -2,7 +2,7 @@
 pub mod app;
 pub mod asset;
 pub mod core;
-pub mod diagnostics;
+pub mod diagnostic;
 pub mod ecs;
 pub mod plugin;
 pub mod prelude;

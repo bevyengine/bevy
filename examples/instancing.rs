@@ -5,7 +5,8 @@ fn main() {
     App::build()
         .add_defaults()
         .add_system(build_move_system())
-        .add_system(bevy::diagnostics::build_fps_printer_system())
+        .add_default_diagnostics()
+        .print_diagnostics(std::time::Duration::from_secs_f64(1.0))
         .setup_world(setup)
         .run();
 }

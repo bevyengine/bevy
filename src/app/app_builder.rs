@@ -9,7 +9,7 @@ use crate::{
         draw_target::draw_targets::*, mesh::Mesh, pass::passes::*, pipeline::pipelines::*,
         render_resource::resource_providers::*, renderer::Renderer, texture::Texture, *,
     },
-    ui,
+    ui, diagnostic::{Diagnostics, diagnostics},
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
@@ -20,7 +20,7 @@ use render_resource::{
     EntityRenderResourceAssignments, RenderResourceAssignments,
 };
 use shader::Shader;
-use std::collections::HashMap;
+use std::{time::Duration, collections::HashMap};
 
 pub struct AppBuilder {
     pub world: Option<World>,
@@ -160,6 +160,7 @@ impl AppBuilder {
     pub fn add_default_resources(&mut self) -> &mut Self {
         let resources = self.resources.as_mut().unwrap();
         resources.insert(Time::new());
+        resources.insert(Diagnostics::default());
         resources.insert(AssetStorage::<Mesh>::new());
         resources.insert(AssetStorage::<Texture>::new());
         resources.insert(AssetStorage::<Shader>::new());
@@ -171,6 +172,18 @@ impl AppBuilder {
         resources.insert(EntityRenderResourceAssignments::default());
         self.batch_types2::<Mesh, StandardMaterial>();
         self
+    }
+
+    pub fn add_default_diagnostics(&mut self) -> &mut Self {
+        let frame_time_diagnostic_system = {
+            let resources = self.resources.as_mut().unwrap();
+            diagnostics::frame_time_diagnostic_system(resources, 10)
+        };
+        self.add_system(frame_time_diagnostic_system)
+    }
+
+    pub fn print_diagnostics(&mut self, wait: Duration) -> &mut Self {
+        self.add_system(diagnostics::print_diagnostics_system(wait))
     }
 
     pub fn batch_types2<T1, T2>(&mut self) -> &mut Self

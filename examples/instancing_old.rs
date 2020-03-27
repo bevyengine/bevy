@@ -24,7 +24,6 @@ fn main() {
         .add_system(build_wander_system())
         .add_system(build_navigate_system())
         .add_system(build_move_system())
-        .add_system(bevy::diagnostics::build_fps_printer_system())
         .run();
 }
 
