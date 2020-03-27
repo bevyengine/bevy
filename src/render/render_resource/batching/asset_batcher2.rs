@@ -1,9 +1,7 @@
-use crate::{
-    asset::{HandleId, HandleUntyped},
-};
+use super::{AssetBatcher, Batch};
+use crate::asset::{HandleId, HandleUntyped};
 use legion::prelude::Entity;
 use std::{any::TypeId, collections::HashMap, hash::Hash};
-use super::{AssetBatcher, Batch};
 
 // TODO: if/when const generics land, revisit this design in favor of generic array lengths
 

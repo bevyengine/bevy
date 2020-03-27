@@ -12,6 +12,8 @@ Here is the current list of planned features. All items are sorted in approximat
     * Add runtime type safety to uniform bindings (and maybe compile time)
     * Inject layout set/bindings into shader source so they don't need to be defined in-shader. Specify set / binding indices in resource providers?
     * Pull as much logic as possible from wgpu_renderer into a "render orchestrator" struct/trait
+    * Separate original/uncompiled/no_defs PipelineDescriptor from compiled PipelineDescriptor conceptually
+    * Try to make Renderer a resource + system 
 * Docs
     * Add doc comments to code
     * Add tutorials

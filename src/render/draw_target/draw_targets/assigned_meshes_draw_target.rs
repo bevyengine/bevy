@@ -4,10 +4,12 @@ use crate::{
     render::{
         draw_target::DrawTarget,
         mesh::Mesh,
-        pipeline::PipelineDescriptor,
-        render_resource::{resource_name, EntityRenderResourceAssignments, ResourceInfo},
+        pipeline::{PipelineDescriptor, ShaderPipelineAssignments},
+        render_resource::{
+            resource_name, EntityRenderResourceAssignments, RenderResourceAssignments, ResourceInfo,
+        },
         renderer::{RenderPass, Renderer},
-        Renderable, ShaderPipelineAssignments,
+        Renderable,
     },
 };
 
@@ -27,6 +29,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             resources.get::<EntityRenderResourceAssignments>().unwrap();
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
+        let global_render_resource_assignments =
+            resources.get::<RenderResourceAssignments>().unwrap();
+        render_pass.set_render_resources(&global_render_resource_assignments);
 
         let assigned_render_resource_assignments = shader_pipeline_assignments
             .assignments
@@ -87,6 +92,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             .get(&pipeline_handle);
         let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
         let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
+        let mut global_render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
         if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
             for assignment_id in assigned_render_resource_assignments.iter() {
                 // TODO: hopefully legion has better random access apis that are more like queries?

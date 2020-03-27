@@ -23,6 +23,7 @@ layout(set = 0, binding = 1) uniform Lights {
     Light SceneLights[MAX_LIGHTS];
 };
 
+// TODO: this should be binding = 0 right?
 layout(set = 2, binding = 1) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };

@@ -1,5 +1,5 @@
 use crate::{
-    asset::{Asset, Handle},
+    asset::{Asset, AssetStorage, Handle},
     legion::prelude::*,
     math,
     prelude::MeshType,
@@ -7,7 +7,10 @@ use crate::{
         draw_target::DrawTarget,
         mesh::Mesh,
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, BufferInfo, BufferUsage, RenderResource, ResourceInfo},
+        render_resource::{
+            resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
+            ResourceInfo,
+        },
         renderer::{RenderPass, Renderer},
     },
 };
@@ -30,12 +33,9 @@ impl DrawTarget for UiDrawTarget {
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
     ) {
+        let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
         let ui_instances_buffer = {
-            let renderer = render_pass.get_renderer();
-            match renderer
-                .get_render_resources()
-                .get_named_resource(resource_name::buffer::UI_INSTANCES)
-            {
+            match render_resource_assignments.get(resource_name::buffer::UI_INSTANCES) {
                 Some(buffer) => buffer,
                 None => return,
             }
@@ -54,24 +54,25 @@ impl DrawTarget for UiDrawTarget {
             }
         };
 
-        // TODO: set global render resources
-        // render_pass.set_render_resources(None);
-        // render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
-        // render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
-        // render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);
-        // render_pass.draw_indexed(
-        //     0..self.mesh_index_length as u32,
-        //     0,
-        //     0..(index_count.unwrap() as u32),
-        // );
+        let global_render_resource_assignments =
+            resources.get::<RenderResourceAssignments>().unwrap();
+        render_pass.set_render_resources(&global_render_resource_assignments);
+        render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
+        render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
+        render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);
+        render_pass.draw_indexed(
+            0..self.mesh_index_length as u32,
+            0,
+            0..(index_count.unwrap() as u32),
+        );
     }
 
     fn setup(
         &mut self,
         _world: &mut World,
-        _resources: &Resources,
+        resources: &Resources,
         renderer: &mut dyn Renderer,
-        _pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_handle: Handle<PipelineDescriptor>,
     ) {
         // don't create meshes if they have already been created
         if let Some(_) = self.mesh_vertex_buffer {
@@ -99,6 +100,12 @@ impl DrawTarget for UiDrawTarget {
             quad.indices.as_bytes(),
         ));
         self.mesh_index_length = quad.indices.len();
+
+        let mut global_render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
+        let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
+        renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
     }
     fn get_name(&self) -> String {
         resource_name::draw_target::UI.to_string()

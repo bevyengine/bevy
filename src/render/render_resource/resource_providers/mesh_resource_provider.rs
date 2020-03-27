@@ -89,12 +89,12 @@ impl ResourceProvider for MeshResourceProvider {
         &mut self,
         _renderer: &mut dyn Renderer,
         _world: &mut World,
-        resources: &Resources,
+        _resources: &Resources,
     ) {
-        let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-        let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
-        for batch in asset_batchers.get_handle_batches::<Mesh>() {
-            // batch.render_resource_assignments.
-        }
+        // TODO: assign vertex buffers
+        // let mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        // let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
+        // for batch in asset_batchers.get_handle_batches::<Mesh>() {
+        // }
     }
 }

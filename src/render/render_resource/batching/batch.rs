@@ -1,6 +1,6 @@
 use crate::{asset::HandleUntyped, render::render_resource::RenderResourceAssignments};
 use legion::prelude::Entity;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 #[derive(PartialEq, Eq, Debug, Default)]
 pub struct Batch {
@@ -18,7 +18,8 @@ impl Batch {
 
     pub fn add_instanced_entity(&mut self, entity: Entity) {
         if let None = self.instanced_entity_indices.get(&entity) {
-            self.instanced_entity_indices.insert(entity, self.current_instanced_entity_index);
+            self.instanced_entity_indices
+                .insert(entity, self.current_instanced_entity_index);
             self.current_instanced_entity_index += 1;
         }
     }

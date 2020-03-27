@@ -1,22 +1,18 @@
-use super::BindGroupDescriptor;
-use crate::render::shader::ShaderLayout;
+use super::{BindGroupDescriptor, VertexBufferDescriptor};
+use crate::render::{render_graph::RenderGraph, shader::ShaderLayout};
 use std::{collections::HashMap, hash::Hash};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
+    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
 }
 
 impl PipelineLayout {
-    pub fn new() -> Self {
-        PipelineLayout {
-            bind_groups: Vec::new(),
-        }
-    }
-
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
         let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
-        for shader_layout in shader_layouts {
+        let mut vertex_buffer_descriptors = Vec::new();
+        for shader_layout in shader_layouts.iter_mut() {
             for shader_bind_group in shader_layout.bind_groups.iter_mut() {
                 match bind_groups.get_mut(&shader_bind_group.index) {
                     Some(bind_group) => {
@@ -40,15 +36,38 @@ impl PipelineLayout {
                 }
             }
         }
+
+        for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
+            vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
+        }
+
         let mut bind_groups_result = bind_groups
             .drain()
             .map(|(_, value)| value)
             .collect::<Vec<BindGroupDescriptor>>();
 
         // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
+        // TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
+
         PipelineLayout {
             bind_groups: bind_groups_result,
+            vertex_buffer_descriptors,
+        }
+    }
+
+    pub fn sync_vertex_buffer_descriptors_with_render_graph(&mut self, render_graph: &RenderGraph) {
+        for vertex_buffer_descriptor in self.vertex_buffer_descriptors.iter_mut() {
+            if let Some(graph_descriptor) =
+                render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
+            {
+                vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
+            } else {
+                panic!(
+                    "Encountered unsupported Vertex Buffer: {}",
+                    vertex_buffer_descriptor.name
+                );
+            }
         }
     }
 }

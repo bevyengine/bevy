@@ -1,5 +1,8 @@
 use crate::render::{
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResource, ResourceProvider},
+    render_resource::{
+        resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
+        ResourceProvider,
+    },
     renderer::Renderer,
     ActiveCamera2d, Camera,
 };
@@ -17,7 +20,7 @@ impl ResourceProvider for Camera2dResourceProvider {
         &mut self,
         renderer: &mut dyn Renderer,
         _world: &mut World,
-        _resources: &Resources,
+        resources: &Resources,
     ) {
         let buffer = renderer.create_buffer(BufferInfo {
             size: std::mem::size_of::<[[f32; 4]; 4]>(),
@@ -25,9 +28,9 @@ impl ResourceProvider for Camera2dResourceProvider {
             ..Default::default()
         });
 
-        renderer
-            .get_render_resources_mut()
-            .set_named_resource(resource_name::uniform::CAMERA2D, buffer);
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::CAMERA2D, buffer);
         self.camera_buffer = Some(buffer);
     }
 

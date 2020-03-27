@@ -8,7 +8,7 @@ use crate::{
             PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor,
         },
-        pipeline::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType},
+        pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
         render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferInfo, RenderResource, RenderResourceAssignments, RenderResources,
@@ -17,7 +17,6 @@ use crate::{
         renderer::Renderer,
         shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
-        update_shader_assignments,
     },
 };
 use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
@@ -65,7 +64,7 @@ impl WgpuRenderer {
             encoder: None,
             intialized: false,
             swap_chain_descriptor,
-            wgpu_resources: WgpuResources::new(),
+            wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
         }
     }
@@ -88,102 +87,14 @@ impl WgpuRenderer {
         self.intialized = true;
     }
 
-    pub fn setup_vertex_buffer_descriptors(
-        render_graph: &RenderGraph,
-        vertex_spirv: &Shader,
-        pipeline_descriptor: &PipelineDescriptor,
-    ) -> Vec<OwnedWgpuVertexBufferDescriptor> {
-        let mut reflected_vertex_layout = if pipeline_descriptor.reflect_vertex_buffer_descriptors {
-            Some(vertex_spirv.reflect_layout().unwrap())
-        } else {
-            None
-        };
-
-        let vertex_buffer_descriptors = if let Some(ref mut layout) = reflected_vertex_layout {
-            for vertex_buffer_descriptor in layout.vertex_buffer_descriptors.iter_mut() {
-                if let Some(graph_descriptor) =
-                    render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
-                {
-                    vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
-                } else {
-                    panic!(
-                        "Encountered unsupported Vertex Buffer: {}",
-                        vertex_buffer_descriptor.name
-                    );
-                }
-            }
-            &layout.vertex_buffer_descriptors
-        } else {
-            &pipeline_descriptor.vertex_buffer_descriptors
-        };
-
-        vertex_buffer_descriptors
-            .iter()
-            .map(|v| v.into())
-            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>()
-    }
-
     pub fn create_render_pipeline(
         wgpu_resources: &mut WgpuResources,
         pipeline_descriptor: &mut PipelineDescriptor,
+        shader_storage: &AssetStorage<Shader>,
         device: &wgpu::Device,
-        render_graph: &RenderGraph,
-        vertex_shader: &Shader,
-        fragment_shader: Option<&Shader>,
     ) -> wgpu::RenderPipeline {
-        let vertex_spirv = vertex_shader.get_spirv_shader(None);
-        let fragment_spirv = fragment_shader.map(|f| f.get_spirv_shader(None));
-
-        let vertex_shader_module = Self::create_shader_module(device, &vertex_spirv, None);
-        let fragment_shader_module = match fragment_shader {
-            Some(fragment_spirv) => Some(Self::create_shader_module(device, fragment_spirv, None)),
-            None => None,
-        };
-
-        if let PipelineLayoutType::Reflected(None) = pipeline_descriptor.layout {
-            let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
-
-            if let Some(ref fragment_spirv) = fragment_spirv {
-                layouts.push(fragment_spirv.reflect_layout().unwrap());
-            }
-
-            let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-
-            // set each uniform binding to dynamic if there is a matching dynamic uniform buffer info
-            for mut bind_group in layout.bind_groups.iter_mut() {
-                bind_group.bindings = bind_group
-                    .bindings
-                    .iter()
-                    .cloned()
-                    .map(|mut binding| {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            if let Some(resource) = wgpu_resources
-                                .render_resources
-                                .get_named_resource(&binding.name)
-                            {
-                                if let Some(ResourceInfo::Buffer(buffer_info)) =
-                                    wgpu_resources.resource_info.get(&resource)
-                                {
-                                    *dynamic = buffer_info.is_dynamic;
-                                }
-                            }
-                        }
-
-                        binding
-                    })
-                    .collect();
-            }
-
-            pipeline_descriptor.layout = PipelineLayoutType::Reflected(Some(layout));
-        }
-
-        let layout = pipeline_descriptor.get_layout_mut().unwrap();
-
-        // setup new bind group layouts
-        for bind_group in layout.bind_groups.iter_mut() {
+        let layout = pipeline_descriptor.get_layout().unwrap();
+        for bind_group in layout.bind_groups.iter() {
             if let None = wgpu_resources.bind_group_layouts.get(&bind_group.id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
@@ -194,18 +105,18 @@ impl WgpuRenderer {
                         ty: (&binding.bind_type).into(),
                     })
                     .collect::<Vec<wgpu::BindGroupLayoutBinding>>();
-                let bind_group_layout =
+                let wgpu_bind_group_layout =
                     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                         bindings: bind_group_layout_binding.as_slice(),
                     });
 
                 wgpu_resources
                     .bind_group_layouts
-                    .insert(bind_group.id, bind_group_layout);
+                    .insert(bind_group.id, wgpu_bind_group_layout);
             }
         }
 
-        // collect bind group layout references
+        // setup and collect bind group layouts
         let bind_group_layouts = layout
             .bind_groups
             .iter()
@@ -221,8 +132,11 @@ impl WgpuRenderer {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
-        let owned_vertex_buffer_descriptors =
-            Self::setup_vertex_buffer_descriptors(render_graph, &vertex_spirv, pipeline_descriptor);
+        let owned_vertex_buffer_descriptors = layout
+            .vertex_buffer_descriptors
+            .iter()
+            .map(|v| v.into())
+            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
 
         let color_states = pipeline_descriptor
             .color_states
@@ -230,13 +144,42 @@ impl WgpuRenderer {
             .map(|c| c.into())
             .collect::<Vec<wgpu::ColorStateDescriptor>>();
 
+        if let None = wgpu_resources
+            .shader_modules
+            .get(&pipeline_descriptor.shader_stages.vertex)
+        {
+            wgpu_resources.create_shader_module(
+                device,
+                pipeline_descriptor.shader_stages.vertex,
+                shader_storage,
+            );
+        }
+
+        if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
+            if let None = wgpu_resources.shader_modules.get(&fragment_handle) {
+                wgpu_resources.create_shader_module(device, fragment_handle, shader_storage);
+            }
+        };
+
+        let vertex_shader_module = wgpu_resources
+            .shader_modules
+            .get(&pipeline_descriptor.shader_stages.vertex)
+            .unwrap();
+
+        let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
+            Some(fragment_handle) => {
+                Some(wgpu_resources.shader_modules.get(&fragment_handle).unwrap())
+            }
+            None => None,
+        };
+
         let mut render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vertex_shader_module,
                 entry_point: "main",
             },
-            fragment_stage: match fragment_shader {
+            fragment_stage: match pipeline_descriptor.shader_stages.fragment {
                 Some(_) => Some(wgpu::ProgrammableStageDescriptor {
                     entry_point: "main",
                     module: fragment_shader_module.as_ref().unwrap(),
@@ -269,6 +212,7 @@ impl WgpuRenderer {
     pub fn create_render_pass<'a>(
         wgpu_resources: &'a WgpuResources,
         pass_descriptor: &PassDescriptor,
+        global_render_resource_assignments: &RenderResourceAssignments,
         encoder: &'a mut wgpu::CommandEncoder,
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPass<'a> {
@@ -276,25 +220,37 @@ impl WgpuRenderer {
             color_attachments: &pass_descriptor
                 .color_attachments
                 .iter()
-                .map(|c| Self::create_wgpu_color_attachment_descriptor(wgpu_resources, c, frame))
+                .map(|c| {
+                    Self::create_wgpu_color_attachment_descriptor(
+                        wgpu_resources,
+                        global_render_resource_assignments,
+                        c,
+                        frame,
+                    )
+                })
                 .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
             depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
-                Self::create_wgpu_depth_stencil_attachment_descriptor(wgpu_resources, d, frame)
+                Self::create_wgpu_depth_stencil_attachment_descriptor(
+                    wgpu_resources,
+                    global_render_resource_assignments,
+                    d,
+                    frame,
+                )
             }),
         })
     }
 
     fn create_wgpu_color_attachment_descriptor<'a>(
         wgpu_resources: &'a WgpuResources,
+        global_render_resource_assignments: &RenderResourceAssignments,
         color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
         let attachment = match color_attachment_descriptor.attachment.as_str() {
             resource_name::texture::SWAP_CHAIN => &frame.view,
             _ => {
-                match wgpu_resources
-                    .render_resources
-                    .get_named_resource(&color_attachment_descriptor.attachment)
+                match global_render_resource_assignments
+                    .get(&color_attachment_descriptor.attachment)
                 {
                     Some(resource) => wgpu_resources.textures.get(&resource).unwrap(),
                     None => panic!(
@@ -308,10 +264,7 @@ impl WgpuRenderer {
         let resolve_target = match color_attachment_descriptor.resolve_target {
             Some(ref target) => match target.as_str() {
                 resource_name::texture::SWAP_CHAIN => Some(&frame.view),
-                _ => match wgpu_resources
-                    .render_resources
-                    .get_named_resource(target.as_str())
-                {
+                _ => match global_render_resource_assignments.get(target.as_str()) {
                     Some(resource) => Some(wgpu_resources.textures.get(&resource).unwrap()),
                     None => panic!(
                         "Color attachment {} does not exist",
@@ -333,15 +286,15 @@ impl WgpuRenderer {
 
     fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
         wgpu_resources: &'a WgpuResources,
+        global_render_resource_assignments: &RenderResourceAssignments,
         depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
         frame: &'a wgpu::SwapChainOutput,
     ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
         let attachment = match depth_stencil_attachment_descriptor.attachment.as_str() {
             resource_name::texture::SWAP_CHAIN => &frame.view,
             _ => {
-                match wgpu_resources
-                    .render_resources
-                    .get_named_resource(&depth_stencil_attachment_descriptor.attachment)
+                match global_render_resource_assignments
+                    .get(&depth_stencil_attachment_descriptor.attachment)
                 {
                     Some(ref resource) => wgpu_resources.textures.get(&resource).unwrap(),
                     None => panic!(
@@ -361,14 +314,6 @@ impl WgpuRenderer {
             stencil_load_op: depth_stencil_attachment_descriptor.stencil_load_op.into(),
             stencil_store_op: depth_stencil_attachment_descriptor.stencil_store_op.into(),
         }
-    }
-
-    pub fn create_shader_module(
-        device: &wgpu::Device,
-        shader: &Shader,
-        macros: Option<&[String]>,
-    ) -> wgpu::ShaderModule {
-        device.create_shader_module(&shader.get_spirv(macros))
     }
 
     pub fn initialize_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
@@ -400,11 +345,11 @@ impl WgpuRenderer {
 
     pub fn create_queued_textures(&mut self, resources: &mut Resources) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
         for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
             let resource = self.create_texture(&texture_descriptor, None);
-            self.wgpu_resources
-                .render_resources
-                .set_named_resource(&name, resource);
+            render_resource_assignments.set(&name, resource);
         }
     }
 
@@ -471,33 +416,31 @@ impl Renderer for WgpuRenderer {
         let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
         let render_graph = resources.get::<RenderGraph>().unwrap();
         let mut render_graph_mut = resources.get_mut::<RenderGraph>().unwrap();
+        let global_render_resource_assignments =
+            resources.get::<RenderResourceAssignments>().unwrap();
+        let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
+
         for pipeline_descriptor_handle in render_graph.pipeline_descriptors.iter() {
-            let pipeline_descriptor = pipeline_storage
-                .get_mut(pipeline_descriptor_handle)
-                .unwrap();
-            // create pipelines
-            if !self
-                .render_pipelines
-                .contains_key(pipeline_descriptor_handle)
+            if let Some(compiled_pipelines_iter) =
+                pipeline_compiler.iter_compiled_pipelines(*pipeline_descriptor_handle)
             {
-                let vertex_shader = shader_storage
-                    .get(&pipeline_descriptor.shader_stages.vertex)
-                    .unwrap();
-                let fragment_shader = pipeline_descriptor
-                    .shader_stages
-                    .fragment
-                    .as_ref()
-                    .map(|handle| &*shader_storage.get(&handle).unwrap());
-                let render_pipeline = WgpuRenderer::create_render_pipeline(
-                    &mut self.wgpu_resources,
-                    pipeline_descriptor,
-                    &self.device.borrow(),
-                    &render_graph,
-                    vertex_shader,
-                    fragment_shader,
-                );
-                self.render_pipelines
-                    .insert(*pipeline_descriptor_handle, render_pipeline);
+                for compiled_pipeline_handle in compiled_pipelines_iter {
+                    // create pipelines
+                    // TODO: merge this into "setup draw targets" loop
+                    if !self.render_pipelines.contains_key(compiled_pipeline_handle) {
+                        let compiled_pipeline_descriptor =
+                            pipeline_storage.get_mut(compiled_pipeline_handle).unwrap();
+
+                        let render_pipeline = WgpuRenderer::create_render_pipeline(
+                            &mut self.wgpu_resources,
+                            compiled_pipeline_descriptor,
+                            &shader_storage,
+                            &self.device.borrow(),
+                        );
+                        self.render_pipelines
+                            .insert(*compiled_pipeline_handle, render_pipeline);
+                    }
+                }
             }
         }
 
@@ -505,13 +448,25 @@ impl Renderer for WgpuRenderer {
         for (pass_name, _pass_descriptor) in render_graph.pass_descriptors.iter() {
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
-                    let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
-                    for draw_target_name in pipeline_descriptor.draw_targets.iter() {
-                        let draw_target = render_graph_mut
-                            .draw_targets
-                            .get_mut(draw_target_name)
-                            .unwrap();
-                        draw_target.setup(world, resources, self, *pass_pipeline);
+                    if let Some(compiled_pipelines_iter) =
+                        pipeline_compiler.iter_compiled_pipelines(*pass_pipeline)
+                    {
+                        for compiled_pipeline_handle in compiled_pipelines_iter {
+                            let pipeline_descriptor =
+                                pipeline_storage.get(compiled_pipeline_handle).unwrap();
+                            for draw_target_name in pipeline_descriptor.draw_targets.iter() {
+                                let draw_target = render_graph_mut
+                                    .draw_targets
+                                    .get_mut(draw_target_name)
+                                    .unwrap();
+                                draw_target.setup(
+                                    world,
+                                    resources,
+                                    self,
+                                    *compiled_pipeline_handle,
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -522,25 +477,40 @@ impl Renderer for WgpuRenderer {
             let mut render_pass = Self::create_render_pass(
                 &self.wgpu_resources,
                 pass_descriptor,
+                &global_render_resource_assignments,
                 &mut encoder,
                 &frame,
             );
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
-                    let pipeline_descriptor = pipeline_storage.get(pass_pipeline).unwrap();
-                    let render_pipeline = self.render_pipelines.get(pass_pipeline).unwrap();
-                    render_pass.set_pipeline(render_pipeline);
+                    if let Some(compiled_pipelines_iter) =
+                        pipeline_compiler.iter_compiled_pipelines(*pass_pipeline)
+                    {
+                        for compiled_pipeline_handle in compiled_pipelines_iter {
+                            let pipeline_descriptor =
+                                pipeline_storage.get(compiled_pipeline_handle).unwrap();
+                            let render_pipeline =
+                                self.render_pipelines.get(compiled_pipeline_handle).unwrap();
+                            render_pass.set_pipeline(render_pipeline);
 
-                    let mut wgpu_render_pass = WgpuRenderPass {
-                        render_pass: &mut render_pass,
-                        pipeline_descriptor,
-                        wgpu_resources: &self.wgpu_resources,
-                        renderer: &self,
-                    };
+                            let mut wgpu_render_pass = WgpuRenderPass {
+                                render_pass: &mut render_pass,
+                                pipeline_descriptor,
+                                wgpu_resources: &self.wgpu_resources,
+                                renderer: &self,
+                            };
 
-                    for draw_target_name in pipeline_descriptor.draw_targets.iter() {
-                        let draw_target = render_graph.draw_targets.get(draw_target_name).unwrap();
-                        draw_target.draw(world, resources, &mut wgpu_render_pass, *pass_pipeline);
+                            for draw_target_name in pipeline_descriptor.draw_targets.iter() {
+                                let draw_target =
+                                    render_graph.draw_targets.get(draw_target_name).unwrap();
+                                draw_target.draw(
+                                    world,
+                                    resources,
+                                    &mut wgpu_render_pass,
+                                    *compiled_pipeline_handle,
+                                );
+                            }
+                        }
                     }
                 }
             }

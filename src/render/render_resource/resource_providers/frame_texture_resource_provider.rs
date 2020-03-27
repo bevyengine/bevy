@@ -1,7 +1,11 @@
 use crate::{
     core::Window,
     prelude::World,
-    render::{render_resource::ResourceProvider, renderer::Renderer, texture::TextureDescriptor},
+    render::{
+        render_resource::{RenderResourceAssignments, ResourceProvider},
+        renderer::Renderer,
+        texture::TextureDescriptor,
+    },
 };
 use legion::prelude::Resources;
 
@@ -23,17 +27,14 @@ impl FrameTextureResourceProvider {
         self.descriptor.size.width = window.width;
         self.descriptor.size.height = window.height;
 
-        if let Some(old_resource) = renderer
-            .get_render_resources()
-            .get_named_resource(&self.name)
-        {
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        if let Some(old_resource) = render_resource_assignments.get(&self.name) {
             renderer.remove_texture(old_resource);
         }
 
         let texture_resource = renderer.create_texture(&self.descriptor, None);
-        renderer
-            .get_render_resources_mut()
-            .set_named_resource(&self.name, texture_resource);
+        render_resource_assignments.set(&self.name, texture_resource);
     }
 }
 

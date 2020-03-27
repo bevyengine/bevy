@@ -1,0 +1,242 @@
+use super::{PipelineDescriptor, PipelineLayout, PipelineLayoutType};
+use crate::{
+    asset::{AssetStorage, Handle},
+    prelude::{Renderable, Resources, Shader, World},
+    render::{
+        render_graph::RenderGraph,
+        render_resource::{RenderResourceAssignments, RenderResourceAssignmentsId},
+        shader::ShaderSource,
+    },
+};
+use std::collections::{HashMap, HashSet};
+
+use legion::prelude::*;
+
+// TODO: consider using (Typeid, fieldinfo.index) in place of string for hashes
+pub struct PipelineCompiler {
+    pub shader_source_to_compiled: HashMap<Handle<Shader>, Vec<(HashSet<String>, Handle<Shader>)>>,
+    pub pipeline_source_to_compiled:
+        HashMap<Handle<PipelineDescriptor>, Vec<(HashSet<String>, Handle<PipelineDescriptor>)>>,
+}
+
+impl PipelineCompiler {
+    pub fn new() -> Self {
+        PipelineCompiler {
+            shader_source_to_compiled: HashMap::new(),
+            pipeline_source_to_compiled: HashMap::new(),
+        }
+    }
+
+    fn reflect_layout(
+        shader_storage: &AssetStorage<Shader>,
+        render_graph: &RenderGraph,
+        pipeline_descriptor: &mut PipelineDescriptor,
+    ) {
+        let vertex_spirv = shader_storage
+            .get(&pipeline_descriptor.shader_stages.vertex)
+            .unwrap();
+        let fragment_spirv = pipeline_descriptor
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|handle| &*shader_storage.get(&handle).unwrap());
+
+        let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
+        if let Some(ref fragment_spirv) = fragment_spirv {
+            layouts.push(fragment_spirv.reflect_layout().unwrap());
+        }
+
+        let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
+        layout.sync_vertex_buffer_descriptors_with_render_graph(render_graph);
+
+        for mut _bind_group in layout.bind_groups.iter_mut() {
+            // TODO: set dynamic here
+        }
+
+        pipeline_descriptor.layout = PipelineLayoutType::Reflected(Some(layout));
+    }
+
+    fn compile_shader(
+        &mut self,
+        shader_storage: &mut AssetStorage<Shader>,
+        shader_handle: &Handle<Shader>,
+        shader_defs: &HashSet<String>,
+    ) -> Handle<Shader> {
+        let compiled_shaders = self
+            .shader_source_to_compiled
+            .entry(*shader_handle)
+            .or_insert_with(|| Vec::new());
+
+        let shader = shader_storage.get(shader_handle).unwrap();
+
+        // don't produce new shader if the input source is already spirv
+        if let ShaderSource::Spirv(_) = shader.source {
+            return *shader_handle;
+        }
+
+        if let Some((_compiled_shader_defs, compiled_shader)) = compiled_shaders
+            .iter()
+            .find(|(compiled_shader_defs, _compiled_shader)| *compiled_shader_defs == *shader_defs)
+        {
+            // if shader has already been compiled with current configuration, use existing shader
+            *compiled_shader
+        } else {
+            // if no shader exists with the current configuration, create new shader and compile
+            let shader_def_vec = shader_defs.iter().cloned().collect::<Vec<String>>();
+            let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
+            compiled_shaders.push((shader_defs.clone(), *shader_handle));
+            shader_storage.add(compiled_shader)
+        }
+    }
+
+    fn compile_pipeline(
+        &mut self,
+        render_graph: &RenderGraph,
+        shader_storage: &mut AssetStorage<Shader>,
+        pipeline_descriptor: &PipelineDescriptor,
+        shader_defs: &HashSet<String>,
+    ) -> PipelineDescriptor {
+        let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
+
+        compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
+            shader_storage,
+            &pipeline_descriptor.shader_stages.vertex,
+            &shader_defs,
+        );
+        compiled_pipeline_descriptor.shader_stages.fragment = pipeline_descriptor
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|fragment| self.compile_shader(shader_storage, fragment, &shader_defs));
+
+        Self::reflect_layout(
+            shader_storage,
+            render_graph,
+            &mut compiled_pipeline_descriptor,
+        );
+
+        compiled_pipeline_descriptor
+    }
+
+    fn update_shader_assignments(
+        &mut self,
+        render_graph: &RenderGraph,
+        shader_pipeline_assignments: &mut ShaderPipelineAssignments,
+        pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
+        shader_storage: &mut AssetStorage<Shader>,
+        pipelines: &[Handle<PipelineDescriptor>],
+        render_resource_assignments: &RenderResourceAssignments,
+    ) {
+        for pipeline_handle in pipelines.iter() {
+            if let None = self.pipeline_source_to_compiled.get(pipeline_handle) {
+                self.pipeline_source_to_compiled
+                    .insert(*pipeline_handle, Vec::new());
+            }
+
+            let final_handle = if let Some((_shader_defs, macroed_pipeline_handle)) = self
+                .pipeline_source_to_compiled
+                .get_mut(pipeline_handle)
+                .unwrap()
+                .iter()
+                .find(|(shader_defs, _macroed_pipeline_handle)| {
+                    *shader_defs == render_resource_assignments.shader_defs
+                }) {
+                *macroed_pipeline_handle
+            } else {
+                let pipeline_descriptor = pipeline_storage.get(pipeline_handle).unwrap();
+                let compiled_pipeline = self.compile_pipeline(
+                    render_graph,
+                    shader_storage,
+                    pipeline_descriptor,
+                    &render_resource_assignments.shader_defs,
+                );
+                let compiled_pipeline_handle = pipeline_storage.add(compiled_pipeline);
+
+                let macro_pipelines = self
+                    .pipeline_source_to_compiled
+                    .get_mut(pipeline_handle)
+                    .unwrap();
+                macro_pipelines.push((
+                    render_resource_assignments.shader_defs.clone(),
+                    compiled_pipeline_handle,
+                ));
+                compiled_pipeline_handle
+            };
+
+            // TODO: this will break down if pipeline layout changes. fix this with "auto-layout"
+            if let None = shader_pipeline_assignments.assignments.get(&final_handle) {
+                shader_pipeline_assignments
+                    .assignments
+                    .insert(final_handle, Vec::new());
+            }
+
+            let assignments = shader_pipeline_assignments
+                .assignments
+                .get_mut(&final_handle)
+                .unwrap();
+            assignments.push(render_resource_assignments.id);
+        }
+    }
+
+    pub fn iter_compiled_pipelines(
+        &self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+    ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
+        if let Some(compiled_pipelines) = self.pipeline_source_to_compiled.get(&pipeline_handle) {
+            Some(compiled_pipelines.iter().map(|(_, handle)| handle))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct ShaderPipelineAssignments {
+    pub assignments: HashMap<Handle<PipelineDescriptor>, Vec<RenderResourceAssignmentsId>>,
+}
+
+impl ShaderPipelineAssignments {
+    pub fn new() -> Self {
+        ShaderPipelineAssignments {
+            assignments: HashMap::new(),
+        }
+    }
+}
+
+// TODO: make this a system
+pub fn update_shader_assignments(world: &mut World, resources: &mut Resources) {
+    // PERF: this seems like a lot of work for things that don't change that often.
+    // lots of string + hashset allocations. sees uniform_resource_provider for more context
+    {
+        let mut shader_pipeline_assignments =
+            resources.get_mut::<ShaderPipelineAssignments>().unwrap();
+        let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
+        let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        let mut pipeline_descriptor_storage = resources
+            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .unwrap();
+
+        // reset assignments so they are updated every frame
+        shader_pipeline_assignments.assignments = HashMap::new();
+
+        // TODO: only update when renderable is changed
+        for mut renderable in <Write<Renderable>>::query().iter_mut(world) {
+            // skip instanced entities. their batched RenderResourceAssignments will handle shader assignments
+            if renderable.is_instanced {
+                continue;
+            }
+
+            pipeline_compiler.update_shader_assignments(
+                &mut render_graph,
+                &mut shader_pipeline_assignments,
+                &mut pipeline_descriptor_storage,
+                &mut shader_storage,
+                &renderable.pipelines,
+                &renderable.render_resource_assignments,
+            );
+
+            // reset shader_defs so they can be changed next frame
+            renderable.render_resource_assignments.shader_defs.clear();
+        }
+    }
+}

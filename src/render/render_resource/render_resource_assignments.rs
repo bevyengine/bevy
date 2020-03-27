@@ -20,7 +20,11 @@ pub struct RenderResourceAssignments {
 }
 
 impl RenderResourceAssignments {
-    pub fn get(&self, name: &str) -> Option<(RenderResource, Option<u32>)> {
+    pub fn get(&self, name: &str) -> Option<RenderResource> {
+        self.render_resources.get(name).map(|(r, _i)| *r)
+    }
+
+    pub fn get_indexed(&self, name: &str) -> Option<(RenderResource, Option<u32>)> {
         self.render_resources.get(name).cloned()
     }
 
@@ -84,7 +88,7 @@ impl RenderResourceAssignments {
         } else {
             self.bind_group_resource_sets
                 .get(&bind_group_descriptor.id)
-                .map(|(set_id, indices)| *set_id)
+                .map(|(set_id, _indices)| *set_id)
         }
     }
 
@@ -102,7 +106,7 @@ impl RenderResourceAssignments {
         let mut hasher = DefaultHasher::new();
         let mut indices = Vec::new();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
-            if let Some((render_resource, index)) = self.get(&binding_descriptor.name) {
+            if let Some((render_resource, index)) = self.get_indexed(&binding_descriptor.name) {
                 render_resource.hash(&mut hasher);
                 if let Some(index) = index {
                     indices.push(index);
@@ -112,7 +116,14 @@ impl RenderResourceAssignments {
             }
         }
 
-        Some((RenderResourceSetId(hasher.finish()), if indices.is_empty() { None } else { Some(indices) }))
+        Some((
+            RenderResourceSetId(hasher.finish()),
+            if indices.is_empty() {
+                None
+            } else {
+                Some(indices)
+            },
+        ))
     }
 }
 
@@ -188,7 +199,8 @@ mod tests {
         assert_ne!(different_set_id, None);
         assert_ne!(different_set_id, set_id);
 
-        let equal_set_id = equal_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
+        let equal_set_id =
+            equal_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(equal_set_id, None);
         assert_eq!(equal_set_id, set_id);
 

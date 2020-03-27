@@ -6,7 +6,11 @@ use winit::{
 
 use legion::prelude::*;
 
-use crate::{app::AppBuilder, core::{Window, Time}, render::renderer::Renderer};
+use crate::{
+    app::AppBuilder,
+    core::{Time, Window},
+    render::renderer::Renderer,
+};
 
 pub struct App {
     pub universe: Universe,
@@ -90,7 +94,12 @@ impl App {
                             window.height = size.height;
                         }
 
-                        renderer.resize(&mut self.world, &mut self.resources, size.width, size.height);
+                        renderer.resize(
+                            &mut self.world,
+                            &mut self.resources,
+                            size.width,
+                            size.height,
+                        );
                     } else {
                         println!("no renderer {} {}", size.width, size.height);
                     }

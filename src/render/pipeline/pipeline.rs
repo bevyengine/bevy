@@ -33,7 +33,6 @@ pub struct PipelineDescriptor {
     pub draw_targets: Vec<String>,
     pub layout: PipelineLayoutType,
     pub shader_stages: ShaderStages,
-    pub reflect_vertex_buffer_descriptors: bool,
     pub rasterization_state: Option<RasterizationStateDescriptor>,
 
     /// The primitive topology used to interpret vertices.
@@ -47,9 +46,6 @@ pub struct PipelineDescriptor {
 
     /// The format of any index buffers used with this pipeline.
     pub index_format: IndexFormat,
-
-    /// The format of any vertex buffers used with this pipeline.
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
 
     /// The number of samples calculated per pixel (for MSAA).
     pub sample_count: u32,
@@ -74,7 +70,6 @@ impl PipelineDescriptor {
             depth_stencil_state: None,
             draw_targets: Vec::new(),
             shader_stages: ShaderStages::new(vertex_shader),
-            vertex_buffer_descriptors: Vec::new(),
             rasterization_state: Some(RasterizationStateDescriptor {
                 front_face: FrontFace::Ccw,
                 cull_mode: CullMode::Back,
@@ -82,7 +77,6 @@ impl PipelineDescriptor {
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
             }),
-            reflect_vertex_buffer_descriptors: true,
             primitive_topology: PrimitiveTopology::TriangleList,
             index_format: IndexFormat::Uint16,
             sample_count: 1,
@@ -170,12 +164,12 @@ impl<'a> PipelineBuilder<'a> {
     }
 
     pub fn add_bind_group(&mut self, bind_group: BindGroupDescriptor) -> &mut Self {
-        if let PipelineLayoutType::Reflected(_) = self.pipeline.as_ref().unwrap().layout {
-            self.pipeline.as_mut().unwrap().layout =
-                PipelineLayoutType::Manual(PipelineLayout::new());
+        let pipeline = self.pipeline.as_mut().unwrap();
+        if let PipelineLayoutType::Reflected(_) = pipeline.layout {
+            pipeline.layout = PipelineLayoutType::Manual(PipelineLayout::default());
         }
 
-        if let PipelineLayoutType::Manual(ref mut layout) = self.pipeline.as_mut().unwrap().layout {
+        if let PipelineLayoutType::Manual(ref mut layout) = pipeline.layout {
             layout.bind_groups.push(bind_group);
         }
 
@@ -187,10 +181,16 @@ impl<'a> PipelineBuilder<'a> {
         vertex_buffer_descriptor: VertexBufferDescriptor,
     ) -> &mut Self {
         let pipeline = self.pipeline.as_mut().unwrap();
-        pipeline.reflect_vertex_buffer_descriptors = false;
-        pipeline
-            .vertex_buffer_descriptors
-            .push(vertex_buffer_descriptor);
+        if let PipelineLayoutType::Reflected(_) = pipeline.layout {
+            pipeline.layout = PipelineLayoutType::Manual(PipelineLayout::default());
+        }
+
+        if let PipelineLayoutType::Manual(ref mut layout) = pipeline.layout {
+            layout
+                .vertex_buffer_descriptors
+                .push(vertex_buffer_descriptor);
+        }
+
         self
     }
 

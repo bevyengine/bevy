@@ -13,10 +13,11 @@ use crate::{
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
-use pipeline::PipelineDescriptor;
+use pipeline::{PipelineCompiler, PipelineDescriptor, ShaderPipelineAssignments};
 use render_graph::{RenderGraph, RenderGraphBuilder};
 use render_resource::{
-    build_entity_render_resource_assignments_system, AssetBatchers, EntityRenderResourceAssignments,
+    build_entity_render_resource_assignments_system, AssetBatchers,
+    EntityRenderResourceAssignments, RenderResourceAssignments,
 };
 use shader::Shader;
 use std::collections::HashMap;
@@ -165,7 +166,8 @@ impl AppBuilder {
         resources.insert(AssetStorage::<StandardMaterial>::new());
         resources.insert(AssetStorage::<PipelineDescriptor>::new());
         resources.insert(ShaderPipelineAssignments::new());
-        resources.insert(CompiledShaderMap::new());
+        resources.insert(PipelineCompiler::new());
+        resources.insert(RenderResourceAssignments::default());
         resources.insert(EntityRenderResourceAssignments::default());
         self.batch_types2::<Mesh, StandardMaterial>();
         self
@@ -212,11 +214,11 @@ impl AppBuilder {
                 .add_resource_provider(LightResourceProvider::new(10))
                 .add_resource_provider(UiResourceProvider::new())
                 .add_resource_provider(MeshResourceProvider::new())
-                .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
-                .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
+                .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(false))
+                .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(false))
                 .add_forward_pass()
-                .add_forward_pipeline()
-                .add_ui_pipeline();
+                .add_forward_pipeline();
+            // .add_ui_pipeline();
         })
     }
 

@@ -1,12 +1,16 @@
 use super::WgpuRenderer;
-use crate::render::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindType},
-    render_resource::{
-        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId,
-        RenderResources, ResourceInfo,
+use crate::{
+    asset::{AssetStorage, Handle},
+    prelude::Shader,
+    render::{
+        pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindType},
+        render_resource::{
+            BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId,
+            RenderResources, ResourceInfo,
+        },
+        renderer::Renderer,
+        texture::{SamplerDescriptor, TextureDescriptor},
     },
-    renderer::Renderer,
-    texture::{SamplerDescriptor, TextureDescriptor},
 };
 use std::collections::HashMap;
 
@@ -15,29 +19,19 @@ pub struct WgpuBindGroupInfo {
     pub bind_groups: HashMap<RenderResourceSetId, wgpu::BindGroup>,
 }
 
+#[derive(Default)]
 pub struct WgpuResources {
     pub render_resources: RenderResources,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
+    pub shader_modules: HashMap<Handle<Shader>, wgpu::ShaderModule>,
     pub bind_groups: HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
     pub bind_group_layouts: HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>,
 }
 
 impl WgpuResources {
-    pub fn new() -> Self {
-        WgpuResources {
-            buffers: HashMap::new(),
-            textures: HashMap::new(),
-            samplers: HashMap::new(),
-            resource_info: HashMap::new(),
-            bind_groups: HashMap::new(),
-            bind_group_layouts: HashMap::new(),
-            render_resources: RenderResources::default(),
-        }
-    }
-
     pub fn add_resource_info(&mut self, resource: RenderResource, resource_info: ResourceInfo) {
         self.resource_info.insert(resource, resource_info);
     }
@@ -67,7 +61,7 @@ impl WgpuResources {
                 .bindings
                 .iter()
                 .map(|binding| {
-                    if let Some((resource, index)) = render_resource_assignments.get(&binding.name) {
+                    if let Some(resource) = render_resource_assignments.get(&binding.name) {
                         let resource_info = self.resource_info.get(&resource).unwrap();
                         wgpu::Binding {
                             binding: binding.index,
@@ -121,9 +115,7 @@ impl WgpuResources {
             };
 
             let bind_group = device.create_bind_group(&wgpu_bind_group_descriptor);
-            // TODO: storing a large number entity bind groups might actually be really bad. make sure this is ok
-
-            let mut bind_group_info = self
+            let bind_group_info = self
                 .bind_groups
                 .entry(bind_group_descriptor.id)
                 .or_insert_with(|| WgpuBindGroupInfo::default());
@@ -210,6 +202,18 @@ impl WgpuResources {
         let source = self.buffers.get(&source_buffer).unwrap();
         let destination = self.buffers.get(&destination_buffer).unwrap();
         encoder.copy_buffer_to_buffer(source, source_offset, destination, destination_offset, size);
+    }
+
+    pub fn create_shader_module(
+        &mut self,
+        device: &wgpu::Device,
+        shader_handle: Handle<Shader>,
+        shader_storage: &AssetStorage<Shader>,
+    ) {
+        self.shader_modules.entry(shader_handle).or_insert_with(|| {
+            let shader = shader_storage.get(&shader_handle).unwrap();
+            device.create_shader_module(&shader.get_spirv(None))
+        });
     }
 
     pub fn create_sampler(

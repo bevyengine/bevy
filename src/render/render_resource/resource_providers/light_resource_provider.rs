@@ -1,5 +1,8 @@
 use crate::render::{
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResource, ResourceProvider},
+    render_resource::{
+        resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
+        ResourceProvider,
+    },
     renderer::Renderer,
     Light, LightRaw,
 };
@@ -38,7 +41,7 @@ impl ResourceProvider for LightResourceProvider {
         &mut self,
         renderer: &mut dyn Renderer,
         _world: &mut World,
-        _resources: &Resources,
+        resources: &Resources,
     ) {
         let light_uniform_size =
             std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
@@ -48,9 +51,9 @@ impl ResourceProvider for LightResourceProvider {
             buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
             ..Default::default()
         });
-        renderer
-            .get_render_resources_mut()
-            .set_named_resource(resource_name::uniform::LIGHTS, buffer);
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::LIGHTS, buffer);
         self.light_buffer = Some(buffer);
     }
 

@@ -4,8 +4,7 @@ use crate::{
         render_graph::RenderGraph,
         render_resource::{
             AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-            RenderResourceAssignments, ResourceInfo,
-            ResourceProvider,
+            RenderResourceAssignments, ResourceInfo, ResourceProvider,
         },
         renderer::Renderer,
         shader::{AsUniforms, FieldBindType},
@@ -122,10 +121,7 @@ where
                 self.increment_uniform_counts(&uniforms);
             }
 
-            Self::update_shader_defs(
-                &uniforms,
-                &mut renderable.render_resource_assignments,
-            );
+            Self::update_shader_defs(&uniforms, &mut renderable.render_resource_assignments);
         }
 
         self.query = Some(query);
@@ -158,10 +154,7 @@ where
                     let uniforms = assets
                         .get(&handle)
                         .expect("Handle points to a non-existent resource");
-                    Self::update_shader_defs(
-                        uniforms,
-                        &mut renderable.render_resource_assignments,
-                    );
+                    Self::update_shader_defs(uniforms, &mut renderable.render_resource_assignments);
 
                     self.increment_uniform_counts(&uniforms);
                 }
@@ -264,9 +257,13 @@ where
                             ..
                         })) = renderer.get_resource_info_mut(buffer)
                         {
-                            let index = array_info
-                                .get_or_assign_index(render_resource_assignments.id);
-                            render_resource_assignments.set_indexed(&field_info.uniform_name, buffer, index as u32);
+                            let index =
+                                array_info.get_or_assign_index(render_resource_assignments.id);
+                            render_resource_assignments.set_indexed(
+                                &field_info.uniform_name,
+                                buffer,
+                                (index * array_info.item_size) as u32,
+                            );
                             (buffer, index * uniform_buffer_status.aligned_size)
                         } else {
                             panic!("Expected a dynamic uniform buffer");
@@ -275,7 +272,7 @@ where
                         let resource = match render_resource_assignments
                             .get(field_info.uniform_name)
                         {
-                            Some((render_resource, _index)) => render_resource,
+                            Some(render_resource) => render_resource,
                             None => {
                                 let resource = renderer.create_buffer(BufferInfo {
                                     size,
@@ -470,12 +467,9 @@ where
 
     fn setup_buffer_arrays(&mut self, renderer: &mut dyn Renderer) {
         for buffer_array_status in self.uniform_buffer_status.iter_mut() {
-            if let Some((name, buffer_array_status)) = buffer_array_status {
+            if let Some((_name, buffer_array_status)) = buffer_array_status {
                 if self.use_dynamic_uniforms {
                     Self::setup_buffer_array(buffer_array_status, renderer, true);
-                    renderer
-                        .get_render_resources_mut()
-                        .set_named_resource(name, buffer_array_status.buffer.unwrap());
                 }
 
                 buffer_array_status.queued_buffer_writes =
@@ -623,7 +617,7 @@ where
             let mut staging_buffer: [u8; 0] = [];
             self.setup_uniforms_resources(world, resources, renderer, &mut staging_buffer);
             self.setup_handles_resources(world, resources, renderer, &mut staging_buffer);
-            // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
+        // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
         } else {
             let staging_buffer = renderer.create_buffer_mapped(
                 BufferInfo {

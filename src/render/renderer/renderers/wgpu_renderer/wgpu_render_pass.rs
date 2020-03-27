@@ -1,7 +1,7 @@
 use super::{WgpuRenderer, WgpuResources};
 use crate::render::{
-    pipeline::{BindType, PipelineDescriptor},
-    render_resource::{BufferInfo, RenderResource, RenderResourceAssignments, ResourceInfo},
+    pipeline::PipelineDescriptor,
+    render_resource::{RenderResource, RenderResourceAssignments},
     renderer::{RenderPass, Renderer},
 };
 use std::ops::Range;
@@ -53,11 +53,18 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 {
                     // TODO: check to see if bind group is already set
                     let empty = &[];
-                    let dynamic_uniform_indices = if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
-                        dynamic_uniform_indices.as_slice()
-                    } else {
-                        empty
-                    };
+                    let dynamic_uniform_indices =
+                        if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
+                            dynamic_uniform_indices.as_slice()
+                        } else {
+                            empty
+                        };
+
+                    // TODO: remove this
+                    // if dynamic_uniform_indices.len() == 0 && bind_group.index > 0 {
+                    //     continue;
+                    // }
+
                     self.render_pass.set_bind_group(
                         bind_group.index,
                         &wgpu_bind_group,

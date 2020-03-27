@@ -6,7 +6,7 @@ use crate::{
         render_graph::RenderGraph,
         render_resource::{
             resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-            ResourceProvider,
+            RenderResourceAssignments, ResourceProvider,
         },
         renderer::Renderer,
         shader::AsUniforms,
@@ -41,7 +41,7 @@ impl UiResourceProvider {
         }
     }
 
-    pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World) {
+    pub fn update(&mut self, renderer: &mut dyn Renderer, world: &World, resources: &Resources) {
         let node_query = <Read<Node>>::query().filter(!component::<Parent>());
 
         let mut data = Vec::new();
@@ -99,9 +99,9 @@ impl UiResourceProvider {
             data.as_bytes(),
         );
 
-        renderer
-            .get_render_resources_mut()
-            .set_named_resource(resource_name::buffer::UI_INSTANCES, buffer);
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::buffer::UI_INSTANCES, buffer);
         self.instance_buffer = Some(buffer);
     }
 }
@@ -118,7 +118,7 @@ impl ResourceProvider for UiResourceProvider {
             .set_vertex_buffer_descriptor(Rect::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {
-        self.update(renderer, world);
+    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
+        self.update(renderer, world, resources);
     }
 }
