@@ -5,14 +5,14 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [features]
-default = ["wgpu"]
+default = ["wgpu", "winit"]
 
 [dependencies]
 legion = { path = "bevy_legion", features = ["serialize"] }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "a7b0d5ae5bc0934439ef559ed145e93f0117c39a", optional = true }
 bitflags = "1.0"
 glam = "0.8.6"
-winit = "0.22.0"
+winit = { version = "0.22.0", optional = true }
 zerocopy = "0.3"
 log = "0.4"
 env_logger = "0.7"

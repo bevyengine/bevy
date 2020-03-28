@@ -1,7 +1,8 @@
 use crate::{
     app::{system_stage, App},
     asset::*,
-    core::Time,
+    core::{Window, Time, window::winit::get_winit_run},
+    diagnostic::{diagnostics, Diagnostics},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
     prelude::StandardMaterial,
@@ -9,7 +10,7 @@ use crate::{
         draw_target::draw_targets::*, mesh::Mesh, pass::passes::*, pipeline::pipelines::*,
         render_resource::resource_providers::*, renderer::Renderer, texture::Texture, *,
     },
-    ui, diagnostic::{Diagnostics, diagnostics},
+    ui,
 };
 
 use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
@@ -20,13 +21,14 @@ use render_resource::{
     EntityRenderResourceAssignments, RenderResourceAssignments,
 };
 use shader::Shader;
-use std::{time::Duration, collections::HashMap};
+use std::{collections::HashMap, time::Duration};
 
 pub struct AppBuilder {
     pub world: Option<World>,
     pub resources: Option<Resources>,
     pub universe: Option<Universe>,
     pub renderer: Option<Box<dyn Renderer>>,
+    pub run: Option<Box<dyn Fn(App)>>,
     pub render_graph: Option<RenderGraph>,
     pub setup_systems: Vec<Box<dyn Schedulable>>,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
@@ -45,6 +47,7 @@ impl AppBuilder {
             resources: Some(resources),
             render_graph: Some(RenderGraph::default()),
             renderer: None,
+            run: None,
             setup_systems: Vec::new(),
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
@@ -93,6 +96,7 @@ impl AppBuilder {
             self.world.take().unwrap(),
             schedule_builder.build(),
             self.resources.take().unwrap(),
+            self.run.take(),
             self.renderer.take(),
         )
     }
@@ -159,6 +163,7 @@ impl AppBuilder {
 
     pub fn add_default_resources(&mut self) -> &mut Self {
         let resources = self.resources.as_mut().unwrap();
+        resources.insert(Window::default());
         resources.insert(Time::new());
         resources.insert(Diagnostics::default());
         resources.insert(AssetStorage::<Mesh>::new());
@@ -266,8 +271,20 @@ impl AppBuilder {
         self
     }
 
+    #[cfg(feature = "winit")]
+    pub fn add_winit(&mut self) -> &mut Self {
+        self.run = Some(get_winit_run());
+        self
+    }
+
+    #[cfg(not(feature = "winit"))]
+    pub fn add_winit(&mut self) -> &mut Self {
+        self
+    }
+
     pub fn add_defaults(&mut self) -> &mut Self {
-        self.add_default_resources()
+        self.add_winit()
+            .add_default_resources()
             .add_default_systems()
             .add_render_graph_defaults()
             .add_wgpu_renderer()

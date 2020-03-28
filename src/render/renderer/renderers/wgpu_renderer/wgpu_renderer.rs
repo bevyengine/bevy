@@ -26,7 +26,6 @@ pub struct WgpuRenderer {
     pub queue: wgpu::Queue,
     pub surface: Option<wgpu::Surface>,
     pub encoder: Option<wgpu::CommandEncoder>,
-    pub swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
     pub intialized: bool,
@@ -49,21 +48,12 @@ impl WgpuRenderer {
             limits: wgpu::Limits::default(),
         });
 
-        let swap_chain_descriptor = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: 0,
-            height: 0,
-            present_mode: wgpu::PresentMode::Vsync,
-        };
-
         WgpuRenderer {
             device: Rc::new(RefCell::new(device)),
             queue,
             surface: None,
             encoder: None,
             intialized: false,
-            swap_chain_descriptor,
             wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
         }
@@ -76,13 +66,7 @@ impl WgpuRenderer {
 
         self.create_surface(resources);
         self.initialize_resource_providers(world, resources);
-
-        let (width, height) = {
-            let window = resources.get::<Window>().unwrap();
-            (window.width, window.height)
-        };
-
-        self.resize(world, resources, width, height);
+        self.resize(world, resources);
 
         self.intialized = true;
     }
@@ -361,24 +345,27 @@ impl WgpuRenderer {
 }
 
 impl Renderer for WgpuRenderer {
-    fn resize(&mut self, world: &mut World, resources: &mut Resources, width: u32, height: u32) {
+    fn resize(&mut self, world: &mut World, resources: &mut Resources) {
         self.encoder = Some(
             self.device
                 .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
         );
-        self.swap_chain_descriptor.width = width;
-        self.swap_chain_descriptor.height = height;
+        let swap_chain_descriptor: wgpu::SwapChainDescriptor = {
+            let window: &Window = &resources.get::<Window>().unwrap();
+            window.into()
+        };
+
         let swap_chain = self
             .device
             .borrow()
-            .create_swap_chain(self.surface.as_ref().unwrap(), &self.swap_chain_descriptor);
+            .create_swap_chain(self.surface.as_ref().unwrap(), &swap_chain_descriptor);
 
         // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
         resources.insert(swap_chain);
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.resize(self, world, resources, width, height);
+            resource_provider.resize(self, world, resources, swap_chain_descriptor.width, swap_chain_descriptor.height);
         }
 
         // consume current encoder

@@ -1,4 +1,5 @@
 use crate::{
+    core::Window,
     prelude::Color,
     render::{
         pass::{LoadOp, StoreOp},
@@ -470,6 +471,22 @@ impl From<FilterMode> for wgpu::FilterMode {
         match val {
             FilterMode::Nearest => wgpu::FilterMode::Nearest,
             FilterMode::Linear => wgpu::FilterMode::Linear,
+        }
+    }
+}
+
+impl From<&Window> for wgpu::SwapChainDescriptor {
+    fn from(window: &Window) -> Self {
+        wgpu::SwapChainDescriptor {
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            width: window.width,
+            height: window.height,
+            present_mode: if window.vsync {
+                wgpu::PresentMode::Vsync
+            } else {
+                wgpu::PresentMode::NoVsync
+            },
         }
     }
 }
