@@ -1,7 +1,7 @@
 use crate::{
     app::{system_stage, App},
     asset::*,
-    core::{Window, Time, window::winit::get_winit_run},
+    core::{window::winit::get_winit_run, Time, Window},
     diagnostic::{diagnostics, Diagnostics},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     plugin::load_plugin,
@@ -187,7 +187,13 @@ impl AppBuilder {
         self.add_system(frame_time_diagnostic_system)
     }
 
-    pub fn print_diagnostics(&mut self, wait: Duration) -> &mut Self {
+    pub fn print_diagnostics(&mut self) -> &mut Self {
+        self.add_system(diagnostics::print_diagnostics_system(
+            Duration::from_secs_f64(1.0),
+        ))
+    }
+
+    pub fn print_diagnostics_with_wait(&mut self, wait: Duration) -> &mut Self {
         self.add_system(diagnostics::print_diagnostics_system(wait))
     }
 

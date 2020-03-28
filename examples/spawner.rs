@@ -6,7 +6,7 @@ fn main() {
         .add_defaults()
         .add_system(build_move_system())
         .add_default_diagnostics()
-        .print_diagnostics(std::time::Duration::from_secs_f64(1.0))
+        .print_diagnostics()
         .setup_world(setup)
         .run();
 }
