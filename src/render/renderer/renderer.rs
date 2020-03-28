@@ -49,7 +49,6 @@ pub trait Renderer {
 }
 
 pub trait RenderPass {
-    // TODO: consider using static dispatch for the renderer: Renderer<WgpuBackend>. compare compile times
     fn get_renderer(&self) -> &dyn Renderer;
     fn get_pipeline_descriptor(&self) -> &PipelineDescriptor;
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64);

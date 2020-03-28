@@ -384,7 +384,7 @@ impl Renderer for WgpuRenderer {
         );
 
         self.update_resource_providers(world, resources);
-        update_shader_assignments(world, resources);
+        update_shader_assignments(world, resources, self);
         self.create_queued_textures(resources);
 
         let mut encoder = self.encoder.take().unwrap();

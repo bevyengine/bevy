@@ -28,7 +28,7 @@ use zerocopy::AsBytes;
 //     println!("{:?}", structured.types);
 // }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,
     pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,

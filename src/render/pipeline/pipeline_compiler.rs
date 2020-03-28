@@ -1,10 +1,13 @@
-use super::{PipelineDescriptor, PipelineLayout, PipelineLayoutType};
+use super::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType};
 use crate::{
     asset::{AssetStorage, Handle},
     prelude::{Renderable, Resources, Shader, World},
     render::{
         render_graph::RenderGraph,
-        render_resource::{RenderResourceAssignments, RenderResourceAssignmentsId},
+        render_resource::{
+            BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
+        },
+        renderer::Renderer,
         shader::ShaderSource,
     },
 };
@@ -31,6 +34,8 @@ impl PipelineCompiler {
         shader_storage: &AssetStorage<Shader>,
         render_graph: &RenderGraph,
         pipeline_descriptor: &mut PipelineDescriptor,
+        renderer: &dyn Renderer,
+        render_resource_assignments: &RenderResourceAssignments,
     ) {
         let vertex_spirv = shader_storage
             .get(&pipeline_descriptor.shader_stages.vertex)
@@ -49,8 +54,25 @@ impl PipelineCompiler {
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
         layout.sync_vertex_buffer_descriptors_with_render_graph(render_graph);
 
-        for mut _bind_group in layout.bind_groups.iter_mut() {
-            // TODO: set dynamic here
+        // set binding uniforms to dynamic if render resource assignments use dynamic
+        // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
+        // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
+        // for all permutations of dynamic/non-dynamic 
+        for bind_group in layout.bind_groups.iter_mut() {
+            for binding in bind_group.bindings.iter_mut() {
+                if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
+                    if let Some(ResourceInfo::Buffer(BufferInfo { is_dynamic, .. })) =
+                        renderer.get_resource_info(render_resource)
+                    {
+                        if let BindType::Uniform {
+                            ref mut dynamic, ..
+                        } = binding.bind_type
+                        {
+                            *dynamic = *is_dynamic
+                        }
+                    }
+                }
+            }
         }
 
         pipeline_descriptor.layout = PipelineLayoutType::Reflected(Some(layout));
@@ -93,26 +115,35 @@ impl PipelineCompiler {
         &mut self,
         render_graph: &RenderGraph,
         shader_storage: &mut AssetStorage<Shader>,
+        renderer: &dyn Renderer,
         pipeline_descriptor: &PipelineDescriptor,
-        shader_defs: &HashSet<String>,
+        render_resource_assignments: &RenderResourceAssignments,
     ) -> PipelineDescriptor {
         let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
 
         compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
             shader_storage,
             &pipeline_descriptor.shader_stages.vertex,
-            &shader_defs,
+            &render_resource_assignments.shader_defs,
         );
         compiled_pipeline_descriptor.shader_stages.fragment = pipeline_descriptor
             .shader_stages
             .fragment
             .as_ref()
-            .map(|fragment| self.compile_shader(shader_storage, fragment, &shader_defs));
+            .map(|fragment| {
+                self.compile_shader(
+                    shader_storage,
+                    fragment,
+                    &render_resource_assignments.shader_defs,
+                )
+            });
 
         Self::reflect_layout(
             shader_storage,
             render_graph,
             &mut compiled_pipeline_descriptor,
+            renderer,
+            render_resource_assignments,
         );
 
         compiled_pipeline_descriptor
@@ -122,6 +153,7 @@ impl PipelineCompiler {
         &mut self,
         render_graph: &RenderGraph,
         shader_pipeline_assignments: &mut ShaderPipelineAssignments,
+        renderer: &dyn Renderer,
         pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
         shader_storage: &mut AssetStorage<Shader>,
         pipelines: &[Handle<PipelineDescriptor>],
@@ -147,8 +179,9 @@ impl PipelineCompiler {
                 let compiled_pipeline = self.compile_pipeline(
                     render_graph,
                     shader_storage,
+                    renderer,
                     pipeline_descriptor,
-                    &render_resource_assignments.shader_defs,
+                    render_resource_assignments,
                 );
                 let compiled_pipeline_handle = pipeline_storage.add(compiled_pipeline);
 
@@ -203,7 +236,7 @@ impl ShaderPipelineAssignments {
 }
 
 // TODO: make this a system
-pub fn update_shader_assignments(world: &mut World, resources: &mut Resources) {
+pub fn update_shader_assignments(world: &mut World, resources: &mut Resources, renderer: &dyn Renderer) {
     // PERF: this seems like a lot of work for things that don't change that often.
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
     {
@@ -229,6 +262,7 @@ pub fn update_shader_assignments(world: &mut World, resources: &mut Resources) {
             pipeline_compiler.update_shader_assignments(
                 &mut render_graph,
                 &mut shader_pipeline_assignments,
+                renderer,
                 &mut pipeline_descriptor_storage,
                 &mut shader_storage,
                 &renderable.pipelines,

@@ -183,7 +183,9 @@ mod tests {
             ..Default::default()
         };
         expected_batch.add_entity(entities[0]);
-        assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
+        let actual_batch = asset_batchers.get_batch2(a1, b1).unwrap();
+        copy_ignored_fields(actual_batch, &mut expected_batch);
+        assert_eq!(actual_batch, &expected_batch);
         asset_batchers.set_entity_handle(entities[0], c1);
 
         asset_batchers.set_entity_handle(entities[1], a1);
@@ -196,7 +198,9 @@ mod tests {
         };
         expected_batch.add_entity(entities[0]);
         expected_batch.add_entity(entities[1]);
-        assert_eq!(asset_batchers.get_batch2(a1, b1).unwrap(), &expected_batch);
+        let actual_batch = asset_batchers.get_batch2(a1, b1).unwrap();
+        copy_ignored_fields(actual_batch, &mut expected_batch);
+        assert_eq!(actual_batch, &expected_batch);
 
         // uncreated batches are empty
         assert_eq!(asset_batchers.get_batch2(a1, c1), None);
@@ -239,6 +243,11 @@ mod tests {
             ),
         ];
         expected_batches.sort_by(|a, b| a.0.cmp(&b.0));
+        // copy ignored fields
+        batches
+            .iter()
+            .zip(expected_batches.iter_mut())
+            .for_each(|((_, ref actual), (_, ref mut expected))| copy_ignored_fields(actual, expected));
         assert_eq!(
             batches,
             expected_batches
@@ -246,5 +255,9 @@ mod tests {
                 .map(|(a, b)| (a, b))
                 .collect::<Vec<(&BatchKey2, &Batch)>>()
         );
+    }
+
+    fn copy_ignored_fields(source: &Batch, destination: &mut Batch) {
+        destination.render_resource_assignments.id = source.render_resource_assignments.id;
     }
 }

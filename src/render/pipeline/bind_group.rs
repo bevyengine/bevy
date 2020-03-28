@@ -1,13 +1,13 @@
 use super::BindingDescriptor;
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeSet},
+    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BindGroupDescriptor {
     pub index: u32,
-    pub bindings: BTreeSet<BindingDescriptor>,
+    pub bindings: Vec<BindingDescriptor>,
     pub id: BindGroupDescriptorId,
 }
 
@@ -18,7 +18,7 @@ impl BindGroupDescriptor {
     pub fn new(index: u32, bindings: Vec<BindingDescriptor>) -> Self {
         let mut descriptor = BindGroupDescriptor {
             index,
-            bindings: bindings.iter().cloned().collect(),
+            bindings,
             id: BindGroupDescriptorId(0),
         };
 
@@ -42,11 +42,3 @@ impl Hash for BindGroupDescriptor {
         self.bindings.hash(state);
     }
 }
-
-impl PartialEq for BindGroupDescriptor {
-    fn eq(&self, other: &BindGroupDescriptor) -> bool {
-        self.index == other.index && self.bindings == other.bindings
-    }
-}
-
-impl Eq for BindGroupDescriptor {}

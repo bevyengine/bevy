@@ -232,8 +232,8 @@ impl AppBuilder {
                 .add_resource_provider(LightResourceProvider::new(10))
                 .add_resource_provider(UiResourceProvider::new())
                 .add_resource_provider(MeshResourceProvider::new())
-                .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(false))
-                .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(false))
+                .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
+                .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
                 .add_forward_pass()
                 .add_forward_pipeline();
             // .add_ui_pipeline();
