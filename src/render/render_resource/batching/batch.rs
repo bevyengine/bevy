@@ -1,4 +1,7 @@
-use crate::{asset::HandleUntyped, render::render_resource::RenderResourceAssignments};
+use crate::{
+    asset::{Handle, HandleUntyped},
+    render::render_resource::RenderResourceAssignments,
+};
 use legion::prelude::Entity;
 use std::collections::{HashMap, HashSet};
 
@@ -22,5 +25,13 @@ impl Batch {
                 .insert(entity, self.current_instanced_entity_index);
             self.current_instanced_entity_index += 1;
         }
+    }
+
+    pub fn get_handle<T>(&self) -> Option<Handle<T>> where T: 'static {
+        self.handles
+            .iter()
+            .map(|h| Handle::from_untyped(*h))
+            .find(|h| h.is_some())
+            .map(|h| h.unwrap())
     }
 }

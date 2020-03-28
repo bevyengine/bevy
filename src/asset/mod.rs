@@ -22,6 +22,14 @@ impl<T> Handle<T> {
             marker: PhantomData,
         }
     }
+
+    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>> where T: 'static {
+        if TypeId::of::<T>() == untyped_handle.type_id {
+            Some(Handle::new(untyped_handle.id))
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> Hash for Handle<T> {
@@ -88,11 +96,7 @@ where
     T: 'static,
 {
     fn from(handle: HandleUntyped) -> Self {
-        if TypeId::of::<T>() != handle.type_id {
-            panic!("attempted to convert untyped handle to incorrect typed handle");
-        }
-
-        Handle::new(handle.id)
+        Handle::from_untyped(handle).expect("attempted to convert untyped handle to incorrect typed handle")
     }
 }
 
