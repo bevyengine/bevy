@@ -66,10 +66,12 @@ pub fn print_diagnostics_system(wait: Duration) -> Box<dyn Schedulable> {
                 elasped = 0.0;
                 for diagnostic in diagnostics.iter() {
                     if let Some(value) = diagnostic.value() {
-                        println!("{}: {:.6}", diagnostic.name, value);
+                        print!("{:<10}: {:<9.6}", diagnostic.name, value);
                         if let Some(average) = diagnostic.average() {
-                            println!("  average: {:.6}", average);
+                            print!("  (avg {:.6})", average);
                         }
+
+                        println!("\n");
                     }
                 }
             }
