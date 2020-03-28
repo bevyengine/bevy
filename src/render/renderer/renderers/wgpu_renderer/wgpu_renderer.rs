@@ -346,31 +346,36 @@ impl WgpuRenderer {
 
 impl Renderer for WgpuRenderer {
     fn resize(&mut self, world: &mut World, resources: &mut Resources) {
-        self.encoder = Some(
-            self.device
+        if let Some(surface) = self.surface.as_ref() {
+            self.encoder = Some(
+                self.device
+                    .borrow()
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+            );
+            let swap_chain_descriptor: wgpu::SwapChainDescriptor = {
+                let window: &Window = &resources.get::<Window>().unwrap();
+                window.into()
+            };
+
+            let swap_chain = self
+                .device
                 .borrow()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
-        );
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = {
-            let window: &Window = &resources.get::<Window>().unwrap();
-            window.into()
-        };
+                .create_swap_chain(surface, &swap_chain_descriptor);
 
-        let swap_chain = self
-            .device
-            .borrow()
-            .create_swap_chain(self.surface.as_ref().unwrap(), &swap_chain_descriptor);
+            // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
+            resources.insert(swap_chain);
+            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+            for resource_provider in render_graph.resource_providers.iter_mut() {
+                resource_provider.resize(self, world, resources, swap_chain_descriptor.width, swap_chain_descriptor.height);
+            }
 
-        // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
-        resources.insert(swap_chain);
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.resize(self, world, resources, swap_chain_descriptor.width, swap_chain_descriptor.height);
+            // consume current encoder
+            let command_buffer = self.encoder.take().unwrap().finish();
+            self.queue.submit(&[command_buffer]);
+        } else {
+            // TODO: remove this warning if this case is not a problem
+            println!("warning: attempted to resize renderer before surface was ready");
         }
-
-        // consume current encoder
-        let command_buffer = self.encoder.take().unwrap().finish();
-        self.queue.submit(&[command_buffer]);
     }
 
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
