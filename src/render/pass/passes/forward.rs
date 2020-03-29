@@ -39,7 +39,7 @@ impl<'a, 'b, 'c> ForwardPassBuilder for RenderGraphBuilder<'a, 'b, 'c> {
                     resolve_target: None,
                     load_op: LoadOp::Clear,
                     store_op: StoreOp::Store,
-                    clear_color: Color::rgb(0.3, 0.4, 0.5),
+                    clear_color: Color::rgb(0.1, 0.1, 0.1),
                 }],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
                     attachment: resource_name::texture::DEPTH.to_string(),
