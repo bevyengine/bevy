@@ -16,7 +16,7 @@ use super::{
 use crate::{
     app::AppBuilder,
     asset::AssetStorage,
-    core::plugin::AppPlugin,
+    app::plugin::AppPlugin,
     prelude::{
         LocalToWorld, Mesh, PipelineDescriptor, Shader, StandardMaterial, Texture,
         UniformResourceProvider,

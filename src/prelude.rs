@@ -1,7 +1,7 @@
 pub use crate::{
-    app::{App, AppBuilder},
+    app::{App, AppBuilder, plugin::AppPlugin},
     asset::{Asset, AssetStorage, Handle},
-    core::{Time, Window, plugin::AppPlugin},
+    core::{Time, Window},
     ecs,
     ecs::{
         default_archetypes::*, CommandBufferBuilderSource, EntityArchetype, WorldBuilder,
@@ -10,7 +10,7 @@ pub use crate::{
     render::{
         mesh::{Mesh, MeshType},
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, resource_providers::UniformResourceProvider},
+        render_resource::{resource_name, resource_providers::UniformResourceProvider, AssetBatchers},
         render_graph::RenderGraph,
         shader::{uniforms::StandardMaterial, Shader, ShaderDefSuffixProvider, ShaderStage},
         texture::{Texture, TextureType},

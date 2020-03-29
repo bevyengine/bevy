@@ -1,5 +1,5 @@
-use super::{Time, Window, plugin::AppPlugin};
-use crate::{app::AppBuilder};
+use super::{Time, Window};
+use crate::{app::{AppBuilder, plugin::AppPlugin}};
 
 #[derive(Default)]
 pub struct CorePlugin;

@@ -19,7 +19,7 @@ pub struct MeshEntity {
 #[derive(EntityArchetype, Default)]
 pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub mesh: Handle<Mesh>,
-    pub material: T,
+    pub material: Handle<T>,
     pub renderable: Renderable,
     pub local_to_world: LocalToWorld,
     pub translation: Translation,
