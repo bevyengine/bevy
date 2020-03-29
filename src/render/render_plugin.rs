@@ -6,6 +6,7 @@ use super::{
     pipeline::{pipelines::ForwardPipelineBuilder, PipelineCompiler, ShaderPipelineAssignments},
     render_graph::RenderGraph,
     render_resource::{
+        build_entity_render_resource_assignments_system,
         resource_providers::{
             Camera2dResourceProvider, CameraResourceProvider, LightResourceProvider,
             MeshResourceProvider, UiResourceProvider,
@@ -14,9 +15,8 @@ use super::{
     },
 };
 use crate::{
-    app::AppBuilder,
+    app::{plugin::AppPlugin, AppBuilder},
     asset::AssetStorage,
-    app::plugin::AppPlugin,
     prelude::{
         LocalToWorld, Mesh, PipelineDescriptor, Shader, StandardMaterial, Texture,
         UniformResourceProvider,
@@ -57,6 +57,7 @@ impl AppPlugin for RenderPlugin {
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app = app
+            .add_system(build_entity_render_resource_assignments_system())
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())
             .add_resource(AssetStorage::<Texture>::new())

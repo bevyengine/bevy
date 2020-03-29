@@ -1,13 +1,17 @@
 use crate::{
-    app::{system_stage, App, plugin::{AppPlugin, load_plugin}},
+    app::{
+        plugin::{load_plugin, AppPlugin},
+        system_stage, App,
+    },
     core::{winit::WinitPlugin, CorePlugin},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
-    render::{renderer::Renderer, *},
-    ui,
+    render::{
+        renderer::{renderers::wgpu_renderer::WgpuRendererPlugin, Renderer},
+        RenderPlugin,
+    },
+    ui::UiPlugin,
 };
 
-use bevy_transform::transform_system_bundle;
-use render_resource::build_entity_render_resource_assignments_system;
 use std::collections::HashMap;
 
 pub struct AppBuilder {
@@ -16,6 +20,7 @@ pub struct AppBuilder {
     pub universe: Universe,
     pub renderer: Option<Box<dyn Renderer>>,
     pub run: Option<Box<dyn Fn(App)>>,
+    pub schedule: Option<Schedule>,
     pub setup_systems: Vec<Box<dyn Schedulable>>,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
@@ -33,6 +38,7 @@ impl AppBuilder {
             resources,
             renderer: None,
             run: None,
+            schedule: None,
             setup_systems: Vec::new(),
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
@@ -40,7 +46,7 @@ impl AppBuilder {
         }
     }
 
-    pub fn build(mut self) -> App {
+    pub fn build_schedule(mut self) -> Self {
         let mut setup_schedule_builder = Schedule::builder();
         for setup_system in self.setup_systems.drain(..) {
             setup_schedule_builder = setup_schedule_builder.add_system(setup_system);
@@ -68,11 +74,19 @@ impl AppBuilder {
             }
         }
 
+        self.schedule = Some(schedule_builder.build());
+
+        self
+    }
+
+    pub fn build(mut self) -> App {
+        self = self.build_schedule();
+
         App::new(
             self.universe,
             self.world,
             self.resources,
-            schedule_builder.build(),
+            self.schedule.take().unwrap(),
             self.run.take(),
             self.renderer.take(),
         )
@@ -135,38 +149,20 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_default_systems(mut self) -> Self {
-        self = self
-            .add_system(build_entity_render_resource_assignments_system())
-            .add_system(ui::ui_update_system::build_ui_update_system());
-        for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
-            self = self.add_system(transform_system);
-        }
-
-        self
-    }
-
-    #[cfg(feature = "wgpu")]
-    pub fn add_wgpu_renderer(mut self) -> Self {
-        self.renderer = Some(Box::new(
-            renderer::renderers::wgpu_renderer::WgpuRenderer::new(),
-        ));
-        self
-    }
-
     pub fn add_defaults(mut self) -> Self {
         self = self
-            .add_default_systems()
             .add_plugin(CorePlugin::default())
-            .add_plugin(RenderPlugin::default());
+            .add_plugin(RenderPlugin::default())
+            .add_plugin(UiPlugin::default());
 
-        #[cfg(feature = "wgpu")]
-        {
-            self = self.add_wgpu_renderer();
-        }
         #[cfg(feature = "winit")]
         {
             self = self.add_plugin(WinitPlugin::default())
+        }
+
+        #[cfg(feature = "wgpu")]
+        {
+            self = self.add_plugin(WgpuRendererPlugin::default());
         }
         self
     }

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-pub fn build_ui_update_system() -> Box<dyn Schedulable> {
+pub fn ui_update_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("ui_update_system")
         .read_resource::<Window>()
         .with_query(<(Write<Node>,)>::query().filter(!component::<Parent>()))
