@@ -57,12 +57,15 @@ impl WgpuResources {
         if let Some((render_resource_set_id, _indices)) =
             render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
         {
+            log::debug!("start creating bind group for RenderResourceSet {:?}", render_resource_set_id);
             let bindings = bind_group_descriptor
                 .bindings
                 .iter()
                 .map(|binding| {
                     if let Some(resource) = render_resource_assignments.get(&binding.name) {
+
                         let resource_info = self.resource_info.get(&resource).unwrap();
+                        log::trace!("found binding {} ({}) resource: {:?} {:?}", binding.index, binding.name, resource, resource_info);
                         wgpu::Binding {
                             binding: binding.index,
                             resource: match &binding.bind_type {
@@ -122,6 +125,9 @@ impl WgpuResources {
             bind_group_info
                 .bind_groups
                 .insert(*render_resource_set_id, bind_group);
+            
+            log::debug!("created bind group for RenderResourceSet {:?}", render_resource_set_id);
+            log::trace!("{:#?}", bind_group_descriptor);
             return true;
         } else {
             return false;

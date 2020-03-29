@@ -110,6 +110,13 @@ impl AssetBatchers {
             .flatten()
     }
 
+    pub fn get_batches_mut(&mut self) -> impl Iterator<Item = &mut Batch> {
+        self.asset_batchers
+            .iter_mut()
+            .map(|a| a.get_batches_mut())
+            .flatten()
+    }
+
     pub fn get_handle_batches<T>(&self) -> Option<impl Iterator<Item = &Batch>>
     where
         T: 'static,

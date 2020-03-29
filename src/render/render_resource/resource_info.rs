@@ -2,7 +2,7 @@ use super::RenderResourceAssignmentsId;
 use crate::render::render_resource::BufferUsage;
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct BufferArrayInfo {
     pub item_count: usize,
     pub item_size: usize,
@@ -32,6 +32,7 @@ impl BufferArrayInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct BufferInfo {
     pub size: usize,
     pub buffer_usage: BufferUsage,
@@ -50,6 +51,7 @@ impl Default for BufferInfo {
     }
 }
 
+#[derive(Debug)]
 pub enum ResourceInfo {
     Buffer(BufferInfo),
     Texture,

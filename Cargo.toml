@@ -14,7 +14,7 @@ bitflags = "1.0"
 glam = "0.8.6"
 winit = { version = "0.22.0", optional = true }
 zerocopy = "0.3"
-log = "0.4"
+log = { version = "0.4", features = ["release_max_level_info"] }
 env_logger = "0.7"
 rand = "0.7.2"
 gltf = "0.14.0"

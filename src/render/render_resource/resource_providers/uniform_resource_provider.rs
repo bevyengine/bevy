@@ -512,11 +512,12 @@ where
         };
 
         if let Some(new_capacity) = new_capacity {
-            println!("creating buffer {}", new_capacity);
             let mut item_size = buffer_array_status.item_size;
             if align {
                 item_size = Self::get_aligned_dynamic_uniform_size(item_size);
             }
+
+            let total_size = item_size * new_capacity;
 
             let buffer = renderer.create_buffer(BufferInfo {
                 array_info: Some(BufferArrayInfo {
@@ -525,11 +526,19 @@ where
                     item_size,
                     ..Default::default()
                 }),
-                size: item_size * new_capacity,
+                size: total_size,
                 buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                 is_dynamic: true,
             });
 
+            log::trace!(
+                "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
+                std::any::type_name::<T>(),
+                total_size,
+                new_capacity,
+                item_size
+            );
+            
             buffer_array_status.buffer = Some(buffer);
         }
     }

@@ -11,7 +11,6 @@ pub fn get_winit_run() -> Box<dyn Fn(App)> {
     Box::new(|mut app: App| {
         env_logger::init();
         let event_loop = EventLoop::new();
-        log::info!("Initializing the window...");
         let winit_window = {
             let window = app.resources.get::<Window>().unwrap();
             let winit_window = winit::window::Window::new(&event_loop).unwrap();
@@ -22,7 +21,7 @@ pub fn get_winit_run() -> Box<dyn Fn(App)> {
 
         app.resources.insert(winit_window);
 
-        log::info!("Entering render loop...");
+        log::debug!("Entering render loop");
         event_loop.run(move |event, _, control_flow| {
             *control_flow = if cfg!(feature = "metal-auto-capture") {
                 ControlFlow::Exit
@@ -45,8 +44,6 @@ pub fn get_winit_run() -> Box<dyn Fn(App)> {
                             &mut app.world,
                             &mut app.resources,
                         );
-                    } else {
-                        println!("no renderer {} {}", size.width, size.height);
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {

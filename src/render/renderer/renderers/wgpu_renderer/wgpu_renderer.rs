@@ -490,6 +490,7 @@ impl Renderer for WgpuRenderer {
                                 pipeline_descriptor,
                                 wgpu_resources: &self.wgpu_resources,
                                 renderer: &self,
+                                bound_bind_groups: HashMap::default(),
                             };
 
                             for draw_target_name in pipeline_descriptor.draw_targets.iter() {
@@ -614,6 +615,8 @@ impl Renderer for WgpuRenderer {
                         bind_group,
                         render_resource_assignments,
                     );
+                } else {
+                    log::trace!("reusing RenderResourceSet {:?} for bind group {}", render_resource_set_id, bind_group.index);
                 }
             }
         }
