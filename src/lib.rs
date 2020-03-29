@@ -4,7 +4,6 @@ pub mod asset;
 pub mod core;
 pub mod diagnostic;
 pub mod ecs;
-pub mod plugin;
 pub mod prelude;
 pub mod render;
 pub mod serialization;

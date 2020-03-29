@@ -1,5 +1,5 @@
-use super::{Time, Window};
-use crate::{app::AppBuilder, plugin::AppPlugin};
+use super::{Time, Window, plugin::AppPlugin};
+use crate::{app::AppBuilder};
 
 #[derive(Default)]
 pub struct CorePlugin;
@@ -9,6 +9,7 @@ impl AppPlugin for CorePlugin {
         app.add_resource(Window::default())
             .add_resource(Time::new())
     }
+
     fn name(&self) -> &'static str {
         "Core"
     }

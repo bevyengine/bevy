@@ -7,7 +7,7 @@ pub use wgpu_render_pass::*;
 pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
-use crate::{app::AppBuilder, plugin::AppPlugin};
+use crate::{app::AppBuilder, core::plugin::AppPlugin};
 
 pub struct WgpuRendererPlugin;
 

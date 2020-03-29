@@ -1,8 +1,7 @@
 use crate::{
     app::{system_stage, App},
-    core::{winit::WinitPlugin, CorePlugin},
+    core::{plugin::{AppPlugin, load_plugin}, winit::WinitPlugin, CorePlugin},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
-    plugin::{load_plugin, AppPlugin},
     render::{renderer::Renderer, *},
     ui,
 };

@@ -7,7 +7,7 @@ pub trait AppPlugin: Any + Send + Sync {
     fn name(&self) -> &'static str;
 }
 
-type CreateAppPlugin = unsafe fn() -> *mut dyn AppPlugin;
+pub type CreateAppPlugin = unsafe fn() -> *mut dyn AppPlugin;
 
 pub fn load_plugin(path: &str) -> (Library, Box<dyn AppPlugin>) {
     let lib = Library::new(path).unwrap();

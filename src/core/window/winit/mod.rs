@@ -1,6 +1,5 @@
 use crate::{
-    app::{App, AppBuilder},
-    plugin::AppPlugin,
+    app::{App, AppBuilder}, core::plugin::AppPlugin,
 };
 
 use super::Window;
