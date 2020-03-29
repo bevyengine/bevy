@@ -13,7 +13,7 @@ pub trait ForwardPipelineBuilder {
     fn add_forward_pipeline(&mut self) -> &mut Self;
 }
 
-impl<'a> ForwardPipelineBuilder for RenderGraphBuilder<'a> {
+impl<'a, 'b, 'c> ForwardPipelineBuilder for RenderGraphBuilder<'a, 'b, 'c> {
     fn add_forward_pipeline(&mut self) -> &mut Self {
         self.add_pipeline(resource_name::pipeline::FORWARD, |builder| {
             builder

@@ -3,10 +3,12 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_defaults()
-        .setup_world(setup)
+        .setup(setup)
         .add_system(build_move_system())
-        .add_default_diagnostics()
-        .print_diagnostics()
+        .add_plugin(DiagnosticsPlugin {
+            print_diagnostics: true,
+            ..Default::default()
+        })
         .run();
 }
 

@@ -2,7 +2,7 @@ use bevy::{prelude::*, serialization::*};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 fn main() {
-    let app = App::build().add_defaults().setup_world(setup).build();
+    let app = App::build().add_defaults().setup(setup).build();
 
     let comp_registrations = [ComponentRegistration::of::<Test>()];
 

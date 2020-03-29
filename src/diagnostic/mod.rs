@@ -1,4 +1,6 @@
 pub mod diagnostics;
+mod diagnostic_plugin;
+pub use diagnostic_plugin::*;
 
 use std::{
     collections::{HashMap, VecDeque},

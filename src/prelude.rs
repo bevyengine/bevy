@@ -11,11 +11,13 @@ pub use crate::{
         mesh::{Mesh, MeshType},
         pipeline::PipelineDescriptor,
         render_resource::{resource_name, resource_providers::UniformResourceProvider},
+        render_graph::RenderGraph,
         shader::{uniforms::StandardMaterial, Shader, ShaderDefSuffixProvider, ShaderStage},
         texture::{Texture, TextureType},
         ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Light, Renderable,
     },
     ui::{Anchors, Margins, Node},
+    diagnostic::DiagnosticsPlugin,
 };
 pub use bevy_derive::*;
 pub use bevy_transform::prelude::*;

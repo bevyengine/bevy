@@ -20,7 +20,7 @@ struct Wander {
 
 fn main() {
     App::build()
-        .setup_world(setup)
+        .setup(setup)
         .add_system(build_wander_system())
         .add_system(build_navigate_system())
         .add_system(build_move_system())

@@ -1,35 +1,22 @@
 use crate::{
     app::{system_stage, App},
-    asset::*,
-    core::{window::winit::get_winit_run, Time, Window},
-    diagnostic::{diagnostics, Diagnostics},
+    core::{window::winit::get_winit_run, CorePlugin},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
-    plugin::load_plugin,
-    prelude::StandardMaterial,
-    render::{
-        draw_target::draw_targets::*, mesh::Mesh, pass::passes::*, pipeline::pipelines::*,
-        render_resource::resource_providers::*, renderer::Renderer, texture::Texture, *,
-    },
+    plugin::{load_plugin, AppPlugin},
+    render::{renderer::Renderer, *},
     ui,
 };
 
-use bevy_transform::{prelude::LocalToWorld, transform_system_bundle};
-use pipeline::{PipelineCompiler, PipelineDescriptor, ShaderPipelineAssignments};
-use render_graph::{RenderGraph, RenderGraphBuilder};
-use render_resource::{
-    build_entity_render_resource_assignments_system, AssetBatchers,
-    EntityRenderResourceAssignments, RenderResourceAssignments,
-};
-use shader::Shader;
-use std::{collections::HashMap, time::Duration};
+use bevy_transform::transform_system_bundle;
+use render_resource::build_entity_render_resource_assignments_system;
+use std::collections::HashMap;
 
 pub struct AppBuilder {
-    pub world: Option<World>,
-    pub resources: Option<Resources>,
-    pub universe: Option<Universe>,
+    pub world: World,
+    pub resources: Resources,
+    pub universe: Universe,
     pub renderer: Option<Box<dyn Renderer>>,
     pub run: Option<Box<dyn Fn(App)>>,
-    pub render_graph: Option<RenderGraph>,
     pub setup_systems: Vec<Box<dyn Schedulable>>,
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
@@ -42,10 +29,9 @@ impl AppBuilder {
         let world = universe.create_world();
         let resources = Resources::default();
         AppBuilder {
-            universe: Some(universe),
-            world: Some(world),
-            resources: Some(resources),
-            render_graph: Some(RenderGraph::default()),
+            universe,
+            world,
+            resources,
             renderer: None,
             run: None,
             setup_systems: Vec::new(),
@@ -55,17 +41,14 @@ impl AppBuilder {
         }
     }
 
-    pub fn build(&mut self) -> App {
+    pub fn build(mut self) -> App {
         let mut setup_schedule_builder = Schedule::builder();
         for setup_system in self.setup_systems.drain(..) {
             setup_schedule_builder = setup_schedule_builder.add_system(setup_system);
         }
 
         let mut setup_schedule = setup_schedule_builder.build();
-        setup_schedule.execute(
-            self.world.as_mut().unwrap(),
-            self.resources.as_mut().unwrap(),
-        );
+        setup_schedule.execute(&mut self.world, &mut self.resources);
 
         let mut schedule_builder = Schedule::builder();
         for stage_name in self.stage_order.iter() {
@@ -86,52 +69,40 @@ impl AppBuilder {
             }
         }
 
-        self.resources
-            .as_mut()
-            .unwrap()
-            .insert(self.render_graph.take().unwrap());
-
         App::new(
-            self.universe.take().unwrap(),
-            self.world.take().unwrap(),
+            self.universe,
+            self.world,
+            self.resources,
             schedule_builder.build(),
-            self.resources.take().unwrap(),
             self.run.take(),
             self.renderer.take(),
         )
     }
 
-    pub fn run(&mut self) {
+    pub fn run(self) {
         self.build().run();
     }
 
-    pub fn with_world(&mut self, world: World) -> &mut Self {
-        self.world = Some(world);
+    pub fn with_world(mut self, world: World) -> Self {
+        self.world = world;
         self
     }
 
-    pub fn setup_world(&mut self, setup: impl Fn(&mut World, &mut Resources)) -> &mut Self {
-        setup(
-            self.world.as_mut().unwrap(),
-            self.resources.as_mut().unwrap(),
-        );
+    pub fn setup(mut self, setup: impl Fn(&mut World, &mut Resources)) -> Self {
+        setup(&mut self.world, &mut self.resources);
         self
     }
 
-    pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+    pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
         self.add_system_to_stage(system_stage::UPDATE, system)
     }
 
-    pub fn add_setup_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+    pub fn add_setup_system(mut self, system: Box<dyn Schedulable>) -> Self {
         self.setup_systems.push(system);
         self
     }
 
-    pub fn add_system_to_stage(
-        &mut self,
-        stage_name: &str,
-        system: Box<dyn Schedulable>,
-    ) -> &mut Self {
+    pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
         if let None = self.system_stages.get(stage_name) {
             self.system_stages
                 .insert(stage_name.to_string(), Vec::new());
@@ -144,11 +115,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_runnable_to_stage(
-        &mut self,
-        stage_name: &str,
-        system: Box<dyn Runnable>,
-    ) -> &mut Self {
+    pub fn add_runnable_to_stage(mut self, stage_name: &str, system: Box<dyn Runnable>) -> Self {
         if let None = self.runnable_stages.get(stage_name) {
             self.runnable_stages
                 .insert(stage_name.to_string(), Vec::new());
@@ -161,111 +128,27 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_default_resources(&mut self) -> &mut Self {
-        let resources = self.resources.as_mut().unwrap();
-        resources.insert(Window::default());
-        resources.insert(Time::new());
-        resources.insert(Diagnostics::default());
-        resources.insert(AssetStorage::<Mesh>::new());
-        resources.insert(AssetStorage::<Texture>::new());
-        resources.insert(AssetStorage::<Shader>::new());
-        resources.insert(AssetStorage::<StandardMaterial>::new());
-        resources.insert(AssetStorage::<PipelineDescriptor>::new());
-        resources.insert(ShaderPipelineAssignments::new());
-        resources.insert(PipelineCompiler::new());
-        resources.insert(RenderResourceAssignments::default());
-        resources.insert(EntityRenderResourceAssignments::default());
-        self.batch_types2::<Mesh, StandardMaterial>();
-        self
-    }
-
-    pub fn add_default_diagnostics(&mut self) -> &mut Self {
-        let frame_time_diagnostic_system = {
-            let resources = self.resources.as_mut().unwrap();
-            diagnostics::frame_time_diagnostic_system(resources, 10)
-        };
-        self.add_system(frame_time_diagnostic_system)
-    }
-
-    pub fn print_diagnostics(&mut self) -> &mut Self {
-        self.add_system(diagnostics::print_diagnostics_system(
-            Duration::from_secs_f64(1.0),
-        ))
-    }
-
-    pub fn print_diagnostics_with_wait(&mut self, wait: Duration) -> &mut Self {
-        self.add_system(diagnostics::print_diagnostics_system(wait))
-    }
-
-    pub fn batch_types2<T1, T2>(&mut self) -> &mut Self
+    pub fn add_resource<T>(mut self, resource: T) -> Self
     where
-        T1: 'static,
-        T2: 'static,
+        T: Send + Sync + 'static,
     {
-        {
-            let resources = self.resources.as_mut().unwrap();
-            let mut asset_batchers = resources
-                .get_mut_or_insert_with(|| AssetBatchers::default())
-                .unwrap();
-
-            asset_batchers.batch_types2::<T1, T2>();
-        }
-
+        self.resources.insert(resource);
         self
     }
 
-    pub fn add_default_systems(&mut self) -> &mut Self {
-        self.add_system(build_entity_render_resource_assignments_system());
-        self.add_system(ui::ui_update_system::build_ui_update_system());
-        for transform_system in
-            transform_system_bundle::build(self.world.as_mut().unwrap()).drain(..)
-        {
-            self.add_system(transform_system);
-        }
-
-        self
-    }
-
-    pub fn add_render_graph_defaults(&mut self) -> &mut Self {
-        self.setup_render_graph(|builder| {
-            builder
-                .add_draw_target(MeshesDrawTarget::default())
-                .add_draw_target(AssignedBatchesDrawTarget::default())
-                .add_draw_target(AssignedMeshesDrawTarget::default())
-                .add_draw_target(UiDrawTarget::default())
-                .add_resource_provider(CameraResourceProvider::default())
-                .add_resource_provider(Camera2dResourceProvider::default())
-                .add_resource_provider(LightResourceProvider::new(10))
-                .add_resource_provider(UiResourceProvider::new())
-                .add_resource_provider(MeshResourceProvider::new())
-                .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
-                .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
-                .add_forward_pass()
-                .add_forward_pipeline();
-            // .add_ui_pipeline();
-        })
-    }
-
-    pub fn setup_render_graph<'a>(
-        &'a mut self,
-        setup: impl Fn(&'_ mut RenderGraphBuilder<'_>),
-    ) -> &'a mut Self {
-        {
-            let mut render_graph_builder = self
-                .render_graph
-                .take()
-                .unwrap()
-                .build(self.resources.as_mut().unwrap());
-            setup(&mut render_graph_builder);
-
-            self.render_graph = Some(render_graph_builder.finish());
+    pub fn add_default_systems(mut self) -> Self {
+        self = self
+            .add_system(build_entity_render_resource_assignments_system())
+            .add_system(ui::ui_update_system::build_ui_update_system());
+        for transform_system in transform_system_bundle::build(&mut self.world).drain(..) {
+            self = self.add_system(transform_system);
         }
 
         self
     }
 
     #[cfg(feature = "wgpu")]
-    pub fn add_wgpu_renderer(&mut self) -> &mut Self {
+    pub fn add_wgpu_renderer(mut self) -> Self {
         self.renderer = Some(Box::new(
             renderer::renderers::wgpu_renderer::WgpuRenderer::new(),
         ));
@@ -273,32 +156,42 @@ impl AppBuilder {
     }
 
     #[cfg(not(feature = "wgpu"))]
-    fn add_wgpu_renderer(&mut self) -> &mut Self {
+    fn add_wgpu_renderer(mut self) -> Self {
         self
     }
 
     #[cfg(feature = "winit")]
-    pub fn add_winit(&mut self) -> &mut Self {
+    pub fn add_winit(mut self) -> Self {
         self.run = Some(get_winit_run());
         self
     }
 
     #[cfg(not(feature = "winit"))]
-    pub fn add_winit(&mut self) -> &mut Self {
+    pub fn add_winit(mut self) -> Self {
         self
     }
 
-    pub fn add_defaults(&mut self) -> &mut Self {
-        self.add_winit()
-            .add_default_resources()
+    pub fn add_defaults(mut self) -> Self {
+        self = self
+            .add_winit()
             .add_default_systems()
-            .add_render_graph_defaults()
-            .add_wgpu_renderer()
+            .add_plugin(CorePlugin::default())
+            .add_plugin(RenderPlugin::default())
+            .add_wgpu_renderer();
+        #[cfg(feature = "winit")]
+        {}
+        self
     }
 
-    pub fn load_plugin(&mut self, path: &str) -> &mut Self {
+    pub fn load_plugin(self, path: &str) -> Self {
         let (_lib, plugin) = load_plugin(path);
-        plugin.build(self);
-        self
+        plugin.build(self)
+    }
+
+    pub fn add_plugin<T>(self, plugin: T) -> Self
+    where
+        T: AppPlugin,
+    {
+        plugin.build(self)
     }
 }

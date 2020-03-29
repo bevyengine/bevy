@@ -1,7 +1,7 @@
 use super::RenderGraphBuilder;
 use crate::{
-    asset::Handle,
-    prelude::Resources,
+    asset::{AssetStorage, Handle},
+    prelude::Shader,
     render::{
         draw_target::DrawTarget,
         pass::PassDescriptor,
@@ -25,11 +25,16 @@ pub struct RenderGraph {
 }
 
 impl RenderGraph {
-    pub fn build(self, resources: &mut Resources) -> RenderGraphBuilder {
+    pub fn build<'a, 'b, 'c>(
+        &'c mut self,
+        pipelines: &'a mut AssetStorage<PipelineDescriptor>,
+        shaders: &'b mut AssetStorage<Shader>,
+    ) -> RenderGraphBuilder<'a, 'b, 'c> {
         RenderGraphBuilder {
-            resources,
+            pipelines,
+            shaders,
             current_pass: None,
-            render_graph: Some(self),
+            render_graph: self,
         }
     }
 

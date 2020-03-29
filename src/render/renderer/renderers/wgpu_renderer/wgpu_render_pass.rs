@@ -1,7 +1,9 @@
 use super::{WgpuRenderer, WgpuResources};
 use crate::render::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{RenderResource, RenderResourceAssignments, ResourceInfo, RenderResourceSetId},
+    pipeline::PipelineDescriptor,
+    render_resource::{
+        RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+    },
     renderer::{RenderPass, Renderer},
 };
 use std::{collections::HashMap, ops::Range};
@@ -11,7 +13,7 @@ pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
     pub pipeline_descriptor: &'c PipelineDescriptor,
     pub wgpu_resources: &'a WgpuResources,
     pub renderer: &'d WgpuRenderer,
-    pub bound_bind_groups: HashMap<u32, (RenderResourceSetId)>,
+    pub bound_bind_groups: HashMap<u32, RenderResourceSetId>,
 }
 
 impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
@@ -53,10 +55,19 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
             if let Some((vertex_buffer, index_buffer)) =
                 render_resource_assignments.get_vertex_buffer(&vertex_buffer_descriptor.name)
             {
-                log::trace!("set vertex buffer {}: {} ({:?})", i, vertex_buffer_descriptor.name, vertex_buffer);
+                log::trace!(
+                    "set vertex buffer {}: {} ({:?})",
+                    i,
+                    vertex_buffer_descriptor.name,
+                    vertex_buffer
+                );
                 self.set_vertex_buffer(i as u32, vertex_buffer, 0);
                 if let Some(index_buffer) = index_buffer {
-                    log::trace!("set index buffer: {} ({:?})", vertex_buffer_descriptor.name, index_buffer);
+                    log::trace!(
+                        "set index buffer: {} ({:?})",
+                        vertex_buffer_descriptor.name,
+                        index_buffer
+                    );
                     self.set_index_buffer(index_buffer, 0);
                     match self.renderer.get_resource_info(index_buffer).unwrap() {
                         ResourceInfo::Buffer(buffer_info) => {
@@ -86,8 +97,11 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
 
                     // don't bind bind groups if they are already set
                     // TODO: these checks come at a performance cost. make sure its worth it!
-                    if let Some(bound_render_resource_set) = self.bound_bind_groups.get(&bind_group.index) {
-                        if *bound_render_resource_set == *render_resource_set_id && dynamic_uniform_indices.len() == 0
+                    if let Some(bound_render_resource_set) =
+                        self.bound_bind_groups.get(&bind_group.index)
+                    {
+                        if *bound_render_resource_set == *render_resource_set_id
+                            && dynamic_uniform_indices.len() == 0
                         {
                             continue;
                         }
@@ -99,8 +113,13 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                     } else {
                         self.bound_bind_groups.remove(&bind_group.index);
                     }
-                    
-                    log::trace!("set bind group {} {:?}: {:?}", bind_group.index, dynamic_uniform_indices, render_resource_set_id);
+
+                    log::trace!(
+                        "set bind group {} {:?}: {:?}",
+                        bind_group.index,
+                        dynamic_uniform_indices,
+                        render_resource_set_id
+                    );
                     self.render_pass.set_bind_group(
                         bind_group.index,
                         &wgpu_bind_group,

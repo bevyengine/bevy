@@ -13,7 +13,7 @@ pub trait UiPipelineBuilder {
     fn add_ui_pipeline(&mut self) -> &mut Self;
 }
 
-impl<'a> UiPipelineBuilder for RenderGraphBuilder<'a> {
+impl<'a, 'b, 'c> UiPipelineBuilder for RenderGraphBuilder<'a, 'b, 'c> {
     fn add_ui_pipeline(&mut self) -> &mut Self {
         self.add_pipeline(resource_name::pipeline::UI, |builder| {
             builder

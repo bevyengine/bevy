@@ -14,8 +14,8 @@ impl App {
     pub fn new(
         universe: Universe,
         world: World,
-        schedule: Schedule,
         resources: Resources,
+        schedule: Schedule,
         run: Option<Box<dyn Fn(App)>>,
         renderer: Option<Box<dyn Renderer>>,
     ) -> App {

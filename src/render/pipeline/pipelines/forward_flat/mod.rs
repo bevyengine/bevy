@@ -14,7 +14,7 @@ pub trait ForwardFlatPipelineBuilder {
     fn add_forward_flat_pipeline(&mut self) -> &mut Self;
 }
 
-impl<'a> ForwardFlatPipelineBuilder for RenderGraphBuilder<'a> {
+impl<'a, 'b, 'c> ForwardFlatPipelineBuilder for RenderGraphBuilder<'a, 'b, 'c> {
     fn add_forward_flat_pipeline(&mut self) -> &mut Self {
         self.add_pipeline(resource_name::pipeline::FORWARD_FLAT, |builder| {
             builder

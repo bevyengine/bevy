@@ -13,7 +13,7 @@ pub trait ForwardPassBuilder {
     fn add_forward_pass(&mut self) -> &mut Self;
 }
 
-impl<'a> ForwardPassBuilder for RenderGraphBuilder<'a> {
+impl<'a, 'b, 'c> ForwardPassBuilder for RenderGraphBuilder<'a, 'b, 'c> {
     fn add_forward_pass(&mut self) -> &mut Self {
         self.add_resource_provider(FrameTextureResourceProvider::new(
             resource_name::texture::DEPTH,

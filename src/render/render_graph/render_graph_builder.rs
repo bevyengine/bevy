@@ -1,7 +1,7 @@
 use super::RenderGraph;
 use crate::{
     asset::AssetStorage,
-    prelude::{Resources, Shader},
+    prelude::Shader,
     render::{
         draw_target::DrawTarget,
         pass::PassDescriptor,
@@ -11,18 +11,17 @@ use crate::{
     },
 };
 
-pub struct RenderGraphBuilder<'a> {
-    pub render_graph: Option<RenderGraph>,
-    pub resources: &'a mut Resources,
+pub struct RenderGraphBuilder<'a, 'b, 'c> {
+    pub pipelines: &'a mut AssetStorage<PipelineDescriptor>,
+    pub shaders: &'b mut AssetStorage<Shader>,
+    pub render_graph: &'c mut RenderGraph,
     pub current_pass: Option<String>,
 }
 
-impl<'a> RenderGraphBuilder<'a> {
+impl<'a, 'b, 'c> RenderGraphBuilder<'a, 'b, 'c> {
     pub fn add_pass(&mut self, name: &str, pass: PassDescriptor) -> &mut Self {
         self.current_pass = Some(name.to_string());
         self.render_graph
-            .as_mut()
-            .unwrap()
             .pass_descriptors
             .insert(name.to_string(), pass);
         self
@@ -30,19 +29,12 @@ impl<'a> RenderGraphBuilder<'a> {
 
     pub fn add_pipeline(&mut self, name: &str, build: impl Fn(&mut PipelineBuilder)) -> &mut Self {
         if let Some(ref pass) = self.current_pass {
-            let mut pipeline_descriptor_storage = self
-                .resources
-                .get_mut::<AssetStorage<PipelineDescriptor>>()
-                .unwrap();
-            let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
-            let mut builder = PipelineBuilder::new(name, &mut shader_storage);
+            let mut builder = PipelineBuilder::new(name, &mut self.shaders);
             build(&mut builder);
             let pipeline = builder.finish();
-            let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
-            pipeline_descriptor_storage.set_name(name, pipeline_descriptor_handle);
+            let pipeline_descriptor_handle = self.pipelines.add(pipeline);
+            self.pipelines.set_name(name, pipeline_descriptor_handle);
             self.render_graph
-                .as_mut()
-                .unwrap()
                 .add_pipeline(&pass, pipeline_descriptor_handle);
         }
 
@@ -56,19 +48,12 @@ impl<'a> RenderGraphBuilder<'a> {
         build: impl Fn(&mut PipelineBuilder),
     ) -> &mut Self {
         {
-            let mut pipeline_descriptor_storage = self
-                .resources
-                .get_mut::<AssetStorage<PipelineDescriptor>>()
-                .unwrap();
-            let mut shader_storage = self.resources.get_mut::<AssetStorage<Shader>>().unwrap();
-            let mut builder = PipelineBuilder::new(name, &mut shader_storage);
+            let mut builder = PipelineBuilder::new(name, &mut self.shaders);
             build(&mut builder);
             let pipeline = builder.finish();
-            let pipeline_descriptor_handle = pipeline_descriptor_storage.add(pipeline);
-            pipeline_descriptor_storage.set_name(name, pipeline_descriptor_handle);
+            let pipeline_descriptor_handle = self.pipelines.add(pipeline);
+            self.pipelines.set_name(name, pipeline_descriptor_handle);
             self.render_graph
-                .as_mut()
-                .unwrap()
                 .add_pipeline(pass, pipeline_descriptor_handle);
         }
 
@@ -80,8 +65,6 @@ impl<'a> RenderGraphBuilder<'a> {
         T: ResourceProvider + Send + Sync + 'static,
     {
         self.render_graph
-            .as_mut()
-            .unwrap()
             .resource_providers
             .push(Box::new(resource_provider));
         self
@@ -89,8 +72,6 @@ impl<'a> RenderGraphBuilder<'a> {
 
     pub fn add_texture(&mut self, name: &str, texture_descriptor: TextureDescriptor) -> &mut Self {
         self.render_graph
-            .as_mut()
-            .unwrap()
             .queued_textures
             .push((name.to_string(), texture_descriptor));
         self
@@ -101,14 +82,8 @@ impl<'a> RenderGraphBuilder<'a> {
         T: DrawTarget + Send + Sync + 'static,
     {
         self.render_graph
-            .as_mut()
-            .unwrap()
             .draw_targets
             .insert(draw_target.get_name(), Box::new(draw_target));
         self
-    }
-
-    pub fn finish(&mut self) -> RenderGraph {
-        self.render_graph.take().unwrap()
     }
 }

@@ -5,7 +5,7 @@ pub struct ExamplePlugin;
 
 impl AppPlugin for ExamplePlugin {
     fn build(&self, app_builder: AppBuilder) -> AppBuilder {
-        app_builder.setup_world(setup)
+        app_builder.setup(setup)
     }
 
     fn name(&self) -> &'static str {
