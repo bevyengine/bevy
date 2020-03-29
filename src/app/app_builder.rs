@@ -1,6 +1,6 @@
 use crate::{
     app::{system_stage, App},
-    core::{window::winit::get_winit_run, CorePlugin},
+    core::{winit::WinitPlugin, CorePlugin},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     plugin::{load_plugin, AppPlugin},
     render::{renderer::Renderer, *},
@@ -155,31 +155,20 @@ impl AppBuilder {
         self
     }
 
-    #[cfg(not(feature = "wgpu"))]
-    fn add_wgpu_renderer(mut self) -> Self {
-        self
-    }
-
-    #[cfg(feature = "winit")]
-    pub fn add_winit(mut self) -> Self {
-        self.run = Some(get_winit_run());
-        self
-    }
-
-    #[cfg(not(feature = "winit"))]
-    pub fn add_winit(mut self) -> Self {
-        self
-    }
-
     pub fn add_defaults(mut self) -> Self {
         self = self
-            .add_winit()
             .add_default_systems()
             .add_plugin(CorePlugin::default())
-            .add_plugin(RenderPlugin::default())
-            .add_wgpu_renderer();
+            .add_plugin(RenderPlugin::default());
+
+        #[cfg(feature = "wgpu")]
+        {
+            self = self.add_wgpu_renderer();
+        }
         #[cfg(feature = "winit")]
-        {}
+        {
+            self = self.add_plugin(WinitPlugin::default())
+        }
         self
     }
 

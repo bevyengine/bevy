@@ -11,7 +11,7 @@ use super::{
             MeshResourceProvider, UiResourceProvider,
         },
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
-    },
+    }, RenderContext,
 };
 use crate::{
     app::AppBuilder,
@@ -57,6 +57,7 @@ impl AppPlugin for RenderPlugin {
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app = app
+            .add_resource(RenderContext::default())
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())
             .add_resource(AssetStorage::<Texture>::new())

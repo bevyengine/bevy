@@ -5,6 +5,8 @@ use std::{any::TypeId, collections::HashMap, hash::Hash};
 
 // TODO: if/when const generics land, revisit this design in favor of generic array lengths
 
+// TODO: add sorting by primary / secondary handle to reduce rebinds of data
+
 #[derive(Hash, Eq, PartialEq, Debug, Ord, PartialOrd)]
 pub struct BatchKey2 {
     pub handle1: HandleId,

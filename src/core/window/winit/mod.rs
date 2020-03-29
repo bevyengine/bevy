@@ -1,13 +1,33 @@
-use crate::app::App;
+use crate::{
+    app::{App, AppBuilder},
+    plugin::AppPlugin,
+};
 
+use super::Window;
 use winit::{
     event,
     event::WindowEvent,
     event_loop::{ControlFlow, EventLoop},
 };
-use super::Window;
 
-pub fn get_winit_run() -> Box<dyn Fn(App)> {
+#[derive(Default)]
+pub struct WinitPlugin;
+
+impl AppPlugin for WinitPlugin {
+    fn build(&self, mut app: AppBuilder) -> AppBuilder {
+        {
+            app.run = Some(get_winit_run());
+        }
+
+        app
+    }
+
+    fn name(&self) -> &'static str {
+        "Winit"
+    }
+}
+
+pub fn get_winit_run() -> Box<dyn Fn(App) + Send + Sync> {
     Box::new(|mut app: App| {
         env_logger::init();
         let event_loop = EventLoop::new();
@@ -40,10 +60,7 @@ pub fn get_winit_run() -> Box<dyn Fn(App)> {
                             window.height = size.height;
                         }
 
-                        renderer.resize(
-                            &mut app.world,
-                            &mut app.resources,
-                        );
+                        renderer.resize(&mut app.world, &mut app.resources);
                     }
                 }
                 event::Event::WindowEvent { event, .. } => match event {

@@ -1,9 +1,9 @@
 pub mod bytes;
-pub mod time;
+mod time;
 pub mod window;
 mod core_plugin;
 
-pub use bytes::GetBytes;
-pub use time::Time;
-pub use window::Window;
+pub use bytes::*;
+pub use time::*;
+pub use window::*;
 pub use core_plugin::*;
