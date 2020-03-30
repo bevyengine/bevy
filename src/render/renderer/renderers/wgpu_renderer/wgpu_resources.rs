@@ -77,7 +77,7 @@ impl WgpuResources {
                                         panic!("expected a Texture resource");
                                     }
                                 }
-                                BindType::Sampler => {
+                                BindType::Sampler { .. } => {
                                     if let ResourceInfo::Sampler = resource_info {
                                         let sampler = self.samplers.get(&resource).unwrap();
                                         wgpu::BindingResource::Sampler(sampler)
@@ -251,8 +251,8 @@ impl WgpuResources {
                 wgpu::BufferCopyView {
                     buffer: &temp_buf,
                     offset: 0,
-                    row_pitch: 4 * descriptor.size.width,
-                    image_height: descriptor.size.height,
+                    bytes_per_row: 4 * descriptor.size.width,
+                    rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
                 },
                 wgpu::TextureCopyView {
                     texture: &texture,

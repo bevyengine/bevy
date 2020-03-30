@@ -28,12 +28,12 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
         let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
         self.render_pass
-            .set_vertex_buffers(start_slot, &[(&buffer, offset)]);
+            .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
         let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
-        self.render_pass.set_index_buffer(&buffer, offset);
+        self.render_pass.set_index_buffer(&buffer, offset, 0);
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

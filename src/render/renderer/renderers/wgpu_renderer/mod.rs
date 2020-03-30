@@ -30,7 +30,7 @@ impl AppPlugin for WgpuRendererPlugin {
 
 pub fn wgpu_render_system(resources: &Resources) -> impl FnMut(&mut World, &mut Resources) {
     let window_resize_event = resources.get::<Event<WindowResize>>().unwrap();
-    let mut wgpu_renderer = WgpuRenderer::new(window_resize_event.get_handle());
+    let mut wgpu_renderer = futures::executor::block_on(WgpuRenderer::new(window_resize_event.get_handle()));
     move |world, resources| {
         wgpu_renderer.update(world, resources);
     }

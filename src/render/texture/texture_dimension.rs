@@ -24,7 +24,14 @@ pub struct Extent3d {
     pub depth: u32,
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum TextureComponentType {
+    Float,
+    Sint,
+    Uint,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureFormat {
     // Normal 8 bit formats
     R8Unorm = 0,
@@ -33,57 +40,50 @@ pub enum TextureFormat {
     R8Sint = 3,
 
     // Normal 16 bit formats
-    R16Unorm = 4,
-    R16Snorm = 5,
-    R16Uint = 6,
-    R16Sint = 7,
-    R16Float = 8,
-
-    Rg8Unorm = 9,
-    Rg8Snorm = 10,
-    Rg8Uint = 11,
-    Rg8Sint = 12,
+    R16Uint = 4,
+    R16Sint = 5,
+    R16Float = 6,
+    Rg8Unorm = 7,
+    Rg8Snorm = 8,
+    Rg8Uint = 9,
+    Rg8Sint = 10,
 
     // Normal 32 bit formats
-    R32Uint = 13,
-    R32Sint = 14,
-    R32Float = 15,
-    Rg16Unorm = 16,
-    Rg16Snorm = 17,
-    Rg16Uint = 18,
-    Rg16Sint = 19,
-    Rg16Float = 20,
-    Rgba8Unorm = 21,
-    Rgba8UnormSrgb = 22,
-    Rgba8Snorm = 23,
-    Rgba8Uint = 24,
-    Rgba8Sint = 25,
-    Bgra8Unorm = 26,
-    Bgra8UnormSrgb = 27,
+    R32Uint = 11,
+    R32Sint = 12,
+    R32Float = 13,
+    Rg16Uint = 14,
+    Rg16Sint = 15,
+    Rg16Float = 16,
+    Rgba8Unorm = 17,
+    Rgba8UnormSrgb = 18,
+    Rgba8Snorm = 19,
+    Rgba8Uint = 20,
+    Rgba8Sint = 21,
+    Bgra8Unorm = 22,
+    Bgra8UnormSrgb = 23,
 
     // Packed 32 bit formats
-    Rgb10a2Unorm = 28,
-    Rg11b10Float = 29,
+    Rgb10a2Unorm = 24,
+    Rg11b10Float = 25,
 
     // Normal 64 bit formats
-    Rg32Uint = 30,
-    Rg32Sint = 31,
-    Rg32Float = 32,
-    Rgba16Unorm = 33,
-    Rgba16Snorm = 34,
-    Rgba16Uint = 35,
-    Rgba16Sint = 36,
-    Rgba16Float = 37,
+    Rg32Uint = 26,
+    Rg32Sint = 27,
+    Rg32Float = 28,
+    Rgba16Uint = 29,
+    Rgba16Sint = 30,
+    Rgba16Float = 31,
 
     // Normal 128 bit formats
-    Rgba32Uint = 38,
-    Rgba32Sint = 39,
-    Rgba32Float = 40,
+    Rgba32Uint = 32,
+    Rgba32Sint = 33,
+    Rgba32Float = 34,
 
     // Depth and stencil formats
-    Depth32Float = 41,
-    Depth24Plus = 42,
-    Depth24PlusStencil8 = 43,
+    Depth32Float = 35,
+    Depth24Plus = 36,
+    Depth24PlusStencil8 = 37,
 }
 
 bitflags::bitflags! {

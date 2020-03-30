@@ -3,7 +3,7 @@ use crate::render::{
         BindGroupDescriptor, BindType, BindingDescriptor, InputStepMode, UniformProperty,
         UniformPropertyType, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
-    texture::TextureViewDimension,
+    texture::{TextureComponentType, TextureViewDimension},
 };
 use spirv_reflect::{
     types::{
@@ -183,10 +183,12 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
             &binding.name,
             BindType::SampledTexture {
                 dimension: reflect_dimension(type_description),
+                component_type: TextureComponentType::Float,
                 multisampled: false,
             },
         ),
-        ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler),
+        // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
+        ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
@@ -421,6 +423,7 @@ mod tests {
                             bind_type: BindType::SampledTexture {
                                 multisampled: false,
                                 dimension: TextureViewDimension::D2,
+                                component_type: TextureComponentType::Float,
                             },
                         }]
                     ),

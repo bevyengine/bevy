@@ -33,13 +33,14 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
-    pub fn new(window_resize_event: EventHandle<WindowResize>) -> Self {
+    pub async fn new(window_resize_event: EventHandle<WindowResize>) -> Self {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
             },
             wgpu::BackendBit::PRIMARY,
         )
+        .await
         .unwrap();
 
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
@@ -47,7 +48,7 @@ impl WgpuRenderer {
                 anisotropic_filtering: false,
             },
             limits: wgpu::Limits::default(),
-        });
+        }).await;
 
         WgpuRenderer {
             device: Rc::new(RefCell::new(device)),
@@ -85,12 +86,12 @@ impl WgpuRenderer {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
-                    .map(|binding| wgpu::BindGroupLayoutBinding {
+                    .map(|binding| wgpu::BindGroupLayoutEntry {
                         binding: binding.index,
                         visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
                         ty: (&binding.bind_type).into(),
                     })
-                    .collect::<Vec<wgpu::BindGroupLayoutBinding>>();
+                    .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
                 let wgpu_bind_group_layout =
                     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                         bindings: bind_group_layout_binding.as_slice(),
@@ -182,11 +183,13 @@ impl WgpuRenderer {
                 .depth_stencil_state
                 .as_ref()
                 .map(|d| d.into()),
-            index_format: pipeline_descriptor.index_format.into(),
-            vertex_buffers: &owned_vertex_buffer_descriptors
-                .iter()
-                .map(|v| v.into())
-                .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: pipeline_descriptor.index_format.into(),
+                vertex_buffers: &owned_vertex_buffer_descriptors
+                    .iter()
+                    .map(|v| v.into())
+                    .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
+            },
             sample_count: pipeline_descriptor.sample_count,
             sample_mask: pipeline_descriptor.sample_mask,
             alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,

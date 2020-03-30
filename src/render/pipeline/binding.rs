@@ -1,5 +1,5 @@
 use super::UniformProperty;
-use crate::render::texture::TextureViewDimension;
+use crate::render::texture::{TextureComponentType, TextureViewDimension, TextureFormat};
 
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BindingDescriptor {
@@ -19,13 +19,19 @@ pub enum BindType {
         dynamic: bool,
         readonly: bool,
     },
-    Sampler,
+    Sampler {
+        comparison: bool,
+    },
     SampledTexture {
         multisampled: bool,
         dimension: TextureViewDimension,
+        component_type: TextureComponentType,
     },
     StorageTexture {
         dimension: TextureViewDimension,
+        component_type: TextureComponentType,
+        format: TextureFormat,
+        readonly: bool,
     },
 }
 

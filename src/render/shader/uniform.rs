@@ -4,7 +4,7 @@ use crate::{
     render::{
         color::ColorSource,
         pipeline::{BindType, VertexBufferDescriptor},
-        texture::{Texture, TextureViewDimension},
+        texture::Texture,
     },
 };
 
@@ -34,75 +34,6 @@ impl ShaderDefSuffixProvider for bool {
 pub enum FieldBindType {
     Uniform { size: usize },
     Texture,
-}
-
-// TODO: Remove this
-pub struct UniformInfoIter<'a, T: AsUniforms> {
-    pub uniforms: &'a T,
-    pub index: usize,
-    pub add_sampler: bool,
-}
-
-impl<'a, T> UniformInfoIter<'a, T>
-where
-    T: AsUniforms,
-{
-    pub fn new(uniforms: &'a T) -> Self {
-        UniformInfoIter {
-            uniforms,
-            index: 0,
-            add_sampler: false,
-        }
-    }
-}
-
-impl<'a, T> Iterator for UniformInfoIter<'a, T>
-where
-    T: AsUniforms,
-{
-    type Item = UniformInfo<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        let field_infos = T::get_field_infos();
-        if self.add_sampler {
-            self.add_sampler = false;
-            Some(UniformInfo {
-                name: field_infos[self.index - 1].sampler_name,
-                bind_type: BindType::Sampler,
-            })
-        } else {
-            if self.index >= field_infos.len() {
-                None
-            } else {
-                let index = self.index;
-                self.index += 1;
-                let ref field_info = field_infos[index];
-                let bind_type = self.uniforms.get_field_bind_type(field_info.name);
-                if let Some(bind_type) = bind_type {
-                    Some(match bind_type {
-                        FieldBindType::Uniform { .. } => UniformInfo {
-                            bind_type: BindType::Uniform {
-                                dynamic: false,
-                                properties: Vec::new(),
-                            },
-                            name: field_info.uniform_name,
-                        },
-                        FieldBindType::Texture => {
-                            self.add_sampler = true;
-                            UniformInfo {
-                                bind_type: BindType::SampledTexture {
-                                    dimension: TextureViewDimension::D2,
-                                    multisampled: false,
-                                },
-                                name: field_info.texture_name,
-                            }
-                        }
-                    })
-                } else {
-                    self.next()
-                }
-            }
-        }
-    }
 }
 
 pub struct FieldInfo {

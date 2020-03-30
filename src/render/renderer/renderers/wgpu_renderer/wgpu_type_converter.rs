@@ -15,8 +15,8 @@ use crate::{
         },
         render_resource::BufferUsage,
         texture::{
-            AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
+            AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureComponentType,
+            TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
         },
     },
 };
@@ -158,14 +158,36 @@ impl From<&BindType> for wgpu::BindingType {
             BindType::SampledTexture {
                 dimension,
                 multisampled,
+                component_type,
             } => wgpu::BindingType::SampledTexture {
                 dimension: (*dimension).into(),
                 multisampled: *multisampled,
+                component_type: (*component_type).into(),
             },
-            BindType::Sampler => wgpu::BindingType::Sampler,
-            BindType::StorageTexture { dimension } => wgpu::BindingType::StorageTexture {
+            BindType::Sampler { comparison } => wgpu::BindingType::Sampler {
+                comparison: *comparison,
+            },
+            BindType::StorageTexture {
+                dimension,
+                component_type,
+                format,
+                readonly,
+            } => wgpu::BindingType::StorageTexture {
                 dimension: (*dimension).into(),
+                component_type: (*component_type).into(),
+                format: (*format).into(),
+                readonly: *readonly,
             },
+        }
+    }
+}
+
+impl From<TextureComponentType> for wgpu::TextureComponentType {
+    fn from(texture_component_type: TextureComponentType) -> Self {
+        match texture_component_type {
+            TextureComponentType::Float => wgpu::TextureComponentType::Float,
+            TextureComponentType::Sint => wgpu::TextureComponentType::Sint,
+            TextureComponentType::Uint => wgpu::TextureComponentType::Uint,
         }
     }
 }
@@ -224,8 +246,6 @@ impl From<TextureFormat> for wgpu::TextureFormat {
             TextureFormat::R8Snorm => wgpu::TextureFormat::R8Snorm,
             TextureFormat::R8Uint => wgpu::TextureFormat::R8Uint,
             TextureFormat::R8Sint => wgpu::TextureFormat::R8Sint,
-            TextureFormat::R16Unorm => wgpu::TextureFormat::R16Unorm,
-            TextureFormat::R16Snorm => wgpu::TextureFormat::R16Snorm,
             TextureFormat::R16Uint => wgpu::TextureFormat::R16Uint,
             TextureFormat::R16Sint => wgpu::TextureFormat::R16Sint,
             TextureFormat::R16Float => wgpu::TextureFormat::R16Float,
@@ -236,8 +256,6 @@ impl From<TextureFormat> for wgpu::TextureFormat {
             TextureFormat::R32Uint => wgpu::TextureFormat::R32Uint,
             TextureFormat::R32Sint => wgpu::TextureFormat::R32Sint,
             TextureFormat::R32Float => wgpu::TextureFormat::R32Float,
-            TextureFormat::Rg16Unorm => wgpu::TextureFormat::Rg16Unorm,
-            TextureFormat::Rg16Snorm => wgpu::TextureFormat::Rg16Snorm,
             TextureFormat::Rg16Uint => wgpu::TextureFormat::Rg16Uint,
             TextureFormat::Rg16Sint => wgpu::TextureFormat::Rg16Sint,
             TextureFormat::Rg16Float => wgpu::TextureFormat::Rg16Float,
@@ -253,8 +271,6 @@ impl From<TextureFormat> for wgpu::TextureFormat {
             TextureFormat::Rg32Uint => wgpu::TextureFormat::Rg32Uint,
             TextureFormat::Rg32Sint => wgpu::TextureFormat::Rg32Sint,
             TextureFormat::Rg32Float => wgpu::TextureFormat::Rg32Float,
-            TextureFormat::Rgba16Unorm => wgpu::TextureFormat::Rgba16Unorm,
-            TextureFormat::Rgba16Snorm => wgpu::TextureFormat::Rgba16Snorm,
             TextureFormat::Rgba16Uint => wgpu::TextureFormat::Rgba16Uint,
             TextureFormat::Rgba16Sint => wgpu::TextureFormat::Rgba16Sint,
             TextureFormat::Rgba16Float => wgpu::TextureFormat::Rgba16Float,
@@ -310,6 +326,30 @@ impl From<CompareFunction> for wgpu::CompareFunction {
             CompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
             CompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
             CompareFunction::Always => wgpu::CompareFunction::Always,
+        }
+    }
+}
+
+static COMPARE_FUNCTION_NEVER: &wgpu::CompareFunction = &wgpu::CompareFunction::Never;
+static COMPARE_FUNCTION_LESS: &wgpu::CompareFunction = &wgpu::CompareFunction::Less;
+static COMPARE_FUNCTION_EQUAL: &wgpu::CompareFunction = &wgpu::CompareFunction::Equal;
+static COMPARE_FUNCTION_LESSEQUAL: &wgpu::CompareFunction = &wgpu::CompareFunction::LessEqual;
+static COMPARE_FUNCTION_GREATER: &wgpu::CompareFunction = &wgpu::CompareFunction::Greater;
+static COMPARE_FUNCTION_NOTEQUAL: &wgpu::CompareFunction = &wgpu::CompareFunction::NotEqual;
+static COMPARE_FUNCTION_GREATEREQUAL: &wgpu::CompareFunction = &wgpu::CompareFunction::GreaterEqual;
+static COMPARE_FUNCTION_ALWAYS: &wgpu::CompareFunction = &wgpu::CompareFunction::Always;
+
+impl From<CompareFunction> for &'static wgpu::CompareFunction {
+    fn from(val: CompareFunction) -> Self {
+        match val {
+            CompareFunction::Never => COMPARE_FUNCTION_NEVER,
+            CompareFunction::Less => COMPARE_FUNCTION_LESS,
+            CompareFunction::Equal => COMPARE_FUNCTION_EQUAL,
+            CompareFunction::LessEqual => COMPARE_FUNCTION_LESSEQUAL,
+            CompareFunction::Greater => COMPARE_FUNCTION_GREATER,
+            CompareFunction::NotEqual => COMPARE_FUNCTION_NOTEQUAL,
+            CompareFunction::GreaterEqual => COMPARE_FUNCTION_GREATEREQUAL,
+            CompareFunction::Always => COMPARE_FUNCTION_ALWAYS,
         }
     }
 }
@@ -440,7 +480,7 @@ impl From<IndexFormat> for wgpu::IndexFormat {
     }
 }
 
-impl From<SamplerDescriptor> for wgpu::SamplerDescriptor {
+impl From<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
     fn from(sampler_descriptor: SamplerDescriptor) -> Self {
         wgpu::SamplerDescriptor {
             address_mode_u: sampler_descriptor.address_mode_u.into(),
@@ -451,7 +491,7 @@ impl From<SamplerDescriptor> for wgpu::SamplerDescriptor {
             mipmap_filter: sampler_descriptor.mipmap_filter.into(),
             lod_min_clamp: sampler_descriptor.lod_min_clamp,
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
-            compare_function: sampler_descriptor.compare_function.into(),
+            compare: sampler_descriptor.compare_function.map(|c| c.into()),
         }
     }
 }
@@ -483,9 +523,9 @@ impl From<&Window> for wgpu::SwapChainDescriptor {
             width: window.width,
             height: window.height,
             present_mode: if window.vsync {
-                wgpu::PresentMode::Vsync
+                wgpu::PresentMode::Fifo
             } else {
-                wgpu::PresentMode::NoVsync
+                wgpu::PresentMode::Immediate
             },
         }
     }
