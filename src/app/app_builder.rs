@@ -3,10 +3,10 @@ use crate::{
         plugin::{load_plugin, AppPlugin},
         system_stage, App,
     },
-    core::{winit::WinitPlugin, CorePlugin},
+    core::{winit::WinitPlugin, CorePlugin, Event},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     render::{
-        renderer::{renderers::wgpu_renderer::WgpuRendererPlugin, Renderer},
+        renderer::{renderers::wgpu_renderer::WgpuRendererPlugin},
         RenderPlugin,
     },
     ui::UiPlugin,
@@ -18,12 +18,13 @@ pub struct AppBuilder {
     pub world: World,
     pub resources: Resources,
     pub universe: Universe,
-    pub renderer: Option<Box<dyn Renderer>>,
     pub run: Option<Box<dyn Fn(App)>>,
     pub schedule: Option<Schedule>,
     pub setup_systems: Vec<Box<dyn Schedulable>>,
+    // TODO: these separate lists will produce incorrect ordering
     pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
     pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
+    pub thread_local_stages: HashMap<String, Vec<Box<dyn FnMut(&mut World, &mut Resources)>>>,
     pub stage_order: Vec<String>,
 }
 
@@ -36,12 +37,12 @@ impl AppBuilder {
             universe,
             world,
             resources,
-            renderer: None,
             run: None,
             schedule: None,
             setup_systems: Vec::new(),
             system_stages: HashMap::new(),
             runnable_stages: HashMap::new(),
+            thread_local_stages: HashMap::new(),
             stage_order: Vec::new(),
         }
     }
@@ -72,6 +73,16 @@ impl AppBuilder {
 
                 schedule_builder = schedule_builder.flush();
             }
+
+            if let Some((_name, stage_thread_locals)) =
+                self.thread_local_stages.remove_entry(stage_name)
+            {
+                for system in stage_thread_locals {
+                    schedule_builder = schedule_builder.add_thread_local_fn(system);
+                }
+
+                schedule_builder = schedule_builder.flush();
+            }
         }
 
         self.schedule = Some(schedule_builder.build());
@@ -88,7 +99,6 @@ impl AppBuilder {
             self.resources,
             self.schedule.take().unwrap(),
             self.run.take(),
-            self.renderer.take(),
         )
     }
 
@@ -139,6 +149,28 @@ impl AppBuilder {
         stages.push(system);
 
         self
+    }
+
+    pub fn add_thread_local_to_stage(
+        mut self,
+        stage_name: &str,
+        f: impl FnMut(&mut World, &mut Resources) + 'static,
+    ) -> Self {
+        if let None = self.thread_local_stages.get(stage_name) {
+            self.thread_local_stages
+                .insert(stage_name.to_string(), Vec::new());
+            // TODO: this is so broken
+            self.stage_order.push(stage_name.to_string());
+        }
+
+        let thread_local_stages = self.thread_local_stages.get_mut(stage_name).unwrap();
+        thread_local_stages.push(Box::new(f));
+        self
+    }
+
+    pub fn add_event<T>(self) -> Self where T: Send + Sync + 'static {
+        self.add_resource(Event::<T>::default())
+            .add_system_to_stage(system_stage::EVENT_UPDATE, Event::<T>::update_system())
     }
 
     pub fn add_resource<T>(mut self, resource: T) -> Self

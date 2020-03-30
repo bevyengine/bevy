@@ -1,8 +1,6 @@
-use crate::{
-    app::{App, AppBuilder}, app::plugin::AppPlugin,
-};
+use crate::{core::Event, app::{plugin::AppPlugin, App, AppBuilder}};
 
-use super::Window;
+use super::{Window, WindowResize};
 use winit::{
     event,
     event::WindowEvent,
@@ -52,15 +50,16 @@ pub fn get_winit_run() -> Box<dyn Fn(App) + Send + Sync> {
                     event: WindowEvent::Resized(size),
                     ..
                 } => {
-                    if let Some(ref mut renderer) = app.renderer {
-                        {
-                            let mut window = app.resources.get_mut::<Window>().unwrap();
-                            window.width = size.width;
-                            window.height = size.height;
-                        }
+                    let mut window = app.resources.get_mut::<Window>().unwrap();
+                    window.width = size.width;
+                    window.height = size.height;
 
-                        renderer.resize(&mut app.world, &mut app.resources);
-                    }
+                    let mut resize_event = app.resources.get_mut::<Event<WindowResize>>().unwrap();
+                    resize_event.raise(WindowResize {
+                        id: window.id,
+                        height: window.height,
+                        width: window.width,
+                    });
                 }
                 event::Event::WindowEvent { event, .. } => match event {
                     WindowEvent::KeyboardInput {

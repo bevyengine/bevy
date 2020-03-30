@@ -13,6 +13,13 @@ pub struct Window {
     pub vsync: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct WindowResize {
+    pub id: Uuid,
+    pub width: u32,
+    pub height: u32,
+}
+
 impl Default for Window {
     fn default() -> Self {
         Window {

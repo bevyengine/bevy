@@ -24,6 +24,7 @@ pub use bevy_transform::prelude::*;
 pub use glam as math;
 pub use legion::{
     prelude::*,
+    prelude::Event as LegionEvent,
     systems::{
         schedule::{Builder, Schedulable},
         SubWorld, SystemBuilder,

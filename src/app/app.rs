@@ -1,4 +1,4 @@
-use crate::{app::AppBuilder, core::Time, render::renderer::Renderer};
+use crate::{app::AppBuilder, core::Time};
 use legion::prelude::*;
 
 pub struct App {
@@ -6,7 +6,6 @@ pub struct App {
     pub world: World,
     pub resources: Resources,
     pub run: Option<Box<dyn Fn(App)>>,
-    pub renderer: Option<Box<dyn Renderer>>,
     pub schedule: Schedule,
 }
 
@@ -17,13 +16,11 @@ impl App {
         resources: Resources,
         schedule: Schedule,
         run: Option<Box<dyn Fn(App)>>,
-        renderer: Option<Box<dyn Renderer>>,
     ) -> App {
         App {
             universe,
             world,
             schedule,
-            renderer,
             run,
             resources,
         }
@@ -38,10 +35,6 @@ impl App {
             time.start();
         }
         self.schedule.execute(&mut self.world, &mut self.resources);
-
-        if let Some(ref mut renderer) = self.renderer {
-            renderer.update(&mut self.world, &mut self.resources);
-        }
 
         if let Some(mut time) = self.resources.get_mut::<Time>() {
             time.stop();

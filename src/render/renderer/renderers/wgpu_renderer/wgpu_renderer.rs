@@ -1,7 +1,7 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
-    core::Window,
+    core::{Event, EventHandle, Window, WindowResize},
     legion::prelude::*,
     render::{
         pass::{
@@ -28,11 +28,12 @@ pub struct WgpuRenderer {
     pub encoder: Option<wgpu::CommandEncoder>,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
+    pub window_resize_handle: EventHandle<WindowResize>,
     pub intialized: bool,
 }
 
 impl WgpuRenderer {
-    pub fn new() -> Self {
+    pub fn new(window_resize_event: EventHandle<WindowResize>) -> Self {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -53,6 +54,7 @@ impl WgpuRenderer {
             queue,
             surface: None,
             encoder: None,
+            window_resize_handle: window_resize_event,
             intialized: false,
             wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
@@ -366,7 +368,13 @@ impl Renderer for WgpuRenderer {
             resources.insert(swap_chain);
             let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
             for resource_provider in render_graph.resource_providers.iter_mut() {
-                resource_provider.resize(self, world, resources, swap_chain_descriptor.width, swap_chain_descriptor.height);
+                resource_provider.resize(
+                    self,
+                    world,
+                    resources,
+                    swap_chain_descriptor.width,
+                    swap_chain_descriptor.height,
+                );
             }
 
             // consume current encoder
@@ -380,6 +388,19 @@ impl Renderer for WgpuRenderer {
 
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
         self.initialize(world, resources);
+
+        let resized =
+            resources
+                .get::<Event<WindowResize>>()
+                .unwrap()
+                .iter(&mut self.window_resize_handle)
+                .last()
+                .map(|_| ())
+                .is_some();
+
+        if resized {
+            self.resize(world, resources);
+        }
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(
@@ -616,7 +637,11 @@ impl Renderer for WgpuRenderer {
                         render_resource_assignments,
                     );
                 } else {
-                    log::trace!("reusing RenderResourceSet {:?} for bind group {}", render_resource_set_id, bind_group.index);
+                    log::trace!(
+                        "reusing RenderResourceSet {:?} for bind group {}",
+                        render_resource_set_id,
+                        bind_group.index
+                    );
                 }
             }
         }

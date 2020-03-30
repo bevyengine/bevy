@@ -1,4 +1,4 @@
-use super::{Time, Window};
+use super::{Time, Window, WindowResize};
 use crate::{app::{AppBuilder, plugin::AppPlugin}};
 use bevy_transform::transform_system_bundle;
 
@@ -11,7 +11,8 @@ impl AppPlugin for CorePlugin {
             app = app.add_system(transform_system);
         }
 
-        app.add_resource(Window::default())
+        app.add_event::<WindowResize>()
+            .add_resource(Window::default())
             .add_resource(Time::new())
     }
 
