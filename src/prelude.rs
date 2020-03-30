@@ -1,11 +1,11 @@
 pub use crate::{
     app::{App, AppBuilder, plugin::AppPlugin},
     asset::{Asset, AssetStorage, Handle},
-    core::{Time, Window},
+    core::{Time, Window, Event, EventHandle},
     ecs,
     ecs::{
         default_archetypes::*, CommandBufferBuilderSource, EntityArchetype, WorldBuilder,
-        WorldBuilderSource,
+        WorldBuilderSource
     },
     render::{
         mesh::{Mesh, MeshType},
@@ -23,11 +23,17 @@ pub use bevy_derive::*;
 pub use bevy_transform::prelude::*;
 pub use glam as math;
 pub use legion::{
-    prelude::*,
-    prelude::Event as LegionEvent,
+    command::CommandBuffer,
+    entity::Entity,
+    event::Event as LegionEvent,
+    filter::filter_fns::*,
+    query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
+    world::{Universe, World},
     systems::{
-        schedule::{Builder, Schedulable},
-        SubWorld, SystemBuilder,
+        bit_set::BitSet,
+        resource::{ResourceSet, Resources},
+        schedule::{Executor, Runnable, Schedulable, Schedule},
+        System, SystemBuilder, SubWorld
     },
 };
 pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};

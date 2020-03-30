@@ -119,10 +119,15 @@ impl AppBuilder {
     pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
         self.add_system_to_stage(system_stage::UPDATE, system)
     }
-
+    
     pub fn add_setup_system(mut self, system: Box<dyn Schedulable>) -> Self {
         self.setup_systems.push(system);
         self
+    }
+
+    pub fn build_system<F>(mut self, build: F) -> Self where F: Fn(&mut Resources) -> Box<dyn Schedulable>{
+        let system = build(&mut self.resources);
+        self.add_system(system)
     }
 
     pub fn add_system_to_stage(mut self, stage_name: &str, system: Box<dyn Schedulable>) -> Self {
