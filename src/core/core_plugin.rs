@@ -1,9 +1,18 @@
-use super::{Time, Window, WindowResize};
-use crate::{app::{AppBuilder, plugin::AppPlugin}};
+use super::{CreateWindow, Time, WindowCreated, WindowResize, Windows, Event, WindowDescriptor};
+use crate::app::{plugin::AppPlugin, AppBuilder};
 use bevy_transform::transform_system_bundle;
 
-#[derive(Default)]
-pub struct CorePlugin;
+pub struct CorePlugin {
+    pub primary_window: Option<WindowDescriptor>,
+}
+
+impl Default for CorePlugin {
+    fn default() -> Self {
+        CorePlugin {
+            primary_window: Some(WindowDescriptor::default()),
+        }
+    }
+}
 
 impl AppPlugin for CorePlugin {
     fn build(&self, mut app: AppBuilder) -> AppBuilder {
@@ -11,9 +20,20 @@ impl AppPlugin for CorePlugin {
             app = app.add_system(transform_system);
         }
 
-        app.add_event::<WindowResize>()
-            .add_resource(Window::default())
-            .add_resource(Time::new())
+        app = app.add_event::<WindowResize>()
+            .add_event::<CreateWindow>()
+            .add_event::<WindowCreated>()
+            .add_resource(Windows::default())
+            .add_resource(Time::new());
+
+        if let Some(ref primary_window_descriptor) = self.primary_window {
+            let mut create_window_event = app.resources.get_mut::<Event<CreateWindow>>().unwrap();
+            create_window_event.send(CreateWindow {
+                descriptor: primary_window_descriptor.clone(), 
+            });
+        }
+
+        app
     }
 
     fn name(&self) -> &'static str {

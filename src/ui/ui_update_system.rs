@@ -2,11 +2,12 @@ use crate::prelude::*;
 
 pub fn ui_update_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("ui_update")
-        .read_resource::<Window>()
+        .read_resource::<Windows>()
         .with_query(<(Write<Node>,)>::query().filter(!component::<Parent>()))
         .write_component::<Node>()
         .read_component::<Children>()
-        .build(move |_, world, window, node_query| {
+        .build(move |_, world, windows, node_query| {
+            let window = windows.get_primary().unwrap();
             let parent_size = math::vec2(window.width as f32, window.height as f32);
             let parent_position = math::vec2(0.0, 0.0);
             for (entity, _) in node_query.iter_entities_mut(world) {

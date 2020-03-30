@@ -1,5 +1,5 @@
 use crate::{
-    core::Window,
+    core::Windows,
     prelude::World,
     render::{
         render_resource::{RenderResourceAssignments, ResourceProvider},
@@ -23,7 +23,8 @@ impl FrameTextureResourceProvider {
     }
 
     pub fn update(&mut self, renderer: &mut dyn Renderer, _world: &World, resources: &Resources) {
-        let window = resources.get::<Window>().unwrap();
+        let windows = resources.get::<Windows>().unwrap();
+        let window = windows.get_primary().unwrap();
         self.descriptor.size.width = window.width;
         self.descriptor.size.height = window.height;
 

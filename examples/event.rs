@@ -21,7 +21,7 @@ fn event_trigger_system() -> Box<dyn Schedulable> {
         .build(move |_, _, (time, my_event), _| {
             elapsed += time.delta_seconds;
             if elapsed > 1.0 {
-                my_event.raise(MyEvent {
+                my_event.send(MyEvent {
                     message: "Hello World".to_string(),
                 });
 
@@ -31,8 +31,7 @@ fn event_trigger_system() -> Box<dyn Schedulable> {
 }
 
 fn event_listener_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let my_event = resources.get::<Event<MyEvent>>().unwrap();
-    let mut my_event_handle = my_event.get_handle();
+    let mut my_event_handle = resources.get_event_handle::<MyEvent>();
     SystemBuilder::new("EventListener")
         .read_resource::<Event<MyEvent>>()
         .build(move |_, _, my_events, _| {

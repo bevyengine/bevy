@@ -1,3 +1,4 @@
+use crate::prelude::Resources;
 use legion::prelude::{Schedulable, SystemBuilder};
 use std::marker::PhantomData;
 
@@ -55,7 +56,7 @@ impl<T> Event<T>
 where
     T: Send + Sync + 'static,
 {
-    pub fn raise(&mut self, event: T) {
+    pub fn send(&mut self, event: T) {
         let event_instance = EventInstance {
             event,
             event_count: self.event_count,
@@ -105,7 +106,7 @@ where
 
     pub fn get_handle(&self) -> EventHandle<T> {
         EventHandle {
-            last_event_count: self.event_count,
+            last_event_count: 0,
             _marker: PhantomData,
         }
     }
@@ -129,5 +130,23 @@ where
         SystemBuilder::new(format!("EventUpdate::{}", std::any::type_name::<T>()))
             .write_resource::<Self>()
             .build(|_, _, event, _| event.update())
+    }
+}
+
+pub trait GetEventHandle {
+    fn get_event_handle<T>(&self) -> EventHandle<T>
+    where
+        T: Send + Sync + 'static;
+}
+
+impl GetEventHandle for Resources {
+    fn get_event_handle<T>(&self) -> EventHandle<T>
+    where
+        T: Send + Sync + 'static,
+    {
+        let my_event = self
+            .get::<Event<T>>()
+            .unwrap_or_else(|| panic!("Event does not exist: {}", std::any::type_name::<T>()));
+        my_event.get_handle()
     }
 }

@@ -1,23 +1,25 @@
 pub use crate::{
-    app::{App, AppBuilder, plugin::AppPlugin},
+    app::{plugin::AppPlugin, App, AppBuilder},
     asset::{Asset, AssetStorage, Handle},
-    core::{Time, Window, Event, EventHandle},
+    core::{Event, EventHandle, GetEventHandle, Time, Window, Windows, WindowDescriptor},
+    diagnostic::DiagnosticsPlugin,
     ecs,
     ecs::{
         default_archetypes::*, CommandBufferBuilderSource, EntityArchetype, WorldBuilder,
-        WorldBuilderSource
+        WorldBuilderSource,
     },
     render::{
         mesh::{Mesh, MeshType},
         pipeline::PipelineDescriptor,
-        render_resource::{resource_name, resource_providers::UniformResourceProvider, AssetBatchers},
         render_graph::RenderGraph,
+        render_resource::{
+            resource_name, resource_providers::UniformResourceProvider, AssetBatchers,
+        },
         shader::{uniforms::StandardMaterial, Shader, ShaderDefSuffixProvider, ShaderStage},
         texture::{Texture, TextureType},
         ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Light, Renderable,
     },
     ui::{Anchors, Margins, Node},
-    diagnostic::DiagnosticsPlugin,
 };
 pub use bevy_derive::*;
 pub use bevy_transform::prelude::*;
@@ -28,12 +30,12 @@ pub use legion::{
     event::Event as LegionEvent,
     filter::filter_fns::*,
     query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
-    world::{Universe, World},
     systems::{
         bit_set::BitSet,
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        System, SystemBuilder, SubWorld
+        SubWorld, System, SystemBuilder,
     },
+    world::{Universe, World},
 };
 pub use math::{Mat3, Mat4, Quat, Vec2, Vec3, Vec4};

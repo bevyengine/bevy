@@ -1,7 +1,7 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
-    core::{Event, EventHandle, Window, WindowResize},
+    core::{Event, EventHandle, WindowResize, winit::WinitWindows, Windows},
     legion::prelude::*,
     render::{
         pass::{
@@ -345,8 +345,11 @@ impl WgpuRenderer {
     pub fn create_surface(&mut self, resources: &Resources) {
         #[cfg(feature = "winit")]
         {
-            let window = resources.get::<winit::window::Window>().unwrap();
-            let surface = wgpu::Surface::create(window.deref());
+            let winit_windows = resources.get::<WinitWindows>().unwrap();
+            let windows = resources.get::<Windows>().unwrap();
+            let primary_window = windows.get_primary().unwrap();
+            let primary_winit_window = winit_windows.get_window(primary_window.id).unwrap();
+            let surface = wgpu::Surface::create(primary_winit_window.deref());
             self.surface = Some(surface);
         }
     }
@@ -361,7 +364,8 @@ impl Renderer for WgpuRenderer {
                     .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
             );
             let swap_chain_descriptor: wgpu::SwapChainDescriptor = {
-                let window: &Window = &resources.get::<Window>().unwrap();
+                let windows = resources.get::<Windows>().unwrap();
+                let window = windows.get_primary().unwrap();
                 window.into()
             };
 
