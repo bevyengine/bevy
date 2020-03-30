@@ -343,9 +343,12 @@ impl WgpuRenderer {
     }
 
     pub fn create_surface(&mut self, resources: &Resources) {
-        let window = resources.get::<winit::window::Window>().unwrap();
-        let surface = wgpu::Surface::create(window.deref());
-        self.surface = Some(surface);
+        #[cfg(feature = "winit")]
+        {
+            let window = resources.get::<winit::window::Window>().unwrap();
+            let surface = wgpu::Surface::create(window.deref());
+            self.surface = Some(surface);
+        }
     }
 }
 

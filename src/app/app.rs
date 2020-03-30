@@ -5,7 +5,7 @@ pub struct App {
     pub universe: Universe,
     pub world: World,
     pub resources: Resources,
-    pub run: Option<Box<dyn Fn(App)>>,
+    pub runner: Option<Box<dyn Fn(App)>>,
     pub schedule: Schedule,
 }
 
@@ -21,7 +21,7 @@ impl App {
             universe,
             world,
             schedule,
-            run,
+            runner: run,
             resources,
         }
     }
@@ -42,7 +42,7 @@ impl App {
     }
 
     pub fn run(mut self) {
-        if let Some(run) = self.run.take() {
+        if let Some(run) = self.runner.take() {
             run(self)
         }
     }

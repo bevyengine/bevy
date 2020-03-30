@@ -3,12 +3,9 @@ use crate::{
         plugin::{load_plugin, AppPlugin},
         system_stage, App,
     },
-    core::{winit::WinitPlugin, CorePlugin, Event},
+    core::{CorePlugin, Event},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
-    render::{
-        renderer::{renderers::wgpu_renderer::WgpuRendererPlugin},
-        RenderPlugin,
-    },
+    render::RenderPlugin,
     ui::UiPlugin,
 };
 
@@ -119,13 +116,16 @@ impl AppBuilder {
     pub fn add_system(self, system: Box<dyn Schedulable>) -> Self {
         self.add_system_to_stage(system_stage::UPDATE, system)
     }
-    
+
     pub fn add_setup_system(mut self, system: Box<dyn Schedulable>) -> Self {
         self.setup_systems.push(system);
         self
     }
 
-    pub fn build_system<F>(mut self, build: F) -> Self where F: Fn(&mut Resources) -> Box<dyn Schedulable>{
+    pub fn build_system<F>(mut self, build: F) -> Self
+    where
+        F: Fn(&mut Resources) -> Box<dyn Schedulable>,
+    {
         let system = build(&mut self.resources);
         self.add_system(system)
     }
@@ -173,7 +173,10 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_event<T>(self) -> Self where T: Send + Sync + 'static {
+    pub fn add_event<T>(self) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
         self.add_resource(Event::<T>::default())
             .add_system_to_stage(system_stage::EVENT_UPDATE, Event::<T>::update_system())
     }
@@ -186,6 +189,11 @@ impl AppBuilder {
         self
     }
 
+    pub fn set_runner(mut self, run_fn: impl Fn(App) + 'static) -> Self {
+        self.run = Some(Box::new(run_fn));
+        self
+    }
+
     pub fn add_defaults(mut self) -> Self {
         self = self
             .add_plugin(CorePlugin::default())
@@ -194,12 +202,18 @@ impl AppBuilder {
 
         #[cfg(feature = "winit")]
         {
-            self = self.add_plugin(WinitPlugin::default())
+            self = self.add_plugin(crate::core::window::winit::WinitPlugin::default())
+        }
+        #[cfg(not(feature = "winit"))]
+        {
+            self = self.add_plugin(crate::app::schedule_run::ScheduleRunner::default());
         }
 
         #[cfg(feature = "wgpu")]
         {
-            self = self.add_plugin(WgpuRendererPlugin::default());
+            self = self.add_plugin(
+                crate::render::renderer::renderers::wgpu_renderer::WgpuRendererPlugin::default(),
+            );
         }
         self
     }
