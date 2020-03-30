@@ -80,10 +80,7 @@ impl DrawTarget for UiDrawTarget {
         }
 
         let quad = Mesh::load(MeshType::Quad {
-            north_west: math::vec2(-0.5, 0.5),
-            north_east: math::vec2(0.5, 0.5),
-            south_west: math::vec2(-0.5, -0.5),
-            south_east: math::vec2(0.5, -0.5),
+            size: math::vec2(1.0, 1.0),
         });
         self.mesh_vertex_buffer = Some(renderer.create_buffer_with_data(
             BufferInfo {
