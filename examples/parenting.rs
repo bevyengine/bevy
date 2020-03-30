@@ -12,7 +12,7 @@ fn main() {
 
 // rotates the parent, which will result in the child also rotating
 fn build_rotator_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("Rotator")
+    SystemBuilder::new("rotator")
         .read_resource::<Time>()
         .with_query(<(Write<Rotator>, Write<Rotation>)>::query())
         .build(move |_, world, time, rotator_query| {

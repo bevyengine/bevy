@@ -20,7 +20,7 @@ impl EntityRenderResourceAssignments {
 
 // TODO: make sure this runs right before rendering
 pub fn build_entity_render_resource_assignments_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("EntityRenderResourceAssignments")
+    SystemBuilder::new("entity_render_resource_assignments")
         .write_resource::<EntityRenderResourceAssignments>()
         .with_query(<Write<Renderable>>::query().filter(changed::<Renderable>()))
         .build(|_, world, entity_assignments, query| {

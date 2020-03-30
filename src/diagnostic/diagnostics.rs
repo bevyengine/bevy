@@ -26,7 +26,7 @@ pub fn frame_time_diagnostic_system(
         max_history_length,
     ));
     diagnostics.add(Diagnostic::new(FPS, "fps", max_history_length));
-    SystemBuilder::new("FrameTimeDiagnostic")
+    SystemBuilder::new("frame_time_diagnostic")
         .read_resource::<Time>()
         .write_resource::<Diagnostics>()
         .build(move |_, _world, (time, ref mut diagnostics), _queries| {
@@ -57,7 +57,7 @@ pub fn frame_time_diagnostic_system(
 pub fn print_diagnostics_system(wait: Duration) -> Box<dyn Schedulable> {
     let mut elasped = 0.0;
     let wait_seconds = wait.as_secs_f64();
-    SystemBuilder::new("PrintDiagnostics")
+    SystemBuilder::new("print_diagnostics")
         .read_resource::<Time>()
         .read_resource::<Diagnostics>()
         .build(move |_, _world, (time, diagnostics), _queries| {
@@ -81,7 +81,7 @@ pub fn print_diagnostics_system(wait: Duration) -> Box<dyn Schedulable> {
 pub fn print_diagnostics_debug_system(wait: Duration) -> Box<dyn Schedulable> {
     let mut elasped = 0.0;
     let wait_seconds = wait.as_secs_f64();
-    SystemBuilder::new("PrintDiagnostics")
+    SystemBuilder::new("print_diagnostics_debug")
         .read_resource::<Time>()
         .read_resource::<Diagnostics>()
         .build(move |_, _world, (time, diagnostics), _queries| {

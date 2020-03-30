@@ -15,7 +15,7 @@ fn main() {
 
 fn event_trigger_system() -> Box<dyn Schedulable> {
     let mut elapsed = 0.0;
-    SystemBuilder::new("EventTrigger")
+    SystemBuilder::new("event_trigger")
         .read_resource::<Time>()
         .write_resource::<Event<MyEvent>>()
         .build(move |_, _, (time, my_event), _| {
@@ -32,7 +32,7 @@ fn event_trigger_system() -> Box<dyn Schedulable> {
 
 fn event_listener_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut my_event_handle = resources.get_event_handle::<MyEvent>();
-    SystemBuilder::new("EventListener")
+    SystemBuilder::new("event_listener")
         .read_resource::<Event<MyEvent>>()
         .build(move |_, _, my_events, _| {
             for my_event in my_events.iter(&mut my_event_handle) {

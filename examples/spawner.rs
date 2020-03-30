@@ -14,7 +14,7 @@ fn main() {
 }
 
 fn build_move_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("Move")
+    SystemBuilder::new("move")
         .read_resource::<Time>()
         .write_resource::<AssetStorage<StandardMaterial>>()
         .with_query(<(Write<Translation>, Read<Handle<StandardMaterial>>)>::query())

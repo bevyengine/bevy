@@ -13,7 +13,7 @@ fn main() {
 }
 
 fn build_move_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("Move")
+    SystemBuilder::new("move")
         .read_resource::<Time>()
         .with_query(<Write<Node>>::query())
         .build(move |_, world, time, query| {
