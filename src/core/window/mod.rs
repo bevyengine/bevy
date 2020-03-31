@@ -11,6 +11,12 @@ use uuid::Uuid;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
+impl WindowId {
+    pub fn to_string(&self) -> String {
+        self.0.to_simple().to_string()
+    }
+}
+
 pub struct Window {
     pub id: WindowId,
     pub width: u32,

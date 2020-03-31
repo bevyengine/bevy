@@ -16,4 +16,5 @@ pub struct CreateWindow {
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
     pub id: WindowId,
+    pub is_primary: bool,
 }

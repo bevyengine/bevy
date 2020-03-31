@@ -107,7 +107,9 @@ fn handle_create_window_events(
     for create_window_event in create_window_events.iter(create_window_event_handle) {
         let window = Window::new(&create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
-        window_created_events.send(WindowCreated { id: window.id });
+        let window_id = window.id;
         windows.add(window);
+        let is_primary = windows.get_primary().map(|primary| primary.id == window_id).unwrap_or(false);
+        window_created_events.send(WindowCreated { id: window_id, is_primary });
     }
 }

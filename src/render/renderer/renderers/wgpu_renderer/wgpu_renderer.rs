@@ -221,7 +221,8 @@ impl WgpuRenderer {
         pass_descriptor: &PassDescriptor,
         global_render_resource_assignments: &RenderResourceAssignments,
         encoder: &'a mut wgpu::CommandEncoder,
-        frame: &'a wgpu::SwapChainOutput,
+        primary_swap_chain: &Option<String>,
+        swap_chain_outputs: &'a HashMap<String, wgpu::SwapChainOutput>,
     ) -> wgpu::RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &pass_descriptor
@@ -232,7 +233,8 @@ impl WgpuRenderer {
                         wgpu_resources,
                         global_render_resource_assignments,
                         c,
-                        frame,
+                        primary_swap_chain,
+                        swap_chain_outputs,
                     )
                 })
                 .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
@@ -241,46 +243,69 @@ impl WgpuRenderer {
                     wgpu_resources,
                     global_render_resource_assignments,
                     d,
-                    frame,
+                    primary_swap_chain,
+                    swap_chain_outputs,
                 )
             }),
         })
+    }
+
+    fn get_texture_view<'a>(
+        wgpu_resources: &'a WgpuResources,
+        global_render_resource_assignments: &RenderResourceAssignments,
+        primary_swap_chain: &Option<String>,
+        swap_chain_outputs: &'a HashMap<String, wgpu::SwapChainOutput>,
+        name: &str,
+    ) -> &'a wgpu::TextureView {
+        match name {
+            resource_name::texture::SWAP_CHAIN => {
+                if let Some(primary_swap_chain) = primary_swap_chain {
+                    swap_chain_outputs
+                        .get(primary_swap_chain)
+                        .map(|output| &output.view)
+                        .unwrap()
+                } else {
+                    panic!("No primary swap chain found for color attachment");
+                }
+            }
+            _ => match global_render_resource_assignments.get(name) {
+                Some(resource) => wgpu_resources.textures.get(&resource).unwrap(),
+                None => if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
+                    &swap_chain_output.view 
+                }  else {
+                    panic!("Color attachment {} does not exist", name);
+                }
+            },
+        }
     }
 
     fn create_wgpu_color_attachment_descriptor<'a>(
         wgpu_resources: &'a WgpuResources,
         global_render_resource_assignments: &RenderResourceAssignments,
         color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
-        frame: &'a wgpu::SwapChainOutput,
+        primary_swap_chain: &Option<String>,
+        swap_chain_outputs: &'a HashMap<String, wgpu::SwapChainOutput>,
     ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
-        let attachment = match color_attachment_descriptor.attachment.as_str() {
-            resource_name::texture::SWAP_CHAIN => &frame.view,
-            _ => {
-                match global_render_resource_assignments
-                    .get(&color_attachment_descriptor.attachment)
-                {
-                    Some(resource) => wgpu_resources.textures.get(&resource).unwrap(),
-                    None => panic!(
-                        "Color attachment {} does not exist",
-                        &color_attachment_descriptor.attachment
-                    ),
-                }
-            }
-        };
+        let attachment = Self::get_texture_view(
+            wgpu_resources,
+            global_render_resource_assignments,
+            primary_swap_chain,
+            swap_chain_outputs,
+            color_attachment_descriptor.attachment.as_str(),
+        );
 
-        let resolve_target = match color_attachment_descriptor.resolve_target {
-            Some(ref target) => match target.as_str() {
-                resource_name::texture::SWAP_CHAIN => Some(&frame.view),
-                _ => match global_render_resource_assignments.get(target.as_str()) {
-                    Some(resource) => Some(wgpu_resources.textures.get(&resource).unwrap()),
-                    None => panic!(
-                        "Color attachment {} does not exist",
-                        &color_attachment_descriptor.attachment
-                    ),
-                },
-            },
-            None => None,
-        };
+        let resolve_target = color_attachment_descriptor
+            .resolve_target
+            .as_ref()
+            .map(|target| {
+                Self::get_texture_view(
+                    wgpu_resources,
+                    global_render_resource_assignments,
+                    primary_swap_chain,
+                    swap_chain_outputs,
+                    target.as_str(),
+                )
+            });
 
         wgpu::RenderPassColorAttachmentDescriptor {
             store_op: color_attachment_descriptor.store_op.into(),
@@ -295,22 +320,16 @@ impl WgpuRenderer {
         wgpu_resources: &'a WgpuResources,
         global_render_resource_assignments: &RenderResourceAssignments,
         depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
-        frame: &'a wgpu::SwapChainOutput,
+        primary_swap_chain: &Option<String>,
+        swap_chain_outputs: &'a HashMap<String, wgpu::SwapChainOutput>,
     ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
-        let attachment = match depth_stencil_attachment_descriptor.attachment.as_str() {
-            resource_name::texture::SWAP_CHAIN => &frame.view,
-            _ => {
-                match global_render_resource_assignments
-                    .get(&depth_stencil_attachment_descriptor.attachment)
-                {
-                    Some(ref resource) => wgpu_resources.textures.get(&resource).unwrap(),
-                    None => panic!(
-                        "Depth stencil attachment {} does not exist",
-                        &depth_stencil_attachment_descriptor.attachment
-                    ),
-                }
-            }
-        };
+        let attachment = Self::get_texture_view(
+            wgpu_resources,
+            global_render_resource_assignments,
+            primary_swap_chain,
+            swap_chain_outputs,
+            depth_stencil_attachment_descriptor.attachment.as_str(),
+        );
 
         wgpu::RenderPassDepthStencilAttachmentDescriptor {
             attachment,
@@ -422,6 +441,33 @@ impl WgpuRenderer {
             .window_swap_chains
             .insert(window.id, swap_chain);
     }
+
+    fn get_swap_chain_outputs(
+        &mut self,
+        resources: &Resources,
+    ) -> (Option<String>, HashMap<String, wgpu::SwapChainOutput>) {
+        let primary_window_id = resources
+            .get::<Windows>()
+            .unwrap()
+            .get_primary()
+            .map(|window| window.id);
+        let primary_swap_chain =
+            primary_window_id.map(|primary_window_id| primary_window_id.to_string());
+        let swap_chain_outputs = self
+            .wgpu_resources
+            .window_swap_chains
+            .iter_mut()
+            // TODO: include non-primary swap chains
+            .filter(|(window_id, _swap_chain)| **window_id == primary_window_id.unwrap())
+            .map(|(window_id, swap_chain)| {
+                let swap_chain_texture = swap_chain
+                    .get_next_texture()
+                    .expect("Timeout when acquiring next swap chain texture");
+                (window_id.to_string(), swap_chain_texture)
+            })
+            .collect::<HashMap<String, wgpu::SwapChainOutput>>();
+        (primary_swap_chain, swap_chain_outputs)
+    }
 }
 
 impl Renderer for WgpuRenderer {
@@ -444,18 +490,6 @@ impl Renderer for WgpuRenderer {
 
         let mut encoder = self.encoder.take().unwrap();
 
-        // TODO: create swap chain outputs for every swap chain
-        let swap_chain = self
-            .wgpu_resources
-            .window_swap_chains
-            .values_mut()
-            .next()
-            .unwrap();
-        let frame = swap_chain
-            .get_next_texture()
-            .expect("Timeout when acquiring next swap chain texture");
-
-        // setup, pipelines, bind groups, and resources
         let mut pipeline_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
@@ -485,7 +519,7 @@ impl Renderer for WgpuRenderer {
                                     &shader_storage,
                                 );
                             }
-                            
+
                             // setup pipeline draw targets
                             for draw_target_name in compiled_pipeline_descriptor.draw_targets.iter()
                             {
@@ -506,6 +540,8 @@ impl Renderer for WgpuRenderer {
             }
         }
 
+        let (primary_swap_chain, swap_chain_outputs) = self.get_swap_chain_outputs(resources);
+
         // begin render passes
         for (pass_name, pass_descriptor) in render_graph.pass_descriptors.iter() {
             let mut render_pass = Self::create_render_pass(
@@ -513,7 +549,8 @@ impl Renderer for WgpuRenderer {
                 pass_descriptor,
                 &global_render_resource_assignments,
                 &mut encoder,
-                &frame,
+                &primary_swap_chain,
+                &swap_chain_outputs,
             );
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
                 for pass_pipeline in pass_pipelines.iter() {
