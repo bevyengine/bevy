@@ -1,7 +1,9 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
-    core::{winit::WinitWindows, Event, EventHandle, WindowCreated, WindowResized, Windows, Window},
+    core::{
+        winit::WinitWindows, Event, EventHandle, Window, WindowCreated, WindowResized, Windows,
+    },
     legion::prelude::*,
     render::{
         pass::{
@@ -64,7 +66,7 @@ impl WgpuRenderer {
             device: Rc::new(RefCell::new(device)),
             queue,
             encoder: None,
-            window_resized_event_handle: window_resized_event_handle,
+            window_resized_event_handle,
             window_created_event_handle,
             intialized: false,
             wgpu_resources: WgpuResources::default(),
@@ -82,14 +84,15 @@ impl WgpuRenderer {
     }
 
     pub fn create_render_pipeline(
-        wgpu_resources: &mut WgpuResources,
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &mut PipelineDescriptor,
         shader_storage: &AssetStorage<Shader>,
-        device: &wgpu::Device,
-    ) -> wgpu::RenderPipeline {
+    ) {
+        let device = self.device.borrow();
         let layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in layout.bind_groups.iter() {
-            if let None = wgpu_resources.bind_group_layouts.get(&bind_group.id) {
+            if let None = self.wgpu_resources.bind_group_layouts.get(&bind_group.id) {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
@@ -104,7 +107,7 @@ impl WgpuRenderer {
                         bindings: bind_group_layout_binding.as_slice(),
                     });
 
-                wgpu_resources
+                self.wgpu_resources
                     .bind_group_layouts
                     .insert(bind_group.id, wgpu_bind_group_layout);
             }
@@ -115,7 +118,7 @@ impl WgpuRenderer {
             .bind_groups
             .iter()
             .map(|bind_group| {
-                wgpu_resources
+                self.wgpu_resources
                     .bind_group_layouts
                     .get(&bind_group.id)
                     .unwrap()
@@ -138,32 +141,38 @@ impl WgpuRenderer {
             .map(|c| c.into())
             .collect::<Vec<wgpu::ColorStateDescriptor>>();
 
-        if let None = wgpu_resources
+        if let None = self
+            .wgpu_resources
             .shader_modules
             .get(&pipeline_descriptor.shader_stages.vertex)
         {
-            wgpu_resources.create_shader_module(
-                device,
+            self.wgpu_resources.create_shader_module(
+                &device,
                 pipeline_descriptor.shader_stages.vertex,
                 shader_storage,
             );
         }
 
         if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
-            if let None = wgpu_resources.shader_modules.get(&fragment_handle) {
-                wgpu_resources.create_shader_module(device, fragment_handle, shader_storage);
+            if let None = self.wgpu_resources.shader_modules.get(&fragment_handle) {
+                self.wgpu_resources
+                    .create_shader_module(&device, fragment_handle, shader_storage);
             }
         };
 
-        let vertex_shader_module = wgpu_resources
+        let vertex_shader_module = self
+            .wgpu_resources
             .shader_modules
             .get(&pipeline_descriptor.shader_stages.vertex)
             .unwrap();
 
         let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(fragment_handle) => {
-                Some(wgpu_resources.shader_modules.get(&fragment_handle).unwrap())
-            }
+            Some(fragment_handle) => Some(
+                self.wgpu_resources
+                    .shader_modules
+                    .get(&fragment_handle)
+                    .unwrap(),
+            ),
             None => None,
         };
 
@@ -202,7 +211,9 @@ impl WgpuRenderer {
             alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
         };
 
-        device.create_render_pipeline(&mut render_pipeline_descriptor)
+        let render_pipeline = device.create_render_pipeline(&mut render_pipeline_descriptor);
+        self.render_pipelines
+            .insert(pipeline_handle, render_pipeline);
     }
 
     pub fn create_render_pass<'a>(
@@ -455,30 +466,6 @@ impl Renderer for WgpuRenderer {
             resources.get::<RenderResourceAssignments>().unwrap();
         let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
 
-        for pipeline_descriptor_handle in render_graph.pipeline_descriptors.iter() {
-            if let Some(compiled_pipelines_iter) =
-                pipeline_compiler.iter_compiled_pipelines(*pipeline_descriptor_handle)
-            {
-                for compiled_pipeline_handle in compiled_pipelines_iter {
-                    // create pipelines
-                    // TODO: merge this into "setup draw targets" loop
-                    if !self.render_pipelines.contains_key(compiled_pipeline_handle) {
-                        let compiled_pipeline_descriptor =
-                            pipeline_storage.get_mut(compiled_pipeline_handle).unwrap();
-
-                        let render_pipeline = WgpuRenderer::create_render_pipeline(
-                            &mut self.wgpu_resources,
-                            compiled_pipeline_descriptor,
-                            &shader_storage,
-                            &self.device.borrow(),
-                        );
-                        self.render_pipelines
-                            .insert(*compiled_pipeline_handle, render_pipeline);
-                    }
-                }
-            }
-        }
-
         // setup draw targets
         for (pass_name, _pass_descriptor) in render_graph.pass_descriptors.iter() {
             if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
@@ -487,9 +474,21 @@ impl Renderer for WgpuRenderer {
                         pipeline_compiler.iter_compiled_pipelines(*pass_pipeline)
                     {
                         for compiled_pipeline_handle in compiled_pipelines_iter {
-                            let pipeline_descriptor =
-                                pipeline_storage.get(compiled_pipeline_handle).unwrap();
-                            for draw_target_name in pipeline_descriptor.draw_targets.iter() {
+                            let compiled_pipeline_descriptor =
+                                pipeline_storage.get_mut(compiled_pipeline_handle).unwrap();
+
+                            // create wgpu pipeline if it doesn't exist
+                            if !self.render_pipelines.contains_key(compiled_pipeline_handle) {
+                                self.create_render_pipeline(
+                                    *compiled_pipeline_handle,
+                                    compiled_pipeline_descriptor,
+                                    &shader_storage,
+                                );
+                            }
+                            
+                            // setup pipeline draw targets
+                            for draw_target_name in compiled_pipeline_descriptor.draw_targets.iter()
+                            {
                                 let draw_target = render_graph_mut
                                     .draw_targets
                                     .get_mut(draw_target_name)
