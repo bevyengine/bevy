@@ -70,7 +70,7 @@ where
         self.event_count += 1;
     }
 
-    pub fn iter(&self, event_handle: &mut EventHandle<T>) -> impl Iterator<Item = &T> {
+    pub fn iter(&self, event_handle: &mut EventHandle<T>) -> impl DoubleEndedIterator<Item = &T> {
         let a_index = self.a_start_event_count - event_handle.last_event_count;
         let b_index = self.b_start_event_count - event_handle.last_event_count;
         event_handle.last_event_count = self.event_count;

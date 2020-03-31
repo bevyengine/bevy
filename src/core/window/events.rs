@@ -1,10 +1,11 @@
 use super::{WindowDescriptor, WindowId};
 
 #[derive(Debug, Clone)]
-pub struct WindowResize {
+pub struct WindowResized {
     pub id: WindowId,
     pub width: u32,
     pub height: u32,
+    pub is_primary: bool,
 }
 
 #[derive(Debug, Clone)]

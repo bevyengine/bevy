@@ -1,7 +1,7 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
-    core::{Event, EventHandle, WindowResize, winit::WinitWindows, Windows},
+    core::{winit::WinitWindows, Event, EventHandle, WindowCreated, WindowResized, Windows, Window},
     legion::prelude::*,
     render::{
         pass::{
@@ -19,21 +19,29 @@ use crate::{
         texture::{SamplerDescriptor, TextureDescriptor},
     },
 };
-use std::{cell::RefCell, collections::HashMap, ops::Deref, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    ops::Deref,
+    rc::Rc,
+};
 
 pub struct WgpuRenderer {
     pub device: Rc<RefCell<wgpu::Device>>,
     pub queue: wgpu::Queue,
-    pub surface: Option<wgpu::Surface>,
     pub encoder: Option<wgpu::CommandEncoder>,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
-    pub window_resize_handle: EventHandle<WindowResize>,
+    pub window_resized_event_handle: EventHandle<WindowResized>,
+    pub window_created_event_handle: EventHandle<WindowCreated>,
     pub intialized: bool,
 }
 
 impl WgpuRenderer {
-    pub async fn new(window_resize_event: EventHandle<WindowResize>) -> Self {
+    pub async fn new(
+        window_resized_event_handle: EventHandle<WindowResized>,
+        window_created_event_handle: EventHandle<WindowCreated>,
+    ) -> Self {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
@@ -43,19 +51,21 @@ impl WgpuRenderer {
         .await
         .unwrap();
 
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            extensions: wgpu::Extensions {
-                anisotropic_filtering: false,
-            },
-            limits: wgpu::Limits::default(),
-        }).await;
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                extensions: wgpu::Extensions {
+                    anisotropic_filtering: false,
+                },
+                limits: wgpu::Limits::default(),
+            })
+            .await;
 
         WgpuRenderer {
             device: Rc::new(RefCell::new(device)),
             queue,
-            surface: None,
             encoder: None,
-            window_resize_handle: window_resize_event,
+            window_resized_event_handle: window_resized_event_handle,
+            window_created_event_handle,
             intialized: false,
             wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
@@ -67,10 +77,7 @@ impl WgpuRenderer {
             return;
         }
 
-        self.create_surface(resources);
         self.initialize_resource_providers(world, resources);
-        self.resize(world, resources);
-
         self.intialized = true;
     }
 
@@ -342,75 +349,76 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn create_surface(&mut self, resources: &Resources) {
-        #[cfg(feature = "winit")]
+    pub fn handle_window_resized_events(&mut self, resources: &mut Resources) {
+        let windows = resources.get::<Windows>().unwrap();
+        let window_resized_events = resources.get::<Event<WindowResized>>().unwrap();
+        let mut handled_windows = HashSet::new();
+        // iterate in reverse order so we can handle the latest window resize event first for each window.
+        // we skip earlier events for the same window because it results in redundant work
+        for window_resized_event in window_resized_events
+            .iter(&mut self.window_resized_event_handle)
+            .rev()
         {
-            let winit_windows = resources.get::<WinitWindows>().unwrap();
-            let windows = resources.get::<Windows>().unwrap();
-            let primary_window = windows.get_primary().unwrap();
-            let primary_winit_window = winit_windows.get_window(primary_window.id).unwrap();
-            let surface = wgpu::Surface::create(primary_winit_window.deref());
-            self.surface = Some(surface);
+            if handled_windows.contains(&window_resized_event.id) {
+                continue;
+            }
+
+            let window = windows
+                .get(window_resized_event.id)
+                .expect("Received window resized event for non-existent window");
+
+            self.setup_swap_chain(window);
+
+            handled_windows.insert(window_resized_event.id);
         }
+    }
+
+    pub fn handle_window_created_events(&mut self, resources: &mut Resources) {
+        let windows = resources.get::<Windows>().unwrap();
+        let winit_windows = resources.get::<WinitWindows>().unwrap();
+        let window_created_events = resources.get::<Event<WindowCreated>>().unwrap();
+        for window_created_event in
+            window_created_events.iter(&mut self.window_created_event_handle)
+        {
+            let window = windows
+                .get(window_created_event.id)
+                .expect("Received window created event for non-existent window");
+            #[cfg(feature = "winit")]
+            {
+                let primary_winit_window = winit_windows.get_window(window.id).unwrap();
+                let surface = wgpu::Surface::create(primary_winit_window.deref());
+                self.wgpu_resources
+                    .window_surfaces
+                    .insert(window.id, surface);
+                self.setup_swap_chain(window);
+            }
+        }
+    }
+
+    fn setup_swap_chain(&mut self, window: &Window) {
+        let surface = self
+            .wgpu_resources
+            .window_surfaces
+            .get(&window.id)
+            .expect("Received window resized event for window without a wgpu surface");
+
+        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.into();
+        let swap_chain = self
+            .device
+            .borrow()
+            .create_swap_chain(surface, &swap_chain_descriptor);
+        self.wgpu_resources
+            .window_swap_chains
+            .insert(window.id, swap_chain);
     }
 }
 
 impl Renderer for WgpuRenderer {
-    fn resize(&mut self, world: &mut World, resources: &mut Resources) {
-        if let Some(surface) = self.surface.as_ref() {
-            self.encoder = Some(
-                self.device
-                    .borrow()
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
-            );
-            let swap_chain_descriptor: wgpu::SwapChainDescriptor = {
-                let windows = resources.get::<Windows>().unwrap();
-                let window = windows.get_primary().unwrap();
-                window.into()
-            };
-
-            let swap_chain = self
-                .device
-                .borrow()
-                .create_swap_chain(surface, &swap_chain_descriptor);
-
-            // WgpuRenderer can't own swap_chain without creating lifetime ergonomics issues, so lets just store it in World.
-            resources.insert(swap_chain);
-            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            for resource_provider in render_graph.resource_providers.iter_mut() {
-                resource_provider.resize(
-                    self,
-                    world,
-                    resources,
-                    swap_chain_descriptor.width,
-                    swap_chain_descriptor.height,
-                );
-            }
-
-            // consume current encoder
-            let command_buffer = self.encoder.take().unwrap().finish();
-            self.queue.submit(&[command_buffer]);
-        } else {
-            // TODO: remove this warning if this case is not a problem
-            println!("warning: attempted to resize renderer before surface was ready");
-        }
-    }
-
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
         self.initialize(world, resources);
+        self.handle_window_created_events(resources);
+        self.handle_window_resized_events(resources);
 
-        let resized =
-            resources
-                .get::<Event<WindowResize>>()
-                .unwrap()
-                .iter(&mut self.window_resize_handle)
-                .last()
-                .map(|_| ())
-                .is_some();
-
-        if resized {
-            self.resize(world, resources);
-        }
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(
@@ -425,12 +433,16 @@ impl Renderer for WgpuRenderer {
 
         let mut encoder = self.encoder.take().unwrap();
 
-        let mut swap_chain = resources.get_mut::<wgpu::SwapChain>().unwrap();
+        // TODO: create swap chain outputs for every swap chain
+        let swap_chain = self
+            .wgpu_resources
+            .window_swap_chains
+            .values_mut()
+            .next()
+            .unwrap();
         let frame = swap_chain
             .get_next_texture()
             .expect("Timeout when acquiring next swap chain texture");
-
-        // self.setup_dynamic_entity_shader_uniforms(world, render_graph, &mut encoder);
 
         // setup, pipelines, bind groups, and resources
         let mut pipeline_storage = resources

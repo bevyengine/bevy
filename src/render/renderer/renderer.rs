@@ -11,7 +11,6 @@ use crate::{
 use std::ops::Range;
 
 pub trait Renderer {
-    fn resize(&mut self, world: &mut World, resources: &mut Resources);
     fn update(&mut self, world: &mut World, resources: &mut Resources);
     fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;

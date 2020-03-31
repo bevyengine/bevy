@@ -1,4 +1,4 @@
-use super::{CreateWindow, Time, WindowCreated, WindowResize, Windows, Event, WindowDescriptor};
+use super::{CreateWindow, Time, WindowCreated, WindowResized, Windows, Event, WindowDescriptor};
 use crate::app::{plugin::AppPlugin, AppBuilder};
 use bevy_transform::transform_system_bundle;
 
@@ -20,7 +20,7 @@ impl AppPlugin for CorePlugin {
             app = app.add_system(transform_system);
         }
 
-        app = app.add_event::<WindowResize>()
+        app = app.add_event::<WindowResized>()
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_resource(Windows::default())

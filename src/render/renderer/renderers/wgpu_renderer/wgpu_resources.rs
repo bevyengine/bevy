@@ -10,7 +10,7 @@ use crate::{
         },
         renderer::Renderer,
         texture::{SamplerDescriptor, TextureDescriptor},
-    },
+    }, core::WindowId,
 };
 use std::collections::HashMap;
 
@@ -22,6 +22,8 @@ pub struct WgpuBindGroupInfo {
 #[derive(Default)]
 pub struct WgpuResources {
     pub render_resources: RenderResources,
+    pub window_surfaces: HashMap<WindowId, wgpu::Surface>,
+    pub window_swap_chains: HashMap<WindowId, wgpu::SwapChain>,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,

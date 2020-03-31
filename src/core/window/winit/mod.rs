@@ -3,7 +3,7 @@ pub use winit_windows::*;
 
 use crate::prelude::*;
 
-use super::{CreateWindow, Window, WindowCreated, WindowResize, Windows};
+use super::{CreateWindow, Window, WindowCreated, WindowResized, Windows};
 use winit::{
     event,
     event::WindowEvent,
@@ -15,9 +15,8 @@ pub struct WinitPlugin;
 
 impl AppPlugin for WinitPlugin {
     fn build(&self, app: AppBuilder) -> AppBuilder {
-        app
-        .add_resource(WinitWindows::default())
-        .set_runner(winit_runner)
+        app.add_resource(WinitWindows::default())
+            .set_runner(winit_runner)
     }
 
     fn name(&self) -> &'static str {
@@ -52,15 +51,20 @@ pub fn winit_runner(mut app: App) {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                let is_primary = windows
+                    .get_primary()
+                    .map(|primary_window| primary_window.id == window_id)
+                    .unwrap_or(false);
                 let mut window = windows.get_mut(window_id).unwrap();
                 window.width = size.width;
                 window.height = size.height;
 
-                let mut resize_event = app.resources.get_mut::<Event<WindowResize>>().unwrap();
-                resize_event.send(WindowResize {
+                let mut resize_event = app.resources.get_mut::<Event<WindowResized>>().unwrap();
+                resize_event.send(WindowResized {
                     id: window_id,
                     height: window.height,
                     width: window.width,
+                    is_primary,
                 });
             }
             event::Event::WindowEvent { event, .. } => match event {
@@ -102,22 +106,8 @@ fn handle_create_window_events(
     let mut window_created_events = resources.get_mut::<Event<WindowCreated>>().unwrap();
     for create_window_event in create_window_events.iter(create_window_event_handle) {
         let window = Window::new(&create_window_event.descriptor);
-        create_window(
-            &event_loop,
-            &mut window_created_events,
-            &mut winit_windows,
-            &window,
-        );
+        winit_windows.create_window(event_loop, &window);
+        window_created_events.send(WindowCreated { id: window.id });
         windows.add(window);
     }
-}
-
-pub fn create_window(
-    event_loop: &EventLoopWindowTarget<()>,
-    window_created_events: &mut Event<WindowCreated>,
-    winit_windows: &mut WinitWindows,
-    window: &Window,
-) {
-    winit_windows.create_window(event_loop, &window);
-    window_created_events.send(WindowCreated { id: window.id });
 }

@@ -14,14 +14,7 @@ use super::{
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
     },
 };
-use crate::{
-    app::{plugin::AppPlugin, AppBuilder},
-    asset::AssetStorage,
-    prelude::{
-        LocalToWorld, Mesh, PipelineDescriptor, Shader, StandardMaterial, Texture,
-        UniformResourceProvider,
-    },
-};
+use crate::{core::WindowResized, prelude::*};
 
 #[derive(Default)]
 pub struct RenderPlugin;
@@ -40,8 +33,12 @@ impl RenderPlugin {
             .add_draw_target(AssignedBatchesDrawTarget::default())
             .add_draw_target(AssignedMeshesDrawTarget::default())
             .add_draw_target(UiDrawTarget::default())
-            .add_resource_provider(CameraResourceProvider::default())
-            .add_resource_provider(Camera2dResourceProvider::default())
+            .add_resource_provider(CameraResourceProvider::new(
+                app.resources.get_event_handle::<WindowResized>(),
+            ))
+            .add_resource_provider(Camera2dResourceProvider::new(
+                app.resources.get_event_handle::<WindowResized>(),
+            ))
             .add_resource_provider(LightResourceProvider::new(10))
             .add_resource_provider(UiResourceProvider::new())
             .add_resource_provider(MeshResourceProvider::new())
