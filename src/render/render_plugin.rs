@@ -34,10 +34,10 @@ impl RenderPlugin {
             .add_draw_target(AssignedMeshesDrawTarget::default())
             .add_draw_target(UiDrawTarget::default())
             .add_resource_provider(CameraResourceProvider::new(
-                app.resources.get_event_handle::<WindowResized>(),
+                app.resources.get_event_reader::<WindowResized>(),
             ))
             .add_resource_provider(Camera2dResourceProvider::new(
-                app.resources.get_event_handle::<WindowResized>(),
+                app.resources.get_event_reader::<WindowResized>(),
             ))
             .add_resource_provider(LightResourceProvider::new(10))
             .add_resource_provider(UiResourceProvider::new())

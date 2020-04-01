@@ -1,7 +1,7 @@
 pub use crate::{
     app::{plugin::AppPlugin, App, AppBuilder},
     asset::{Asset, AssetStorage, Handle},
-    core::{Event, EventHandle, GetEventHandle, Time, Window, Windows, WindowDescriptor},
+    core::{Events, EventReader, GetEventReader, Time, Window, Windows, WindowDescriptor},
     diagnostic::DiagnosticsPlugin,
     ecs,
     ecs::{

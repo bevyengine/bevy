@@ -13,15 +13,15 @@ use zerocopy::AsBytes;
 pub struct Camera2dResourceProvider {
     pub camera_buffer: Option<RenderResource>,
     pub tmp_buffer: Option<RenderResource>,
-    pub window_resized_event_handle: EventHandle<WindowResized>,
+    pub window_resized_event_reader: EventReader<WindowResized>,
 }
 
 impl Camera2dResourceProvider {
-    pub fn new(window_resized_event_handle: EventHandle<WindowResized>) -> Self {
+    pub fn new(window_resized_event_reader: EventReader<WindowResized>) -> Self {
         Camera2dResourceProvider {
             camera_buffer: None,
             tmp_buffer: None,
-            window_resized_event_handle,
+            window_resized_event_reader,
         }
     }
 }
@@ -46,9 +46,9 @@ impl ResourceProvider for Camera2dResourceProvider {
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
-        let window_resized_events = resources.get::<Event<WindowResized>>().unwrap();
+        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let primary_window_resized_event = window_resized_events
-            .iter(&mut self.window_resized_event_handle)
+            .iter(&mut self.window_resized_event_reader)
             .rev()
             .filter(|event| event.is_primary)
             .next();

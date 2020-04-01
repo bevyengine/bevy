@@ -3,6 +3,7 @@ extern crate proc_macro;
 use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Type};
 
@@ -82,12 +83,31 @@ struct UniformAttributeArgs {
     pub instance: Option<bool>,
     #[darling(default)]
     pub vertex: Option<bool>,
+    #[darling(default)]
+    pub bevy_path: Option<String>,
 }
 
 #[proc_macro_derive(Uniforms, attributes(uniform))]
 pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
     let ast = parse_macro_input!(input as DeriveInput);
+    let mut bevy_path_name = "bevy".to_string();
+    let struct_attribute_args = ast
+        .attrs
+        .iter()
+        .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == UNIFORM_ATTRIBUTE_NAME)
+        .map(|a| {
+            UniformAttributeArgs::from_meta(&a.parse_meta().unwrap())
+                .unwrap_or_else(|_err| UniformAttributeArgs::default())
+        });
+
+    if let Some(struct_attribute_args) = struct_attribute_args {
+        if let Some(attribute_bevy_path) = struct_attribute_args.bevy_path {
+            bevy_path_name = attribute_bevy_path.to_string();
+        }
+    }
+
+    let bevy_path = Ident::new(&bevy_path_name, Span::call_site());
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -195,20 +215,11 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
     let vertex_buffer_field_names_pascal = vertex_buffer_fields
         .map(|(f, (instance, _vertex))| {
-            let pascal_field =                     f.ident.as_ref().unwrap().to_string().to_pascal_case();
+            let pascal_field = f.ident.as_ref().unwrap().to_string().to_pascal_case();
             if instance {
-                format!(
-                    "I_{}_{}",
-                    struct_name,
-                    pascal_field
-                )
-                
+                format!("I_{}_{}", struct_name, pascal_field)
             } else {
-                format!(
-                    "{}_{}",
-                    struct_name,
-                    pascal_field
-                )
+                format!("{}_{}", struct_name, pascal_field)
             }
         })
         .collect::<Vec<String>>();
@@ -242,7 +253,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 },
                 None => false,
             };
-            quote!(bevy::render::shader::FieldInfo {
+            quote!(#bevy_path::render::shader::FieldInfo {
                 name: #field_name,
                 uniform_name: #uniform,
                 texture_name: #texture,
@@ -252,13 +263,13 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         });
 
     TokenStream::from(quote! {
-        static #field_infos_ident: &[bevy::render::shader::FieldInfo] = &[
+        static #field_infos_ident: &[#bevy_path::render::shader::FieldInfo] = &[
             #(#field_infos,)*
         ];
 
-        static #vertex_buffer_descriptor_ident: bevy::once_cell::sync::Lazy<bevy::render::pipeline::VertexBufferDescriptor> =
-            bevy::once_cell::sync::Lazy::new(|| {
-                use bevy::render::pipeline::{VertexFormat, AsVertexFormats, VertexAttributeDescriptor};
+        static #vertex_buffer_descriptor_ident: #bevy_path::once_cell::sync::Lazy<#bevy_path::render::pipeline::VertexBufferDescriptor> =
+            #bevy_path::once_cell::sync::Lazy::new(|| {
+                use #bevy_path::render::pipeline::{VertexFormat, AsVertexFormats, VertexAttributeDescriptor};
 
                 let mut vertex_formats: Vec<(&str,&[VertexFormat])>  = vec![
                     #((#vertex_buffer_field_names_pascal, <#vertex_buffer_field_types>::as_vertex_formats()),)*
@@ -286,21 +297,21 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                     }).collect::<Vec<VertexAttributeDescriptor>>()
                 }).flatten().collect::<Vec<VertexAttributeDescriptor>>();
 
-                bevy::render::pipeline::VertexBufferDescriptor {
+                #bevy_path::render::pipeline::VertexBufferDescriptor {
                     attributes: vertex_attribute_descriptors,
                     name: #struct_name_string.to_string(),
-                    step_mode: bevy::render::pipeline::InputStepMode::Instance,
+                    step_mode: #bevy_path::render::pipeline::InputStepMode::Instance,
                     stride: offset,
                 }
             });
 
-        impl bevy::render::shader::AsUniforms for #struct_name {
-            fn get_field_infos() -> &'static [bevy::render::shader::FieldInfo] {
+        impl #bevy_path::render::shader::AsUniforms for #struct_name {
+            fn get_field_infos() -> &'static [#bevy_path::render::shader::FieldInfo] {
                 #field_infos_ident
             }
 
-            fn get_field_bind_type(&self, name: &str) -> Option<bevy::render::shader::FieldBindType> {
-                use bevy::render::shader::AsFieldBindType;
+            fn get_field_bind_type(&self, name: &str) -> Option<#bevy_path::render::shader::FieldBindType> {
+                use #bevy_path::render::shader::AsFieldBindType;
                 match name {
                     #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_field_bind_type(),)*
                     _ => None,
@@ -308,7 +319,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
-                use bevy::core::bytes::GetBytes;
+                use #bevy_path::core::bytes::GetBytes;
                 match name {
                     #(#uniform_name_strings => Some(self.#active_uniform_field_names.get_bytes()),)*
                     _ => None,
@@ -316,15 +327,15 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
-                use bevy::core::bytes::GetBytes;
+                use #bevy_path::core::bytes::GetBytes;
                 match name {
                     #(#uniform_name_strings => self.#active_uniform_field_names.get_bytes_ref(),)*
                     _ => None,
                 }
             }
 
-            fn get_uniform_texture(&self, name: &str) -> Option<bevy::asset::Handle<bevy::render::texture::Texture>> {
-                use bevy::render::shader::GetTexture;
+            fn get_uniform_texture(&self, name: &str) -> Option<#bevy_path::asset::Handle<#bevy_path::render::texture::Texture>> {
+                use #bevy_path::render::shader::GetTexture;
                 match name {
                     #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*
                     _ => None,
@@ -335,7 +346,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             // TODO: this will be very allocation heavy. find a way to either make this allocation free
             // or alternatively only run it when the shader_defs have changed
             fn get_shader_defs(&self) -> Option<Vec<String>> {
-                use bevy::render::shader::ShaderDefSuffixProvider;
+                use #bevy_path::render::shader::ShaderDefSuffixProvider;
                 let mut potential_shader_defs: Vec<(&'static str, Option<&'static str>)> = vec![
                     #((#shader_def_field_names_screaming_snake, self.#shader_def_field_names.get_shader_def()),)*
                 ];
@@ -346,7 +357,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                     .collect::<Vec<String>>())
             }
 
-            fn get_vertex_buffer_descriptor() -> Option<&'static bevy::render::pipeline::VertexBufferDescriptor> {
+            fn get_vertex_buffer_descriptor() -> Option<&'static #bevy_path::render::pipeline::VertexBufferDescriptor> {
                 if #vertex_buffer_descriptor_ident.attributes.len() == 0 {
                     None
                 } else {

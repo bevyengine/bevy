@@ -2,7 +2,7 @@ use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass
 use crate::{
     asset::{AssetStorage, Handle},
     core::{
-        winit::WinitWindows, Event, EventHandle, Window, WindowCreated, WindowResized, Windows,
+        winit::WinitWindows, Events, EventReader, Window, WindowCreated, WindowResized, Windows,
     },
     legion::prelude::*,
     render::{
@@ -34,15 +34,15 @@ pub struct WgpuRenderer {
     pub encoder: Option<wgpu::CommandEncoder>,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub wgpu_resources: WgpuResources,
-    pub window_resized_event_handle: EventHandle<WindowResized>,
-    pub window_created_event_handle: EventHandle<WindowCreated>,
+    pub window_resized_event_reader: EventReader<WindowResized>,
+    pub window_created_event_reader: EventReader<WindowCreated>,
     pub intialized: bool,
 }
 
 impl WgpuRenderer {
     pub async fn new(
-        window_resized_event_handle: EventHandle<WindowResized>,
-        window_created_event_handle: EventHandle<WindowCreated>,
+        window_resized_event_reader: EventReader<WindowResized>,
+        window_created_event_reader: EventReader<WindowCreated>,
     ) -> Self {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
@@ -66,8 +66,8 @@ impl WgpuRenderer {
             device: Rc::new(RefCell::new(device)),
             queue,
             encoder: None,
-            window_resized_event_handle,
-            window_created_event_handle,
+            window_resized_event_reader,
+            window_created_event_reader,
             intialized: false,
             wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
@@ -381,12 +381,12 @@ impl WgpuRenderer {
 
     pub fn handle_window_resized_events(&mut self, resources: &mut Resources) {
         let windows = resources.get::<Windows>().unwrap();
-        let window_resized_events = resources.get::<Event<WindowResized>>().unwrap();
+        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let mut handled_windows = HashSet::new();
         // iterate in reverse order so we can handle the latest window resize event first for each window.
         // we skip earlier events for the same window because it results in redundant work
         for window_resized_event in window_resized_events
-            .iter(&mut self.window_resized_event_handle)
+            .iter(&mut self.window_resized_event_reader)
             .rev()
         {
             if handled_windows.contains(&window_resized_event.id) {
@@ -406,9 +406,9 @@ impl WgpuRenderer {
     pub fn handle_window_created_events(&mut self, resources: &mut Resources) {
         let windows = resources.get::<Windows>().unwrap();
         let winit_windows = resources.get::<WinitWindows>().unwrap();
-        let window_created_events = resources.get::<Event<WindowCreated>>().unwrap();
+        let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
         for window_created_event in
-            window_created_events.iter(&mut self.window_created_event_handle)
+            window_created_events.iter(&mut self.window_created_event_reader)
         {
             let window = windows
                 .get(window_created_event.id)

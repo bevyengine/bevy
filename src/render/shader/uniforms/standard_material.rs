@@ -3,10 +3,10 @@ use crate::{
     render::{texture::Texture, Color},
 };
 
-use crate as bevy; // for macro imports
 use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
+#[uniform(bevy_path="crate")]
 pub struct StandardMaterial {
     #[uniform(instance)]
     pub albedo: Color,

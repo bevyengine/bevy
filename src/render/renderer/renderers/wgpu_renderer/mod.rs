@@ -9,7 +9,7 @@ pub use wgpu_resources::*;
 
 use crate::{
     app::{plugin::AppPlugin, system_stage, AppBuilder},
-    core::{Event, WindowCreated, WindowResized},
+    core::{Events, WindowCreated, WindowResized},
     render::renderer::Renderer,
 };
 
@@ -29,11 +29,11 @@ impl AppPlugin for WgpuRendererPlugin {
 }
 
 pub fn wgpu_render_system(resources: &Resources) -> impl FnMut(&mut World, &mut Resources) {
-    let window_resized_event = resources.get::<Event<WindowResized>>().unwrap();
-    let window_created_event = resources.get::<Event<WindowCreated>>().unwrap();
+    let window_resized_event = resources.get::<Events<WindowResized>>().unwrap();
+    let window_created_event = resources.get::<Events<WindowCreated>>().unwrap();
     let mut wgpu_renderer = futures::executor::block_on(WgpuRenderer::new(
-        window_resized_event.get_handle(),
-        window_created_event.get_handle(),
+        window_resized_event.get_reader(),
+        window_created_event.get_reader(),
     ));
     move |world, resources| {
         wgpu_renderer.update(world, resources);

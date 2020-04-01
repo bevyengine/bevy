@@ -3,7 +3,7 @@ use crate::{
         plugin::{load_plugin, AppPlugin},
         system_stage, App,
     },
-    core::{CorePlugin, Event},
+    core::{CorePlugin, Events},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     render::RenderPlugin,
     ui::UiPlugin,
@@ -177,8 +177,8 @@ impl AppBuilder {
     where
         T: Send + Sync + 'static,
     {
-        self.add_resource(Event::<T>::default())
-            .add_system_to_stage(system_stage::EVENT_UPDATE, Event::<T>::update_system())
+        self.add_resource(Events::<T>::default())
+            .add_system_to_stage(system_stage::EVENT_UPDATE, Events::<T>::build_update_system())
     }
 
     pub fn add_resource<T>(mut self, resource: T) -> Self

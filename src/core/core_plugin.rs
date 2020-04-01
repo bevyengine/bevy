@@ -1,4 +1,4 @@
-use super::{CreateWindow, Time, WindowCreated, WindowResized, Windows, Event, WindowDescriptor};
+use super::{CreateWindow, Time, WindowCreated, WindowResized, Windows, Events, WindowDescriptor};
 use crate::app::{plugin::AppPlugin, AppBuilder};
 use bevy_transform::transform_system_bundle;
 
@@ -27,7 +27,7 @@ impl AppPlugin for CorePlugin {
             .add_resource(Time::new());
 
         if let Some(ref primary_window_descriptor) = self.primary_window {
-            let mut create_window_event = app.resources.get_mut::<Event<CreateWindow>>().unwrap();
+            let mut create_window_event = app.resources.get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 descriptor: primary_window_descriptor.clone(), 
             });

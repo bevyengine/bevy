@@ -27,12 +27,12 @@ impl AppPlugin for WinitPlugin {
 pub fn winit_runner(mut app: App) {
     env_logger::init();
     let event_loop = EventLoop::new();
-    let mut create_window_event_handle = app.resources.get_event_handle::<CreateWindow>();
+    let mut create_window_event_reader = app.resources.get_event_reader::<CreateWindow>();
 
     handle_create_window_events(
         &mut app.resources,
         &event_loop,
-        &mut create_window_event_handle,
+        &mut create_window_event_reader,
     );
 
     log::debug!("Entering render loop");
@@ -59,7 +59,7 @@ pub fn winit_runner(mut app: App) {
                 window.width = size.width;
                 window.height = size.height;
 
-                let mut resize_event = app.resources.get_mut::<Event<WindowResized>>().unwrap();
+                let mut resize_event = app.resources.get_mut::<Events<WindowResized>>().unwrap();
                 resize_event.send(WindowResized {
                     id: window_id,
                     height: window.height,
@@ -86,7 +86,7 @@ pub fn winit_runner(mut app: App) {
                 handle_create_window_events(
                     &mut app.resources,
                     event_loop,
-                    &mut create_window_event_handle,
+                    &mut create_window_event_reader,
                 );
                 app.update();
             }
@@ -98,13 +98,13 @@ pub fn winit_runner(mut app: App) {
 fn handle_create_window_events(
     resources: &mut Resources,
     event_loop: &EventLoopWindowTarget<()>,
-    create_window_event_handle: &mut EventHandle<CreateWindow>,
+    create_window_event_reader: &mut EventReader<CreateWindow>,
 ) {
     let mut winit_windows = resources.get_mut::<WinitWindows>().unwrap();
     let mut windows = resources.get_mut::<Windows>().unwrap();
-    let create_window_events = resources.get::<Event<CreateWindow>>().unwrap();
-    let mut window_created_events = resources.get_mut::<Event<WindowCreated>>().unwrap();
-    for create_window_event in create_window_events.iter(create_window_event_handle) {
+    let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
+    let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
+    for create_window_event in create_window_events.iter(create_window_event_reader) {
         let window = Window::new(&create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;
