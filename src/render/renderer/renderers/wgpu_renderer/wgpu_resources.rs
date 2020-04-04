@@ -10,7 +10,8 @@ use crate::{
         },
         renderer::Renderer,
         texture::{SamplerDescriptor, TextureDescriptor},
-    }, core::WindowId,
+    },
+    window::WindowId,
 };
 use std::collections::HashMap;
 
@@ -59,7 +60,10 @@ impl WgpuResources {
         if let Some((render_resource_set_id, _indices)) =
             render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
         {
-            log::debug!("start creating bind group for RenderResourceSet {:?}", render_resource_set_id);
+            log::debug!(
+                "start creating bind group for RenderResourceSet {:?}",
+                render_resource_set_id
+            );
             let bindings = bind_group_descriptor
                 .bindings
                 .iter()
@@ -127,8 +131,11 @@ impl WgpuResources {
             bind_group_info
                 .bind_groups
                 .insert(*render_resource_set_id, bind_group);
-            
-            log::debug!("created bind group for RenderResourceSet {:?}", render_resource_set_id);
+
+            log::debug!(
+                "created bind group for RenderResourceSet {:?}",
+                render_resource_set_id
+            );
             log::trace!("{:#?}", bind_group_descriptor);
             return true;
         } else {

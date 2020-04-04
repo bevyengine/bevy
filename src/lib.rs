@@ -8,6 +8,7 @@ pub mod prelude;
 pub mod render;
 pub mod serialization;
 pub mod ui;
+pub mod window;
 
 pub use bevy_transform as transform;
 pub use glam as math;

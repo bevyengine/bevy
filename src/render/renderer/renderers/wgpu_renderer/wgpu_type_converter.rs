@@ -1,5 +1,4 @@
 use crate::{
-    core::Window,
     prelude::Color,
     render::{
         pass::{LoadOp, StoreOp},
@@ -19,6 +18,7 @@ use crate::{
             TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
         },
     },
+    window::Window,
 };
 
 impl From<VertexFormat> for wgpu::VertexFormat {

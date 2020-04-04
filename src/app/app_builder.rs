@@ -5,6 +5,7 @@ use crate::{
     },
     core::{CorePlugin, Events},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
+    window::WindowPlugin,
     render::RenderPlugin,
     ui::UiPlugin,
 };
@@ -178,7 +179,10 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(system_stage::EVENT_UPDATE, Events::<T>::build_update_system())
+            .add_system_to_stage(
+                system_stage::EVENT_UPDATE,
+                Events::<T>::build_update_system(),
+            )
     }
 
     pub fn add_resource<T>(mut self, resource: T) -> Self
@@ -194,15 +198,16 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_defaults(mut self) -> Self {
+    pub fn add_default_plugins(mut self) -> Self {
         self = self
             .add_plugin(CorePlugin::default())
+            .add_plugin(WindowPlugin::default())
             .add_plugin(RenderPlugin::default())
             .add_plugin(UiPlugin::default());
 
         #[cfg(feature = "winit")]
         {
-            self = self.add_plugin(crate::core::window::winit::WinitPlugin::default())
+            self = self.add_plugin(crate::window::winit::WinitPlugin::default())
         }
         #[cfg(not(feature = "winit"))]
         {

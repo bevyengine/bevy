@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build().add_defaults().add_setup_system(setup_system()).run();
+    App::build().add_default_plugins().add_setup_system(setup_system()).run();
 }
 
 pub fn setup_system() -> Box<dyn Schedulable> {

@@ -9,8 +9,8 @@ pub use wgpu_resources::*;
 
 use crate::{
     app::{plugin::AppPlugin, system_stage, AppBuilder},
-    core::{Events, WindowCreated, WindowResized},
-    render::renderer::Renderer,
+    core::Events,
+    render::renderer::Renderer, window::{WindowCreated, WindowResized},
 };
 
 use legion::prelude::*;

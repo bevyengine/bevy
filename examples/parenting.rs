@@ -4,7 +4,7 @@ struct Rotator;
 
 fn main() {
     App::build()
-        .add_defaults()
+        .add_default_plugins()
         .setup(setup)
         .add_system(build_rotator_system())
         .run();

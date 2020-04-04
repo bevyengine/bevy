@@ -14,7 +14,7 @@ use super::{
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
     },
 };
-use crate::{core::WindowResized, prelude::*};
+use crate::{prelude::*, window::WindowResized};
 
 #[derive(Default)]
 pub struct RenderPlugin;

@@ -1,5 +1,5 @@
 use crate::{
-    core::Windows,
+    window::Windows,
     prelude::World,
     render::{
         render_resource::{RenderResourceAssignments, ResourceProvider},

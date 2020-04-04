@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .add_defaults()
+        .add_default_plugins()
         .setup(setup)
         .add_system(build_move_system())
         .add_plugin(DiagnosticsPlugin {

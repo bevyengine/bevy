@@ -3,7 +3,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::build()
-        .add_defaults()
+        .add_default_plugins()
         .add_system(build_move_system())
         .add_plugin(DiagnosticsPlugin {
             print_diagnostics: true,

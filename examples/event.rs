@@ -6,7 +6,7 @@ struct MyEvent {
 
 fn main() {
     App::build()
-        .add_defaults()
+        .add_default_plugins()
         .add_event::<MyEvent>()
         .add_system(event_trigger_system())
         .build_system(event_listener_system)

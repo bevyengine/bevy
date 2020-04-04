@@ -1,9 +1,7 @@
 use super::{wgpu_type_converter::OwnedWgpuVertexBufferDescriptor, WgpuRenderPass, WgpuResources};
 use crate::{
     asset::{AssetStorage, Handle},
-    core::{
-        winit::WinitWindows, Events, EventReader, Window, WindowCreated, WindowResized, Windows,
-    },
+    core::{EventReader, Events},
     legion::prelude::*,
     render::{
         pass::{
@@ -20,6 +18,7 @@ use crate::{
         shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
+    window::{winit::WinitWindows, Window, WindowCreated, WindowResized, Windows},
 };
 use std::{
     cell::RefCell,
@@ -270,10 +269,12 @@ impl WgpuRenderer {
             }
             _ => match global_render_resource_assignments.get(name) {
                 Some(resource) => wgpu_resources.textures.get(&resource).unwrap(),
-                None => if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
-                    &swap_chain_output.view 
-                }  else {
-                    panic!("Color attachment {} does not exist", name);
+                None => {
+                    if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
+                        &swap_chain_output.view
+                    } else {
+                        panic!("Color attachment {} does not exist", name);
+                    }
                 }
             },
         }

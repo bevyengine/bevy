@@ -1,5 +1,5 @@
 use crate::{
-    core::WindowResized,
+    window::WindowResized,
     prelude::*,
     render::{
         render_resource::{
