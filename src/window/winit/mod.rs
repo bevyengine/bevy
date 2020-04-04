@@ -1,7 +1,8 @@
+mod converters;
 mod winit_windows;
 pub use winit_windows::*;
 
-use crate::prelude::*;
+use crate::{input::keyboard::KeyboardInput, prelude::*};
 
 use super::{CreateWindow, Window, WindowCreated, WindowResized, Windows};
 use winit::{
@@ -15,7 +16,11 @@ pub struct WinitPlugin;
 
 impl AppPlugin for WinitPlugin {
     fn build(&self, app: AppBuilder) -> AppBuilder {
-        app.add_resource(WinitWindows::default())
+        app
+            // TODO: It would be great to provide a raw winit WindowEvent here, but the lifetime on it is
+            // stopping us. there are plans to remove the lifetime: https://github.com/rust-windowing/winit/pull/1456
+            // .add_event::<winit::event::WindowEvent>()
+            .add_resource(WinitWindows::default())
             .set_runner(winit_runner)
     }
 
@@ -68,17 +73,13 @@ pub fn winit_runner(mut app: App) {
                 });
             }
             event::Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | WindowEvent::CloseRequested => {
+                WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
+                }
+                WindowEvent::KeyboardInput { ref input, .. } => {
+                    let mut keyboard_input_events =
+                        app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
+                    keyboard_input_events.send(input.into());
                 }
                 _ => {}
             },

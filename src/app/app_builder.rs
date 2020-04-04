@@ -7,7 +7,7 @@ use crate::{
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
     render::RenderPlugin,
     ui::UiPlugin,
-    window::WindowPlugin,
+    window::WindowPlugin, input::InputPlugin,
 };
 
 use std::collections::HashMap;
@@ -201,6 +201,7 @@ impl AppBuilder {
     pub fn add_default_plugins(mut self) -> Self {
         self = self
             .add_plugin(CorePlugin::default())
+            .add_plugin(InputPlugin::default())
             .add_plugin(WindowPlugin::default())
             .add_plugin(RenderPlugin::default())
             .add_plugin(UiPlugin::default());

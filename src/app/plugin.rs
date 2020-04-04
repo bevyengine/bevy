@@ -4,6 +4,7 @@ use std::any::Any;
 
 pub trait AppPlugin: Any + Send + Sync {
     fn build(&self, app: AppBuilder) -> AppBuilder;
+    // TODO: consider removing "name" in favor of calling type_name::<Plugin>() from the host app
     fn name(&self) -> &str;
 }
 
