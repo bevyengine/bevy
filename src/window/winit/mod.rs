@@ -109,7 +109,13 @@ fn handle_create_window_events(
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;
         windows.add(window);
-        let is_primary = windows.get_primary().map(|primary| primary.id == window_id).unwrap_or(false);
-        window_created_events.send(WindowCreated { id: window_id, is_primary });
+        let is_primary = windows
+            .get_primary()
+            .map(|primary| primary.id == window_id)
+            .unwrap_or(false);
+        window_created_events.send(WindowCreated {
+            id: window_id,
+            is_primary,
+        });
     }
 }

@@ -1,5 +1,5 @@
 use super::UniformProperty;
-use crate::render::texture::{TextureComponentType, TextureViewDimension, TextureFormat};
+use crate::render::texture::{TextureComponentType, TextureFormat, TextureViewDimension};
 
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BindingDescriptor {

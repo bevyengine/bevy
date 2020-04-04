@@ -1,6 +1,6 @@
+use super::Time;
 use crate::app::{plugin::AppPlugin, AppBuilder};
 use bevy_transform::transform_system_bundle;
-use super::Time;
 
 #[derive(Default)]
 pub struct CorePlugin;
@@ -11,8 +11,7 @@ impl AppPlugin for CorePlugin {
             app = app.add_system(transform_system);
         }
 
-        app
-            .add_resource(Time::new())
+        app.add_resource(Time::new())
     }
 
     fn name(&self) -> &'static str {

@@ -2,12 +2,8 @@ use crate::{asset::Asset, math::*, render::Vertex};
 
 pub enum MeshType {
     Cube,
-    Plane {
-        size: f32,
-    },
-    Quad {
-        size: Vec2,
-    },
+    Plane { size: f32 },
+    Quad { size: Vec2 },
 }
 
 pub struct Mesh {
@@ -20,9 +16,7 @@ impl Asset<MeshType> for Mesh {
         let (vertices, indices) = match descriptor {
             MeshType::Cube => create_cube(),
             MeshType::Plane { size } => create_plane(size),
-            MeshType::Quad {
-                size
-            } => create_quad(size),
+            MeshType::Quad { size } => create_quad(size),
         };
 
         Mesh { vertices, indices }

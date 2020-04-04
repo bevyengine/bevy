@@ -1,8 +1,7 @@
 pub use crate::{
     app::{plugin::AppPlugin, App, AppBuilder},
     asset::{Asset, AssetStorage, Handle},
-    window::{Window, Windows, WindowDescriptor, WindowPlugin},
-    core::{Events, EventReader, GetEventReader, Time},
+    core::{EventReader, Events, GetEventReader, Time},
     diagnostic::DiagnosticsPlugin,
     ecs,
     ecs::{
@@ -21,6 +20,7 @@ pub use crate::{
         ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Light, Renderable,
     },
     ui::{Anchors, Margins, Node},
+    window::{Window, WindowDescriptor, WindowPlugin, Windows},
 };
 pub use bevy_derive::*;
 pub use bevy_transform::prelude::*;

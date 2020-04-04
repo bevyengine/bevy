@@ -6,7 +6,7 @@ use crate::{
 use bevy_derive::Uniforms;
 
 #[derive(Uniforms)]
-#[uniform(bevy_path="crate")]
+#[uniform(bevy_path = "crate")]
 pub struct StandardMaterial {
     #[uniform(instance)]
     pub albedo: Color,

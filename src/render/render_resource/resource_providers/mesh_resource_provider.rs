@@ -42,12 +42,22 @@ impl MeshResourceProvider {
         }
     }
 
-    fn setup_mesh_resources(renderer: &mut dyn Renderer, mesh_storage: &mut AssetStorage<Mesh>, handle: Handle<Mesh>, render_resource_assignments: &mut RenderResourceAssignments) {
+    fn setup_mesh_resources(
+        renderer: &mut dyn Renderer,
+        mesh_storage: &mut AssetStorage<Mesh>,
+        handle: Handle<Mesh>,
+        render_resource_assignments: &mut RenderResourceAssignments,
+    ) {
         let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = renderer
             .get_render_resources()
             .get_mesh_vertices_resource(handle)
         {
-            (vertex_buffer, renderer.get_render_resources().get_mesh_indices_resource(handle))
+            (
+                vertex_buffer,
+                renderer
+                    .get_render_resources()
+                    .get_mesh_indices_resource(handle),
+            )
         } else {
             let mesh_asset = mesh_storage.get(&handle).unwrap();
             let vertex_buffer = renderer.create_buffer_with_data(
@@ -109,7 +119,12 @@ impl ResourceProvider for MeshResourceProvider {
                 for batch in batches {
                     let handle = batch.get_handle::<Mesh>().unwrap();
                     log::trace!("setup mesh for {:?}", batch.render_resource_assignments.id);
-                    Self::setup_mesh_resources(renderer, &mut mesh_storage, handle, &mut batch.render_resource_assignments);
+                    Self::setup_mesh_resources(
+                        renderer,
+                        &mut mesh_storage,
+                        handle,
+                        &mut batch.render_resource_assignments,
+                    );
                 }
             }
         };

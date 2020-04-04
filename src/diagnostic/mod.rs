@@ -1,5 +1,5 @@
-pub mod diagnostics;
 mod diagnostic_plugin;
+pub mod diagnostics;
 pub use diagnostic_plugin::*;
 
 use std::{
@@ -36,10 +36,8 @@ impl Diagnostic {
         }
 
         self.sum += value;
-        self.history.push_front(DiagnosticMeasurement {
-            time,
-            value,
-        });
+        self.history
+            .push_front(DiagnosticMeasurement { time, value });
     }
 
     pub fn new(id: DiagnosticId, name: &str, max_history_length: usize) -> Diagnostic {
@@ -74,22 +72,21 @@ impl Diagnostic {
 
     pub fn duration(&self) -> Option<Duration> {
         if self.history.len() < 2 {
-            return None
+            return None;
         }
 
         if let Some(oldest) = self.history.back() {
             if let Some(newest) = self.history.front() {
-                return newest.time.duration_since(oldest.time).ok()
+                return newest.time.duration_since(oldest.time).ok();
             }
         }
 
-        return None
+        return None;
     }
 
     pub fn get_max_history_length(&self) -> usize {
         self.max_history_length
     }
-
 }
 
 #[derive(Default)]
@@ -111,7 +108,9 @@ impl Diagnostics {
     }
 
     pub fn get_measurement(&self, id: DiagnosticId) -> Option<&DiagnosticMeasurement> {
-        self.diagnostics.get(&id).and_then(|diagnostic| diagnostic.history.front())
+        self.diagnostics
+            .get(&id)
+            .and_then(|diagnostic| diagnostic.history.front())
     }
 
     pub fn add_measurement(&mut self, id: DiagnosticId, value: f64) {
@@ -120,7 +119,7 @@ impl Diagnostics {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&Diagnostic> {
+    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
         self.diagnostics.values()
     }
 }

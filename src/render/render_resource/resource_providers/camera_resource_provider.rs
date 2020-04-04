@@ -1,5 +1,4 @@
 use crate::{
-    window::WindowResized,
     prelude::*,
     render::{
         render_resource::{
@@ -9,6 +8,7 @@ use crate::{
         renderer::Renderer,
         ActiveCamera, Camera,
     },
+    window::WindowResized,
 };
 use zerocopy::AsBytes;
 

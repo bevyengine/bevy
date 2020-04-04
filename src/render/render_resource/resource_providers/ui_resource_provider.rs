@@ -18,7 +18,7 @@ use zerocopy::{AsBytes, FromBytes};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, AsBytes, FromBytes, Uniforms)]
-#[uniform(bevy_path="crate")]
+#[uniform(bevy_path = "crate")]
 pub struct Rect {
     #[uniform(instance)]
     pub position: [f32; 2],

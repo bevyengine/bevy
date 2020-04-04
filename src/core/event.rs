@@ -20,7 +20,7 @@ enum State {
 /// # Example
 /// ```
 /// use bevy::core::event::Events;
-/// 
+///
 /// struct MyEvent {
 ///     value: usize
 /// }

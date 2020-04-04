@@ -1,11 +1,11 @@
 use crate::{
-    window::Windows,
     prelude::World,
     render::{
         render_resource::{RenderResourceAssignments, ResourceProvider},
         renderer::Renderer,
         texture::TextureDescriptor,
     },
+    window::Windows,
 };
 use legion::prelude::Resources;
 

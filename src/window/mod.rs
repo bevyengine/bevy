@@ -1,12 +1,12 @@
+mod events;
+mod window_plugin;
+mod windows;
 #[cfg(feature = "winit")]
 pub mod winit;
-mod events;
-mod windows;
-mod window_plugin;
 
 pub use events::*;
-pub use windows::*;
 pub use window_plugin::*;
+pub use windows::*;
 
 use uuid::Uuid;
 

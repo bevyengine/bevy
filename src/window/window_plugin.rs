@@ -1,5 +1,8 @@
-use super::{CreateWindow, WindowCreated, WindowResized, Windows, WindowDescriptor};
-use crate::{core::Events, app::{plugin::AppPlugin, AppBuilder}};
+use super::{CreateWindow, WindowCreated, WindowDescriptor, WindowResized, Windows};
+use crate::{
+    app::{plugin::AppPlugin, AppBuilder},
+    core::Events,
+};
 
 pub struct WindowPlugin {
     pub primary_window: Option<WindowDescriptor>,
@@ -15,7 +18,8 @@ impl Default for WindowPlugin {
 
 impl AppPlugin for WindowPlugin {
     fn build(&self, mut app: AppBuilder) -> AppBuilder {
-        app = app.add_event::<WindowResized>()
+        app = app
+            .add_event::<WindowResized>()
             .add_event::<CreateWindow>()
             .add_event::<WindowCreated>()
             .add_resource(Windows::default());
@@ -23,7 +27,7 @@ impl AppPlugin for WindowPlugin {
         if let Some(ref primary_window_descriptor) = self.primary_window {
             let mut create_window_event = app.resources.get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
-                descriptor: primary_window_descriptor.clone(), 
+                descriptor: primary_window_descriptor.clone(),
             });
         }
 

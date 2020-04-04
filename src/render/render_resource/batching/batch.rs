@@ -27,7 +27,10 @@ impl Batch {
         }
     }
 
-    pub fn get_handle<T>(&self) -> Option<Handle<T>> where T: 'static {
+    pub fn get_handle<T>(&self) -> Option<Handle<T>>
+    where
+        T: 'static,
+    {
         self.handles
             .iter()
             .map(|h| Handle::from_untyped(*h))

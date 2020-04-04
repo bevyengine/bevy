@@ -23,7 +23,10 @@ impl<T> Handle<T> {
         }
     }
 
-    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>> where T: 'static {
+    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>>
+    where
+        T: 'static,
+    {
         if TypeId::of::<T>() == untyped_handle.type_id {
             Some(Handle::new(untyped_handle.id))
         } else {
@@ -96,7 +99,8 @@ where
     T: 'static,
 {
     fn from(handle: HandleUntyped) -> Self {
-        Handle::from_untyped(handle).expect("attempted to convert untyped handle to incorrect typed handle")
+        Handle::from_untyped(handle)
+            .expect("attempted to convert untyped handle to incorrect typed handle")
     }
 }
 

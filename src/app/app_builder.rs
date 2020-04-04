@@ -5,9 +5,9 @@ use crate::{
     },
     core::{CorePlugin, Events},
     legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World},
-    window::WindowPlugin,
     render::RenderPlugin,
     ui::UiPlugin,
+    window::WindowPlugin,
 };
 
 use std::collections::HashMap;

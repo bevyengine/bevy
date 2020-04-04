@@ -76,24 +76,33 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         let mut global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
 
-        log::debug!("setting up batch bind groups for pipeline: {:?}", pipeline_handle);
+        log::debug!(
+            "setting up batch bind groups for pipeline: {:?}",
+            pipeline_handle
+        );
         log::trace!("setting up global bind groups");
         renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
 
         for batch in asset_batches.get_batches_mut() {
-            log::debug!("setting up batch bind groups: {:?}", batch.render_resource_assignments.id);
-            log::trace!("{:#?}", batch);
-            renderer.setup_bind_groups(
-                &mut batch.render_resource_assignments,
-                pipeline_descriptor,
+            log::debug!(
+                "setting up batch bind groups: {:?}",
+                batch.render_resource_assignments.id
             );
+            log::trace!("{:#?}", batch);
+            renderer.setup_bind_groups(&mut batch.render_resource_assignments, pipeline_descriptor);
             for batched_entity in batch.entities.iter() {
-                let mut renderable = world.get_component_mut::<Renderable>(*batched_entity).unwrap();
+                let mut renderable = world
+                    .get_component_mut::<Renderable>(*batched_entity)
+                    .unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 
-                log::trace!("setting up entity bind group {:?} for batch {:?}", batched_entity, batch.render_resource_assignments.id);
+                log::trace!(
+                    "setting up entity bind group {:?} for batch {:?}",
+                    batched_entity,
+                    batch.render_resource_assignments.id
+                );
                 renderer.setup_bind_groups(
                     &mut renderable.render_resource_assignments,
                     pipeline_descriptor,

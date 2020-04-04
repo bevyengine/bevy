@@ -57,7 +57,7 @@ impl PipelineCompiler {
         // set binding uniforms to dynamic if render resource assignments use dynamic
         // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
         // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
-        // for all permutations of dynamic/non-dynamic 
+        // for all permutations of dynamic/non-dynamic
         for bind_group in layout.bind_groups.iter_mut() {
             for binding in bind_group.bindings.iter_mut() {
                 if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
@@ -236,7 +236,11 @@ impl ShaderPipelineAssignments {
 }
 
 // TODO: make this a system
-pub fn update_shader_assignments(world: &mut World, resources: &mut Resources, renderer: &dyn Renderer) {
+pub fn update_shader_assignments(
+    world: &mut World,
+    resources: &mut Resources,
+    renderer: &dyn Renderer,
+) {
     // PERF: this seems like a lot of work for things that don't change that often.
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
     {

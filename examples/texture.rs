@@ -40,7 +40,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             mesh: quad_handle,
             material: material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
-            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0 , 0.0),
+            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
             ..Default::default()
         })
         // textured quad modulated

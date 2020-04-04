@@ -538,7 +538,7 @@ where
                 new_capacity,
                 item_size
             );
-            
+
             buffer_array_status.buffer = Some(buffer);
         }
     }

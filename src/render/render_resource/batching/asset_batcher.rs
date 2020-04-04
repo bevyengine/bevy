@@ -251,10 +251,9 @@ mod tests {
         ];
         expected_batches.sort_by(|a, b| a.0.cmp(&b.0));
         // copy ignored fields
-        batches
-            .iter()
-            .zip(expected_batches.iter_mut())
-            .for_each(|((_, ref actual), (_, ref mut expected))| copy_ignored_fields(actual, expected));
+        batches.iter().zip(expected_batches.iter_mut()).for_each(
+            |((_, ref actual), (_, ref mut expected))| copy_ignored_fields(actual, expected),
+        );
         assert_eq!(
             batches,
             expected_batches

@@ -1,4 +1,4 @@
-use crate::{window::WindowId, prelude::*};
+use crate::{prelude::*, window::WindowId};
 use std::collections::HashMap;
 
 #[derive(Default)]

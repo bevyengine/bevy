@@ -2,7 +2,7 @@ use super::{
     diagnostics::{frame_time_diagnostic_system, print_diagnostics_system},
     Diagnostics,
 };
-use crate::{app::AppBuilder, app::plugin::AppPlugin};
+use crate::app::{plugin::AppPlugin, AppBuilder};
 use std::time::Duration;
 
 pub struct DiagnosticsPlugin {

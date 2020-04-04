@@ -6,17 +6,13 @@ use std::{thread, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
-    Loop {
-        wait: Option<Duration>,
-    },
+    Loop { wait: Option<Duration> },
     Once,
 }
 
 impl Default for RunMode {
     fn default() -> Self {
-        RunMode::Loop {
-            wait: None,
-        }
+        RunMode::Loop { wait: None }
     }
 }
 
@@ -32,7 +28,7 @@ impl AppPlugin for ScheduleRunner {
             RunMode::Once => {
                 app.schedule.execute(&mut app.world, &mut app.resources);
             }
-            RunMode::Loop { wait }=> loop {
+            RunMode::Loop { wait } => loop {
                 app.schedule.execute(&mut app.world, &mut app.resources);
                 if let Some(wait) = wait {
                     thread::sleep(wait);
