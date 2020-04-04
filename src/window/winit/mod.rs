@@ -19,7 +19,7 @@ impl AppPlugin for WinitPlugin {
             .set_runner(winit_runner)
     }
 
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "Winit"
     }
 }

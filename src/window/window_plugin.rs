@@ -34,7 +34,7 @@ impl AppPlugin for WindowPlugin {
         app
     }
 
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "Window"
     }
 }

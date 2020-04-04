@@ -14,7 +14,7 @@ impl AppPlugin for CorePlugin {
         app.add_resource(Time::new())
     }
 
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "Core"
     }
 }

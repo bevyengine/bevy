@@ -17,11 +17,11 @@ impl Default for RunMode {
 }
 
 #[derive(Default)]
-pub struct ScheduleRunner {
+pub struct ScheduleRunnerPlugin {
     pub run_mode: RunMode,
 }
 
-impl AppPlugin for ScheduleRunner {
+impl AppPlugin for ScheduleRunnerPlugin {
     fn build(&self, app: AppBuilder) -> AppBuilder {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| match run_mode {
@@ -36,7 +36,7 @@ impl AppPlugin for ScheduleRunner {
             },
         })
     }
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "ScheduleRun"
     }
 }

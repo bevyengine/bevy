@@ -70,7 +70,7 @@ impl AppPlugin for RenderPlugin {
         app
     }
 
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "Render"
     }
 }

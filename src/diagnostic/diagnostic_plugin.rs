@@ -36,7 +36,7 @@ impl AppPlugin for DiagnosticsPlugin {
 
         app
     }
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "Diagnostics"
     }
 }

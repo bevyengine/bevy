@@ -17,7 +17,7 @@ impl AppPlugin for UiPlugin {
     fn build(&self, app: AppBuilder) -> AppBuilder {
         app.add_system(ui_update_system())
     }
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "UI"
     }
 }

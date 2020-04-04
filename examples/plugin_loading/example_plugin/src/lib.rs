@@ -8,7 +8,7 @@ impl AppPlugin for ExamplePlugin {
         app_builder.setup(setup)
     }
 
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "example"
     }
 }

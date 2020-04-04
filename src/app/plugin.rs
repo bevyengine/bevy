@@ -4,7 +4,7 @@ use std::any::Any;
 
 pub trait AppPlugin: Any + Send + Sync {
     fn build(&self, app: AppBuilder) -> AppBuilder;
-    fn name(&self) -> &'static str;
+    fn name(&self) -> &str;
 }
 
 pub type CreateAppPlugin = unsafe fn() -> *mut dyn AppPlugin;
