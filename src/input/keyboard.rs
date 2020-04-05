@@ -2,19 +2,19 @@
 pub struct KeyboardInput {
     pub scan_code: u32,
     pub virtual_key_code: Option<VirtualKeyCode>,
-    pub state: KeyState,
+    pub state: ElementState,
 }
 
 #[derive(Debug, Clone)]
-pub enum KeyState {
+pub enum ElementState {
     Pressed,
     Released,
 }
 
-impl KeyState {
+impl ElementState {
     pub fn is_pressed(&self) -> bool {
         match self {
-            KeyState::Pressed => true,
+            ElementState::Pressed => true,
             _ => false,
         }
     }

@@ -2,7 +2,10 @@ mod converters;
 mod winit_windows;
 pub use winit_windows::*;
 
-use crate::{input::keyboard::KeyboardInput, prelude::*};
+use crate::{
+    input::{keyboard::KeyboardInput, mouse::MouseInput},
+    prelude::*,
+};
 
 use super::{CreateWindow, Window, WindowCreated, WindowResized, Windows};
 use winit::{
@@ -80,6 +83,14 @@ pub fn winit_runner(mut app: App) {
                     let mut keyboard_input_events =
                         app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
                     keyboard_input_events.send(input.into());
+                }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    let mut mouse_input_events =
+                        app.resources.get_mut::<Events<MouseInput>>().unwrap();
+                    mouse_input_events.send(MouseInput {
+                        button: button.into(),
+                        state: state.into(),
+                    });
                 }
                 _ => {}
             },

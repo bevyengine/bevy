@@ -1,4 +1,4 @@
-use crate::input::keyboard::{KeyState, KeyboardInput, VirtualKeyCode};
+use crate::input::{mouse::MouseButton, keyboard::{ElementState, KeyboardInput, VirtualKeyCode}};
 
 impl From<&winit::event::KeyboardInput> for KeyboardInput {
     fn from(keyboard_input: &winit::event::KeyboardInput) -> Self {
@@ -10,11 +10,22 @@ impl From<&winit::event::KeyboardInput> for KeyboardInput {
     }
 }
 
-impl From<winit::event::ElementState> for KeyState {
+impl From<winit::event::ElementState> for ElementState {
     fn from(element_state: winit::event::ElementState) -> Self {
         match element_state {
-            winit::event::ElementState::Pressed => KeyState::Pressed,
-            winit::event::ElementState::Released => KeyState::Released,
+            winit::event::ElementState::Pressed => ElementState::Pressed,
+            winit::event::ElementState::Released => ElementState::Released,
+        }
+    }
+}
+
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(mouse_button: winit::event::MouseButton) -> Self {
+        match mouse_button {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Other(val) => MouseButton::Other(val),
         }
     }
 }
