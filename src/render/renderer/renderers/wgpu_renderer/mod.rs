@@ -24,9 +24,6 @@ impl AppPlugin for WgpuRendererPlugin {
         let render_system = wgpu_render_system(&app.resources);
         app.add_thread_local_to_stage(system_stage::RENDER, render_system)
     }
-    fn name(&self) -> &str {
-        "WgpuRenderer"
-    }
 }
 
 pub fn wgpu_render_system(resources: &Resources) -> impl FnMut(&mut World, &mut Resources) {

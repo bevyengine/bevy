@@ -27,6 +27,7 @@ impl App {
     }
 
     pub fn build() -> AppBuilder {
+        env_logger::init();
         AppBuilder::new()
     }
 

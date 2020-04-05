@@ -21,14 +21,14 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         render_pass: &mut dyn RenderPass,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
-        log::debug!("drawing batches for pipeline {:?}", pipeline_handle);
+        log::trace!("drawing batches for pipeline {:?}", pipeline_handle);
         let asset_batches = resources.get::<AssetBatchers>().unwrap();
         let global_render_resource_assignments =
             resources.get::<RenderResourceAssignments>().unwrap();
         render_pass.set_render_resources(&global_render_resource_assignments);
         for batch in asset_batches.get_batches() {
             let indices = render_pass.set_render_resources(&batch.render_resource_assignments);
-            log::debug!("drawing batch {:?}", batch.render_resource_assignments.id);
+            log::trace!("drawing batch {:?}", batch.render_resource_assignments.id);
             log::trace!("{:#?}", batch);
             for batched_entity in batch.entities.iter() {
                 let renderable = world.get_component::<Renderable>(*batched_entity).unwrap();
@@ -75,7 +75,7 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         let mut global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
 
-        log::debug!(
+        log::trace!(
             "setting up batch bind groups for pipeline: {:?} {:?}",
             pipeline_handle,
             pipeline_descriptor.name,
@@ -84,7 +84,7 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
 
         for batch in asset_batches.get_batches_mut() {
-            log::debug!(
+            log::trace!(
                 "setting up batch bind groups: {:?}",
                 batch.render_resource_assignments.id
             );

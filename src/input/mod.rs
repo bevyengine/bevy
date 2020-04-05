@@ -14,8 +14,4 @@ impl AppPlugin for InputPlugin {
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
     }
-
-    fn name(&self) -> &str {
-        "Input"
-    }
 }

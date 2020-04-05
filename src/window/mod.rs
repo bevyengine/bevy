@@ -1,59 +1,45 @@
 mod events;
-mod window_plugin;
+mod window;
 mod windows;
 #[cfg(feature = "winit")]
 pub mod winit;
 
 pub use events::*;
-pub use window_plugin::*;
+pub use window::*;
 pub use windows::*;
 
-use uuid::Uuid;
+use crate::{
+    app::{plugin::AppPlugin, AppBuilder},
+    core::Events,
+};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct WindowId(Uuid);
-
-impl WindowId {
-    pub fn to_string(&self) -> String {
-        self.0.to_simple().to_string()
-    }
+pub struct WindowPlugin {
+    pub primary_window: Option<WindowDescriptor>,
 }
 
-pub struct Window {
-    pub id: WindowId,
-    pub width: u32,
-    pub height: u32,
-    pub title: String,
-    pub vsync: bool,
-}
-
-impl Window {
-    pub fn new(window_descriptor: &WindowDescriptor) -> Self {
-        Window {
-            id: WindowId(Uuid::new_v4()),
-            height: window_descriptor.height,
-            width: window_descriptor.width,
-            title: window_descriptor.title.clone(),
-            vsync: window_descriptor.vsync,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WindowDescriptor {
-    pub width: u32,
-    pub height: u32,
-    pub title: String,
-    pub vsync: bool,
-}
-
-impl Default for WindowDescriptor {
+impl Default for WindowPlugin {
     fn default() -> Self {
-        WindowDescriptor {
-            title: "bevy".to_string(),
-            width: 1280,
-            height: 720,
-            vsync: true,
+        WindowPlugin {
+            primary_window: Some(WindowDescriptor::default()),
         }
+    }
+}
+
+impl AppPlugin for WindowPlugin {
+    fn build(&self, mut app: AppBuilder) -> AppBuilder {
+        app = app
+            .add_event::<WindowResized>()
+            .add_event::<CreateWindow>()
+            .add_event::<WindowCreated>()
+            .add_resource(Windows::default());
+
+        if let Some(ref primary_window_descriptor) = self.primary_window {
+            let mut create_window_event = app.resources.get_mut::<Events<CreateWindow>>().unwrap();
+            create_window_event.send(CreateWindow {
+                descriptor: primary_window_descriptor.clone(),
+            });
+        }
+
+        app
     }
 }

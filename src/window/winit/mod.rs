@@ -29,14 +29,9 @@ impl AppPlugin for WinitPlugin {
             .add_resource(WinitWindows::default())
             .set_runner(winit_runner)
     }
-
-    fn name(&self) -> &str {
-        "Winit"
-    }
 }
 
 pub fn winit_runner(mut app: App) {
-    env_logger::init();
     let event_loop = EventLoop::new();
     let mut create_window_event_reader = app.resources.get_event_reader::<CreateWindow>();
 

@@ -36,7 +36,4 @@ impl AppPlugin for ScheduleRunnerPlugin {
             },
         })
     }
-    fn name(&self) -> &str {
-        "ScheduleRun"
-    }
 }

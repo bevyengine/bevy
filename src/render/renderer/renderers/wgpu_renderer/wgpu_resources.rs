@@ -60,7 +60,7 @@ impl WgpuResources {
         if let Some((render_resource_set_id, _indices)) =
             render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
         {
-            log::debug!(
+            log::trace!(
                 "start creating bind group for RenderResourceSet {:?}",
                 render_resource_set_id
             );
@@ -132,7 +132,7 @@ impl WgpuResources {
                 .bind_groups
                 .insert(*render_resource_set_id, bind_group);
 
-            log::debug!(
+            log::trace!(
                 "created bind group for RenderResourceSet {:?}",
                 render_resource_set_id
             );

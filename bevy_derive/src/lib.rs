@@ -368,7 +368,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(RegisterAppPlugin)]
+#[proc_macro_derive(DynamicAppPlugin)]
 pub fn derive_app_plugin(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let struct_name = &ast.ident;

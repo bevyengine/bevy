@@ -4,8 +4,9 @@ use std::any::Any;
 
 pub trait AppPlugin: Any + Send + Sync {
     fn build(&self, app: AppBuilder) -> AppBuilder;
-    // TODO: consider removing "name" in favor of calling type_name::<Plugin>() from the host app
-    fn name(&self) -> &str;
+    fn name(&self) -> &str {
+        type_name_of_val(self)
+    }
 }
 
 pub type CreateAppPlugin = unsafe fn() -> *mut dyn AppPlugin;
@@ -18,4 +19,8 @@ pub fn load_plugin(path: &str) -> (Library, Box<dyn AppPlugin>) {
         let plugin = Box::from_raw(func());
         (lib, plugin)
     }
+}
+
+fn type_name_of_val<T: ?Sized>(_val: &T) -> &'static str {
+    std::any::type_name::<T>()
 }

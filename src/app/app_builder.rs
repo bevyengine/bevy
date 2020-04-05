@@ -226,6 +226,7 @@ impl AppBuilder {
 
     pub fn load_plugin(self, path: &str) -> Self {
         let (_lib, plugin) = load_plugin(path);
+        log::debug!("loaded plugin: {}", plugin.name());
         plugin.build(self)
     }
 
@@ -233,6 +234,7 @@ impl AppBuilder {
     where
         T: AppPlugin,
     {
+        log::debug!("added plugin: {}", plugin.name());
         plugin.build(self)
     }
 }
