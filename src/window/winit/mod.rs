@@ -40,7 +40,7 @@ pub fn winit_runner(mut app: App) {
         &mut create_window_event_reader,
     );
 
-    log::debug!("Entering render loop");
+    log::debug!("Entering winit event loop");
     event_loop.run(move |event, event_loop, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
