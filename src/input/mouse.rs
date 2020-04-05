@@ -1,7 +1,7 @@
 use super::keyboard::ElementState;
 
 #[derive(Debug, Clone)]
-pub struct MouseInput {
+pub struct MouseButtonInput {
     pub button: MouseButton,
     pub state: ElementState,
 }
@@ -12,4 +12,9 @@ pub enum MouseButton {
     Right,
     Middle,
     Other(u8),
+}
+
+#[derive(Debug, Clone)]
+pub struct MouseMotion {
+    pub delta: (f64, f64),
 }

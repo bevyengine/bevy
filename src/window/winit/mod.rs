@@ -3,14 +3,17 @@ mod winit_windows;
 pub use winit_windows::*;
 
 use crate::{
-    input::{keyboard::KeyboardInput, mouse::MouseInput},
+    input::{
+        keyboard::KeyboardInput,
+        mouse::{MouseMotion, MouseButtonInput},
+    },
     prelude::*,
 };
 
 use super::{CreateWindow, Window, WindowCreated, WindowResized, Windows};
 use winit::{
     event,
-    event::WindowEvent,
+    event::{DeviceEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
@@ -85,13 +88,21 @@ pub fn winit_runner(mut app: App) {
                     keyboard_input_events.send(input.into());
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
-                    let mut mouse_input_events =
-                        app.resources.get_mut::<Events<MouseInput>>().unwrap();
-                    mouse_input_events.send(MouseInput {
+                    let mut mouse_button_input_events =
+                        app.resources.get_mut::<Events<MouseButtonInput>>().unwrap();
+                    mouse_button_input_events.send(MouseButtonInput {
                         button: button.into(),
                         state: state.into(),
                     });
                 }
+                _ => {}
+            },
+            event::Event::DeviceEvent { ref event, .. } => match event {
+                DeviceEvent::MouseMotion { delta } => {
+                    let mut mouse_motion_events =
+                        app.resources.get_mut::<Events<MouseMotion>>().unwrap();
+                    mouse_motion_events.send(MouseMotion { delta: *delta });
+                },
                 _ => {}
             },
             event::Event::MainEventsCleared => {
