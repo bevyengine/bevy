@@ -1,4 +1,5 @@
 use super::VertexFormat;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexBufferDescriptor {
@@ -40,4 +41,22 @@ pub struct VertexAttributeDescriptor {
     pub offset: u64,
     pub format: VertexFormat,
     pub shader_location: u32,
+}
+
+#[derive(Default)]
+pub struct VertexBufferDescriptors {
+    pub descriptors: HashMap<String, VertexBufferDescriptor>,
+}
+
+impl VertexBufferDescriptors {
+    pub fn set(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor) {
+        self.descriptors.insert(
+            vertex_buffer_descriptor.name.to_string(),
+            vertex_buffer_descriptor,
+        );
+    }
+
+    pub fn get(&self, name: &str) -> Option<&VertexBufferDescriptor> {
+        self.descriptors.get(name)
+    }
 }

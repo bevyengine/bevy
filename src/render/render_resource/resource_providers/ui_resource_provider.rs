@@ -2,7 +2,7 @@ use crate::{
     ecs,
     prelude::Node,
     render::{
-        render_graph::RenderGraph,
+        pipeline::VertexBufferDescriptors,
         render_resource::{
             resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
             RenderResourceAssignments, ResourceProvider,
@@ -113,9 +113,8 @@ impl ResourceProvider for UiResourceProvider {
         _world: &mut World,
         resources: &Resources,
     ) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph
-            .set_vertex_buffer_descriptor(Rect::get_vertex_buffer_descriptor().cloned().unwrap());
+        let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
+        vertex_buffer_descriptors.set(Rect::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
     fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {

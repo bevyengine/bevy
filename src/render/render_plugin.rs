@@ -3,7 +3,7 @@ use super::{
         AssignedBatchesDrawTarget, AssignedMeshesDrawTarget, MeshesDrawTarget, UiDrawTarget,
     },
     pass::passes::ForwardPassBuilder,
-    pipeline::{pipelines::ForwardPipelineBuilder, PipelineCompiler, ShaderPipelineAssignments},
+    pipeline::{pipelines::ForwardPipelineBuilder, PipelineCompiler, ShaderPipelineAssignments, VertexBufferDescriptors},
     render_graph::RenderGraph,
     render_resource::{
         build_entity_render_resource_assignments_system,
@@ -62,6 +62,7 @@ impl AppPlugin for RenderPlugin {
             .add_resource(AssetStorage::<StandardMaterial>::new())
             .add_resource(AssetStorage::<PipelineDescriptor>::new())
             .add_resource(ShaderPipelineAssignments::new())
+            .add_resource(VertexBufferDescriptors::default())
             .add_resource(PipelineCompiler::new())
             .add_resource(RenderResourceAssignments::default())
             .add_resource(EntityRenderResourceAssignments::default())

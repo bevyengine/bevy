@@ -3,7 +3,7 @@ use crate::{
     prelude::Renderable,
     render::{
         mesh::Mesh,
-        render_graph::RenderGraph,
+        pipeline::VertexBufferDescriptors,
         render_resource::{
             AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments, ResourceProvider,
         },
@@ -92,9 +92,8 @@ impl ResourceProvider for MeshResourceProvider {
         _world: &mut World,
         resources: &Resources,
     ) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph
-            .set_vertex_buffer_descriptor(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
+        let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
+        vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
     fn update(&mut self, _renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {

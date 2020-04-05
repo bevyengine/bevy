@@ -1,5 +1,5 @@
-use super::{BindGroupDescriptor, VertexBufferDescriptor};
-use crate::render::{render_graph::RenderGraph, shader::ShaderLayout};
+use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
+use crate::render::shader::ShaderLayout;
 use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug, Default)]
@@ -56,10 +56,13 @@ impl PipelineLayout {
         }
     }
 
-    pub fn sync_vertex_buffer_descriptors_with_render_graph(&mut self, render_graph: &RenderGraph) {
+    pub fn sync_vertex_buffer_descriptors(
+        &mut self,
+        vertex_buffer_descriptors: &VertexBufferDescriptors,
+    ) {
         for vertex_buffer_descriptor in self.vertex_buffer_descriptors.iter_mut() {
             if let Some(graph_descriptor) =
-                render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
+                vertex_buffer_descriptors.get(&vertex_buffer_descriptor.name)
             {
                 vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
             } else {

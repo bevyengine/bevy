@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle},
+    asset::Handle,
     legion::prelude::*,
     prelude::Renderable,
     render::{
@@ -68,17 +68,17 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     ) {
         let mut asset_batches = resources.get_mut::<AssetBatchers>().unwrap();
-        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
 
         let mut global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
 
         log::debug!(
-            "setting up batch bind groups for pipeline: {:?}",
-            pipeline_handle
+            "setting up batch bind groups for pipeline: {:?} {:?}",
+            pipeline_handle,
+            pipeline_descriptor.name,
         );
         log::trace!("setting up global bind groups");
         renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);

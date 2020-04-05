@@ -1,7 +1,7 @@
 use crate::{
     asset::{AssetStorage, Handle},
     render::{
-        render_graph::RenderGraph,
+        pipeline::VertexBufferDescriptors,
         render_resource::{
             AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
             RenderResourceAssignments, ResourceInfo, ResourceProvider,
@@ -543,12 +543,14 @@ where
         }
     }
 
-    fn initialize_vertex_buffer_descriptor(&self, render_graph: &mut RenderGraph) {
+    fn initialize_vertex_buffer_descriptor(
+        &self,
+        vertex_buffer_descriptors: &mut VertexBufferDescriptors,
+    ) {
         let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
         if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
-            if let None = render_graph.get_vertex_buffer_descriptor(&vertex_buffer_descriptor.name)
-            {
-                render_graph.set_vertex_buffer_descriptor(vertex_buffer_descriptor.clone());
+            if let None = vertex_buffer_descriptors.get(&vertex_buffer_descriptor.name) {
+                vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
             }
         }
     }
@@ -601,8 +603,8 @@ where
         world: &mut World,
         resources: &Resources,
     ) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        self.initialize_vertex_buffer_descriptor(&mut render_graph);
+        let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
+        self.initialize_vertex_buffer_descriptor(&mut vertex_buffer_descriptors);
         self.update(renderer, world, resources);
     }
 

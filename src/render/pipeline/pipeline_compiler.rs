@@ -1,9 +1,8 @@
-use super::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType};
+use super::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptors};
 use crate::{
     asset::{AssetStorage, Handle},
     prelude::{Renderable, Resources, Shader, World},
     render::{
-        render_graph::RenderGraph,
         render_resource::{
             BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
         },
@@ -32,7 +31,7 @@ impl PipelineCompiler {
 
     fn reflect_layout(
         shader_storage: &AssetStorage<Shader>,
-        render_graph: &RenderGraph,
+        vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_descriptor: &mut PipelineDescriptor,
         renderer: &dyn Renderer,
         render_resource_assignments: &RenderResourceAssignments,
@@ -52,7 +51,7 @@ impl PipelineCompiler {
         }
 
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-        layout.sync_vertex_buffer_descriptors_with_render_graph(render_graph);
+        layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
 
         // set binding uniforms to dynamic if render resource assignments use dynamic
         // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
@@ -113,7 +112,7 @@ impl PipelineCompiler {
 
     fn compile_pipeline(
         &mut self,
-        render_graph: &RenderGraph,
+        vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_storage: &mut AssetStorage<Shader>,
         renderer: &dyn Renderer,
         pipeline_descriptor: &PipelineDescriptor,
@@ -140,7 +139,7 @@ impl PipelineCompiler {
 
         Self::reflect_layout(
             shader_storage,
-            render_graph,
+            vertex_buffer_descriptors,
             &mut compiled_pipeline_descriptor,
             renderer,
             render_resource_assignments,
@@ -151,7 +150,7 @@ impl PipelineCompiler {
 
     fn update_shader_assignments(
         &mut self,
-        render_graph: &RenderGraph,
+        vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_pipeline_assignments: &mut ShaderPipelineAssignments,
         renderer: &dyn Renderer,
         pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
@@ -177,7 +176,7 @@ impl PipelineCompiler {
             } else {
                 let pipeline_descriptor = pipeline_storage.get(pipeline_handle).unwrap();
                 let compiled_pipeline = self.compile_pipeline(
-                    render_graph,
+                    vertex_buffer_descriptors,
                     shader_storage,
                     renderer,
                     pipeline_descriptor,
@@ -248,7 +247,7 @@ pub fn update_shader_assignments(
             resources.get_mut::<ShaderPipelineAssignments>().unwrap();
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
@@ -264,7 +263,7 @@ pub fn update_shader_assignments(
             }
 
             pipeline_compiler.update_shader_assignments(
-                &mut render_graph,
+                &vertex_buffer_descriptors,
                 &mut shader_pipeline_assignments,
                 renderer,
                 &mut pipeline_descriptor_storage,

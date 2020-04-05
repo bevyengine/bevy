@@ -1,10 +1,12 @@
 use crate::{
+    asset::{AssetStorage, Handle},
     legion::prelude::*,
     render::{
         pipeline::PipelineDescriptor,
         render_resource::{
             BufferInfo, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo,
         },
+        shader::Shader,
         texture::{SamplerDescriptor, TextureDescriptor},
     },
 };
@@ -40,6 +42,12 @@ pub trait Renderer {
     );
     fn get_render_resources(&self) -> &RenderResources;
     fn get_render_resources_mut(&mut self) -> &mut RenderResources;
+    fn setup_render_pipeline(
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &mut PipelineDescriptor,
+        shader_storage: &AssetStorage<Shader>,
+    );
     fn setup_bind_groups(
         &mut self,
         render_resource_assignments: &mut RenderResourceAssignments,

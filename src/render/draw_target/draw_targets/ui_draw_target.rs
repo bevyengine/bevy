@@ -1,5 +1,5 @@
 use crate::{
-    asset::{Asset, AssetStorage, Handle},
+    asset::{Asset, Handle},
     legion::prelude::*,
     math,
     prelude::MeshType,
@@ -72,7 +72,8 @@ impl DrawTarget for UiDrawTarget {
         _world: &mut World,
         resources: &Resources,
         renderer: &mut dyn Renderer,
-        pipeline_handle: Handle<PipelineDescriptor>,
+        _pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     ) {
         // don't create meshes if they have already been created
         if let Some(_) = self.mesh_vertex_buffer {
@@ -100,8 +101,6 @@ impl DrawTarget for UiDrawTarget {
 
         let mut global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
-        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
         renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
     }
     fn get_name(&self) -> String {

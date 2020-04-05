@@ -1,5 +1,5 @@
 use crate::{
-    asset::{AssetStorage, Handle},
+    asset::Handle,
     legion::prelude::*,
     render::{
         draw_target::DrawTarget,
@@ -83,6 +83,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     ) {
         let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
         let entity_render_resource_assignments =
@@ -90,14 +91,11 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         let assigned_render_resource_assignments = shader_pipeline_assignments
             .assignments
             .get(&pipeline_handle);
-        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let pipeline_descriptor = pipeline_storage.get(&pipeline_handle).unwrap();
         let mut global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
         renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
         if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
             for assignment_id in assigned_render_resource_assignments.iter() {
-                // TODO: hopefully legion has better random access apis that are more like queries?
                 let entity = entity_render_resource_assignments
                     .get(*assignment_id)
                     .unwrap();
