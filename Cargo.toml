@@ -40,9 +40,5 @@ rand = "0.7.2"
 serde_json = "1.0"
 env_logger = "0.7"
 
-[profile.release]
-debug = true
-incremental = true
-
 [profile.dev]
 opt-level = 3
