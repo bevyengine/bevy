@@ -16,6 +16,7 @@ bevy_derive = { path = "bevy_derive" }
 bevy_diagnostic = { path = "bevy_diagnostic" }
 bevy_input = { path = "bevy_input" }
 bevy_render = { path = "bevy_render" }
+bevy_serialization = { path = "bevy_serialization" }
 bevy_transform = { path = "bevy_transform" }
 bevy_ui = { path = "bevy_ui" }
 bevy_window = { path = "bevy_window" }
@@ -23,21 +24,15 @@ bevy_wgpu = { path = "bevy_wgpu", optional = true }
 bevy_winit = { path = "bevy_winit", optional = true }
 legion = { path = "bevy_legion", features = ["serialize"] }
 
-# logging
+# other
 log = { version = "0.4", features = ["release_max_level_info"] }
-
-# misc
 glam = "0.8.6"
-serde = { version = "1", features = ["derive"]}
-erased-serde = "0.3"
-type-uuid = "0.1"
-# TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
-once_cell = "1.3.1"
-uuid = { version = "0.8", features = ["v4"] }
 
 [dev-dependencies]
 rand = "0.7.2"
+serde = { version = "1", features = ["derive"]}
 serde_json = "1.0"
+type-uuid = "0.1"
 env_logger = "0.7"
 
 [profile.dev]

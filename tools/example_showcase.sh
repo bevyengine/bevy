@@ -2,7 +2,7 @@
 
 duration='3'
 run_example() {
-    timeout "$duration" cargo run --release --example $1
+    timeout "$duration" cargo run --example $1
 }
 
 for entry in examples/*
