@@ -26,7 +26,7 @@ impl Default for App {
 
 impl App {
     pub fn build() -> AppBuilder {
-        AppBuilder::new()
+        AppBuilder::default()
     }
 
     pub fn update(&mut self) {

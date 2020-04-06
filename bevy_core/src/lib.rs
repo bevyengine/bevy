@@ -1,7 +1,7 @@
 pub mod bytes;
 pub mod time;
 
-use bevy_app::{system_stage, AppBuilder, AppPlugin};
+use bevy_app::{default_stage, AppBuilder, AppPlugin};
 use bevy_transform::transform_system_bundle;
 use time::{start_timer_system, stop_timer_system};
 
@@ -15,7 +15,7 @@ impl AppPlugin for CorePlugin {
         }
 
         app.add_resource(time::Time::new())
-            .add_system_to_stage(system_stage::FIRST, start_timer_system())
-            .add_system_to_stage(system_stage::LAST, stop_timer_system());
+            .add_system_to_stage(default_stage::FIRST, start_timer_system())
+            .add_system_to_stage(default_stage::LAST, stop_timer_system());
     }
 }

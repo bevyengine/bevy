@@ -48,10 +48,12 @@ use self::{
     },
 };
 
-use bevy_app::{AppBuilder, AppPlugin, GetEventReader};
+use bevy_app::{AppBuilder, AppPlugin, GetEventReader, default_stage};
 use bevy_transform::prelude::LocalToWorld;
 use bevy_asset::AssetStorage;
 use bevy_window::WindowResized;
+
+pub static RENDER_STAGE: &str = "render";
 
 #[derive(Default)]
 pub struct RenderPlugin;
@@ -94,6 +96,7 @@ impl AppPlugin for RenderPlugin {
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app
             .add_system(build_entity_render_resource_assignments_system())
+            .add_stage_after(default_stage::UPDATE, RENDER_STAGE)
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())
             .add_resource(AssetStorage::<Texture>::new())

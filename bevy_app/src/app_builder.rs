@@ -1,33 +1,40 @@
 use crate::{
+    default_stage,
     plugin::{load_plugin, AppPlugin},
-    system_stage, App, Events,
+    schedule_plan::SchedulePlan,
+    App, Events,
 };
 
-use legion::prelude::{Resources, Runnable, Schedulable, Schedule, Universe, World};
-use std::collections::HashMap;
+use legion::prelude::{Resources, Runnable, Schedulable, Universe, World};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
 pub struct AppBuilder {
     app: Option<App>,
-    pub setup_systems: Vec<Box<dyn Schedulable>>,
-    // TODO: these separate lists will produce incorrect ordering
-    pub system_stages: HashMap<String, Vec<Box<dyn Schedulable>>>,
-    pub runnable_stages: HashMap<String, Vec<Box<dyn Runnable>>>,
-    pub thread_local_stages: HashMap<String, Vec<Box<dyn FnMut(&mut World, &mut Resources)>>>,
-    pub stage_order: Vec<String>,
+    schedule_plan: SchedulePlan,
+    startup_schedule_plan: SchedulePlan,
+}
+
+impl Default for AppBuilder {
+    fn default() -> Self {
+        let mut app_builder = AppBuilder {
+            app: Some(App::default()),
+            schedule_plan: SchedulePlan::default(),
+            startup_schedule_plan: SchedulePlan::default(),
+        };
+
+        app_builder.add_default_stages();
+        app_builder
+    }
 }
 
 impl AppBuilder {
-    pub fn new() -> Self {
+    pub fn empty() -> AppBuilder {
         AppBuilder {
             app: Some(App::default()),
-            setup_systems: Vec::new(),
-            system_stages: HashMap::new(),
-            runnable_stages: HashMap::new(),
-            thread_local_stages: HashMap::new(),
-            stage_order: Vec::new(),
-        }
+            schedule_plan: SchedulePlan::default(),
+            startup_schedule_plan: SchedulePlan::default(),
+        }        
     }
 
     pub fn app(&self) -> &App {
@@ -62,53 +69,21 @@ impl AppBuilder {
         &mut self.app_mut().resources
     }
 
+    pub fn build_and_run_startup_schedule(&mut self) -> &mut Self {
+        let mut startup_schedule = self.startup_schedule_plan.build();
+        let app = self.app_mut();
+        startup_schedule.execute(&mut app.world, &mut app.resources);
+        self
+    }
+
     pub fn build_schedule(&mut self) -> &mut Self {
-        let mut setup_schedule_builder = Schedule::builder();
-        for setup_system in self.setup_systems.drain(..) {
-            setup_schedule_builder = setup_schedule_builder.add_system(setup_system);
-        }
-
-        let mut setup_schedule = setup_schedule_builder.build();
-        let app = self.app_mut();
-        setup_schedule.execute(&mut app.world, &mut app.resources);
-
-        let mut schedule_builder = Schedule::builder();
-        for stage_name in self.stage_order.iter() {
-            if let Some((_name, stage_systems)) = self.system_stages.remove_entry(stage_name) {
-                for system in stage_systems {
-                    schedule_builder = schedule_builder.add_system(system);
-                }
-
-                schedule_builder = schedule_builder.flush();
-            }
-
-            if let Some((_name, stage_runnables)) = self.runnable_stages.remove_entry(stage_name) {
-                for system in stage_runnables {
-                    schedule_builder = schedule_builder.add_thread_local(system);
-                }
-
-                schedule_builder = schedule_builder.flush();
-            }
-
-            if let Some((_name, stage_thread_locals)) =
-                self.thread_local_stages.remove_entry(stage_name)
-            {
-                for system in stage_thread_locals {
-                    schedule_builder = schedule_builder.add_thread_local_fn(system);
-                }
-
-                schedule_builder = schedule_builder.flush();
-            }
-        }
-
-        let app = self.app_mut();
-        app.schedule = Some(schedule_builder.build());
-
+        self.app_mut().schedule = Some(self.schedule_plan.build());
         self
     }
 
     pub fn run(&mut self) {
         self.build_schedule();
+        self.build_and_run_startup_schedule();
         self.app.take().unwrap().run();
     }
 
@@ -123,13 +98,52 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
-        self.add_system_to_stage(system_stage::UPDATE, system)
+    pub fn add_stage(&mut self, stage_name: &str) -> &mut Self {
+        self.schedule_plan.add_stage(stage_name);
+        self
     }
 
-    pub fn add_setup_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
-        self.setup_systems.push(system);
+    pub fn add_stage_after(&mut self, target: &str, stage_name: &str) -> &mut Self {
+        self.schedule_plan.add_stage_after(target, stage_name);
         self
+    }
+
+    pub fn add_stage_before(&mut self, target: &str, stage_name: &str) -> &mut Self {
+        self.schedule_plan.add_stage_before(target, stage_name);
+        self
+    }
+
+    pub fn add_startup_stage(&mut self, stage_name: &str) -> &mut Self {
+        self.startup_schedule_plan.add_stage(stage_name);
+        self
+    }
+
+    pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+        self.add_system_to_stage(default_stage::UPDATE, system)
+    }
+
+    pub fn add_startup_system_to_stage(
+        &mut self,
+        stage_name: &str,
+        system: Box<dyn Schedulable>,
+    ) -> &mut Self {
+        self.startup_schedule_plan
+            .add_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn add_startup_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+        self.startup_schedule_plan
+            .add_system_to_stage(default_stage::STARTUP, system);
+        self
+    }
+
+    pub fn add_default_stages(&mut self) -> &mut Self {
+        self.add_startup_stage(default_stage::STARTUP)
+            .add_stage(default_stage::FIRST)
+            .add_stage(default_stage::EVENT_UPDATE)
+            .add_stage(default_stage::UPDATE)
+            .add_stage(default_stage::LAST)
     }
 
     pub fn build_system<F>(&mut self, build: F) -> &mut Self
@@ -145,49 +159,27 @@ impl AppBuilder {
         stage_name: &str,
         system: Box<dyn Schedulable>,
     ) -> &mut Self {
-        if let None = self.system_stages.get(stage_name) {
-            self.system_stages
-                .insert(stage_name.to_string(), Vec::new());
-            self.stage_order.push(stage_name.to_string());
-        }
-
-        let stages = self.system_stages.get_mut(stage_name).unwrap();
-        stages.push(system);
-
-        self
-    }
-
-    pub fn add_runnable_to_stage(
-        &mut self,
-        stage_name: &str,
-        system: Box<dyn Runnable>,
-    ) -> &mut Self {
-        if let None = self.runnable_stages.get(stage_name) {
-            self.runnable_stages
-                .insert(stage_name.to_string(), Vec::new());
-            self.stage_order.push(stage_name.to_string());
-        }
-
-        let stages = self.runnable_stages.get_mut(stage_name).unwrap();
-        stages.push(system);
-
+        self.schedule_plan.add_system_to_stage(stage_name, system);
         self
     }
 
     pub fn add_thread_local_to_stage(
         &mut self,
         stage_name: &str,
+        system: Box<dyn Runnable>,
+    ) -> &mut Self {
+        self.schedule_plan
+            .add_thread_local_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn add_thread_local_fn_to_stage(
+        &mut self,
+        stage_name: &str,
         f: impl FnMut(&mut World, &mut Resources) + 'static,
     ) -> &mut Self {
-        if let None = self.thread_local_stages.get(stage_name) {
-            self.thread_local_stages
-                .insert(stage_name.to_string(), Vec::new());
-            // TODO: this is so broken
-            self.stage_order.push(stage_name.to_string());
-        }
-
-        let thread_local_stages = self.thread_local_stages.get_mut(stage_name).unwrap();
-        thread_local_stages.push(Box::new(f));
+        self.schedule_plan
+            .add_thread_local_fn_to_stage(stage_name, f);
         self
     }
 
@@ -197,7 +189,7 @@ impl AppBuilder {
     {
         self.add_resource(Events::<T>::default())
             .add_system_to_stage(
-                system_stage::EVENT_UPDATE,
+                default_stage::EVENT_UPDATE,
                 Events::<T>::build_update_system(),
             )
     }

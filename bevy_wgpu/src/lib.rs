@@ -7,8 +7,8 @@ pub use wgpu_render_pass::*;
 pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
-use bevy_app::{AppPlugin, system_stage, AppBuilder, Events};
-use bevy_render::renderer::Renderer;
+use bevy_app::{AppPlugin, AppBuilder, Events};
+use bevy_render::{renderer::Renderer, RENDER_STAGE};
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 
@@ -18,7 +18,7 @@ pub struct WgpuRendererPlugin;
 impl AppPlugin for WgpuRendererPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources());
-        app.add_thread_local_to_stage(system_stage::RENDER, render_system);
+        app.add_thread_local_fn_to_stage(RENDER_STAGE, render_system);
     }
 }
 

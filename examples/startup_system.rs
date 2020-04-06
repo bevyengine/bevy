@@ -3,11 +3,11 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_setup_system(setup_system())
+        .add_startup_system(startup_system())
         .run();
 }
 
-pub fn setup_system() -> Box<dyn Schedulable> {
+pub fn startup_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("setup")
         .write_resource::<AssetStorage<Mesh>>()
         .write_resource::<AssetStorage<StandardMaterial>>()
