@@ -26,7 +26,6 @@ impl Default for App {
 
 impl App {
     pub fn build() -> AppBuilder {
-        env_logger::init();
         AppBuilder::new()
     }
 

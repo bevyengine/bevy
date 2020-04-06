@@ -36,6 +36,7 @@ uuid = { version = "0.8", features = ["v4"] }
 [dev-dependencies]
 rand = "0.7.2"
 serde_json = "1.0"
+env_logger = "0.7"
 
 [profile.release]
 debug = true
