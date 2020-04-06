@@ -15,11 +15,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
+
     let plane_material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });
-
+    
     world
         .build()
         // plane

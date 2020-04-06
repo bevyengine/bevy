@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use crate::{
-    core::Time,
+    core::time::Time,
     prelude::{Resources, SystemBuilder},
 };
 use legion::prelude::Schedulable;

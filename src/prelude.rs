@@ -1,7 +1,7 @@
 pub use crate::{
-    app::{plugin::AppPlugin, App, AppBuilder},
+    app::{AppPlugin, App, AppBuilder, EventReader, Events, GetEventReader},
     asset::{Asset, AssetStorage, Handle},
-    core::{EventReader, Events, GetEventReader, Time},
+    core::time::Time,
     diagnostic::DiagnosticsPlugin,
     ecs,
     ecs::{
@@ -21,6 +21,7 @@ pub use crate::{
     },
     ui::{Anchors, Margins, Node},
     window::{Window, WindowDescriptor, WindowPlugin, Windows},
+    AddDefaultPlugins,
 };
 pub use bevy_derive::*;
 pub use bevy_transform::prelude::*;

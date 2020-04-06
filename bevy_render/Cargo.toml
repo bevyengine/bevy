@@ -1,0 +1,32 @@
+[package]
+name = "bevy_render"
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+# bevy
+bevy_app = { path = "../bevy_app" }
+bevy_core = { path = "../bevy_core" }
+bevy_transform = { path = "../bevy_transform" }
+bevy_asset = { path = "../bevy_asset" }
+bevy_derive = { path = "../bevy_derive" }
+bevy_window = { path = "../bevy_window" }
+legion = { path = "../bevy_legion" }
+
+# rendering
+spirv-reflect = "0.2.3"
+shaderc = "0.6"
+png = "0.16.0"
+
+# misc
+log = { version = "0.4", features = ["release_max_level_info"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
+glam = "0.8.6"
+zerocopy = "0.3"
+bitflags = "1.0"
+# TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
+once_cell = "1.3.1"

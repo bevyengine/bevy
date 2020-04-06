@@ -14,7 +14,7 @@ use crate::{app::AppBuilder, prelude::AppPlugin};
 pub struct UiPlugin;
 
 impl AppPlugin for UiPlugin {
-    fn build(&self, app: AppBuilder) -> AppBuilder {
-        app.add_system(ui_update_system())
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system(ui_update_system());
     }
 }

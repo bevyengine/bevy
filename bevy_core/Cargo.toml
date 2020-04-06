@@ -1,0 +1,14 @@
+[package]
+name = "bevy_core"
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_app = { path = "../bevy_app" }
+bevy_transform = { path = "../bevy_transform" }
+legion = { path = "../bevy_legion" }
+glam = "0.8.6"
+zerocopy = "0.3"

@@ -2,14 +2,15 @@ use bevy::{prelude::*, serialization::*};
 use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 fn main() {
-    let app = App::build().add_default_plugins().setup(setup).build();
+    let mut app = App::build();
+    app.add_default_plugins().setup(setup);
 
     let comp_registrations = [ComponentRegistration::of::<Test>()];
 
     let tag_registrations = [];
 
     let ser_helper = SerializeImpl::new(&comp_registrations, &tag_registrations);
-    let serializable = legion::serialize::ser::serializable_world(&app.world, &ser_helper);
+    let serializable = legion::serialize::ser::serializable_world(&app.world(), &ser_helper);
     let serialized_data = serde_json::to_string(&serializable).unwrap();
     println!("{}", serialized_data);
     let de_helper = DeserializeImpl::new(
@@ -18,7 +19,7 @@ fn main() {
         ser_helper.entity_map,
     );
 
-    let mut new_world = app.universe.create_world();
+    let mut new_world = app.universe().create_world();
     let mut deserializer = serde_json::Deserializer::from_str(&serialized_data);
     legion::serialize::de::deserialize(&mut new_world, &de_helper, &mut deserializer).unwrap();
     let ser_helper = SerializeImpl::new_with_map(
