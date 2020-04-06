@@ -4,10 +4,7 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-
 legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1", features = ["derive"]}
 erased-serde = "0.3"

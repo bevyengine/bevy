@@ -8,7 +8,6 @@ edition = "2018"
 default = ["bevy_winit"]
 
 [dependencies]
-
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.1.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.1.0" }
