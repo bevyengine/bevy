@@ -1,9 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
-use crate::{
-    core::time::Time,
-    prelude::{Resources, SystemBuilder},
-};
-use legion::prelude::Schedulable;
+use bevy_core::time::Time;
+use legion::prelude::*;
 use std::time::Duration;
 use uuid::Uuid;
 
