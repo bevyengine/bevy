@@ -4,7 +4,7 @@ mod event;
 mod plugin;
 pub mod schedule_plan;
 pub mod schedule_runner;
-pub mod default_stage;
+pub mod stage;
 
 pub use app::*;
 pub use app_builder::*;

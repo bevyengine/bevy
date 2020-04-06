@@ -1,5 +1,5 @@
 use crate::{
-    default_stage,
+    stage,
     plugin::{load_plugin, AppPlugin},
     schedule_plan::SchedulePlan,
     App, Events,
@@ -119,7 +119,7 @@ impl AppBuilder {
     }
 
     pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
-        self.add_system_to_stage(default_stage::UPDATE, system)
+        self.add_system_to_stage(stage::UPDATE, system)
     }
 
     pub fn add_startup_system_to_stage(
@@ -134,16 +134,16 @@ impl AppBuilder {
 
     pub fn add_startup_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
         self.startup_schedule_plan
-            .add_system_to_stage(default_stage::STARTUP, system);
+            .add_system_to_stage(stage::STARTUP, system);
         self
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_startup_stage(default_stage::STARTUP)
-            .add_stage(default_stage::FIRST)
-            .add_stage(default_stage::EVENT_UPDATE)
-            .add_stage(default_stage::UPDATE)
-            .add_stage(default_stage::LAST)
+        self.add_startup_stage(stage::STARTUP)
+            .add_stage(stage::FIRST)
+            .add_stage(stage::EVENT_UPDATE)
+            .add_stage(stage::UPDATE)
+            .add_stage(stage::LAST)
     }
 
     pub fn build_system<F>(&mut self, build: F) -> &mut Self
@@ -189,7 +189,7 @@ impl AppBuilder {
     {
         self.add_resource(Events::<T>::default())
             .add_system_to_stage(
-                default_stage::EVENT_UPDATE,
+                stage::EVENT_UPDATE,
                 Events::<T>::build_update_system(),
             )
     }
