@@ -1,4 +1,4 @@
-use legion::prelude::{Schedulable, SystemBuilder, Resources};
+use legion::prelude::{Resources, Schedulable, SystemBuilder};
 use std::marker::PhantomData;
 
 struct EventInstance<T> {

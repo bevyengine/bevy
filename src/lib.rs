@@ -23,8 +23,7 @@ pub trait AddDefaultPlugins {
 
 impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
-        self
-            .add_plugin(bevy_core::CorePlugin::default())
+        self.add_plugin(bevy_core::CorePlugin::default())
             .add_plugin(bevy_input::InputPlugin::default())
             .add_plugin(bevy_window::WindowPlugin::default())
             .add_plugin(bevy_render::RenderPlugin::default())
@@ -41,12 +40,9 @@ impl AddDefaultPlugins for AppBuilder {
 
         #[cfg(feature = "bevy_wgpu")]
         {
-            self.add_plugin(
-                bevy_wgpu::WgpuRendererPlugin::default(),
-            );
+            self.add_plugin(bevy_wgpu::WgpuRendererPlugin::default());
         }
 
         self
     }
-    
 }

@@ -20,7 +20,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });
-    
+
     world
         .build()
         // plane

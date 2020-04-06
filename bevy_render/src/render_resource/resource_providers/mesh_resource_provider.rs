@@ -6,8 +6,7 @@ use crate::{
     },
     renderer::Renderer,
     shader::AsUniforms,
-    Renderable,
-    Vertex,
+    Renderable, Vertex,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::{filter::*, prelude::*};

@@ -2,9 +2,9 @@ mod diagnostic;
 pub mod diagnostics;
 pub use diagnostic::*;
 
-use bevy_app::{AppPlugin, AppBuilder};
+use bevy_app::{AppBuilder, AppPlugin};
+use diagnostics::{frame_time_diagnostic_system, print_diagnostics_system};
 use std::time::Duration;
-use diagnostics::{print_diagnostics_system, frame_time_diagnostic_system};
 
 pub struct DiagnosticsPlugin {
     pub print_wait_duration: Duration,

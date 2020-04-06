@@ -1,4 +1,4 @@
-use crate::{Vertex};
+use crate::Vertex;
 use bevy_asset::Asset;
 use glam::*;
 

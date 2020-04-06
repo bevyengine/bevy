@@ -33,10 +33,6 @@ impl From<&mut Vec3> for NonUniformScale {
 impl fmt::Display for NonUniformScale {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (x, y, z) = self.0.into();
-        write!(
-            f,
-            "NonUniformScale({}, {}, {})",
-            x, y, z
-        )
+        write!(f, "NonUniformScale({}, {}, {})", x, y, z)
     }
 }

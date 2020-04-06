@@ -1,5 +1,3 @@
-use bevy_asset::{AssetStorage, Handle};
-use legion::prelude::*;
 use crate::{
     pipeline::PipelineDescriptor,
     render_resource::{
@@ -8,6 +6,8 @@ use crate::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
+use bevy_asset::{AssetStorage, Handle};
+use legion::prelude::*;
 use std::ops::Range;
 
 pub trait Renderer {

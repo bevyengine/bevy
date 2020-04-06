@@ -1,4 +1,7 @@
-use super::{wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto}, WgpuRenderPass, WgpuResources};
+use super::{
+    wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
+    WgpuRenderPass, WgpuResources,
+};
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
@@ -201,10 +204,18 @@ impl WgpuRenderer {
             attachment,
             clear_depth: depth_stencil_attachment_descriptor.clear_depth,
             clear_stencil: depth_stencil_attachment_descriptor.clear_stencil,
-            depth_load_op: depth_stencil_attachment_descriptor.depth_load_op.wgpu_into(),
-            depth_store_op: depth_stencil_attachment_descriptor.depth_store_op.wgpu_into(),
-            stencil_load_op: depth_stencil_attachment_descriptor.stencil_load_op.wgpu_into(),
-            stencil_store_op: depth_stencil_attachment_descriptor.stencil_store_op.wgpu_into(),
+            depth_load_op: depth_stencil_attachment_descriptor
+                .depth_load_op
+                .wgpu_into(),
+            depth_store_op: depth_stencil_attachment_descriptor
+                .depth_store_op
+                .wgpu_into(),
+            stencil_load_op: depth_stencil_attachment_descriptor
+                .stencil_load_op
+                .wgpu_into(),
+            stencil_store_op: depth_stencil_attachment_descriptor
+                .stencil_store_op
+                .wgpu_into(),
         }
     }
 

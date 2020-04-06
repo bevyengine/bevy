@@ -1,13 +1,15 @@
-use super::{BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptors};
-use bevy_asset::{AssetStorage, Handle};
+use super::{
+    BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptors,
+};
 use crate::{
     render_resource::{
         BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
     renderer::Renderer,
-    Renderable,
     shader::{Shader, ShaderSource},
+    Renderable,
 };
+use bevy_asset::{AssetStorage, Handle};
 use std::collections::{HashMap, HashSet};
 
 use legion::prelude::*;

@@ -198,8 +198,10 @@ impl WgpuResources {
         let device_rc = renderer.device.clone();
         let device = device_rc.borrow();
 
-        let mut mapped =
-            device.create_buffer_mapped(buffer_info.size as usize, buffer_info.buffer_usage.wgpu_into());
+        let mut mapped = device.create_buffer_mapped(
+            buffer_info.size as usize,
+            buffer_info.buffer_usage.wgpu_into(),
+        );
         setup_data(&mut mapped.data, renderer);
         mapped.finish()
     }

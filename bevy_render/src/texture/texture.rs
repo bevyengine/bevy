@@ -1,6 +1,6 @@
+use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::{Asset, Handle};
 use std::fs::File;
-use crate::shader::ShaderDefSuffixProvider;
 
 pub enum TextureType {
     Data(Vec<u8>, usize, usize),

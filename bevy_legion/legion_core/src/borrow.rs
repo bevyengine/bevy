@@ -1,9 +1,9 @@
 //! Atomic runtime borrow checking module.
 //! These types implement something akin to `RefCell`, but are atomically handled allowing them to
 //! cross thread boundaries.
+use std::any::{type_name, Any};
 use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
-use std::any::{Any, type_name};
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::atomic::AtomicIsize;
@@ -17,9 +17,7 @@ pub trait DowncastTypename {
     fn is_typename<T: Any>(&self) -> bool;
 }
 
-pub fn type_name_of_val<T: ?Sized>(_val: &T) -> &'static str {
-    type_name::<T>()
-}
+pub fn type_name_of_val<T: ?Sized>(_val: &T) -> &'static str { type_name::<T>() }
 /// A `RefCell` implementation which is thread safe. This type performs all the standard runtime
 /// borrow checking which would be familiar from using `RefCell`.
 ///

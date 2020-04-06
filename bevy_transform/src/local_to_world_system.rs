@@ -1,5 +1,9 @@
 #![allow(dead_code)]
-use crate::{components::*, ecs::prelude::*, math::{Mat4, Vec3, Quat}};
+use crate::{
+    components::*,
+    ecs::prelude::*,
+    math::{Mat4, Quat, Vec3},
+};
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldUpdateSystem")
@@ -152,9 +156,10 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation + Rotation
                     e.for_each_unchecked(world, |(mut ltw, translation, rotation)| {
-                        *ltw = LocalToWorld(
-                            Mat4::from_rotation_translation(rotation.0, translation.0)
-                        );
+                        *ltw = LocalToWorld(Mat4::from_rotation_translation(
+                            rotation.0,
+                            translation.0,
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -304,63 +309,39 @@ mod test {
                 .get_component::<LocalToWorld>(translation_and_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                Quat::default(),
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), Quat::default(), t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_and_nus)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                Quat::default(),
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(nus.0, Quat::default(), t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(rotation_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                r.0,
-                Vec3::default()
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), r.0, Vec3::default())
         );
         assert_eq!(
             world.get_component::<LocalToWorld>(rotation_nus).unwrap().0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                r.0,
-                Vec3::default()
-            )
+            Mat4::from_scale_rotation_translation(nus.0, r.0, Vec3::default())
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_rotation_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                r.0,
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), r.0, t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToWorld>(translation_rotation_nus)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                r.0,
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(nus.0, r.0, t.0)
         );
     }
 }

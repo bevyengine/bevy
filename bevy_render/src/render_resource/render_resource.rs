@@ -1,5 +1,5 @@
-use bevy_asset::Handle;
 use crate::{mesh::Mesh, texture::Texture};
+use bevy_asset::Handle;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]

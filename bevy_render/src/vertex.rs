@@ -1,9 +1,9 @@
 use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 
-use bevy_derive::Uniforms;
-use bevy_core;
 use bevy_asset;
+use bevy_core;
+use bevy_derive::Uniforms;
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes, Uniforms)]

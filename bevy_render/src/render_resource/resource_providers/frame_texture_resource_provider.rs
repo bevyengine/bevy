@@ -1,9 +1,9 @@
-use bevy_window::Windows;
 use crate::{
     render_resource::{RenderResourceAssignments, ResourceProvider},
     renderer::Renderer,
     texture::TextureDescriptor,
 };
+use bevy_window::Windows;
 use legion::prelude::*;
 
 pub struct FrameTextureResourceProvider {

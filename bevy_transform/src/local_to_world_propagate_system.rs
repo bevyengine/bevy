@@ -1,5 +1,8 @@
 #![allow(dead_code)]
-use crate::{components::*, ecs::{prelude::*, systems::SubWorld}};
+use crate::{
+    components::*,
+    ecs::{prelude::*, systems::SubWorld},
+};
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldPropagateSystem")

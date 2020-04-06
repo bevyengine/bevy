@@ -9,9 +9,9 @@ use crate::{
     ActiveCamera, Camera,
 };
 
-use bevy_app::{Events, EventReader};
-use legion::prelude::*;
+use bevy_app::{EventReader, Events};
 use bevy_transform::prelude::*;
+use legion::prelude::*;
 use zerocopy::AsBytes;
 
 pub struct CameraResourceProvider {

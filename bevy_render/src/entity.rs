@@ -1,7 +1,10 @@
-use bevy_derive::EntityArchetype;
+use crate::{
+    mesh::Mesh, shader::uniforms::StandardMaterial, ActiveCamera, ActiveCamera2d, Camera,
+    CameraType, Light, Renderable,
+};
 use bevy_asset::Handle;
-use crate::{shader::uniforms::StandardMaterial, mesh::Mesh, Renderable, Light, Camera, ActiveCamera, ActiveCamera2d, CameraType};
-use bevy_transform::components::{Translation, LocalToWorld, Rotation, Scale};
+use bevy_derive::EntityArchetype;
+use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
 
 #[derive(EntityArchetype, Default)]
 #[module(meta = false)]

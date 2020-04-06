@@ -1,9 +1,9 @@
 #![feature(min_specialization)]
 mod camera;
+pub mod entity;
 pub mod mesh;
 pub mod render_graph;
 pub mod shader;
-pub mod entity;
 
 mod color;
 mod light;
@@ -30,14 +30,12 @@ use self::{
     draw_target::draw_targets::{
         AssignedBatchesDrawTarget, AssignedMeshesDrawTarget, MeshesDrawTarget, UiDrawTarget,
     },
+    mesh::Mesh,
     pass::passes::ForwardPassBuilder,
     pipeline::{
-        pipelines::ForwardPipelineBuilder, PipelineCompiler, ShaderPipelineAssignments,
-        VertexBufferDescriptors, PipelineDescriptor
+        pipelines::ForwardPipelineBuilder, PipelineCompiler, PipelineDescriptor,
+        ShaderPipelineAssignments, VertexBufferDescriptors,
     },
-    shader::{Shader, uniforms::StandardMaterial},
-    texture::Texture,
-    mesh::Mesh,
     render_graph::RenderGraph,
     render_resource::{
         build_entity_render_resource_assignments_system,
@@ -47,11 +45,13 @@ use self::{
         },
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
     },
+    shader::{uniforms::StandardMaterial, Shader},
+    texture::Texture,
 };
 
-use bevy_app::{AppBuilder, AppPlugin, GetEventReader, stage};
-use bevy_transform::prelude::LocalToWorld;
+use bevy_app::{stage, AppBuilder, AppPlugin, GetEventReader};
 use bevy_asset::AssetStorage;
+use bevy_transform::prelude::LocalToWorld;
 use bevy_window::WindowResized;
 
 pub static RENDER_STAGE: &str = "render";
@@ -95,8 +95,7 @@ impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
-        app
-            .add_system(build_entity_render_resource_assignments_system())
+        app.add_system(build_entity_render_resource_assignments_system())
             .add_stage_after(stage::UPDATE, RENDER_STAGE)
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())

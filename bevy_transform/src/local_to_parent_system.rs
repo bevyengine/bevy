@@ -1,5 +1,9 @@
 #![allow(dead_code)]
-use crate::{components::*, ecs::prelude::*, math::{Mat4, Vec3, Quat}};
+use crate::{
+    components::*,
+    ecs::prelude::*,
+    math::{Mat4, Quat, Vec3},
+};
 
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToParentUpdateSystem")
@@ -126,7 +130,8 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Scale
                     c.for_each_unchecked(world, |(mut ltw, scale)| {
-                        *ltw = LocalToParent(Mat4::from_scale(Vec3::new(scale.0, scale.0, scale.0)));
+                        *ltw =
+                            LocalToParent(Mat4::from_scale(Vec3::new(scale.0, scale.0, scale.0)));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -137,9 +142,10 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
 
                     // Translation + Rotation
                     e.for_each_unchecked(world, |(mut ltw, translation, rotation)| {
-                        *ltw = LocalToParent(
-                            Mat4::from_rotation_translation(rotation.0, translation.0)
-                        );
+                        *ltw = LocalToParent(Mat4::from_rotation_translation(
+                            rotation.0,
+                            translation.0,
+                        ));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -196,11 +202,11 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                     k.for_each_unchecked(
                         world,
                         |(mut ltw, translation, rotation, non_uniform_scale)| {
-                        *ltw = LocalToParent(Mat4::from_scale_rotation_translation(
-                            non_uniform_scale.0,
-                            rotation.0,
-                            translation.0,
-                        ));
+                            *ltw = LocalToParent(Mat4::from_scale_rotation_translation(
+                                non_uniform_scale.0,
+                                rotation.0,
+                                translation.0,
+                            ));
                         },
                     );
                 });
@@ -282,63 +288,42 @@ mod test {
                 .get_component::<LocalToParent>(translation_and_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                Quat::default(),
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), Quat::default(), t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToParent>(translation_and_nus)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                Quat::default(),
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(nus.0, Quat::default(), t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToParent>(rotation_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                r.0,
-                Vec3::default()
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), r.0, Vec3::default())
         );
         assert_eq!(
-            world.get_component::<LocalToParent>(rotation_nus).unwrap().0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                r.0,
-                Vec3::default()
-            )
+            world
+                .get_component::<LocalToParent>(rotation_nus)
+                .unwrap()
+                .0,
+            Mat4::from_scale_rotation_translation(nus.0, r.0, Vec3::default())
         );
         assert_eq!(
             world
                 .get_component::<LocalToParent>(translation_rotation_scale)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                Vec3::new(s.0, s.0, s.0),
-                r.0,
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), r.0, t.0)
         );
         assert_eq!(
             world
                 .get_component::<LocalToParent>(translation_rotation_nus)
                 .unwrap()
                 .0,
-            Mat4::from_scale_rotation_translation(
-                nus.0,
-                r.0,
-                t.0
-            )
+            Mat4::from_scale_rotation_translation(nus.0, r.0, t.0)
         );
     }
 }

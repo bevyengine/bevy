@@ -1,13 +1,11 @@
 use super::RenderGraph;
 use crate::{
-    {
-        draw_target::DrawTarget,
-        pass::PassDescriptor,
-        pipeline::{PipelineBuilder, PipelineDescriptor},
-        render_resource::ResourceProvider,
-        texture::TextureDescriptor,
-        shader::Shader,
-    },
+    draw_target::DrawTarget,
+    pass::PassDescriptor,
+    pipeline::{PipelineBuilder, PipelineDescriptor},
+    render_resource::ResourceProvider,
+    shader::Shader,
+    texture::TextureDescriptor,
 };
 
 use bevy_asset::AssetStorage;

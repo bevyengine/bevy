@@ -6,9 +6,7 @@ use std::collections::HashMap;
 pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
     let missing_previous_parent_system = SystemBuilder::<()>::new("MissingPreviousParentSystem")
         // Entities with missing `PreviousParent`
-        .with_query(<Read<Parent>>::query().filter(
-            !component::<PreviousParent>(),
-        ))
+        .with_query(<Read<Parent>>::query().filter(!component::<PreviousParent>()))
         .build(move |commands, world, _resource, query| {
             // Add missing `PreviousParent` components
             for (entity, _parent) in query.iter_entities(world) {
@@ -21,9 +19,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
         // Entities with a removed `Parent`
         .with_query(<Read<PreviousParent>>::query().filter(!component::<Parent>()))
         // Entities with a changed `Parent`
-        .with_query(<(Read<Parent>, Write<PreviousParent>)>::query().filter(
-            changed::<Parent>(),
-        ))
+        .with_query(<(Read<Parent>, Write<PreviousParent>)>::query().filter(changed::<Parent>()))
         // Deleted Parents (ie Entities with `Children` and without a `LocalToWorld`).
         .write_component::<Children>()
         .build(move |commands, world, _resource, queries| {

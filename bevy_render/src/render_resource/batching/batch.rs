@@ -1,5 +1,5 @@
-use bevy_asset::{Handle, HandleUntyped};
 use crate::render_resource::RenderResourceAssignments;
+use bevy_asset::{Handle, HandleUntyped};
 use legion::prelude::Entity;
 use std::collections::{HashMap, HashSet};
 

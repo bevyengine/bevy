@@ -1,14 +1,12 @@
 use super::RenderGraphBuilder;
 use crate::{
-    {
-        draw_target::DrawTarget,
-        pass::PassDescriptor,
-        pipeline::{PipelineCompiler, PipelineDescriptor},
-        render_resource::ResourceProvider,
-        renderer::Renderer,
-        texture::TextureDescriptor,
-        shader::Shader,
-    },
+    draw_target::DrawTarget,
+    pass::PassDescriptor,
+    pipeline::{PipelineCompiler, PipelineDescriptor},
+    render_resource::ResourceProvider,
+    renderer::Renderer,
+    shader::Shader,
+    texture::TextureDescriptor,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::prelude::*;

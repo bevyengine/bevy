@@ -1,8 +1,7 @@
 use crate::{
-    stage,
     plugin::{load_plugin, AppPlugin},
     schedule_plan::SchedulePlan,
-    App, Events,
+    stage, App, Events,
 };
 
 use legion::prelude::{Resources, Runnable, Schedulable, Universe, World};
@@ -34,7 +33,7 @@ impl AppBuilder {
             app: Some(App::default()),
             schedule_plan: SchedulePlan::default(),
             startup_schedule_plan: SchedulePlan::default(),
-        }        
+        }
     }
 
     pub fn app(&self) -> &App {
@@ -188,10 +187,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(
-                stage::EVENT_UPDATE,
-                Events::<T>::build_update_system(),
-            )
+            .add_system_to_stage(stage::EVENT_UPDATE, Events::<T>::build_update_system())
     }
 
     pub fn add_resource<T>(&mut self, resource: T) -> &mut Self

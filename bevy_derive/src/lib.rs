@@ -47,7 +47,7 @@ impl Modules {
             bevy_core: "bevy::core".to_string(),
             bevy_app: "bevy::app".to_string(),
             legion: "bevy".to_string(),
-        }        
+        }
     }
 
     pub fn external() -> Modules {
@@ -77,7 +77,8 @@ impl Default for ModuleAttributeArgs {
 static MODULE_ATTRIBUTE_NAME: &'static str = "module";
 
 fn get_modules(ast: &DeriveInput) -> Modules {
-    let module_attribute_args =    ast.attrs
+    let module_attribute_args = ast
+        .attrs
         .iter()
         .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == MODULE_ATTRIBUTE_NAME)
         .map(|a| {
@@ -86,9 +87,9 @@ fn get_modules(ast: &DeriveInput) -> Modules {
         });
     if let Some(module_attribute_args) = module_attribute_args {
         let mut modules = if module_attribute_args.meta {
-            Modules::meta()    
+            Modules::meta()
         } else {
-            Modules::external()    
+            Modules::external()
         };
 
         if let Some(path) = module_attribute_args.bevy_asset {

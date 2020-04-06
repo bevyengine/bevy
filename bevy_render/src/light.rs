@@ -1,8 +1,8 @@
 use super::{Color, PerspectiveCamera};
+use bevy_transform::components::Translation;
+use glam::Mat4;
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
-use glam::Mat4;
-use bevy_transform::components::Translation;
 
 pub struct Light {
     pub color: Color,
