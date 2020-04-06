@@ -7,7 +7,7 @@ use bevy_asset;
 
 #[repr(C)]
 #[derive(Clone, Copy, AsBytes, FromBytes, Uniforms)]
-#[uniform(bevy_render_path = "crate", bevy_asset_path = "bevy_asset", bevy_core_path = "bevy_core")]
+#[module(meta = false, bevy_render = "crate")]
 pub struct Vertex {
     #[uniform(vertex)]
     pub position: [f32; 4],

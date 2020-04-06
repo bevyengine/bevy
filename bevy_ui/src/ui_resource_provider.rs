@@ -1,17 +1,14 @@
-use crate::{
-    ecs,
-    render::{
-        pipeline::VertexBufferDescriptors,
-        render_resource::{
-            resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-            RenderResourceAssignments, ResourceProvider,
-        },
-        renderer::Renderer,
-        shader::AsUniforms,
-    },
-};
-
+use bevy_core::ecs;
 use bevy_derive::Uniforms;
+use bevy_render::{
+    pipeline::VertexBufferDescriptors,
+    render_resource::{
+        resource_name, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
+        RenderResourceAssignments, ResourceProvider,
+    },
+    renderer::Renderer,
+    shader::AsUniforms,
+};
 use bevy_transform::prelude::Parent;
 use legion::prelude::*;
 use zerocopy::{AsBytes, FromBytes};

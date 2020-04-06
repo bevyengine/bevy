@@ -2,11 +2,11 @@ use crate::{texture::Texture, Color};
 use bevy_asset::Handle;
 use bevy_derive::Uniforms;
 
-use bevy_core;
 use bevy_asset;
+use bevy_core;
 
 #[derive(Uniforms)]
-#[uniform(bevy_render_path = "crate", bevy_core_path = "bevy_core", bevy_asset_path = "bevy_asset")]
+#[module(meta = false, bevy_render = "crate")]
 pub struct StandardMaterial {
     #[uniform(instance)]
     pub albedo: Color,

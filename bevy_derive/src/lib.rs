@@ -4,7 +4,7 @@ use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Type, Path};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Path, Type};
 
 #[derive(FromMeta, Debug, Default)]
 struct EntityArchetypeAttributeArgs {
@@ -12,7 +12,112 @@ struct EntityArchetypeAttributeArgs {
     pub tag: Option<bool>,
 }
 
-#[proc_macro_derive(EntityArchetype, attributes(tag))]
+#[derive(FromMeta, Debug)]
+struct ModuleAttributeArgs {
+    #[darling(default)]
+    pub bevy_render: Option<String>,
+    #[darling(default)]
+    pub bevy_asset: Option<String>,
+    #[darling(default)]
+    pub bevy_core: Option<String>,
+    #[darling(default)]
+    pub bevy_app: Option<String>,
+    #[darling(default)]
+    pub legion: Option<String>,
+
+    /// If true, it will use the meta "bevy" crate for dependencies by default (ex: bevy:app). If this is set to false, the individual bevy crates
+    /// will be used (ex: "bevy_app"). Defaults to "true"
+    #[darling(default)]
+    pub meta: bool,
+}
+
+struct Modules {
+    pub bevy_render: String,
+    pub bevy_asset: String,
+    pub bevy_core: String,
+    pub bevy_app: String,
+    pub legion: String,
+}
+
+impl Modules {
+    pub fn meta() -> Modules {
+        Modules {
+            bevy_asset: "bevy::asset".to_string(),
+            bevy_render: "bevy::render".to_string(),
+            bevy_core: "bevy::core".to_string(),
+            bevy_app: "bevy::app".to_string(),
+            legion: "bevy".to_string(),
+        }        
+    }
+
+    pub fn external() -> Modules {
+        Modules {
+            bevy_asset: "bevy_asset".to_string(),
+            bevy_render: "bevy_render".to_string(),
+            bevy_core: "bevy_core".to_string(),
+            bevy_app: "bevy_app".to_string(),
+            legion: "legion".to_string(),
+        }
+    }
+}
+
+impl Default for ModuleAttributeArgs {
+    fn default() -> Self {
+        ModuleAttributeArgs {
+            bevy_asset: None,
+            bevy_render: None,
+            bevy_core: None,
+            bevy_app: None,
+            legion: None,
+            meta: true,
+        }
+    }
+}
+
+static MODULE_ATTRIBUTE_NAME: &'static str = "module";
+
+fn get_modules(ast: &DeriveInput) -> Modules {
+    let module_attribute_args =    ast.attrs
+        .iter()
+        .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == MODULE_ATTRIBUTE_NAME)
+        .map(|a| {
+            ModuleAttributeArgs::from_meta(&a.parse_meta().unwrap())
+                .unwrap_or_else(|_err| ModuleAttributeArgs::default())
+        });
+    if let Some(module_attribute_args) = module_attribute_args {
+        let mut modules = if module_attribute_args.meta {
+            Modules::meta()    
+        } else {
+            Modules::external()    
+        };
+
+        if let Some(path) = module_attribute_args.bevy_asset {
+            modules.bevy_asset = path;
+        }
+
+        if let Some(path) = module_attribute_args.bevy_render {
+            modules.bevy_render = path;
+        }
+
+        if let Some(path) = module_attribute_args.bevy_core {
+            modules.bevy_core = path;
+        }
+
+        if let Some(path) = module_attribute_args.bevy_app {
+            modules.bevy_app = path;
+        }
+
+        modules
+    } else {
+        Modules::meta()
+    }
+}
+
+fn get_path(path_str: &str) -> Path {
+    syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap()
+}
+
+#[proc_macro_derive(EntityArchetype, attributes(tag, module))]
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match &ast.data {
@@ -22,6 +127,10 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
         }) => &fields.named,
         _ => panic!("expected a struct with named fields"),
     };
+
+    let modules = get_modules(&ast);
+    let bevy_app_path = get_path(&modules.bevy_app);
+    let legion_path = get_path(&modules.legion);
 
     let tag_fields = fields
         .iter()
@@ -51,8 +160,8 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics bevy::prelude::EntityArchetype for #struct_name#ty_generics {
-            fn insert(self, world: &mut bevy::prelude::World) -> Entity {
+        impl #impl_generics #bevy_app_path::EntityArchetype for #struct_name#ty_generics {
+            fn insert(self, world: &mut #legion_path::prelude::World) -> #legion_path::prelude::Entity {
                 *world.insert((#(self.#tag_fields,)*),
                     vec![(
                         #(self.#component_fields,)*
@@ -60,7 +169,7 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
                 ]).first().unwrap()
             }
 
-            fn insert_command_buffer(self, command_buffer: &mut bevy::prelude::CommandBuffer) -> Entity {
+            fn insert_command_buffer(self, command_buffer: &mut #legion_path::prelude::CommandBuffer) -> #legion_path::prelude::Entity {
                 *command_buffer.insert((#(self.#tag_fields,)*),
                     vec![(
                         #(self.#component_fields,)*
@@ -90,39 +199,15 @@ struct UniformAttributeArgs {
     pub bevy_core_path: Option<String>,
 }
 
-#[proc_macro_derive(Uniforms, attributes(uniform))]
+static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
+#[proc_macro_derive(Uniforms, attributes(uniform, module))]
 pub fn derive_uniforms(input: TokenStream) -> TokenStream {
-    static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
     let ast = parse_macro_input!(input as DeriveInput);
-    let mut bevy_render_path_name = "bevy::render".to_string();
-    let mut bevy_core_path_name = "bevy::core".to_string();
-    let mut bevy_asset_path_name = "bevy::asset".to_string();
-    let struct_attribute_args = ast
-        .attrs
-        .iter()
-        .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == UNIFORM_ATTRIBUTE_NAME)
-        .map(|a| {
-            UniformAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                .unwrap_or_else(|_err| UniformAttributeArgs::default())
-        });
+    let modules = get_modules(&ast);
 
-    if let Some(struct_attribute_args) = struct_attribute_args {
-        if let Some(value) = struct_attribute_args.bevy_render_path {
-            bevy_render_path_name = value.to_string();
-        }
-        if let Some(value) = struct_attribute_args.bevy_core_path {
-            bevy_core_path_name = value.to_string();
-        }
-        if let Some(value) = struct_attribute_args.bevy_asset_path {
-            bevy_asset_path_name = value.to_string();
-        }
-    }
-
-    // let bevy_render_path = Ident::new(&bevy_render_path_name, Span::call_site());
-    // let bevy_render_path = Path::parse(&bevy_render_path_name).unwrap();
-    let bevy_render_path: Path = syn::parse(bevy_render_path_name.parse::<TokenStream>().unwrap()).unwrap();
-    let bevy_core_path: Path = syn::parse(bevy_core_path_name.parse::<TokenStream>().unwrap()).unwrap();
-    let bevy_asset_path: Path = syn::parse(bevy_asset_path_name.parse::<TokenStream>().unwrap()).unwrap();
+    let bevy_render_path: Path = get_path(&modules.bevy_render);
+    let bevy_core_path: Path = get_path(&modules.bevy_core);
+    let bevy_asset_path: Path = get_path(&modules.bevy_asset);
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {

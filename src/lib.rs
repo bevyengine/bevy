@@ -1,17 +1,16 @@
 #![feature(specialization)]
-pub mod ecs;
 pub mod prelude;
 pub mod serialization;
-pub mod ui;
 
-pub use bevy_transform as transform;
+pub use bevy_app as app;
+pub use bevy_asset as asset;
 pub use bevy_core as core;
 pub use bevy_diagnostic as diagnostic;
-pub use bevy_asset as asset;
-pub use bevy_render as render;
-pub use bevy_app as app;
-pub use bevy_window as window;
 pub use bevy_input as input;
+pub use bevy_render as render;
+pub use bevy_transform as transform;
+pub use bevy_ui as ui;
+pub use bevy_window as window;
 
 pub use glam as math;
 pub use legion;

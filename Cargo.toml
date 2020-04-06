@@ -17,6 +17,7 @@ bevy_diagnostic = { path = "bevy_diagnostic" }
 bevy_input = { path = "bevy_input" }
 bevy_render = { path = "bevy_render" }
 bevy_transform = { path = "bevy_transform" }
+bevy_ui = { path = "bevy_ui" }
 bevy_window = { path = "bevy_window" }
 bevy_wgpu = { path = "bevy_wgpu", optional = true }
 bevy_winit = { path = "bevy_winit", optional = true }

@@ -1,5 +1,6 @@
 pub mod bytes;
 pub mod time;
+pub mod transform;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::transform_system_bundle;

@@ -1,9 +1,10 @@
-use crate::{prelude::*, render::Renderable};
-
-use crate as bevy; // for macro imports
 use bevy_derive::EntityArchetype;
+use bevy_asset::Handle;
+use crate::{shader::uniforms::StandardMaterial, mesh::Mesh, Renderable, Light, Camera, ActiveCamera, ActiveCamera2d, CameraType};
+use bevy_transform::components::{Translation, LocalToWorld, Rotation, Scale};
 
 #[derive(EntityArchetype, Default)]
+#[module(meta = false)]
 pub struct MeshEntity {
     // #[tag]
     pub mesh: Handle<Mesh>,
@@ -17,6 +18,7 @@ pub struct MeshEntity {
 }
 
 #[derive(EntityArchetype, Default)]
+#[module(meta = false)]
 pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<T>,
@@ -28,6 +30,7 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
 }
 
 #[derive(EntityArchetype, Default)]
+#[module(meta = false)]
 pub struct LightEntity {
     pub light: Light,
     pub local_to_world: LocalToWorld,
@@ -36,6 +39,7 @@ pub struct LightEntity {
 }
 
 #[derive(EntityArchetype, Default)]
+#[module(meta = false)]
 pub struct CameraEntity {
     pub camera: Camera,
     pub active_camera: ActiveCamera,
@@ -43,6 +47,7 @@ pub struct CameraEntity {
 }
 
 #[derive(EntityArchetype)]
+#[module(meta = false)]
 pub struct Camera2dEntity {
     pub camera: Camera,
     pub active_camera_2d: ActiveCamera2d,
@@ -55,9 +60,4 @@ impl Default for Camera2dEntity {
             active_camera_2d: ActiveCamera2d,
         }
     }
-}
-
-#[derive(EntityArchetype)]
-pub struct UiEntity {
-    pub node: Node,
 }

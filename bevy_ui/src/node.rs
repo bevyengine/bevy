@@ -1,9 +1,6 @@
-use crate::{
-    math,
-    math::Vec2,
-    prelude::Color,
-    ui::{Anchors, Margins},
-};
+use super::{Anchors, Margins};
+use bevy_render::Color;
+use glam::{self, Vec2};
 
 #[derive(Debug, Clone)]
 enum GrowDirection {
@@ -67,8 +64,8 @@ impl Node {
             parent_dimensions.y(),
         );
 
-        self.size = math::vec2(rect_width, rect_height);
-        self.global_position = math::vec2(rect_x, rect_y) + parent_position;
+        self.size = glam::vec2(rect_width, rect_height);
+        self.global_position = glam::vec2(rect_x, rect_y) + parent_position;
     }
 
     fn compute_dimension_properties(

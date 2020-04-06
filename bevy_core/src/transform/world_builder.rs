@@ -1,4 +1,4 @@
-use crate::ecs::EntityArchetype;
+use bevy_app::EntityArchetype;
 use bevy_transform::components::{LocalToParent, Parent};
 use legion::{
     filter::{ChunksetFilterData, Filter},
@@ -26,6 +26,7 @@ pub struct WorldBuilder<'a> {
     parent_entity: Option<Entity>,
 }
 
+// TODO: make this a non-consuming builder
 impl<'a> WorldBuilder<'a> {
     pub fn build_entity(mut self) -> Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();

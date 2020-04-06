@@ -1,4 +1,5 @@
 mod anchors;
+pub mod entity;
 mod margins;
 mod node;
 mod ui_update_system;
@@ -8,7 +9,7 @@ pub use margins::*;
 pub use node::*;
 pub use ui_update_system::*;
 
-use crate::{app::AppBuilder, prelude::AppPlugin};
+use bevy_app::{AppBuilder, AppPlugin};
 
 #[derive(Default)]
 pub struct UiPlugin;

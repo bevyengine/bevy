@@ -1,4 +1,9 @@
-use crate::prelude::*;
+use super::Node;
+use bevy_core::transform::run_on_hierarchy_subworld_mut;
+use bevy_transform::prelude::{Children, Parent};
+use bevy_window::Windows;
+use glam::Vec2;
+use legion::{prelude::*, systems::SubWorld};
 
 pub fn ui_update_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("ui_update")
@@ -8,10 +13,10 @@ pub fn ui_update_system() -> Box<dyn Schedulable> {
         .read_component::<Children>()
         .build(move |_, world, windows, node_query| {
             let window = windows.get_primary().unwrap();
-            let parent_size = math::vec2(window.width as f32, window.height as f32);
-            let parent_position = math::vec2(0.0, 0.0);
+            let parent_size = glam::vec2(window.width as f32, window.height as f32);
+            let parent_position = glam::vec2(0.0, 0.0);
             for (entity, _) in node_query.iter_entities_mut(world) {
-                ecs::run_on_hierarchy_subworld_mut(
+                run_on_hierarchy_subworld_mut(
                     world,
                     entity,
                     (parent_size, parent_position),
