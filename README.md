@@ -36,12 +36,12 @@ We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book) for
 
 ```sh
 # Runs the "scene" example
-cargo run --example scene --release
+cargo run --example scene
 ```
 
 ### Nightly Compiler
 
-Bevy requires nightly rust right now. It currently uses [specialization](https://github.com/rust-lang/rfcs/blob/master/text/1210-impl-specialization.md) features, which are unstable. If specialization goes stable soon then we can go back to a stable compiler. In the meantime, we will try our best to remove specialization usage so we can go back to stable.
+Bevy requires nightly rust right now. It currently uses [specialization](https://github.com/rust-lang/rfcs/blob/master/text/1210-impl-specialization.md) features, which are unstable. If specialization goes stable soon then we can go back to a stable compiler. [There is actually good forward progress happening here](https://github.com/rust-lang/rust/pull/68970). In the meantime, we will try our best to remove specialization usage so we can go back to stable.
 
 
 ## Libraries Used

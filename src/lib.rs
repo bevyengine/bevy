@@ -1,4 +1,4 @@
-#![feature(specialization)]
+#![feature(min_specialization)]
 pub mod prelude;
 pub mod serialization;
 

@@ -1,4 +1,4 @@
-#![feature(specialization)]
+#![feature(min_specialization)]
 mod camera;
 pub mod mesh;
 pub mod render_graph;
