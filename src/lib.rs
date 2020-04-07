@@ -1,13 +1,20 @@
-//! Bevy is a modular game engine built in Rust, with a focus on developer productivity and performance.
-//! 
-//! It has the following design goals:
-//! * Provide a first class user-experience for both 2D and 3D games
-//! * Easy for newbies to pick up, but infinitely flexible for power users
-//! * Fast iterative compile times. Ideally less than 1 second for small to medium sized projects
-//! * Data-first game development using ECS (Entity Component Systems)
-//! * High performance and parallel architecture
-//! * Use the latest and greatest rendering technologies and techniques
-//! 
+//! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity and performance.
+//!
+//! Check out the [Bevy website](https://bevyengine.org) for more information, read the 
+//! [Bevy Book](https://bevyengine.org/learn/book/introduction) for a step-by-step guide, and [engage with our
+//! community](https://bevyengine.org/community/) if you have any questions or ideas!
+//!  
+//! ```
+//!use bevy::prelude::*;
+//!
+//!fn main() {
+//!    App::build()
+//!        .add_default_plugins()
+//!        .add_system_fn("hello", |_| println!("hello world!"))
+//!        .run();
+//!}
+//! ```
+//!
 //! The "bevy" crate is just a container crate that makes it easier to consume Bevy components.
 //! The defaults provide a "full" engine experience, but you can easily enable / disable features
 //! in your project's Cargo.toml to meet your specific needs. See Bevy's Cargo.toml for a full list of features available.

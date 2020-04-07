@@ -4,7 +4,7 @@ use crate::{
     stage, App, Events,
 };
 
-use legion::prelude::{Resources, Runnable, Schedulable, Universe, World};
+use legion::prelude::{Resources, Runnable, Schedulable, Universe, World, SystemBuilder, CommandBuffer};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
@@ -119,6 +119,15 @@ impl AppBuilder {
 
     pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
+    }
+
+    pub fn add_system_fn(&mut self, name: &'static str, system: impl Fn(&mut CommandBuffer) + Send + Sync + 'static) -> &mut Self {
+        let built_system = SystemBuilder::new(name)
+            .build(move |command_buffer, _, _, _| {
+                system(command_buffer);
+            });
+        self.add_system_to_stage(stage::UPDATE, built_system);
+        self
     }
 
     pub fn add_startup_system_to_stage(
