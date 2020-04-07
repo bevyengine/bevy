@@ -4,7 +4,9 @@ fn main() {
     App::build().add_default_plugins().setup(setup).run();
 }
 
+/// sets up a scene with textured entities
 fn setup(world: &mut World, resources: &mut Resources) {
+    // load a texture
     let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
     let texture = Texture::load(TextureType::Png(
         concat!(env!("CARGO_MANIFEST_DIR"), "/assets/bevy_logo_dark_big.png").to_string(),
@@ -12,30 +14,35 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let aspect = texture.height as f32 / texture.width as f32;
     let texture_handle = texture_storage.add(texture);
 
+    // create a new quad mesh. this is what we will apply the texture to
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let quad_width = 8.0;
     let quad_handle = mesh_storage.add(Mesh::load(MeshType::Quad {
         size: Vec2::new(quad_width, quad_width * aspect),
     }));
 
+    // create materials that use our new texture
     let mut material_storage = resources
         .get_mut::<AssetStorage<StandardMaterial>>()
         .unwrap();
 
+    // this material renders the texture normally
     let material_handle = material_storage.add(StandardMaterial {
         albedo_texture: Some(texture_handle),
         ..Default::default()
     });
 
+    // this material modulates the texture to make it red
     let modulated_material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
         albedo_texture: Some(texture_handle),
         ..Default::default()
     });
 
+    // add entities to the world
     world
         .build()
-        // textured quad
+        // textured quad - normal
         .add_entity(MeshEntity {
             mesh: quad_handle,
             material: material_handle,
@@ -43,7 +50,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
             ..Default::default()
         })
-        // textured quad modulated
+        // textured quad - modulated
         .add_entity(MeshEntity {
             mesh: quad_handle,
             material: modulated_material_handle,

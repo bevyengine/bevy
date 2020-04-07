@@ -7,8 +7,11 @@ fn main() {
         .run();
 }
 
+/// Set up a simple scene using a "startup system".
+/// Startup systems are run exactly once when the app starts up.
+/// They run right before "normal" systems run.
 pub fn startup_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("setup")
+    SystemBuilder::new("startup")
         .write_resource::<AssetStorage<Mesh>>()
         .write_resource::<AssetStorage<StandardMaterial>>()
         .build(move |command_buffer, _, (meshes, materials), _| {

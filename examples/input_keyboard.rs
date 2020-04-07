@@ -11,6 +11,7 @@ fn main() {
         .run();
 }
 
+/// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
 pub fn move_on_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut keyboard_input_event_reader = resources.get_event_reader::<KeyboardInput>();
     let mut moving_left = false;
@@ -54,6 +55,7 @@ pub fn move_on_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
         )
 }
 
+/// creates a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut material_storage = resources

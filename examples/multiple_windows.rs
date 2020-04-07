@@ -5,6 +5,7 @@ fn main() {
 }
 
 fn setup(_world: &mut World, resources: &mut Resources) {
+    // sends out a "CreateWindow" event, which will be received by the windowing backend
     let mut create_window_events = resources.get_mut::<Events<CreateWindow>>().unwrap();
     create_window_events.send(CreateWindow {
         descriptor: WindowDescriptor {

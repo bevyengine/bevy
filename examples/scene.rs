@@ -4,23 +4,27 @@ fn main() {
     App::build().add_default_plugins().setup(setup).run();
 }
 
+/// set up a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
+    // create a cube and a plane mesh
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
+    let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
+
+    // create materials for our cube and plane
     let mut material_storage = resources
         .get_mut::<AssetStorage<StandardMaterial>>()
         .unwrap();
-    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
-    let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
     let cube_material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
-
     let plane_material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });
 
+    // add entities to the world
     world
         .build()
         // plane

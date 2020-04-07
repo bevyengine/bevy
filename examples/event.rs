@@ -13,6 +13,7 @@ fn main() {
         .run();
 }
 
+// sends MyEvent every second
 fn event_trigger_system() -> Box<dyn Schedulable> {
     let mut elapsed = 0.0;
     SystemBuilder::new("event_trigger")
@@ -30,6 +31,7 @@ fn event_trigger_system() -> Box<dyn Schedulable> {
         })
 }
 
+// prints events as they come in
 fn event_listener_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut my_event_reader = resources.get_event_reader::<MyEvent>();
     SystemBuilder::new("event_listener")

@@ -10,6 +10,7 @@ fn main() {
         .run();
 }
 
+/// prints out mouse events as they come in
 pub fn mouse_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut mouse_button_input_event_reader = resources.get_event_reader::<MouseButtonInput>();
     let mut mouse_motion_event_reader = resources.get_event_reader::<MouseMotion>();

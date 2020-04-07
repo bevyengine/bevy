@@ -1,7 +1,8 @@
 #!/bin/bash
 
-duration='3'
+duration='2'
 run_example() {
+    cargo build --example $1
     timeout "$duration" cargo run --example $1
 }
 

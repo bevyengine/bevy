@@ -12,7 +12,7 @@ use std::time::Duration;
 // bevy = { version = "0.1.0", default-features = false, features = ["headless"] }
 
 fn main() {
-    println!("This app runs once:");
+    // this app runs once
     App::build()
         .add_plugin(ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
@@ -20,7 +20,7 @@ fn main() {
         .add_system(hello_world_system())
         .run();
 
-    println!("This app loops forever at 60 fps:");
+    // this app loops forever at 60 fps
     App::build()
         .add_plugin(ScheduleRunnerPlugin {
             run_mode: RunMode::Loop {

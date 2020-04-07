@@ -10,7 +10,7 @@ fn main() {
         .run();
 }
 
-// rotates the parent, which will result in the child also rotating
+/// rotates the parent, which will result in the child also rotating
 fn build_rotator_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("rotator")
         .read_resource::<Time>()
@@ -22,6 +22,7 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
         })
 }
 
+/// set up a simple scene with a "parent" cube and a "child" cube 
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut material_storage = resources
@@ -45,7 +46,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         })
         .add(Rotator)
         .add_children(|builder| {
-            // cube
+            // child cube
             builder.add_entity(MeshEntity {
                 mesh: cube_handle,
                 material: cube_material_handle,
