@@ -126,6 +126,5 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Vec3::new(0.0, 0.0, 1.0),
             )),
             ..Default::default()
-        })
-        .build();
+        });
 }

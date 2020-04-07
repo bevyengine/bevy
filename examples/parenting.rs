@@ -52,7 +52,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 material: cube_material_handle,
                 translation: Translation::new(0.0, 0.0, 3.0),
                 ..Default::default()
-            })
+            });
         })
         // light
         .add_entity(LightEntity {
@@ -67,6 +67,5 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Vec3::new(0.0, 0.0, 1.0),
             )),
             ..Default::default()
-        })
-        .build();
+        });
 }

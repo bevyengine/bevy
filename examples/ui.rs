@@ -110,7 +110,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                     Color::rgb(0.6, 0.6, 1.0),
                 ),
-            })
+            });
         })
         // alpha test
         .add_entity(UiEntity {
@@ -120,6 +120,5 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgba(1.0, 0.9, 0.9, 0.4),
             ),
-        })
-        .build();
+        });
 }

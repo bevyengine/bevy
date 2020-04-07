@@ -44,8 +44,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
         ..Default::default()
     });
 
-    let mut builder = world
-        .build()
+    let mut builder = world.build();
+    builder
         // plane
         .add_entity(MeshEntity {
             mesh: plane_handle,
@@ -84,7 +84,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ),
             ..Default::default()
         });
-        builder = builder.add_entity(MeshEntity {
+        builder.add_entity(MeshEntity {
             mesh: cube_handle,
             material: spawned_material_handle,
             translation: Translation::new(
@@ -93,8 +93,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 0.0,
             ),
             ..Default::default()
-        })
+        });
     }
-
-    builder.build();
 }

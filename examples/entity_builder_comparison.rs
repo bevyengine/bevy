@@ -104,8 +104,7 @@ fn create_entities_builder_add_component(
             Vec3::new(3.0, 8.0, 5.0),
             Vec3::new(0.0, 0.0, 0.0),
             Vec3::new(0.0, 0.0, 1.0),
-        )))
-        .build();
+        )));
 }
 
 fn create_entities_builder_archetype(
@@ -143,8 +142,7 @@ fn create_entities_builder_archetype(
                 Vec3::new(0.0, 0.0, 1.0),
             )),
             ..Default::default()
-        })
-        .build();
+        });
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {

@@ -26,18 +26,16 @@ pub struct WorldBuilder<'a> {
     parent_entity: Option<Entity>,
 }
 
-// TODO: make this a non-consuming builder
 impl<'a> WorldBuilder<'a> {
-    pub fn build_entity(mut self) -> Self {
+    pub fn build_entity(&mut self) -> &mut Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);
         self.add_parent_to_current_entity();
         self
     }
-    pub fn build(self) {}
 
-    // note: this is slow and does a full entity copy
-    pub fn add<T>(self, component: T) -> Self
+    /// note: this is slow and does a full entity copy
+    pub fn add<T>(&mut self, component: T) -> &mut Self
     where
         T: legion::storage::Component,
     {
@@ -47,7 +45,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn tag<T>(self, tag: T) -> Self
+    pub fn tag<T>(&mut self, tag: T) -> &mut Self
     where
         T: legion::storage::Tag,
     {
@@ -57,7 +55,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_entities<T, C>(self, tags: T, components: C) -> Self
+    pub fn add_entities<T, C>(&mut self, tags: T, components: C) -> &mut Self
     where
         T: TagSet + TagLayout + for<'b> Filter<ChunksetFilterData<'b>>,
         C: IntoComponentSource,
@@ -66,18 +64,18 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_entity(mut self, entity_archetype: impl EntityArchetype) -> Self {
+    pub fn add_entity(&mut self, entity_archetype: impl EntityArchetype) -> &mut Self {
         let current_entity = entity_archetype.insert(self.world);
         self.current_entity = Some(current_entity);
         self.add_parent_to_current_entity();
         self
     }
 
-    pub fn add_children(mut self, build_children: impl Fn(WorldBuilder) -> WorldBuilder) -> Self {
+    pub fn add_children(&mut self, build_children: impl Fn(&mut WorldBuilder)) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 
-        self = build_children(self);
+        build_children(self);
 
         self.current_entity = self.parent_entity;
         self.parent_entity = None;

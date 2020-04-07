@@ -27,7 +27,8 @@ fn build_move_system() -> Box<dyn Schedulable> {
 }
 
 fn setup(world: &mut World, _resources: &mut Resources) {
-    let mut builder = world.build().add_entity(Camera2dEntity {
+    let mut builder =  world.build();
+    builder.add_entity(Camera2dEntity {
         camera: Camera::new(CameraType::default_orthographic()),
         ..Default::default()
     });
@@ -37,7 +38,7 @@ fn setup(world: &mut World, _resources: &mut Resources) {
     for i in 0..count {
         // 2d camera
         let cur = Vec2::new(1.0, 1.0) * 1.0 + prev;
-        builder = builder.add_entity(UiEntity {
+        builder.add_entity(UiEntity {
             node: Node::new(
                 math::vec2(75.0, 75.0) + cur,
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
@@ -48,6 +49,4 @@ fn setup(world: &mut World, _resources: &mut Resources) {
 
         prev = cur;
     }
-
-    builder.build();
 }
