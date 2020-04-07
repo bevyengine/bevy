@@ -87,7 +87,7 @@ impl AddDefaultPlugins for AppBuilder {
         self.add_plugin(bevy_app::schedule_runner::ScheduleRunnerPlugin::default());
 
         #[cfg(feature = "wgpu")]
-        self.add_plugin(bevy_wgpu::WgpuRendererPlugin::default());
+        self.add_plugin(bevy_wgpu::WgpuPlugin::default());
 
         self
     }

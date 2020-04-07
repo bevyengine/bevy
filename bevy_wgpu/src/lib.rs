@@ -13,9 +13,9 @@ use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 
 #[derive(Default)]
-pub struct WgpuRendererPlugin;
+pub struct WgpuPlugin;
 
-impl AppPlugin for WgpuRendererPlugin {
+impl AppPlugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources());
         app.add_thread_local_fn_to_stage(RENDER_STAGE, render_system);
