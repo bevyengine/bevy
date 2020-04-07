@@ -17,6 +17,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 * Easy for newbies to pick up, but infinitely flexible for power users.
 * Fast iterative compile times. Ideally less than 1 second for small to medium sized projects.
 * Data-first game development using ECS (Entity Component System)
+* Modular design: use only what you need ... replace what you don't like
 * High performance and parallel architecture
 * Use the latest and greatest rendering technologies and techniques
 
