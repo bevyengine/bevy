@@ -71,7 +71,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_children(&mut self, build_children: impl Fn(&mut WorldBuilder)) -> &mut Self {
+    pub fn add_children(&mut self, build_children: impl Fn(&mut Self)) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 
@@ -116,16 +116,15 @@ pub struct CommandBufferBuilder<'a> {
 }
 
 impl<'a> CommandBufferBuilder<'a> {
-    pub fn build_entity(mut self) -> Self {
+    pub fn build_entity(&mut self) -> &mut Self {
         let entity = *self.command_buffer.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);
         self.add_parent_to_current_entity();
         self
     }
-    pub fn build(self) {}
 
     // note: this is slow and does a full entity copy
-    pub fn add<T>(self, component: T) -> Self
+    pub fn add<T>(&mut self, component: T) -> &mut Self
     where
         T: legion::storage::Component,
     {
@@ -135,7 +134,7 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn tag<T>(self, tag: T) -> Self
+    pub fn tag<T>(&mut self, tag: T) -> &mut Self
     where
         T: legion::storage::Tag,
     {
@@ -145,7 +144,7 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn add_entities<T, C>(self, tags: T, components: C) -> Self
+    pub fn add_entities<T, C>(&mut self, tags: T, components: C) -> &mut Self
     where
         T: TagSet + TagLayout + for<'b> Filter<ChunksetFilterData<'b>> + 'static,
         C: IntoComponentSource + 'static,
@@ -154,7 +153,7 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn add_entity(mut self, entity_archetype: impl EntityArchetype) -> Self {
+    pub fn add_entity(&mut self, entity_archetype: impl EntityArchetype) -> &mut Self {
         let current_entity = entity_archetype.insert_command_buffer(self.command_buffer);
         self.current_entity = Some(current_entity);
         self.add_parent_to_current_entity();
@@ -162,13 +161,13 @@ impl<'a> CommandBufferBuilder<'a> {
     }
 
     pub fn add_children(
-        mut self,
-        build_children: impl Fn(CommandBufferBuilder) -> CommandBufferBuilder,
-    ) -> Self {
+        &mut self,
+        build_children: impl Fn(&mut Self) -> &mut Self,
+    ) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 
-        self = build_children(self);
+        build_children(self);
 
         self.current_entity = self.parent_entity;
         self.parent_entity = None;

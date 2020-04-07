@@ -43,7 +43,6 @@ pub fn startup_system() -> Box<dyn Schedulable> {
                         Vec3::new(0.0, 0.0, 1.0),
                     )),
                     ..Default::default()
-                })
-                .build();
+                });
         })
 }
