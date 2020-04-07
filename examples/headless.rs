@@ -4,6 +4,13 @@ use bevy::{
 };
 use std::time::Duration;
 
+// This example disables the default plugins by not registering them during setup.
+// You can also completely remove rendering / windowing Plugin code from bevy
+// by making your import look like this in your Cargo.toml
+//
+// [dependencies]
+// bevy = { version = "0.1.0", default-features = false, features = ["headless"] }
+
 fn main() {
     println!("This app runs once:");
     App::build()

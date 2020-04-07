@@ -12,16 +12,17 @@ pub fn ui_update_system() -> Box<dyn Schedulable> {
         .write_component::<Node>()
         .read_component::<Children>()
         .build(move |_, world, windows, node_query| {
-            let window = windows.get_primary().unwrap();
-            let parent_size = glam::vec2(window.width as f32, window.height as f32);
-            let parent_position = glam::vec2(0.0, 0.0);
-            for (entity, _) in node_query.iter_entities_mut(world) {
-                run_on_hierarchy_subworld_mut(
-                    world,
-                    entity,
-                    (parent_size, parent_position),
-                    &mut update_node_entity,
-                );
+            if let Some(window) = windows.get_primary() {
+                let parent_size = glam::vec2(window.width as f32, window.height as f32);
+                let parent_position = glam::vec2(0.0, 0.0);
+                for (entity, _) in node_query.iter_entities_mut(world) {
+                    run_on_hierarchy_subworld_mut(
+                        world,
+                        entity,
+                        (parent_size, parent_position),
+                        &mut update_node_entity,
+                    );
+                }
             }
         })
 }
