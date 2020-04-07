@@ -1,3 +1,5 @@
+//! [![](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
+//! 
 //! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity and performance.
 //!
 //! Check out the [Bevy website](https://bevyengine.org) for more information, read the 
