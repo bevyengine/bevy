@@ -5,7 +5,7 @@
 
 ## What is Bevy?
 
-Bevy is a modern data-driven game engine built in Rust
+Bevy is a modular game engine built in Rust, with a focus on developer productivity and performance.
 
 ## WARNING
 
