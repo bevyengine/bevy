@@ -47,6 +47,7 @@ impl WgpuRenderer {
         let adapter = wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: None,
             },
             wgpu::BackendBit::PRIMARY,
         )
@@ -223,7 +224,7 @@ impl WgpuRenderer {
         self.encoder = Some(
             self.device
                 .borrow()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
 
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
@@ -359,7 +360,7 @@ impl Renderer for WgpuRenderer {
         self.encoder = Some(
             self.device
                 .borrow()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 }),
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
 
         self.update_resource_providers(world, resources);
@@ -570,6 +571,7 @@ impl Renderer for WgpuRenderer {
                 let wgpu_bind_group_layout =
                     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                         bindings: bind_group_layout_binding.as_slice(),
+                        label: None,
                     });
 
                 self.wgpu_resources

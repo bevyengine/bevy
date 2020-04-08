@@ -25,7 +25,7 @@ impl OrthographicCamera {
             self.near,
             self.far,
         );
-        opengl_to_wgpu_matrix() * projection
+        projection
     }
 }
 
@@ -52,7 +52,7 @@ pub struct PerspectiveCamera {
 impl PerspectiveCamera {
     pub fn get_view_matrix(&self) -> Mat4 {
         let projection = Mat4::perspective_rh_gl(self.fov, self.aspect_ratio, self.near, self.far);
-        opengl_to_wgpu_matrix() * projection
+        projection
     }
 }
 
@@ -115,10 +115,4 @@ impl Camera {
             }
         }
     }
-}
-
-pub fn opengl_to_wgpu_matrix() -> Mat4 {
-    Mat4::from_cols_array(&[
-        1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0,
-    ])
 }

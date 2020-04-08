@@ -118,6 +118,7 @@ impl WgpuResources {
                 .get(&bind_group_descriptor.id)
                 .unwrap();
             let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
+                label: None,
                 layout: bind_group_layout,
                 bindings: bindings.as_slice(),
             };
@@ -148,6 +149,7 @@ impl WgpuResources {
         buffer_info: BufferInfo,
     ) -> RenderResource {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
         });
@@ -199,8 +201,11 @@ impl WgpuResources {
         let device = device_rc.borrow();
 
         let mut mapped = device.create_buffer_mapped(
-            buffer_info.size as usize,
-            buffer_info.buffer_usage.wgpu_into(),
+            &wgpu::BufferDescriptor {
+                size: buffer_info.size as u64,
+                usage: buffer_info.buffer_usage.wgpu_into(),
+                label: None,
+            }
         );
         setup_data(&mut mapped.data, renderer);
         mapped.finish()

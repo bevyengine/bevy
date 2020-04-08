@@ -216,9 +216,10 @@ impl WgpuFrom<Extent3d> for wgpu::Extent3d {
     }
 }
 
-impl WgpuFrom<TextureDescriptor> for wgpu::TextureDescriptor {
+impl WgpuFrom<TextureDescriptor> for wgpu::TextureDescriptor<'_> {
     fn from(texture_descriptor: TextureDescriptor) -> Self {
         wgpu::TextureDescriptor {
+            label: None,
             size: texture_descriptor.size.wgpu_into(),
             array_layer_count: texture_descriptor.array_layer_count,
             mip_level_count: texture_descriptor.mip_level_count,
@@ -494,7 +495,7 @@ impl WgpuFrom<IndexFormat> for wgpu::IndexFormat {
     }
 }
 
-impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
+impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor {
     fn from(sampler_descriptor: SamplerDescriptor) -> Self {
         wgpu::SamplerDescriptor {
             address_mode_u: sampler_descriptor.address_mode_u.wgpu_into(),
@@ -505,7 +506,7 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             mipmap_filter: sampler_descriptor.mipmap_filter.wgpu_into(),
             lod_min_clamp: sampler_descriptor.lod_min_clamp,
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
-            compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
+            compare: sampler_descriptor.compare_function.wgpu_into(),
         }
     }
 }
