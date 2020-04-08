@@ -125,7 +125,7 @@ where
         self.query = Some(query);
     }
 
-    fn update_handles_info(&mut self, world: &mut World, resources: &Resources) {
+    fn update_uniform_handles_info(&mut self, world: &mut World, resources: &Resources) {
         let handle_query = self.handle_query.take().unwrap();
         let assets = resources.get::<AssetStorage<T>>();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
@@ -609,7 +609,7 @@ where
     fn update(&mut self, _renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
         self.reset_buffer_array_status_counts();
         self.update_uniforms_info(world);
-        self.update_handles_info(world, resources);
+        self.update_uniform_handles_info(world, resources);
     }
 
     fn finish_update(
