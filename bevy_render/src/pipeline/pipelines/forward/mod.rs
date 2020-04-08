@@ -15,7 +15,7 @@ pub trait ForwardPipelineBuilder {
 
 impl<'a, 'b, 'c> ForwardPipelineBuilder for RenderGraphBuilder<'a, 'b, 'c> {
     fn add_forward_pipeline(&mut self) -> &mut Self {
-        self.add_pipeline(resource_name::pipeline::FORWARD, |builder| {
+        self.add_default_pipeline(resource_name::pipeline::FORWARD, |builder| {
             builder
                 .with_vertex_shader(Shader::from_glsl(
                     ShaderStage::Vertex,

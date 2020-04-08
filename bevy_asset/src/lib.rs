@@ -11,6 +11,7 @@ use std::{any::TypeId, collections::HashMap, marker::PhantomData};
 
 // TODO: move these types to their own files
 pub type HandleId = usize;
+pub const DEFAULT_HANDLE_ID: HandleId = 0;
 
 pub struct Handle<T> {
     pub id: HandleId,
@@ -58,11 +59,10 @@ impl<T> Debug for Handle<T> {
     }
 }
 
-// TODO: somehow handle this gracefully in asset managers. or alternatively remove Default
 impl<T> Default for Handle<T> {
     fn default() -> Self {
         Handle {
-            id: std::usize::MAX,
+            id: DEFAULT_HANDLE_ID,
             marker: PhantomData,
         }
     }
@@ -121,7 +121,7 @@ impl<T> AssetStorage<T> {
         AssetStorage {
             assets: HashMap::new(),
             names: HashMap::new(),
-            current_index: 0,
+            current_index: 1,
         }
     }
 
@@ -137,6 +137,11 @@ impl<T> AssetStorage<T> {
             id,
             marker: PhantomData,
         }
+    }
+
+    pub fn add_default(&mut self, asset: T) -> Handle<T> {
+        self.assets.insert(DEFAULT_HANDLE_ID, asset);
+        Handle::default()
     }
 
     pub fn set_name(&mut self, name: &str, handle: Handle<T>) {

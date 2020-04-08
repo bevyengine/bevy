@@ -24,7 +24,7 @@ impl Default for Renderable {
         Renderable {
             is_visible: true,
             pipelines: vec![
-                Handle::new(0), // TODO: this could be better
+                Handle::default(),
             ],
             render_resource_assignments: RenderResourceAssignments::default(),
             is_instanced: false,

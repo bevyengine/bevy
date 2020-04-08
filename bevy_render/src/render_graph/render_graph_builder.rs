@@ -40,6 +40,20 @@ impl<'a, 'b, 'c> RenderGraphBuilder<'a, 'b, 'c> {
         self
     }
 
+    pub fn add_default_pipeline(&mut self, name: &str, build: impl Fn(&mut PipelineBuilder)) -> &mut Self {
+        if let Some(ref pass) = self.current_pass {
+            let mut builder = PipelineBuilder::new(name, &mut self.shaders);
+            build(&mut builder);
+            let pipeline = builder.finish();
+            let pipeline_descriptor_handle = self.pipelines.add_default(pipeline);
+            self.pipelines.set_name(name, pipeline_descriptor_handle);
+            self.render_graph
+                .add_pipeline(&pass, pipeline_descriptor_handle);
+        }
+
+        self
+    }
+
     pub fn add_pipeline_to_pass(
         &mut self,
         pass: &str,
@@ -51,6 +65,25 @@ impl<'a, 'b, 'c> RenderGraphBuilder<'a, 'b, 'c> {
             build(&mut builder);
             let pipeline = builder.finish();
             let pipeline_descriptor_handle = self.pipelines.add(pipeline);
+            self.pipelines.set_name(name, pipeline_descriptor_handle);
+            self.render_graph
+                .add_pipeline(pass, pipeline_descriptor_handle);
+        }
+
+        self
+    }
+
+    pub fn add_default_pipeline_to_pass(
+        &mut self,
+        pass: &str,
+        name: &str,
+        build: impl Fn(&mut PipelineBuilder),
+    ) -> &mut Self {
+        {
+            let mut builder = PipelineBuilder::new(name, &mut self.shaders);
+            build(&mut builder);
+            let pipeline = builder.finish();
+            let pipeline_descriptor_handle = self.pipelines.add_default(pipeline);
             self.pipelines.set_name(name, pipeline_descriptor_handle);
             self.render_graph
                 .add_pipeline(pass, pipeline_descriptor_handle);
