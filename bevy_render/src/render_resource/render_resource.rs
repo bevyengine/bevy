@@ -1,9 +1,17 @@
 use crate::{mesh::Mesh, texture::Texture};
 use bevy_asset::Handle;
 use std::collections::HashMap;
+use uuid::Uuid;
 
+// TODO: Rename to RenderResourceId
 #[derive(Copy, Clone, Hash, Debug, Eq, PartialEq)]
-pub struct RenderResource(pub u64);
+pub struct RenderResource(Uuid);
+
+impl RenderResource {
+    pub fn new() -> Self {
+        RenderResource(Uuid::new_v4())
+    }
+}
 
 // TODO: consider scoping breaking these mappings up by type: Texture, Sampler, etc
 // the overlap could cause accidents.
@@ -13,7 +21,6 @@ pub struct RenderResources {
     pub texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
     pub mesh_to_vertices_resource: HashMap<Handle<Mesh>, RenderResource>,
     pub mesh_to_indices_resource: HashMap<Handle<Mesh>, RenderResource>,
-    pub resource_index: u64,
 }
 
 impl RenderResources {
@@ -51,12 +58,5 @@ impl RenderResources {
 
     pub fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
         self.texture_to_sampler_resource.get(&texture).cloned()
-    }
-
-    pub fn get_next_resource(&mut self) -> RenderResource {
-        let resource = self.resource_index;
-        self.resource_index += 1;
-
-        RenderResource(resource)
     }
 }

@@ -2,6 +2,7 @@ use super::{
     wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
     WgpuRenderPass, WgpuResources,
 };
+use crate::renderer_2::WgpuRenderContext;
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
@@ -12,8 +13,8 @@ use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
     render_resource::{
-        resource_name, BufferInfo, RenderResource, RenderResourceAssignments, RenderResources,
-        ResourceInfo,
+        resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
+        RenderResources, ResourceInfo,
     },
     renderer::Renderer,
     shader::Shader,
@@ -359,6 +360,43 @@ impl Renderer for WgpuRenderer {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
 
+        // use bevy_render::renderer_2::RenderContext;
+        // let thread_count = 5;
+        // let (sender, receiver) = crossbeam_channel::bounded(thread_count);
+        // for i in 0..thread_count {
+        //     let device = self.device.clone();
+        //     let sender = sender.clone();
+        //     std::thread::spawn(move || {
+        //         let mut context = WgpuRenderContext::new(device);
+        //         let data: Vec::<u8> = vec![1, 2, 3,4 ];
+        //         let data2: Vec::<u8> = vec![4, 2, 3,4 ];
+        //         let buffer  = context.create_buffer_with_data(BufferInfo {
+        //             buffer_usage: BufferUsage::COPY_SRC,
+        //             ..Default::default()
+        //         }, &data);
+
+        //         let buffer2  = context.create_buffer_with_data(BufferInfo {
+        //             buffer_usage: BufferUsage::UNIFORM |BufferUsage::COPY_DST,
+        //             ..Default::default()
+        //         }, &data2);
+
+        //         context.copy_buffer_to_buffer(buffer, 0, buffer2, 0, data.len() as u64);
+
+        //         sender.send(context.finish()).unwrap();
+        //     });
+        // }
+
+        // let mut command_buffers = Vec::new();
+        // for i in 0..thread_count {
+        //     if let Some(command_buffer) = receiver.recv().unwrap() {
+        //         command_buffers.push(command_buffer);
+        //     }
+
+        //     println!("got {}", i);
+        // }
+
+        // self.queue.submit(&command_buffers);
+
         self.update_resource_providers(world, resources);
         update_shader_assignments(world, resources, self);
         self.create_queued_textures(resources);
@@ -434,8 +472,7 @@ impl Renderer for WgpuRenderer {
     }
 
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.wgpu_resources
-            .create_buffer(&self.device, buffer_info)
+        self.wgpu_resources.create_buffer(&self.device, buffer_info)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -487,7 +524,7 @@ impl Renderer for WgpuRenderer {
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
     ) -> RenderResource {
-        self.wgpu_resources.create_texture(
+        self.wgpu_resources.create_texture_with_data(
             &self.device,
             self.encoder.as_mut().unwrap(),
             texture_descriptor,
@@ -564,10 +601,11 @@ impl Renderer for WgpuRenderer {
                     })
                     .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
                 let wgpu_bind_group_layout =
-                    self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                        bindings: bind_group_layout_binding.as_slice(),
-                        label: None,
-                    });
+                    self.device
+                        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            bindings: bind_group_layout_binding.as_slice(),
+                            label: None,
+                        });
 
                 self.wgpu_resources
                     .bind_group_layouts
@@ -587,9 +625,11 @@ impl Renderer for WgpuRenderer {
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-        let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: bind_group_layouts.as_slice(),
-        });
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: bind_group_layouts.as_slice(),
+            });
 
         let owned_vertex_buffer_descriptors = layout
             .vertex_buffer_descriptors
@@ -617,8 +657,11 @@ impl Renderer for WgpuRenderer {
 
         if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
             if let None = self.wgpu_resources.shader_modules.get(&fragment_handle) {
-                self.wgpu_resources
-                    .create_shader_module(&self.device, fragment_handle, shader_storage);
+                self.wgpu_resources.create_shader_module(
+                    &self.device,
+                    fragment_handle,
+                    shader_storage,
+                );
             }
         };
 
@@ -673,7 +716,9 @@ impl Renderer for WgpuRenderer {
             alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
         };
 
-        let render_pipeline = self.device.create_render_pipeline(&mut render_pipeline_descriptor);
+        let render_pipeline = self
+            .device
+            .create_render_pipeline(&mut render_pipeline_descriptor);
         self.render_pipelines
             .insert(pipeline_handle, render_pipeline);
     }

@@ -1,5 +1,5 @@
 use super::WgpuRenderer;
-use crate::wgpu_type_converter::WgpuInto;
+use crate::{renderer_2::WgpuRenderContext, wgpu_type_converter::WgpuInto};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindType},
@@ -9,7 +9,7 @@ use bevy_render::{
     },
     renderer::Renderer,
     shader::Shader,
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor}, renderer_2::RenderContext,
 };
 use bevy_window::WindowId;
 use std::collections::HashMap;
@@ -154,7 +154,7 @@ impl WgpuResources {
             usage: buffer_info.buffer_usage.wgpu_into(),
         });
 
-        let resource = self.render_resources.get_next_resource();
+        let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
 
         self.buffers.insert(resource, buffer);
@@ -186,7 +186,7 @@ impl WgpuResources {
         buffer: wgpu::Buffer,
         buffer_info: BufferInfo,
     ) -> RenderResource {
-        let resource = self.render_resources.get_next_resource();
+        let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
         self.buffers.insert(resource, buffer);
         resource
@@ -206,6 +206,24 @@ impl WgpuResources {
             }
         );
         setup_data(&mut mapped.data, renderer);
+        mapped.finish()
+    }
+
+    // TODO: clean this up
+    pub fn begin_create_buffer_mapped_render_context(
+        buffer_info: &BufferInfo,
+        render_context: &mut WgpuRenderContext,
+        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderContext),
+    ) -> wgpu::Buffer {
+        let device = render_context.device.clone();
+        let mut mapped = device.create_buffer_mapped(
+            &wgpu::BufferDescriptor {
+                size: buffer_info.size as u64,
+                usage: buffer_info.buffer_usage.wgpu_into(),
+                label: None,
+            }
+        );
+        setup_data(&mut mapped.data, render_context);
         mapped.finish()
     }
 
@@ -242,13 +260,27 @@ impl WgpuResources {
     ) -> RenderResource {
         let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).wgpu_into();
         let sampler = device.create_sampler(&descriptor);
-        let resource = self.render_resources.get_next_resource();
+        let resource = RenderResource::new();
         self.samplers.insert(resource, sampler);
         self.add_resource_info(resource, ResourceInfo::Sampler);
         resource
     }
 
     pub fn create_texture(
+        &mut self,
+        device: &wgpu::Device,
+        texture_descriptor: &TextureDescriptor,
+    ) -> RenderResource {
+        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).wgpu_into();
+        let texture = device.create_texture(&descriptor);
+        let texture_view = texture.create_default_view();
+        let resource = RenderResource::new();
+        self.add_resource_info(resource, ResourceInfo::Texture);
+        self.textures.insert(resource, texture_view);
+        resource
+    }
+
+    pub fn create_texture_with_data(
         &mut self,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
@@ -277,7 +309,7 @@ impl WgpuResources {
             );
         }
 
-        let resource = self.render_resources.get_next_resource();
+        let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Texture);
         self.textures.insert(resource, texture_view);
         resource

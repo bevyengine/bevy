@@ -23,3 +23,4 @@ wgpu = { version = "0.5.0" }
 
 futures = "0.3"
 log = { version = "0.4", features = ["release_max_level_info"] }
+crossbeam-channel = "0.4.2"

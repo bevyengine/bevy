@@ -3,6 +3,8 @@ mod camera;
 pub mod entity;
 pub mod mesh;
 pub mod render_graph;
+pub mod render_graph_2;
+pub mod renderer_2;
 pub mod shader;
 
 mod color;
