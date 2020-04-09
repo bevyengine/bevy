@@ -22,14 +22,13 @@ use bevy_render::{
 use bevy_window::{Window, WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
     ops::Deref,
-    rc::Rc,
+    sync::Arc,
 };
 
 pub struct WgpuRenderer {
-    pub device: Rc<RefCell<wgpu::Device>>,
+    pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
     pub encoder: Option<wgpu::CommandEncoder>,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
@@ -64,7 +63,7 @@ impl WgpuRenderer {
             .await;
 
         WgpuRenderer {
-            device: Rc::new(RefCell::new(device)),
+            device: Arc::new(device),
             queue,
             encoder: None,
             window_resized_event_reader,
@@ -223,7 +222,6 @@ impl WgpuRenderer {
     pub fn initialize_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
         self.encoder = Some(
             self.device
-                .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
 
@@ -314,7 +312,6 @@ impl WgpuRenderer {
         let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
         let swap_chain = self
             .device
-            .borrow()
             .create_swap_chain(surface, &swap_chain_descriptor);
         self.wgpu_resources
             .window_swap_chains
@@ -359,7 +356,6 @@ impl Renderer for WgpuRenderer {
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
         self.encoder = Some(
             self.device
-                .borrow()
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
 
@@ -434,12 +430,12 @@ impl Renderer for WgpuRenderer {
 
     fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
         self.wgpu_resources
-            .create_buffer_with_data(&self.device.borrow(), buffer_info, data)
+            .create_buffer_with_data(&self.device, buffer_info, data)
     }
 
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
         self.wgpu_resources
-            .create_buffer(&self.device.borrow(), buffer_info)
+            .create_buffer(&self.device, buffer_info)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -483,7 +479,7 @@ impl Renderer for WgpuRenderer {
 
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
         self.wgpu_resources
-            .create_sampler(&self.device.borrow(), sampler_descriptor)
+            .create_sampler(&self.device, sampler_descriptor)
     }
 
     fn create_texture(
@@ -492,7 +488,7 @@ impl Renderer for WgpuRenderer {
         bytes: Option<&[u8]>,
     ) -> RenderResource {
         self.wgpu_resources.create_texture(
-            &self.device.borrow(),
+            &self.device,
             self.encoder.as_mut().unwrap(),
             texture_descriptor,
             bytes,
@@ -530,7 +526,7 @@ impl Renderer for WgpuRenderer {
                     .get_bind_group(bind_group.id, render_resource_set_id)
                 {
                     self.wgpu_resources.create_bind_group(
-                        &self.device.borrow(),
+                        &self.device,
                         bind_group,
                         render_resource_assignments,
                     );
@@ -555,7 +551,6 @@ impl Renderer for WgpuRenderer {
             return;
         }
 
-        let device = self.device.borrow();
         let layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in layout.bind_groups.iter() {
             if let None = self.wgpu_resources.bind_group_layouts.get(&bind_group.id) {
@@ -569,7 +564,7 @@ impl Renderer for WgpuRenderer {
                     })
                     .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
                 let wgpu_bind_group_layout =
-                    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    self.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                         bindings: bind_group_layout_binding.as_slice(),
                         label: None,
                     });
@@ -592,7 +587,7 @@ impl Renderer for WgpuRenderer {
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = self.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: bind_group_layouts.as_slice(),
         });
 
@@ -614,7 +609,7 @@ impl Renderer for WgpuRenderer {
             .get(&pipeline_descriptor.shader_stages.vertex)
         {
             self.wgpu_resources.create_shader_module(
-                &device,
+                &self.device,
                 pipeline_descriptor.shader_stages.vertex,
                 shader_storage,
             );
@@ -623,7 +618,7 @@ impl Renderer for WgpuRenderer {
         if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
             if let None = self.wgpu_resources.shader_modules.get(&fragment_handle) {
                 self.wgpu_resources
-                    .create_shader_module(&device, fragment_handle, shader_storage);
+                    .create_shader_module(&self.device, fragment_handle, shader_storage);
             }
         };
 
@@ -678,7 +673,7 @@ impl Renderer for WgpuRenderer {
             alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
         };
 
-        let render_pipeline = device.create_render_pipeline(&mut render_pipeline_descriptor);
+        let render_pipeline = self.device.create_render_pipeline(&mut render_pipeline_descriptor);
         self.render_pipelines
             .insert(pipeline_handle, render_pipeline);
     }

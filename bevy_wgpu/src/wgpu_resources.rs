@@ -197,9 +197,7 @@ impl WgpuResources {
         renderer: &mut WgpuRenderer,
         setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> wgpu::Buffer {
-        let device_rc = renderer.device.clone();
-        let device = device_rc.borrow();
-
+        let device = renderer.device.clone();
         let mut mapped = device.create_buffer_mapped(
             &wgpu::BufferDescriptor {
                 size: buffer_info.size as u64,
