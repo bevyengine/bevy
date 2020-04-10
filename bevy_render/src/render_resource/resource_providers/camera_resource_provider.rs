@@ -5,8 +5,7 @@ use crate::{
         resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         ResourceProvider,
     },
-    renderer::Renderer,
-    ActiveCamera, Camera,
+    ActiveCamera, Camera, renderer_2::RenderContext,
 };
 
 use bevy_app::{EventReader, Events};
@@ -33,11 +32,11 @@ impl CameraResourceProvider {
 impl ResourceProvider for CameraResourceProvider {
     fn initialize(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         _world: &mut World,
         resources: &Resources,
     ) {
-        let buffer = renderer.create_buffer(BufferInfo {
+        let buffer = render_context.create_buffer(BufferInfo {
             size: std::mem::size_of::<[[f32; 4]; 4]>(),
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
@@ -49,7 +48,7 @@ impl ResourceProvider for CameraResourceProvider {
         self.camera_buffer = Some(buffer);
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
+    fn update(&mut self, render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let primary_window_resized_event = window_resized_events
             .iter(&mut self.window_resized_event_reader)
@@ -69,10 +68,10 @@ impl ResourceProvider for CameraResourceProvider {
                     (camera.view_matrix * local_to_world.0).to_cols_array_2d();
 
                 if let Some(old_tmp_buffer) = self.tmp_buffer {
-                    renderer.remove_buffer(old_tmp_buffer);
+                    render_context.remove_buffer(old_tmp_buffer);
                 }
 
-                self.tmp_buffer = Some(renderer.create_buffer_mapped(
+                self.tmp_buffer = Some(render_context.create_buffer_mapped(
                     BufferInfo {
                         size: matrix_size,
                         buffer_usage: BufferUsage::COPY_SRC,
@@ -83,7 +82,7 @@ impl ResourceProvider for CameraResourceProvider {
                     },
                 ));
 
-                renderer.copy_buffer_to_buffer(
+                render_context.copy_buffer_to_buffer(
                     self.tmp_buffer.unwrap(),
                     0,
                     self.camera_buffer.unwrap(),

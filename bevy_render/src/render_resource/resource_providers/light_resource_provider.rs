@@ -3,8 +3,7 @@ use crate::{
         resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         ResourceProvider,
     },
-    renderer::Renderer,
-    Light, LightRaw,
+    Light, LightRaw, renderer_2::RenderContext,
 };
 use bevy_transform::prelude::{LocalToWorld, Translation};
 use legion::prelude::*;
@@ -39,14 +38,14 @@ impl LightResourceProvider {
 impl ResourceProvider for LightResourceProvider {
     fn initialize(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         _world: &mut World,
         resources: &Resources,
     ) {
         let light_uniform_size =
             std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
 
-        let buffer = renderer.create_buffer(BufferInfo {
+        let buffer = render_context.create_buffer(BufferInfo {
             size: light_uniform_size,
             buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
             ..Default::default()
@@ -57,7 +56,7 @@ impl ResourceProvider for LightResourceProvider {
         self.light_buffer = Some(buffer);
     }
 
-    fn update(&mut self, renderer: &mut dyn Renderer, world: &mut World, _resources: &Resources) {
+    fn update(&mut self, render_context: &mut dyn RenderContext, world: &mut World, _resources: &Resources) {
         if self.lights_are_dirty {
             let light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
             let light_count = light_query.iter(world).count();
@@ -72,14 +71,14 @@ impl ResourceProvider for LightResourceProvider {
             let light_count_size = std::mem::size_of::<LightCount>();
 
             if let Some(old_tmp_light_buffer) = self.tmp_light_buffer {
-                renderer.remove_buffer(old_tmp_light_buffer);
+                render_context.remove_buffer(old_tmp_light_buffer);
             }
 
             if let Some(old_tmp_count_buffer) = self.tmp_count_buffer {
-                renderer.remove_buffer(old_tmp_count_buffer);
+                render_context.remove_buffer(old_tmp_count_buffer);
             }
 
-            self.tmp_light_buffer = Some(renderer.create_buffer_mapped(
+            self.tmp_light_buffer = Some(render_context.create_buffer_mapped(
                 BufferInfo {
                     size: total_size,
                     buffer_usage: BufferUsage::COPY_SRC,
@@ -95,7 +94,7 @@ impl ResourceProvider for LightResourceProvider {
                     }
                 },
             ));
-            self.tmp_count_buffer = Some(renderer.create_buffer_mapped(
+            self.tmp_count_buffer = Some(render_context.create_buffer_mapped(
                 BufferInfo {
                     size: light_count_size,
                     buffer_usage: BufferUsage::COPY_SRC,
@@ -106,7 +105,7 @@ impl ResourceProvider for LightResourceProvider {
                 },
             ));
 
-            renderer.copy_buffer_to_buffer(
+            render_context.copy_buffer_to_buffer(
                 self.tmp_count_buffer.unwrap(),
                 0,
                 self.light_buffer.unwrap(),
@@ -114,7 +113,7 @@ impl ResourceProvider for LightResourceProvider {
                 light_count_size as u64,
             );
 
-            renderer.copy_buffer_to_buffer(
+            render_context.copy_buffer_to_buffer(
                 self.tmp_light_buffer.unwrap(),
                 0,
                 self.light_buffer.unwrap(),

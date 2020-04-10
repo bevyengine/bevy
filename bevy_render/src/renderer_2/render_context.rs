@@ -2,8 +2,9 @@ use crate::{
     render_resource::{
         BufferInfo, RenderResource, RenderResources, ResourceInfo,
     },
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor, Texture}, mesh::Mesh,
 };
+use bevy_asset::Handle;
 
 pub trait RenderContext {
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
@@ -22,9 +23,13 @@ pub trait RenderContext {
     fn remove_texture(&mut self, resource: RenderResource);
     fn remove_sampler(&mut self, resource: RenderResource);
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo>;
-    fn get_resource_info_mut(&mut self, resource: RenderResource) -> Option<&mut ResourceInfo>;
-    fn render_resources(&self) -> &RenderResources;
-    fn render_resources_mut(&mut self) -> &mut RenderResources;
+    fn get_local_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo>;
+    fn local_render_resources(&self) -> &RenderResources;
+    fn local_render_resources_mut(&mut self) -> &mut RenderResources;
+    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
+    fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
+    fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource>;
+    fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource>;
     // fn setup_render_pipeline(
     //     &mut self,
     //     pipeline_handle: Handle<PipelineDescriptor>,
@@ -40,7 +45,7 @@ pub trait RenderContext {
     fn create_texture_with_data(
         &mut self,
         texture_descriptor: &TextureDescriptor,
-        bytes: Option<&[u8]>,
+        bytes: &[u8],
     ) -> RenderResource;
     fn copy_buffer_to_buffer(
         &mut self,

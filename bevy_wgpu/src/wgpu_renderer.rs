@@ -13,14 +13,14 @@ use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
     render_resource::{
-        resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
+        resource_name, BufferInfo, RenderResource, RenderResourceAssignments,
         RenderResources, ResourceInfo,
     },
     renderer::Renderer,
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_window::{Window, WindowCreated, WindowResized, Windows};
+use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -73,15 +73,6 @@ impl WgpuRenderer {
             wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
         }
-    }
-
-    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
-        if self.intialized {
-            return;
-        }
-
-        self.initialize_resource_providers(world, resources);
-        self.intialized = true;
     }
 
     pub fn create_render_pass<'a, 'b>(
@@ -220,30 +211,29 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn initialize_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
-        self.encoder = Some(
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
-        );
-
+    pub fn initialize_resource_providers(
+        world: &mut World,
+        resources: &mut Resources,
+        render_context: &mut WgpuRenderContext,
+    ) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.initialize(self, world, resources);
+            resource_provider.initialize(render_context, world, resources);
         }
-
-        // consume current encoder
-        let command_buffer = self.encoder.take().unwrap().finish();
-        self.queue.submit(&[command_buffer]);
     }
 
-    pub fn update_resource_providers(&mut self, world: &mut World, resources: &mut Resources) {
+    pub fn update_resource_providers(
+        world: &mut World,
+        resources: &mut Resources,
+        render_context: &mut WgpuRenderContext,
+    ) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.update(self, world, resources);
+            resource_provider.update(render_context, world, resources);
         }
 
         for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.finish_update(self, world, resources);
+            resource_provider.finish_update(render_context, world, resources);
         }
     }
 
@@ -257,14 +247,19 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn handle_window_resized_events(&mut self, resources: &mut Resources) {
+    pub fn handle_window_resized_events(
+        resources: &mut Resources,
+        device: &wgpu::Device,
+        wgpu_resources: &mut WgpuResources,
+        window_resized_event_reader: &mut EventReader<WindowResized>,
+    ) {
         let windows = resources.get::<Windows>().unwrap();
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let mut handled_windows = HashSet::new();
         // iterate in reverse order so we can handle the latest window resize event first for each window.
         // we skip earlier events for the same window because it results in redundant work
         for window_resized_event in window_resized_events
-            .iter(&mut self.window_resized_event_reader)
+            .iter(window_resized_event_reader)
             .rev()
         {
             if handled_windows.contains(&window_resized_event.id) {
@@ -275,18 +270,23 @@ impl WgpuRenderer {
                 .get(window_resized_event.id)
                 .expect("Received window resized event for non-existent window");
 
-            self.setup_swap_chain(window);
+            // TODO: consider making this a WgpuRenderContext method
+            wgpu_resources
+                .create_window_swap_chain(device, window);
 
             handled_windows.insert(window_resized_event.id);
         }
     }
 
-    pub fn handle_window_created_events(&mut self, resources: &mut Resources) {
+    pub fn handle_window_created_events(
+        resources: &mut Resources,
+        device: &wgpu::Device,
+        wgpu_resources: &mut WgpuResources,
+        window_created_event_reader: &mut EventReader<WindowCreated>,
+    ) {
         let windows = resources.get::<Windows>().unwrap();
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
-        for window_created_event in
-            window_created_events.iter(&mut self.window_created_event_reader)
-        {
+        for window_created_event in window_created_events.iter(window_created_event_reader) {
             let window = windows
                 .get(window_created_event.id)
                 .expect("Received window created event for non-existent window");
@@ -295,28 +295,10 @@ impl WgpuRenderer {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
                 let primary_winit_window = winit_windows.get_window(window.id).unwrap();
                 let surface = wgpu::Surface::create(primary_winit_window.deref());
-                self.wgpu_resources
-                    .window_surfaces
-                    .insert(window.id, surface);
-                self.setup_swap_chain(window);
+                wgpu_resources.set_window_surface(window.id, surface);
+                wgpu_resources.create_window_swap_chain(device, window);
             }
         }
-    }
-
-    fn setup_swap_chain(&mut self, window: &Window) {
-        let surface = self
-            .wgpu_resources
-            .window_surfaces
-            .get(&window.id)
-            .expect("Received window resized event for window without a wgpu surface");
-
-        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
-        let swap_chain = self
-            .device
-            .create_swap_chain(surface, &swap_chain_descriptor);
-        self.wgpu_resources
-            .window_swap_chains
-            .insert(window.id, swap_chain);
     }
 
     fn get_swap_chain_outputs(
@@ -349,16 +331,28 @@ impl WgpuRenderer {
 
 impl Renderer for WgpuRenderer {
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
-        self.initialize(world, resources);
-        self.handle_window_created_events(resources);
-        self.handle_window_resized_events(resources);
+        Self::handle_window_created_events(
+            resources,
+            &self.device,
+            &mut self.wgpu_resources,
+            &mut self.window_created_event_reader,
+        );
+        Self::handle_window_resized_events(
+            resources,
+            &self.device,
+            &mut self.wgpu_resources,
+            &mut self.window_resized_event_reader,
+        );
+        let mut render_context = WgpuRenderContext::new(self.device.clone(), &self.wgpu_resources);
+        if !self.intialized {
+            Self::initialize_resource_providers(world, resources, &mut render_context);
+            self.intialized = true;
+        }
+
+
 
         // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
         // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
-        self.encoder = Some(
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
-        );
 
         // use bevy_render::renderer_2::RenderContext;
         // let thread_count = 5;
@@ -397,10 +391,21 @@ impl Renderer for WgpuRenderer {
 
         // self.queue.submit(&command_buffers);
 
-        self.update_resource_providers(world, resources);
+        Self::update_resource_providers(world, resources, &mut render_context);
+
+        let (buffer, wgpu_resources) = render_context.finish();
+        self.wgpu_resources
+            .consume(wgpu_resources);
+        if let Some(buffer) = buffer {
+            self.queue.submit(&[buffer]);
+        }
+
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
+        );
         update_shader_assignments(world, resources, self);
         self.create_queued_textures(resources);
-
         let mut encoder = self.encoder.take().unwrap();
 
         // setup draw targets
@@ -524,12 +529,17 @@ impl Renderer for WgpuRenderer {
         texture_descriptor: &TextureDescriptor,
         bytes: Option<&[u8]>,
     ) -> RenderResource {
-        self.wgpu_resources.create_texture_with_data(
-            &self.device,
-            self.encoder.as_mut().unwrap(),
-            texture_descriptor,
-            bytes,
-        )
+        if let Some(bytes) = bytes {
+            self.wgpu_resources.create_texture_with_data(
+                &self.device,
+                self.encoder.as_mut().unwrap(),
+                texture_descriptor,
+                bytes,
+            )
+        } else {
+            self.wgpu_resources
+                .create_texture(&self.device, texture_descriptor)
+        }
     }
 
     fn remove_texture(&mut self, resource: RenderResource) {

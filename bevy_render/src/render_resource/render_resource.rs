@@ -24,6 +24,14 @@ pub struct RenderResources {
 }
 
 impl RenderResources {
+    pub fn consume(&mut self, render_resources: RenderResources) {
+        // TODO: this is brittle. consider a single change-stream-based approach instead?
+        self.texture_to_resource.extend(render_resources.texture_to_resource);        
+        self.texture_to_sampler_resource.extend(render_resources.texture_to_sampler_resource);        
+        self.mesh_to_vertices_resource.extend(render_resources.mesh_to_vertices_resource);        
+        self.mesh_to_indices_resource.extend(render_resources.mesh_to_indices_resource);        
+    } 
+
     pub fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
         self.texture_to_resource.insert(texture, resource);
     }

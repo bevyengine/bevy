@@ -2,16 +2,15 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_resource::{
         AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-        RenderResourceAssignments, ResourceInfo, ResourceProvider,
+        RenderResourceAssignments, ResourceInfo, ResourceProvider, RenderResourceAssignmentsId,
     },
-    renderer::Renderer,
     shader::{AsUniforms, FieldBindType},
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
-    Renderable,
+    Renderable, renderer_2::RenderContext,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::{filter::*, prelude::*};
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 
 #[derive(Debug)]
@@ -22,6 +21,28 @@ struct BufferArrayStatus {
     staging_buffer_offset: usize,
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     buffer: Option<RenderResource>,
+
+    current_item_count: usize,
+    current_item_capacity: usize,
+    indices: HashMap<RenderResourceAssignmentsId, usize>,
+    current_index: usize,
+}
+
+impl BufferArrayStatus {
+    pub fn get_or_assign_index(&mut self, id: RenderResourceAssignmentsId) -> usize {
+        if let Some(offset) = self.indices.get(&id) {
+            *offset
+        } else {
+            if self.current_index == self.current_item_capacity {
+                panic!("no empty slots available in array");
+            }
+
+            let index = self.current_index;
+            self.indices.insert(id, index);
+            self.current_index += 1;
+            index
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -173,6 +194,10 @@ where
                 item_size: f(),
                 staging_buffer_offset: 0,
                 buffer: None,
+                current_index: 0,
+                current_item_capacity: 0,
+                current_item_count: 0,
+                indices: HashMap::new(),
             })
         }
     }
@@ -211,6 +236,10 @@ where
                             item_size: size,
                             staging_buffer_offset: 0,
                             buffer: None,
+                            current_index: 0,
+                            current_item_count: 0,
+                            current_item_capacity: 0,
+                            indices: HashMap::new(),
                         },
                     ))
                 }
@@ -236,7 +265,7 @@ where
     fn setup_uniform_resources(
         &mut self,
         uniforms: &T,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         resources: &Resources,
         render_resource_assignments: &mut RenderResourceAssignments,
         staging_buffer: &mut [u8],
@@ -250,13 +279,13 @@ where
                     let (target_buffer, target_offset) = if self.use_dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
                         if let Some(ResourceInfo::Buffer(BufferInfo {
-                            array_info: Some(ref mut array_info),
+                            array_info: Some(ref array_info),
                             is_dynamic: true,
                             ..
-                        })) = renderer.get_resource_info_mut(buffer)
+                        })) = render_context.get_resource_info(buffer)
                         {
                             let index =
-                                array_info.get_or_assign_index(render_resource_assignments.id);
+                                uniform_buffer_status.get_or_assign_index(render_resource_assignments.id);
                             render_resource_assignments.set_indexed(
                                 &field_info.uniform_name,
                                 buffer,
@@ -272,7 +301,7 @@ where
                         {
                             Some(render_resource) => render_resource,
                             None => {
-                                let resource = renderer.create_buffer(BufferInfo {
+                                let resource = render_context.create_buffer(BufferInfo {
                                     size,
                                     buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                                     ..Default::default()
@@ -326,14 +355,12 @@ where
                     let texture_handle = uniforms
                         .get_uniform_texture(&field_info.texture_name)
                         .unwrap();
-                    let (texture_resource, sampler_resource) = match renderer
-                        .get_render_resources()
+                    let (texture_resource, sampler_resource) = match render_context
                         .get_texture_resource(texture_handle)
                     {
                         Some(texture_resource) => (
                             texture_resource,
-                            renderer
-                                .get_render_resources()
+                            render_context
                                 .get_texture_sampler_resource(texture_handle)
                                 .unwrap(),
                         ),
@@ -343,12 +370,12 @@ where
 
                             let texture_descriptor: TextureDescriptor = texture.into();
                             let texture_resource =
-                                renderer.create_texture(&texture_descriptor, Some(&texture.data));
+                                render_context.create_texture_with_data(&texture_descriptor, &texture.data);
 
                             let sampler_descriptor: SamplerDescriptor = texture.into();
-                            let sampler_resource = renderer.create_sampler(&sampler_descriptor);
+                            let sampler_resource = render_context.create_sampler(&sampler_descriptor);
 
-                            let render_resources = renderer.get_render_resources_mut();
+                            let render_resources = render_context.local_render_resources_mut();
                             render_resources.set_texture_resource(texture_handle, texture_resource);
                             render_resources
                                 .set_texture_sampler_resource(texture_handle, sampler_resource);
@@ -368,7 +395,7 @@ where
         &mut self,
         world: &mut World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         staging_buffer: &mut [u8],
     ) {
         let query_finish = self.query_finish.take().unwrap();
@@ -385,7 +412,7 @@ where
             } else {
                 self.setup_uniform_resources(
                     &uniforms,
-                    renderer,
+                    render_context,
                     resources,
                     &mut renderable.render_resource_assignments,
                     staging_buffer,
@@ -400,7 +427,7 @@ where
         &mut self,
         world: &mut World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         staging_buffer: &mut [u8],
     ) {
         let assets = resources.get::<AssetStorage<T>>();
@@ -416,7 +443,7 @@ where
                     .expect("Handle points to a non-existent resource");
                 self.setup_uniform_resources(
                     &uniforms,
-                    renderer,
+                    render_context,
                     resources,
                     &mut renderable.render_resource_assignments,
                     staging_buffer,
@@ -432,7 +459,7 @@ where
         &mut self,
         _world: &mut World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         staging_buffer: &mut [u8],
     ) {
         // update batch resources. this needs to run in "finish_update" because batches aren't finalized across
@@ -451,7 +478,7 @@ where
                 if let Some(uniforms) = asset_storage.get(&handle) {
                     self.setup_uniform_resources(
                         uniforms,
-                        renderer,
+                        render_context,
                         resources,
                         &mut batch.render_resource_assignments,
                         staging_buffer,
@@ -463,11 +490,11 @@ where
         }
     }
 
-    fn setup_buffer_arrays(&mut self, renderer: &mut dyn Renderer) {
+    fn setup_buffer_arrays(&mut self, render_context: &mut dyn RenderContext) {
         for buffer_array_status in self.uniform_buffer_status.iter_mut() {
             if let Some((_name, buffer_array_status)) = buffer_array_status {
                 if self.use_dynamic_uniforms {
-                    Self::setup_buffer_array(buffer_array_status, renderer, true);
+                    Self::setup_buffer_array(buffer_array_status, render_context, true);
                 }
 
                 buffer_array_status.queued_buffer_writes =
@@ -476,20 +503,20 @@ where
         }
 
         if let Some(ref mut buffer_array_status) = self.instance_buffer_status {
-            Self::setup_buffer_array(buffer_array_status, renderer, false);
+            Self::setup_buffer_array(buffer_array_status, render_context, false);
         }
     }
 
     fn setup_buffer_array(
         buffer_array_status: &mut BufferArrayStatus,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         align: bool,
     ) {
         let new_capacity = if let Some(buffer) = buffer_array_status.buffer {
             if let Some(ResourceInfo::Buffer(BufferInfo {
                 array_info: Some(array_info),
                 ..
-            })) = renderer.get_resource_info_mut(buffer)
+            })) = render_context.get_resource_info(buffer)
             {
                 if array_info.item_capacity < buffer_array_status.new_item_count {
                     // over capacity. lets resize
@@ -517,10 +544,9 @@ where
 
             let total_size = item_size * new_capacity;
 
-            let buffer = renderer.create_buffer(BufferInfo {
+            let buffer = render_context.create_buffer(BufferInfo {
                 array_info: Some(BufferArrayInfo {
                     item_capacity: new_capacity,
-                    item_count: buffer_array_status.new_item_count,
                     item_size,
                     ..Default::default()
                 }),
@@ -528,6 +554,8 @@ where
                 buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                 is_dynamic: true,
             });
+
+            buffer_array_status.current_item_capacity = new_capacity;
 
             log::trace!(
                 "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
@@ -567,7 +595,7 @@ where
 
     fn copy_staging_buffer_to_final_buffers(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         staging_buffer: RenderResource,
     ) {
         for uniform_buffer_status in self.uniform_buffer_status.iter_mut() {
@@ -578,7 +606,7 @@ where
                     .drain(..)
                     .enumerate()
                 {
-                    renderer.copy_buffer_to_buffer(
+                    render_context.copy_buffer_to_buffer(
                         staging_buffer,
                         (start + (i * buffer_array_status.item_size)) as u64,
                         queued_buffer_write.buffer,
@@ -597,16 +625,16 @@ where
 {
     fn initialize(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         world: &mut World,
         resources: &Resources,
     ) {
         let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
         self.initialize_vertex_buffer_descriptor(&mut vertex_buffer_descriptors);
-        self.update(renderer, world, resources);
+        self.update(render_context, world, resources);
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
+    fn update(&mut self, _render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
         self.reset_buffer_array_status_counts();
         self.update_uniforms_info(world);
         self.update_uniform_handles_info(world, resources);
@@ -614,21 +642,21 @@ where
 
     fn finish_update(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         world: &mut World,
         resources: &Resources,
     ) {
         // TODO: when setting batch shader_defs, add INSTANCING
-        self.setup_buffer_arrays(renderer);
+        self.setup_buffer_arrays(render_context);
 
         let staging_buffer_size = self.update_staging_buffer_offsets();
         if staging_buffer_size == 0 {
             let mut staging_buffer: [u8; 0] = [];
-            self.setup_uniforms_resources(world, resources, renderer, &mut staging_buffer);
-            self.setup_handles_resources(world, resources, renderer, &mut staging_buffer);
+            self.setup_uniforms_resources(world, resources, render_context, &mut staging_buffer);
+            self.setup_handles_resources(world, resources, render_context, &mut staging_buffer);
         // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
         } else {
-            let staging_buffer = renderer.create_buffer_mapped(
+            let staging_buffer = render_context.create_buffer_mapped(
                 BufferInfo {
                     buffer_usage: BufferUsage::COPY_SRC,
                     size: staging_buffer_size,
@@ -641,8 +669,8 @@ where
                 },
             );
 
-            self.copy_staging_buffer_to_final_buffers(renderer, staging_buffer);
-            renderer.remove_buffer(staging_buffer);
+            self.copy_staging_buffer_to_final_buffers(render_context, staging_buffer);
+            render_context.remove_buffer(staging_buffer);
         }
     }
 }

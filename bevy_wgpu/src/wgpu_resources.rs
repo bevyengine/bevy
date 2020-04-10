@@ -8,10 +8,11 @@ use bevy_render::{
         RenderResources, ResourceInfo,
     },
     renderer::Renderer,
+    renderer_2::RenderContext,
     shader::Shader,
-    texture::{SamplerDescriptor, TextureDescriptor}, renderer_2::RenderContext,
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_window::WindowId;
+use bevy_window::{Window, WindowId};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -21,6 +22,7 @@ pub struct WgpuBindGroupInfo {
 
 #[derive(Default)]
 pub struct WgpuResources {
+    // TODO: remove this from WgpuResources. it doesn't need to be here
     pub render_resources: RenderResources,
     pub window_surfaces: HashMap<WindowId, wgpu::Surface>,
     pub window_swap_chains: HashMap<WindowId, wgpu::SwapChain>,
@@ -34,6 +36,41 @@ pub struct WgpuResources {
 }
 
 impl WgpuResources {
+    pub fn consume(&mut self, wgpu_resources: WgpuResources) {
+        // TODO: this is brittle. consider a single change-stream-based approach instead?
+        self.render_resources
+            .consume(wgpu_resources.render_resources);
+        self.window_surfaces.extend(wgpu_resources.window_surfaces);
+        self.window_swap_chains
+            .extend(wgpu_resources.window_swap_chains);
+        self.buffers.extend(wgpu_resources.buffers);
+        self.textures.extend(wgpu_resources.textures);
+        self.samplers.extend(wgpu_resources.samplers);
+        self.resource_info.extend(wgpu_resources.resource_info);
+        self.shader_modules.extend(wgpu_resources.shader_modules);
+        self.bind_groups.extend(wgpu_resources.bind_groups);
+        self.bind_group_layouts
+            .extend(wgpu_resources.bind_group_layouts);
+    }
+
+    pub fn set_window_surface(&mut self, window_id: WindowId, surface: wgpu::Surface) {
+        self.window_surfaces.insert(window_id, surface);
+    }
+
+    pub fn get_window_surface(&mut self, window_id: WindowId) -> Option<&wgpu::Surface> {
+        self.window_surfaces.get(&window_id)
+    }
+
+    pub fn create_window_swap_chain(&mut self, device: &wgpu::Device, window: &Window) {
+        let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
+        let surface = self
+            .window_surfaces
+            .get(&window.id)
+            .expect("No surface found for window");
+        let swap_chain = device.create_swap_chain(surface, &swap_chain_descriptor);
+        self.window_swap_chains.insert(window.id, swap_chain);
+    }
+
     pub fn add_resource_info(&mut self, resource: RenderResource, resource_info: ResourceInfo) {
         self.resource_info.insert(resource, resource_info);
     }
@@ -198,13 +235,11 @@ impl WgpuResources {
         setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> wgpu::Buffer {
         let device = renderer.device.clone();
-        let mut mapped = device.create_buffer_mapped(
-            &wgpu::BufferDescriptor {
-                size: buffer_info.size as u64,
-                usage: buffer_info.buffer_usage.wgpu_into(),
-                label: None,
-            }
-        );
+        let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
+            size: buffer_info.size as u64,
+            usage: buffer_info.buffer_usage.wgpu_into(),
+            label: None,
+        });
         setup_data(&mut mapped.data, renderer);
         mapped.finish()
     }
@@ -216,13 +251,11 @@ impl WgpuResources {
         setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderContext),
     ) -> wgpu::Buffer {
         let device = render_context.device.clone();
-        let mut mapped = device.create_buffer_mapped(
-            &wgpu::BufferDescriptor {
-                size: buffer_info.size as u64,
-                usage: buffer_info.buffer_usage.wgpu_into(),
-                label: None,
-            }
-        );
+        let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
+            size: buffer_info.size as u64,
+            usage: buffer_info.buffer_usage.wgpu_into(),
+            label: None,
+        });
         setup_data(&mut mapped.data, render_context);
         mapped.finish()
     }
@@ -285,29 +318,27 @@ impl WgpuResources {
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         texture_descriptor: &TextureDescriptor,
-        bytes: Option<&[u8]>,
+        bytes: &[u8],
     ) -> RenderResource {
         let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).wgpu_into();
         let texture = device.create_texture(&descriptor);
         let texture_view = texture.create_default_view();
-        if let Some(bytes) = bytes {
-            let temp_buf = device.create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
-            encoder.copy_buffer_to_texture(
-                wgpu::BufferCopyView {
-                    buffer: &temp_buf,
-                    offset: 0,
-                    bytes_per_row: 4 * descriptor.size.width,
-                    rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
-                },
-                wgpu::TextureCopyView {
-                    texture: &texture,
-                    mip_level: 0,
-                    array_layer: 0,
-                    origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-                },
-                descriptor.size,
-            );
-        }
+        let temp_buf = device.create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
+        encoder.copy_buffer_to_texture(
+            wgpu::BufferCopyView {
+                buffer: &temp_buf,
+                offset: 0,
+                bytes_per_row: 4 * descriptor.size.width,
+                rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
+            },
+            wgpu::TextureCopyView {
+                texture: &texture,
+                mip_level: 0,
+                array_layer: 0,
+                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+            },
+            descriptor.size,
+        );
 
         let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Texture);

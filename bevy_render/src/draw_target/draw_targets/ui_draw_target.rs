@@ -44,7 +44,7 @@ impl DrawTarget for UiDrawTarget {
                 ..
             })) = renderer.get_resource_info(ui_instances_buffer)
             {
-                Some(array_info.item_count)
+                Some(array_info.item_capacity)
             } else {
                 None
             }

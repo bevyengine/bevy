@@ -3,9 +3,10 @@ use crate::WgpuResources;
 use bevy_render::{
     render_resource::{BufferInfo, RenderResource, RenderResources, ResourceInfo},
     renderer_2::RenderContext,
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor, Texture}, mesh::Mesh,
 };
 use std::sync::Arc;
+use bevy_asset::Handle;
 
 #[derive(Default)]
 struct LazyCommandEncoder {
@@ -30,37 +31,50 @@ impl LazyCommandEncoder {
     }
 }
 
-pub struct WgpuRenderContext {
+pub struct WgpuRenderContext<'a> {
     pub device: Arc<wgpu::Device>,
+    local_wgpu_resources: WgpuResources,
     command_encoder: LazyCommandEncoder,
-    wgpu_resources: WgpuResources,
+    global_wgpu_resources: &'a WgpuResources,
+    removed_resources: Vec<RenderResource>,
 }
 
-impl WgpuRenderContext {
-    pub fn new(device: Arc<wgpu::Device>) -> Self {
+impl<'a> WgpuRenderContext<'a> {
+    pub fn new(device: Arc<wgpu::Device>, global_wgpu_resources: &'a WgpuResources) -> Self {
         WgpuRenderContext {
             device,
+            global_wgpu_resources: global_wgpu_resources,
             command_encoder: LazyCommandEncoder::default(),
-            wgpu_resources: WgpuResources::default(),
+            local_wgpu_resources: WgpuResources::default(),
+            removed_resources: Vec::new(),
         }
     }
 
-    pub fn finish(&mut self) -> Option<wgpu::CommandBuffer> {
-        self.command_encoder.take().map(|encoder| encoder.finish())
+    pub fn finish(mut self) -> (Option<wgpu::CommandBuffer>, WgpuResources) {
+        (self.command_encoder.take().map(|encoder| encoder.finish()), self.local_wgpu_resources)
+    }
+
+    fn get_buffer<'b>(render_resource: RenderResource, local_resources: &'b WgpuResources, global_resources: &'b WgpuResources) -> Option<&'b wgpu::Buffer> {
+        let buffer = local_resources.buffers.get(&render_resource);
+        if buffer.is_some() {
+            return buffer;
+        }
+
+        global_resources.buffers.get(&render_resource)
     }
 }
 
-impl RenderContext for WgpuRenderContext {
+impl<'a> RenderContext for WgpuRenderContext<'a> {
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
-        self.wgpu_resources
+        self.local_wgpu_resources
             .create_sampler(&self.device, sampler_descriptor)
     }
     fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource {
-        self.wgpu_resources
+        self.local_wgpu_resources
             .create_texture(&self.device, texture_descriptor)
     }
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.wgpu_resources.create_buffer(&self.device, buffer_info)
+        self.local_wgpu_resources.create_buffer(&self.device, buffer_info)
     }
 
     // TODO: clean this up
@@ -74,14 +88,15 @@ impl RenderContext for WgpuRenderContext {
             self,
             setup_data,
         );
-        self.wgpu_resources.assign_buffer(buffer, buffer_info)
+        self.local_wgpu_resources.assign_buffer(buffer, buffer_info)
     }
+
     fn create_texture_with_data(
         &mut self,
         texture_descriptor: &TextureDescriptor,
-        bytes: Option<&[u8]>,
+        bytes: &[u8],
     ) -> RenderResource {
-        self.wgpu_resources.create_texture_with_data(
+        self.local_wgpu_resources.create_texture_with_data(
             &self.device,
             self.command_encoder.get_or_create(&self.device),
             texture_descriptor,
@@ -89,25 +104,75 @@ impl RenderContext for WgpuRenderContext {
         )
     }
     fn remove_buffer(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_buffer(resource);
+        self.local_wgpu_resources.remove_buffer(resource);
+        self.removed_resources.push(resource);
     }
     fn remove_texture(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_texture(resource);
+        self.local_wgpu_resources.remove_texture(resource);
+        self.removed_resources.push(resource);
     }
     fn remove_sampler(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_sampler(resource);
+        self.local_wgpu_resources.remove_sampler(resource);
+        self.removed_resources.push(resource);
     }
+
+    // TODO: this pattern is redundant and a bit confusing. make this cleaner if you can
+    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
+        let local = self.local_wgpu_resources.render_resources.get_texture_resource(texture);
+        if local.is_some() {
+            return local;
+        }
+
+        self.global_wgpu_resources.render_resources.get_texture_resource(texture)
+    }
+
+    fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
+        let local = self.local_wgpu_resources.render_resources.get_texture_sampler_resource(texture);
+        if local.is_some() {
+            return local;
+        }
+
+        self.global_wgpu_resources.render_resources.get_texture_sampler_resource(texture)
+    }
+
+
+    fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
+        let local = self.local_wgpu_resources.render_resources.get_mesh_vertices_resource(mesh);
+        if local.is_some() {
+            return local;
+        }
+
+        self.global_wgpu_resources.render_resources.get_mesh_vertices_resource(mesh)
+    }
+
+    fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
+        let local = self.local_wgpu_resources.render_resources.get_mesh_indices_resource(mesh);
+        if local.is_some() {
+            return local;
+        }
+
+        self.global_wgpu_resources.render_resources.get_mesh_indices_resource(mesh)
+    }
+
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        self.wgpu_resources.resource_info.get(&resource)
+        let local_info = self.local_wgpu_resources.get_resource_info(resource);
+        if local_info.is_some() {
+            return local_info;
+        }
+
+        self.global_wgpu_resources.get_resource_info(resource)
     }
-    fn get_resource_info_mut(&mut self, resource: RenderResource) -> Option<&mut ResourceInfo> {
-        self.wgpu_resources.resource_info.get_mut(&resource)
+
+
+    fn get_local_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
+        self.local_wgpu_resources.resource_info.get(&resource)
     }
-    fn render_resources(&self) -> &RenderResources {
-        &self.wgpu_resources.render_resources
+
+    fn local_render_resources(&self) -> &RenderResources {
+        &self.local_wgpu_resources.render_resources
     }
-    fn render_resources_mut(&mut self) -> &mut RenderResources {
-        &mut self.wgpu_resources.render_resources
+    fn local_render_resources_mut(&mut self) -> &mut RenderResources {
+        &mut self.local_wgpu_resources.render_resources
     }
     fn copy_buffer_to_buffer(
         &mut self,
@@ -117,17 +182,13 @@ impl RenderContext for WgpuRenderContext {
         destination_offset: u64,
         size: u64,
     ) {
-        self.wgpu_resources.copy_buffer_to_buffer(
-            self.command_encoder.get_or_create(&self.device),
-            source_buffer,
-            source_offset,
-            destination_buffer,
-            destination_offset,
-            size,
-        );
+        let command_encoder = self.command_encoder.get_or_create(&self.device);
+        let source_buffer = Self::get_buffer(source_buffer, &self.local_wgpu_resources, &self.global_wgpu_resources).unwrap();
+        let destination_buffer = Self::get_buffer(destination_buffer, &self.local_wgpu_resources, &self.global_wgpu_resources).unwrap();
+        command_encoder.copy_buffer_to_buffer(source_buffer, source_offset, destination_buffer, destination_offset, size);
     }
     fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
-        self.wgpu_resources
+        self.local_wgpu_resources
             .create_buffer_with_data(&self.device, buffer_info, data)
     }
 }

@@ -4,9 +4,8 @@ use crate::{
     render_resource::{
         AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments, ResourceProvider,
     },
-    renderer::Renderer,
     shader::AsUniforms,
-    Renderable, Vertex,
+    Renderable, Vertex, renderer_2::RenderContext,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::{filter::*, prelude::*};
@@ -40,31 +39,29 @@ impl MeshResourceProvider {
     }
 
     fn setup_mesh_resources(
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         mesh_storage: &mut AssetStorage<Mesh>,
         handle: Handle<Mesh>,
         render_resource_assignments: &mut RenderResourceAssignments,
     ) {
-        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = renderer
-            .get_render_resources()
+        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = render_context
             .get_mesh_vertices_resource(handle)
         {
             (
                 vertex_buffer,
-                renderer
-                    .get_render_resources()
+                render_context
                     .get_mesh_indices_resource(handle),
             )
         } else {
             let mesh_asset = mesh_storage.get(&handle).unwrap();
-            let vertex_buffer = renderer.create_buffer_with_data(
+            let vertex_buffer = render_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::VERTEX,
                     ..Default::default()
                 },
                 mesh_asset.vertices.as_bytes(),
             );
-            let index_buffer = renderer.create_buffer_with_data(
+            let index_buffer = render_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
                     ..Default::default()
@@ -72,7 +69,7 @@ impl MeshResourceProvider {
                 mesh_asset.indices.as_bytes(),
             );
 
-            let render_resources = renderer.get_render_resources_mut();
+            let render_resources = render_context.local_render_resources_mut();
             render_resources.set_mesh_vertices_resource(handle, vertex_buffer);
             render_resources.set_mesh_indices_resource(handle, index_buffer);
             (vertex_buffer, Some(index_buffer))
@@ -85,7 +82,7 @@ impl MeshResourceProvider {
 impl ResourceProvider for MeshResourceProvider {
     fn initialize(
         &mut self,
-        _renderer: &mut dyn Renderer,
+        _render_context: &mut dyn RenderContext,
         _world: &mut World,
         resources: &Resources,
     ) {
@@ -93,7 +90,7 @@ impl ResourceProvider for MeshResourceProvider {
         vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
-    fn update(&mut self, _renderer: &mut dyn Renderer, world: &mut World, resources: &Resources) {
+    fn update(&mut self, _render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
         for (entity, (mesh_handle, _renderable)) in self.mesh_query.iter_entities_mut(world) {
             asset_batchers.set_entity_handle(entity, *mesh_handle);
@@ -102,7 +99,7 @@ impl ResourceProvider for MeshResourceProvider {
 
     fn finish_update(
         &mut self,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         _world: &mut World,
         resources: &Resources,
     ) {
@@ -116,7 +113,7 @@ impl ResourceProvider for MeshResourceProvider {
                     let handle = batch.get_handle::<Mesh>().unwrap();
                     log::trace!("setup mesh for {:?}", batch.render_resource_assignments.id);
                     Self::setup_mesh_resources(
-                        renderer,
+                        render_context,
                         &mut mesh_storage,
                         handle,
                         &mut batch.render_resource_assignments,

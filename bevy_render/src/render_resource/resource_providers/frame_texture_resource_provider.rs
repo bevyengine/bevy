@@ -1,7 +1,6 @@
 use crate::{
     render_resource::{RenderResourceAssignments, ResourceProvider},
-    renderer::Renderer,
-    texture::TextureDescriptor,
+    texture::TextureDescriptor, renderer_2::RenderContext,
 };
 use bevy_window::Windows;
 use legion::prelude::*;
@@ -23,7 +22,7 @@ impl FrameTextureResourceProvider {
         }
     }
 
-    pub fn update(&mut self, renderer: &mut dyn Renderer, resources: &Resources) {
+    pub fn update(&mut self, render_context: &mut dyn RenderContext, resources: &Resources) {
         let windows = resources.get::<Windows>().unwrap();
         let window = windows.get_primary().unwrap();
 
@@ -36,17 +35,17 @@ impl FrameTextureResourceProvider {
             let mut render_resource_assignments =
                 resources.get_mut::<RenderResourceAssignments>().unwrap();
             if let Some(old_resource) = render_resource_assignments.get(&self.name) {
-                renderer.remove_texture(old_resource);
+                render_context.remove_texture(old_resource);
             }
 
-            let texture_resource = renderer.create_texture(&self.descriptor, None);
+            let texture_resource = render_context.create_texture(&self.descriptor);
             render_resource_assignments.set(&self.name, texture_resource);
         }
     }
 }
 
 impl ResourceProvider for FrameTextureResourceProvider {
-    fn update(&mut self, renderer: &mut dyn Renderer, _world: &mut World, resources: &Resources) {
-        self.update(renderer, resources)
+    fn update(&mut self, render_context: &mut dyn RenderContext, _world: &mut World, resources: &Resources) {
+        self.update(render_context, resources)
     }
 }
