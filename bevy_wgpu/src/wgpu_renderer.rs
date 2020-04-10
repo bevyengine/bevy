@@ -13,8 +13,8 @@ use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
     render_resource::{
-        resource_name, BufferInfo, RenderResource, RenderResourceAssignments,
-        RenderResources, ResourceInfo,
+        resource_name, BufferInfo, RenderResource, RenderResourceAssignments, RenderResources,
+        ResourceInfo,
     },
     renderer::Renderer,
     shader::Shader,
@@ -225,16 +225,70 @@ impl WgpuRenderer {
     pub fn update_resource_providers(
         world: &mut World,
         resources: &mut Resources,
-        render_context: &mut WgpuRenderContext,
+        queue: &mut wgpu::Queue,
+        device: Arc<wgpu::Device>,
+        global_wgpu_resources: &mut WgpuResources,
     ) {
+        let thread_count = 5;
+        // let (sender, receiver) = crossbeam_channel::bounded(thread_count);
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.update(render_context, world, resources);
+        let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
+        let mut results = Vec::new();
+        // crossbeam_utils::thread::scope(|s| {
+            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
+                let device = device.clone();
+                // let sender = sender.clone();
+                // s.spawn(|_| {
+                    let mut render_context = WgpuRenderContext::new(device, global_wgpu_resources);
+                    for resource_provider in resource_provider_chunk.iter_mut() {
+                        resource_provider.update(&mut render_context, world, resources);
+                    }
+                    results.push(render_context.finish());
+                    // sender.send(render_context.finish()).unwrap();
+                // });
+            }
+        // });
+        let mut command_buffers = Vec::new();
+        for (command_buffer, wgpu_resources) in results {
+        // for i in 0..thread_count {
+        //     let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
+            if let Some(command_buffer) = command_buffer {
+                command_buffers.push(command_buffer);
+            }
+
+            global_wgpu_resources.consume(wgpu_resources);
+
+            // println!("got {}", i);
         }
 
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.finish_update(render_context, world, resources);
+        let mut results = Vec::new();
+        // crossbeam_utils::thread::scope(|s| {
+            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
+                let device = device.clone();
+                // let sender = sender.clone();
+                // s.spawn(|_| {
+                    let mut render_context = WgpuRenderContext::new(device, global_wgpu_resources);
+                    for resource_provider in resource_provider_chunk.iter_mut() {
+                        resource_provider.finish_update(&mut render_context, world, resources);
+                    }
+                    results.push(render_context.finish());
+                    // sender.send(render_context.finish()).unwrap();
+                // });
+            }
+        // });
+
+        for (command_buffer, wgpu_resources) in results {
+        // for i in 0..thread_count {
+            // let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
+            if let Some(command_buffer) = command_buffer {
+                command_buffers.push(command_buffer);
+            }
+
+            global_wgpu_resources.consume(wgpu_resources);
+            // println!("got {}", i);
         }
+
+        queue.submit(&command_buffers);
     }
 
     pub fn create_queued_textures(&mut self, resources: &mut Resources) {
@@ -271,8 +325,7 @@ impl WgpuRenderer {
                 .expect("Received window resized event for non-existent window");
 
             // TODO: consider making this a WgpuRenderContext method
-            wgpu_resources
-                .create_window_swap_chain(device, window);
+            wgpu_resources.create_window_swap_chain(device, window);
 
             handled_windows.insert(window_resized_event.id);
         }
@@ -343,62 +396,24 @@ impl Renderer for WgpuRenderer {
             &mut self.wgpu_resources,
             &mut self.window_resized_event_reader,
         );
-        let mut render_context = WgpuRenderContext::new(self.device.clone(), &self.wgpu_resources);
         if !self.intialized {
+            let mut render_context = WgpuRenderContext::new(self.device.clone(), &self.wgpu_resources);
             Self::initialize_resource_providers(world, resources, &mut render_context);
+            let (buffer, wgpu_resources) = render_context.finish();
+            self.wgpu_resources.consume(wgpu_resources);
+            if let Some(buffer) = buffer {
+                self.queue.submit(&[buffer]);
+            }
             self.intialized = true;
         }
 
-
-
-        // TODO: this self.encoder handoff is a bit gross, but its here to give resource providers access to buffer copies without
-        // exposing the wgpu renderer internals to ResourceProvider traits. if this can be made cleaner that would be pretty cool.
-
-        // use bevy_render::renderer_2::RenderContext;
-        // let thread_count = 5;
-        // let (sender, receiver) = crossbeam_channel::bounded(thread_count);
-        // for i in 0..thread_count {
-        //     let device = self.device.clone();
-        //     let sender = sender.clone();
-        //     std::thread::spawn(move || {
-        //         let mut context = WgpuRenderContext::new(device);
-        //         let data: Vec::<u8> = vec![1, 2, 3,4 ];
-        //         let data2: Vec::<u8> = vec![4, 2, 3,4 ];
-        //         let buffer  = context.create_buffer_with_data(BufferInfo {
-        //             buffer_usage: BufferUsage::COPY_SRC,
-        //             ..Default::default()
-        //         }, &data);
-
-        //         let buffer2  = context.create_buffer_with_data(BufferInfo {
-        //             buffer_usage: BufferUsage::UNIFORM |BufferUsage::COPY_DST,
-        //             ..Default::default()
-        //         }, &data2);
-
-        //         context.copy_buffer_to_buffer(buffer, 0, buffer2, 0, data.len() as u64);
-
-        //         sender.send(context.finish()).unwrap();
-        //     });
-        // }
-
-        // let mut command_buffers = Vec::new();
-        // for i in 0..thread_count {
-        //     if let Some(command_buffer) = receiver.recv().unwrap() {
-        //         command_buffers.push(command_buffer);
-        //     }
-
-        //     println!("got {}", i);
-        // }
-
-        // self.queue.submit(&command_buffers);
-
-        Self::update_resource_providers(world, resources, &mut render_context);
-
-        let (buffer, wgpu_resources) = render_context.finish();
-        self.wgpu_resources
-            .consume(wgpu_resources);
-        if let Some(buffer) = buffer {
-            self.queue.submit(&[buffer]);
-        }
+        Self::update_resource_providers(
+            world,
+            resources,
+            &mut self.queue,
+            self.device.clone(),
+            &mut self.wgpu_resources,
+        );
 
         self.encoder = Some(
             self.device
