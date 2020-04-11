@@ -27,6 +27,51 @@ impl Camera2dResourceProvider {
             window_resized_event_reader,
         }
     }
+
+    fn update_read_only(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        world: &World,
+        resources: &Resources,
+    ) {
+        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
+        let primary_window_resized_event = window_resized_events
+            .iter(&mut self.window_resized_event_reader)
+            .rev()
+            .filter(|event| event.is_primary)
+            .next();
+
+        if let Some(_) = primary_window_resized_event {
+            let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
+            for (camera, _) in <(Read<Camera>, Read<ActiveCamera2d>)>::query().iter(world)
+            {
+                let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
+
+                if let Some(old_tmp_buffer) = self.tmp_buffer {
+                    render_context.remove_buffer(old_tmp_buffer);
+                }
+
+                self.tmp_buffer = Some(render_context.create_buffer_mapped(
+                    BufferInfo {
+                        size: matrix_size,
+                        buffer_usage: BufferUsage::COPY_SRC,
+                        ..Default::default()
+                    },
+                    &mut |data, _renderer| {
+                        data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
+                    },
+                ));
+
+                render_context.copy_buffer_to_buffer(
+                    self.tmp_buffer.unwrap(),
+                    0,
+                    self.camera_buffer.unwrap(),
+                    0,
+                    matrix_size as u64,
+                );
+            }
+        }
+    }
 }
 
 impl ResourceProvider for Camera2dResourceProvider {
@@ -54,46 +99,6 @@ impl ResourceProvider for Camera2dResourceProvider {
         world: &mut World,
         resources: &Resources,
     ) {
-        let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
-        let primary_window_resized_event = window_resized_events
-            .iter(&mut self.window_resized_event_reader)
-            .rev()
-            .filter(|event| event.is_primary)
-            .next();
-
-        if let Some(primary_window_resized_event) = primary_window_resized_event {
-            let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-            for (mut camera, _) in <(Write<Camera>, Read<ActiveCamera2d>)>::query().iter_mut(world)
-            {
-                camera.update(
-                    primary_window_resized_event.width,
-                    primary_window_resized_event.height,
-                );
-                let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
-
-                if let Some(old_tmp_buffer) = self.tmp_buffer {
-                    render_context.remove_buffer(old_tmp_buffer);
-                }
-
-                self.tmp_buffer = Some(render_context.create_buffer_mapped(
-                    BufferInfo {
-                        size: matrix_size,
-                        buffer_usage: BufferUsage::COPY_SRC,
-                        ..Default::default()
-                    },
-                    &mut |data, _renderer| {
-                        data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
-                    },
-                ));
-
-                render_context.copy_buffer_to_buffer(
-                    self.tmp_buffer.unwrap(),
-                    0,
-                    self.camera_buffer.unwrap(),
-                    0,
-                    matrix_size as u64,
-                );
-            }
-        }
+        self.update_read_only(render_context, world, resources);
     }
 }

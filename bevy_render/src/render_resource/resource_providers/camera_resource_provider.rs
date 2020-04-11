@@ -5,7 +5,8 @@ use crate::{
         resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         ResourceProvider,
     },
-    ActiveCamera, Camera, renderer_2::RenderContext,
+    renderer_2::RenderContext,
+    ActiveCamera, Camera,
 };
 
 use bevy_app::{EventReader, Events};
@@ -27,43 +28,19 @@ impl CameraResourceProvider {
             window_resized_event_reader,
         }
     }
-}
 
-impl ResourceProvider for CameraResourceProvider {
-    fn initialize(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        _world: &mut World,
-        resources: &Resources,
-    ) {
-        let buffer = render_context.create_buffer(BufferInfo {
-            size: std::mem::size_of::<[[f32; 4]; 4]>(),
-            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-            ..Default::default()
-        });
-
-        let mut render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
-        self.camera_buffer = Some(buffer);
-    }
-
-    fn update(&mut self, render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
+    pub fn update_read_only(&mut self, world: &World, resources: &Resources, render_context: &mut dyn RenderContext) {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let primary_window_resized_event = window_resized_events
             .iter(&mut self.window_resized_event_reader)
             .rev()
             .filter(|event| event.is_primary)
             .next();
-        if let Some(primary_window_resized_event) = primary_window_resized_event {
+        if let Some(_) = primary_window_resized_event {
             let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-            for (mut camera, local_to_world, _) in
-                <(Write<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter_mut(world)
+            for (camera, local_to_world, _) in
+                <(Read<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query().iter(world)
             {
-                camera.update(
-                    primary_window_resized_event.width,
-                    primary_window_resized_event.height,
-                );
                 let camera_matrix: [[f32; 4]; 4] =
                     (camera.view_matrix * local_to_world.0).to_cols_array_2d();
 
@@ -91,5 +68,34 @@ impl ResourceProvider for CameraResourceProvider {
                 );
             }
         }
+    }
+}
+
+impl ResourceProvider for CameraResourceProvider {
+    fn initialize(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        let buffer = render_context.create_buffer(BufferInfo {
+            size: std::mem::size_of::<[[f32; 4]; 4]>(),
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
+        self.camera_buffer = Some(buffer);
+    }
+
+    fn update(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        world: &mut World,
+        resources: &Resources,
+    ) {
+        self.update_read_only(world, resources, render_context);
     }
 }

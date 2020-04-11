@@ -83,8 +83,6 @@ impl RenderPlugin {
                 resources.get_event_reader::<WindowResized>(),
             ))
             .add_resource_provider(LightResourceProvider::new(10))
-            // TODO: move me to ui crate
-            // .add_resource_provider(UiResourceProvider::new())
             .add_resource_provider(MeshResourceProvider::new())
             .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
             .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
@@ -98,7 +96,9 @@ impl AppPlugin for RenderPlugin {
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app.add_system(build_entity_render_resource_assignments_system())
-            .add_stage_after(stage::UPDATE, RENDER_STAGE)
+            .build_system_on_stage(stage::POST_UPDATE, camera::camera_update_system)
+            .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
+            .add_stage_after(stage::POST_UPDATE, RENDER_STAGE)
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())
             .add_resource(AssetStorage::<Texture>::new())

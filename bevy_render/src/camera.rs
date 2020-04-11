@@ -1,4 +1,7 @@
+use bevy_app::{Events, GetEventReader};
+use bevy_window::WindowResized;
 use glam::Mat4;
+use legion::prelude::*;
 
 #[derive(Default)]
 pub struct ActiveCamera;
@@ -115,4 +118,27 @@ impl Camera {
             }
         }
     }
+}
+
+pub fn camera_update_system(resources: &mut Resources) -> Box<dyn Schedulable> {
+    let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
+    SystemBuilder::new("camera_update")
+        .read_resource::<Events<WindowResized>>()
+        .with_query(<Write<Camera>>::query())
+        .build(move |_, world, window_resized_events, query| {
+            // TODO: refactor this to "window_resized_events.latest()"
+            let primary_window_resized_event = window_resized_events
+                .iter(&mut window_resized_event_reader)
+                .rev()
+                .filter(|event| event.is_primary)
+                .next();
+            if let Some(primary_window_resized_event) = primary_window_resized_event {
+                for mut camera in query.iter_mut(world) {
+                    camera.update(
+                        primary_window_resized_event.width,
+                        primary_window_resized_event.height,
+                    );
+                }
+            }
+        })
 }

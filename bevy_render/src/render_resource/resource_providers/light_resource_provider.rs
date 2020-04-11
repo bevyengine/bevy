@@ -33,30 +33,7 @@ impl LightResourceProvider {
             tmp_count_buffer: None,
         }
     }
-}
-
-impl ResourceProvider for LightResourceProvider {
-    fn initialize(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        _world: &mut World,
-        resources: &Resources,
-    ) {
-        let light_uniform_size =
-            std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
-
-        let buffer = render_context.create_buffer(BufferInfo {
-            size: light_uniform_size,
-            buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
-            ..Default::default()
-        });
-        let mut render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        render_resource_assignments.set(resource_name::uniform::LIGHTS, buffer);
-        self.light_buffer = Some(buffer);
-    }
-
-    fn update(&mut self, render_context: &mut dyn RenderContext, world: &mut World, _resources: &Resources) {
+    fn update_read_only(&mut self, render_context: &mut dyn RenderContext, world: &World) {
         if self.lights_are_dirty {
             let light_query = <(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query();
             let light_count = light_query.iter(world).count();
@@ -121,5 +98,31 @@ impl ResourceProvider for LightResourceProvider {
                 total_size as u64,
             );
         }
+    }
+}
+
+impl ResourceProvider for LightResourceProvider {
+    fn initialize(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        let light_uniform_size =
+            std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
+
+        let buffer = render_context.create_buffer(BufferInfo {
+            size: light_uniform_size,
+            buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+            ..Default::default()
+        });
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::LIGHTS, buffer);
+        self.light_buffer = Some(buffer);
+    }
+
+    fn update(&mut self, render_context: &mut dyn RenderContext, world: &mut World, _resources: &Resources) {
+        self.update_read_only(render_context, world);
     }
 }

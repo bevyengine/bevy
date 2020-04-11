@@ -151,6 +151,7 @@ impl AppBuilder {
             .add_stage(stage::FIRST)
             .add_stage(stage::EVENT_UPDATE)
             .add_stage(stage::UPDATE)
+            .add_stage(stage::POST_UPDATE)
             .add_stage(stage::LAST)
     }
 
@@ -160,6 +161,14 @@ impl AppBuilder {
     {
         let system = build(self.resources_mut());
         self.add_system(system)
+    }
+
+    pub fn build_system_on_stage<F>(&mut self, stage_name: &str, build: F) -> &mut Self
+    where
+        F: Fn(&mut Resources) -> Box<dyn Schedulable>,
+    {
+        let system = build(self.resources_mut());
+        self.add_system_to_stage(stage_name, system)
     }
 
     pub fn add_system_to_stage(

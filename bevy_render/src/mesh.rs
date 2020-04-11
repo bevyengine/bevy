@@ -1,6 +1,7 @@
-use crate::Vertex;
-use bevy_asset::Asset;
+use crate::{render_resource::AssetBatchers, Vertex, Renderable};
+use bevy_asset::{Handle, Asset};
 use glam::*;
+use legion::prelude::*;
 
 pub enum MeshType {
     Cube,
@@ -117,4 +118,16 @@ pub fn create_cube() -> (Vec<Vertex>, Vec<u16>) {
 
 pub fn create_plane(size: f32) -> (Vec<Vertex>, Vec<u16>) {
     create_quad(vec2(size, size))
+}
+
+
+pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
+    SystemBuilder::new("mesh_batcher")
+        .write_resource::<AssetBatchers>()
+        .with_query(<(Read<Handle<Mesh>>, Read<Renderable>)>::query().filter(changed::<Handle<Mesh>>()))
+        .build(|_, world, asset_batchers, query| {
+            for (entity, (mesh_handle, _renderable)) in query.iter_entities(world) {
+                asset_batchers.set_entity_handle(entity, *mesh_handle);
+            }
+        })
 }

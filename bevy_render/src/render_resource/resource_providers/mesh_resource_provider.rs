@@ -40,7 +40,7 @@ impl MeshResourceProvider {
 
     fn setup_mesh_resources(
         render_context: &mut dyn RenderContext,
-        mesh_storage: &mut AssetStorage<Mesh>,
+        mesh_storage: &AssetStorage<Mesh>,
         handle: Handle<Mesh>,
         render_resource_assignments: &mut RenderResourceAssignments,
     ) {
@@ -91,10 +91,6 @@ impl ResourceProvider for MeshResourceProvider {
     }
 
     fn update(&mut self, _render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
-        let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
-        for (entity, (mesh_handle, _renderable)) in self.mesh_query.iter_entities_mut(world) {
-            asset_batchers.set_entity_handle(entity, *mesh_handle);
-        }
     }
 
     fn finish_update(
@@ -103,7 +99,7 @@ impl ResourceProvider for MeshResourceProvider {
         _world: &mut World,
         resources: &Resources,
     ) {
-        let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut mesh_storage = resources.get::<AssetStorage<Mesh>>().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
 
         // this scope is necessary because the Fetch<AssetBatchers> pointer behaves weirdly
@@ -114,7 +110,7 @@ impl ResourceProvider for MeshResourceProvider {
                     log::trace!("setup mesh for {:?}", batch.render_resource_assignments.id);
                     Self::setup_mesh_resources(
                         render_context,
-                        &mut mesh_storage,
+                        &mesh_storage,
                         handle,
                         &mut batch.render_resource_assignments,
                     );
