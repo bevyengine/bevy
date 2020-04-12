@@ -1,7 +1,4 @@
-use crate::{
-    pipeline::PipelineDescriptor,
-    renderer::{RenderPass, Renderer},
-};
+use crate::{pass::RenderPass, pipeline::PipelineDescriptor, renderer_2::RenderContext};
 use bevy_asset::Handle;
 use legion::prelude::{Resources, World};
 
@@ -18,7 +15,7 @@ pub trait DrawTarget {
         &mut self,
         _world: &World,
         _resources: &Resources,
-        _renderer: &mut dyn Renderer,
+        _render_context: &mut dyn RenderContext,
         _pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_descriptor: &PipelineDescriptor,
     ) {

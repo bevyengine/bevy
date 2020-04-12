@@ -23,9 +23,7 @@ impl Default for Renderable {
     fn default() -> Self {
         Renderable {
             is_visible: true,
-            pipelines: vec![
-                Handle::default(),
-            ],
+            pipelines: vec![Handle::default()],
             render_resource_assignments: RenderResourceAssignments::default(),
             is_instanced: false,
         }

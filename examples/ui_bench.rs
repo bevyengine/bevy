@@ -27,7 +27,7 @@ fn build_move_system() -> Box<dyn Schedulable> {
 }
 
 fn setup(world: &mut World, _resources: &mut Resources) {
-    let mut builder =  world.build();
+    let mut builder = world.build();
     builder.add_entity(Camera2dEntity {
         camera: Camera::new(CameraType::default_orthographic()),
         ..Default::default()

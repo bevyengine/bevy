@@ -1,16 +1,13 @@
-use super::WgpuRenderer;
 use crate::{
     renderer_2::{WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext},
     wgpu_type_converter::WgpuInto,
 };
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::Handle;
 use bevy_render::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindType},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        AssetResources, BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId,
-        ResourceInfo,
+        AssetResources, BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
     },
-    renderer::Renderer,
     renderer_2::RenderResourceContext,
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -34,6 +31,7 @@ pub struct WgpuResources {
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
     pub resource_info: HashMap<RenderResource, ResourceInfo>,
     pub shader_modules: HashMap<Handle<Shader>, wgpu::ShaderModule>,
+    pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
     pub bind_group_layouts: HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>,
 }
@@ -90,96 +88,32 @@ impl WgpuResources {
     }
 
     pub fn create_bind_group(
-        &mut self,
+        &self,
         device: &wgpu::Device,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> bool {
-        if let Some((render_resource_set_id, _indices)) =
-            render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
-        {
-            log::trace!(
-                "start creating bind group for RenderResourceSet {:?}",
-                render_resource_set_id
-            );
-            let bindings = bind_group_descriptor
-                .bindings
-                .iter()
-                .map(|binding| {
-                    if let Some(resource) = render_resource_assignments.get(&binding.name) {
+        render_resource_set_id: RenderResourceSetId,
+        bind_group_descriptor: &wgpu::BindGroupDescriptor,
+    ) -> wgpu::BindGroup {
+        log::trace!(
+            "created bind group for RenderResourceSet {:?}",
+            render_resource_set_id
+        );
+        log::trace!("{:#?}", bind_group_descriptor);
+        device.create_bind_group(bind_group_descriptor)
+    }
 
-                        let resource_info = self.resource_info.get(&resource).unwrap();
-                        log::trace!("found binding {} ({}) resource: {:?} {:?}", binding.index, binding.name, resource, resource_info);
-                        wgpu::Binding {
-                            binding: binding.index,
-                            resource: match &binding.bind_type {
-                                BindType::SampledTexture { .. } => {
-                                    if let ResourceInfo::Texture = resource_info {
-                                        let texture = self.textures.get(&resource).unwrap();
-                                        wgpu::BindingResource::TextureView(texture)
-                                    } else {
-                                        panic!("expected a Texture resource");
-                                    }
-                                }
-                                BindType::Sampler { .. } => {
-                                    if let ResourceInfo::Sampler = resource_info {
-                                        let sampler = self.samplers.get(&resource).unwrap();
-                                        wgpu::BindingResource::Sampler(sampler)
-                                    } else {
-                                        panic!("expected a Sampler resource");
-                                    }
-                                }
-                                BindType::Uniform { .. } => {
-                                    if let ResourceInfo::Buffer(buffer_info) = resource_info {
-                                        let buffer = self.buffers.get(&resource).unwrap();
-                                        wgpu::BindingResource::Buffer {
-                                            buffer,
-                                            range: 0..buffer_info.size as u64,
-                                        }
-                                    } else {
-                                        panic!("expected a Buffer resource");
-                                    }
-                                }
-                                _ => panic!("unsupported bind type"),
-                            },
-                        }
-                    } else {
-                        panic!(
-                            "No resource assigned to uniform \"{}\" for RenderResourceAssignments {:?}",
-                            binding.name,
-                            render_resource_assignments.id
-                        );
-                    }
-                })
-                .collect::<Vec<wgpu::Binding>>();
-            let bind_group_layout = self
-                .bind_group_layouts
-                .get(&bind_group_descriptor.id)
-                .unwrap();
-            let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
-                label: None,
-                layout: bind_group_layout,
-                bindings: bindings.as_slice(),
-            };
-
-            let bind_group = device.create_bind_group(&wgpu_bind_group_descriptor);
-            let bind_group_info = self
-                .bind_groups
-                .entry(bind_group_descriptor.id)
-                .or_insert_with(|| WgpuBindGroupInfo::default());
-            bind_group_info
-                .bind_groups
-                .insert(*render_resource_set_id, bind_group);
-
-            log::trace!(
-                "created bind group for RenderResourceSet {:?}",
-                render_resource_set_id
-            );
-            log::trace!("{:#?}", bind_group_descriptor);
-            return true;
-        } else {
-            return false;
-        }
+    pub fn set_bind_group(
+        &mut self,
+        bind_group_descriptor_id: BindGroupDescriptorId,
+        render_resource_set_id: RenderResourceSetId,
+        bind_group: wgpu::BindGroup,
+    ) {
+        let bind_group_info = self
+            .bind_groups
+            .entry(bind_group_descriptor_id)
+            .or_insert_with(|| WgpuBindGroupInfo::default());
+        bind_group_info
+            .bind_groups
+            .insert(render_resource_set_id, bind_group);
     }
 
     pub fn create_buffer(
@@ -231,21 +165,6 @@ impl WgpuResources {
         resource
     }
 
-    pub fn begin_create_buffer_mapped(
-        buffer_info: &BufferInfo,
-        renderer: &mut WgpuRenderer,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
-    ) -> wgpu::Buffer {
-        let device = renderer.global_context.device.clone();
-        let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
-            size: buffer_info.size as u64,
-            usage: buffer_info.buffer_usage.wgpu_into(),
-            label: None,
-        });
-        setup_data(&mut mapped.data, renderer);
-        mapped.finish()
-    }
-
     // TODO: clean this up
     pub fn begin_create_buffer_mapped_render_context(
         buffer_info: &BufferInfo,
@@ -295,12 +214,10 @@ impl WgpuResources {
         &mut self,
         device: &wgpu::Device,
         shader_handle: Handle<Shader>,
-        shader_storage: &AssetStorage<Shader>,
+        shader: &Shader,
     ) {
-        self.shader_modules.entry(shader_handle).or_insert_with(|| {
-            let shader = shader_storage.get(&shader_handle).unwrap();
-            device.create_shader_module(&shader.get_spirv(None))
-        });
+        let shader_module = device.create_shader_module(&shader.get_spirv(None));
+        self.shader_modules.insert(shader_handle, shader_module);
     }
 
     pub fn create_sampler(
@@ -379,5 +296,33 @@ impl WgpuResources {
 
     pub fn get_render_resources_mut(&mut self) -> &mut AssetResources {
         &mut self.asset_resources
+    }
+
+    pub fn create_bind_group_layout(
+        &mut self,
+        device: &wgpu::Device,
+        bind_group_id: BindGroupDescriptorId,
+        descriptor: &wgpu::BindGroupLayoutDescriptor,
+    ) {
+        let wgpu_bind_group_layout = device.create_bind_group_layout(descriptor);
+        self.bind_group_layouts
+            .insert(bind_group_id, wgpu_bind_group_layout);
+    }
+
+    pub fn create_render_pipeline(
+        &self,
+        device: &wgpu::Device,
+        descriptor: &wgpu::RenderPipelineDescriptor,
+    ) -> wgpu::RenderPipeline {
+        device.create_render_pipeline(&descriptor)
+    }
+
+    pub fn set_render_pipeline(
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+        render_pipeline: wgpu::RenderPipeline,
+    ) {
+        self.render_pipelines
+            .insert(pipeline_handle, render_pipeline);
     }
 }

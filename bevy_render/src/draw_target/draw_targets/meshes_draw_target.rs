@@ -1,9 +1,9 @@
 use crate::{
     draw_target::DrawTarget,
     mesh::Mesh,
+    pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{resource_name, ResourceInfo},
-    renderer::RenderPass,
     Renderable,
 };
 use bevy_asset::Handle;
@@ -28,15 +28,18 @@ impl DrawTarget for MeshesDrawTarget {
                 continue;
             }
 
-            let renderer = render_pass.get_renderer();
-            let render_resources = renderer.get_render_resources();
+            let render_context = render_pass.get_render_context();
+            let render_resources = render_context.resources();
             if current_mesh_handle != Some(*mesh) {
                 if let Some(vertex_buffer_resource) =
                     render_resources.get_mesh_vertices_resource(*mesh)
                 {
                     let index_buffer_resource =
                         render_resources.get_mesh_indices_resource(*mesh).unwrap();
-                    match renderer.get_resource_info(index_buffer_resource).unwrap() {
+                    match render_resources
+                        .get_resource_info(index_buffer_resource)
+                        .unwrap()
+                    {
                         ResourceInfo::Buffer(buffer_info) => {
                             current_mesh_index_len = (buffer_info.size / 2) as u32
                         }

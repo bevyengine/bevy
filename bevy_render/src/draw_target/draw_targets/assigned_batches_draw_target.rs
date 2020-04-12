@@ -1,8 +1,9 @@
 use crate::{
     draw_target::DrawTarget,
+    pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{resource_name, AssetBatchers, RenderResourceAssignments},
-    renderer::{RenderPass, Renderer},
+    renderer_2::RenderContext,
     Renderable,
 };
 use bevy_asset::Handle;
@@ -64,13 +65,13 @@ impl DrawTarget for AssignedBatchesDrawTarget {
         &mut self,
         world: &World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
-        let mut asset_batches = resources.get_mut::<AssetBatchers>().unwrap();
+        let asset_batches = resources.get::<AssetBatchers>().unwrap();
 
-        let mut global_render_resource_assignments =
+        let global_render_resource_assignments =
             resources.get_mut::<RenderResourceAssignments>().unwrap();
 
         log::trace!(
@@ -79,19 +80,18 @@ impl DrawTarget for AssignedBatchesDrawTarget {
             pipeline_descriptor.name,
         );
         log::trace!("setting up global bind groups");
-        renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
+        render_context.setup_bind_groups(pipeline_descriptor, &global_render_resource_assignments);
 
-        for batch in asset_batches.get_batches_mut() {
+        for batch in asset_batches.get_batches() {
             log::trace!(
                 "setting up batch bind groups: {:?}",
                 batch.render_resource_assignments.id
             );
             log::trace!("{:#?}", batch);
-            renderer.setup_bind_groups(&mut batch.render_resource_assignments, pipeline_descriptor);
+            render_context
+                .setup_bind_groups(pipeline_descriptor, &batch.render_resource_assignments);
             for batched_entity in batch.entities.iter() {
-                let renderable = world
-                    .get_component::<Renderable>(*batched_entity)
-                    .unwrap();
+                let renderable = world.get_component::<Renderable>(*batched_entity).unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
@@ -101,9 +101,9 @@ impl DrawTarget for AssignedBatchesDrawTarget {
                     batched_entity,
                     batch.render_resource_assignments.id
                 );
-                renderer.setup_bind_groups(
-                    &renderable.render_resource_assignments,
+                render_context.setup_bind_groups(
                     pipeline_descriptor,
+                    &renderable.render_resource_assignments,
                 );
             }
         }

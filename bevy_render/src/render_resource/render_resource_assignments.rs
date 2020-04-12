@@ -199,8 +199,7 @@ mod tests {
         assert_ne!(different_set_id, None);
         assert_ne!(different_set_id, set_id);
 
-        let equal_set_id =
-            equal_assignments.update_render_resource_set_id(&bind_group_descriptor);
+        let equal_set_id = equal_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(equal_set_id, None);
         assert_eq!(equal_set_id, set_id);
 

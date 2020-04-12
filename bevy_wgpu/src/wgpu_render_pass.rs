@@ -1,24 +1,30 @@
-use super::{WgpuRenderer, WgpuResources};
+use crate::renderer_2::{WgpuRenderContext, WgpuRenderResourceContextTrait};
 use bevy_render::{
+    pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{
         RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
-    renderer::{RenderPass, Renderer},
+    renderer_2::{RenderContext, RenderResourceContext},
 };
 use std::{collections::HashMap, ops::Range};
 
-pub struct WgpuRenderPass<'a, 'b, 'c, 'd> {
+pub struct WgpuRenderPass<'a, 'b, 'c, T>
+where
+    T: RenderResourceContext + WgpuRenderResourceContextTrait,
+{
     pub render_pass: &'b mut wgpu::RenderPass<'a>,
     pub pipeline_descriptor: &'c PipelineDescriptor,
-    pub wgpu_resources: &'a WgpuResources,
-    pub renderer: &'d WgpuRenderer,
+    pub render_context: &'a WgpuRenderContext<T>,
     pub bound_bind_groups: HashMap<u32, RenderResourceSetId>,
 }
 
-impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
-    fn get_renderer(&self) -> &dyn Renderer {
-        self.renderer
+impl<'a, 'b, 'c, T> RenderPass for WgpuRenderPass<'a, 'b, 'c, T>
+where
+    T: RenderResourceContext + WgpuRenderResourceContextTrait,
+{
+    fn get_render_context(&self) -> &dyn RenderContext {
+        self.render_context
     }
 
     fn get_pipeline_descriptor(&self) -> &PipelineDescriptor {
@@ -26,13 +32,21 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
-        let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
+        let buffer = self
+            .render_context
+            .render_resources
+            .get_buffer(resource)
+            .unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
-        let buffer = self.wgpu_resources.buffers.get(&resource).unwrap();
+        let buffer = self
+            .render_context
+            .render_resources
+            .get_buffer(resource)
+            .unwrap();
         self.render_pass.set_index_buffer(&buffer, offset, 0);
     }
 
@@ -69,7 +83,12 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                         index_buffer
                     );
                     self.set_index_buffer(index_buffer, 0);
-                    match self.renderer.get_resource_info(index_buffer).unwrap() {
+                    match self
+                        .render_context
+                        .resources()
+                        .get_resource_info(index_buffer)
+                        .unwrap()
+                    {
                         ResourceInfo::Buffer(buffer_info) => {
                             indices = Some(0..(buffer_info.size / 2) as u32)
                         }
@@ -84,7 +103,8 @@ impl<'a, 'b, 'c, 'd> RenderPass for WgpuRenderPass<'a, 'b, 'c, 'd> {
                 render_resource_assignments.get_render_resource_set_id(bind_group.id)
             {
                 if let Some(wgpu_bind_group) = self
-                    .wgpu_resources
+                    .render_context
+                    .render_resources
                     .get_bind_group(bind_group.id, *render_resource_set_id)
                 {
                     const EMPTY: &'static [u32] = &[];

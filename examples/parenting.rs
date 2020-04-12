@@ -22,7 +22,7 @@ fn build_rotator_system() -> Box<dyn Schedulable> {
         })
 }
 
-/// set up a simple scene with a "parent" cube and a "child" cube 
+/// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mut material_storage = resources

@@ -1,14 +1,18 @@
 use crate::WgpuResources;
 
+use super::WgpuRenderResourceContextTrait;
 use bevy_asset::Handle;
 use bevy_render::{
     mesh::Mesh,
-    render_resource::{AssetResources, BufferInfo, RenderResource, ResourceInfo},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    render_resource::{
+        AssetResources, BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
+    },
     renderer_2::RenderResourceContext,
+    shader::Shader,
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
 };
 use std::sync::Arc;
-use super::WgpuRenderResourceContextTrait;
 
 pub struct WgpuTransactionalRenderResourceContext<'a> {
     pub device: Arc<wgpu::Device>,
@@ -33,13 +37,107 @@ impl<'a> WgpuRenderResourceContextTrait for WgpuTransactionalRenderResourceConte
         texture_descriptor: &TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource {
+        self.local_resources.create_texture_with_data(
+            &self.device,
+            command_encoder,
+            texture_descriptor,
+            bytes,
+        )
+    }
+    fn create_bind_group(
+        &self,
+        render_resource_set_id: RenderResourceSetId,
+        descriptor: &wgpu::BindGroupDescriptor,
+    ) -> wgpu::BindGroup {
         self.local_resources
-            .create_texture_with_data(
-                &self.device,
-                command_encoder,
-                texture_descriptor,
-                bytes,
-            )
+            .create_bind_group(&self.device, render_resource_set_id, descriptor)
+    }
+    fn create_bind_group_layout(
+        &mut self,
+        bind_group_id: BindGroupDescriptorId,
+        descriptor: &wgpu::BindGroupLayoutDescriptor,
+    ) {
+        self.local_resources
+            .create_bind_group_layout(&self.device, bind_group_id, descriptor);
+    }
+    fn create_render_pipeline(
+        &self,
+        descriptor: &wgpu::RenderPipelineDescriptor,
+    ) -> wgpu::RenderPipeline {
+        self.local_resources
+            .create_render_pipeline(&self.device, descriptor)
+    }
+    fn get_bind_group(
+        &self,
+        bind_group_descriptor_id: BindGroupDescriptorId,
+        render_resource_set_id: RenderResourceSetId,
+    ) -> Option<&wgpu::BindGroup> {
+        let local = self
+            .local_resources
+            .get_bind_group(bind_group_descriptor_id, render_resource_set_id);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources
+            .get_bind_group(bind_group_descriptor_id, render_resource_set_id)
+    }
+    fn get_bind_group_layout(
+        &self,
+        bind_group_id: BindGroupDescriptorId,
+    ) -> Option<&wgpu::BindGroupLayout> {
+        let local = self.local_resources.bind_group_layouts.get(&bind_group_id);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.bind_group_layouts.get(&bind_group_id)
+    }
+    fn get_texture(&self, render_resource: RenderResource) -> Option<&wgpu::TextureView> {
+        let local = self.local_resources.textures.get(&render_resource);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.textures.get(&render_resource)
+    }
+    fn get_sampler(&self, render_resource: RenderResource) -> Option<&wgpu::Sampler> {
+        let local = self.local_resources.samplers.get(&render_resource);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.samplers.get(&render_resource)
+    }
+    fn get_pipeline(&self, pipeline: Handle<PipelineDescriptor>) -> Option<&wgpu::RenderPipeline> {
+        let local = self.local_resources.render_pipelines.get(&pipeline);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.render_pipelines.get(&pipeline)
+    }
+    fn get_shader_module(&self, shader: Handle<Shader>) -> Option<&wgpu::ShaderModule> {
+        let local = self.local_resources.shader_modules.get(&shader);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.shader_modules.get(&shader)
+    }
+    fn set_bind_group(
+        &mut self,
+        bind_group_descriptor_id: BindGroupDescriptorId,
+        render_resource_set_id: RenderResourceSetId,
+        bind_group: wgpu::BindGroup,
+    ) {
+        self.local_resources.set_bind_group(
+            bind_group_descriptor_id,
+            render_resource_set_id,
+            bind_group,
+        );
+    }
+    fn set_render_pipeline(
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline: wgpu::RenderPipeline,
+    ) {
+        self.local_resources
+            .set_render_pipeline(pipeline_handle, pipeline);
     }
 }
 
@@ -64,7 +162,8 @@ impl<'a> RenderResourceContext for WgpuTransactionalRenderResourceContext<'a> {
             .create_texture(&self.device, texture_descriptor)
     }
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.local_resources.create_buffer(&self.device, buffer_info)
+        self.local_resources
+            .create_buffer(&self.device, buffer_info)
     }
 
     // TODO: clean this up
@@ -100,18 +199,22 @@ impl<'a> RenderResourceContext for WgpuTransactionalRenderResourceContext<'a> {
     }
 
     fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        let local = self.local_resources
+        let local = self
+            .local_resources
             .asset_resources
             .get_texture_resource(texture);
         if local.is_some() {
             return local;
         }
 
-        self.parent_resources.asset_resources.get_texture_resource(texture)
+        self.parent_resources
+            .asset_resources
+            .get_texture_resource(texture)
     }
 
     fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        let local = self.local_resources
+        let local = self
+            .local_resources
             .asset_resources
             .get_texture_sampler_resource(texture);
 
@@ -119,29 +222,37 @@ impl<'a> RenderResourceContext for WgpuTransactionalRenderResourceContext<'a> {
             return local;
         }
 
-        self.parent_resources.asset_resources.get_texture_sampler_resource(texture)
+        self.parent_resources
+            .asset_resources
+            .get_texture_sampler_resource(texture)
     }
 
     fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        let local = self.local_resources
+        let local = self
+            .local_resources
             .asset_resources
             .get_mesh_vertices_resource(mesh);
         if local.is_some() {
             return local;
         }
 
-        self.parent_resources.asset_resources.get_mesh_vertices_resource(mesh)
+        self.parent_resources
+            .asset_resources
+            .get_mesh_vertices_resource(mesh)
     }
 
     fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        let local = self.local_resources
+        let local = self
+            .local_resources
             .asset_resources
             .get_mesh_indices_resource(mesh);
         if local.is_some() {
             return local;
         }
 
-        self.parent_resources.asset_resources.get_mesh_indices_resource(mesh)
+        self.parent_resources
+            .asset_resources
+            .get_mesh_indices_resource(mesh)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
@@ -158,5 +269,18 @@ impl<'a> RenderResourceContext for WgpuTransactionalRenderResourceContext<'a> {
     }
     fn asset_resources_mut(&mut self) -> &mut AssetResources {
         &mut self.local_resources.asset_resources
+    }
+    fn create_shader_module(
+        &mut self,
+        shader_handle: Handle<Shader>,
+        shader_storage: &bevy_asset::AssetStorage<Shader>,
+    ) {
+        if self.get_shader_module(shader_handle).is_some() {
+            return;
+        }
+
+        let shader = shader_storage.get(&shader_handle).unwrap();
+        self.local_resources
+            .create_shader_module(&self.device, shader_handle, shader);
     }
 }

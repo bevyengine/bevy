@@ -4,7 +4,7 @@ use crate::{
     pass::PassDescriptor,
     pipeline::{PipelineCompiler, PipelineDescriptor},
     render_resource::ResourceProvider,
-    renderer::Renderer,
+    renderer_2::RenderContext,
     shader::Shader,
     texture::TextureDescriptor,
 };
@@ -51,7 +51,7 @@ impl RenderGraph {
         &mut self,
         world: &mut World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
     ) {
         let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
         let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
@@ -70,7 +70,7 @@ impl RenderGraph {
                                 pipeline_storage.get_mut(compiled_pipeline_handle).unwrap();
 
                             // create wgpu pipeline if it doesn't exist
-                            renderer.setup_render_pipeline(
+                            render_context.create_render_pipeline(
                                 *compiled_pipeline_handle,
                                 compiled_pipeline_descriptor,
                                 &shader_storage,
@@ -84,7 +84,7 @@ impl RenderGraph {
                                 draw_target.setup(
                                     world,
                                     resources,
-                                    renderer,
+                                    render_context,
                                     *compiled_pipeline_handle,
                                     compiled_pipeline_descriptor,
                                 );

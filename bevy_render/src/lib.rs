@@ -23,7 +23,6 @@ pub mod pass;
 pub mod pipeline;
 pub mod render_resource;
 mod renderable;
-pub mod renderer;
 pub mod texture;
 
 pub use once_cell;
@@ -35,8 +34,8 @@ use self::{
     mesh::Mesh,
     pass::passes::ForwardPassBuilder,
     pipeline::{
-        pipelines::ForwardPipelineBuilder, PipelineCompiler, PipelineDescriptor,
-        PipelineAssignments, VertexBufferDescriptors,
+        pipelines::ForwardPipelineBuilder, PipelineAssignments, PipelineCompiler,
+        PipelineDescriptor, VertexBufferDescriptors,
     },
     render_graph::RenderGraph,
     render_resource::{
@@ -98,8 +97,14 @@ impl AppPlugin for RenderPlugin {
         app.add_system(build_entity_render_resource_assignments_system())
             .build_system_on_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
-            .add_system_to_stage(stage::POST_UPDATE, shader::asset_handle_shader_def_system::<StandardMaterial>())
-            .add_system_to_stage(stage::POST_UPDATE, shader::asset_handle_batcher_system::<StandardMaterial>())
+            .add_system_to_stage(
+                stage::POST_UPDATE,
+                shader::asset_handle_shader_def_system::<StandardMaterial>(),
+            )
+            .add_system_to_stage(
+                stage::POST_UPDATE,
+                shader::asset_handle_batcher_system::<StandardMaterial>(),
+            )
             .add_stage_after(stage::POST_UPDATE, RENDER_STAGE)
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())

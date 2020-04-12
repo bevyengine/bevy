@@ -4,11 +4,12 @@ use legion::prelude::*;
 use crate::{
     draw_target::DrawTarget,
     mesh::Mesh,
-    pipeline::{PipelineDescriptor, PipelineAssignments},
+    pass::RenderPass,
+    pipeline::{PipelineAssignments, PipelineDescriptor},
     render_resource::{
         resource_name, EntityRenderResourceAssignments, RenderResourceAssignments, ResourceInfo,
     },
-    renderer::{RenderPass, Renderer},
+    renderer_2::RenderContext,
     Renderable,
 };
 
@@ -48,15 +49,18 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 }
 
                 let mesh = *world.get_component::<Handle<Mesh>>(*entity).unwrap();
-                let renderer = render_pass.get_renderer();
-                let render_resources = renderer.get_render_resources();
+                let render_context = render_pass.get_render_context();
+                let render_resources = render_context.resources();
                 if current_mesh_handle != Some(mesh) {
                     if let Some(vertex_buffer_resource) =
                         render_resources.get_mesh_vertices_resource(mesh)
                     {
                         let index_buffer_resource =
                             render_resources.get_mesh_indices_resource(mesh).unwrap();
-                        match renderer.get_resource_info(index_buffer_resource).unwrap() {
+                        match render_resources
+                            .get_resource_info(index_buffer_resource)
+                            .unwrap()
+                        {
                             ResourceInfo::Buffer(buffer_info) => {
                                 current_mesh_index_len = (buffer_info.size / 2) as u32
                             }
@@ -80,19 +84,18 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         &mut self,
         world: &World,
         resources: &Resources,
-        renderer: &mut dyn Renderer,
+        render_context: &mut dyn RenderContext,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
         let pipeline_assignments = resources.get::<PipelineAssignments>().unwrap();
         let entity_render_resource_assignments =
             resources.get::<EntityRenderResourceAssignments>().unwrap();
-        let assigned_render_resource_assignments = pipeline_assignments
-            .assignments
-            .get(&pipeline_handle);
-        let mut global_render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        renderer.setup_bind_groups(&mut global_render_resource_assignments, pipeline_descriptor);
+        let assigned_render_resource_assignments =
+            pipeline_assignments.assignments.get(&pipeline_handle);
+        let global_render_resource_assignments =
+            resources.get::<RenderResourceAssignments>().unwrap();
+        render_context.setup_bind_groups(pipeline_descriptor, &global_render_resource_assignments);
         if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
             for assignment_id in assigned_render_resource_assignments.iter() {
                 let entity = entity_render_resource_assignments
@@ -103,9 +106,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     continue;
                 }
 
-                renderer.setup_bind_groups(
-                    &renderable.render_resource_assignments,
+                render_context.setup_bind_groups(
                     pipeline_descriptor,
+                    &renderable.render_resource_assignments,
                 );
             }
         }

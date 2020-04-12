@@ -164,8 +164,8 @@ impl<T> AssetStorage<T> {
         self.assets.get_mut(&handle.id)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=(Handle<T>, &T)> {
-        self.assets.iter().map(|(k,v)| (Handle::new(*k), v))
+    pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
+        self.assets.iter().map(|(k, v)| (Handle::new(*k), v))
     }
 }
 

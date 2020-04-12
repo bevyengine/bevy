@@ -1,10 +1,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::build()
-        .add_default_plugins()
-        .setup(setup)
-        .run();
+    App::build().add_default_plugins().setup(setup).run();
 }
 
 /// set up a simple scene

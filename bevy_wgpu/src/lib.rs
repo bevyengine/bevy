@@ -1,15 +1,15 @@
+pub mod renderer_2;
 mod wgpu_render_pass;
 mod wgpu_renderer;
 mod wgpu_resources;
 mod wgpu_type_converter;
-pub mod renderer_2;
 
 pub use wgpu_render_pass::*;
 pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
-use bevy_render::{renderer::Renderer, RENDER_STAGE};
+use bevy_render::RENDER_STAGE;
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 

@@ -738,16 +738,8 @@ where
         self.setup_buffer_arrays(render_context);
 
         let staging_buffer_size = self.update_staging_buffer_offsets();
-        self.setup_uniforms_texture_resources(
-            world,
-            resources,
-            render_context,
-        );
-        self.setup_handles_texture_resources(
-            world,
-            resources,
-            render_context,
-        );
+        self.setup_uniforms_texture_resources(world, resources, render_context);
+        self.setup_handles_texture_resources(world, resources, render_context);
         // self.setup_batched_texture_resources(world, resources, renderer, staging_buffer);
         if staging_buffer_size == 0 {
             let mut staging_buffer: [u8; 0] = [];
@@ -762,7 +754,7 @@ where
                 render_context.resources_mut(),
                 &mut staging_buffer,
             );
-            // self.setup_batched_buffer_resources(world, resources, renderer, &mut staging_buffer);
+        // self.setup_batched_buffer_resources(world, resources, renderer, &mut staging_buffer);
         } else {
             let staging_buffer = render_context.resources_mut().create_buffer_mapped(
                 BufferInfo {
@@ -771,11 +763,7 @@ where
                     ..Default::default()
                 },
                 &mut |staging_buffer, render_resources| {
-                    self.setup_uniforms_buffer_resources(
-                        world,
-                        render_resources,
-                        staging_buffer,
-                    );
+                    self.setup_uniforms_buffer_resources(world, render_resources, staging_buffer);
                     self.setup_handles_buffer_resources(
                         world,
                         resources,

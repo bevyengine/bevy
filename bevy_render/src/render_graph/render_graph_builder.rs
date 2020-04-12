@@ -40,7 +40,11 @@ impl<'a, 'b, 'c> RenderGraphBuilder<'a, 'b, 'c> {
         self
     }
 
-    pub fn add_default_pipeline(&mut self, name: &str, build: impl Fn(&mut PipelineBuilder)) -> &mut Self {
+    pub fn add_default_pipeline(
+        &mut self,
+        name: &str,
+        build: impl Fn(&mut PipelineBuilder),
+    ) -> &mut Self {
         if let Some(ref pass) = self.current_pass {
             let mut builder = PipelineBuilder::new(name, &mut self.shaders);
             build(&mut builder);

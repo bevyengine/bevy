@@ -1,8 +1,9 @@
 use crate::{
     color::ColorSource,
     pipeline::{BindType, VertexBufferDescriptor},
+    render_resource::AssetBatchers,
     texture::Texture,
-    Renderable, render_resource::AssetBatchers,
+    Renderable,
 };
 
 use bevy_asset::{AssetStorage, Handle};
@@ -23,18 +24,18 @@ pub fn shader_def_system<T>() -> Box<dyn Schedulable>
 where
     T: AsUniforms + Send + Sync + 'static,
 {
-    SystemBuilder::new(format!(
-        "shader_def::{}",
-        std::any::type_name::<T>()
-    ))
-    .with_query(<(Read<T>, Write<Renderable>)>::query())
-    .build(|_, world, _, query| {
-        for (uniforms, mut renderable) in query.iter_mut(world) {
-            if let Some(shader_defs) = uniforms.get_shader_defs() {
-                renderable.render_resource_assignments.shader_defs.extend(shader_defs)
+    SystemBuilder::new(format!("shader_def::{}", std::any::type_name::<T>()))
+        .with_query(<(Read<T>, Write<Renderable>)>::query())
+        .build(|_, world, _, query| {
+            for (uniforms, mut renderable) in query.iter_mut(world) {
+                if let Some(shader_defs) = uniforms.get_shader_defs() {
+                    renderable
+                        .render_resource_assignments
+                        .shader_defs
+                        .extend(shader_defs)
+                }
             }
-        }
-    })
+        })
 }
 
 pub fn asset_handle_shader_def_system<T>() -> Box<dyn Schedulable>
@@ -55,7 +56,10 @@ where
 
             let uniforms = asset_storage.get(&uniform_handle).unwrap();
             if let Some(shader_defs) = uniforms.get_shader_defs() {
-                renderable.render_resource_assignments.shader_defs.extend(shader_defs)
+                renderable
+                    .render_resource_assignments
+                    .shader_defs
+                    .extend(shader_defs)
             }
         }
     })

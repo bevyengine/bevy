@@ -1,4 +1,4 @@
-use crate::{renderer_2::RenderContext};
+use crate::renderer_2::RenderContext;
 use legion::prelude::*;
 
 pub trait ResourceProvider {
@@ -10,7 +10,12 @@ pub trait ResourceProvider {
     ) {
     }
 
-    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &World, _resources: &Resources) {
+    fn update(
+        &mut self,
+        _render_context: &mut dyn RenderContext,
+        _world: &World,
+        _resources: &Resources,
+    ) {
     }
 
     // TODO: remove this
@@ -23,8 +28,11 @@ pub trait ResourceProvider {
     }
 
     /// Runs after resources have been created on the gpu. In general systems here write gpu-related resources back to entities in this step  
-    fn post_update(&mut self, _render_context: &dyn RenderContext, _world: &mut World, _resources: &Resources) {
-
+    fn post_update(
+        &mut self,
+        _render_context: &dyn RenderContext,
+        _world: &mut World,
+        _resources: &Resources,
+    ) {
     }
-
 }
