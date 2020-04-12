@@ -6,6 +6,10 @@ fn main() {
         .setup(setup)
         .add_system_to_stage(
             stage::POST_UPDATE,
+            shader::asset_handle_batcher_system::<MyMaterial>(),
+        )
+        .add_system_to_stage(
+            stage::POST_UPDATE,
             shader::asset_handle_shader_def_system::<MyMaterial>(),
         )
         .run();

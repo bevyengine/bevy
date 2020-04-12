@@ -4,40 +4,18 @@ use crate::{
     render_resource::{
         AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments, ResourceProvider,
     },
+    renderer_2::RenderContext,
     shader::AsUniforms,
-    Renderable, Vertex, renderer_2::RenderContext,
+    Vertex,
 };
 use bevy_asset::{AssetStorage, Handle};
-use legion::{filter::*, prelude::*};
+use legion::prelude::*;
 use zerocopy::AsBytes;
 
-pub struct MeshResourceProvider {
-    pub mesh_query: Query<
-        (Read<Handle<Mesh>>, Read<Renderable>),
-        EntityFilterTuple<
-            And<(
-                ComponentFilter<Handle<Mesh>>,
-                ComponentFilter<Renderable>,
-                ComponentFilter<Handle<Mesh>>,
-            )>,
-            And<(Passthrough, Passthrough)>,
-            And<(
-                Passthrough,
-                Passthrough,
-                ComponentChangedFilter<Handle<Mesh>>,
-            )>,
-        >,
-    >,
-}
+#[derive(Default)]
+pub struct MeshResourceProvider;
 
 impl MeshResourceProvider {
-    pub fn new() -> Self {
-        MeshResourceProvider {
-            mesh_query: <(Read<Handle<Mesh>>, Read<Renderable>)>::query()
-                .filter(changed::<Handle<Mesh>>()),
-        }
-    }
-
     fn setup_mesh_resources(
         render_context: &mut dyn RenderContext,
         mesh_storage: &AssetStorage<Mesh>,
@@ -45,36 +23,34 @@ impl MeshResourceProvider {
         render_resource_assignments: &mut RenderResourceAssignments,
     ) {
         let render_resources = render_context.resources_mut();
-        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = render_resources
-            .get_mesh_vertices_resource(handle)
-        {
-            (
-                vertex_buffer,
-                render_resources
-                    .get_mesh_indices_resource(handle),
-            )
-        } else {
-            let mesh_asset = mesh_storage.get(&handle).unwrap();
-            let vertex_buffer = render_resources.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::VERTEX,
-                    ..Default::default()
-                },
-                mesh_asset.vertices.as_bytes(),
-            );
-            let index_buffer = render_resources.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::INDEX,
-                    ..Default::default()
-                },
-                mesh_asset.indices.as_bytes(),
-            );
+        let (vertex_buffer, index_buffer) =
+            if let Some(vertex_buffer) = render_resources.get_mesh_vertices_resource(handle) {
+                (
+                    vertex_buffer,
+                    render_resources.get_mesh_indices_resource(handle),
+                )
+            } else {
+                let mesh_asset = mesh_storage.get(&handle).unwrap();
+                let vertex_buffer = render_resources.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    mesh_asset.vertices.as_bytes(),
+                );
+                let index_buffer = render_resources.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::INDEX,
+                        ..Default::default()
+                    },
+                    mesh_asset.indices.as_bytes(),
+                );
 
-            let asset_resources = render_resources.asset_resources_mut();
-            asset_resources.set_mesh_vertices_resource(handle, vertex_buffer);
-            asset_resources.set_mesh_indices_resource(handle, index_buffer);
-            (vertex_buffer, Some(index_buffer))
-        };
+                let asset_resources = render_resources.asset_resources_mut();
+                asset_resources.set_mesh_vertices_resource(handle, vertex_buffer);
+                asset_resources.set_mesh_indices_resource(handle, index_buffer);
+                (vertex_buffer, Some(index_buffer))
+            };
 
         render_resource_assignments.set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
     }
@@ -91,7 +67,12 @@ impl ResourceProvider for MeshResourceProvider {
         vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
-    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &World, _resources: &Resources) {
+    fn update(
+        &mut self,
+        _render_context: &mut dyn RenderContext,
+        _world: &World,
+        _resources: &Resources,
+    ) {
     }
 
     fn finish_update(

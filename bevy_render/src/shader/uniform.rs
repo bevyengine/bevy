@@ -2,7 +2,7 @@ use crate::{
     color::ColorSource,
     pipeline::{BindType, VertexBufferDescriptor},
     texture::Texture,
-    Renderable,
+    Renderable, render_resource::AssetBatchers,
 };
 
 use bevy_asset::{AssetStorage, Handle};
@@ -49,10 +49,35 @@ where
     .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
     .build(|_, world, asset_storage, query| {
         for (uniform_handle, mut renderable) in query.iter_mut(world) {
+            if !renderable.is_visible || renderable.is_instanced {
+                continue;
+            }
+
             let uniforms = asset_storage.get(&uniform_handle).unwrap();
             if let Some(shader_defs) = uniforms.get_shader_defs() {
                 renderable.render_resource_assignments.shader_defs.extend(shader_defs)
             }
+        }
+    })
+}
+
+pub fn asset_handle_batcher_system<T>() -> Box<dyn Schedulable>
+where
+    T: AsUniforms + Send + Sync + 'static,
+{
+    SystemBuilder::new(format!(
+        "asset_handle_batcher::{}",
+        std::any::type_name::<T>()
+    ))
+    .write_resource::<AssetBatchers>()
+    .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
+    .build(|_, world, asset_batchers, query| {
+        for (entity, (uniform_handle, renderable)) in query.iter_entities(world) {
+            if !renderable.is_visible || renderable.is_instanced {
+                continue;
+            }
+
+            asset_batchers.set_entity_handle(entity, *uniform_handle);
         }
     })
 }

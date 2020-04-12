@@ -167,9 +167,8 @@ where
     fn update_uniform_handles_info(&mut self, world: &World, resources: &Resources) {
         let handle_query = self.handle_query.take().unwrap();
         let assets = resources.get::<AssetStorage<T>>();
-        let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
         if let Some(assets) = assets {
-            for (entity, (handle, renderable)) in handle_query.iter_entities(world) {
+            for (handle, renderable) in handle_query.iter(world) {
                 if !renderable.is_visible {
                     return;
                 }
@@ -187,7 +186,6 @@ where
                         );
                     }
                 } else {
-                    asset_batchers.set_entity_handle(entity, *handle);
                     let uniforms = assets
                         .get(&handle)
                         .expect("Handle points to a non-existent resource");

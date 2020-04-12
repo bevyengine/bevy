@@ -83,7 +83,7 @@ impl RenderPlugin {
                 resources.get_event_reader::<WindowResized>(),
             ))
             .add_resource_provider(LightResourceProvider::new(10))
-            .add_resource_provider(MeshResourceProvider::new())
+            .add_resource_provider(MeshResourceProvider::default())
             .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
             .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
             .add_forward_pass()
@@ -99,6 +99,7 @@ impl AppPlugin for RenderPlugin {
             .build_system_on_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             .add_system_to_stage(stage::POST_UPDATE, shader::asset_handle_shader_def_system::<StandardMaterial>())
+            .add_system_to_stage(stage::POST_UPDATE, shader::asset_handle_batcher_system::<StandardMaterial>())
             .add_stage_after(stage::POST_UPDATE, RENDER_STAGE)
             .add_resource(RenderGraph::default())
             .add_resource(AssetStorage::<Mesh>::new())

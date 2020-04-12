@@ -1,8 +1,9 @@
-use bevy::{prelude::*};
+use bevy::{prelude::*, render::shader};
 
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_system_to_stage(stage::POST_UPDATE, shader::asset_handle_batcher_system::<MyMaterial>())
         .setup(setup)
         .run();
 }

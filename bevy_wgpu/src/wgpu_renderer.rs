@@ -231,7 +231,7 @@ impl WgpuRenderer {
         device: Arc<wgpu::Device>,
         global_wgpu_resources: &WgpuResources,
     ) -> (Vec::<wgpu::CommandBuffer>, Vec::<WgpuResources>) {
-        let max_thread_count = 4;
+        let max_thread_count = 8;
         let (sender, receiver) = crossbeam_channel::bounded(max_thread_count);
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         let chunk_size = (render_graph.resource_providers.len() + max_thread_count - 1) / max_thread_count; // divide ints rounding remainder up
