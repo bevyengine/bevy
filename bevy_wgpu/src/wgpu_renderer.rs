@@ -2,7 +2,9 @@ use super::{
     wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
     WgpuRenderPass, WgpuResources,
 };
-use crate::renderer_2::{WgpuRenderContext, WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext};
+use crate::renderer_2::{
+    WgpuRenderContext, WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext,
+};
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
@@ -223,40 +225,48 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn update_resource_providers(
-        world: &mut World,
-        resources: &mut Resources,
-        queue: &mut wgpu::Queue,
+    fn parallel_resource_provider_update(
+        world: &World,
+        resources: &Resources,
         device: Arc<wgpu::Device>,
-        global_wgpu_resources: &mut WgpuResources,
-    ) {
-        let thread_count = 5;
-        // let (sender, receiver) = crossbeam_channel::bounded(thread_count);
+        global_wgpu_resources: &WgpuResources,
+    ) -> (Vec::<wgpu::CommandBuffer>, Vec::<WgpuResources>) {
+        let max_thread_count = 4;
+        let (sender, receiver) = crossbeam_channel::bounded(max_thread_count);
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
-        let mut results = Vec::new();
-        // crossbeam_utils::thread::scope(|s| {
-        for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-            let device = device.clone();
-            let resource_device = device.clone();
-            // let sender = sender.clone();
-            // s.spawn(|_| {
-            // TODO: replace WgpuResources with Global+Local resources
-            let mut render_context =
-                WgpuRenderContext::new(device, WgpuTransactionalRenderResourceContext::new(resource_device, global_wgpu_resources));
-            for resource_provider in resource_provider_chunk.iter_mut() {
-                resource_provider.update(&mut render_context, world, resources);
+        let chunk_size = (render_graph.resource_providers.len() + max_thread_count - 1) / max_thread_count; // divide ints rounding remainder up
+        // println!("chunk {} {}", chunk_size, render_graph.resource_providers.len());
+        let mut actual_thread_count = 0;
+        crossbeam_utils::thread::scope(|s| {
+            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
+                let device = device.clone();
+                let resource_device = device.clone();
+                let sender = sender.clone();
+                let global_wgpu_resources = &*global_wgpu_resources;
+                let world = &*world;
+                let resources = &*resources;
+                actual_thread_count += 1;
+                // println!("spawn {}", resource_provider_chunk.len());
+                s.spawn(move |_| {
+                    let mut render_context = WgpuRenderContext::new(
+                        device,
+                        WgpuTransactionalRenderResourceContext::new(
+                            resource_device,
+                            global_wgpu_resources,
+                        ),
+                    );
+                    for resource_provider in resource_provider_chunk.iter_mut() {
+                        resource_provider.update(&mut render_context, world, resources);
+                    }
+                    sender.send(render_context.finish()).unwrap();
+                });
             }
-            results.push(render_context.finish());
-            // sender.send(render_context.finish()).unwrap();
-            // });
-        }
-        // });
+        }).unwrap();
+
         let mut command_buffers = Vec::new();
         let mut local_resources = Vec::new();
-        for (command_buffer, render_resources) in results {
-            // for i in 0..thread_count {
-            //     let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
+        for i in 0..actual_thread_count {
+            let (command_buffer, render_resources) = receiver.recv().unwrap();
             if let Some(command_buffer) = command_buffer {
                 command_buffers.push(command_buffer);
             }
@@ -266,11 +276,25 @@ impl WgpuRenderer {
             // println!("got {}", i);
         }
 
+        (command_buffers, local_resources)
+    }
+
+    pub fn update_resource_providers(
+        world: &mut World,
+        resources: &mut Resources,
+        queue: &mut wgpu::Queue,
+        device: Arc<wgpu::Device>,
+        global_wgpu_resources: &mut WgpuResources,
+    ) {
+        let (mut command_buffers, local_resources) = Self::parallel_resource_provider_update(world, resources, device.clone(), global_wgpu_resources);
         for local_resource in local_resources {
             global_wgpu_resources.consume(local_resource);
         }
 
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         let mut results = Vec::new();
+        let thread_count = 5;
+        let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
         // crossbeam_utils::thread::scope(|s| {
         for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
             // TODO: try to unify this Device usage
@@ -279,8 +303,10 @@ impl WgpuRenderer {
             // let sender = sender.clone();
             // s.spawn(|_| {
             // TODO: replace WgpuResources with Global+Local resources
-            let mut render_context =
-                WgpuRenderContext::new(device, WgpuTransactionalRenderResourceContext::new(resource_device, global_wgpu_resources));
+            let mut render_context = WgpuRenderContext::new(
+                device,
+                WgpuTransactionalRenderResourceContext::new(resource_device, global_wgpu_resources),
+            );
             for resource_provider in resource_provider_chunk.iter_mut() {
                 resource_provider.finish_update(&mut render_context, world, resources);
             }
