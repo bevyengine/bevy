@@ -53,10 +53,28 @@ struct QueuedBufferWrite {
 }
 
 // TODO: make these queries only update changed T components
+type UniformQueryRead<T> = Query<
+    (Read<T>, Read<Renderable>),
+    EntityFilterTuple<
+        And<(ComponentFilter<T>, ComponentFilter<Renderable>)>,
+        And<(Passthrough, Passthrough)>,
+        And<(Passthrough, Passthrough)>,
+    >,
+>;
+
 type UniformQuery<T> = Query<
     (Read<T>, Write<Renderable>),
     EntityFilterTuple<
         And<(ComponentFilter<T>, ComponentFilter<Renderable>)>,
+        And<(Passthrough, Passthrough)>,
+        And<(Passthrough, Passthrough)>,
+    >,
+>;
+
+type UniformHandleQueryRead<T> = Query<
+    (Read<Handle<T>>, Read<Renderable>),
+    EntityFilterTuple<
+        And<(ComponentFilter<Handle<T>>, ComponentFilter<Renderable>)>,
         And<(Passthrough, Passthrough)>,
         And<(Passthrough, Passthrough)>,
     >,
@@ -82,9 +100,9 @@ where
     // PERF: somehow remove this HashSet
     uniform_buffer_status: Vec<Option<(String, BufferArrayStatus)>>,
     instance_buffer_status: Option<BufferArrayStatus>,
-    query: Option<UniformQuery<T>>,
+    query: Option<UniformQueryRead<T>>,
     query_finish: Option<UniformQuery<T>>,
-    handle_query: Option<UniformHandleQuery<T>>,
+    handle_query: Option<UniformHandleQueryRead<T>>,
     handle_query_finish: Option<UniformHandleQuery<T>>,
 }
 
@@ -102,13 +120,25 @@ where
             use_dynamic_uniforms,
             instance_buffer_status: None,
             is_instanceable,
-            query: Some(<(Read<T>, Write<Renderable>)>::query()),
+            query: Some(<(Read<T>, Read<Renderable>)>::query()),
             query_finish: Some(<(Read<T>, Write<Renderable>)>::query()),
-            handle_query: Some(<(Read<Handle<T>>, Write<Renderable>)>::query()),
+            handle_query: Some(<(Read<Handle<T>>, Read<Renderable>)>::query()),
             handle_query_finish: Some(<(Read<Handle<T>>, Write<Renderable>)>::query()),
             _marker: PhantomData,
         }
     }
+
+    fn update_readonly(
+        &mut self,
+        _render_context: &mut dyn RenderContext,
+        world: &World,
+        resources: &Resources,
+    ) {
+        self.reset_buffer_array_status_counts();
+        self.update_uniforms_info(world);
+        self.update_uniform_handles_info(world, resources);
+    }
+
 
     fn reset_buffer_array_status_counts(&mut self) {
         for buffer_status in self.uniform_buffer_status.iter_mut() {
@@ -122,9 +152,9 @@ where
         }
     }
 
-    fn update_uniforms_info(&mut self, world: &mut World) {
+    fn update_uniforms_info(&mut self, world: &World) {
         let query = self.query.take().unwrap();
-        for (uniforms, mut renderable) in query.iter_mut(world) {
+        for (uniforms, renderable) in query.iter(world) {
             if !renderable.is_visible {
                 return;
             }
@@ -141,19 +171,17 @@ where
             } else {
                 self.increment_uniform_counts(&uniforms);
             }
-
-            Self::update_shader_defs(&uniforms, &mut renderable.render_resource_assignments);
         }
 
         self.query = Some(query);
     }
 
-    fn update_uniform_handles_info(&mut self, world: &mut World, resources: &Resources) {
+    fn update_uniform_handles_info(&mut self, world: &World, resources: &Resources) {
         let handle_query = self.handle_query.take().unwrap();
         let assets = resources.get::<AssetStorage<T>>();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
         if let Some(assets) = assets {
-            for (entity, (handle, mut renderable)) in handle_query.iter_entities_mut(world) {
+            for (entity, (handle, renderable)) in handle_query.iter_entities(world) {
                 if !renderable.is_visible {
                     return;
                 }
@@ -175,7 +203,6 @@ where
                     let uniforms = assets
                         .get(&handle)
                         .expect("Handle points to a non-existent resource");
-                    Self::update_shader_defs(uniforms, &mut renderable.render_resource_assignments);
 
                     self.increment_uniform_counts(&uniforms);
                 }
@@ -251,17 +278,6 @@ where
 
     fn get_aligned_dynamic_uniform_size(data_size: usize) -> usize {
         BIND_BUFFER_ALIGNMENT * ((data_size as f32 / BIND_BUFFER_ALIGNMENT as f32).ceil() as usize)
-    }
-
-    fn update_shader_defs(
-        uniforms: &T,
-        render_resource_assignments: &mut RenderResourceAssignments,
-    ) {
-        if let Some(shader_defs) = uniforms.get_shader_defs() {
-            for shader_def in shader_defs {
-                render_resource_assignments.shader_defs.insert(shader_def);
-            }
-        }
     }
 
     fn setup_uniform_buffer_resources(
@@ -566,8 +582,6 @@ where
                         resources,
                         &mut batch.render_resource_assignments,
                     );
-
-                    Self::update_shader_defs(&uniforms, &mut batch.render_resource_assignments);
                 }
             }
         }
@@ -723,9 +737,7 @@ where
         world: &mut World,
         resources: &Resources,
     ) {
-        self.reset_buffer_array_status_counts();
-        self.update_uniforms_info(world);
-        self.update_uniform_handles_info(world, resources);
+        self.update_readonly(_render_context, world, resources);
     }
 
     fn finish_update(

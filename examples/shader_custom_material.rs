@@ -1,14 +1,15 @@
-use bevy::prelude::*;
+use bevy::{prelude::*};
 
 fn main() {
-    App::build().add_default_plugins().setup(setup).run();
+    App::build()
+        .add_default_plugins()
+        .setup(setup)
+        .run();
 }
 
 #[derive(Uniforms, Default)]
 struct MyMaterial {
     pub color: Color,
-    #[uniform(ignore, shader_def)]
-    pub always_red: bool,
 }
 
 fn add_shader_to_render_graph(resources: &mut Resources) {
@@ -52,10 +53,6 @@ fn add_shader_to_render_graph(resources: &mut Resources) {
                     };
                     void main() {
                         o_Target = color;
-
-                    # ifdef MYMATERIAL_ALWAYS_RED
-                        o_Target = vec4(0.8, 0.0, 0.0, 1.0);
-                    # endif
                     }
                 "#,
                 ))
@@ -69,14 +66,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
 
     // create materials
     let mut material_storage = AssetStorage::<MyMaterial>::new();
-    let green_material = material_storage.add(MyMaterial {
+    let material = material_storage.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
-        always_red: false,
-    });
-
-    let red_material = material_storage.add(MyMaterial {
-        color: Color::rgb(0.0, 0.0, 0.0),
-        always_red: true,
     });
 
     resources.insert(material_storage);
@@ -103,19 +94,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 pipelines: vec![pipeline_handle],
                 ..Default::default()
             },
-            material: green_material,
-            translation: Translation::new(-2.0, 0.0, 0.0),
-            ..Default::default()
-        })
-        // cube
-        .add_entity(MeshMaterialEntity::<MyMaterial> {
-            mesh: cube_handle,
-            renderable: Renderable {
-                pipelines: vec![pipeline_handle],
-                ..Default::default()
-            },
-            material: red_material,
-            translation: Translation::new(2.0, 0.0, 0.0),
+            material,
+            translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera

@@ -1,5 +1,5 @@
 pub use crate::AddDefaultPlugins;
-pub use crate::app::{App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader};
+pub use crate::app::{App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader, stage};
 #[cfg(feature = "asset")]
 pub use crate::asset::{Asset, AssetStorage, Handle};
 #[cfg(feature = "derive")]

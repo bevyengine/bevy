@@ -2,10 +2,12 @@ use crate::{
     color::ColorSource,
     pipeline::{BindType, VertexBufferDescriptor},
     texture::Texture,
+    Renderable,
 };
 
-use bevy_asset::Handle;
+use bevy_asset::{AssetStorage, Handle};
 use bevy_core::bytes::GetBytes;
+use legion::prelude::*;
 
 pub trait AsUniforms {
     fn get_field_infos() -> &'static [FieldInfo];
@@ -15,6 +17,44 @@ pub trait AsUniforms {
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
     fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
     fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
+}
+
+pub fn shader_def_system<T>() -> Box<dyn Schedulable>
+where
+    T: AsUniforms + Send + Sync + 'static,
+{
+    SystemBuilder::new(format!(
+        "shader_def::{}",
+        std::any::type_name::<T>()
+    ))
+    .with_query(<(Read<T>, Write<Renderable>)>::query())
+    .build(|_, world, _, query| {
+        for (uniforms, mut renderable) in query.iter_mut(world) {
+            if let Some(shader_defs) = uniforms.get_shader_defs() {
+                renderable.render_resource_assignments.shader_defs.extend(shader_defs)
+            }
+        }
+    })
+}
+
+pub fn asset_handle_shader_def_system<T>() -> Box<dyn Schedulable>
+where
+    T: AsUniforms + Send + Sync + 'static,
+{
+    SystemBuilder::new(format!(
+        "asset_handle_shader_def::{}",
+        std::any::type_name::<T>()
+    ))
+    .read_resource::<AssetStorage<T>>()
+    .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
+    .build(|_, world, asset_storage, query| {
+        for (uniform_handle, mut renderable) in query.iter_mut(world) {
+            let uniforms = asset_storage.get(&uniform_handle).unwrap();
+            if let Some(shader_defs) = uniforms.get_shader_defs() {
+                renderable.render_resource_assignments.shader_defs.extend(shader_defs)
+            }
+        }
+    })
 }
 
 pub trait ShaderDefSuffixProvider {
