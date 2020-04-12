@@ -68,7 +68,7 @@ impl RenderResourceAssignments {
             .insert(name.to_string(), (vertices_resource, indices_resource));
     }
 
-    pub fn get_or_update_render_resource_set_id(
+    pub fn update_render_resource_set_id(
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
     ) -> Option<RenderResourceSetId> {
@@ -191,23 +191,23 @@ mod tests {
         equal_assignments.set("a", RenderResource(1));
         equal_assignments.set("b", RenderResource(2));
 
-        let set_id = assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
+        let set_id = assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(set_id, None);
 
         let different_set_id =
-            different_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
+            different_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(different_set_id, None);
         assert_ne!(different_set_id, set_id);
 
         let equal_set_id =
-            equal_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
+            equal_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(equal_set_id, None);
         assert_eq!(equal_set_id, set_id);
 
         let mut unmatched_assignments = RenderResourceAssignments::default();
         unmatched_assignments.set("a", RenderResource(1));
         let unmatched_set_id =
-            unmatched_assignments.get_or_update_render_resource_set_id(&bind_group_descriptor);
+            unmatched_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_eq!(unmatched_set_id, None);
     }
 }

@@ -15,7 +15,6 @@ use std::collections::{HashMap, HashSet};
 #[derive(Default)]
 pub struct RenderGraph {
     pub pipeline_descriptors: HashSet<Handle<PipelineDescriptor>>,
-    // TODO: make this ordered
     pub pass_descriptors: HashMap<String, PassDescriptor>,
     pub pass_pipelines: HashMap<String, Vec<Handle<PipelineDescriptor>>>,
     pub resource_providers: Vec<Box<dyn ResourceProvider + Send + Sync>>,

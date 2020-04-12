@@ -36,7 +36,7 @@ use self::{
     pass::passes::ForwardPassBuilder,
     pipeline::{
         pipelines::ForwardPipelineBuilder, PipelineCompiler, PipelineDescriptor,
-        ShaderPipelineAssignments, VertexBufferDescriptors,
+        PipelineAssignments, VertexBufferDescriptors,
     },
     render_graph::RenderGraph,
     render_resource::{
@@ -107,7 +107,7 @@ impl AppPlugin for RenderPlugin {
             .add_resource(AssetStorage::<Shader>::new())
             .add_resource(AssetStorage::<StandardMaterial>::new())
             .add_resource(AssetStorage::<PipelineDescriptor>::new())
-            .add_resource(ShaderPipelineAssignments::new())
+            .add_resource(PipelineAssignments::new())
             .add_resource(VertexBufferDescriptors::default())
             .add_resource(PipelineCompiler::new())
             .add_resource(RenderResourceAssignments::default())

@@ -62,7 +62,7 @@ impl DrawTarget for AssignedBatchesDrawTarget {
 
     fn setup(
         &mut self,
-        world: &mut World,
+        world: &World,
         resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
@@ -89,8 +89,8 @@ impl DrawTarget for AssignedBatchesDrawTarget {
             log::trace!("{:#?}", batch);
             renderer.setup_bind_groups(&mut batch.render_resource_assignments, pipeline_descriptor);
             for batched_entity in batch.entities.iter() {
-                let mut renderable = world
-                    .get_component_mut::<Renderable>(*batched_entity)
+                let renderable = world
+                    .get_component::<Renderable>(*batched_entity)
                     .unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
@@ -102,7 +102,7 @@ impl DrawTarget for AssignedBatchesDrawTarget {
                     batch.render_resource_assignments.id
                 );
                 renderer.setup_bind_groups(
-                    &mut renderable.render_resource_assignments,
+                    &renderable.render_resource_assignments,
                     pipeline_descriptor,
                 );
             }

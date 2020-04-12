@@ -65,7 +65,7 @@ impl DrawTarget for UiDrawTarget {
 
     fn setup(
         &mut self,
-        _world: &mut World,
+        _world: &World,
         resources: &Resources,
         renderer: &mut dyn Renderer,
         _pipeline_handle: Handle<PipelineDescriptor>,

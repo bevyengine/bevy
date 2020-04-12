@@ -3,7 +3,7 @@ use super::{
     WgpuRenderPass, WgpuResources,
 };
 use crate::renderer_2::{
-    WgpuRenderContext, WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext,
+    WgpuRenderContext, WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext, render_resource_sets_system,
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetStorage, Handle};
@@ -467,6 +467,7 @@ impl Renderer for WgpuRenderer {
         self.create_queued_textures(resources);
         let mut encoder = self.encoder.take().unwrap();
 
+        render_resource_sets_system().run(world, resources);
         // setup draw targets
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.setup_pipeline_draw_targets(world, resources, self);
@@ -665,19 +666,19 @@ impl Renderer for WgpuRenderer {
 
     fn setup_bind_groups(
         &mut self,
-        render_resource_assignments: &mut RenderResourceAssignments,
+        render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
         let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in pipeline_layout.bind_groups.iter() {
-            if let Some(render_resource_set_id) =
-                render_resource_assignments.get_or_update_render_resource_set_id(bind_group)
+            if let Some((render_resource_set_id, _indices)) =
+                render_resource_assignments.get_render_resource_set_id(bind_group.id)
             {
                 if let None = self
                     .global_context
                     .render_resources
                     .wgpu_resources
-                    .get_bind_group(bind_group.id, render_resource_set_id)
+                    .get_bind_group(bind_group.id, *render_resource_set_id)
                 {
                     self.global_context
                         .render_resources

@@ -4,7 +4,7 @@ use legion::prelude::*;
 use crate::{
     draw_target::DrawTarget,
     mesh::Mesh,
-    pipeline::{PipelineDescriptor, ShaderPipelineAssignments},
+    pipeline::{PipelineDescriptor, PipelineAssignments},
     render_resource::{
         resource_name, EntityRenderResourceAssignments, RenderResourceAssignments, ResourceInfo,
     },
@@ -23,7 +23,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         render_pass: &mut dyn RenderPass,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) {
-        let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
+        let shader_pipeline_assignments = resources.get::<PipelineAssignments>().unwrap();
         let entity_render_resource_assignments =
             resources.get::<EntityRenderResourceAssignments>().unwrap();
         let mut current_mesh_handle = None;
@@ -78,16 +78,16 @@ impl DrawTarget for AssignedMeshesDrawTarget {
 
     fn setup(
         &mut self,
-        world: &mut World,
+        world: &World,
         resources: &Resources,
         renderer: &mut dyn Renderer,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
     ) {
-        let shader_pipeline_assignments = resources.get::<ShaderPipelineAssignments>().unwrap();
+        let pipeline_assignments = resources.get::<PipelineAssignments>().unwrap();
         let entity_render_resource_assignments =
             resources.get::<EntityRenderResourceAssignments>().unwrap();
-        let assigned_render_resource_assignments = shader_pipeline_assignments
+        let assigned_render_resource_assignments = pipeline_assignments
             .assignments
             .get(&pipeline_handle);
         let mut global_render_resource_assignments =
@@ -98,13 +98,13 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 let entity = entity_render_resource_assignments
                     .get(*assignment_id)
                     .unwrap();
-                let mut renderable = world.get_component_mut::<Renderable>(*entity).unwrap();
+                let renderable = world.get_component::<Renderable>(*entity).unwrap();
                 if !renderable.is_visible || renderable.is_instanced {
                     continue;
                 }
 
                 renderer.setup_bind_groups(
-                    &mut renderable.render_resource_assignments,
+                    &renderable.render_resource_assignments,
                     pipeline_descriptor,
                 );
             }

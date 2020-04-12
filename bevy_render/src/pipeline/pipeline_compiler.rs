@@ -151,7 +151,7 @@ impl PipelineCompiler {
     fn update_shader_assignments(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
-        shader_pipeline_assignments: &mut ShaderPipelineAssignments,
+        shader_pipeline_assignments: &mut PipelineAssignments,
         renderer: &dyn Renderer,
         pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
         shader_storage: &mut AssetStorage<Shader>,
@@ -222,13 +222,13 @@ impl PipelineCompiler {
     }
 }
 
-pub struct ShaderPipelineAssignments {
+pub struct PipelineAssignments {
     pub assignments: HashMap<Handle<PipelineDescriptor>, Vec<RenderResourceAssignmentsId>>,
 }
 
-impl ShaderPipelineAssignments {
+impl PipelineAssignments {
     pub fn new() -> Self {
-        ShaderPipelineAssignments {
+        PipelineAssignments {
             assignments: HashMap::new(),
         }
     }
@@ -244,7 +244,7 @@ pub fn update_shader_assignments(
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
     {
         let mut shader_pipeline_assignments =
-            resources.get_mut::<ShaderPipelineAssignments>().unwrap();
+            resources.get_mut::<PipelineAssignments>().unwrap();
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();

@@ -163,6 +163,10 @@ impl<T> AssetStorage<T> {
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
         self.assets.get_mut(&handle.id)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item=(Handle<T>, &T)> {
+        self.assets.iter().map(|(k,v)| (Handle::new(*k), v))
+    }
 }
 
 impl<T> GetBytes for Handle<T> {

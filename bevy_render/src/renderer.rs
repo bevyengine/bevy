@@ -48,7 +48,7 @@ pub trait Renderer {
     );
     fn setup_bind_groups(
         &mut self,
-        render_resource_assignments: &mut RenderResourceAssignments,
+        render_resource_assignments: &RenderResourceAssignments,
         pipeline_descriptor: &PipelineDescriptor,
     );
 }
