@@ -10,8 +10,7 @@ pub trait ResourceProvider {
     ) {
     }
 
-    // TODO: make this read-only
-    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &mut World, _resources: &Resources) {
+    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &World, _resources: &Resources) {
     }
 
     // TODO: remove this

@@ -21,8 +21,10 @@ impl FrameTextureResourceProvider {
             height: 0,
         }
     }
+}
 
-    pub fn update(&mut self, render_context: &mut dyn RenderContext, resources: &Resources) {
+impl ResourceProvider for FrameTextureResourceProvider {
+    fn update(&mut self, render_context: &mut dyn RenderContext, _world: &World, resources: &Resources) {
         let windows = resources.get::<Windows>().unwrap();
         let window = windows.get_primary().unwrap();
 
@@ -42,11 +44,5 @@ impl FrameTextureResourceProvider {
             let texture_resource = render_resources.create_texture(&self.descriptor);
             render_resource_assignments.set(&self.name, texture_resource);
         }
-    }
-}
-
-impl ResourceProvider for FrameTextureResourceProvider {
-    fn update(&mut self, render_context: &mut dyn RenderContext, _world: &mut World, resources: &Resources) {
-        self.update(render_context, resources)
     }
 }

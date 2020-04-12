@@ -91,7 +91,7 @@ impl ResourceProvider for MeshResourceProvider {
         vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
-    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &mut World, _resources: &Resources) {
+    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &World, _resources: &Resources) {
     }
 
     fn finish_update(

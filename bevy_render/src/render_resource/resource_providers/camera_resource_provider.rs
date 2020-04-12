@@ -28,8 +28,33 @@ impl CameraResourceProvider {
             window_resized_event_reader,
         }
     }
+}
 
-    pub fn update_read_only(&mut self, world: &World, resources: &Resources, render_context: &mut dyn RenderContext) {
+impl ResourceProvider for CameraResourceProvider {
+    fn initialize(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
+            size: std::mem::size_of::<[[f32; 4]; 4]>(),
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
+        self.camera_buffer = Some(buffer);
+    }
+
+    fn update(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        world: &World,
+        resources: &Resources,
+    ) {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let primary_window_resized_event = window_resized_events
             .iter(&mut self.window_resized_event_reader)
@@ -68,34 +93,5 @@ impl CameraResourceProvider {
                 );
             }
         }
-    }
-}
-
-impl ResourceProvider for CameraResourceProvider {
-    fn initialize(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        _world: &mut World,
-        resources: &Resources,
-    ) {
-        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
-            size: std::mem::size_of::<[[f32; 4]; 4]>(),
-            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-            ..Default::default()
-        });
-
-        let mut render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
-        self.camera_buffer = Some(buffer);
-    }
-
-    fn update(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        world: &mut World,
-        resources: &Resources,
-    ) {
-        self.update_read_only(world, resources, render_context);
     }
 }

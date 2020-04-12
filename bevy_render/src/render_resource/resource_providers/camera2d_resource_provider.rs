@@ -27,8 +27,28 @@ impl Camera2dResourceProvider {
             window_resized_event_reader,
         }
     }
+}
 
-    fn update_read_only(
+impl ResourceProvider for Camera2dResourceProvider {
+    fn initialize(
+        &mut self,
+        render_context: &mut dyn RenderContext,
+        _world: &mut World,
+        resources: &Resources,
+    ) {
+        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
+            size: std::mem::size_of::<[[f32; 4]; 4]>(),
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+
+        let mut render_resource_assignments =
+            resources.get_mut::<RenderResourceAssignments>().unwrap();
+        render_resource_assignments.set(resource_name::uniform::CAMERA2D, buffer);
+        self.camera_buffer = Some(buffer);
+    }
+
+    fn update(
         &mut self,
         render_context: &mut dyn RenderContext,
         world: &World,
@@ -43,8 +63,7 @@ impl Camera2dResourceProvider {
 
         if let Some(_) = primary_window_resized_event {
             let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-            for (camera, _) in <(Read<Camera>, Read<ActiveCamera2d>)>::query().iter(world)
-            {
+            for (camera, _) in <(Read<Camera>, Read<ActiveCamera2d>)>::query().iter(world) {
                 let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
 
                 if let Some(old_tmp_buffer) = self.tmp_buffer {
@@ -71,34 +90,5 @@ impl Camera2dResourceProvider {
                 );
             }
         }
-    }
-}
-
-impl ResourceProvider for Camera2dResourceProvider {
-    fn initialize(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        _world: &mut World,
-        resources: &Resources,
-    ) {
-        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
-            size: std::mem::size_of::<[[f32; 4]; 4]>(),
-            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-            ..Default::default()
-        });
-
-        let mut render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        render_resource_assignments.set(resource_name::uniform::CAMERA2D, buffer);
-        self.camera_buffer = Some(buffer);
-    }
-
-    fn update(
-        &mut self,
-        render_context: &mut dyn RenderContext,
-        world: &mut World,
-        resources: &Resources,
-    ) {
-        self.update_read_only(render_context, world, resources);
     }
 }

@@ -128,18 +128,6 @@ where
         }
     }
 
-    fn update_readonly(
-        &mut self,
-        _render_context: &mut dyn RenderContext,
-        world: &World,
-        resources: &Resources,
-    ) {
-        self.reset_buffer_array_status_counts();
-        self.update_uniforms_info(world);
-        self.update_uniform_handles_info(world, resources);
-    }
-
-
     fn reset_buffer_array_status_counts(&mut self) {
         for buffer_status in self.uniform_buffer_status.iter_mut() {
             if let Some((_name, buffer_status)) = buffer_status {
@@ -734,10 +722,12 @@ where
     fn update(
         &mut self,
         _render_context: &mut dyn RenderContext,
-        world: &mut World,
+        world: &World,
         resources: &Resources,
     ) {
-        self.update_readonly(_render_context, world, resources);
+        self.reset_buffer_array_status_counts();
+        self.update_uniforms_info(world);
+        self.update_uniform_handles_info(world, resources);
     }
 
     fn finish_update(
