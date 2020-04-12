@@ -1,12 +1,10 @@
-use crate::WgpuResources;
-
+use super::WgpuRenderResourceContextTrait;
 use bevy_render::{
-    render_resource::{BufferInfo, RenderResource, RenderResources, ResourceInfo},
-    renderer_2::RenderContext,
-    texture::{SamplerDescriptor, TextureDescriptor, Texture}, mesh::Mesh,
+    render_resource::RenderResource,
+    renderer_2::{RenderContext, RenderResourceContext},
+    texture::TextureDescriptor,
 };
 use std::sync::Arc;
-use bevy_asset::Handle;
 
 #[derive(Default)]
 struct LazyCommandEncoder {
@@ -31,148 +29,70 @@ impl LazyCommandEncoder {
     }
 }
 
-pub struct WgpuRenderContext<'a> {
+pub struct WgpuRenderContext<T>
+where
+    T: RenderResourceContext,
+{
     pub device: Arc<wgpu::Device>,
-    local_wgpu_resources: WgpuResources,
     command_encoder: LazyCommandEncoder,
-    global_wgpu_resources: &'a WgpuResources,
-    removed_resources: Vec<RenderResource>,
+    pub render_resources: T,
 }
 
-impl<'a> WgpuRenderContext<'a> {
-    pub fn new(device: Arc<wgpu::Device>, global_wgpu_resources: &'a WgpuResources) -> Self {
+impl<T> WgpuRenderContext<T>
+where
+    T: RenderResourceContext,
+{
+    pub fn new(device: Arc<wgpu::Device>, resources: T) -> Self {
         WgpuRenderContext {
             device,
-            global_wgpu_resources: global_wgpu_resources,
+            render_resources: resources,
             command_encoder: LazyCommandEncoder::default(),
-            local_wgpu_resources: WgpuResources::default(),
-            removed_resources: Vec::new(),
         }
     }
 
-    pub fn finish(mut self) -> (Option<wgpu::CommandBuffer>, WgpuResources) {
-        (self.command_encoder.take().map(|encoder| encoder.finish()), self.local_wgpu_resources)
+    /// Consume this context, finalize the current CommandEncoder (if it exists), and take the current WgpuResources.
+    /// This is intended to be called from a worker thread right before synchronizing with the main thread.   
+    pub fn finish(mut self) -> (Option<wgpu::CommandBuffer>, T) {
+        (
+            self.command_encoder.take().map(|encoder| encoder.finish()),
+            self.render_resources,
+        )
     }
 
-    fn get_buffer<'b>(render_resource: RenderResource, local_resources: &'b WgpuResources, global_resources: &'b WgpuResources) -> Option<&'b wgpu::Buffer> {
-        let buffer = local_resources.buffers.get(&render_resource);
-        if buffer.is_some() {
-            return buffer;
-        }
-
-        global_resources.buffers.get(&render_resource)
+    /// Consume this context, finalize the current CommandEncoder (if it exists), and take the current WgpuResources.
+    /// This is intended to be called from a worker thread right before synchronizing with the main thread.   
+    pub fn finish_encoder(&mut self) -> Option<wgpu::CommandBuffer> {
+        self.command_encoder.take().map(|encoder| encoder.finish())
     }
+
+    // fn get_buffer<'b>(
+    //     render_resource: RenderResource,
+    //     local_resources: &'b WgpuResources,
+    //     global_resources: &'b WgpuResources,
+    // ) -> Option<&'b wgpu::Buffer> {
+    //     let buffer = local_resources.buffers.get(&render_resource);
+    //     if buffer.is_some() {
+    //         return buffer;
+    //     }
+
+    //     global_resources.buffers.get(&render_resource)
+    // }
 }
 
-impl<'a> RenderContext for WgpuRenderContext<'a> {
-    fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
-        self.local_wgpu_resources
-            .create_sampler(&self.device, sampler_descriptor)
-    }
-    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource {
-        self.local_wgpu_resources
-            .create_texture(&self.device, texture_descriptor)
-    }
-    fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.local_wgpu_resources.create_buffer(&self.device, buffer_info)
-    }
-
-    // TODO: clean this up
-    fn create_buffer_mapped(
-        &mut self,
-        buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderContext),
-    ) -> RenderResource {
-        let buffer = WgpuResources::begin_create_buffer_mapped_render_context(
-            &buffer_info,
-            self,
-            setup_data,
-        );
-        self.local_wgpu_resources.assign_buffer(buffer, buffer_info)
-    }
-
+impl<T> RenderContext for WgpuRenderContext<T>
+where
+    T: RenderResourceContext + WgpuRenderResourceContextTrait,
+{
     fn create_texture_with_data(
         &mut self,
         texture_descriptor: &TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource {
-        self.local_wgpu_resources.create_texture_with_data(
-            &self.device,
+        self.render_resources.create_texture_with_data(
             self.command_encoder.get_or_create(&self.device),
             texture_descriptor,
             bytes,
         )
-    }
-    fn remove_buffer(&mut self, resource: RenderResource) {
-        self.local_wgpu_resources.remove_buffer(resource);
-        self.removed_resources.push(resource);
-    }
-    fn remove_texture(&mut self, resource: RenderResource) {
-        self.local_wgpu_resources.remove_texture(resource);
-        self.removed_resources.push(resource);
-    }
-    fn remove_sampler(&mut self, resource: RenderResource) {
-        self.local_wgpu_resources.remove_sampler(resource);
-        self.removed_resources.push(resource);
-    }
-
-    // TODO: this pattern is redundant and a bit confusing. make this cleaner if you can
-    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        let local = self.local_wgpu_resources.render_resources.get_texture_resource(texture);
-        if local.is_some() {
-            return local;
-        }
-
-        self.global_wgpu_resources.render_resources.get_texture_resource(texture)
-    }
-
-    fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        let local = self.local_wgpu_resources.render_resources.get_texture_sampler_resource(texture);
-        if local.is_some() {
-            return local;
-        }
-
-        self.global_wgpu_resources.render_resources.get_texture_sampler_resource(texture)
-    }
-
-
-    fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        let local = self.local_wgpu_resources.render_resources.get_mesh_vertices_resource(mesh);
-        if local.is_some() {
-            return local;
-        }
-
-        self.global_wgpu_resources.render_resources.get_mesh_vertices_resource(mesh)
-    }
-
-    fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        let local = self.local_wgpu_resources.render_resources.get_mesh_indices_resource(mesh);
-        if local.is_some() {
-            return local;
-        }
-
-        self.global_wgpu_resources.render_resources.get_mesh_indices_resource(mesh)
-    }
-
-    fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        let local_info = self.local_wgpu_resources.get_resource_info(resource);
-        if local_info.is_some() {
-            return local_info;
-        }
-
-        self.global_wgpu_resources.get_resource_info(resource)
-    }
-
-
-    fn get_local_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        self.local_wgpu_resources.resource_info.get(&resource)
-    }
-
-    fn local_render_resources(&self) -> &RenderResources {
-        &self.local_wgpu_resources.render_resources
-    }
-    fn local_render_resources_mut(&mut self) -> &mut RenderResources {
-        &mut self.local_wgpu_resources.render_resources
     }
     fn copy_buffer_to_buffer(
         &mut self,
@@ -183,12 +103,23 @@ impl<'a> RenderContext for WgpuRenderContext<'a> {
         size: u64,
     ) {
         let command_encoder = self.command_encoder.get_or_create(&self.device);
-        let source_buffer = Self::get_buffer(source_buffer, &self.local_wgpu_resources, &self.global_wgpu_resources).unwrap();
-        let destination_buffer = Self::get_buffer(destination_buffer, &self.local_wgpu_resources, &self.global_wgpu_resources).unwrap();
-        command_encoder.copy_buffer_to_buffer(source_buffer, source_offset, destination_buffer, destination_offset, size);
+        let source = self.render_resources.get_buffer(source_buffer).unwrap();
+        let destination = self
+            .render_resources
+            .get_buffer(destination_buffer)
+            .unwrap();
+        command_encoder.copy_buffer_to_buffer(
+            source,
+            source_offset,
+            destination,
+            destination_offset,
+            size,
+        );
     }
-    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
-        self.local_wgpu_resources
-            .create_buffer_with_data(&self.device, buffer_info, data)
+    fn resources(&self) -> &dyn RenderResourceContext {
+        &self.render_resources
+    }
+    fn resources_mut(&mut self) -> &mut dyn RenderResourceContext {
+        &mut self.render_resources
     }
 }

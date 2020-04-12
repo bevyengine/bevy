@@ -2,11 +2,12 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_resource::{
         AssetBatchers, BufferArrayInfo, BufferInfo, BufferUsage, RenderResource,
-        RenderResourceAssignments, ResourceInfo, ResourceProvider, RenderResourceAssignmentsId,
+        RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo, ResourceProvider,
     },
+    renderer_2::{RenderContext, RenderResourceContext},
     shader::{AsUniforms, FieldBindType},
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
-    Renderable, renderer_2::RenderContext,
+    Renderable,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::{filter::*, prelude::*};
@@ -51,6 +52,7 @@ struct QueuedBufferWrite {
     offset: usize,
 }
 
+// TODO: make these queries only update changed T components
 type UniformQuery<T> = Query<
     (Read<T>, Write<Renderable>),
     EntityFilterTuple<
@@ -262,11 +264,10 @@ where
         }
     }
 
-    fn setup_uniform_resources(
+    fn setup_uniform_buffer_resources(
         &mut self,
         uniforms: &T,
-        render_context: &mut dyn RenderContext,
-        resources: &Resources,
+        render_resources: &mut dyn RenderResourceContext,
         render_resource_assignments: &mut RenderResourceAssignments,
         staging_buffer: &mut [u8],
     ) {
@@ -282,10 +283,10 @@ where
                             array_info: Some(ref array_info),
                             is_dynamic: true,
                             ..
-                        })) = render_context.get_resource_info(buffer)
+                        })) = render_resources.get_resource_info(buffer)
                         {
-                            let index =
-                                uniform_buffer_status.get_or_assign_index(render_resource_assignments.id);
+                            let index = uniform_buffer_status
+                                .get_or_assign_index(render_resource_assignments.id);
                             render_resource_assignments.set_indexed(
                                 &field_info.uniform_name,
                                 buffer,
@@ -301,7 +302,7 @@ where
                         {
                             Some(render_resource) => render_resource,
                             None => {
-                                let resource = render_context.create_buffer(BufferInfo {
+                                let resource = render_resources.create_buffer(BufferInfo {
                                     size,
                                     buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                                     ..Default::default()
@@ -351,16 +352,33 @@ where
                             offset: target_offset,
                         });
                 }
+                _ => {}
+            }
+        }
+    }
+
+    fn setup_uniform_texture_resources(
+        &mut self,
+        uniforms: &T,
+        render_context: &mut dyn RenderContext,
+        resources: &Resources,
+        render_resource_assignments: &mut RenderResourceAssignments,
+    ) {
+        for field_info in T::get_field_infos().iter() {
+            let bind_type = uniforms.get_field_bind_type(&field_info.name);
+            match bind_type {
                 Some(FieldBindType::Texture) => {
                     let texture_handle = uniforms
                         .get_uniform_texture(&field_info.texture_name)
                         .unwrap();
                     let (texture_resource, sampler_resource) = match render_context
+                        .resources()
                         .get_texture_resource(texture_handle)
                     {
                         Some(texture_resource) => (
                             texture_resource,
                             render_context
+                                .resources()
                                 .get_texture_sampler_resource(texture_handle)
                                 .unwrap(),
                         ),
@@ -369,15 +387,17 @@ where
                             let texture = storage.get(&texture_handle).unwrap();
 
                             let texture_descriptor: TextureDescriptor = texture.into();
-                            let texture_resource =
-                                render_context.create_texture_with_data(&texture_descriptor, &texture.data);
+                            let texture_resource = render_context
+                                .create_texture_with_data(&texture_descriptor, &texture.data);
 
+                            let render_resources = render_context.resources_mut();
                             let sampler_descriptor: SamplerDescriptor = texture.into();
-                            let sampler_resource = render_context.create_sampler(&sampler_descriptor);
+                            let sampler_resource =
+                                render_resources.create_sampler(&sampler_descriptor);
 
-                            let render_resources = render_context.local_render_resources_mut();
-                            render_resources.set_texture_resource(texture_handle, texture_resource);
-                            render_resources
+                            let asset_resources = render_resources.asset_resources_mut();
+                            asset_resources.set_texture_resource(texture_handle, texture_resource);
+                            asset_resources
                                 .set_texture_sampler_resource(texture_handle, sampler_resource);
                             (texture_resource, sampler_resource)
                         }
@@ -386,16 +406,17 @@ where
                     render_resource_assignments.set(field_info.texture_name, texture_resource);
                     render_resource_assignments.set(field_info.sampler_name, sampler_resource);
                 }
-                None => {}
+                _ => {}
             }
         }
     }
 
-    fn setup_uniforms_resources(
+    // TODO: the current WgpuRenderContext mapped-memory interface forced these to be separate, but thats inefficient / redundant
+    // try to merge setup_uniforms_buffer_resources and setup_uniforms_texture_resources if possible
+    fn setup_uniforms_buffer_resources(
         &mut self,
         world: &mut World,
-        resources: &Resources,
-        render_context: &mut dyn RenderContext,
+        render_resources: &mut dyn RenderResourceContext,
         staging_buffer: &mut [u8],
     ) {
         let query_finish = self.query_finish.take().unwrap();
@@ -410,12 +431,41 @@ where
                     std::any::type_name::<T>()
                 );
             } else {
-                self.setup_uniform_resources(
+                self.setup_uniform_buffer_resources(
+                    &uniforms,
+                    render_resources,
+                    &mut renderable.render_resource_assignments,
+                    staging_buffer,
+                );
+            }
+        }
+
+        self.query_finish = Some(query_finish);
+    }
+
+    fn setup_uniforms_texture_resources(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+        render_context: &mut dyn RenderContext,
+    ) {
+        let query_finish = self.query_finish.take().unwrap();
+        for (uniforms, mut renderable) in query_finish.iter_mut(world) {
+            if !renderable.is_visible {
+                return;
+            }
+
+            if renderable.is_instanced {
+                panic!(
+                    "Cannot instance uniforms of type {0}. Only Handle<{0}> can be instanced.",
+                    std::any::type_name::<T>()
+                );
+            } else {
+                self.setup_uniform_texture_resources(
                     &uniforms,
                     render_context,
                     resources,
                     &mut renderable.render_resource_assignments,
-                    staging_buffer,
                 )
             }
         }
@@ -423,11 +473,11 @@ where
         self.query_finish = Some(query_finish);
     }
 
-    fn setup_handles_resources(
+    fn setup_handles_buffer_resources(
         &mut self,
         world: &mut World,
         resources: &Resources,
-        render_context: &mut dyn RenderContext,
+        render_resources: &mut dyn RenderResourceContext,
         staging_buffer: &mut [u8],
     ) {
         let assets = resources.get::<AssetStorage<T>>();
@@ -441,12 +491,40 @@ where
                 let uniforms = assets
                     .get(&handle)
                     .expect("Handle points to a non-existent resource");
-                self.setup_uniform_resources(
+                self.setup_uniform_buffer_resources(
+                    &uniforms,
+                    render_resources,
+                    &mut renderable.render_resource_assignments,
+                    staging_buffer,
+                );
+            }
+
+            self.handle_query_finish = Some(handle_query_finish);
+        }
+    }
+
+    fn setup_handles_texture_resources(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+        render_context: &mut dyn RenderContext,
+    ) {
+        let assets = resources.get::<AssetStorage<T>>();
+        if let Some(assets) = assets {
+            let handle_query_finish = self.handle_query_finish.take().unwrap();
+            for (handle, mut renderable) in handle_query_finish.iter_mut(world) {
+                if !renderable.is_visible || renderable.is_instanced {
+                    return;
+                }
+
+                let uniforms = assets
+                    .get(&handle)
+                    .expect("Handle points to a non-existent resource");
+                self.setup_uniform_texture_resources(
                     &uniforms,
                     render_context,
                     resources,
                     &mut renderable.render_resource_assignments,
-                    staging_buffer,
                 )
             }
 
@@ -476,12 +554,17 @@ where
                     .unwrap();
 
                 if let Some(uniforms) = asset_storage.get(&handle) {
-                    self.setup_uniform_resources(
-                        uniforms,
+                    self.setup_uniform_buffer_resources(
+                        &uniforms,
+                        render_context.resources_mut(),
+                        &mut batch.render_resource_assignments,
+                        staging_buffer,
+                    );
+                    self.setup_uniform_texture_resources(
+                        &uniforms,
                         render_context,
                         resources,
                         &mut batch.render_resource_assignments,
-                        staging_buffer,
                     );
 
                     Self::update_shader_defs(&uniforms, &mut batch.render_resource_assignments);
@@ -516,7 +599,7 @@ where
             if let Some(ResourceInfo::Buffer(BufferInfo {
                 array_info: Some(array_info),
                 ..
-            })) = render_context.get_resource_info(buffer)
+            })) = render_context.resources().get_resource_info(buffer)
             {
                 if array_info.item_capacity < buffer_array_status.new_item_count {
                     // over capacity. lets resize
@@ -544,7 +627,7 @@ where
 
             let total_size = item_size * new_capacity;
 
-            let buffer = render_context.create_buffer(BufferInfo {
+            let buffer = render_context.resources_mut().create_buffer(BufferInfo {
                 array_info: Some(BufferArrayInfo {
                     item_capacity: new_capacity,
                     item_size,
@@ -634,7 +717,12 @@ where
         self.update(render_context, world, resources);
     }
 
-    fn update(&mut self, _render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
+    fn update(
+        &mut self,
+        _render_context: &mut dyn RenderContext,
+        world: &mut World,
+        resources: &Resources,
+    ) {
         self.reset_buffer_array_status_counts();
         self.update_uniforms_info(world);
         self.update_uniform_handles_info(world, resources);
@@ -650,27 +738,56 @@ where
         self.setup_buffer_arrays(render_context);
 
         let staging_buffer_size = self.update_staging_buffer_offsets();
+        self.setup_uniforms_texture_resources(
+            world,
+            resources,
+            render_context,
+        );
+        self.setup_handles_texture_resources(
+            world,
+            resources,
+            render_context,
+        );
+        // self.setup_batched_texture_resources(world, resources, renderer, staging_buffer);
         if staging_buffer_size == 0 {
             let mut staging_buffer: [u8; 0] = [];
-            self.setup_uniforms_resources(world, resources, render_context, &mut staging_buffer);
-            self.setup_handles_resources(world, resources, render_context, &mut staging_buffer);
-        // self.setup_batched_resources(world, resources, renderer, &mut staging_buffer);
+            self.setup_uniforms_buffer_resources(
+                world,
+                render_context.resources_mut(),
+                &mut staging_buffer,
+            );
+            self.setup_handles_buffer_resources(
+                world,
+                resources,
+                render_context.resources_mut(),
+                &mut staging_buffer,
+            );
+            // self.setup_batched_buffer_resources(world, resources, renderer, &mut staging_buffer);
         } else {
-            let staging_buffer = render_context.create_buffer_mapped(
+            let staging_buffer = render_context.resources_mut().create_buffer_mapped(
                 BufferInfo {
                     buffer_usage: BufferUsage::COPY_SRC,
                     size: staging_buffer_size,
                     ..Default::default()
                 },
-                &mut |staging_buffer, renderer| {
-                    self.setup_uniforms_resources(world, resources, renderer, staging_buffer);
-                    self.setup_handles_resources(world, resources, renderer, staging_buffer);
-                    // self.setup_batched_resources(world, resources, renderer, staging_buffer);
+                &mut |staging_buffer, render_resources| {
+                    self.setup_uniforms_buffer_resources(
+                        world,
+                        render_resources,
+                        staging_buffer,
+                    );
+                    self.setup_handles_buffer_resources(
+                        world,
+                        resources,
+                        render_resources,
+                        staging_buffer,
+                    );
+                    // self.setup_batched_buffer_resources(world, resources, renderer, staging_buffer);
                 },
             );
 
             self.copy_staging_buffer_to_final_buffers(render_context, staging_buffer);
-            render_context.remove_buffer(staging_buffer);
+            render_context.resources_mut().remove_buffer(staging_buffer);
         }
     }
 }

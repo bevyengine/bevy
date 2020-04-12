@@ -2,7 +2,7 @@ use super::{
     wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
     WgpuRenderPass, WgpuResources,
 };
-use crate::renderer_2::WgpuRenderContext;
+use crate::renderer_2::{WgpuRenderContext, WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext};
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
@@ -13,7 +13,7 @@ use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
     render_resource::{
-        resource_name, BufferInfo, RenderResource, RenderResourceAssignments, RenderResources,
+        resource_name, AssetResources, BufferInfo, RenderResource, RenderResourceAssignments,
         ResourceInfo,
     },
     renderer::Renderer,
@@ -29,11 +29,10 @@ use std::{
 };
 
 pub struct WgpuRenderer {
-    pub device: Arc<wgpu::Device>,
+    pub global_context: WgpuRenderContext<WgpuRenderResourceContext>,
     pub queue: wgpu::Queue,
     pub encoder: Option<wgpu::CommandEncoder>,
     pub render_pipelines: HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
-    pub wgpu_resources: WgpuResources,
     pub window_resized_event_reader: EventReader<WindowResized>,
     pub window_created_event_reader: EventReader<WindowCreated>,
     pub intialized: bool,
@@ -62,15 +61,17 @@ impl WgpuRenderer {
                 limits: wgpu::Limits::default(),
             })
             .await;
-
+        let device = Arc::new(device);
         WgpuRenderer {
-            device: Arc::new(device),
+            global_context: WgpuRenderContext::new(
+                device.clone(),
+                WgpuRenderResourceContext::new(device),
+            ),
             queue,
             encoder: None,
             window_resized_event_reader,
             window_created_event_reader,
             intialized: false,
-            wgpu_resources: WgpuResources::default(),
             render_pipelines: HashMap::new(),
         }
     }
@@ -214,7 +215,7 @@ impl WgpuRenderer {
     pub fn initialize_resource_providers(
         world: &mut World,
         resources: &mut Resources,
-        render_context: &mut WgpuRenderContext,
+        render_context: &mut WgpuRenderContext<WgpuRenderResourceContext>,
     ) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         for resource_provider in render_graph.resource_providers.iter_mut() {
@@ -235,57 +236,73 @@ impl WgpuRenderer {
         let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
         let mut results = Vec::new();
         // crossbeam_utils::thread::scope(|s| {
-            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-                let device = device.clone();
-                // let sender = sender.clone();
-                // s.spawn(|_| {
-                    let mut render_context = WgpuRenderContext::new(device, global_wgpu_resources);
-                    for resource_provider in resource_provider_chunk.iter_mut() {
-                        resource_provider.update(&mut render_context, world, resources);
-                    }
-                    results.push(render_context.finish());
-                    // sender.send(render_context.finish()).unwrap();
-                // });
+        for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
+            let device = device.clone();
+            let resource_device = device.clone();
+            // let sender = sender.clone();
+            // s.spawn(|_| {
+            // TODO: replace WgpuResources with Global+Local resources
+            let mut render_context =
+                WgpuRenderContext::new(device, WgpuTransactionalRenderResourceContext::new(resource_device, global_wgpu_resources));
+            for resource_provider in resource_provider_chunk.iter_mut() {
+                resource_provider.update(&mut render_context, world, resources);
             }
+            results.push(render_context.finish());
+            // sender.send(render_context.finish()).unwrap();
+            // });
+        }
         // });
         let mut command_buffers = Vec::new();
-        for (command_buffer, wgpu_resources) in results {
-        // for i in 0..thread_count {
-        //     let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
+        let mut local_resources = Vec::new();
+        for (command_buffer, render_resources) in results {
+            // for i in 0..thread_count {
+            //     let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
             if let Some(command_buffer) = command_buffer {
                 command_buffers.push(command_buffer);
             }
 
-            global_wgpu_resources.consume(wgpu_resources);
+            local_resources.push(render_resources.local_resources);
 
             // println!("got {}", i);
         }
 
+        for local_resource in local_resources {
+            global_wgpu_resources.consume(local_resource);
+        }
+
         let mut results = Vec::new();
         // crossbeam_utils::thread::scope(|s| {
-            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-                let device = device.clone();
-                // let sender = sender.clone();
-                // s.spawn(|_| {
-                    let mut render_context = WgpuRenderContext::new(device, global_wgpu_resources);
-                    for resource_provider in resource_provider_chunk.iter_mut() {
-                        resource_provider.finish_update(&mut render_context, world, resources);
-                    }
-                    results.push(render_context.finish());
-                    // sender.send(render_context.finish()).unwrap();
-                // });
+        for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
+            // TODO: try to unify this Device usage
+            let device = device.clone();
+            let resource_device = device.clone();
+            // let sender = sender.clone();
+            // s.spawn(|_| {
+            // TODO: replace WgpuResources with Global+Local resources
+            let mut render_context =
+                WgpuRenderContext::new(device, WgpuTransactionalRenderResourceContext::new(resource_device, global_wgpu_resources));
+            for resource_provider in resource_provider_chunk.iter_mut() {
+                resource_provider.finish_update(&mut render_context, world, resources);
             }
+            results.push(render_context.finish());
+            // sender.send(render_context.finish()).unwrap();
+            // });
+        }
         // });
 
-        for (command_buffer, wgpu_resources) in results {
-        // for i in 0..thread_count {
+        let mut local_resources = Vec::new();
+        for (command_buffer, render_resources) in results {
+            // for i in 0..thread_count {
             // let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
             if let Some(command_buffer) = command_buffer {
                 command_buffers.push(command_buffer);
             }
 
-            global_wgpu_resources.consume(wgpu_resources);
+            local_resources.push(render_resources.local_resources);
             // println!("got {}", i);
+        }
+        for local_resource in local_resources {
+            global_wgpu_resources.consume(local_resource);
         }
 
         queue.submit(&command_buffers);
@@ -366,6 +383,8 @@ impl WgpuRenderer {
         let primary_swap_chain =
             primary_window_id.map(|primary_window_id| primary_window_id.to_string());
         let swap_chain_outputs = self
+            .global_context
+            .render_resources
             .wgpu_resources
             .window_swap_chains
             .iter_mut()
@@ -386,21 +405,19 @@ impl Renderer for WgpuRenderer {
     fn update(&mut self, world: &mut World, resources: &mut Resources) {
         Self::handle_window_created_events(
             resources,
-            &self.device,
-            &mut self.wgpu_resources,
+            &self.global_context.device,
+            &mut self.global_context.render_resources.wgpu_resources,
             &mut self.window_created_event_reader,
         );
         Self::handle_window_resized_events(
             resources,
-            &self.device,
-            &mut self.wgpu_resources,
+            &self.global_context.device,
+            &mut self.global_context.render_resources.wgpu_resources,
             &mut self.window_resized_event_reader,
         );
         if !self.intialized {
-            let mut render_context = WgpuRenderContext::new(self.device.clone(), &self.wgpu_resources);
-            Self::initialize_resource_providers(world, resources, &mut render_context);
-            let (buffer, wgpu_resources) = render_context.finish();
-            self.wgpu_resources.consume(wgpu_resources);
+            Self::initialize_resource_providers(world, resources, &mut self.global_context);
+            let buffer = self.global_context.finish_encoder();
             if let Some(buffer) = buffer {
                 self.queue.submit(&[buffer]);
             }
@@ -411,12 +428,13 @@ impl Renderer for WgpuRenderer {
             world,
             resources,
             &mut self.queue,
-            self.device.clone(),
-            &mut self.wgpu_resources,
+            self.global_context.device.clone(),
+            &mut self.global_context.render_resources.wgpu_resources,
         );
 
         self.encoder = Some(
-            self.device
+            self.global_context
+                .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
         );
         update_shader_assignments(world, resources, self);
@@ -438,7 +456,7 @@ impl Renderer for WgpuRenderer {
                 let global_render_resource_assignments =
                     resources.get::<RenderResourceAssignments>().unwrap();
                 Self::create_render_pass(
-                    &self.wgpu_resources,
+                    &self.global_context.render_resources.wgpu_resources,
                     pass_descriptor,
                     &global_render_resource_assignments,
                     &mut encoder,
@@ -461,7 +479,10 @@ impl Renderer for WgpuRenderer {
                             let mut wgpu_render_pass = WgpuRenderPass {
                                 render_pass: &mut render_pass,
                                 pipeline_descriptor,
-                                wgpu_resources: &self.wgpu_resources,
+                                wgpu_resources: &self
+                                    .global_context
+                                    .render_resources
+                                    .wgpu_resources,
                                 renderer: &self,
                                 bound_bind_groups: HashMap::default(),
                             };
@@ -487,24 +508,40 @@ impl Renderer for WgpuRenderer {
     }
 
     fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
-        self.wgpu_resources
-            .create_buffer_with_data(&self.device, buffer_info, data)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .create_buffer_with_data(&self.global_context.device, buffer_info, data)
     }
 
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
-        self.wgpu_resources.create_buffer(&self.device, buffer_info)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .create_buffer(&self.global_context.device, buffer_info)
     }
 
     fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        self.wgpu_resources.resource_info.get(&resource)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .resource_info
+            .get(&resource)
     }
 
     fn get_resource_info_mut(&mut self, resource: RenderResource) -> Option<&mut ResourceInfo> {
-        self.wgpu_resources.resource_info.get_mut(&resource)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .resource_info
+            .get_mut(&resource)
     }
 
     fn remove_buffer(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_buffer(resource);
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .remove_buffer(resource);
     }
 
     fn create_buffer_mapped(
@@ -513,7 +550,10 @@ impl Renderer for WgpuRenderer {
         setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> RenderResource {
         let buffer = WgpuResources::begin_create_buffer_mapped(&buffer_info, self, setup_data);
-        self.wgpu_resources.assign_buffer(buffer, buffer_info)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .assign_buffer(buffer, buffer_info)
     }
 
     fn copy_buffer_to_buffer(
@@ -524,19 +564,24 @@ impl Renderer for WgpuRenderer {
         destination_offset: u64,
         size: u64,
     ) {
-        self.wgpu_resources.copy_buffer_to_buffer(
-            self.encoder.as_mut().unwrap(),
-            source_buffer,
-            source_offset,
-            destination_buffer,
-            destination_offset,
-            size,
-        );
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .copy_buffer_to_buffer(
+                self.encoder.as_mut().unwrap(),
+                source_buffer,
+                source_offset,
+                destination_buffer,
+                destination_offset,
+                size,
+            );
     }
 
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
-        self.wgpu_resources
-            .create_sampler(&self.device, sampler_descriptor)
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .create_sampler(&self.global_context.device, sampler_descriptor)
     }
 
     fn create_texture(
@@ -545,32 +590,51 @@ impl Renderer for WgpuRenderer {
         bytes: Option<&[u8]>,
     ) -> RenderResource {
         if let Some(bytes) = bytes {
-            self.wgpu_resources.create_texture_with_data(
-                &self.device,
-                self.encoder.as_mut().unwrap(),
-                texture_descriptor,
-                bytes,
-            )
+            self.global_context
+                .render_resources
+                .wgpu_resources
+                .create_texture_with_data(
+                    &self.global_context.device,
+                    self.encoder.as_mut().unwrap(),
+                    texture_descriptor,
+                    bytes,
+                )
         } else {
-            self.wgpu_resources
-                .create_texture(&self.device, texture_descriptor)
+            self.global_context
+                .render_resources
+                .wgpu_resources
+                .create_texture(&self.global_context.device, texture_descriptor)
         }
     }
 
     fn remove_texture(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_texture(resource);
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .remove_texture(resource);
     }
 
     fn remove_sampler(&mut self, resource: RenderResource) {
-        self.wgpu_resources.remove_sampler(resource);
+        self.global_context
+            .render_resources
+            .wgpu_resources
+            .remove_sampler(resource);
     }
 
-    fn get_render_resources(&self) -> &RenderResources {
-        &self.wgpu_resources.render_resources
+    fn get_render_resources(&self) -> &AssetResources {
+        &self
+            .global_context
+            .render_resources
+            .wgpu_resources
+            .asset_resources
     }
 
-    fn get_render_resources_mut(&mut self) -> &mut RenderResources {
-        &mut self.wgpu_resources.render_resources
+    fn get_render_resources_mut(&mut self) -> &mut AssetResources {
+        &mut self
+            .global_context
+            .render_resources
+            .wgpu_resources
+            .asset_resources
     }
 
     fn setup_bind_groups(
@@ -584,14 +648,19 @@ impl Renderer for WgpuRenderer {
                 render_resource_assignments.get_or_update_render_resource_set_id(bind_group)
             {
                 if let None = self
+                    .global_context
+                    .render_resources
                     .wgpu_resources
                     .get_bind_group(bind_group.id, render_resource_set_id)
                 {
-                    self.wgpu_resources.create_bind_group(
-                        &self.device,
-                        bind_group,
-                        render_resource_assignments,
-                    );
+                    self.global_context
+                        .render_resources
+                        .wgpu_resources
+                        .create_bind_group(
+                            &self.global_context.device,
+                            bind_group,
+                            render_resource_assignments,
+                        );
                 } else {
                     log::trace!(
                         "reusing RenderResourceSet {:?} for bind group {}",
@@ -615,7 +684,13 @@ impl Renderer for WgpuRenderer {
 
         let layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in layout.bind_groups.iter() {
-            if let None = self.wgpu_resources.bind_group_layouts.get(&bind_group.id) {
+            if let None = self
+                .global_context
+                .render_resources
+                .wgpu_resources
+                .bind_group_layouts
+                .get(&bind_group.id)
+            {
                 let bind_group_layout_binding = bind_group
                     .bindings
                     .iter()
@@ -625,14 +700,16 @@ impl Renderer for WgpuRenderer {
                         ty: (&binding.bind_type).wgpu_into(),
                     })
                     .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
-                let wgpu_bind_group_layout =
-                    self.device
-                        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                            bindings: bind_group_layout_binding.as_slice(),
-                            label: None,
-                        });
+                let wgpu_bind_group_layout = self.global_context.device.create_bind_group_layout(
+                    &wgpu::BindGroupLayoutDescriptor {
+                        bindings: bind_group_layout_binding.as_slice(),
+                        label: None,
+                    },
+                );
 
-                self.wgpu_resources
+                self.global_context
+                    .render_resources
+                    .wgpu_resources
                     .bind_group_layouts
                     .insert(bind_group.id, wgpu_bind_group_layout);
             }
@@ -643,18 +720,21 @@ impl Renderer for WgpuRenderer {
             .bind_groups
             .iter()
             .map(|bind_group| {
-                self.wgpu_resources
+                self.global_context
+                    .render_resources
+                    .wgpu_resources
                     .bind_group_layouts
                     .get(&bind_group.id)
                     .unwrap()
             })
             .collect::<Vec<&wgpu::BindGroupLayout>>();
 
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: bind_group_layouts.as_slice(),
-            });
+        let pipeline_layout =
+            self.global_context
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    bind_group_layouts: bind_group_layouts.as_slice(),
+                });
 
         let owned_vertex_buffer_descriptors = layout
             .vertex_buffer_descriptors
@@ -669,28 +749,44 @@ impl Renderer for WgpuRenderer {
             .collect::<Vec<wgpu::ColorStateDescriptor>>();
 
         if let None = self
+            .global_context
+            .render_resources
             .wgpu_resources
             .shader_modules
             .get(&pipeline_descriptor.shader_stages.vertex)
         {
-            self.wgpu_resources.create_shader_module(
-                &self.device,
-                pipeline_descriptor.shader_stages.vertex,
-                shader_storage,
-            );
+            self.global_context
+                .render_resources
+                .wgpu_resources
+                .create_shader_module(
+                    &self.global_context.device,
+                    pipeline_descriptor.shader_stages.vertex,
+                    shader_storage,
+                );
         }
 
         if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
-            if let None = self.wgpu_resources.shader_modules.get(&fragment_handle) {
-                self.wgpu_resources.create_shader_module(
-                    &self.device,
-                    fragment_handle,
-                    shader_storage,
-                );
+            if let None = self
+                .global_context
+                .render_resources
+                .wgpu_resources
+                .shader_modules
+                .get(&fragment_handle)
+            {
+                self.global_context
+                    .render_resources
+                    .wgpu_resources
+                    .create_shader_module(
+                        &self.global_context.device,
+                        fragment_handle,
+                        shader_storage,
+                    );
             }
         };
 
         let vertex_shader_module = self
+            .global_context
+            .render_resources
             .wgpu_resources
             .shader_modules
             .get(&pipeline_descriptor.shader_stages.vertex)
@@ -698,7 +794,9 @@ impl Renderer for WgpuRenderer {
 
         let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
             Some(fragment_handle) => Some(
-                self.wgpu_resources
+                self.global_context
+                    .render_resources
+                    .wgpu_resources
                     .shader_modules
                     .get(&fragment_handle)
                     .unwrap(),
@@ -742,6 +840,7 @@ impl Renderer for WgpuRenderer {
         };
 
         let render_pipeline = self
+            .global_context
             .device
             .create_render_pipeline(&mut render_pipeline_descriptor);
         self.render_pipelines

@@ -44,24 +44,25 @@ impl MeshResourceProvider {
         handle: Handle<Mesh>,
         render_resource_assignments: &mut RenderResourceAssignments,
     ) {
-        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = render_context
+        let render_resources = render_context.resources_mut();
+        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) = render_resources
             .get_mesh_vertices_resource(handle)
         {
             (
                 vertex_buffer,
-                render_context
+                render_resources
                     .get_mesh_indices_resource(handle),
             )
         } else {
             let mesh_asset = mesh_storage.get(&handle).unwrap();
-            let vertex_buffer = render_context.create_buffer_with_data(
+            let vertex_buffer = render_resources.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::VERTEX,
                     ..Default::default()
                 },
                 mesh_asset.vertices.as_bytes(),
             );
-            let index_buffer = render_context.create_buffer_with_data(
+            let index_buffer = render_resources.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
                     ..Default::default()
@@ -69,9 +70,9 @@ impl MeshResourceProvider {
                 mesh_asset.indices.as_bytes(),
             );
 
-            let render_resources = render_context.local_render_resources_mut();
-            render_resources.set_mesh_vertices_resource(handle, vertex_buffer);
-            render_resources.set_mesh_indices_resource(handle, index_buffer);
+            let asset_resources = render_resources.asset_resources_mut();
+            asset_resources.set_mesh_vertices_resource(handle, vertex_buffer);
+            asset_resources.set_mesh_indices_resource(handle, index_buffer);
             (vertex_buffer, Some(index_buffer))
         };
 
@@ -90,7 +91,7 @@ impl ResourceProvider for MeshResourceProvider {
         vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
     }
 
-    fn update(&mut self, _render_context: &mut dyn RenderContext, world: &mut World, resources: &Resources) {
+    fn update(&mut self, _render_context: &mut dyn RenderContext, _world: &mut World, _resources: &Resources) {
     }
 
     fn finish_update(
@@ -99,7 +100,7 @@ impl ResourceProvider for MeshResourceProvider {
         _world: &mut World,
         resources: &Resources,
     ) {
-        let mut mesh_storage = resources.get::<AssetStorage<Mesh>>().unwrap();
+        let mesh_storage = resources.get::<AssetStorage<Mesh>>().unwrap();
         let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
 
         // this scope is necessary because the Fetch<AssetBatchers> pointer behaves weirdly

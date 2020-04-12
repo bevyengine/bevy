@@ -46,16 +46,17 @@ impl LightResourceProvider {
             let size = std::mem::size_of::<LightRaw>();
             let total_size = size * light_count;
             let light_count_size = std::mem::size_of::<LightCount>();
+            let render_resources = render_context.resources_mut();
 
             if let Some(old_tmp_light_buffer) = self.tmp_light_buffer {
-                render_context.remove_buffer(old_tmp_light_buffer);
+                render_resources.remove_buffer(old_tmp_light_buffer);
             }
 
             if let Some(old_tmp_count_buffer) = self.tmp_count_buffer {
-                render_context.remove_buffer(old_tmp_count_buffer);
+                render_resources.remove_buffer(old_tmp_count_buffer);
             }
 
-            self.tmp_light_buffer = Some(render_context.create_buffer_mapped(
+            self.tmp_light_buffer = Some(render_resources.create_buffer_mapped(
                 BufferInfo {
                     size: total_size,
                     buffer_usage: BufferUsage::COPY_SRC,
@@ -71,7 +72,7 @@ impl LightResourceProvider {
                     }
                 },
             ));
-            self.tmp_count_buffer = Some(render_context.create_buffer_mapped(
+            self.tmp_count_buffer = Some(render_resources.create_buffer_mapped(
                 BufferInfo {
                     size: light_count_size,
                     buffer_usage: BufferUsage::COPY_SRC,
@@ -111,7 +112,7 @@ impl ResourceProvider for LightResourceProvider {
         let light_uniform_size =
             std::mem::size_of::<LightCount>() + self.max_lights * std::mem::size_of::<LightRaw>();
 
-        let buffer = render_context.create_buffer(BufferInfo {
+        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
             size: light_uniform_size,
             buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
             ..Default::default()

@@ -1,7 +1,7 @@
 use crate::{
     pipeline::PipelineDescriptor,
     render_resource::{
-        BufferInfo, RenderResource, RenderResourceAssignments, RenderResources, ResourceInfo,
+        BufferInfo, RenderResource, RenderResourceAssignments, AssetResources, ResourceInfo,
     },
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -38,8 +38,8 @@ pub trait Renderer {
         destination_offset: u64,
         size: u64,
     );
-    fn get_render_resources(&self) -> &RenderResources;
-    fn get_render_resources_mut(&mut self) -> &mut RenderResources;
+    fn get_render_resources(&self) -> &AssetResources;
+    fn get_render_resources_mut(&mut self) -> &mut AssetResources;
     fn setup_render_pipeline(
         &mut self,
         pipeline_handle: Handle<PipelineDescriptor>,

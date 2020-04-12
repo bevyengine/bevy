@@ -34,11 +34,12 @@ impl FrameTextureResourceProvider {
 
             let mut render_resource_assignments =
                 resources.get_mut::<RenderResourceAssignments>().unwrap();
+            let render_resources = render_context.resources_mut();
             if let Some(old_resource) = render_resource_assignments.get(&self.name) {
-                render_context.remove_texture(old_resource);
+                render_resources.remove_texture(old_resource);
             }
 
-            let texture_resource = render_context.create_texture(&self.descriptor);
+            let texture_resource = render_resources.create_texture(&self.descriptor);
             render_resource_assignments.set(&self.name, texture_resource);
         }
     }

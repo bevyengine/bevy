@@ -1,14 +1,17 @@
 use super::WgpuRenderer;
-use crate::{renderer_2::WgpuRenderContext, wgpu_type_converter::WgpuInto};
+use crate::{
+    renderer_2::{WgpuRenderResourceContext, WgpuTransactionalRenderResourceContext},
+    wgpu_type_converter::WgpuInto,
+};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindType},
     render_resource::{
-        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId,
-        RenderResources, ResourceInfo,
+        AssetResources, BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId,
+        ResourceInfo,
     },
     renderer::Renderer,
-    renderer_2::RenderContext,
+    renderer_2::RenderResourceContext,
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -23,7 +26,7 @@ pub struct WgpuBindGroupInfo {
 #[derive(Default)]
 pub struct WgpuResources {
     // TODO: remove this from WgpuResources. it doesn't need to be here
-    pub render_resources: RenderResources,
+    pub asset_resources: AssetResources,
     pub window_surfaces: HashMap<WindowId, wgpu::Surface>,
     pub window_swap_chains: HashMap<WindowId, wgpu::SwapChain>,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
@@ -38,8 +41,7 @@ pub struct WgpuResources {
 impl WgpuResources {
     pub fn consume(&mut self, wgpu_resources: WgpuResources) {
         // TODO: this is brittle. consider a single change-stream-based approach instead?
-        self.render_resources
-            .consume(wgpu_resources.render_resources);
+        self.asset_resources.consume(wgpu_resources.asset_resources);
         self.window_surfaces.extend(wgpu_resources.window_surfaces);
         self.window_swap_chains
             .extend(wgpu_resources.window_swap_chains);
@@ -234,7 +236,7 @@ impl WgpuResources {
         renderer: &mut WgpuRenderer,
         setup_data: &mut dyn FnMut(&mut [u8], &mut dyn Renderer),
     ) -> wgpu::Buffer {
-        let device = renderer.device.clone();
+        let device = renderer.global_context.device.clone();
         let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
@@ -247,16 +249,31 @@ impl WgpuResources {
     // TODO: clean this up
     pub fn begin_create_buffer_mapped_render_context(
         buffer_info: &BufferInfo,
-        render_context: &mut WgpuRenderContext,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderContext),
+        render_resources: &mut WgpuRenderResourceContext,
+        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderResourceContext),
     ) -> wgpu::Buffer {
-        let device = render_context.device.clone();
+        let device = render_resources.device.clone();
         let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
             label: None,
         });
-        setup_data(&mut mapped.data, render_context);
+        setup_data(&mut mapped.data, render_resources);
+        mapped.finish()
+    }
+
+    pub fn begin_create_buffer_mapped_transactional_render_context(
+        buffer_info: &BufferInfo,
+        render_resources: &mut WgpuTransactionalRenderResourceContext,
+        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderResourceContext),
+    ) -> wgpu::Buffer {
+        let device = render_resources.device.clone();
+        let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
+            size: buffer_info.size as u64,
+            usage: buffer_info.buffer_usage.wgpu_into(),
+            label: None,
+        });
+        setup_data(&mut mapped.data, render_resources);
         mapped.finish()
     }
 
@@ -356,11 +373,11 @@ impl WgpuResources {
         self.resource_info.remove(&resource);
     }
 
-    pub fn get_render_resources(&self) -> &RenderResources {
-        &self.render_resources
+    pub fn get_render_resources(&self) -> &AssetResources {
+        &self.asset_resources
     }
 
-    pub fn get_render_resources_mut(&mut self) -> &mut RenderResources {
-        &mut self.render_resources
+    pub fn get_render_resources_mut(&mut self) -> &mut AssetResources {
+        &mut self.asset_resources
     }
 }

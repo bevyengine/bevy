@@ -48,10 +48,10 @@ impl Camera2dResourceProvider {
                 let camera_matrix: [[f32; 4]; 4] = camera.view_matrix.to_cols_array_2d();
 
                 if let Some(old_tmp_buffer) = self.tmp_buffer {
-                    render_context.remove_buffer(old_tmp_buffer);
+                    render_context.resources_mut().remove_buffer(old_tmp_buffer);
                 }
 
-                self.tmp_buffer = Some(render_context.create_buffer_mapped(
+                self.tmp_buffer = Some(render_context.resources_mut().create_buffer_mapped(
                     BufferInfo {
                         size: matrix_size,
                         buffer_usage: BufferUsage::COPY_SRC,
@@ -81,7 +81,7 @@ impl ResourceProvider for Camera2dResourceProvider {
         _world: &mut World,
         resources: &Resources,
     ) {
-        let buffer = render_context.create_buffer(BufferInfo {
+        let buffer = render_context.resources_mut().create_buffer(BufferInfo {
             size: std::mem::size_of::<[[f32; 4]; 4]>(),
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
             ..Default::default()
