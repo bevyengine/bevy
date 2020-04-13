@@ -5,6 +5,7 @@ use crate::{
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
 };
 use bevy_asset::{AssetStorage, Handle};
+use bevy_window::{Window, WindowId};
 
 pub struct GlobalRenderResourceContext {
     pub context: Box<dyn RenderResourceContext + Send + Sync + 'static>,
@@ -12,6 +13,9 @@ pub struct GlobalRenderResourceContext {
 
 // TODO: Rename to RenderResources after cleaning up AssetResources rename
 pub trait RenderResourceContext {
+    fn create_swap_chain(&mut self, window: &Window);
+    fn next_swap_chain_texture(&mut self, window_id: WindowId);
+    fn drop_swap_chain_texture(&mut self, window_id: WindowId);
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
     fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource;
     fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource;

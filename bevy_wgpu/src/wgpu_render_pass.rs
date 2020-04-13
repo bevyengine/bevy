@@ -9,26 +9,21 @@ use bevy_render::{
 };
 use std::{collections::HashMap, ops::Range};
 
-pub struct WgpuRenderPass<'a, 'b, 'c, T>
+pub struct WgpuRenderPass<'a, T>
 where
     T: RenderResourceContext + WgpuRenderResourceContextTrait,
 {
-    pub render_pass: &'b mut wgpu::RenderPass<'a>,
-    pub pipeline_descriptor: &'c PipelineDescriptor,
+    pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext<T>,
     pub bound_bind_groups: HashMap<u32, RenderResourceSetId>,
 }
 
-impl<'a, 'b, 'c, T> RenderPass for WgpuRenderPass<'a, 'b, 'c, T>
+impl<'a, T> RenderPass for WgpuRenderPass<'a, T>
 where
     T: RenderResourceContext + WgpuRenderResourceContextTrait,
 {
     fn get_render_context(&self) -> &dyn RenderContext {
         self.render_context
-    }
-
-    fn get_pipeline_descriptor(&self) -> &PipelineDescriptor {
-        self.pipeline_descriptor
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
@@ -57,9 +52,11 @@ where
 
     fn set_render_resources(
         &mut self,
+        pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> Option<Range<u32>> {
-        let pipeline_layout = self.pipeline_descriptor.get_layout().unwrap();
+        let pipeline_layout = pipeline_descriptor.get_layout()
+            .unwrap();
         // PERF: vertex buffer lookup comes at a cost when vertex buffers aren't in render_resource_assignments. iterating over render_resource_assignment vertex buffers
         // would likely be faster
         let mut indices = None;
@@ -150,5 +147,9 @@ where
         }
 
         indices
+    }
+    fn set_pipeline(&mut self, pipeline_handle: bevy_asset::Handle<PipelineDescriptor>) {
+        let pipeline = self.render_context.render_resources.get_pipeline(pipeline_handle).expect("Attempted to use a pipeline that does not exist in this RenderPass's RenderContext");
+        self.render_pass.set_pipeline(pipeline);
     }
 }

@@ -26,6 +26,7 @@ pub struct WgpuResources {
     pub asset_resources: AssetResources,
     pub window_surfaces: HashMap<WindowId, wgpu::Surface>,
     pub window_swap_chains: HashMap<WindowId, wgpu::SwapChain>,
+    pub swap_chain_outputs: HashMap<WindowId, wgpu::SwapChainOutput>,
     pub buffers: HashMap<RenderResource, wgpu::Buffer>,
     pub textures: HashMap<RenderResource, wgpu::TextureView>,
     pub samplers: HashMap<RenderResource, wgpu::Sampler>,
@@ -43,11 +44,14 @@ impl WgpuResources {
         self.window_surfaces.extend(wgpu_resources.window_surfaces);
         self.window_swap_chains
             .extend(wgpu_resources.window_swap_chains);
+        self.swap_chain_outputs
+            .extend(wgpu_resources.swap_chain_outputs);
         self.buffers.extend(wgpu_resources.buffers);
         self.textures.extend(wgpu_resources.textures);
         self.samplers.extend(wgpu_resources.samplers);
         self.resource_info.extend(wgpu_resources.resource_info);
         self.shader_modules.extend(wgpu_resources.shader_modules);
+        self.render_pipelines.extend(wgpu_resources.render_pipelines);
         self.bind_groups.extend(wgpu_resources.bind_groups);
         self.bind_group_layouts
             .extend(wgpu_resources.bind_group_layouts);
@@ -59,6 +63,21 @@ impl WgpuResources {
 
     pub fn get_window_surface(&mut self, window_id: WindowId) -> Option<&wgpu::Surface> {
         self.window_surfaces.get(&window_id)
+    }
+
+    pub fn next_swap_chain_texture(&mut self, window_id: WindowId) -> Option<&wgpu::SwapChainOutput> {
+        let swap_chain_output = self.window_swap_chains.get_mut(&window_id).unwrap();
+        let next_texture = swap_chain_output.get_next_texture().unwrap();
+        self.swap_chain_outputs.insert(window_id, next_texture);
+        self.swap_chain_outputs.get(&window_id)
+    }
+
+    pub fn remove_swap_chain_texture(&mut self, window_id: WindowId) {
+        self.swap_chain_outputs.remove(&window_id);
+    }
+
+    pub fn remove_all_swap_chain_textures(&mut self) {
+        self.swap_chain_outputs.clear();
     }
 
     pub fn create_window_swap_chain(&mut self, device: &wgpu::Device, window: &Window) {

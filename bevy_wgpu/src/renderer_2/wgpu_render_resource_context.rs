@@ -12,6 +12,7 @@ use bevy_render::{
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
 };
 use std::sync::Arc;
+use bevy_window::{WindowId, Window};
 
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
@@ -62,6 +63,7 @@ pub trait WgpuRenderResourceContextTrait {
         bind_group_id: BindGroupDescriptorId,
     ) -> Option<&wgpu::BindGroupLayout>;
     fn get_buffer(&self, render_resource: RenderResource) -> Option<&wgpu::Buffer>;
+    fn get_swap_chain_output(&self, window_id: &WindowId) -> Option<&wgpu::SwapChainOutput>;
     fn get_texture(&self, render_resource: RenderResource) -> Option<&wgpu::TextureView>;
     fn get_sampler(&self, render_resource: RenderResource) -> Option<&wgpu::Sampler>;
     fn get_pipeline(&self, pipeline: Handle<PipelineDescriptor>) -> Option<&wgpu::RenderPipeline>;
@@ -153,6 +155,9 @@ impl WgpuRenderResourceContextTrait for WgpuRenderResourceContext {
     ) {
         self.wgpu_resources
             .set_render_pipeline(pipeline_handle, pipeline);
+    }
+    fn get_swap_chain_output(&self, window_id: &WindowId) -> Option<&wgpu::SwapChainOutput> {
+        self.wgpu_resources.swap_chain_outputs.get(window_id)
     }
 }
 
@@ -253,5 +258,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let shader = shader_storage.get(&shader_handle).unwrap();
         self.wgpu_resources
             .create_shader_module(&self.device, shader_handle, shader);
+    }
+    fn create_swap_chain(&mut self, window: &Window) {
+        self.wgpu_resources.create_window_swap_chain(&self.device, window)
+    }
+    fn next_swap_chain_texture(&mut self, window_id: bevy_window::WindowId) {
+        self.wgpu_resources.next_swap_chain_texture(window_id);
+    }
+    fn drop_swap_chain_texture(&mut self, window_id: WindowId) {
+        self.wgpu_resources.remove_swap_chain_texture(window_id);
     }
 }

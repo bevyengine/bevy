@@ -19,6 +19,7 @@ impl DrawTarget for MeshesDrawTarget {
         _resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     ) {
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
@@ -53,7 +54,7 @@ impl DrawTarget for MeshesDrawTarget {
             }
 
             // TODO: validate bind group properties against shader uniform properties at least once
-            render_pass.set_render_resources(&renderable.render_resource_assignments);
+            render_pass.set_render_resources(pipeline_descriptor, &renderable.render_resource_assignments);
             render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
         }
     }

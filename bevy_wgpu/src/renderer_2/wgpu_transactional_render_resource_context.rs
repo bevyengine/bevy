@@ -12,6 +12,7 @@ use bevy_render::{
     shader::Shader,
     texture::{SamplerDescriptor, Texture, TextureDescriptor},
 };
+use bevy_window::{WindowId, Window};
 use std::sync::Arc;
 
 pub struct WgpuTransactionalRenderResourceContext<'a> {
@@ -138,6 +139,16 @@ impl<'a> WgpuRenderResourceContextTrait for WgpuTransactionalRenderResourceConte
     ) {
         self.local_resources
             .set_render_pipeline(pipeline_handle, pipeline);
+    }
+    fn get_swap_chain_output(
+        &self,
+        window_id: &bevy_window::WindowId,
+    ) -> Option<&wgpu::SwapChainOutput> {
+        let local = self.local_resources.swap_chain_outputs.get(window_id);
+        if local.is_some() {
+            return local;
+        }
+        self.parent_resources.swap_chain_outputs.get(window_id)
     }
 }
 
@@ -282,5 +293,15 @@ impl<'a> RenderResourceContext for WgpuTransactionalRenderResourceContext<'a> {
         let shader = shader_storage.get(&shader_handle).unwrap();
         self.local_resources
             .create_shader_module(&self.device, shader_handle, shader);
+    }
+    fn create_swap_chain(&mut self, window: &Window) {
+        self.local_resources
+            .create_window_swap_chain(&self.device, window)
+    }
+    fn next_swap_chain_texture(&mut self, window_id: bevy_window::WindowId) {
+        self.local_resources.next_swap_chain_texture(window_id);
+    }
+    fn drop_swap_chain_texture(&mut self, window_id: WindowId) {
+        self.local_resources.remove_swap_chain_texture(window_id);
     }
 }

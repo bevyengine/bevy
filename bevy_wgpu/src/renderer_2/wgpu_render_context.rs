@@ -1,16 +1,24 @@
 use super::WgpuRenderResourceContextTrait;
-use crate::wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto};
+use crate::{
+    wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
+    WgpuRenderPass,
+};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
+    pass::{
+        PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor,
+    },
     pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
     render_resource::{
-        RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+        resource_name, RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
     renderer_2::{RenderContext, RenderResourceContext},
     shader::Shader,
     texture::TextureDescriptor,
 };
-use std::sync::Arc;
+use bevy_window::WindowId;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Default)]
 struct LazyCommandEncoder {
@@ -22,16 +30,28 @@ impl LazyCommandEncoder {
         match self.command_encoder {
             Some(ref mut command_encoder) => command_encoder,
             None => {
-                let command_encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-                self.command_encoder = Some(command_encoder);
+                self.create(device);
                 self.command_encoder.as_mut().unwrap()
             }
         }
     }
 
+    pub fn is_some(&self) -> bool {
+        self.command_encoder.is_some()
+    }
+
+    pub fn create(&mut self, device: &wgpu::Device) {
+        let command_encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        self.command_encoder = Some(command_encoder);
+    }
+
     pub fn take(&mut self) -> Option<wgpu::CommandEncoder> {
         self.command_encoder.take()
+    }
+
+    pub fn set(&mut self, command_encoder: wgpu::CommandEncoder) {
+        self.command_encoder = Some(command_encoder);
     }
 }
 
@@ -40,6 +60,8 @@ where
     T: RenderResourceContext,
 {
     pub device: Arc<wgpu::Device>,
+    // TODO: remove this
+    pub primary_window: Option<WindowId>,
     command_encoder: LazyCommandEncoder,
     pub render_resources: T,
 }
@@ -51,6 +73,7 @@ where
     pub fn new(device: Arc<wgpu::Device>, resources: T) -> Self {
         WgpuRenderContext {
             device,
+            primary_window: None,
             render_resources: resources,
             command_encoder: LazyCommandEncoder::default(),
         }
@@ -70,19 +93,6 @@ where
     pub fn finish_encoder(&mut self) -> Option<wgpu::CommandBuffer> {
         self.command_encoder.take().map(|encoder| encoder.finish())
     }
-
-    // fn get_buffer<'b>(
-    //     render_resource: RenderResource,
-    //     local_resources: &'b WgpuResources,
-    //     global_resources: &'b WgpuResources,
-    // ) -> Option<&'b wgpu::Buffer> {
-    //     let buffer = local_resources.buffers.get(&render_resource);
-    //     if buffer.is_some() {
-    //         return buffer;
-    //     }
-
-    //     global_resources.buffers.get(&render_resource)
-    // }
 }
 
 impl<T> RenderContext for WgpuRenderContext<T>
@@ -364,5 +374,168 @@ where
         };
         self.render_resources
             .set_render_pipeline(pipeline_handle, wgpu_pipeline);
+    }
+    fn begin_pass(
+        &mut self,
+        pass_descriptor: &PassDescriptor,
+        render_resource_assignments: &RenderResourceAssignments,
+        run_pass: &mut dyn Fn(&mut dyn RenderPass),
+    ) {
+        if !self.command_encoder.is_some() {
+            self.command_encoder.create(&self.device);
+        }
+
+        let mut encoder = self.command_encoder.take().unwrap();
+        {
+            let render_pass = create_render_pass(
+                self,
+                pass_descriptor,
+                render_resource_assignments,
+                &mut encoder,
+            );
+            let mut wgpu_render_pass = WgpuRenderPass {
+                render_context: self,
+                render_pass,
+                bound_bind_groups: HashMap::default(),
+            };
+
+            run_pass(&mut wgpu_render_pass);
+        }
+
+        self.command_encoder.set(encoder);
+    }
+}
+
+pub fn create_render_pass<'a, 'b, T>(
+    render_context: &'a WgpuRenderContext<T>,
+    pass_descriptor: &PassDescriptor,
+    global_render_resource_assignments: &'b RenderResourceAssignments,
+    encoder: &'a mut wgpu::CommandEncoder,
+) -> wgpu::RenderPass<'a>
+where
+    T: WgpuRenderResourceContextTrait + RenderResourceContext,
+{
+    encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        color_attachments: &pass_descriptor
+            .color_attachments
+            .iter()
+            .map(|c| {
+                create_wgpu_color_attachment_descriptor(
+                    render_context,
+                    global_render_resource_assignments,
+                    c,
+                )
+            })
+            .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
+        depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
+            create_wgpu_depth_stencil_attachment_descriptor(
+                render_context,
+                global_render_resource_assignments,
+                d,
+            )
+        }),
+    })
+}
+
+fn get_texture_view<'a, T>(
+    render_context: &'a WgpuRenderContext<T>,
+    global_render_resource_assignments: &RenderResourceAssignments,
+    name: &str,
+) -> &'a wgpu::TextureView
+where
+    T: WgpuRenderResourceContextTrait + RenderResourceContext,
+{
+    match name {
+        resource_name::texture::SWAP_CHAIN => {
+            if let Some(primary_swap_chain) = render_context
+                .render_resources
+                .get_swap_chain_output(render_context.primary_window.as_ref().unwrap())
+                .map(|output| &output.view)
+            {
+                primary_swap_chain
+            } else {
+                panic!("No primary swap chain found for color attachment");
+            }
+        }
+        _ => match global_render_resource_assignments.get(name) {
+            Some(resource) => render_context
+                .render_resources
+                .get_texture(resource)
+                .unwrap(),
+            None => {
+                // if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
+                //     &swap_chain_output.view
+                // } else {
+                panic!("Color attachment {} does not exist", name);
+                // }
+            }
+        },
+    }
+}
+
+fn create_wgpu_color_attachment_descriptor<'a, T>(
+    render_context: &'a WgpuRenderContext<T>,
+    global_render_resource_assignments: &RenderResourceAssignments,
+    color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
+) -> wgpu::RenderPassColorAttachmentDescriptor<'a>
+where
+    T: WgpuRenderResourceContextTrait + RenderResourceContext,
+{
+    let attachment = get_texture_view(
+        render_context,
+        global_render_resource_assignments,
+        color_attachment_descriptor.attachment.as_str(),
+    );
+
+    let resolve_target = color_attachment_descriptor
+        .resolve_target
+        .as_ref()
+        .map(|target| {
+            get_texture_view(
+                render_context,
+                global_render_resource_assignments,
+                target.as_str(),
+            )
+        });
+
+    wgpu::RenderPassColorAttachmentDescriptor {
+        store_op: color_attachment_descriptor.store_op.wgpu_into(),
+        load_op: color_attachment_descriptor.load_op.wgpu_into(),
+        clear_color: color_attachment_descriptor.clear_color.wgpu_into(),
+        attachment,
+        resolve_target,
+    }
+}
+
+fn create_wgpu_depth_stencil_attachment_descriptor<'a, T>(
+    render_context: &'a WgpuRenderContext<T>,
+    global_render_resource_assignments: &RenderResourceAssignments,
+    depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
+) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a>
+where
+    T: WgpuRenderResourceContextTrait + RenderResourceContext,
+{
+    let attachment = get_texture_view(
+        render_context,
+        global_render_resource_assignments,
+        depth_stencil_attachment_descriptor.attachment.as_str(),
+    );
+
+    wgpu::RenderPassDepthStencilAttachmentDescriptor {
+        attachment,
+        clear_depth: depth_stencil_attachment_descriptor.clear_depth,
+        clear_stencil: depth_stencil_attachment_descriptor.clear_stencil,
+        depth_load_op: depth_stencil_attachment_descriptor
+            .depth_load_op
+            .wgpu_into(),
+        depth_store_op: depth_stencil_attachment_descriptor
+            .depth_store_op
+            .wgpu_into(),
+        stencil_load_op: depth_stencil_attachment_descriptor
+            .stencil_load_op
+            .wgpu_into(),
+        stencil_store_op: depth_stencil_attachment_descriptor
+            .stencil_store_op
+            .wgpu_into(),
     }
 }

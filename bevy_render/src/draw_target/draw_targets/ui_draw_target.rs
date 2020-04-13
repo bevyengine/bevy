@@ -29,6 +29,7 @@ impl DrawTarget for UiDrawTarget {
         resources: &Resources,
         render_pass: &mut dyn RenderPass,
         _pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     ) {
         let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
         let ui_instances_buffer = {
@@ -55,7 +56,7 @@ impl DrawTarget for UiDrawTarget {
 
         let global_render_resource_assignments =
             resources.get::<RenderResourceAssignments>().unwrap();
-        render_pass.set_render_resources(&global_render_resource_assignments);
+        render_pass.set_render_resources(pipeline_descriptor, &global_render_resource_assignments);
         render_pass.set_index_buffer(self.mesh_index_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(0, self.mesh_vertex_buffer.unwrap(), 0);
         render_pass.set_vertex_buffer(1, ui_instances_buffer, 0);

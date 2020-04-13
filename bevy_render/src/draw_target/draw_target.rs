@@ -10,6 +10,7 @@ pub trait DrawTarget {
         resources: &Resources,
         render_pass: &mut dyn RenderPass,
         pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
     );
     fn setup(
         &mut self,
