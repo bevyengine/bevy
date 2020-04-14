@@ -16,7 +16,6 @@ pub struct RenderResourceAssignments {
         HashMap<BindGroupDescriptorId, (RenderResourceSetId, Option<Vec<u32>>)>,
     dirty_bind_groups: HashSet<BindGroupDescriptorId>,
     pub(crate) shader_defs: HashSet<String>,
-    // TODO: move offsets here to reduce hashing costs?
 }
 
 impl RenderResourceAssignments {

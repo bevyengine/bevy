@@ -189,7 +189,7 @@ where
                     let uniforms = assets
                         .get(&handle)
                         .expect("Handle points to a non-existent resource");
-
+                    // TODO: only increment count if we haven't seen this uniform handle before
                     self.increment_uniform_counts(&uniforms);
                 }
             }
@@ -493,6 +493,7 @@ where
                 let uniforms = assets
                     .get(&handle)
                     .expect("Handle points to a non-existent resource");
+                // TODO: only setup buffer if we haven't seen this handle before
                 self.setup_uniform_buffer_resources(
                     &uniforms,
                     render_resources,
