@@ -30,13 +30,15 @@ pub struct WgpuBindGroupInfo {
 /// pass. 
 /// 
 /// The biggest implication of this design (other than the additional boilerplate here) is that beginning a render pass
-/// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. It also means
+/// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. WgpuResourceRefs
+/// only has immutable references, so the only way to make a deadlock happen is to access WgpuResources directly in the pass. It also means
 /// that other threads attempting to write resources will need to wait for pass encoding to finish. Almost all writes should occur before
-/// passes start, so this hopefully won't be a problem.
+/// passes start, so this hopefully won't be a problem. 
 /// 
-/// It is worth comparing the performance of this to transactional / copy-based approach. This design lock based design guarantees
+/// It is worth comparing the performance of this to transactional / copy-based approaches. This lock based design guarantees
 /// consistency, doesn't perform redundant allocations, and only blocks when a write is occurring. A copy based approach would 
-/// never block, but would require more allocations / state-synchronization, which I expect will be more expensive.
+/// never block, but would require more allocations / state-synchronization, which I expect will be more expensive. It would also be
+/// "eventually consistent" instead of "strongly consistent".
 /// 
 /// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
