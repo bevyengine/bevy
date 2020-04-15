@@ -1,10 +1,9 @@
 use crate::{
-    mesh::Mesh,
-    render_resource::{AssetResources, BufferInfo, RenderResource, ResourceInfo},
+    render_resource::{BufferInfo, RenderResource, ResourceInfo},
     shader::Shader,
-    texture::{SamplerDescriptor, Texture, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use std::any::Any;
 
@@ -55,11 +54,39 @@ pub trait RenderResourceContext: Any {
     fn remove_buffer(&mut self, resource: RenderResource);
     fn remove_texture(&mut self, resource: RenderResource);
     fn remove_sampler(&mut self, resource: RenderResource);
-    fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>));
-    fn asset_resources(&self) -> &AssetResources;
-    fn asset_resources_mut(&mut self) -> &mut AssetResources;
-    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
-    fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
-    fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource>;
-    fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource>;
+    fn get_resource_info(
+        &self,
+        resource: RenderResource,
+        handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
+    );
+    fn set_asset_resource_untyped(
+        &mut self,
+        handle: HandleUntyped,
+        render_resource: RenderResource,
+        index: usize,
+    );
+    fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResource>;
+}
+
+impl dyn RenderResourceContext {
+    pub fn set_asset_resource<T>(
+        &mut self,
+        handle: Handle<T>,
+        render_resource: RenderResource,
+        index: usize,
+    ) where
+        T: 'static,
+    {
+        self.set_asset_resource_untyped(handle.into(), render_resource, index);
+    }
+    pub fn get_asset_resource<T>(&self, handle: Handle<T>, index: usize) -> Option<RenderResource>
+    where
+        T: 'static,
+    {
+        self.get_asset_resource_untyped(handle.into(), index)
+    }
 }

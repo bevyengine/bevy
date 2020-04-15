@@ -1,5 +1,5 @@
 use crate::{
-    mesh::Mesh,
+    mesh::{self, Mesh},
     pipeline::VertexBufferDescriptors,
     render_resource::{
         AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments, ResourceProvider,
@@ -24,10 +24,10 @@ impl MeshResourceProvider {
     ) {
         let render_resources = render_context.resources_mut();
         let (vertex_buffer, index_buffer) =
-            if let Some(vertex_buffer) = render_resources.get_mesh_vertices_resource(handle) {
+            if let Some(vertex_buffer) = render_resources.get_asset_resource(handle, mesh::VERTEX_BUFFER_ASSET_INDEX) {
                 (
                     vertex_buffer,
-                    render_resources.get_mesh_indices_resource(handle),
+                    render_resources.get_asset_resource(handle, mesh::INDEX_BUFFER_ASSET_INDEX),
                 )
             } else {
                 let mesh_asset = mesh_storage.get(&handle).unwrap();
@@ -46,9 +46,8 @@ impl MeshResourceProvider {
                     mesh_asset.indices.as_bytes(),
                 );
 
-                let asset_resources = render_resources.asset_resources_mut();
-                asset_resources.set_mesh_vertices_resource(handle, vertex_buffer);
-                asset_resources.set_mesh_indices_resource(handle, index_buffer);
+                render_resources.set_asset_resource(handle, vertex_buffer, mesh::VERTEX_BUFFER_ASSET_INDEX);
+                render_resources.set_asset_resource(handle, index_buffer, mesh::INDEX_BUFFER_ASSET_INDEX);
                 (vertex_buffer, Some(index_buffer))
             };
 

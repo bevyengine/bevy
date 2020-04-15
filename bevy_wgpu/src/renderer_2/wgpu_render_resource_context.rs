@@ -1,24 +1,20 @@
 use crate::WgpuResources;
 
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_render::{
-    mesh::Mesh,
-    render_resource::{
-        AssetResources, BufferInfo, RenderResource, ResourceInfo,
-    },
+    render_resource::{BufferInfo, RenderResource, ResourceInfo},
     renderer_2::RenderResourceContext,
     shader::Shader,
-    texture::{SamplerDescriptor, Texture, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
+use bevy_window::{Window, WindowId};
 use std::sync::Arc;
-use bevy_window::{WindowId, Window};
 
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
     pub wgpu_resources: WgpuResources,
 }
-
 
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
@@ -71,46 +67,27 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.wgpu_resources.remove_sampler(resource);
     }
 
-    fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        self.wgpu_resources
-            .asset_resources
-            .get_texture_resource(texture)
-    }
-
-    fn get_texture_sampler_resource(&self, texture: Handle<Texture>) -> Option<RenderResource> {
-        self.wgpu_resources
-            .asset_resources
-            .get_texture_sampler_resource(texture)
-    }
-
-    fn get_mesh_vertices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        self.wgpu_resources
-            .asset_resources
-            .get_mesh_vertices_resource(mesh)
-    }
-
-    fn get_mesh_indices_resource(&self, mesh: Handle<Mesh>) -> Option<RenderResource> {
-        self.wgpu_resources
-            .asset_resources
-            .get_mesh_indices_resource(mesh)
-    }
-
-    fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>)) {
+    fn get_resource_info(
+        &self,
+        resource: RenderResource,
+        handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
+    ) {
         self.wgpu_resources.get_resource_info(resource, handle_info);
     }
 
-    fn asset_resources(&self) -> &AssetResources {
-        &self.wgpu_resources.asset_resources
-    }
-    fn asset_resources_mut(&mut self) -> &mut AssetResources {
-        &mut self.wgpu_resources.asset_resources
-    }
     fn create_shader_module(
         &mut self,
         shader_handle: Handle<Shader>,
         shader_storage: &AssetStorage<Shader>,
     ) {
-        if self.wgpu_resources.shader_modules.read().unwrap().get(&shader_handle).is_some() {
+        if self
+            .wgpu_resources
+            .shader_modules
+            .read()
+            .unwrap()
+            .get(&shader_handle)
+            .is_some()
+        {
             return;
         }
 
@@ -119,12 +96,30 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .create_shader_module(&self.device, shader_handle, shader);
     }
     fn create_swap_chain(&mut self, window: &Window) {
-        self.wgpu_resources.create_window_swap_chain(&self.device, window)
+        self.wgpu_resources
+            .create_window_swap_chain(&self.device, window)
     }
     fn next_swap_chain_texture(&mut self, window_id: bevy_window::WindowId) {
         self.wgpu_resources.next_swap_chain_texture(window_id);
     }
     fn drop_swap_chain_texture(&mut self, window_id: WindowId) {
         self.wgpu_resources.remove_swap_chain_texture(window_id);
+    }
+    fn set_asset_resource_untyped(
+        &mut self,
+        handle: HandleUntyped,
+        render_resource: RenderResource,
+        index: usize,
+    ) {
+        self.wgpu_resources
+            .set_asset_resource_untyped(handle, render_resource, index);
+    }
+    fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResource> {
+        self.wgpu_resources
+            .get_asset_resource_untyped(handle, index)
     }
 }

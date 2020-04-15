@@ -2,6 +2,8 @@ use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::{Asset, Handle};
 use std::fs::File;
 
+pub const TEXTURE_ASSET_INDEX: usize = 0;
+pub const SAMPLER_ASSET_INDEX: usize = 1;
 pub enum TextureType {
     Data(Vec<u8>, usize, usize),
     Png(String), // TODO: please rethink this

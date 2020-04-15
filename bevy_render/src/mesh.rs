@@ -3,6 +3,9 @@ use bevy_asset::{Asset, Handle};
 use glam::*;
 use legion::prelude::*;
 
+pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
+pub const INDEX_BUFFER_ASSET_INDEX: usize = 1;
+
 pub enum MeshType {
     Cube,
     Plane { size: f32 },

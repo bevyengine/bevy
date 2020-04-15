@@ -1,6 +1,6 @@
 use crate::{
     draw_target::DrawTarget,
-    mesh::Mesh,
+    mesh::{self, Mesh},
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{resource_name, ResourceInfo},
@@ -24,19 +24,19 @@ impl DrawTarget for MeshesDrawTarget {
         let mut current_mesh_handle = None;
         let mut current_mesh_index_len = 0;
         let mesh_query = <(Read<Handle<Mesh>>, Read<Renderable>)>::query();
-        for (mesh, renderable) in mesh_query.iter(world) {
+        for (mesh_handle, renderable) in mesh_query.iter(world) {
             if !renderable.is_visible || renderable.is_instanced {
                 continue;
             }
 
             let render_context = render_pass.get_render_context();
             let render_resources = render_context.resources();
-            if current_mesh_handle != Some(*mesh) {
+            if current_mesh_handle != Some(*mesh_handle) {
                 if let Some(vertex_buffer_resource) =
-                    render_resources.get_mesh_vertices_resource(*mesh)
+                    render_resources.get_asset_resource(*mesh_handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
                 {
                     let index_buffer_resource =
-                        render_resources.get_mesh_indices_resource(*mesh).unwrap();
+                        render_resources.get_asset_resource(*mesh_handle, mesh::INDEX_BUFFER_ASSET_INDEX).unwrap();
                     render_resources.get_resource_info(index_buffer_resource, &mut |resource_info| {
                         match resource_info {
                             Some(ResourceInfo::Buffer(buffer_info)) => {
@@ -49,7 +49,7 @@ impl DrawTarget for MeshesDrawTarget {
                     render_pass.set_vertex_buffer(0, vertex_buffer_resource, 0);
                 }
                 // TODO: Verify buffer format matches render pass
-                current_mesh_handle = Some(*mesh);
+                current_mesh_handle = Some(*mesh_handle);
             }
 
             // TODO: validate bind group properties against shader uniform properties at least once

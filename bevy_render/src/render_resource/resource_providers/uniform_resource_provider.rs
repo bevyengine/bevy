@@ -6,7 +6,7 @@ use crate::{
     },
     renderer_2::{RenderContext, RenderResourceContext},
     shader::{AsUniforms, FieldBindType},
-    texture::{SamplerDescriptor, Texture, TextureDescriptor},
+    texture::{SamplerDescriptor, Texture, TextureDescriptor, self},
     Renderable,
 };
 use bevy_asset::{AssetStorage, Handle};
@@ -379,13 +379,13 @@ where
                         .unwrap();
                     let (texture_resource, sampler_resource) = match render_context
                         .resources()
-                        .get_texture_resource(texture_handle)
+                        .get_asset_resource(texture_handle, texture::TEXTURE_ASSET_INDEX)
                     {
                         Some(texture_resource) => (
                             texture_resource,
                             render_context
                                 .resources()
-                                .get_texture_sampler_resource(texture_handle)
+                                .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
                                 .unwrap(),
                         ),
                         None => {
@@ -401,10 +401,9 @@ where
                             let sampler_resource =
                                 render_resources.create_sampler(&sampler_descriptor);
 
-                            let asset_resources = render_resources.asset_resources_mut();
-                            asset_resources.set_texture_resource(texture_handle, texture_resource);
-                            asset_resources
-                                .set_texture_sampler_resource(texture_handle, sampler_resource);
+                            render_resources.set_asset_resource(texture_handle, texture_resource, 0);
+                            render_resources
+                                .set_asset_resource(texture_handle, sampler_resource, 1);
                             (texture_resource, sampler_resource)
                         }
                     };

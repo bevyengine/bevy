@@ -1,9 +1,9 @@
 use crate::{renderer_2::WgpuRenderResourceContext, wgpu_type_converter::WgpuInto};
-use bevy_asset::Handle;
+use bevy_asset::{HandleUntyped, Handle};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        AssetResources, BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
+        BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
     },
     renderer_2::RenderResourceContext,
     shader::Shader,
@@ -74,7 +74,6 @@ pub struct WgpuResourceRefs<'a> {
 #[derive(Default, Clone)]
 pub struct WgpuResources {
     // TODO: remove this from WgpuResources. it doesn't need to be here
-    pub asset_resources: AssetResources,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_outputs: Arc<RwLock<HashMap<WindowId, wgpu::SwapChainOutput>>>,
@@ -86,6 +85,7 @@ pub struct WgpuResources {
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
     pub bind_group_layouts: Arc<RwLock<HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>>>,
+    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResource>>>,
 }
 
 impl WgpuResources {
@@ -362,13 +362,21 @@ impl WgpuResources {
         self.resource_info.write().unwrap().remove(&resource);
     }
 
-    pub fn get_render_resources(&self) -> &AssetResources {
-        &self.asset_resources
-    }
+    pub fn set_asset_resource<T>(&mut self, handle: Handle<T>, render_resource: RenderResource, index: usize) where T: 'static {
+        self.asset_resources.write().unwrap().insert((handle.into(), index), render_resource);
+    } 
 
-    pub fn get_render_resources_mut(&mut self) -> &mut AssetResources {
-        &mut self.asset_resources
-    }
+    pub fn get_asset_resource<T>(&mut self, handle: Handle<T>, index: usize) -> Option<RenderResource> where T: 'static {
+        self.asset_resources.write().unwrap().get(&(handle.into(), index)).cloned()
+    } 
+
+    pub fn set_asset_resource_untyped(&mut self, handle: HandleUntyped, render_resource: RenderResource, index: usize) {
+        self.asset_resources.write().unwrap().insert((handle, index), render_resource);
+    } 
+
+    pub fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResource> {
+        self.asset_resources.write().unwrap().get(&(handle, index)).cloned()
+    } 
 
     pub fn create_bind_group_layout(
         &self,
