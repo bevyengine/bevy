@@ -3,7 +3,7 @@ use crate::WgpuResources;
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_render::{
     render_resource::{BufferInfo, RenderResource, ResourceInfo},
-    renderer_2::RenderResourceContext,
+    renderer_2::{RenderResourceContext},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -24,6 +24,8 @@ impl WgpuRenderResourceContext {
         }
     }
 }
+
+// impl AnyRenderResourceContext for WgpuRenderResourceContext {}
 
 impl RenderResourceContext for WgpuRenderResourceContext {
     fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {

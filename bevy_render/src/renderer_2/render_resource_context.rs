@@ -5,35 +5,24 @@ use crate::{
 };
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
-use std::any::Any;
+use downcast_rs::{Downcast, impl_downcast};
 
 pub struct GlobalRenderResourceContext {
-    pub context: Box<dyn Any + Send + Sync + 'static>,
-    // TODO: why doesn't this work?
-    // pub context: Box<dyn RenderResourceContext + Send + Sync + 'static>,
+    pub context: Box<dyn RenderResourceContext>,
 }
 
 impl GlobalRenderResourceContext {
     pub fn new<T>(context: T) -> GlobalRenderResourceContext
     where
-        T: RenderResourceContext + Send + Sync + 'static,
+        T: RenderResourceContext,
     {
         GlobalRenderResourceContext {
             context: Box::new(context),
         }
     }
-
-    // pub fn render_resources_mut(&mut self) -> &dyn RenderResourceContext {
-    //     (&mut self.context).downcast_mut::<dyn RenderResourceContext>()
-    // }
-
-    // pub fn downcast_mut(&self) -> &dyn RenderResourceContext {
-    //     self.context.downcast_ref::<RenderResourceContext>()
-    // }
 }
 
-// TODO: Rename to RenderResources after cleaning up AssetResources rename
-pub trait RenderResourceContext: Any {
+pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&mut self, window: &Window);
     fn next_swap_chain_texture(&mut self, window_id: WindowId);
     fn drop_swap_chain_texture(&mut self, window_id: WindowId);
@@ -90,3 +79,5 @@ impl dyn RenderResourceContext {
         self.get_asset_resource_untyped(handle.into(), index)
     }
 }
+
+impl_downcast!(RenderResourceContext);

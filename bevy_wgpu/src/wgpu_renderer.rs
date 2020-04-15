@@ -12,7 +12,6 @@ use bevy_render::{
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
 use std::{collections::HashSet, ops::Deref, sync::Arc};
-
 pub struct WgpuRenderer {
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
@@ -85,7 +84,6 @@ impl WgpuRenderer {
                 let world = &*world;
                 let resources = &*resources;
                 actual_thread_count += 1;
-                // println!("spawn {}", resource_provider_chunk.len());
                 let render_resource_context = render_resource_context.clone();
                 s.spawn(move |_| {
                     let mut render_context =
@@ -273,6 +271,7 @@ impl WgpuRenderer {
             .context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
+
         let mut render_context =
             WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
         if let Some(command_encoder) = encoder.take() {
