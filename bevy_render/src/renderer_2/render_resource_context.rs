@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::{impl_downcast, Downcast};
 
 pub struct GlobalRenderResourceContext {
     pub context: Box<dyn RenderResourceContext>,

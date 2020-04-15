@@ -50,6 +50,6 @@ pub trait RenderContext {
         &mut self,
         pass_descriptor: &PassDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
-        run_pass: &mut dyn Fn(&mut dyn RenderPass)
+        run_pass: &mut dyn Fn(&mut dyn RenderPass),
     );
 }

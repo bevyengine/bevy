@@ -3,8 +3,8 @@ use crate::{
     render_resource::{RenderResource, RenderResourceAssignments},
     renderer_2::RenderContext,
 };
-use std::ops::Range;
 use bevy_asset::Handle;
+use std::ops::Range;
 
 pub trait RenderPass {
     fn get_render_context(&self) -> &dyn RenderContext;

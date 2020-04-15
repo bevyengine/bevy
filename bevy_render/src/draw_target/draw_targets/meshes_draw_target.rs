@@ -32,19 +32,21 @@ impl DrawTarget for MeshesDrawTarget {
             let render_context = render_pass.get_render_context();
             let render_resources = render_context.resources();
             if current_mesh_handle != Some(*mesh_handle) {
-                if let Some(vertex_buffer_resource) =
-                    render_resources.get_asset_resource(*mesh_handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
+                if let Some(vertex_buffer_resource) = render_resources
+                    .get_asset_resource(*mesh_handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
                 {
-                    let index_buffer_resource =
-                        render_resources.get_asset_resource(*mesh_handle, mesh::INDEX_BUFFER_ASSET_INDEX).unwrap();
-                    render_resources.get_resource_info(index_buffer_resource, &mut |resource_info| {
-                        match resource_info {
+                    let index_buffer_resource = render_resources
+                        .get_asset_resource(*mesh_handle, mesh::INDEX_BUFFER_ASSET_INDEX)
+                        .unwrap();
+                    render_resources.get_resource_info(
+                        index_buffer_resource,
+                        &mut |resource_info| match resource_info {
                             Some(ResourceInfo::Buffer(buffer_info)) => {
                                 current_mesh_index_len = (buffer_info.size / 2) as u32
                             }
                             _ => panic!("expected a buffer type"),
-                        }
-                    });
+                        },
+                    );
                     render_pass.set_index_buffer(index_buffer_resource, 0);
                     render_pass.set_vertex_buffer(0, vertex_buffer_resource, 0);
                 }

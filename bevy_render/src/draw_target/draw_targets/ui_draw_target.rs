@@ -42,9 +42,9 @@ impl DrawTarget for UiDrawTarget {
         let index_count = {
             let mut index_count = None;
             let render_context = render_pass.get_render_context();
-            render_context
-                .resources()
-                .get_resource_info(ui_instances_buffer, &mut |resource_info| {
+            render_context.resources().get_resource_info(
+                ui_instances_buffer,
+                &mut |resource_info| {
                     if let Some(ResourceInfo::Buffer(BufferInfo {
                         array_info: Some(array_info),
                         ..
@@ -52,7 +52,8 @@ impl DrawTarget for UiDrawTarget {
                     {
                         index_count = Some(array_info.item_capacity);
                     }
-                });
+                },
+            );
             index_count
         };
 

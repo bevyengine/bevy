@@ -27,7 +27,8 @@ impl DrawTarget for AssignedBatchesDrawTarget {
             resources.get::<RenderResourceAssignments>().unwrap();
         render_pass.set_render_resources(pipeline_descriptor, &global_render_resource_assignments);
         for batch in asset_batches.get_batches() {
-            let indices = render_pass.set_render_resources(pipeline_descriptor, &batch.render_resource_assignments);
+            let indices = render_pass
+                .set_render_resources(pipeline_descriptor, &batch.render_resource_assignments);
             log::trace!("drawing batch {:?}", batch.render_resource_assignments.id);
             log::trace!("{:#?}", batch);
             for batched_entity in batch.entities.iter() {
@@ -38,8 +39,10 @@ impl DrawTarget for AssignedBatchesDrawTarget {
 
                 log::trace!("start drawing batched entity: {:?}", batched_entity);
                 log::trace!("{:#?}", renderable.render_resource_assignments);
-                let entity_indices =
-                    render_pass.set_render_resources(pipeline_descriptor, &renderable.render_resource_assignments);
+                let entity_indices = render_pass.set_render_resources(
+                    pipeline_descriptor,
+                    &renderable.render_resource_assignments,
+                );
                 let mut draw_indices = &indices;
                 if entity_indices.is_some() {
                     if indices.is_some() {

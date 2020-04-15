@@ -170,7 +170,9 @@ impl RenderContext for WgpuRenderContext {
                                             BindType::SampledTexture { .. } => {
                                                 if let Some(ResourceInfo::Texture) = resource_info {
                                                     let texture = textures.get(&resource).unwrap();
-                                                    Some(wgpu::BindingResource::TextureView(texture))
+                                                    Some(wgpu::BindingResource::TextureView(
+                                                        texture,
+                                                    ))
                                                 } else {
                                                     panic!("expected a Texture resource");
                                                 }
@@ -268,7 +270,8 @@ impl RenderContext for WgpuRenderContext {
                 .bind_group_layouts
                 .read()
                 .unwrap()
-                .get(&bind_group.id).is_none()
+                .get(&bind_group.id)
+                .is_none()
             {
                 let bind_group_layout_binding = bind_group
                     .bindings

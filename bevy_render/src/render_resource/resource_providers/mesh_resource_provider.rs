@@ -23,33 +23,42 @@ impl MeshResourceProvider {
         render_resource_assignments: &mut RenderResourceAssignments,
     ) {
         let render_resources = render_context.resources_mut();
-        let (vertex_buffer, index_buffer) =
-            if let Some(vertex_buffer) = render_resources.get_asset_resource(handle, mesh::VERTEX_BUFFER_ASSET_INDEX) {
-                (
-                    vertex_buffer,
-                    render_resources.get_asset_resource(handle, mesh::INDEX_BUFFER_ASSET_INDEX),
-                )
-            } else {
-                let mesh_asset = mesh_storage.get(&handle).unwrap();
-                let vertex_buffer = render_resources.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::VERTEX,
-                        ..Default::default()
-                    },
-                    mesh_asset.vertices.as_bytes(),
-                );
-                let index_buffer = render_resources.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::INDEX,
-                        ..Default::default()
-                    },
-                    mesh_asset.indices.as_bytes(),
-                );
+        let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) =
+            render_resources.get_asset_resource(handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
+        {
+            (
+                vertex_buffer,
+                render_resources.get_asset_resource(handle, mesh::INDEX_BUFFER_ASSET_INDEX),
+            )
+        } else {
+            let mesh_asset = mesh_storage.get(&handle).unwrap();
+            let vertex_buffer = render_resources.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::VERTEX,
+                    ..Default::default()
+                },
+                mesh_asset.vertices.as_bytes(),
+            );
+            let index_buffer = render_resources.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::INDEX,
+                    ..Default::default()
+                },
+                mesh_asset.indices.as_bytes(),
+            );
 
-                render_resources.set_asset_resource(handle, vertex_buffer, mesh::VERTEX_BUFFER_ASSET_INDEX);
-                render_resources.set_asset_resource(handle, index_buffer, mesh::INDEX_BUFFER_ASSET_INDEX);
-                (vertex_buffer, Some(index_buffer))
-            };
+            render_resources.set_asset_resource(
+                handle,
+                vertex_buffer,
+                mesh::VERTEX_BUFFER_ASSET_INDEX,
+            );
+            render_resources.set_asset_resource(
+                handle,
+                index_buffer,
+                mesh::INDEX_BUFFER_ASSET_INDEX,
+            );
+            (vertex_buffer, Some(index_buffer))
+        };
 
         render_resource_assignments.set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
     }

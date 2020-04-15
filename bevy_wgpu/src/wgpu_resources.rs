@@ -1,10 +1,8 @@
 use crate::{renderer_2::WgpuRenderResourceContext, wgpu_type_converter::WgpuInto};
-use bevy_asset::{HandleUntyped, Handle};
+use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{
-        BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
-    },
+    render_resource::{BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo},
     renderer_2::RenderResourceContext,
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -20,33 +18,34 @@ pub struct WgpuBindGroupInfo {
     pub bind_groups: HashMap<RenderResourceSetId, wgpu::BindGroup>,
 }
 
-/// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows 
+/// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows
 /// us to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is accomplished by
 /// grabbing a WgpuResourcesReadLock _before_ creating a wgpu::RenderPass, getting a WgpuResourcesRefs, and storing that
-/// in the pass. 
-/// 
+/// in the pass.
+///
 /// This is only a problem because RwLockReadGuard.read() erases the guard's lifetime and creates a new anonymous lifetime. If
 /// you call RwLockReadGuard.read() during a pass, the reference will have an anonymous lifetime that lives for less than the
 /// pass, which violates the lifetime constraints in place.
-/// 
+///
 /// The biggest implication of this design (other than the additional boilerplate here) is that beginning a render pass
 /// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. WgpuResourceRefs
 /// only has immutable references, so the only way to make a deadlock happen is to access WgpuResources directly in the pass. It also means
 /// that other threads attempting to write resources will need to wait for pass encoding to finish. Almost all writes should occur before
-/// passes start, so this hopefully won't be a problem. 
-/// 
+/// passes start, so this hopefully won't be a problem.
+///
 /// It is worth comparing the performance of this to transactional / copy-based approaches. This lock based design guarantees
-/// consistency, doesn't perform redundant allocations, and only blocks when a write is occurring. A copy based approach would 
+/// consistency, doesn't perform redundant allocations, and only blocks when a write is occurring. A copy based approach would
 /// never block, but would require more allocations / state-synchronization, which I expect will be more expensive. It would also be
 /// "eventually consistent" instead of "strongly consistent".
-/// 
+///
 /// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::Buffer>>,
     pub textures: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::TextureView>>,
     pub swap_chain_outputs: RwLockReadGuard<'a, HashMap<WindowId, wgpu::SwapChainOutput>>,
-    pub render_pipelines: RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
+    pub render_pipelines:
+        RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
 }
 
@@ -59,10 +58,10 @@ impl<'a> WgpuResourcesReadLock<'a> {
             render_pipelines: &self.render_pipelines,
             bind_groups: &self.bind_groups,
         }
-    } 
+    }
 }
 
-/// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists 
+/// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<RenderResource, wgpu::Buffer>,
     pub textures: &'a HashMap<RenderResource, wgpu::TextureView>,
@@ -97,7 +96,7 @@ impl WgpuResources {
             render_pipelines: self.render_pipelines.read().unwrap(),
             bind_groups: self.bind_groups.read().unwrap(),
         }
-    } 
+    }
 
     pub fn set_window_surface(&self, window_id: WindowId, surface: wgpu::Surface) {
         self.window_surfaces
@@ -107,13 +106,8 @@ impl WgpuResources {
     }
 
     pub fn next_swap_chain_texture(&self, window_id: WindowId) {
-        let mut swap_chain_outputs = self
-            .window_swap_chains
-            .write()
-            .unwrap();
-        let swap_chain_output = swap_chain_outputs
-            .get_mut(&window_id)
-            .unwrap();
+        let mut swap_chain_outputs = self.window_swap_chains.write().unwrap();
+        let swap_chain_output = swap_chain_outputs.get_mut(&window_id).unwrap();
         let next_texture = swap_chain_output.get_next_texture().unwrap();
         self.swap_chain_outputs
             .write()
@@ -160,7 +154,10 @@ impl WgpuResources {
             .unwrap()
             .get(&bind_group_descriptor_id)
         {
-            bind_group_info.bind_groups.get(&render_resource_set_id).is_some()
+            bind_group_info
+                .bind_groups
+                .get(&render_resource_set_id)
+                .is_some()
         } else {
             false
         }
@@ -186,10 +183,7 @@ impl WgpuResources {
         render_resource_set_id: RenderResourceSetId,
         bind_group: wgpu::BindGroup,
     ) {
-        let mut bind_groups = self
-            .bind_groups
-            .write()
-            .unwrap();
+        let mut bind_groups = self.bind_groups.write().unwrap();
         let bind_group_info = bind_groups
             .entry(bind_group_descriptor_id)
             .or_insert_with(|| WgpuBindGroupInfo::default());
@@ -224,7 +218,11 @@ impl WgpuResources {
     }
 
     // TODO: taking a closure isn't fantastic. is there any way to make this better without exposing the lock in the interface?
-    pub fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>)) {
+    pub fn get_resource_info(
+        &self,
+        resource: RenderResource,
+        handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
+    ) {
         let resource_info = self.resource_info.read().unwrap();
         let info = resource_info.get(&resource);
         handle_info(info);
@@ -362,21 +360,58 @@ impl WgpuResources {
         self.resource_info.write().unwrap().remove(&resource);
     }
 
-    pub fn set_asset_resource<T>(&mut self, handle: Handle<T>, render_resource: RenderResource, index: usize) where T: 'static {
-        self.asset_resources.write().unwrap().insert((handle.into(), index), render_resource);
-    } 
+    pub fn set_asset_resource<T>(
+        &mut self,
+        handle: Handle<T>,
+        render_resource: RenderResource,
+        index: usize,
+    ) where
+        T: 'static,
+    {
+        self.asset_resources
+            .write()
+            .unwrap()
+            .insert((handle.into(), index), render_resource);
+    }
 
-    pub fn get_asset_resource<T>(&mut self, handle: Handle<T>, index: usize) -> Option<RenderResource> where T: 'static {
-        self.asset_resources.write().unwrap().get(&(handle.into(), index)).cloned()
-    } 
+    pub fn get_asset_resource<T>(
+        &mut self,
+        handle: Handle<T>,
+        index: usize,
+    ) -> Option<RenderResource>
+    where
+        T: 'static,
+    {
+        self.asset_resources
+            .write()
+            .unwrap()
+            .get(&(handle.into(), index))
+            .cloned()
+    }
 
-    pub fn set_asset_resource_untyped(&mut self, handle: HandleUntyped, render_resource: RenderResource, index: usize) {
-        self.asset_resources.write().unwrap().insert((handle, index), render_resource);
-    } 
+    pub fn set_asset_resource_untyped(
+        &mut self,
+        handle: HandleUntyped,
+        render_resource: RenderResource,
+        index: usize,
+    ) {
+        self.asset_resources
+            .write()
+            .unwrap()
+            .insert((handle, index), render_resource);
+    }
 
-    pub fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResource> {
-        self.asset_resources.write().unwrap().get(&(handle, index)).cloned()
-    } 
+    pub fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResource> {
+        self.asset_resources
+            .write()
+            .unwrap()
+            .get(&(handle, index))
+            .cloned()
+    }
 
     pub fn create_bind_group_layout(
         &self,

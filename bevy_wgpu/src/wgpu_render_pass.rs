@@ -23,21 +23,13 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
-        let buffer = self
-            .render_resources
-            .buffers
-            .get(&resource)
-            .unwrap();
+        let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
-        let buffer = self
-            .render_resources
-            .buffers
-            .get(&resource)
-            .unwrap();
+        let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset, 0);
     }
 
@@ -92,10 +84,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             if let Some((render_resource_set_id, dynamic_uniform_indices)) =
                 render_resource_assignments.get_render_resource_set_id(bind_group.id)
             {
-                if let Some(bind_group_info) = self
-                    .render_resources
-                    .bind_groups
-                    .get(&bind_group.id)
+                if let Some(bind_group_info) = self.render_resources.bind_groups.get(&bind_group.id)
                 {
                     if let Some(wgpu_bind_group) =
                         bind_group_info.bind_groups.get(render_resource_set_id)
