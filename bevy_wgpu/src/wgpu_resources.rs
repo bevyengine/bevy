@@ -27,7 +27,7 @@ pub struct WgpuBindGroupInfo {
 /// 
 /// This is only a problem because RwLockReadGuard.read() erases the guard's lifetime and creates a new anonymous lifetime. If
 /// you call RwLockReadGuard.read() during a pass, the reference will have an anonymous lifetime that lives for less than the
-/// pass. 
+/// pass, which violates the lifetime constraints in place.
 /// 
 /// The biggest implication of this design (other than the additional boilerplate here) is that beginning a render pass
 /// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. WgpuResourceRefs
