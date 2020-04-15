@@ -3,9 +3,8 @@ use crate::WgpuResources;
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     mesh::Mesh,
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        AssetResources, BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo,
+        AssetResources, BufferInfo, RenderResource, ResourceInfo,
     },
     renderer_2::RenderResourceContext,
     shader::Shader,
@@ -14,158 +13,18 @@ use bevy_render::{
 use std::sync::Arc;
 use bevy_window::{WindowId, Window};
 
+#[derive(Clone)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
-    pub wgpu_resources: WgpuResources,
+    pub wgpu_resources: Arc<WgpuResources>,
 }
 
-// TODO: make this name not terrible
-pub trait WgpuRenderResourceContextTrait {
-    fn create_texture_with_data(
-        &mut self,
-        command_encoder: &mut wgpu::CommandEncoder,
-        texture_descriptor: &TextureDescriptor,
-        bytes: &[u8],
-    ) -> RenderResource;
-
-    fn create_bind_group(
-        &self,
-        render_resource_set_id: RenderResourceSetId,
-        descriptor: &wgpu::BindGroupDescriptor,
-    ) -> wgpu::BindGroup;
-    fn set_bind_group(
-        &mut self,
-        bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set_id: RenderResourceSetId,
-        bind_group: wgpu::BindGroup,
-    );
-    fn create_bind_group_layout(
-        &mut self,
-        bind_group_id: BindGroupDescriptorId,
-        descriptor: &wgpu::BindGroupLayoutDescriptor,
-    );
-    fn create_render_pipeline(
-        &self,
-        descriptor: &wgpu::RenderPipelineDescriptor,
-    ) -> wgpu::RenderPipeline;
-    fn set_render_pipeline(
-        &mut self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline: wgpu::RenderPipeline,
-    );
-    fn get_bind_group(
-        &self,
-        bind_group_id: BindGroupDescriptorId,
-        render_resource_set_id: RenderResourceSetId,
-    ) -> Option<&wgpu::BindGroup>;
-    fn get_bind_group_layout(
-        &self,
-        bind_group_id: BindGroupDescriptorId,
-    ) -> Option<&wgpu::BindGroupLayout>;
-    fn get_buffer(&self, render_resource: RenderResource) -> Option<&wgpu::Buffer>;
-    fn get_swap_chain_output(&self, window_id: &WindowId) -> Option<&wgpu::SwapChainOutput>;
-    fn get_texture(&self, render_resource: RenderResource) -> Option<&wgpu::TextureView>;
-    fn get_sampler(&self, render_resource: RenderResource) -> Option<&wgpu::Sampler>;
-    fn get_pipeline(&self, pipeline: Handle<PipelineDescriptor>) -> Option<&wgpu::RenderPipeline>;
-    fn get_shader_module(&self, shader: Handle<Shader>) -> Option<&wgpu::ShaderModule>;
-}
-
-impl WgpuRenderResourceContextTrait for WgpuRenderResourceContext {
-    fn get_buffer(&self, render_resource: RenderResource) -> Option<&wgpu::Buffer> {
-        self.wgpu_resources.buffers.get(&render_resource)
-    }
-    fn create_texture_with_data(
-        &mut self,
-        command_encoder: &mut wgpu::CommandEncoder,
-        texture_descriptor: &TextureDescriptor,
-        bytes: &[u8],
-    ) -> RenderResource {
-        self.wgpu_resources.create_texture_with_data(
-            &self.device,
-            command_encoder,
-            texture_descriptor,
-            bytes,
-        )
-    }
-    fn create_bind_group(
-        &self,
-        render_resource_set_id: RenderResourceSetId,
-        descriptor: &wgpu::BindGroupDescriptor,
-    ) -> wgpu::BindGroup {
-        self.wgpu_resources
-            .create_bind_group(&self.device, render_resource_set_id, descriptor)
-    }
-    fn create_bind_group_layout(
-        &mut self,
-        bind_group_id: BindGroupDescriptorId,
-        descriptor: &wgpu::BindGroupLayoutDescriptor,
-    ) {
-        self.wgpu_resources
-            .create_bind_group_layout(&self.device, bind_group_id, descriptor);
-    }
-    fn create_render_pipeline(
-        &self,
-        descriptor: &wgpu::RenderPipelineDescriptor,
-    ) -> wgpu::RenderPipeline {
-        self.wgpu_resources
-            .create_render_pipeline(&self.device, descriptor)
-    }
-    fn get_bind_group(
-        &self,
-        bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set_id: RenderResourceSetId,
-    ) -> Option<&wgpu::BindGroup> {
-        self.wgpu_resources
-            .get_bind_group(bind_group_descriptor_id, render_resource_set_id)
-    }
-    fn get_bind_group_layout(
-        &self,
-        bind_group_id: BindGroupDescriptorId,
-    ) -> Option<&wgpu::BindGroupLayout> {
-        self.wgpu_resources.bind_group_layouts.get(&bind_group_id)
-    }
-    fn get_texture(&self, render_resource: RenderResource) -> Option<&wgpu::TextureView> {
-        self.wgpu_resources.textures.get(&render_resource)
-    }
-    fn get_sampler(&self, render_resource: RenderResource) -> Option<&wgpu::Sampler> {
-        self.wgpu_resources.samplers.get(&render_resource)
-    }
-    fn get_pipeline(&self, pipeline: Handle<PipelineDescriptor>) -> Option<&wgpu::RenderPipeline> {
-        self.wgpu_resources.render_pipelines.get(&pipeline)
-    }
-    fn get_shader_module(&self, shader: Handle<Shader>) -> Option<&wgpu::ShaderModule> {
-        self.wgpu_resources.shader_modules.get(&shader)
-    }
-    fn set_bind_group(
-        &mut self,
-        bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set_id: RenderResourceSetId,
-        bind_group: wgpu::BindGroup,
-    ) {
-        self.wgpu_resources.set_bind_group(
-            bind_group_descriptor_id,
-            render_resource_set_id,
-            bind_group,
-        );
-    }
-    fn set_render_pipeline(
-        &mut self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline: wgpu::RenderPipeline,
-    ) {
-        self.wgpu_resources
-            .set_render_pipeline(pipeline_handle, pipeline);
-    }
-    fn get_swap_chain_output(&self, window_id: &WindowId) -> Option<&wgpu::SwapChainOutput> {
-        self.wgpu_resources.swap_chain_outputs.get(window_id)
-    }
-}
 
 impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
         WgpuRenderResourceContext {
             device,
-            wgpu_resources: WgpuResources::default(),
+            wgpu_resources: Arc::new(WgpuResources::default()),
         }
     }
 }
@@ -251,7 +110,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         shader_handle: Handle<Shader>,
         shader_storage: &AssetStorage<Shader>,
     ) {
-        if self.get_shader_module(shader_handle).is_some() {
+        if self.wgpu_resources.shader_modules.read().unwrap().get(&shader_handle).is_some() {
             return;
         }
 

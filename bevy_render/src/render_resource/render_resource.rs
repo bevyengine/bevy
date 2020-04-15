@@ -17,25 +17,13 @@ impl RenderResource {
 // the overlap could cause accidents.
 #[derive(Default)]
 pub struct AssetResources {
-    pub texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
-    pub texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
-    pub mesh_to_vertices_resource: HashMap<Handle<Mesh>, RenderResource>,
-    pub mesh_to_indices_resource: HashMap<Handle<Mesh>, RenderResource>,
+    texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
+    texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,
+    mesh_to_vertices_resource: HashMap<Handle<Mesh>, RenderResource>,
+    mesh_to_indices_resource: HashMap<Handle<Mesh>, RenderResource>,
 }
 
 impl AssetResources {
-    pub fn consume(&mut self, render_resources: AssetResources) {
-        // TODO: this is brittle. consider a single change-stream-based approach instead?
-        self.texture_to_resource
-            .extend(render_resources.texture_to_resource);
-        self.texture_to_sampler_resource
-            .extend(render_resources.texture_to_sampler_resource);
-        self.mesh_to_vertices_resource
-            .extend(render_resources.mesh_to_vertices_resource);
-        self.mesh_to_indices_resource
-            .extend(render_resources.mesh_to_indices_resource);
-    }
-
     pub fn set_texture_resource(&mut self, texture: Handle<Texture>, resource: RenderResource) {
         self.texture_to_resource.insert(texture, resource);
     }

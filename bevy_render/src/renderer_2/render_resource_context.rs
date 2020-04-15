@@ -6,13 +6,33 @@ use crate::{
 };
 use bevy_asset::{AssetStorage, Handle};
 use bevy_window::{Window, WindowId};
+use std::any::Any;
 
 pub struct GlobalRenderResourceContext {
     pub context: Box<dyn RenderResourceContext + Send + Sync + 'static>,
 }
 
+impl GlobalRenderResourceContext {
+    pub fn new<T>(context: T) -> GlobalRenderResourceContext
+    where
+        T: RenderResourceContext + Send + Sync + 'static,
+    {
+        GlobalRenderResourceContext {
+            context: Box::new(context),
+        }
+    }
+
+    // pub fn render_resources_mut(&mut self) -> &dyn RenderResourceContext {
+    //     (&mut self.context).downcast_mut::<dyn RenderResourceContext>()
+    // }
+
+    // pub fn downcast_mut(&self) -> &dyn RenderResourceContext {
+    //     self.context.downcast_ref::<RenderResourceContext>()
+    // }
+}
+
 // TODO: Rename to RenderResources after cleaning up AssetResources rename
-pub trait RenderResourceContext {
+pub trait RenderResourceContext: Any {
     fn create_swap_chain(&mut self, window: &Window);
     fn next_swap_chain_texture(&mut self, window_id: WindowId);
     fn drop_swap_chain_texture(&mut self, window_id: WindowId);

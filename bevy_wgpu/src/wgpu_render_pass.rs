@@ -1,47 +1,48 @@
-use crate::renderer_2::{WgpuRenderContext, WgpuRenderResourceContextTrait};
+use crate::renderer_2::WgpuRenderContext;
+use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{
         RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
-    renderer_2::{RenderContext, RenderResourceContext},
+    renderer_2::RenderContext,
 };
 use std::{collections::HashMap, ops::Range};
 
-pub struct WgpuRenderPass<'a, T>
-where
-    T: RenderResourceContext + WgpuRenderResourceContextTrait,
-{
+pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
-    pub render_context: &'a WgpuRenderContext<T>,
+    pub render_context: &'a WgpuRenderContext,
     pub bound_bind_groups: HashMap<u32, RenderResourceSetId>,
 }
 
-impl<'a, T> RenderPass for WgpuRenderPass<'a, T>
-where
-    T: RenderResourceContext + WgpuRenderResourceContextTrait,
-{
+impl<'a> RenderPass for WgpuRenderPass<'a> {
     fn get_render_context(&self) -> &dyn RenderContext {
         self.render_context
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
-        let buffer = self
+        let buffers = self
             .render_context
             .render_resources
-            .get_buffer(resource)
+            .wgpu_resources
+            .buffers
+            .read()
             .unwrap();
+        let buffer = buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
-        let buffer = self
+        let buffers = self
             .render_context
             .render_resources
-            .get_buffer(resource)
+            .wgpu_resources
+            .buffers
+            .read()
             .unwrap();
+        let buffer = buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset, 0);
     }
 
@@ -55,8 +56,7 @@ where
         pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> Option<Range<u32>> {
-        let pipeline_layout = pipeline_descriptor.get_layout()
-            .unwrap();
+        let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
         // PERF: vertex buffer lookup comes at a cost when vertex buffers aren't in render_resource_assignments. iterating over render_resource_assignment vertex buffers
         // would likely be faster
         let mut indices = None;
@@ -102,6 +102,7 @@ where
                 if let Some(wgpu_bind_group) = self
                     .render_context
                     .render_resources
+                    .wgpu_resources
                     .get_bind_group(bind_group.id, *render_resource_set_id)
                 {
                     const EMPTY: &'static [u32] = &[];
@@ -148,8 +149,17 @@ where
 
         indices
     }
-    fn set_pipeline(&mut self, pipeline_handle: bevy_asset::Handle<PipelineDescriptor>) {
-        let pipeline = self.render_context.render_resources.get_pipeline(pipeline_handle).expect("Attempted to use a pipeline that does not exist in this RenderPass's RenderContext");
+    fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
+        let render_pipelines = self
+            .render_context
+            .render_resources
+            .wgpu_resources
+            .render_pipelines
+            .read()
+            .unwrap();
+        let pipeline = render_pipelines.get(&pipeline_handle).expect(
+            "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
+        );
         self.render_pass.set_pipeline(pipeline);
     }
 }

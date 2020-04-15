@@ -239,7 +239,7 @@ impl PipelineAssignments {
 // TODO: make this a system
 pub fn update_shader_assignments(
     world: &mut World,
-    resources: &mut Resources,
+    resources: &Resources,
     render_context: &dyn RenderContext,
 ) {
     // PERF: this seems like a lot of work for things that don't change that often.
