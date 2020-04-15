@@ -15,7 +15,7 @@ impl RenderResource {
 
 // TODO: consider scoping breaking these mappings up by type: Texture, Sampler, etc
 // the overlap could cause accidents.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct AssetResources {
     texture_to_resource: HashMap<Handle<Texture>, RenderResource>,
     texture_to_sampler_resource: HashMap<Handle<Texture>, RenderResource>,

@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "type": "lldb",
             "request": "launch",
@@ -30,11 +31,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--example=simple_new",
+                    "--example=scene",
                     "--package=bevy"
                 ],
                 "filter": {
-                    "name": "simple_new",
+                    "name": "scene",
                     "kind": "example"
                 }
             },
@@ -48,9 +49,8 @@
             "cargo": {
                 "args": [
                     "run",
-                    "--example=simple_new",
+                    "--example=scene",
                     "--package=bevy",
-                    "--release"
                 ],
                 "filter": {
                     "name": "simple_new",

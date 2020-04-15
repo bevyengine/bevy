@@ -1,7 +1,7 @@
 use super::WgpuRenderResourceContext;
 use crate::{
     wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
-    WgpuRenderPass,
+    WgpuRenderPass, WgpuResourceRefs,
 };
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
@@ -127,10 +127,10 @@ impl RenderContext for WgpuRenderContext {
         if let Some((render_resource_set_id, _indices)) =
             render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
         {
-            if let None = self
+            if !self
                 .render_resources
                 .wgpu_resources
-                .get_bind_group(bind_group_descriptor.id, *render_resource_set_id)
+                .has_bind_group(bind_group_descriptor.id, *render_resource_set_id)
             {
                 log::trace!(
                     "start creating bind group for RenderResourceSet {:?}",
@@ -155,48 +155,54 @@ impl RenderContext for WgpuRenderContext {
                         .iter()
                         .map(|binding| {
                             if let Some(resource) = render_resource_assignments.get(&binding.name) {
-                                let resource_info =
-                                    self.resources().get_resource_info(resource).unwrap();
-                                log::trace!(
-                                    "found binding {} ({}) resource: {:?} {:?}",
-                                    binding.index,
-                                    binding.name,
+                                let mut wgpu_resource = None;
+                                self.resources().get_resource_info(
                                     resource,
-                                    resource_info
+                                    &mut |resource_info| {
+                                        log::trace!(
+                                            "found binding {} ({}) resource: {:?} {:?}",
+                                            binding.index,
+                                            binding.name,
+                                            resource,
+                                            resource_info
+                                        );
+                                        wgpu_resource = match &binding.bind_type {
+                                            BindType::SampledTexture { .. } => {
+                                                if let Some(ResourceInfo::Texture) = resource_info {
+                                                    let texture = textures.get(&resource).unwrap();
+                                                    Some(wgpu::BindingResource::TextureView(texture))
+                                                } else {
+                                                    panic!("expected a Texture resource");
+                                                }
+                                            }
+                                            BindType::Sampler { .. } => {
+                                                if let Some(ResourceInfo::Sampler) = resource_info {
+                                                    let sampler = samplers.get(&resource).unwrap();
+                                                    Some(wgpu::BindingResource::Sampler(sampler))
+                                                } else {
+                                                    panic!("expected a Sampler resource");
+                                                }
+                                            }
+                                            BindType::Uniform { .. } => {
+                                                if let Some(ResourceInfo::Buffer(buffer_info)) =
+                                                    resource_info
+                                                {
+                                                    let buffer = buffers.get(&resource).unwrap();
+                                                    Some(wgpu::BindingResource::Buffer {
+                                                        buffer,
+                                                        range: 0..buffer_info.size as u64,
+                                                    })
+                                                } else {
+                                                    panic!("expected a Buffer resource");
+                                                }
+                                            }
+                                            _ => panic!("unsupported bind type"),
+                                        }
+                                    },
                                 );
                                 wgpu::Binding {
                                     binding: binding.index,
-                                    resource: match &binding.bind_type {
-                                        BindType::SampledTexture { .. } => {
-                                            if let ResourceInfo::Texture = resource_info {
-                                                let texture = textures.get(&resource).unwrap();
-                                                wgpu::BindingResource::TextureView(texture)
-                                            } else {
-                                                panic!("expected a Texture resource");
-                                            }
-                                        }
-                                        BindType::Sampler { .. } => {
-                                            if let ResourceInfo::Sampler = resource_info {
-                                                let sampler = samplers.get(&resource).unwrap();
-                                                wgpu::BindingResource::Sampler(sampler)
-                                            } else {
-                                                panic!("expected a Sampler resource");
-                                            }
-                                        }
-                                        BindType::Uniform { .. } => {
-                                            if let ResourceInfo::Buffer(buffer_info) = resource_info
-                                            {
-                                                let buffer = buffers.get(&resource).unwrap();
-                                                wgpu::BindingResource::Buffer {
-                                                    buffer,
-                                                    range: 0..buffer_info.size as u64,
-                                                }
-                                            } else {
-                                                panic!("expected a Buffer resource");
-                                            }
-                                        }
-                                        _ => panic!("unsupported bind type"),
-                                    },
+                                    resource: wgpu_resource.expect("No resource binding found"),
                                 }
                             } else {
                                 panic!(
@@ -256,13 +262,13 @@ impl RenderContext for WgpuRenderContext {
 
         let layout = pipeline_descriptor.get_layout().unwrap();
         for bind_group in layout.bind_groups.iter() {
-            if let None = self
+            if self
                 .render_resources
                 .wgpu_resources
                 .bind_group_layouts
                 .read()
                 .unwrap()
-                .get(&bind_group.id)
+                .get(&bind_group.id).is_none()
             {
                 let bind_group_layout_binding = bind_group
                     .bindings
@@ -412,18 +418,21 @@ impl RenderContext for WgpuRenderContext {
         if !self.command_encoder.is_some() {
             self.command_encoder.create(&self.device);
         }
-
+        let resource_lock = self.render_resources.wgpu_resources.read();
+        let refs = resource_lock.refs();
         let mut encoder = self.command_encoder.take().unwrap();
         {
             let render_pass = create_render_pass(
                 self,
                 pass_descriptor,
                 render_resource_assignments,
+                &refs,
                 &mut encoder,
             );
             let mut wgpu_render_pass = WgpuRenderPass {
                 render_context: self,
                 render_pass,
+                render_resources: refs,
                 bound_bind_groups: HashMap::default(),
             };
 
@@ -438,6 +447,7 @@ pub fn create_render_pass<'a, 'b>(
     render_context: &'a WgpuRenderContext,
     pass_descriptor: &PassDescriptor,
     global_render_resource_assignments: &'b RenderResourceAssignments,
+    refs: &WgpuResourceRefs<'a>,
     encoder: &'a mut wgpu::CommandEncoder,
 ) -> wgpu::RenderPass<'a> {
     encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -448,6 +458,7 @@ pub fn create_render_pass<'a, 'b>(
                 create_wgpu_color_attachment_descriptor(
                     render_context,
                     global_render_resource_assignments,
+                    refs,
                     c,
                 )
             })
@@ -456,6 +467,7 @@ pub fn create_render_pass<'a, 'b>(
             create_wgpu_depth_stencil_attachment_descriptor(
                 render_context,
                 global_render_resource_assignments,
+                refs,
                 d,
             )
         }),
@@ -465,16 +477,13 @@ pub fn create_render_pass<'a, 'b>(
 fn get_texture_view<'a>(
     render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
+    refs: &WgpuResourceRefs<'a>,
     name: &str,
 ) -> &'a wgpu::TextureView {
     match name {
         resource_name::texture::SWAP_CHAIN => {
-            if let Some(primary_swap_chain) = render_context
-                .render_resources
-                .wgpu_resources
+            if let Some(primary_swap_chain) = refs
                 .swap_chain_outputs
-                .read()
-                .unwrap()
                 .get(render_context.primary_window.as_ref().unwrap())
                 .map(|output| &output.view)
             {
@@ -484,14 +493,7 @@ fn get_texture_view<'a>(
             }
         }
         _ => match global_render_resource_assignments.get(name) {
-            Some(resource) => render_context
-                .render_resources
-                .wgpu_resources
-                .textures
-                .read()
-                .unwrap()
-                .get(&resource)
-                .unwrap(),
+            Some(resource) => refs.textures.get(&resource).unwrap(),
             None => {
                 // if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
                 //     &swap_chain_output.view
@@ -506,11 +508,13 @@ fn get_texture_view<'a>(
 fn create_wgpu_color_attachment_descriptor<'a>(
     render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
+    refs: &WgpuResourceRefs<'a>,
     color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
 ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
         render_context,
         global_render_resource_assignments,
+        refs,
         color_attachment_descriptor.attachment.as_str(),
     );
 
@@ -521,6 +525,7 @@ fn create_wgpu_color_attachment_descriptor<'a>(
             get_texture_view(
                 render_context,
                 global_render_resource_assignments,
+                refs,
                 target.as_str(),
             )
         });
@@ -537,11 +542,13 @@ fn create_wgpu_color_attachment_descriptor<'a>(
 fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
     render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
+    refs: &WgpuResourceRefs<'a>,
     depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
 ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
         render_context,
         global_render_resource_assignments,
+        refs,
         depth_stencil_attachment_descriptor.attachment.as_str(),
     );
 

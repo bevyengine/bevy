@@ -60,18 +60,22 @@ impl PipelineCompiler {
         for bind_group in layout.bind_groups.iter_mut() {
             for binding in bind_group.bindings.iter_mut() {
                 if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
-                    if let Some(ResourceInfo::Buffer(BufferInfo { is_dynamic, .. })) =
-                        render_context
-                            .resources()
-                            .get_resource_info(render_resource)
-                    {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            *dynamic = *is_dynamic
-                        }
-                    }
+                        render_context.resources().get_resource_info(
+                            render_resource,
+                            &mut |resource_info| {
+                                if let Some(ResourceInfo::Buffer(BufferInfo {
+                                    is_dynamic, ..
+                                })) = resource_info
+                                {
+                                    if let BindType::Uniform {
+                                        ref mut dynamic, ..
+                                    } = binding.bind_type
+                                    {
+                                        *dynamic = *is_dynamic
+                                    }
+                                }
+                            }
+                        );
                 }
             }
         }

@@ -1,4 +1,4 @@
-use crate::renderer_2::WgpuRenderContext;
+use crate::{renderer_2::WgpuRenderContext, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
@@ -13,6 +13,7 @@ use std::{collections::HashMap, ops::Range};
 pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,
+    pub render_resources: WgpuResourceRefs<'a>,
     pub bound_bind_groups: HashMap<u32, RenderResourceSetId>,
 }
 
@@ -22,27 +23,21 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
-        let buffers = self
-            .render_context
+        let buffer = self
             .render_resources
-            .wgpu_resources
             .buffers
-            .read()
+            .get(&resource)
             .unwrap();
-        let buffer = buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
-        let buffers = self
-            .render_context
+        let buffer = self
             .render_resources
-            .wgpu_resources
             .buffers
-            .read()
+            .get(&resource)
             .unwrap();
-        let buffer = buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset, 0);
     }
 
@@ -80,17 +75,15 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                         index_buffer
                     );
                     self.set_index_buffer(index_buffer, 0);
-                    match self
-                        .render_context
-                        .resources()
-                        .get_resource_info(index_buffer)
-                        .unwrap()
-                    {
-                        ResourceInfo::Buffer(buffer_info) => {
-                            indices = Some(0..(buffer_info.size / 2) as u32)
-                        }
-                        _ => panic!("expected a buffer type"),
-                    }
+                    self.render_context.resources().get_resource_info(
+                        index_buffer,
+                        &mut |resource_info| match resource_info {
+                            Some(ResourceInfo::Buffer(buffer_info)) => {
+                                indices = Some(0..(buffer_info.size / 2) as u32)
+                            }
+                            _ => panic!("expected a buffer type"),
+                        },
+                    );
                 }
             }
         }
@@ -99,50 +92,53 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             if let Some((render_resource_set_id, dynamic_uniform_indices)) =
                 render_resource_assignments.get_render_resource_set_id(bind_group.id)
             {
-                if let Some(wgpu_bind_group) = self
-                    .render_context
+                if let Some(bind_group_info) = self
                     .render_resources
-                    .wgpu_resources
-                    .get_bind_group(bind_group.id, *render_resource_set_id)
+                    .bind_groups
+                    .get(&bind_group.id)
                 {
-                    const EMPTY: &'static [u32] = &[];
-                    let dynamic_uniform_indices =
-                        if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
-                            dynamic_uniform_indices.as_slice()
-                        } else {
-                            EMPTY
-                        };
-
-                    // don't bind bind groups if they are already set
-                    // TODO: these checks come at a performance cost. make sure its worth it!
-                    if let Some(bound_render_resource_set) =
-                        self.bound_bind_groups.get(&bind_group.index)
+                    if let Some(wgpu_bind_group) =
+                        bind_group_info.bind_groups.get(render_resource_set_id)
                     {
-                        if *bound_render_resource_set == *render_resource_set_id
-                            && dynamic_uniform_indices.len() == 0
+                        const EMPTY: &'static [u32] = &[];
+                        let dynamic_uniform_indices =
+                            if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
+                                dynamic_uniform_indices.as_slice()
+                            } else {
+                                EMPTY
+                            };
+
+                        // don't bind bind groups if they are already set
+                        // TODO: these checks come at a performance cost. make sure its worth it!
+                        if let Some(bound_render_resource_set) =
+                            self.bound_bind_groups.get(&bind_group.index)
                         {
-                            continue;
+                            if *bound_render_resource_set == *render_resource_set_id
+                                && dynamic_uniform_indices.len() == 0
+                            {
+                                continue;
+                            }
                         }
-                    }
 
-                    if dynamic_uniform_indices.len() == 0 {
-                        self.bound_bind_groups
-                            .insert(bind_group.index, *render_resource_set_id);
-                    } else {
-                        self.bound_bind_groups.remove(&bind_group.index);
-                    }
+                        if dynamic_uniform_indices.len() == 0 {
+                            self.bound_bind_groups
+                                .insert(bind_group.index, *render_resource_set_id);
+                        } else {
+                            self.bound_bind_groups.remove(&bind_group.index);
+                        }
 
-                    log::trace!(
-                        "set bind group {} {:?}: {:?}",
-                        bind_group.index,
-                        dynamic_uniform_indices,
-                        render_resource_set_id
-                    );
-                    self.render_pass.set_bind_group(
-                        bind_group.index,
-                        &wgpu_bind_group,
-                        dynamic_uniform_indices,
-                    );
+                        log::trace!(
+                            "set bind group {} {:?}: {:?}",
+                            bind_group.index,
+                            dynamic_uniform_indices,
+                            render_resource_set_id
+                        );
+                        self.render_pass.set_bind_group(
+                            bind_group.index,
+                            wgpu_bind_group,
+                            dynamic_uniform_indices,
+                        );
+                    }
                 };
             }
         }
@@ -150,14 +146,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         indices
     }
     fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
-        let render_pipelines = self
-            .render_context
-            .render_resources
-            .wgpu_resources
-            .render_pipelines
-            .read()
-            .unwrap();
-        let pipeline = render_pipelines.get(&pipeline_handle).expect(
+        let pipeline = self.render_resources.render_pipelines.get(&pipeline_handle).expect(
             "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
         );
         self.render_pass.set_pipeline(pipeline);

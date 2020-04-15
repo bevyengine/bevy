@@ -281,23 +281,27 @@ where
                         self.uniform_buffer_status[i].as_mut().unwrap();
                     let (target_buffer, target_offset) = if self.use_dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
-                        if let Some(ResourceInfo::Buffer(BufferInfo {
-                            array_info: Some(ref array_info),
-                            is_dynamic: true,
-                            ..
-                        })) = render_resources.get_resource_info(buffer)
-                        {
-                            let index = uniform_buffer_status
-                                .get_or_assign_index(render_resource_assignments.id);
-                            render_resource_assignments.set_indexed(
-                                &field_info.uniform_name,
-                                buffer,
-                                (index * array_info.item_size) as u32,
-                            );
-                            (buffer, index * uniform_buffer_status.aligned_size)
-                        } else {
-                            panic!("Expected a dynamic uniform buffer");
-                        }
+                        let mut offset = 0;
+                        render_resources.get_resource_info(buffer, &mut |resource_info| {
+                            if let Some(ResourceInfo::Buffer(BufferInfo {
+                                array_info: Some(ref array_info),
+                                is_dynamic: true,
+                                ..
+                            })) = resource_info
+                            {
+                                let index = uniform_buffer_status
+                                    .get_or_assign_index(render_resource_assignments.id);
+                                render_resource_assignments.set_indexed(
+                                    &field_info.uniform_name,
+                                    buffer,
+                                    (index * array_info.item_size) as u32,
+                                );
+                                offset = index * uniform_buffer_status.aligned_size;
+                            } else {
+                                panic!("Expected a dynamic uniform buffer");
+                            }
+                        });
+                        (buffer, offset)
                     } else {
                         let resource = match render_resource_assignments
                             .get(field_info.uniform_name)
@@ -597,24 +601,31 @@ where
         align: bool,
     ) {
         let new_capacity = if let Some(buffer) = buffer_array_status.buffer {
-            if let Some(ResourceInfo::Buffer(BufferInfo {
-                array_info: Some(array_info),
-                ..
-            })) = render_context.resources().get_resource_info(buffer)
-            {
-                if array_info.item_capacity < buffer_array_status.new_item_count {
-                    // over capacity. lets resize
-                    Some(
-                        buffer_array_status.new_item_count + buffer_array_status.new_item_count / 2,
-                    )
-                } else {
-                    // under capacity. no change needed
-                    None
-                }
-            } else {
-                // incorrect resource type. overwrite with new buffer
-                Some(buffer_array_status.new_item_count)
-            }
+            let mut new_capacity = None;
+            render_context
+                .resources()
+                .get_resource_info(buffer, &mut |resource_info| {
+                    new_capacity = if let Some(ResourceInfo::Buffer(BufferInfo {
+                        array_info: Some(array_info),
+                        ..
+                    })) = resource_info
+                    {
+                        if array_info.item_capacity < buffer_array_status.new_item_count {
+                            // over capacity. lets resize
+                            Some(
+                                buffer_array_status.new_item_count
+                                    + buffer_array_status.new_item_count / 2,
+                            )
+                        } else {
+                            // under capacity. no change needed
+                            None
+                        }
+                    } else {
+                        // incorrect resource type. overwrite with new buffer
+                        Some(buffer_array_status.new_item_count)
+                    };
+                });
+            new_capacity
         } else {
             // buffer does not exist. create it now.
             Some(buffer_array_status.new_item_count)

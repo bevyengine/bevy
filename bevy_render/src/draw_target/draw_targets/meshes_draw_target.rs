@@ -37,15 +37,14 @@ impl DrawTarget for MeshesDrawTarget {
                 {
                     let index_buffer_resource =
                         render_resources.get_mesh_indices_resource(*mesh).unwrap();
-                    match render_resources
-                        .get_resource_info(index_buffer_resource)
-                        .unwrap()
-                    {
-                        ResourceInfo::Buffer(buffer_info) => {
-                            current_mesh_index_len = (buffer_info.size / 2) as u32
+                    render_resources.get_resource_info(index_buffer_resource, &mut |resource_info| {
+                        match resource_info {
+                            Some(ResourceInfo::Buffer(buffer_info)) => {
+                                current_mesh_index_len = (buffer_info.size / 2) as u32
+                            }
+                            _ => panic!("expected a buffer type"),
                         }
-                        _ => panic!("expected a buffer type"),
-                    }
+                    });
                     render_pass.set_index_buffer(index_buffer_resource, 0);
                     render_pass.set_vertex_buffer(0, vertex_buffer_resource, 0);
                 }
@@ -54,7 +53,8 @@ impl DrawTarget for MeshesDrawTarget {
             }
 
             // TODO: validate bind group properties against shader uniform properties at least once
-            render_pass.set_render_resources(pipeline_descriptor, &renderable.render_resource_assignments);
+            render_pass
+                .set_render_resources(pipeline_descriptor, &renderable.render_resource_assignments);
             render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
         }
     }

@@ -20,12 +20,56 @@ pub struct WgpuBindGroupInfo {
     pub bind_groups: HashMap<RenderResourceSetId, wgpu::BindGroup>,
 }
 
+/// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows 
+/// us to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is accomplished by
+/// grabbing a WgpuResourcesReadLock _before_ creating a wgpu::RenderPass, getting a WgpuResourcesRefs, and storing that
+/// in the pass. 
+/// 
+/// This is only a problem because RwLockReadGuard.read() erases the guard's lifetime and creates a new anonymous lifetime. If
+/// you call RwLockReadGuard.read() during a pass, the reference will have an anonymous lifetime that lives for less than the
+/// pass. 
+/// 
+/// The biggest implication of this design (other than the additional boilerplate here) is that beginning a render pass
+/// blocks writes to these resources. This means that if the pass attempts to write any resource, a deadlock will occur. It also means
+/// that other threads attempting to write resources will need to wait for pass encoding to finish. Almost all writes should occur before
+/// passes start, so this hopefully won't be a problem.
+/// 
+/// It is worth comparing the performance of this to transactional / copy-based approach. This design lock based design guarantees
+/// consistency, doesn't perform redundant allocations, and only blocks when a write is occurring. A copy based approach would 
+/// never block, but would require more allocations / state-synchronization, which I expect will be more expensive.
+/// 
+/// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
+/// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::Buffer>>,
     pub textures: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::TextureView>>,
+    pub swap_chain_outputs: RwLockReadGuard<'a, HashMap<WindowId, wgpu::SwapChainOutput>>,
+    pub render_pipelines: RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
+    pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
 }
 
-#[derive(Default)]
+impl<'a> WgpuResourcesReadLock<'a> {
+    pub fn refs(&'a self) -> WgpuResourceRefs<'a> {
+        WgpuResourceRefs {
+            buffers: &self.buffers,
+            textures: &self.textures,
+            swap_chain_outputs: &self.swap_chain_outputs,
+            render_pipelines: &self.render_pipelines,
+            bind_groups: &self.bind_groups,
+        }
+    } 
+}
+
+/// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists 
+pub struct WgpuResourceRefs<'a> {
+    pub buffers: &'a HashMap<RenderResource, wgpu::Buffer>,
+    pub textures: &'a HashMap<RenderResource, wgpu::TextureView>,
+    pub swap_chain_outputs: &'a HashMap<WindowId, wgpu::SwapChainOutput>,
+    pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
+    pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
+}
+
+#[derive(Default, Clone)]
 pub struct WgpuResources {
     // TODO: remove this from WgpuResources. it doesn't need to be here
     pub asset_resources: AssetResources,
@@ -43,10 +87,13 @@ pub struct WgpuResources {
 }
 
 impl WgpuResources {
-    pub fn read(&self) -> WgpuResourcesReadLock {
+    pub fn read<'a>(&'a self) -> WgpuResourcesReadLock<'a> {
         WgpuResourcesReadLock {
             buffers: self.buffers.read().unwrap(),
             textures: self.textures.read().unwrap(),
+            swap_chain_outputs: self.swap_chain_outputs.read().unwrap(),
+            render_pipelines: self.render_pipelines.read().unwrap(),
+            bind_groups: self.bind_groups.read().unwrap(),
         }
     } 
 
@@ -100,20 +147,20 @@ impl WgpuResources {
             .insert(resource, resource_info);
     }
 
-    pub fn get_bind_group(
+    pub fn has_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
         render_resource_set_id: RenderResourceSetId,
-    ) -> Option<&wgpu::BindGroup> {
+    ) -> bool {
         if let Some(bind_group_info) = self
             .bind_groups
             .read()
             .unwrap()
             .get(&bind_group_descriptor_id)
         {
-            bind_group_info.bind_groups.get(&render_resource_set_id)
+            bind_group_info.bind_groups.get(&render_resource_set_id).is_some()
         } else {
-            None
+            false
         }
     }
 
@@ -174,8 +221,11 @@ impl WgpuResources {
         self.assign_buffer(buffer, buffer_info)
     }
 
-    pub fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        self.resource_info.read().unwrap().get(&resource)
+    // TODO: taking a closure isn't fantastic. is there any way to make this better without exposing the lock in the interface?
+    pub fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>)) {
+        let resource_info = self.resource_info.read().unwrap();
+        let info = resource_info.get(&resource);
+        handle_info(info);
     }
 
     pub fn remove_buffer(&self, resource: RenderResource) {

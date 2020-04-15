@@ -11,7 +11,7 @@ use bevy_render::{
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
-use std::{any::Any, collections::HashSet, ops::Deref, sync::Arc};
+use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 pub struct WgpuRenderer {
     pub device: Arc<wgpu::Device>,
@@ -131,7 +131,6 @@ impl WgpuRenderer {
         for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
             // TODO: try to unify this Device usage
             let device = self.device.clone();
-            let resource_device = device.clone();
             // let sender = sender.clone();
             // s.spawn(|_| {
             // TODO: replace WgpuResources with Global+Local resources
@@ -241,17 +240,11 @@ impl WgpuRenderer {
 
         let mut encoder = {
             let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-            let mut any_context = (&mut global_context.context) as &mut dyn Any;
-            // let mut any_context = (&mut global_context.context);
-            // println!("{}", std::any::type_name_of_val(any_context));
-            let mut render_resource_context = any_context
+            let render_resource_context = global_context
+                .context
                 .downcast_mut::<WgpuRenderResourceContext>()
                 .unwrap();
-            panic!("ahh");
 
-            // let mut render_resource_context = any_context
-            //     .downcast_mut::<WgpuRenderResourceContext>()
-            //     .unwrap();
             self.handle_window_created_events(resources, render_resource_context);
 
             self.handle_window_resized_events(resources, render_resource_context);
@@ -266,11 +259,7 @@ impl WgpuRenderer {
                 self.intialized = true;
             }
 
-            self.update_resource_providers(
-                world,
-                resources,
-                render_resource_context,
-            );
+            self.update_resource_providers(world, resources, render_resource_context);
 
             update_shader_assignments(world, resources, &render_context);
             self.create_queued_textures(resources, &mut render_context.render_resources);
@@ -280,10 +269,8 @@ impl WgpuRenderer {
         // TODO: add to POST_UPDATE and remove redundant global_context
         render_resource_sets_system().run(world, resources);
         let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-        let mut any_context = (&mut global_context.context) as &mut dyn Any;
-        // let mut any_context = (&mut global_context.context);
-        // println!("{}", std::any::type_name_of_val(any_context));
-        let mut render_resource_context = any_context
+        let render_resource_context = global_context
+            .context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
         let mut render_context =

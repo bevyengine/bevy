@@ -16,7 +16,7 @@ use bevy_window::{WindowId, Window};
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
-    pub wgpu_resources: Arc<WgpuResources>,
+    pub wgpu_resources: WgpuResources,
 }
 
 
@@ -24,7 +24,7 @@ impl WgpuRenderResourceContext {
     pub fn new(device: Arc<wgpu::Device>) -> Self {
         WgpuRenderResourceContext {
             device,
-            wgpu_resources: Arc::new(WgpuResources::default()),
+            wgpu_resources: WgpuResources::default(),
         }
     }
 }
@@ -95,8 +95,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .get_mesh_indices_resource(mesh)
     }
 
-    fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo> {
-        self.wgpu_resources.get_resource_info(resource)
+    fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>)) {
+        self.wgpu_resources.get_resource_info(resource, handle_info);
     }
 
     fn asset_resources(&self) -> &AssetResources {

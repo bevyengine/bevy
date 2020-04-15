@@ -9,7 +9,9 @@ use bevy_window::{Window, WindowId};
 use std::any::Any;
 
 pub struct GlobalRenderResourceContext {
-    pub context: Box<dyn RenderResourceContext + Send + Sync + 'static>,
+    pub context: Box<dyn Any + Send + Sync + 'static>,
+    // TODO: why doesn't this work?
+    // pub context: Box<dyn RenderResourceContext + Send + Sync + 'static>,
 }
 
 impl GlobalRenderResourceContext {
@@ -53,7 +55,7 @@ pub trait RenderResourceContext: Any {
     fn remove_buffer(&mut self, resource: RenderResource);
     fn remove_texture(&mut self, resource: RenderResource);
     fn remove_sampler(&mut self, resource: RenderResource);
-    fn get_resource_info(&self, resource: RenderResource) -> Option<&ResourceInfo>;
+    fn get_resource_info(&self, resource: RenderResource, handle_info: &mut dyn FnMut(Option<&ResourceInfo>));
     fn asset_resources(&self) -> &AssetResources;
     fn asset_resources_mut(&mut self) -> &mut AssetResources;
     fn get_texture_resource(&self, texture: Handle<Texture>) -> Option<RenderResource>;
