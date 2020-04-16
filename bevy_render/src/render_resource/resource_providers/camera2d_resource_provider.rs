@@ -56,10 +56,7 @@ impl ResourceProvider for Camera2dResourceProvider {
     ) {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let primary_window_resized_event = window_resized_events
-            .iter(&mut self.window_resized_event_reader)
-            .rev()
-            .filter(|event| event.is_primary)
-            .next();
+            .find_latest(&mut self.window_resized_event_reader, |event| event.is_primary);
 
         if let Some(_) = primary_window_resized_event {
             let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();

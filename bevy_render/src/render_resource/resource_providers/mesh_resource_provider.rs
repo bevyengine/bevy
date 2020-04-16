@@ -35,6 +35,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                             )
                         } else {
                             let mesh_asset = meshes.get(&handle).unwrap();
+                            // TODO: use a staging buffer here
                             let vertex_buffer = render_resources.create_buffer_with_data(
                                 BufferInfo {
                                     buffer_usage: BufferUsage::VERTEX,

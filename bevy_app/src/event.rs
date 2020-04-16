@@ -112,7 +112,8 @@ where
         self.event_count += 1;
     }
 
-    /// Iterates over the events the `event_reader` has not seen yet.
+    /// Iterates over the events the `event_reader` has not seen yet. This updates the `event_reader`'s event counter,
+    /// which means subsequent event reads will not include events that happened before now.
     pub fn iter(&self, event_reader: &mut EventReader<T>) -> impl DoubleEndedIterator<Item = &T> {
         // if the reader has seen some of the events in a buffer, find the proper index offset.
         // otherwise read all events in the buffer
@@ -155,6 +156,30 @@ where
                         .map(map_event_instance),
                 ),
         }
+    }
+
+    /// Retrieves the latest event. This updates the `event_reader`'s event counter,
+    /// which means subsequent event reads will not include events that happened before now.
+    pub fn latest(&self, event_reader: &mut EventReader<T>) -> Option<&T> {
+        self.iter(event_reader)
+            .rev()
+            .next()
+    }
+
+    /// Retrieves the latest event that matches the given `predicate`. This updates the `event_reader`'s event counter,
+    /// which means subsequent event reads will not include events that happened before now.
+    pub fn find_latest(&self, event_reader: &mut EventReader<T>, predicate: impl FnMut(&&T) -> bool) -> Option<&T> {
+        self.iter(event_reader)
+            .rev()
+            .filter(predicate)
+            .next()
+    }
+
+    /// Retrieves the earliest event. This updates the `event_reader`'s event counter,
+    /// which means subsequent event reads will not include events that happened before now.
+    pub fn earliest(&self, event_reader: &mut EventReader<T>) -> Option<&T> {
+        self.iter(event_reader)
+            .next()
     }
 
     /// Gets a new [EventReader]. This will include all events already in the event buffers.
