@@ -6,8 +6,8 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
-        .build_system(move_on_input_system)
-        .setup(setup)
+        .add_system_init(move_on_input_system)
+        .add_startup_system(setup)
         .run();
 }
 

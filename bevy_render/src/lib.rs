@@ -112,7 +112,7 @@ impl AppPlugin for RenderPlugin {
             .add_resource(asset_batchers)
             // core systems
             .add_system(build_entity_render_resource_assignments_system())
-            .build_system_on_stage(stage::POST_UPDATE, camera::camera_update_system)
+            .add_system_to_stage_init(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
@@ -123,7 +123,7 @@ impl AppPlugin for RenderPlugin {
                 shader::asset_handle_batcher_system::<StandardMaterial>(),
             )
             // render resource provider systems
-            .build_system_on_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
+            .add_system_to_stage_init(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
         RenderPlugin::setup_render_graph_defaults(app);
     }
 }

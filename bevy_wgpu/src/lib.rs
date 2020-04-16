@@ -20,7 +20,7 @@ pub struct WgpuPlugin;
 impl AppPlugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources_mut());
-        app.add_thread_local_fn_to_stage(RENDER_STAGE, render_system);
+        app.add_system_to_stage(RENDER_STAGE, render_system);
     }
 }
 

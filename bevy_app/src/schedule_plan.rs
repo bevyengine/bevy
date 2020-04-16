@@ -1,10 +1,31 @@
 use legion::prelude::*;
 use std::{cmp::Ordering, collections::HashMap};
 
-enum System {
+pub enum System {
     Schedulable(Box<dyn Schedulable>),
     ThreadLocal(Box<dyn Runnable>),
     ThreadLocalFn(Box<dyn FnMut(&mut World, &mut Resources)>),
+}
+
+impl From<Box<dyn Schedulable>> for System {
+    fn from(system: Box<dyn Schedulable>) -> Self {
+        System::Schedulable(system)
+    }
+}
+
+impl From<Box<dyn Runnable>> for System {
+    fn from(system: Box<dyn Runnable>) -> Self {
+        System::ThreadLocal(system)
+    }
+}
+
+impl<T> From<T> for System
+where
+    T: FnMut(&mut World, &mut Resources) + 'static,
+{
+    fn from(system: T) -> Self {
+        System::ThreadLocalFn(Box::new(system))
+    }
 }
 
 #[derive(Default)]
@@ -14,7 +35,7 @@ pub struct SchedulePlan {
 }
 
 impl SchedulePlan {
-    pub fn build(&mut self) -> Schedule {
+    pub fn build(&mut self, resources: &mut Resources) -> Schedule {
         let mut schedule_builder = Schedule::builder();
 
         for stage in self.stage_order.drain(..) {
@@ -89,44 +110,13 @@ impl SchedulePlan {
     pub fn add_system_to_stage(
         &mut self,
         stage_name: &str,
-        system: Box<dyn Schedulable>,
+        system: impl Into<System>,
     ) -> &mut Self {
-        let system = System::Schedulable(system);
         let systems = self
             .stages
             .get_mut(stage_name)
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
-        systems.push(system);
-
-        self
-    }
-
-    pub fn add_thread_local_to_stage(
-        &mut self,
-        stage_name: &str,
-        runnable: Box<dyn Runnable>,
-    ) -> &mut Self {
-        let system = System::ThreadLocal(runnable);
-        let systems = self
-            .stages
-            .get_mut(stage_name)
-            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
-        systems.push(system);
-
-        self
-    }
-
-    pub fn add_thread_local_fn_to_stage(
-        &mut self,
-        stage_name: &str,
-        f: impl FnMut(&mut World, &mut Resources) + 'static,
-    ) -> &mut Self {
-        let system = System::ThreadLocalFn(Box::new(f));
-        let systems = self
-            .stages
-            .get_mut(stage_name)
-            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
-        systems.push(system);
+        systems.push(system.into());
 
         self
     }

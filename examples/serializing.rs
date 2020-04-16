@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use type_uuid::TypeUuid;
 fn main() {
     let mut app = App::build();
-    app.add_default_plugins().setup(setup);
+    app.add_default_plugins().add_startup_system(setup);
 
     let comp_registrations = [ComponentRegistration::of::<Test>()];
 

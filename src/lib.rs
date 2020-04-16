@@ -14,7 +14,9 @@
 //!fn main() {
 //!    App::build()
 //!        .add_default_plugins()
-//!        .add_system_fn("hello", |_| println!("hello world!"))
+//!        .add_system(|_: &mut World, _: &mut Resources| {
+//!            println!("hello world");
+//!        })
 //!        .run();
 //!}
 //! ```

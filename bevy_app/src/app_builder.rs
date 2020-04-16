@@ -1,12 +1,10 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
-    schedule_plan::SchedulePlan,
+    schedule_plan::{SchedulePlan, System},
     stage, App, Events,
 };
 
-use legion::prelude::{
-    CommandBuffer, Resources, Runnable, Schedulable, SystemBuilder, Universe, World,
-};
+use legion::prelude::{Resources, Universe, World};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
@@ -71,31 +69,27 @@ impl AppBuilder {
     }
 
     pub fn build_and_run_startup_schedule(&mut self) -> &mut Self {
-        let mut startup_schedule = self.startup_schedule_plan.build();
+        let resources = &mut self.app.as_mut().unwrap().resources;
+        let mut startup_schedule = self.startup_schedule_plan.build(resources);
         let app = self.app_mut();
         startup_schedule.execute(&mut app.world, &mut app.resources);
         self
     }
 
     pub fn build_schedule(&mut self) -> &mut Self {
-        self.app_mut().schedule = Some(self.schedule_plan.build());
+        let resources = &mut self.app.as_mut().unwrap().resources;
+        self.app_mut().schedule = Some(self.schedule_plan.build(resources));
         self
     }
 
     pub fn run(&mut self) {
-        self.build_schedule();
         self.build_and_run_startup_schedule();
+        self.build_schedule();
         self.app.take().unwrap().run();
     }
 
     pub fn set_world(&mut self, world: World) -> &mut Self {
         self.app_mut().world = world;
-        self
-    }
-
-    pub fn setup(&mut self, setup: impl Fn(&mut World, &mut Resources)) -> &mut Self {
-        let app = self.app_mut();
-        setup(&mut app.world, &mut app.resources);
         self
     }
 
@@ -119,36 +113,65 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+    pub fn add_system(&mut self, system: impl Into<System>) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn add_system_fn(
+    pub fn add_system_init<T>(&mut self, build: impl FnMut(&mut Resources) -> T) -> &mut Self
+    where
+        T: Into<System>,
+    {
+        self.add_system_to_stage_init(stage::UPDATE, build)
+    }
+
+    pub fn add_system_to_stage_init<T>(
         &mut self,
-        name: &'static str,
-        system: impl Fn(&mut CommandBuffer) + Send + Sync + 'static,
-    ) -> &mut Self {
-        let built_system = SystemBuilder::new(name).build(move |command_buffer, _, _, _| {
-            system(command_buffer);
-        });
-        self.add_system_to_stage(stage::UPDATE, built_system);
-        self
+        stage: &str,
+        mut build: impl FnMut(&mut Resources) -> T,
+    ) -> &mut Self
+    where
+        T: Into<System>,
+    {
+        let system = build(self.resources_mut());
+        self.add_system_to_stage(stage, system)
     }
 
     pub fn add_startup_system_to_stage(
         &mut self,
         stage_name: &str,
-        system: Box<dyn Schedulable>,
+        system: impl Into<System>,
     ) -> &mut Self {
         self.startup_schedule_plan
             .add_system_to_stage(stage_name, system);
         self
     }
 
-    pub fn add_startup_system(&mut self, system: Box<dyn Schedulable>) -> &mut Self {
+    pub fn add_startup_system(&mut self, system: impl Into<System>) -> &mut Self {
         self.startup_schedule_plan
             .add_system_to_stage(stage::STARTUP, system);
         self
+    }
+
+    pub fn add_startup_system_init<T>(
+        &mut self,
+        build: impl FnMut(&mut Resources) -> T,
+    ) -> &mut Self
+    where
+        T: Into<System>,
+    {
+        self.add_startup_system_to_stage_init(stage::STARTUP, build)
+    }
+
+    pub fn add_startup_system_to_stage_init<T>(
+        &mut self,
+        stage: &str,
+        mut build: impl FnMut(&mut Resources) -> T,
+    ) -> &mut Self
+    where
+        T: Into<System>,
+    {
+        let system = build(self.resources_mut());
+        self.add_startup_system_to_stage(stage, system)
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
@@ -160,48 +183,12 @@ impl AppBuilder {
             .add_stage(stage::LAST)
     }
 
-    pub fn build_system<F>(&mut self, build: F) -> &mut Self
-    where
-        F: Fn(&mut Resources) -> Box<dyn Schedulable>,
-    {
-        let system = build(self.resources_mut());
-        self.add_system(system)
-    }
-
-    pub fn build_system_on_stage<F>(&mut self, stage_name: &str, build: F) -> &mut Self
-    where
-        F: Fn(&mut Resources) -> Box<dyn Schedulable>,
-    {
-        let system = build(self.resources_mut());
-        self.add_system_to_stage(stage_name, system)
-    }
-
     pub fn add_system_to_stage(
         &mut self,
         stage_name: &str,
-        system: Box<dyn Schedulable>,
+        system: impl Into<System>,
     ) -> &mut Self {
         self.schedule_plan.add_system_to_stage(stage_name, system);
-        self
-    }
-
-    pub fn add_thread_local_to_stage(
-        &mut self,
-        stage_name: &str,
-        system: Box<dyn Runnable>,
-    ) -> &mut Self {
-        self.schedule_plan
-            .add_thread_local_to_stage(stage_name, system);
-        self
-    }
-
-    pub fn add_thread_local_fn_to_stage(
-        &mut self,
-        stage_name: &str,
-        f: impl FnMut(&mut World, &mut Resources) + 'static,
-    ) -> &mut Self {
-        self.schedule_plan
-            .add_thread_local_fn_to_stage(stage_name, f);
         self
     }
 

@@ -1,7 +1,10 @@
 use bevy::{prelude::*, window::CreateWindow};
 
 fn main() {
-    App::build().add_default_plugins().setup(setup).run();
+    App::build()
+        .add_default_plugins()
+        .add_startup_system(setup)
+        .run();
 }
 
 fn setup(_world: &mut World, resources: &mut Resources) {
