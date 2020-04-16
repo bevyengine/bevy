@@ -69,16 +69,14 @@ impl AppBuilder {
     }
 
     pub fn build_and_run_startup_schedule(&mut self) -> &mut Self {
-        let resources = &mut self.app.as_mut().unwrap().resources;
-        let mut startup_schedule = self.startup_schedule_plan.build(resources);
+        let mut startup_schedule = self.startup_schedule_plan.build();
         let app = self.app_mut();
         startup_schedule.execute(&mut app.world, &mut app.resources);
         self
     }
 
     pub fn build_schedule(&mut self) -> &mut Self {
-        let resources = &mut self.app.as_mut().unwrap().resources;
-        self.app_mut().schedule = Some(self.schedule_plan.build(resources));
+        self.app_mut().schedule = Some(self.schedule_plan.build());
         self
     }
 

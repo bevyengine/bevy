@@ -35,7 +35,7 @@ pub struct SchedulePlan {
 }
 
 impl SchedulePlan {
-    pub fn build(&mut self, resources: &mut Resources) -> Schedule {
+    pub fn build(&mut self) -> Schedule {
         let mut schedule_builder = Schedule::builder();
 
         for stage in self.stage_order.drain(..) {
