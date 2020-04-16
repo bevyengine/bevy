@@ -225,17 +225,7 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn create_global_render_resource_context(&self, resources: &mut Resources) {
-        resources.insert(GlobalRenderResourceContext::new(
-            WgpuRenderResourceContext::new(self.device.clone()),
-        ))
-    }
-
     pub fn update(&mut self, world: &mut World, resources: &mut Resources) {
-        if !self.intialized {
-            self.create_global_render_resource_context(resources);
-        }
-
         let mut encoder = {
             let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
             let render_resource_context = global_context

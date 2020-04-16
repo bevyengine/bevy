@@ -243,8 +243,8 @@ impl WgpuResources {
     // TODO: clean this up
     pub fn begin_create_buffer_mapped_render_context(
         buffer_info: &BufferInfo,
-        render_resources: &mut WgpuRenderResourceContext,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderResourceContext),
+        render_resources: &WgpuRenderResourceContext,
+        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> wgpu::Buffer {
         let device = render_resources.device.clone();
         let mut mapped = device.create_buffer_mapped(&wgpu::BufferDescriptor {
@@ -390,7 +390,7 @@ impl WgpuResources {
     }
 
     pub fn set_asset_resource_untyped(
-        &mut self,
+        &self,
         handle: HandleUntyped,
         render_resource: RenderResource,
         index: usize,

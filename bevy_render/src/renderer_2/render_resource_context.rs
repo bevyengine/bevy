@@ -23,33 +23,33 @@ impl GlobalRenderResourceContext {
 }
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
-    fn create_swap_chain(&mut self, window: &Window);
-    fn next_swap_chain_texture(&mut self, window_id: WindowId);
-    fn drop_swap_chain_texture(&mut self, window_id: WindowId);
-    fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
-    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource;
-    fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource;
+    fn create_swap_chain(&self, window: &Window);
+    fn next_swap_chain_texture(&self, window_id: WindowId);
+    fn drop_swap_chain_texture(&self, window_id: WindowId);
+    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
+    fn create_texture(&self, texture_descriptor: &TextureDescriptor) -> RenderResource;
+    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource;
     fn create_buffer_mapped(
-        &mut self,
+        &self,
         buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderResourceContext),
+        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> RenderResource;
-    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
+    fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
     fn create_shader_module(
         &mut self,
         shader_handle: Handle<Shader>,
         shader_storage: &AssetStorage<Shader>,
     );
-    fn remove_buffer(&mut self, resource: RenderResource);
-    fn remove_texture(&mut self, resource: RenderResource);
-    fn remove_sampler(&mut self, resource: RenderResource);
+    fn remove_buffer(&self, resource: RenderResource);
+    fn remove_texture(&self, resource: RenderResource);
+    fn remove_sampler(&self, resource: RenderResource);
     fn get_resource_info(
         &self,
         resource: RenderResource,
         handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
     );
     fn set_asset_resource_untyped(
-        &mut self,
+        &self,
         handle: HandleUntyped,
         render_resource: RenderResource,
         index: usize,
@@ -63,7 +63,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
 
 impl dyn RenderResourceContext {
     pub fn set_asset_resource<T>(
-        &mut self,
+        &self,
         handle: Handle<T>,
         render_resource: RenderResource,
         index: usize,

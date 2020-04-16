@@ -269,7 +269,7 @@ where
     fn setup_uniform_buffer_resources(
         &mut self,
         uniforms: &T,
-        render_resources: &mut dyn RenderResourceContext,
+        render_resources: &dyn RenderResourceContext,
         render_resource_assignments: &mut RenderResourceAssignments,
         staging_buffer: &mut [u8],
     ) {
@@ -428,7 +428,7 @@ where
     fn setup_uniforms_buffer_resources(
         &mut self,
         world: &mut World,
-        render_resources: &mut dyn RenderResourceContext,
+        render_resources: &dyn RenderResourceContext,
         staging_buffer: &mut [u8],
     ) {
         let query_finish = self.query_finish.take().unwrap();
@@ -489,7 +489,7 @@ where
         &mut self,
         world: &mut World,
         resources: &Resources,
-        render_resources: &mut dyn RenderResourceContext,
+        render_resources: &dyn RenderResourceContext,
         staging_buffer: &mut [u8],
     ) {
         let assets = resources.get::<AssetStorage<T>>();

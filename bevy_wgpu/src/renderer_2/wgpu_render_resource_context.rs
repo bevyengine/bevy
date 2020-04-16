@@ -26,23 +26,23 @@ impl WgpuRenderResourceContext {
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
-    fn create_sampler(&mut self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
+    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResource {
         self.wgpu_resources
             .create_sampler(&self.device, sampler_descriptor)
     }
-    fn create_texture(&mut self, texture_descriptor: &TextureDescriptor) -> RenderResource {
+    fn create_texture(&self, texture_descriptor: &TextureDescriptor) -> RenderResource {
         self.wgpu_resources
             .create_texture(&self.device, texture_descriptor)
     }
-    fn create_buffer(&mut self, buffer_info: BufferInfo) -> RenderResource {
+    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource {
         self.wgpu_resources.create_buffer(&self.device, buffer_info)
     }
 
     // TODO: clean this up
     fn create_buffer_mapped(
-        &mut self,
+        &self,
         buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &mut dyn RenderResourceContext),
+        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> RenderResource {
         let buffer = WgpuResources::begin_create_buffer_mapped_render_context(
             &buffer_info,
@@ -52,18 +52,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.wgpu_resources.assign_buffer(buffer, buffer_info)
     }
 
-    fn create_buffer_with_data(&mut self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
+    fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource {
         self.wgpu_resources
             .create_buffer_with_data(&self.device, buffer_info, data)
     }
 
-    fn remove_buffer(&mut self, resource: RenderResource) {
+    fn remove_buffer(&self, resource: RenderResource) {
         self.wgpu_resources.remove_buffer(resource);
     }
-    fn remove_texture(&mut self, resource: RenderResource) {
+    fn remove_texture(&self, resource: RenderResource) {
         self.wgpu_resources.remove_texture(resource);
     }
-    fn remove_sampler(&mut self, resource: RenderResource) {
+    fn remove_sampler(&self, resource: RenderResource) {
         self.wgpu_resources.remove_sampler(resource);
     }
 
@@ -95,18 +95,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.wgpu_resources
             .create_shader_module(&self.device, shader_handle, shader);
     }
-    fn create_swap_chain(&mut self, window: &Window) {
+    fn create_swap_chain(&self, window: &Window) {
         self.wgpu_resources
             .create_window_swap_chain(&self.device, window)
     }
-    fn next_swap_chain_texture(&mut self, window_id: bevy_window::WindowId) {
+    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) {
         self.wgpu_resources.next_swap_chain_texture(window_id);
     }
-    fn drop_swap_chain_texture(&mut self, window_id: WindowId) {
+    fn drop_swap_chain_texture(&self, window_id: WindowId) {
         self.wgpu_resources.remove_swap_chain_texture(window_id);
     }
     fn set_asset_resource_untyped(
-        &mut self,
+        &self,
         handle: HandleUntyped,
         render_resource: RenderResource,
         index: usize,
