@@ -1,7 +1,7 @@
 #version 450
 
-layout(location = 0) in vec4 Vertex_Position;
-layout(location = 1) in vec4 Vertex_Normal;
+layout(location = 0) in vec3 Vertex_Position;
+layout(location = 1) in vec3 Vertex_Normal;
 layout(location = 2) in vec2 Vertex_Uv;
 
 # ifdef INSTANCING
@@ -11,7 +11,7 @@ layout(location = 5) in vec4 I_Object_Model_2;
 layout(location = 6) in vec4 I_Object_Model_3;
 # endif
 
-layout(location = 0) out vec4 v_Position;
+layout(location = 0) out vec3 v_Position;
 layout(location = 1) out vec3 v_Normal;
 layout(location = 2) out vec2 v_Uv;
 
@@ -35,8 +35,8 @@ void main() {
     );
 # endif
 
-    v_Normal = mat3(Model) * vec3(Vertex_Normal.xyz);
-    v_Position = Model * Vertex_Position;
+    v_Normal = (Model * vec4(Vertex_Normal, 1.0)).xyz;
+    v_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     v_Uv = Vertex_Uv;
-    gl_Position = ViewProj * v_Position;
+    gl_Position = ViewProj * vec4(v_Position, 1.0);
 }

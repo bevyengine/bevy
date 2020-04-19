@@ -32,6 +32,7 @@ pub fn glsl_to_spirv(
             options.add_macro_definition(shader_def.as_str(), None);
         }
     }
+
     let binary_result = compiler
         .compile_into_spirv(
             glsl_source,

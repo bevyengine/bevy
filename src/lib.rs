@@ -47,6 +47,8 @@ pub use bevy_core as core;
 pub use bevy_derive as derive;
 #[cfg(feature = "diagnostic")]
 pub use bevy_diagnostic as diagnostic;
+#[cfg(feature = "gltf")]
+pub use bevy_gltf as gltf;
 #[cfg(feature = "input")]
 pub use bevy_input as input;
 #[cfg(feature = "render")]

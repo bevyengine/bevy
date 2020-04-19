@@ -9,6 +9,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug unit tests in library 'bevy'",
+            "sourceLanguages": ["rust"],
             "cargo": {
                 "args": [
                     "test",
@@ -28,6 +29,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Build and launch example",
+            "sourceLanguages": ["rust"],
             "cargo": {
                 "args": [
                     "build",
@@ -46,6 +48,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Launch example",
+            "sourceLanguages": ["rust"],
             "cargo": {
                 "args": [
                     "run",

@@ -1,0 +1,12 @@
+[package]
+name = "bevy_gltf"
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bevy_asset = { path = "../bevy_asset" }
+bevy_render = { path = "../bevy_render" }
+
+gltf = "0.15.2"
+thiserror = "1.0"

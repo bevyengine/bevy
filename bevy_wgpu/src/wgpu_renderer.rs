@@ -173,7 +173,7 @@ impl WgpuRenderer {
     pub fn handle_window_resized_events(
         &mut self,
         resources: &Resources,
-        global_render_resources: &mut WgpuRenderResourceContext,
+        global_render_resources: &dyn RenderResourceContext,
     ) {
         let windows = resources.get::<Windows>().unwrap();
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();

@@ -12,7 +12,7 @@ pub use crate::diagnostic::DiagnosticsPlugin;
 #[cfg(feature = "render")]
 pub use crate::render::{
     entity::*,
-    mesh::{Mesh, MeshType},
+    mesh::{Mesh, shape},
     pipeline::PipelineDescriptor,
     render_graph::RenderGraph,
     render_resource::{resource_name, resource_providers::UniformResourceProvider, AssetBatchers},

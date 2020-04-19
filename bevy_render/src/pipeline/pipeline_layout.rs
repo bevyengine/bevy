@@ -83,7 +83,7 @@ pub struct UniformProperty {
 
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum UniformPropertyType {
-    // TODO: Add all types here
+    // TODO: Use VertexFormat here
     Int,
     Float,
     UVec4,

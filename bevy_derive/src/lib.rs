@@ -387,7 +387,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                             format!("{}", name)
                         };
                         let descriptor = VertexAttributeDescriptor {
-                            name: formatted_name,
+                            name: formatted_name.into(),
                             offset,
                             format: *format,
                             shader_location,
@@ -400,7 +400,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
                 #bevy_render_path::pipeline::VertexBufferDescriptor {
                     attributes: vertex_attribute_descriptors,
-                    name: #struct_name_string.to_string(),
+                    name: #struct_name_string.into(),
                     step_mode: #bevy_render_path::pipeline::InputStepMode::Instance,
                     stride: offset,
                 }

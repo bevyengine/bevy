@@ -1,9 +1,9 @@
 use super::VertexFormat;
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexBufferDescriptor {
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub stride: u64,
     pub step_mode: InputStepMode,
     pub attributes: Vec<VertexAttributeDescriptor>,
@@ -37,7 +37,7 @@ pub enum InputStepMode {
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct VertexAttributeDescriptor {
-    pub name: String,
+    pub name: Cow<'static, str>,
     pub offset: u64,
     pub format: VertexFormat,
     pub shader_location: u32,

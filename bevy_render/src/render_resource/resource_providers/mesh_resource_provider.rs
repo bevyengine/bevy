@@ -1,6 +1,6 @@
 use crate::{
     mesh::{self, Mesh},
-    pipeline::VertexBufferDescriptors,
+    pipeline::{state_descriptors::IndexFormat, VertexBufferDescriptors},
     render_resource::{AssetBatchers, BufferInfo, BufferUsage},
     renderer_2::GlobalRenderResourceContext,
     shader::AsUniforms,
@@ -8,17 +8,19 @@ use crate::{
 };
 use bevy_asset::AssetStorage;
 use legion::prelude::*;
-use zerocopy::AsBytes;
 
 pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
-    vertex_buffer_descriptors.set(Vertex::get_vertex_buffer_descriptor().cloned().unwrap());
+    // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
+    let vertex_buffer_descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
+    let index_format = IndexFormat::Uint16;
+    vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     SystemBuilder::new("mesh_resource_provider")
         .read_resource::<GlobalRenderResourceContext>()
         .read_resource::<AssetStorage<Mesh>>()
         .write_resource::<AssetBatchers>()
         .build(
-            |_, _, (render_resource_context, meshes, asset_batchers), _| {
+            move |_, _, (render_resource_context, meshes, asset_batchers), _| {
                 let render_resources = &render_resource_context.context;
                 if let Some(batches) = asset_batchers.get_handle_batches_mut::<Mesh>() {
                     for batch in batches {
@@ -35,20 +37,22 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                             )
                         } else {
                             let mesh_asset = meshes.get(&handle).unwrap();
+                            let vertex_bytes = mesh_asset.get_vertex_buffer_bytes(&vertex_buffer_descriptor).unwrap();
                             // TODO: use a staging buffer here
                             let vertex_buffer = render_resources.create_buffer_with_data(
                                 BufferInfo {
                                     buffer_usage: BufferUsage::VERTEX,
                                     ..Default::default()
                                 },
-                                mesh_asset.vertices.as_bytes(),
+                                &vertex_bytes,
                             );
+                            let index_bytes = mesh_asset.get_index_buffer_bytes(index_format).unwrap();
                             let index_buffer = render_resources.create_buffer_with_data(
                                 BufferInfo {
                                     buffer_usage: BufferUsage::INDEX,
                                     ..Default::default()
                                 },
-                                mesh_asset.indices.as_bytes(),
+                                &index_bytes,
                             );
 
                             render_resources.set_asset_resource(

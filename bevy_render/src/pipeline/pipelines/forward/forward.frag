@@ -8,7 +8,7 @@ struct Light {
     vec4 color;
 };
 
-layout(location = 0) in vec4 v_Position;
+layout(location = 0) in vec3 v_Position;
 layout(location = 1) in vec3 v_Normal;
 layout(location = 2) in vec2 v_Uv;
 
@@ -46,7 +46,7 @@ void main() {
     for (int i=0; i<int(NumLights.x) && i<MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
         // compute Lambertian diffuse term
-        vec3 light_dir = normalize(light.pos.xyz - v_Position.xyz);
+        vec3 light_dir = normalize(light.pos.xyz - v_Position);
         float diffuse = max(0.0, dot(normal, light_dir));
         // add light contribution
         color += diffuse * light.color.xyz;

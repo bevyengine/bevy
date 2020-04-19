@@ -6,10 +6,10 @@ pub mod render_graph;
 pub mod render_graph_2;
 pub mod renderer_2;
 pub mod shader;
+pub mod vertex;
 
 mod color;
 mod light;
-mod vertex;
 
 pub use camera::*;
 pub use color::*;

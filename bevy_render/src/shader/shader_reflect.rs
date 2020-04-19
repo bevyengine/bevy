@@ -98,7 +98,7 @@ impl ShaderLayout {
 
                     current_descriptor = Some(VertexBufferDescriptor {
                         attributes: vec![vertex_attribute_descriptor],
-                        name: current_buffer_name,
+                        name: current_buffer_name.into(),
                         step_mode: if instance {
                             InputStepMode::Instance
                         } else {
@@ -142,7 +142,7 @@ fn reflect_vertex_attribute_descriptor(
     input_variable: &ReflectInterfaceVariable,
 ) -> VertexAttributeDescriptor {
     VertexAttributeDescriptor {
-        name: input_variable.name.clone(),
+        name: input_variable.name.clone().into(),
         format: reflect_vertex_format(input_variable.type_description.as_ref().unwrap()),
         offset: 0,
         shader_location: input_variable.location,

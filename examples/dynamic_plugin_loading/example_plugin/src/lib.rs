@@ -14,7 +14,7 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
     let mut material_storage = resources
         .get_mut::<AssetStorage<StandardMaterial>>()
         .unwrap();
-    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
+    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
     let cube_material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()

@@ -1,6 +1,6 @@
 use crate::{
     draw_target::DrawTarget,
-    mesh::{Mesh, MeshType},
+    mesh::{shape::Quad, Mesh},
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{
@@ -83,24 +83,36 @@ impl DrawTarget for UiDrawTarget {
             return;
         }
 
-        let quad = Mesh::load(MeshType::Quad {
+        let quad = Mesh::from(Quad {
             size: glam::vec2(1.0, 1.0),
         });
+        let vertex_buffer_bytes = quad.get_vertex_buffer_bytes(
+            pipeline_descriptor
+                .get_layout()
+                .unwrap()
+                .vertex_buffer_descriptors
+                .first()
+                .as_ref()
+                .unwrap(),
+        ).unwrap();
         self.mesh_vertex_buffer = Some(render_context.resources_mut().create_buffer_with_data(
             BufferInfo {
                 buffer_usage: BufferUsage::VERTEX,
                 ..Default::default()
             },
-            quad.vertices.as_bytes(),
+            &vertex_buffer_bytes,
         ));
+
+        let index_buffer_bytes = quad.get_index_buffer_bytes(pipeline_descriptor.index_format).unwrap();
         self.mesh_index_buffer = Some(render_context.resources_mut().create_buffer_with_data(
             BufferInfo {
                 buffer_usage: BufferUsage::INDEX,
                 ..Default::default()
             },
-            quad.indices.as_bytes(),
+            &index_buffer_bytes,
         ));
-        self.mesh_index_length = quad.indices.len();
+
+        self.mesh_index_length = quad.indices.as_ref().unwrap().len();
 
         let global_render_resource_assignments =
             resources.get::<RenderResourceAssignments>().unwrap();

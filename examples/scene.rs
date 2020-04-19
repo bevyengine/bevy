@@ -12,8 +12,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
     env_logger::init();
     // create a cube and a plane mesh
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let cube_handle = mesh_storage.add(Mesh::load(MeshType::Cube));
-    let plane_handle = mesh_storage.add(Mesh::load(MeshType::Plane { size: 10.0 }));
+    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
+    let plane_handle = mesh_storage.add(Mesh::from(shape::Plane { size: 10.0 }));
 
     // create materials for our cube and plane
     let mut material_storage = resources

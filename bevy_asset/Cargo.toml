@@ -6,4 +6,3 @@ edition = "2018"
 
 [dependencies]
 bevy_core = { path = "../bevy_core" }
-gltf = "0.14.0"

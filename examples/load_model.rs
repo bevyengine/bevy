@@ -1,6 +1,6 @@
-use bevy::{asset, prelude::*};
+use bevy::{gltf, prelude::*};
 
 fn main() {
-    asset::load_gltf("examples/assets/Box.gltf").unwrap();
-    App::build().add_default_plugins().run();
+    let mesh = gltf::load_gltf("examples/assets/Box.gltf").unwrap().unwrap();
+    // App::build().add_default_plugins().run();
 }

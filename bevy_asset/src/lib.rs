@@ -1,6 +1,3 @@
-mod gltf;
-
-pub use self::gltf::load_gltf;
 use bevy_core::bytes::GetBytes;
 use std::{
     fmt::Debug,

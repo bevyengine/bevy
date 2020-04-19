@@ -19,31 +19,31 @@ static VERTEX_BUFFER_DESCRIPTOR: Lazy<VertexBufferDescriptor> =
     Lazy::new(|| VertexBufferDescriptor {
         attributes: vec![
             VertexAttributeDescriptor {
-                name: "I_Object_Model_0".to_string(),
+                name: "I_Object_Model_0".into(),
                 format: VertexFormat::Float4,
                 offset: 0,
                 shader_location: 0,
             },
             VertexAttributeDescriptor {
-                name: "I_Object_Model_1".to_string(),
+                name: "I_Object_Model_1".into(),
                 format: VertexFormat::Float4,
                 offset: 16,
                 shader_location: 1,
             },
             VertexAttributeDescriptor {
-                name: "I_Object_Model_2".to_string(),
+                name: "I_Object_Model_2".into(),
                 format: VertexFormat::Float4,
                 offset: 32,
                 shader_location: 2,
             },
             VertexAttributeDescriptor {
-                name: "I_Object_Model_3".to_string(),
+                name: "I_Object_Model_3".into(),
                 format: VertexFormat::Float4,
                 offset: 48,
                 shader_location: 3,
             },
         ],
-        name: "Object".to_string(),
+        name: "Object".into(),
         step_mode: InputStepMode::Instance,
         stride: 64,
     });

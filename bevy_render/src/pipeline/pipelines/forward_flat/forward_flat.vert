@@ -1,10 +1,10 @@
 #version 450
 
-layout(location = 0) in vec4 a_Pos;
-layout(location = 1) in vec4 a_Normal;
-layout(location = 2) in vec2 a_Uv;
+layout(location = 0) in vec3 Vertex_Position;
+layout(location = 1) in vec3 Vertex_Normal;
+layout(location = 2) in vec2 Vertex_Uv;
 
-layout(location = 0) out vec4 v_Position;
+layout(location = 0) out vec3 v_Position;
 layout(location = 1) out vec3 v_Normal;
 layout(location = 2) out vec2 v_Uv;
 
@@ -21,7 +21,7 @@ layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
 };
 
 void main() {
-    v_Normal = mat3(Model) * vec3(a_Normal.xyz);
-    v_Position = Model * a_Pos;
+    v_Normal = (Model * vec4(Vertex_Normal, 1.0)).xyz;
+    v_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     gl_Position = ViewProj * v_Position;
 }

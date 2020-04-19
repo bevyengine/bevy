@@ -15,7 +15,7 @@ pub fn startup_system() -> Box<dyn Schedulable> {
         .write_resource::<AssetStorage<Mesh>>()
         .write_resource::<AssetStorage<StandardMaterial>>()
         .build(move |command_buffer, _, (meshes, materials), _| {
-            let cube_handle = meshes.add(Mesh::load(MeshType::Cube));
+            let cube_handle = meshes.add(Mesh::from(shape::Cube));
             let cube_material_handle = materials.add(StandardMaterial {
                 albedo: Color::rgb(0.5, 0.4, 0.3),
                 ..Default::default()

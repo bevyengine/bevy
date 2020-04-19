@@ -20,7 +20,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     // create a new quad mesh. this is what we will apply the texture to
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let quad_width = 8.0;
-    let quad_handle = mesh_storage.add(Mesh::load(MeshType::Quad {
+    let quad_handle = mesh_storage.add(Mesh::from(shape::Quad {
         size: Vec2::new(quad_width, quad_width * aspect),
     }));
 

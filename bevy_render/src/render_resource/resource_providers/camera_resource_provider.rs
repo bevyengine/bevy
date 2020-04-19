@@ -18,7 +18,7 @@ pub fn camera_resource_provider_system(resources: &mut Resources) -> Box<dyn Sch
     let mut camera_buffer = None;
     let mut tmp_buffer = None;
     let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
-    SystemBuilder::new("mesh_resource_provider")
+    SystemBuilder::new("camera_resource_provider")
         .read_resource::<GlobalRenderResourceContext>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
         .write_resource::<RenderResourceAssignments>()
