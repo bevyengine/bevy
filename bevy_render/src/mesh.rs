@@ -62,9 +62,9 @@ pub struct VertexAttribute {
 }
 
 impl VertexAttribute {
-    pub const POSITION: &'static str = "position";
-    pub const NORMAL: &'static str = "normal";
-    pub const UV: &'static str = "uv";
+    pub const POSITION: &'static str = "Vertex_Position";
+    pub const NORMAL: &'static str = "Vertex_Normal";
+    pub const UV: &'static str = "Vertex_Uv";
 
     pub fn position(positions: Vec<[f32; 3]>) -> Self {
         VertexAttribute {
@@ -127,7 +127,7 @@ impl Mesh {
             match self
                 .attributes
                 .iter()
-                .find(|a| VertexFormat::from(&a.values) == vertex_attribute.format)
+                .find(|a| vertex_attribute.name == a.name)
             {
                 Some(mesh_attribute) => {
                     let attribute_bytes = mesh_attribute.values.get_bytes();
@@ -321,8 +321,12 @@ pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
         })
 }
 
-#[cfg(tests)]
+#[cfg(test)]
 mod tests {
+    use crate::{Vertex, pipeline::state_descriptors::PrimitiveTopology, shader::AsUniforms};
+    use super::{Mesh, VertexAttribute};
+    use zerocopy::AsBytes;
+
     #[test]
     fn test_get_vertex_bytes() {
         let vertices = &[
@@ -335,9 +339,9 @@ mod tests {
         let mut normals = Vec::new();
         let mut uvs = Vec::new();
         for (position, normal, uv) in vertices.iter() {
-            positions.push(position.clone());
-            normals.push(normal.clone());
-            uvs.push(uv.clone());
+            positions.push(*position);
+            normals.push(*normal);
+            uvs.push(*uv);
         }
 
         let mesh = Mesh {
@@ -368,8 +372,7 @@ mod tests {
             },
         ];
 
-        let descriptor = Vertex::get_vertex_buffer_descriptor();
-
-        assert_eq!(mesh.get_vertex_buffer_bytes(descriptor), expected_vertices.as_bytes(), "buffer bytes are equal");
+        let descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
+        assert_eq!(mesh.get_vertex_buffer_bytes(descriptor).unwrap(), expected_vertices.as_bytes(), "buffer bytes are equal");
     }
 }

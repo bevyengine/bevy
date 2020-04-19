@@ -21,7 +21,7 @@ layout(set = 1, binding = 1) uniform StandardMaterial_albedo {
 };
 
 void main() {
-    v_Normal = (Model * vec4(Vertex_Normal, 1.0)).xyz;
+    v_Normal = mat3(Model) * Vertex_Normal;
     v_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     gl_Position = ViewProj * v_Position;
 }

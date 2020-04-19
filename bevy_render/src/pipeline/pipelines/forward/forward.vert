@@ -36,6 +36,7 @@ void main() {
 # endif
 
     v_Normal = (Model * vec4(Vertex_Normal, 1.0)).xyz;
+    v_Normal = mat3(Model) * Vertex_Normal;
     v_Position = (Model * vec4(Vertex_Position, 1.0)).xyz;
     v_Uv = Vertex_Uv;
     gl_Position = ViewProj * vec4(v_Position, 1.0);
