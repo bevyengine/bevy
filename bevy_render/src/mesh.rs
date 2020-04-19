@@ -320,3 +320,56 @@ pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
             }
         })
 }
+
+#[cfg(tests)]
+mod tests {
+    #[test]
+    fn test_get_vertex_bytes() {
+        let vertices = &[
+            ([0., 0., 0.], [1., 1., 1.], [2., 2.]),
+            ([3., 3., 3.], [4., 4., 4.], [5., 5.]),
+            ([6., 6., 6.], [7., 7., 7.], [8., 8.]),
+        ];
+
+        let mut positions = Vec::new();
+        let mut normals = Vec::new();
+        let mut uvs = Vec::new();
+        for (position, normal, uv) in vertices.iter() {
+            positions.push(position.clone());
+            normals.push(normal.clone());
+            uvs.push(uv.clone());
+        }
+
+        let mesh = Mesh {
+            primitive_topology: PrimitiveTopology::TriangleStrip,
+            attributes: vec![
+                VertexAttribute::position(positions),
+                VertexAttribute::normal(normals),
+                VertexAttribute::uv(uvs),
+            ],
+            indices: None,
+        };
+
+        let expected_vertices = &[
+            Vertex {
+                position: [0., 0., 0.],
+                normal: [1., 1., 1.],
+                uv: [2., 2.],
+            },
+            Vertex {
+                position: [3., 3., 3.],
+                normal: [4., 4., 4.],
+                uv: [5., 5.],
+            },
+            Vertex {
+                position: [6., 6., 6.],
+                normal: [7., 7., 7.],
+                uv: [8., 8.],
+            },
+        ];
+
+        let descriptor = Vertex::get_vertex_buffer_descriptor();
+
+        assert_eq!(mesh.get_vertex_buffer_bytes(descriptor), expected_vertices.as_bytes(), "buffer bytes are equal");
+    }
+}

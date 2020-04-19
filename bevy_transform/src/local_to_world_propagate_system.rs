@@ -53,82 +53,82 @@ fn propagate_recursive(
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::{
-        hierarchy_maintenance_system, local_to_parent_system, local_to_world_propagate_system,
-        local_to_world_system,
-        math::{Mat4, Vec3},
-    };
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use crate::{
+//         hierarchy_maintenance_system, local_to_parent_system, local_to_world_propagate_system,
+//         local_to_world_system,
+//         math::{Mat4, Vec3},
+//     };
 
-    #[test]
-    fn did_propagate() {
-        let _ = env_logger::builder().is_test(true).try_init();
+//     #[test]
+//     fn did_propagate() {
+//         let _ = env_logger::builder().is_test(true).try_init();
 
-        let mut world = Universe::new().create_world();
+//         let mut world = Universe::new().create_world();
 
-        let hierarchy_maintenance_systems = hierarchy_maintenance_system::build(&mut world);
-        let local_to_parent_system = local_to_parent_system::build(&mut world);
-        let local_to_world_system = local_to_world_system::build(&mut world);
-        let local_to_world_propagate_system = local_to_world_propagate_system::build(&mut world);
+//         let hierarchy_maintenance_systems = hierarchy_maintenance_system::build(&mut world);
+//         let local_to_parent_system = local_to_parent_system::build(&mut world);
+//         let local_to_world_system = local_to_world_system::build(&mut world);
+//         let local_to_world_propagate_system = local_to_world_propagate_system::build(&mut world);
 
-        // Root entity
-        let parent = *world
-            .insert(
-                (),
-                vec![(Translation::new(1.0, 0.0, 0.0), LocalToWorld::identity())],
-            )
-            .first()
-            .unwrap();
+//         // Root entity
+//         let parent = *world
+//             .insert(
+//                 (),
+//                 vec![(Translation::new(1.0, 0.0, 0.0), LocalToWorld::identity())],
+//             )
+//             .first()
+//             .unwrap();
 
-        let children = world.insert(
-            (),
-            vec![
-                (
-                    Translation::new(0.0, 2.0, 0.0),
-                    LocalToParent::identity(),
-                    LocalToWorld::identity(),
-                ),
-                (
-                    Translation::new(0.0, 0.0, 3.0),
-                    LocalToParent::identity(),
-                    LocalToWorld::identity(),
-                ),
-            ],
-        );
-        let (e1, e2) = (children[0], children[1]);
+//         let children = world.insert(
+//             (),
+//             vec![
+//                 (
+//                     Translation::new(0.0, 2.0, 0.0),
+//                     LocalToParent::identity(),
+//                     LocalToWorld::identity(),
+//                 ),
+//                 (
+//                     Translation::new(0.0, 0.0, 3.0),
+//                     LocalToParent::identity(),
+//                     LocalToWorld::identity(),
+//                 ),
+//             ],
+//         );
+//         let (e1, e2) = (children[0], children[1]);
 
-        // Parent `e1` and `e2` to `parent`.
-        world.add_component(e1, Parent(parent));
-        world.add_component(e2, Parent(parent));
+//         // Parent `e1` and `e2` to `parent`.
+//         world.add_component(e1, Parent(parent));
+//         world.add_component(e2, Parent(parent));
 
-        // Run the needed systems on it.
-        for system in hierarchy_maintenance_systems.iter() {
-            system.run(&mut world);
-            system.command_buffer_mut().write(&mut world);
-        }
-        local_to_parent_system.run(&mut world);
-        local_to_parent_system
-            .command_buffer_mut()
-            .write(&mut world);
-        local_to_world_system.run(&mut world);
-        local_to_world_system.command_buffer_mut().write(&mut world);
-        local_to_world_propagate_system.run(&mut world);
-        local_to_world_propagate_system
-            .command_buffer_mut()
-            .write(&mut world);
+//         // Run the needed systems on it.
+//         for system in hierarchy_maintenance_systems.iter() {
+//             system.run(&mut world);
+//             system.command_buffer_mut().write(&mut world);
+//         }
+//         local_to_parent_system.run(&mut world);
+//         local_to_parent_system
+//             .command_buffer_mut()
+//             .write(&mut world);
+//         local_to_world_system.run(&mut world);
+//         local_to_world_system.command_buffer_mut().write(&mut world);
+//         local_to_world_propagate_system.run(&mut world);
+//         local_to_world_propagate_system
+//             .command_buffer_mut()
+//             .write(&mut world);
 
-        assert_eq!(
-            world.get_component::<LocalToWorld>(e1).unwrap().0,
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
-        );
+//         assert_eq!(
+//             world.get_component::<LocalToWorld>(e1).unwrap().0,
+//             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+//                 * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
+//         );
 
-        assert_eq!(
-            world.get_component::<LocalToWorld>(e2).unwrap().0,
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
-        );
-    }
-}
+//         assert_eq!(
+//             world.get_component::<LocalToWorld>(e2).unwrap().0,
+//             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+//                 * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
+//         );
+//     }
+// }

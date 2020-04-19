@@ -141,7 +141,7 @@ pub struct RenderResourceSetId(u64);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::pipeline::{
+    use crate::pipeline::{
         BindType, BindingDescriptor, UniformProperty, UniformPropertyType,
     };
 
@@ -178,17 +178,22 @@ mod tests {
             ],
         );
 
+        let resource1 = RenderResource::new();
+        let resource2 = RenderResource::new();
+        let resource3 = RenderResource::new();
+        let resource4 = RenderResource::new();
+
         let mut assignments = RenderResourceAssignments::default();
-        assignments.set("a", RenderResource(1));
-        assignments.set("b", RenderResource(2));
+        assignments.set("a", resource1);
+        assignments.set("b", resource2);
 
         let mut different_assignments = RenderResourceAssignments::default();
-        different_assignments.set("a", RenderResource(3));
-        different_assignments.set("b", RenderResource(4));
+        different_assignments.set("a", resource3);
+        different_assignments.set("b", resource4);
 
         let mut equal_assignments = RenderResourceAssignments::default();
-        equal_assignments.set("a", RenderResource(1));
-        equal_assignments.set("b", RenderResource(2));
+        equal_assignments.set("a", resource1);
+        equal_assignments.set("b", resource2);
 
         let set_id = assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(set_id, None);
@@ -203,7 +208,7 @@ mod tests {
         assert_eq!(equal_set_id, set_id);
 
         let mut unmatched_assignments = RenderResourceAssignments::default();
-        unmatched_assignments.set("a", RenderResource(1));
+        unmatched_assignments.set("a", resource1);
         let unmatched_set_id =
             unmatched_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_eq!(unmatched_set_id, None);

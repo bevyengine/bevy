@@ -332,7 +332,7 @@ fn reflect_vertex_format(type_description: &ReflectTypeDescription) -> VertexFor
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::shader::{Shader, ShaderStage};
+    use crate::shader::{Shader, ShaderStage};
 
     #[test]
     fn test_reflection() {
@@ -362,19 +362,19 @@ mod tests {
         assert_eq!(
             layout,
             ShaderLayout {
-                entry_point: "main".to_string(),
+                entry_point: "main".into(),
                 vertex_buffer_descriptors: vec![
                     VertexBufferDescriptor {
-                        name: "Vertex".to_string(),
+                        name: "Vertex".into(),
                         attributes: vec![
                             VertexAttributeDescriptor {
-                                name: "Vertex_Position".to_string(),
+                                name: "Vertex_Position".into(),
                                 format: VertexFormat::Float4,
                                 offset: 0,
                                 shader_location: 0,
                             },
                             VertexAttributeDescriptor {
-                                name: "Vertex_Normal".to_string(),
+                                name: "Vertex_Normal".into(),
                                 format: VertexFormat::Uint4,
                                 offset: 16,
                                 shader_location: 1,
@@ -384,9 +384,9 @@ mod tests {
                         stride: 32,
                     },
                     VertexBufferDescriptor {
-                        name: "TestInstancing".to_string(),
+                        name: "TestInstancing".into(),
                         attributes: vec![VertexAttributeDescriptor {
-                            name: "I_TestInstancing_Property".to_string(),
+                            name: "I_TestInstancing_Property".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
                             shader_location: 2,
@@ -400,14 +400,14 @@ mod tests {
                         0,
                         vec![BindingDescriptor {
                             index: 0,
-                            name: "Camera".to_string(),
+                            name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 dynamic: false,
                                 properties: vec![UniformProperty {
-                                    name: "Camera".to_string(),
+                                    name: "Camera".into(),
                                     property_type: UniformPropertyType::Struct(vec![
                                         UniformProperty {
-                                            name: "".to_string(),
+                                            name: "".into(),
                                             property_type: UniformPropertyType::Mat4,
                                         }
                                     ]),
@@ -419,7 +419,7 @@ mod tests {
                         1,
                         vec![BindingDescriptor {
                             index: 0,
-                            name: "Texture".to_string(),
+                            name: "Texture".into(),
                             bind_type: BindType::SampledTexture {
                                 multisampled: false,
                                 dimension: TextureViewDimension::D2,

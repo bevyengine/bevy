@@ -22,11 +22,11 @@ ffi = ["legion-core/ffi"]
 serialize = ["legion-core/serialize"]
 metrics = ["legion-core/metrics"]
 
-[workspace]
-members = [
-    "legion_core",
-    "legion_systems",
-]
+# [workspace]
+# members = [
+#     "legion_core",
+#     "legion_systems",
+# ]
 
 [dependencies]
 legion-core = { path = "legion_core", version = "0.2.1", default-features = false }

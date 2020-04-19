@@ -101,111 +101,111 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
     vec![missing_previous_parent_system, parent_update_system]
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
 
-    #[test]
-    fn correct_children() {
-        let _ = env_logger::builder().is_test(true).try_init();
+//     #[test]
+//     fn correct_children() {
+//         let _ = env_logger::builder().is_test(true).try_init();
 
-        let mut world = Universe::new().create_world();
+//         let mut world = Universe::new().create_world();
 
-        let systems = build(&mut world);
+//         let systems = build(&mut world);
 
-        // Add parent entities
-        let parent = *world
-            .insert(
-                (),
-                vec![(Translation::identity(), LocalToWorld::identity())],
-            )
-            .first()
-            .unwrap();
-        let children = world.insert(
-            (),
-            vec![
-                (
-                    Translation::identity(),
-                    LocalToParent::identity(),
-                    LocalToWorld::identity(),
-                ),
-                (
-                    Translation::identity(),
-                    LocalToParent::identity(),
-                    LocalToWorld::identity(),
-                ),
-            ],
-        );
-        let (e1, e2) = (children[0], children[1]);
+//         // Add parent entities
+//         let parent = *world
+//             .insert(
+//                 (),
+//                 vec![(Translation::identity(), LocalToWorld::identity())],
+//             )
+//             .first()
+//             .unwrap();
+//         let children = world.insert(
+//             (),
+//             vec![
+//                 (
+//                     Translation::identity(),
+//                     LocalToParent::identity(),
+//                     LocalToWorld::identity(),
+//                 ),
+//                 (
+//                     Translation::identity(),
+//                     LocalToParent::identity(),
+//                     LocalToWorld::identity(),
+//                 ),
+//             ],
+//         );
+//         let (e1, e2) = (children[0], children[1]);
 
-        // Parent `e1` and `e2` to `parent`.
-        world.add_component(e1, Parent(parent));
-        world.add_component(e2, Parent(parent));
+//         // Parent `e1` and `e2` to `parent`.
+//         world.add_component(e1, Parent(parent));
+//         world.add_component(e2, Parent(parent));
 
-        for system in systems.iter() {
-            system.run(&mut world);
-            system.command_buffer_mut().write(&mut world);
-        }
+//         for system in systems.iter() {
+//             system.run(&mut world);
+//             system.command_buffer_mut().write(&mut world);
+//         }
 
-        assert_eq!(
-            world
-                .get_component::<Children>(parent)
-                .unwrap()
-                .0
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![e1, e2]
-        );
+//         assert_eq!(
+//             world
+//                 .get_component::<Children>(parent)
+//                 .unwrap()
+//                 .0
+//                 .iter()
+//                 .cloned()
+//                 .collect::<Vec<_>>(),
+//             vec![e1, e2]
+//         );
 
-        // Parent `e1` to `e2`.
-        (*world.get_component_mut::<Parent>(e1).unwrap()).0 = e2;
+//         // Parent `e1` to `e2`.
+//         (*world.get_component_mut::<Parent>(e1).unwrap()).0 = e2;
 
-        // Run the system on it
-        for system in systems.iter() {
-            system.run(&mut world);
-            system.command_buffer_mut().write(&mut world);
-        }
+//         // Run the system on it
+//         for system in systems.iter() {
+//             system.run(&mut world);
+//             system.command_buffer_mut().write(&mut world);
+//         }
 
-        assert_eq!(
-            world
-                .get_component::<Children>(parent)
-                .unwrap()
-                .0
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![e2]
-        );
+//         assert_eq!(
+//             world
+//                 .get_component::<Children>(parent)
+//                 .unwrap()
+//                 .0
+//                 .iter()
+//                 .cloned()
+//                 .collect::<Vec<_>>(),
+//             vec![e2]
+//         );
 
-        assert_eq!(
-            world
-                .get_component::<Children>(e2)
-                .unwrap()
-                .0
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![e1]
-        );
+//         assert_eq!(
+//             world
+//                 .get_component::<Children>(e2)
+//                 .unwrap()
+//                 .0
+//                 .iter()
+//                 .cloned()
+//                 .collect::<Vec<_>>(),
+//             vec![e1]
+//         );
 
-        world.delete(e1);
+//         world.delete(e1);
 
-        // Run the system on it
-        for system in systems.iter() {
-            system.run(&mut world);
-            system.command_buffer_mut().write(&mut world);
-        }
+//         // Run the system on it
+//         for system in systems.iter() {
+//             system.run(&mut world);
+//             system.command_buffer_mut().write(&mut world);
+//         }
 
-        assert_eq!(
-            world
-                .get_component::<Children>(parent)
-                .unwrap()
-                .0
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>(),
-            vec![e2]
-        );
-    }
-}
+//         assert_eq!(
+//             world
+//                 .get_component::<Children>(parent)
+//                 .unwrap()
+//                 .0
+//                 .iter()
+//                 .cloned()
+//                 .collect::<Vec<_>>(),
+//             vec![e2]
+//         );
+//     }
+// }

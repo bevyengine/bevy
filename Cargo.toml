@@ -38,10 +38,28 @@ bevy_window = { path = "bevy_window", optional = true }
 bevy_wgpu = { path = "bevy_wgpu", optional = true }
 bevy_winit = { path = "bevy_winit", optional = true }
 legion = { path = "bevy_legion" }
-
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
 glam = "0.8.6"
+
+[workspace]
+members = [
+    "bevy_app",
+    "bevy_asset",
+    "bevy_core",
+    "bevy_derive",
+    "bevy_diagnostic",
+    "bevy_gltf",
+    "bevy_input",
+    "bevy_render",
+    "bevy_serialization",
+    "bevy_transform",
+    "bevy_legion",
+    "bevy_ui",
+    "bevy_window",
+    "bevy_wgpu",
+    "bevy_winit",
+]
 
 [dev-dependencies]
 rand = "0.7.2"
