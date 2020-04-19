@@ -29,6 +29,12 @@ impl Windows {
             .and_then(|primary| self.windows.get(&primary))
     }
 
+    pub fn is_primary(&self, window_id: WindowId) -> bool {
+        self.get_primary()
+            .map(|primary_window| primary_window.id == window_id)
+            .unwrap_or(false)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
         self.windows.values()
     }

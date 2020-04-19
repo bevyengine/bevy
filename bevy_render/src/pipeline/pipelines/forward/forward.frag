@@ -53,4 +53,5 @@ void main() {
     }
     // multiply the light by material color
     o_Target = vec4(color, 1.0) * albedo;
+    o_Target = vec4(v_Normal, 1.0);
 }

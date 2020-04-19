@@ -9,10 +9,8 @@ use crate::{
     },
     renderer_2::RenderContext,
 };
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Handle;
 use legion::prelude::*;
-
-use zerocopy::AsBytes;
 
 #[derive(Default)]
 pub struct UiDrawTarget {
@@ -86,15 +84,17 @@ impl DrawTarget for UiDrawTarget {
         let quad = Mesh::from(Quad {
             size: glam::vec2(1.0, 1.0),
         });
-        let vertex_buffer_bytes = quad.get_vertex_buffer_bytes(
-            pipeline_descriptor
-                .get_layout()
-                .unwrap()
-                .vertex_buffer_descriptors
-                .first()
-                .as_ref()
-                .unwrap(),
-        ).unwrap();
+        let vertex_buffer_bytes = quad
+            .get_vertex_buffer_bytes(
+                pipeline_descriptor
+                    .get_layout()
+                    .unwrap()
+                    .vertex_buffer_descriptors
+                    .first()
+                    .as_ref()
+                    .unwrap(),
+            )
+            .unwrap();
         self.mesh_vertex_buffer = Some(render_context.resources_mut().create_buffer_with_data(
             BufferInfo {
                 buffer_usage: BufferUsage::VERTEX,
@@ -103,7 +103,9 @@ impl DrawTarget for UiDrawTarget {
             &vertex_buffer_bytes,
         ));
 
-        let index_buffer_bytes = quad.get_index_buffer_bytes(pipeline_descriptor.index_format).unwrap();
+        let index_buffer_bytes = quad
+            .get_index_buffer_bytes(pipeline_descriptor.index_format)
+            .unwrap();
         self.mesh_index_buffer = Some(render_context.resources_mut().create_buffer_with_data(
             BufferInfo {
                 buffer_usage: BufferUsage::INDEX,

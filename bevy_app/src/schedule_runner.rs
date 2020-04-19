@@ -1,4 +1,5 @@
-use super::{App, AppBuilder, AppPlugin};
+use super::{App, AppBuilder, AppPlugin, GetEventReader};
+use crate::{AppExit, Events};
 use std::{thread, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
@@ -21,20 +22,29 @@ pub struct ScheduleRunnerPlugin {
 impl AppPlugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let run_mode = self.run_mode;
-        app.set_runner(move |mut app: App| match run_mode {
-            RunMode::Once => {
-                if let Some(ref mut schedule) = app.schedule {
-                    schedule.execute(&mut app.world, &mut app.resources);
+        app.set_runner(move |mut app: App| {
+            let mut app_exit_event_reader = app.resources.get_event_reader::<AppExit>();
+            match run_mode {
+                RunMode::Once => {
+                    if let Some(ref mut schedule) = app.schedule {
+                        schedule.execute(&mut app.world, &mut app.resources);
+                    }
                 }
+                RunMode::Loop { wait } => loop {
+                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                        if app_exit_events.latest(&mut app_exit_event_reader).is_some() {
+                            break;
+                        }
+                    }
+
+                    if let Some(ref mut schedule) = app.schedule {
+                        schedule.execute(&mut app.world, &mut app.resources);
+                    }
+                    if let Some(wait) = wait {
+                        thread::sleep(wait);
+                    }
+                },
             }
-            RunMode::Loop { wait } => loop {
-                if let Some(ref mut schedule) = app.schedule {
-                    schedule.execute(&mut app.world, &mut app.resources);
-                }
-                if let Some(wait) = wait {
-                    thread::sleep(wait);
-                }
-            },
         });
     }
 }

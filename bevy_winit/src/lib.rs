@@ -7,8 +7,10 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion},
 };
 
-use bevy_app::{App, AppBuilder, AppPlugin, EventReader, Events, GetEventReader};
-use bevy_window::{CreateWindow, Window, WindowCreated, WindowResized, Windows};
+use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events, GetEventReader};
+use bevy_window::{
+    CreateWindow, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+};
 use legion::prelude::*;
 use winit::{
     event,
@@ -33,6 +35,7 @@ impl AppPlugin for WinitPlugin {
 pub fn winit_runner(mut app: App) {
     let event_loop = EventLoop::new();
     let mut create_window_event_reader = app.resources.get_event_reader::<CreateWindow>();
+    let mut app_exit_event_reader = app.resources.get_event_reader::<AppExit>();
 
     handle_create_window_events(
         &mut app.resources,
@@ -47,6 +50,13 @@ pub fn winit_runner(mut app: App) {
         } else {
             ControlFlow::Poll
         };
+
+        if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+            if app_exit_events.latest(&mut app_exit_event_reader).is_some() {
+                *control_flow = ControlFlow::Exit;
+            }
+        }
+
         match event {
             event::Event::WindowEvent {
                 event: WindowEvent::Resized(size),
@@ -56,25 +66,35 @@ pub fn winit_runner(mut app: App) {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                let is_primary = windows
-                    .get_primary()
-                    .map(|primary_window| primary_window.id == window_id)
-                    .unwrap_or(false);
                 let mut window = windows.get_mut(window_id).unwrap();
                 window.width = size.width;
                 window.height = size.height;
 
-                let mut resize_event = app.resources.get_mut::<Events<WindowResized>>().unwrap();
-                resize_event.send(WindowResized {
+                let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
+                resize_events.send(WindowResized {
                     id: window_id,
                     height: window.height,
                     width: window.width,
-                    is_primary,
+                    is_primary: windows.is_primary(window_id),
                 });
             }
-            event::Event::WindowEvent { event, .. } => match event {
+            event::Event::WindowEvent {
+                event,
+                window_id: winit_window_id,
+                ..
+            } => match event {
                 WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
+                    let mut window_close_requested_events = app
+                        .resources
+                        .get_mut::<Events<WindowCloseRequested>>()
+                        .unwrap();
+                    let windows = app.resources.get_mut::<Windows>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    window_close_requested_events.send(WindowCloseRequested {
+                        id: window_id,
+                        is_primary: windows.is_primary(window_id),
+                    });
                 }
                 WindowEvent::KeyboardInput { ref input, .. } => {
                     let mut keyboard_input_events =
@@ -126,13 +146,9 @@ fn handle_create_window_events(
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;
         windows.add(window);
-        let is_primary = windows
-            .get_primary()
-            .map(|primary| primary.id == window_id)
-            .unwrap_or(false);
         window_created_events.send(WindowCreated {
             id: window_id,
-            is_primary,
+            is_primary: windows.is_primary(window_id),
         });
     }
 }

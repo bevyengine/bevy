@@ -1,7 +1,7 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
     schedule_plan::{SchedulePlan, System},
-    stage, App, Events,
+    stage, App, Events, AppExit,
 };
 
 use legion::prelude::{Resources, Universe, World};
@@ -23,6 +23,7 @@ impl Default for AppBuilder {
         };
 
         app_builder.add_default_stages();
+        app_builder.add_event::<AppExit>();
         app_builder
     }
 }

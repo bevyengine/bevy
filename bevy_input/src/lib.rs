@@ -1,5 +1,6 @@
 pub mod keyboard;
 pub mod mouse;
+pub mod system;
 
 use bevy_app::{AppBuilder, AppPlugin};
 use keyboard::KeyboardInput;

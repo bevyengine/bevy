@@ -5,7 +5,7 @@ pub struct KeyboardInput {
     pub state: ElementState,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ElementState {
     Pressed,
     Released,

@@ -4,9 +4,9 @@ use crate::{
         VertexBufferDescriptor, VertexFormat,
     },
     render_resource::AssetBatchers,
-    Renderable, Vertex,
+    Renderable,
 };
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Handle;
 use glam::*;
 use legion::prelude::*;
 use std::borrow::Cow;
@@ -301,8 +301,9 @@ pub mod shape {
     impl From<Plane> for Mesh {
         fn from(plane: Plane) -> Self {
             Quad {
-                size: Vec2::new(plane.size, plane.size)
-            }.into()
+                size: Vec2::new(plane.size, plane.size),
+            }
+            .into()
         }
     }
 }

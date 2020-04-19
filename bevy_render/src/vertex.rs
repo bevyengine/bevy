@@ -1,4 +1,3 @@
-use std::convert::From;
 use zerocopy::{AsBytes, FromBytes};
 
 use bevy_asset;
