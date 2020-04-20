@@ -6,10 +6,6 @@ fn main() {
         .add_startup_system(setup)
         .add_system_to_stage(
             stage::POST_UPDATE,
-            shader::asset_handle_batcher_system::<MyMaterial>(),
-        )
-        .add_system_to_stage(
-            stage::POST_UPDATE,
             shader::asset_handle_shader_def_system::<MyMaterial>(),
         )
         .run();
@@ -38,8 +34,7 @@ fn add_shader_to_render_graph(resources: &mut Resources) {
                     ShaderStage::Vertex,
                     r#"
                     #version 450
-                    layout(location = 0) in vec4 Vertex_Position;
-                    layout(location = 0) out vec4 v_Position;
+                    layout(location = 0) in vec3 Vertex_Position;
                     layout(set = 0, binding = 0) uniform Camera {
                         mat4 ViewProj;
                     };
@@ -47,8 +42,7 @@ fn add_shader_to_render_graph(resources: &mut Resources) {
                         mat4 Model;
                     };
                     void main() {
-                        v_Position = Model * Vertex_Position;
-                        gl_Position = ViewProj * v_Position;
+                        gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
                     }
                 "#,
                 ))
@@ -56,7 +50,6 @@ fn add_shader_to_render_graph(resources: &mut Resources) {
                     ShaderStage::Fragment,
                     r#"
                     #version 450
-                    layout(location = 0) in vec4 v_Position;
                     layout(location = 0) out vec4 o_Target;
                     layout(set = 1, binding = 1) uniform MyMaterial_color {
                         vec4 color;
@@ -91,10 +84,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
     });
 
     resources.insert(material_storage);
-
-    // batch materials to improve performance
-    let mut asset_batchers = resources.get_mut::<AssetBatchers>().unwrap();
-    asset_batchers.batch_types2::<Mesh, MyMaterial>();
 
     // get a handle to our newly created shader pipeline
     let mut pipeline_storage = resources

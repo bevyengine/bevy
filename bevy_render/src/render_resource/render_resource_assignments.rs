@@ -1,5 +1,5 @@
 use super::RenderResource;
-use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId};
+use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
     hash::{Hash, Hasher},
@@ -15,7 +15,7 @@ pub struct RenderResourceAssignments {
     bind_group_resource_sets:
         HashMap<BindGroupDescriptorId, (RenderResourceSetId, Option<Vec<u32>>)>,
     dirty_bind_groups: HashSet<BindGroupDescriptorId>,
-    pub(crate) shader_defs: HashSet<String>,
+    pub pipeline_specialization: PipelineSpecialization,
 }
 
 impl RenderResourceAssignments {

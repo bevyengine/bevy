@@ -60,6 +60,12 @@ pub enum PrimitiveTopology {
     TriangleStrip = 4,
 }
 
+impl Default for PrimitiveTopology {
+    fn default() -> Self {
+        PrimitiveTopology::TriangleList
+    }
+}
+
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum FrontFace {
     Ccw = 0,
@@ -171,4 +177,10 @@ impl Default for BlendOperation {
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
+}
+
+impl Default for IndexFormat {
+    fn default() -> Self {
+        IndexFormat::Uint16
+    }
 }

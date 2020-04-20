@@ -118,7 +118,7 @@ impl<T> AssetStorage<T> {
         AssetStorage {
             assets: HashMap::new(),
             names: HashMap::new(),
-            current_index: 1,
+            current_index: DEFAULT_HANDLE_ID + 1, // ensure we don't start on the default handle id
         }
     }
 

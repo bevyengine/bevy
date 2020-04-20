@@ -6,7 +6,7 @@ use crate::{
     render_resource::AssetBatchers,
     Renderable,
 };
-use bevy_asset::Handle;
+use bevy_asset::{AssetStorage, Handle};
 use glam::*;
 use legion::prelude::*;
 use std::borrow::Cow;
@@ -224,7 +224,7 @@ pub mod shape {
             ];
 
             Mesh {
-                primitive_topology: PrimitiveTopology::TriangleStrip,
+                primitive_topology: PrimitiveTopology::TriangleList,
                 attributes: vec![
                     VertexAttribute::position(positions),
                     VertexAttribute::normal(normals),
@@ -283,7 +283,7 @@ pub mod shape {
             }
 
             Mesh {
-                primitive_topology: PrimitiveTopology::TriangleStrip,
+                primitive_topology: PrimitiveTopology::TriangleList,
                 attributes: vec![
                     VertexAttribute::position(positions),
                     VertexAttribute::normal(normals),
@@ -317,6 +317,20 @@ pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
         .build(|_, world, asset_batchers, query| {
             for (entity, (mesh_handle, _renderable)) in query.iter_entities(world) {
                 asset_batchers.set_entity_handle(entity, *mesh_handle);
+            }
+        })
+}
+
+pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
+    SystemBuilder::new("mesh_batcher")
+        .read_resource::<AssetStorage<Mesh>>()
+        .with_query(
+            <(Read<Handle<Mesh>>, Write<Renderable>)>::query().filter(changed::<Handle<Mesh>>() | changed::<Renderable>()),
+        )
+        .build(|_, world, meshes, query| {
+            for (mesh_handle, mut renderable) in query.iter_mut(world) {
+                let mesh = meshes.get(&mesh_handle).unwrap();
+                renderable.render_resource_assignments.pipeline_specialization.primitive_topology = mesh.primitive_topology;
             }
         })
 }

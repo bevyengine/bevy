@@ -31,6 +31,8 @@ where
                 if let Some(shader_defs) = uniforms.get_shader_defs() {
                     renderable
                         .render_resource_assignments
+                        .pipeline_specialization
+                        .shader_specialization
                         .shader_defs
                         .extend(shader_defs)
                 }
@@ -58,6 +60,8 @@ where
             if let Some(shader_defs) = uniforms.get_shader_defs() {
                 renderable
                     .render_resource_assignments
+                    .pipeline_specialization
+                    .shader_specialization
                     .shader_defs
                     .extend(shader_defs)
             }

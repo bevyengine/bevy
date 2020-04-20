@@ -10,7 +10,6 @@ fn main() {
 
 /// set up a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
-    env_logger::init();
     // create a cube and a plane mesh
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
@@ -43,13 +42,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
             mesh: cube_handle,
             material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
-            ..Default::default()
-        })
-        // cube
-        .add_entity(MeshEntity {
-            mesh: cube_handle,
-            material: cube_material_handle,
-            translation: Translation::new(2.0, 0.0, 1.0),
             ..Default::default()
         })
         // light

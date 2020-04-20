@@ -1,5 +1,6 @@
 use super::{
-    BindType, PipelineDescriptor, PipelineLayout, PipelineLayoutType, VertexBufferDescriptors,
+    state_descriptors::PrimitiveTopology, BindType, PipelineDescriptor, PipelineLayout,
+    PipelineLayoutType, VertexBufferDescriptors,
 };
 use crate::{
     render_resource::{
@@ -14,11 +15,25 @@ use std::collections::{HashMap, HashSet};
 
 use legion::prelude::*;
 
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
+pub struct PipelineSpecialization {
+    pub shader_specialization: ShaderSpecialization,
+    pub primitive_topology: PrimitiveTopology,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
+pub struct ShaderSpecialization {
+    pub shader_defs: HashSet<String>,
+}
+
 // TODO: consider using (Typeid, fieldinfo.index) in place of string for hashes
 pub struct PipelineCompiler {
-    pub shader_source_to_compiled: HashMap<Handle<Shader>, Vec<(HashSet<String>, Handle<Shader>)>>,
-    pub pipeline_source_to_compiled:
-        HashMap<Handle<PipelineDescriptor>, Vec<(HashSet<String>, Handle<PipelineDescriptor>)>>,
+    pub shader_source_to_compiled:
+        HashMap<Handle<Shader>, Vec<(ShaderSpecialization, Handle<Shader>)>>,
+    pub pipeline_source_to_compiled: HashMap<
+        Handle<PipelineDescriptor>,
+        Vec<(PipelineSpecialization, Handle<PipelineDescriptor>)>,
+    >,
 }
 
 impl PipelineCompiler {
@@ -86,7 +101,7 @@ impl PipelineCompiler {
         &mut self,
         shader_storage: &mut AssetStorage<Shader>,
         shader_handle: &Handle<Shader>,
-        shader_defs: &HashSet<String>,
+        shader_specialization: &ShaderSpecialization,
     ) -> Handle<Shader> {
         let compiled_shaders = self
             .shader_source_to_compiled
@@ -100,18 +115,26 @@ impl PipelineCompiler {
             return *shader_handle;
         }
 
-        if let Some((_compiled_shader_defs, compiled_shader)) = compiled_shaders
-            .iter()
-            .find(|(compiled_shader_defs, _compiled_shader)| *compiled_shader_defs == *shader_defs)
+        if let Some((_shader_specialization, compiled_shader)) =
+            compiled_shaders
+                .iter()
+                .find(|(current_shader_specialization, _compiled_shader)| {
+                    *current_shader_specialization == *shader_specialization
+                })
         {
             // if shader has already been compiled with current configuration, use existing shader
             *compiled_shader
         } else {
             // if no shader exists with the current configuration, create new shader and compile
-            let shader_def_vec = shader_defs.iter().cloned().collect::<Vec<String>>();
+            let shader_def_vec = shader_specialization
+                .shader_defs
+                .iter()
+                .cloned()
+                .collect::<Vec<String>>();
             let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
-            compiled_shaders.push((shader_defs.clone(), *shader_handle));
-            shader_storage.add(compiled_shader)
+            let compiled_handle = shader_storage.add(compiled_shader);
+            compiled_shaders.push((shader_specialization.clone(), compiled_handle));
+            compiled_handle
         }
     }
 
@@ -128,7 +151,9 @@ impl PipelineCompiler {
         compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
             shader_storage,
             &pipeline_descriptor.shader_stages.vertex,
-            &render_resource_assignments.shader_defs,
+            &render_resource_assignments
+                .pipeline_specialization
+                .shader_specialization,
         );
         compiled_pipeline_descriptor.shader_stages.fragment = pipeline_descriptor
             .shader_stages
@@ -138,7 +163,9 @@ impl PipelineCompiler {
                 self.compile_shader(
                     shader_storage,
                     fragment,
-                    &render_resource_assignments.shader_defs,
+                    &render_resource_assignments
+                        .pipeline_specialization
+                        .shader_specialization,
                 )
             });
 
@@ -150,6 +177,9 @@ impl PipelineCompiler {
             render_resource_assignments,
         );
 
+        compiled_pipeline_descriptor.primitive_topology = render_resource_assignments
+            .pipeline_specialization
+            .primitive_topology;
         compiled_pipeline_descriptor
     }
 
@@ -174,8 +204,8 @@ impl PipelineCompiler {
                 .get_mut(pipeline_handle)
                 .unwrap()
                 .iter()
-                .find(|(shader_defs, _macroed_pipeline_handle)| {
-                    *shader_defs == render_resource_assignments.shader_defs
+                .find(|(pipeline_specialization, _macroed_pipeline_handle)| {
+                    *pipeline_specialization == render_resource_assignments.pipeline_specialization
                 }) {
                 *macroed_pipeline_handle
             } else {
@@ -194,7 +224,7 @@ impl PipelineCompiler {
                     .get_mut(pipeline_handle)
                     .unwrap();
                 macro_pipelines.push((
-                    render_resource_assignments.shader_defs.clone(),
+                    render_resource_assignments.pipeline_specialization.clone(),
                     compiled_pipeline_handle,
                 ));
                 compiled_pipeline_handle
@@ -277,7 +307,12 @@ pub fn update_shader_assignments(
             );
 
             // reset shader_defs so they can be changed next frame
-            renderable.render_resource_assignments.shader_defs.clear();
+            renderable
+                .render_resource_assignments
+                .pipeline_specialization
+                .shader_specialization
+                .shader_defs
+                .clear();
         }
     }
 }

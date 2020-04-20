@@ -39,7 +39,7 @@ use self::{
     },
     render_graph::RenderGraph,
     render_resource::{
-        build_entity_render_resource_assignments_system,
+        entity_render_resource_assignments_system,
         resource_providers::{
             Camera2dResourceProvider, CameraResourceProvider, LightResourceProvider,
             UniformResourceProvider,
@@ -111,8 +111,12 @@ impl AppPlugin for RenderPlugin {
             .add_resource(EntityRenderResourceAssignments::default())
             .add_resource(asset_batchers)
             // core systems
-            .add_system(build_entity_render_resource_assignments_system())
+            .add_system(entity_render_resource_assignments_system())
             .add_system_to_stage_init(stage::POST_UPDATE, camera::camera_update_system)
+            .add_system_to_stage(
+                stage::POST_UPDATE,
+                mesh::mesh_specializer_system(),
+            )
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
