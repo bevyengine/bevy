@@ -53,16 +53,35 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             reader
                 .read_positions()
                 .map(|v| VertexAttribute {
-                    name: "position".into(),
+                    name: "Vertex_Position".into(),
                     values: VertexAttributeValues::Float3(v.collect()),
                 })
                 .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
 
-            // let indices = reader.read_indices().unwrap();
+            reader
+                .read_normals()
+                .map(|v| VertexAttribute {
+                    name: "Vertex_Normal".into(),
+                    values: VertexAttributeValues::Float3(v.collect()),
+                })
+                .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
+
+            reader
+                .read_tex_coords(0)
+                .map(|v| VertexAttribute {
+                    name: "Vertex_Uv".into(),
+                    values: VertexAttributeValues::Float2(v.into_f32().collect()),
+                })
+                .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
+
+
+            reader.read_indices().map(|indices| {
+                mesh.indices = Some(indices.into_u32().collect::<Vec<u32>>());
+            });
+
             return Ok(mesh);
         }
     }
-    println!();
 
     for child in node.children() {
         return Ok(load_node(buffer_data, &child, depth + 1)?);
