@@ -19,7 +19,7 @@ pub struct WgpuBindGroupInfo {
 }
 
 /// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows
-/// us to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is accomplished by
+/// you to pass in wgpu resources to wgpu::RenderPass<'a> with the appropriate lifetime. This is accomplished by
 /// grabbing a WgpuResourcesReadLock _before_ creating a wgpu::RenderPass, getting a WgpuResourcesRefs, and storing that
 /// in the pass.
 ///
@@ -88,7 +88,7 @@ pub struct WgpuResources {
 }
 
 impl WgpuResources {
-    pub fn read<'a>(&'a self) -> WgpuResourcesReadLock<'a> {
+    pub fn read(&self) -> WgpuResourcesReadLock {
         WgpuResourcesReadLock {
             buffers: self.buffers.read().unwrap(),
             textures: self.textures.read().unwrap(),

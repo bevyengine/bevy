@@ -6,6 +6,7 @@ use bevy_asset::AssetStorage;
 use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
+    render_graph_2::RenderGraph2,
     render_resource::RenderResourceAssignments,
     renderer_2::{GlobalRenderResourceContext, RenderContext, RenderResourceContext},
 };
@@ -225,7 +226,39 @@ impl WgpuRenderer {
         }
     }
 
+    pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
+        let mut executor = {
+            let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
+            render_graph.take_executor()
+        };
+
+        if let Some(executor) = executor.as_mut() {
+            executor.execute(world, resources);
+        }
+
+        let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
+        if let Some(executor) = executor.take() {
+            render_graph.set_executor(executor);
+        }
+        let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
+        let render_resource_context = global_context
+            .context
+            .downcast_mut::<WgpuRenderResourceContext>()
+            .unwrap();
+        let mut render_context =
+            WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
+        for node in render_graph.get_schedule() {
+            node.update(world, resources, &mut render_context);
+        }
+
+        let command_buffer = render_context.finish();
+        if let Some(command_buffer) = command_buffer {
+            self.queue.submit(&[command_buffer]);
+        }
+    }
+
     pub fn update(&mut self, world: &mut World, resources: &mut Resources) {
+        self.run_graph(world, resources);
         let mut encoder = {
             let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
             let render_resource_context = global_context
