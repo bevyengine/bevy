@@ -8,16 +8,15 @@ fn main() {
         .run();
 }
 
-/// set up a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
+    // load the mesh
     let mesh = gltf::load_gltf("examples/assets/Monkey.gltf")
         .unwrap()
         .unwrap();
-    // create a cube and a plane mesh
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let mesh_handle = mesh_storage.add(mesh);
 
-    // create materials for our cube and plane
+    // create a material for the mesh
     let mut material_storage = resources
         .get_mut::<AssetStorage<StandardMaterial>>()
         .unwrap();

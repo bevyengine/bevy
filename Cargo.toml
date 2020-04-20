@@ -69,4 +69,4 @@ type-uuid = "0.1"
 env_logger = "0.7"
 
 [profile.dev]
-# opt-level = 3
+opt-level = 3
