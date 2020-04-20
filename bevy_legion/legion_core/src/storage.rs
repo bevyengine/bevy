@@ -1425,7 +1425,10 @@ impl ComponentStorage {
         // free component memory
         unsafe {
             let ptr = self.component_data.take().unwrap();
-            std::alloc::dealloc(ptr.as_ptr(), self.component_layout);
+
+            if self.component_layout.size() > 0 {
+                std::alloc::dealloc(ptr.as_ptr(), self.component_layout);
+            }
         }
 
         self.update_mem_gauge();
@@ -1446,13 +1449,18 @@ impl ComponentStorage {
 
         unsafe {
             // allocating backing store
-            let ptr = std::alloc::alloc(self.component_layout);
-            self.component_data = Some(NonNull::new_unchecked(ptr));
+            if self.component_layout.size() > 0 {
+                let ptr = std::alloc::alloc(self.component_layout);
+                self.component_data = Some(NonNull::new_unchecked(ptr));
 
-            // update accessor pointers
-            for (type_id, component) in (&mut *self.component_info.get()).iter_mut() {
-                let &offset = self.component_offsets.get(type_id).unwrap();
-                *component.ptr.get_mut() = ptr.add(offset);
+                // update accessor pointers
+                for (type_id, component) in (&mut *self.component_info.get()).iter_mut() {
+                    let &offset = self.component_offsets.get(type_id).unwrap();
+                    *component.ptr.get_mut() = ptr.add(offset);
+                }
+            } else {
+                self.component_data =
+                    Some(NonNull::new(self.component_layout.align() as *mut u8).unwrap());
             }
         }
 
@@ -1516,8 +1524,10 @@ impl Drop for ComponentStorage {
             self.update_count_gauge();
 
             // free the chunk's memory
-            unsafe {
-                std::alloc::dealloc(ptr.as_ptr(), self.component_layout);
+            if self.component_layout.size() > 0 {
+                unsafe {
+                    std::alloc::dealloc(ptr.as_ptr(), self.component_layout);
+                }
             }
         }
     }

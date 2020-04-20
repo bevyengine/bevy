@@ -168,8 +168,13 @@ impl Executor {
                     64,
                     Default::default(),
                 );
-            let mut component_mutated =
-                FxHashMap::<ComponentTypeId, Vec<usize>>::with_capacity_and_hasher(
+            let mut component_last_mutated =
+                FxHashMap::<ComponentTypeId, usize>::with_capacity_and_hasher(
+                    64,
+                    Default::default(),
+                );
+            let mut component_last_read =
+                FxHashMap::<ComponentTypeId, usize>::with_capacity_and_hasher(
                     64,
                     Default::default(),
                 );
@@ -220,23 +225,28 @@ impl Executor {
 
                 // find component access dependencies
                 let mut comp_dependencies = FxHashSet::default();
-                for comp in read_comp {
-                    if let Some(ns) = component_mutated.get(comp) {
-                        for n in ns {
-                            comp_dependencies.insert(*n);
-                        }
-                    }
-                }
                 for comp in write_comp {
-                    if let Some(ns) = component_mutated.get(comp) {
-                        for n in ns {
-                            comp_dependencies.insert(*n);
-                        }
+                    // Writes have to be exclusive, so we are dependent on reads too
+                    trace!(component = ?comp, "Write component");
+                    if let Some(n) = component_last_read.get(comp) {
+                        trace!(system_index = n, "Added read dependency");
+                        comp_dependencies.insert(*n);
                     }
-                    component_mutated
-                        .entry(*comp)
-                        .or_insert_with(Vec::new)
-                        .push(i);
+                    if let Some(n) = component_last_mutated.get(comp) {
+                        trace!(system_index = n, "Added write dependency");
+                        comp_dependencies.insert(*n);
+                    }
+                    component_last_mutated.insert(*comp, i);
+                }
+
+                // Do reads after writes to ensure we don't overwrite last_read
+                for comp in read_comp {
+                    trace!(component = ?comp, "Read component");
+                    if let Some(n) = component_last_mutated.get(comp) {
+                        trace!(system_index = n, "Added write dependency");
+                        comp_dependencies.insert(*n);
+                    }
+                    component_last_read.insert(*comp, i);
                 }
 
                 trace!(depentants = ?comp_dependencies, "Computed dynamic dependants");

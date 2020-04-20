@@ -95,6 +95,9 @@ impl FilterResult for Option<bool> {
 pub trait Filter<T: Copy>: Send + Sync + Sized {
     type Iter: Iterator + Send + Sync;
 
+    // Called when a query is about to begin execution.
+    fn init(&self) {}
+
     /// Pulls iterator data out of the source.
     fn collect(&self, source: T) -> Self::Iter;
 
@@ -168,6 +171,9 @@ pub trait EntityFilter: Send + Clone {
     type ChunksetFilter: for<'a> Filter<ChunksetFilterData<'a>> + Clone;
     type ChunkFilter: for<'a> Filter<ChunkFilterData<'a>> + Clone;
 
+    /// Initializes the entity filter for iteration.
+    fn init(&self);
+
     /// Gets mutable references to both inner filters.
     fn filters(
         &self,
@@ -238,6 +244,12 @@ where
     type ArchetypeFilter = A;
     type ChunksetFilter = S;
     type ChunkFilter = C;
+
+    fn init(&self) {
+        self.arch_filter.init();
+        self.chunkset_filter.init();
+        self.chunk_filter.init();
+    }
 
     fn filters(
         &self,
@@ -380,7 +392,7 @@ impl<'a, 'b, F: Filter<ArchetypeFilterData<'a>>> Iterator for FilterArchIter<'a,
     }
 }
 
-/// An iterator which yields the index of chunks that match a filter.
+/// An iterator which yields the index of chuinks that match a filter.
 pub struct FilterChunkIter<'a, 'b, F: Filter<ChunksetFilterData<'a>>> {
     filter: &'b F,
     chunks: Enumerate<F::Iter>,
@@ -459,6 +471,9 @@ impl<'a> Filter<ArchetypeFilterData<'a>> for Passthrough {
     type Iter = Take<Repeat<()>>;
 
     #[inline]
+    fn init(&self) {}
+
+    #[inline]
     fn collect(&self, arch: ArchetypeFilterData<'a>) -> Self::Iter {
         std::iter::repeat(()).take(arch.component_types.len())
     }
@@ -471,6 +486,9 @@ impl<'a> Filter<ChunksetFilterData<'a>> for Passthrough {
     type Iter = Take<Repeat<()>>;
 
     #[inline]
+    fn init(&self) {}
+
+    #[inline]
     fn collect(&self, sets: ChunksetFilterData<'a>) -> Self::Iter {
         std::iter::repeat(()).take(sets.archetype_data.len())
     }
@@ -481,6 +499,9 @@ impl<'a> Filter<ChunksetFilterData<'a>> for Passthrough {
 
 impl<'a> Filter<ChunkFilterData<'a>> for Passthrough {
     type Iter = Take<Repeat<()>>;
+
+    #[inline]
+    fn init(&self) {}
 
     #[inline]
     fn collect(&self, chunk: ChunkFilterData<'a>) -> Self::Iter {
@@ -521,6 +542,9 @@ impl<'a> Filter<ArchetypeFilterData<'a>> for Any {
     type Iter = Take<Repeat<()>>;
 
     #[inline]
+    fn init(&self) {}
+
+    #[inline]
     fn collect(&self, arch: ArchetypeFilterData<'a>) -> Self::Iter {
         std::iter::repeat(()).take(arch.component_types.len())
     }
@@ -533,6 +557,9 @@ impl<'a> Filter<ChunksetFilterData<'a>> for Any {
     type Iter = Take<Repeat<()>>;
 
     #[inline]
+    fn init(&self) {}
+
+    #[inline]
     fn collect(&self, sets: ChunksetFilterData<'a>) -> Self::Iter {
         std::iter::repeat(()).take(sets.archetype_data.len())
     }
@@ -543,6 +570,9 @@ impl<'a> Filter<ChunksetFilterData<'a>> for Any {
 
 impl<'a> Filter<ChunkFilterData<'a>> for Any {
     type Iter = Take<Repeat<()>>;
+
+    #[inline]
+    fn init(&self) {}
 
     #[inline]
     fn collect(&self, chunk: ChunkFilterData<'a>) -> Self::Iter {
@@ -591,6 +621,9 @@ impl<F> ActiveFilter for Not<F> {}
 
 impl<'a, T: Copy, F: Filter<T>> Filter<T> for Not<F> {
     type Iter = F::Iter;
+
+    #[inline]
+    fn init(&self) { self.filter.init(); }
 
     #[inline]
     fn collect(&self, source: T) -> Self::Iter { self.filter.collect(source) }
@@ -647,6 +680,9 @@ impl<T> ActiveFilter for And<(T,)> {}
 
 impl<'a, T: Copy, F: Filter<T>> Filter<T> for And<(F,)> {
     type Iter = F::Iter;
+
+    #[inline]
+    fn init(&self) { self.filters.0.init(); }
 
     #[inline]
     fn collect(&self, source: T) -> Self::Iter { self.filters.0.collect(source) }
@@ -716,6 +752,13 @@ macro_rules! impl_and_filter {
         impl<'a, T: Copy, $( $ty: Filter<T> ),*> Filter<T> for And<($( $ty, )*)> {
             // type Iter = crate::zip::Zip<( $( $ty::Iter ),* )>;
             type Iter = recursive_zip!(@type $($ty::Iter),*);
+
+            #[inline]
+            fn init(&self) {
+                #![allow(non_snake_case)]
+                let ($( $ty, )*) = &self.filters;
+                $( $ty.init(); )*
+            }
 
             fn collect(&self, source: T) -> Self::Iter {
                 #![allow(non_snake_case)]
@@ -818,6 +861,13 @@ macro_rules! impl_or_filter {
             // type Iter = crate::zip::Zip<( $( $ty::Iter ),* )>;
             type Iter = recursive_zip!(@type $($ty::Iter),*);
 
+            #[inline]
+            fn init(&self) {
+                #![allow(non_snake_case)]
+                let ($( $ty, )*) = &self.filters;
+                $( $ty.init(); )*
+            }
+
             fn collect(&self, source: T) -> Self::Iter {
                 #![allow(non_snake_case)]
                 let ($( $ty, )*) = &self.filters;
@@ -905,7 +955,7 @@ impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, 
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k);
 impl_or_filter!(A => a, B => b, C => c, D => d, E => e, F => f, G => g, H => h, I => i, J => j, K => k, L => l);
 
-/// A filter which requires that all chunks contain entity data components of type `T`.
+/// A filter qhich requires that all chunks contain entity data components of type `T`.
 #[derive(Debug)]
 pub struct ComponentFilter<T>(PhantomData<T>);
 
@@ -922,6 +972,9 @@ impl<T> Clone for ComponentFilter<T> {
 
 impl<'a, T: Component> Filter<ArchetypeFilterData<'a>> for ComponentFilter<T> {
     type Iter = SliceVecIter<'a, ComponentTypeId>;
+
+    #[inline]
+    fn init(&self) {}
 
     #[inline]
     fn collect(&self, source: ArchetypeFilterData<'a>) -> Self::Iter {
@@ -996,6 +1049,9 @@ impl<'a, T: Tag> Filter<ArchetypeFilterData<'a>> for TagFilter<T> {
     type Iter = SliceVecIter<'a, TagTypeId>;
 
     #[inline]
+    fn init(&self) {}
+
+    #[inline]
     fn collect(&self, source: ArchetypeFilterData<'a>) -> Self::Iter { source.tag_types.iter() }
 
     #[inline]
@@ -1067,6 +1123,9 @@ impl<'a, T> Clone for TagValueFilter<'a, T> {
 impl<'a, 'b, T: Tag> Filter<ChunksetFilterData<'a>> for TagValueFilter<'b, T> {
     type Iter = Iter<'a, T>;
 
+    #[inline]
+    fn init(&self) {}
+
     fn collect(&self, source: ChunksetFilterData<'a>) -> Self::Iter {
         unsafe {
             source
@@ -1132,14 +1191,16 @@ impl<'a, T> std::ops::BitOr<Passthrough> for TagValueFilter<'a, T> {
 /// chunk since the last time the filter was executed.
 #[derive(Debug)]
 pub struct ComponentChangedFilter<T: Component> {
-    last_read_version: AtomicU64,
+    high_water_mark: AtomicU64,
+    version_threshold: AtomicU64,
     phantom: PhantomData<T>,
 }
 
 impl<T: Component> ComponentChangedFilter<T> {
     fn new() -> ComponentChangedFilter<T> {
         ComponentChangedFilter {
-            last_read_version: AtomicU64::new(0),
+            high_water_mark: AtomicU64::new(0),
+            version_threshold: AtomicU64::new(0),
             phantom: PhantomData,
         }
     }
@@ -1150,29 +1211,63 @@ impl<T: Component> ActiveFilter for ComponentChangedFilter<T> {}
 impl<T: Component> Clone for ComponentChangedFilter<T> {
     fn clone(&self) -> Self {
         Self {
-            last_read_version: AtomicU64::new(self.last_read_version.load(Ordering::Relaxed)),
+            high_water_mark: AtomicU64::new(self.high_water_mark.load(Ordering::Relaxed)),
+            version_threshold: AtomicU64::new(self.version_threshold.load(Ordering::Relaxed)),
             phantom: PhantomData,
         }
     }
 }
 
 impl<'a, T: Component> Filter<ChunkFilterData<'a>> for ComponentChangedFilter<T> {
-    type Iter = Iter<'a, ComponentStorage>;
+    type Iter = ComponentChangedState<'a, ComponentStorage>;
 
-    fn collect(&self, source: ChunkFilterData<'a>) -> Self::Iter { source.chunks.iter() }
+    #[inline]
+    fn init(&self) {
+        let version = self.high_water_mark.load(Ordering::Relaxed);
+        let mut threshold = self.version_threshold.load(Ordering::Relaxed);
+        if threshold < version {
+            loop {
+                match self.version_threshold.compare_exchange_weak(
+                    threshold,
+                    version,
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                ) {
+                    Ok(_) => break,
+                    Err(stored_last_read) => {
+                        threshold = stored_last_read;
+                        if threshold >= version {
+                            // matched version is already considered visited, update no longer needed
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn collect(&self, source: ChunkFilterData<'a>) -> Self::Iter {
+        let compare_version = self.version_threshold.load(Ordering::Relaxed);
+        ComponentChangedState {
+            iter: source.chunks.iter(),
+            version_threshold: compare_version,
+        }
+    }
 
     #[inline]
     fn is_match(&self, item: &<Self::Iter as Iterator>::Item) -> Option<bool> {
-        let components = item.components(ComponentTypeId::of::<T>());
+        let (version_threshold, storage) = item;
+
+        let components = storage.components(ComponentTypeId::of::<T>());
         if components.is_none() {
             return Some(false);
         }
 
         let version = components.unwrap().version();
-        let mut last_read = self.last_read_version.load(Ordering::Relaxed);
+        let mut last_read = self.high_water_mark.load(Ordering::Relaxed);
         if last_read < version {
             loop {
-                match self.last_read_version.compare_exchange_weak(
+                match self.high_water_mark.compare_exchange_weak(
                     last_read,
                     version,
                     Ordering::Relaxed,
@@ -1181,17 +1276,33 @@ impl<'a, T: Component> Filter<ChunkFilterData<'a>> for ComponentChangedFilter<T>
                     Ok(_) => break,
                     Err(stored_last_read) => {
                         last_read = stored_last_read;
-                        if last_read < version {
+                        if last_read >= version {
                             // matched version is already considered visited, update no longer needed
                             break;
                         }
                     }
                 }
             }
+        }
+
+        if version > *version_threshold {
             Some(true)
         } else {
             Some(false)
         }
+    }
+}
+
+pub struct ComponentChangedState<'a, T: Component> {
+    iter: Iter<'a, T>,
+    version_threshold: u64,
+}
+
+impl<'a, T: Component> Iterator for ComponentChangedState<'a, T> {
+    type Item = (u64, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|c| (self.version_threshold, c))
     }
 }
 
@@ -1241,6 +1352,7 @@ impl<'a, T: Component> std::ops::BitOr<Passthrough> for ComponentChangedFilter<T
 #[cfg(test)]
 mod test {
     use super::filter_fns::*;
+    use crate::prelude::*;
 
     #[test]
     pub fn create() {
@@ -1248,5 +1360,41 @@ mod test {
 
         let filter = component::<usize>() | tag_value(&5isize);
         tracing::trace!(?filter);
+    }
+
+    #[test]
+    fn component_changed_filter() {
+        let _ = tracing_subscriber::fmt::try_init();
+
+        let universe = Universe::new();
+        let mut world = universe.create_world();
+
+        let entity1 = world.insert((), vec![(1usize,)])[0];
+        let entity2 = world.insert((), vec![(2usize, false)])[0];
+
+        let query = <Read<usize>>::query().filter(changed::<usize>());
+
+        assert_eq!(2, query.iter_chunks(&world).collect::<Vec<_>>().len());
+
+        *world.get_component_mut::<usize>(entity1).unwrap() = 3usize;
+
+        assert_eq!(1, query.iter_chunks(&world).collect::<Vec<_>>().len());
+
+        *world.get_component_mut::<usize>(entity1).unwrap() = 4usize;
+        *world.get_component_mut::<usize>(entity2).unwrap() = 5usize;
+
+        assert_eq!(2, query.iter_chunks(&world).collect::<Vec<_>>().len());
+
+        *world.get_component_mut::<usize>(entity1).unwrap() = 6usize;
+        *world.get_component_mut::<usize>(entity1).unwrap() = 7usize;
+        *world.get_component_mut::<usize>(entity2).unwrap() = 8usize;
+
+        assert_eq!(2, query.iter_chunks(&world).collect::<Vec<_>>().len());
+
+        *world.get_component_mut::<usize>(entity2).unwrap() = 6usize;
+        *world.get_component_mut::<usize>(entity2).unwrap() = 7usize;
+        *world.get_component_mut::<usize>(entity1).unwrap() = 8usize;
+
+        assert_eq!(2, query.iter_chunks(&world).collect::<Vec<_>>().len());
     }
 }

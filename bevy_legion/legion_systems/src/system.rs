@@ -1627,11 +1627,11 @@ mod tests {
         struct Comp2(f32, f32, f32);
 
         let components = vec![
-            (Pos(69., 69., 69.), Vel(69., 69., 69.)),
-            (Pos(69., 69., 69.), Vel(69., 69., 69.)),
+            (Comp1(69., 69., 69.), Comp2(69., 69., 69.)),
+            (Comp1(69., 69., 69.), Comp2(69., 69., 69.)),
         ];
 
-        let mut expected = HashMap::<Entity, (Pos, Vel)>::new();
+        let mut expected = HashMap::<Entity, (Comp1, Comp2)>::new();
 
         for (i, e) in world.insert((), components.clone()).iter().enumerate() {
             if let Some((pos, rot)) = components.get(i) {
@@ -1670,7 +1670,7 @@ mod tests {
         let system3 = SystemBuilder::<()>::new("TestSystem3")
             .with_query(<(Write<Comp1>, Write<Comp2>)>::query())
             .build(move |_, world, _, query| {
-                query.iter_mut(world).for_each(|(mut one, two)| {
+                query.iter_mut(world).for_each(|(mut one, mut two)| {
                     assert_eq!(one.0, 456.);
                     assert_eq!(one.1, 456.);
                     assert_eq!(one.2, 456.);
@@ -1683,9 +1683,9 @@ mod tests {
                     one.1 = 789.;
                     one.2 = 789.;
 
-                    one.0 = 789.;
-                    one.1 = 789.;
-                    one.2 = 789.;
+                    two.0 = 789.;
+                    two.1 = 789.;
+                    two.2 = 789.;
                 });
             });
 

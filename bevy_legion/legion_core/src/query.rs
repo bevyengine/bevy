@@ -949,6 +949,7 @@ where
         &'a self,
         world: &'data World,
     ) -> ChunkViewIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter> {
+        self.filter.init();
         let (arch_filter, chunkset_filter, chunk_filter) = self.filter.filters();
         let storage = world.storage();
         let archetypes = arch_filter
@@ -1190,6 +1191,7 @@ where
         <F::ChunksetFilter as Filter<ChunksetFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'data>>>::Iter: FissileIterator,
     {
+        self.filter.init();
         let (arch_filter, chunkset_filter, chunk_filter) = self.filter.filters();
         let storage = world.storage();
         let archetypes = FissileEnumerate::new(arch_filter.collect(ArchetypeFilterData {

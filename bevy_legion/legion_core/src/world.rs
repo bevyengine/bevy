@@ -462,8 +462,6 @@ impl World {
     /// This function has the overhead of moving the entity to either an existing or new archetype,
     /// causing a memory copy of the entity to a new location. This function should not be used
     /// multiple times in successive order.
-    ///
-    /// `World::add_components` should be used for adding multiple omponents to an entity at once.
     pub fn add_component<T: Component>(
         &mut self,
         entity: Entity,
