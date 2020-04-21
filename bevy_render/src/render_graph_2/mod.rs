@@ -1,3 +1,5 @@
+pub mod nodes;
+
 use crate::{
     render_resource::{RenderResource, ResourceInfo},
     renderer_2::RenderContext,
@@ -76,28 +78,115 @@ impl NodeId {
     }
 }
 
+pub struct ResourceBinding {
+    pub resource: Option<RenderResource>,
+    pub slot: ResourceSlot,
+}
+
+#[derive(Default)]
+pub struct ResourceBindings {
+    bindings: Vec<ResourceBinding>,
+}
+
+impl ResourceBindings {
+    pub fn set(&mut self, index: usize, resource: RenderResource) {
+        self.bindings[index].resource = Some(resource);
+    }
+
+    pub fn set_named(&mut self, name: &str, resource: RenderResource) {
+        let binding = self
+            .bindings
+            .iter_mut()
+            .find(|b| b.slot.name == name)
+            .expect("Name not found");
+        binding.resource = Some(resource);
+    }
+
+    pub fn get(&self, index: usize) -> Option<RenderResource> {
+        self.bindings
+            .get(index)
+            .and_then(|binding| binding.resource)
+    }
+
+    pub fn get_named(&self, name: &str) -> Option<RenderResource> {
+        self.bindings
+            .iter()
+            .find(|b| b.slot.name == name)
+            .and_then(|binding| binding.resource)
+    }
+}
+
+impl From<&ResourceSlot> for ResourceBinding {
+    fn from(slot: &ResourceSlot) -> Self {
+        ResourceBinding {
+            resource: None,
+            slot: slot.clone(),
+        }
+    }
+}
+
+impl From<&[ResourceSlot]> for ResourceBindings {
+    fn from(slots: &[ResourceSlot]) -> Self {
+        ResourceBindings {
+            bindings: slots
+                .iter()
+                .map(|s| s.into())
+                .collect::<Vec<ResourceBinding>>(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct ResourceSlot {
-    name: Option<String>,
+    name: &'static str,
     resource_type: ResourceInfo,
 }
 
-pub struct ResourceSlotBinding {
-    resource: RenderResource,
-}
-
-pub struct NodeDescriptor {
-    pub inputs: Vec<ResourceSlot>,
-    pub outputs: Vec<ResourceSlot>,
+impl ResourceSlot {
+    pub const fn new(name: &'static str, resource_type: ResourceInfo) -> Self {
+        ResourceSlot {
+            name,
+            resource_type,
+        }
+    }
 }
 
 pub trait Node: Send + Sync + 'static {
-    fn descriptor(&self) -> &NodeDescriptor;
+    fn input(&self) -> &[ResourceSlot] {
+        &[]
+    }
+
+    fn output(&self) -> &[ResourceSlot] {
+        &[]
+    }
+
     fn update(
         &mut self,
         world: &World,
         resources: &Resources,
         render_context: &mut dyn RenderContext,
+        input: &ResourceBindings,
+        output: &mut ResourceBindings,
     );
+}
+
+pub struct NodeState {
+    pub node: Box<dyn Node>,
+    pub input: ResourceBindings,
+    pub output: ResourceBindings,
+}
+
+impl NodeState {
+    pub fn new<T>(node: T) -> Self
+    where
+        T: Node,
+    {
+        NodeState {
+            input: ResourceBindings::from(node.input()),
+            output: ResourceBindings::from(node.output()),
+            node: Box::new(node),
+        }
+    }
 }
 
 pub trait SystemNode: Node {
@@ -106,7 +195,7 @@ pub trait SystemNode: Node {
 
 #[derive(Default)]
 pub struct RenderGraph2 {
-    nodes: HashMap<NodeId, Box<dyn Node>>,
+    nodes: HashMap<NodeId, NodeState>,
     new_systems: Vec<Box<dyn Schedulable>>,
     system_executor: Option<Executor>,
 }
@@ -117,7 +206,7 @@ impl RenderGraph2 {
         T: Node + 'static,
     {
         let id = NodeId::new();
-        self.nodes.insert(id, Box::new(node));
+        self.nodes.insert(id, NodeState::new(node));
         id
     }
 
@@ -127,12 +216,8 @@ impl RenderGraph2 {
     {
         let id = NodeId::new();
         self.new_systems.push(node.get_system(resources));
-        self.nodes.insert(id, Box::new(node));
+        self.nodes.insert(id, NodeState::new(node));
         id
-    }
-
-    pub fn get_schedule(&mut self) -> impl Iterator<Item = &mut Box<dyn Node>> {
-        self.nodes.values_mut()
     }
 
     pub fn take_executor(&mut self) -> Option<Executor> {
@@ -155,5 +240,56 @@ impl RenderGraph2 {
 
     pub fn set_executor(&mut self, executor: Executor) {
         self.system_executor = Some(executor);
+    }
+}
+
+#[derive(Default)]
+pub struct Stage<'a> {
+    ordered_jobs: Vec<OrderedJob<'a>>,
+}
+
+impl<'a> Stage<'a> {
+    pub fn add(&mut self, job: OrderedJob<'a>) {
+        self.ordered_jobs.push(job);
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut OrderedJob<'a>> {
+        self.ordered_jobs.iter_mut()
+    }
+}
+
+#[derive(Default)]
+pub struct OrderedJob<'a> {
+    node_states: Vec<&'a mut NodeState>,
+}
+
+impl<'a> OrderedJob<'a> {
+    pub fn add(&mut self, node_state: &'a mut NodeState) {
+        self.node_states.push(node_state);
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut &'a mut NodeState> {
+        self.node_states.iter_mut()
+    }
+}
+
+pub trait RenderGraphScheduler {
+    fn get_stages<'a>(&mut self, render_graph: &'a mut RenderGraph2) -> Vec<Stage<'a>>;
+}
+
+#[derive(Default)]
+pub struct LinearScheduler;
+
+impl RenderGraphScheduler for LinearScheduler {
+    fn get_stages<'a>(&mut self, render_graph: &'a mut RenderGraph2) -> Vec<Stage<'a>> {
+        let mut stage = Stage::default();
+        let mut job = OrderedJob::default();
+        for node_state in render_graph.nodes.values_mut() {
+            job.add(node_state);        
+        }
+
+        stage.ordered_jobs.push(job);
+
+        vec![stage]
     }
 }

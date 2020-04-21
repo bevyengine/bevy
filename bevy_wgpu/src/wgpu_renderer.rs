@@ -6,7 +6,7 @@ use bevy_asset::AssetStorage;
 use bevy_render::{
     pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
     render_graph::RenderGraph,
-    render_graph_2::RenderGraph2,
+    render_graph_2::{LinearScheduler, RenderGraph2, RenderGraphScheduler},
     render_resource::RenderResourceAssignments,
     renderer_2::{GlobalRenderResourceContext, RenderContext, RenderResourceContext},
 };
@@ -245,10 +245,15 @@ impl WgpuRenderer {
             .context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
+        let mut linear_scheduler = LinearScheduler::default();
         let mut render_context =
             WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
-        for node in render_graph.get_schedule() {
-            node.update(world, resources, &mut render_context);
+        for mut stage in linear_scheduler.get_stages(&mut render_graph) {
+            for job in stage.iter_mut() {
+                for node_state in job.iter_mut() {
+                    node_state.node.update(world, resources, &mut render_context, &node_state.input, &mut node_state.output);
+                } 
+            }
         }
 
         let command_buffer = render_context.finish();

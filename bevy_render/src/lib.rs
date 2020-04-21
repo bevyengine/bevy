@@ -41,7 +41,7 @@ use self::{
     render_resource::{
         entity_render_resource_assignments_system,
         resource_providers::{
-            Camera2dResourceProvider, CameraResourceProvider, LightResourceProvider,
+            LightResourceProvider,
             UniformResourceProvider,
         },
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
@@ -50,12 +50,11 @@ use self::{
     texture::Texture,
 };
 
-use bevy_app::{stage, AppBuilder, AppPlugin, GetEventReader};
+use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use bevy_transform::prelude::LocalToWorld;
-use bevy_window::WindowResized;
-use render_resource::resource_providers::{CameraNode, mesh_resource_provider_system};
-use render_graph_2::RenderGraph2;
+use render_resource::resource_providers::{mesh_resource_provider_system};
+use render_graph_2::{nodes::{Camera2dNode, CameraNode}, RenderGraph2};
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -78,9 +77,6 @@ impl RenderPlugin {
             .add_draw_target(AssignedBatchesDrawTarget::default())
             .add_draw_target(AssignedMeshesDrawTarget::default())
             .add_draw_target(UiDrawTarget::default())
-            .add_resource_provider(Camera2dResourceProvider::new(
-                resources.get_event_reader::<WindowResized>(),
-            ))
             .add_resource_provider(LightResourceProvider::new(10))
             .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
             .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true))
@@ -93,6 +89,7 @@ impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let mut render_graph = RenderGraph2::default();
         render_graph.add_system_node(CameraNode::default(), app.resources_mut());
+        render_graph.add_system_node(Camera2dNode::default(), app.resources_mut());
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)

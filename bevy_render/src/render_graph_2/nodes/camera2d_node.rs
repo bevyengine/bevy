@@ -1,43 +1,36 @@
+use bevy_app::{Events, GetEventReader};
 use bevy_window::WindowResized;
 
 use crate::{
-    render_graph_2::{CommandQueue, Node, NodeDescriptor, SystemNode},
+    camera::{ActiveCamera2d, Camera},
+    render_graph_2::{CommandQueue, Node, SystemNode, ResourceBindings},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer_2::{GlobalRenderResourceContext, RenderContext},
-    ActiveCamera, Camera,
 };
 
-use bevy_app::{Events, GetEventReader};
-use bevy_transform::prelude::*;
+use bevy_transform::components::LocalToWorld;
 use legion::prelude::*;
-use once_cell::sync::Lazy;
 use zerocopy::AsBytes;
 
 #[derive(Default)]
-pub struct CameraNode {
+pub struct Camera2dNode {
     command_queue: CommandQueue,
 }
 
-impl Node for CameraNode {
-    fn descriptor(&self) -> &NodeDescriptor {
-        static DESCRIPTOR: Lazy<NodeDescriptor> = Lazy::new(|| NodeDescriptor {
-            inputs: Vec::new(),
-            outputs: Vec::new(),
-        });
-        &DESCRIPTOR
-    }
-
+impl Node for Camera2dNode {
     fn update(
         &mut self,
         _world: &World,
         _resources: &Resources,
         render_context: &mut dyn RenderContext,
+        _input: &ResourceBindings,
+        _output: &mut ResourceBindings,
     ) {
         self.command_queue.execute(render_context);
     }
 }
 
-impl SystemNode for CameraNode {
+impl SystemNode for Camera2dNode {
     fn get_system(&self, resources: &mut Resources) -> Box<dyn Schedulable> {
         let mut camera_buffer = None;
         let mut tmp_buffer = None;
@@ -48,7 +41,7 @@ impl SystemNode for CameraNode {
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .write_resource::<RenderResourceAssignments>()
             .read_resource::<Events<WindowResized>>()
-            .with_query(<(Read<Camera>, Read<LocalToWorld>, Read<ActiveCamera>)>::query())
+            .with_query(<(Read<Camera>, Read<LocalToWorld>, Read<ActiveCamera2d>)>::query())
             .build(
                 move |_,
                       world,
@@ -65,7 +58,7 @@ impl SystemNode for CameraNode {
                             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                             ..Default::default()
                         });
-                        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
+                        render_resource_assignments.set(resource_name::uniform::CAMERA2D, buffer);
                         camera_buffer = Some(buffer);
                     }
 
