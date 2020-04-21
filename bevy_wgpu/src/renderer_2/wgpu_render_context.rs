@@ -426,7 +426,6 @@ impl RenderContext for WgpuRenderContext {
         let mut encoder = self.command_encoder.take().unwrap();
         {
             let render_pass = create_render_pass(
-                self,
                 pass_descriptor,
                 render_resource_assignments,
                 &refs,
@@ -447,7 +446,6 @@ impl RenderContext for WgpuRenderContext {
 }
 
 pub fn create_render_pass<'a, 'b>(
-    render_context: &'a WgpuRenderContext,
     pass_descriptor: &PassDescriptor,
     global_render_resource_assignments: &'b RenderResourceAssignments,
     refs: &WgpuResourceRefs<'a>,
@@ -459,7 +457,6 @@ pub fn create_render_pass<'a, 'b>(
             .iter()
             .map(|c| {
                 create_wgpu_color_attachment_descriptor(
-                    render_context,
                     global_render_resource_assignments,
                     refs,
                     c,
@@ -468,7 +465,6 @@ pub fn create_render_pass<'a, 'b>(
             .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
         depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
             create_wgpu_depth_stencil_attachment_descriptor(
-                render_context,
                 global_render_resource_assignments,
                 refs,
                 d,
@@ -478,7 +474,6 @@ pub fn create_render_pass<'a, 'b>(
 }
 
 fn get_texture_view<'a>(
-    render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
     refs: &WgpuResourceRefs<'a>,
     name: &str,
@@ -487,10 +482,10 @@ fn get_texture_view<'a>(
         resource_name::texture::SWAP_CHAIN => {
             if let Some(primary_swap_chain) = refs
                 .swap_chain_outputs
-                .get(render_context.primary_window.as_ref().unwrap())
-                .map(|output| &output.view)
+                .values()
+                .next()
             {
-                primary_swap_chain
+                &primary_swap_chain.view
             } else {
                 panic!("No primary swap chain found for color attachment");
             }
@@ -509,13 +504,11 @@ fn get_texture_view<'a>(
 }
 
 fn create_wgpu_color_attachment_descriptor<'a>(
-    render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
     refs: &WgpuResourceRefs<'a>,
     color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
 ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
-        render_context,
         global_render_resource_assignments,
         refs,
         color_attachment_descriptor.attachment.as_str(),
@@ -526,7 +519,6 @@ fn create_wgpu_color_attachment_descriptor<'a>(
         .as_ref()
         .map(|target| {
             get_texture_view(
-                render_context,
                 global_render_resource_assignments,
                 refs,
                 target.as_str(),
@@ -543,13 +535,11 @@ fn create_wgpu_color_attachment_descriptor<'a>(
 }
 
 fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
-    render_context: &'a WgpuRenderContext,
     global_render_resource_assignments: &RenderResourceAssignments,
     refs: &WgpuResourceRefs<'a>,
     depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
 ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
-        render_context,
         global_render_resource_assignments,
         refs,
         depth_stencil_attachment_descriptor.attachment.as_str(),

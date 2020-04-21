@@ -43,7 +43,7 @@ pub struct WgpuBindGroupInfo {
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::Buffer>>,
     pub textures: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::TextureView>>,
-    pub swap_chain_outputs: RwLockReadGuard<'a, HashMap<WindowId, wgpu::SwapChainOutput>>,
+    pub swap_chain_outputs: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::SwapChainOutput>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -65,7 +65,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<RenderResource, wgpu::Buffer>,
     pub textures: &'a HashMap<RenderResource, wgpu::TextureView>,
-    pub swap_chain_outputs: &'a HashMap<WindowId, wgpu::SwapChainOutput>,
+    pub swap_chain_outputs: &'a HashMap<RenderResource, wgpu::SwapChainOutput>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
 }
@@ -75,7 +75,7 @@ pub struct WgpuResources {
     // TODO: remove this from WgpuResources. it doesn't need to be here
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
-    pub swap_chain_outputs: Arc<RwLock<HashMap<WindowId, wgpu::SwapChainOutput>>>,
+    pub swap_chain_outputs: Arc<RwLock<HashMap<RenderResource, wgpu::SwapChainOutput>>>,
     pub buffers: Arc<RwLock<HashMap<RenderResource, wgpu::Buffer>>>,
     pub textures: Arc<RwLock<HashMap<RenderResource, wgpu::TextureView>>>,
     pub samplers: Arc<RwLock<HashMap<RenderResource, wgpu::Sampler>>>,
@@ -105,18 +105,21 @@ impl WgpuResources {
             .insert(window_id, surface);
     }
 
-    pub fn next_swap_chain_texture(&self, window_id: WindowId) {
+    pub fn next_swap_chain_texture(&self, window_id: WindowId) -> RenderResource {
         let mut swap_chain_outputs = self.window_swap_chains.write().unwrap();
         let swap_chain_output = swap_chain_outputs.get_mut(&window_id).unwrap();
         let next_texture = swap_chain_output.get_next_texture().unwrap();
+        let render_resource = RenderResource::new();
+        // TODO: Add ResourceInfo
         self.swap_chain_outputs
             .write()
             .unwrap()
-            .insert(window_id, next_texture);
+            .insert(render_resource, next_texture);
+        render_resource
     }
 
-    pub fn remove_swap_chain_texture(&self, window_id: WindowId) {
-        self.swap_chain_outputs.write().unwrap().remove(&window_id);
+    pub fn remove_swap_chain_texture(&self, render_resource: RenderResource) {
+        self.swap_chain_outputs.write().unwrap().remove(&render_resource);
     }
 
     pub fn remove_all_swap_chain_textures(&self) {

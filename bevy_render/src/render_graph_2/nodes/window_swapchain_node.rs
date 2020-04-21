@@ -1,19 +1,41 @@
 use crate::{
     render_graph_2::{Node, ResourceBindings, ResourceSlot},
-    render_resource::{RenderResource, ResourceInfo},
+    render_resource::ResourceInfo,
     renderer_2::RenderContext,
-    texture::TextureDescriptor,
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use legion::prelude::*;
 
+pub enum SwapChainWindowSource {
+    Primary,
+    Id(WindowId),
+}
+
+impl Default for SwapChainWindowSource {
+    fn default() -> Self {
+        SwapChainWindowSource::Primary
+    }
+}
+
 pub struct WindowSwapChainNode {
-    window_id: WindowId,
-    use_primary_window: bool,
-    window_resized_event_reader: EventReader<WindowResized>,
+    source_window: SwapChainWindowSource,
     window_created_event_reader: EventReader<WindowCreated>,
-    swap_chain_resource: Option<RenderResource>,
+    window_resized_event_reader: EventReader<WindowResized>,
+}
+
+impl WindowSwapChainNode {
+    pub fn new(
+        source_window: SwapChainWindowSource,
+        window_created_event_reader: EventReader<WindowCreated>,
+        window_resized_event_reader: EventReader<WindowResized>,
+    ) -> Self {
+        WindowSwapChainNode {
+            source_window,
+            window_created_event_reader,
+            window_resized_event_reader,
+        }
+    }
 }
 
 impl Node for WindowSwapChainNode {
@@ -39,32 +61,30 @@ impl Node for WindowSwapChainNode {
         let windows = resources.get::<Windows>().unwrap();
 
         let render_resources = render_context.resources_mut();
-        let window = if self.use_primary_window {
-            windows.get_primary().expect("No primary window exists")
-        } else {
-            windows
-            .get(self.window_id)
-            .expect("Received window resized event for non-existent window")
+        let window = match self.source_window {
+            SwapChainWindowSource::Primary => {
+                windows.get_primary().expect("No primary window exists")
+            }
+            SwapChainWindowSource::Id(id) => windows
+                .get(id)
+                .expect("Received window resized event for non-existent window"),
         };
 
         // create window swapchain
         if let Some(_) = window_created_events
-            .find_latest(&mut self.window_created_event_reader, |e| {
-                e.id == window.id
-            })
+            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id)
         {
             render_resources.create_swap_chain(window);
         }
 
         // resize window swapchain
         if let Some(_) = window_resized_events
-            .find_latest(&mut self.window_resized_event_reader, |e| {
-                e.id == window.id
-            })
+            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id)
         {
             render_resources.create_swap_chain(window);
         }
 
-        output.set(WINDOW_TEXTURE, self.swap_chain_resource.unwrap());
+        let swap_chain_texture = render_resources.next_swap_chain_texture(window.id);
+        output.set(WINDOW_TEXTURE, swap_chain_texture);
     }
 }

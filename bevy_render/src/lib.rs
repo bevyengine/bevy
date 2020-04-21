@@ -40,21 +40,22 @@ use self::{
     render_graph::RenderGraph,
     render_resource::{
         entity_render_resource_assignments_system,
-        resource_providers::{
-            LightResourceProvider,
-            UniformResourceProvider,
-        },
+        resource_providers::{LightResourceProvider, UniformResourceProvider},
         AssetBatchers, EntityRenderResourceAssignments, RenderResourceAssignments,
     },
     shader::{uniforms::StandardMaterial, Shader},
     texture::Texture,
 };
 
-use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_app::{stage, AppBuilder, AppPlugin, GetEventReader};
 use bevy_asset::AssetStorage;
 use bevy_transform::prelude::LocalToWorld;
-use render_resource::resource_providers::{mesh_resource_provider_system};
-use render_graph_2::{nodes::{Camera2dNode, CameraNode}, RenderGraph2};
+use bevy_window::{WindowCreated, WindowResized};
+use render_graph_2::{
+    nodes::{Camera2dNode, CameraNode, SwapChainWindowSource, WindowSwapChainNode},
+    RenderGraph2,
+};
+use render_resource::resource_providers::mesh_resource_provider_system;
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -88,8 +89,14 @@ impl RenderPlugin {
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let mut render_graph = RenderGraph2::default();
-        render_graph.add_system_node(CameraNode::default(), app.resources_mut());
-        render_graph.add_system_node(Camera2dNode::default(), app.resources_mut());
+        let resources = app.resources_mut();
+        render_graph.add_system_node(CameraNode::default(), resources);
+        render_graph.add_system_node(Camera2dNode::default(), resources);
+        render_graph.add_node(WindowSwapChainNode::new(
+            SwapChainWindowSource::Primary,
+            resources.get_event_reader::<WindowCreated>(),
+            resources.get_event_reader::<WindowResized>(),
+        ));
         let mut asset_batchers = AssetBatchers::default();
         asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)
@@ -111,10 +118,7 @@ impl AppPlugin for RenderPlugin {
             // core systems
             .add_system(entity_render_resource_assignments_system())
             .add_system_to_stage_init(stage::POST_UPDATE, camera::camera_update_system)
-            .add_system_to_stage(
-                stage::POST_UPDATE,
-                mesh::mesh_specializer_system(),
-            )
+            .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_specializer_system())
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             .add_system_to_stage(
                 stage::POST_UPDATE,

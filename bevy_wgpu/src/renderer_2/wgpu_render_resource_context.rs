@@ -7,7 +7,7 @@ use bevy_render::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_window::{Window, WindowId};
+use bevy_window::Window;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -99,11 +99,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         self.wgpu_resources
             .create_window_swap_chain(&self.device, window)
     }
-    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) {
-        self.wgpu_resources.next_swap_chain_texture(window_id);
+    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> RenderResource {
+        self.wgpu_resources.next_swap_chain_texture(window_id)
     }
-    fn drop_swap_chain_texture(&self, window_id: WindowId) {
-        self.wgpu_resources.remove_swap_chain_texture(window_id);
+    fn drop_swap_chain_texture(&self, render_resource: RenderResource) {
+        self.wgpu_resources
+            .remove_swap_chain_texture(render_resource);
+    }
+    fn drop_all_swap_chain_textures(&self) {
+        self.wgpu_resources.remove_all_swap_chain_textures();
     }
     fn set_asset_resource_untyped(
         &self,
