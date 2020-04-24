@@ -1,9 +1,11 @@
 use crate::{
-    pass::{TextureAttachment, PassDescriptor},
+    draw_target::DrawTarget,
+    pass::{PassDescriptor, TextureAttachment},
     pipeline::{PipelineCompiler, PipelineDescriptor},
-    render_graph_2::{Node, ResourceSlots, ResourceSlotInfo},
+    render_graph_2::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::{RenderResourceAssignments, ResourceInfo},
-    renderer_2::RenderContext, draw_target::DrawTarget,
+    renderer_2::RenderContext,
+    shader::Shader,
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::prelude::*;
@@ -22,7 +24,10 @@ impl PassNode {
         let mut color_attachment_input_indices = Vec::new();
         for color_attachment in descriptor.color_attachments.iter() {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
-                inputs.push(ResourceSlotInfo::new(name.to_string(), ResourceInfo::Texture));
+                inputs.push(ResourceSlotInfo::new(
+                    name.to_string(),
+                    ResourceInfo::Texture,
+                ));
                 color_attachment_input_indices.push(Some(inputs.len() - 1));
             } else {
                 color_attachment_input_indices.push(None);
@@ -30,9 +35,12 @@ impl PassNode {
         }
 
         let mut depth_stencil_attachment_input_index = None;
-        if let Some(ref depth_stencil_attachment)= descriptor.depth_stencil_attachment {
+        if let Some(ref depth_stencil_attachment) = descriptor.depth_stencil_attachment {
             if let TextureAttachment::Input(ref name) = depth_stencil_attachment.attachment {
-                inputs.push(ResourceSlotInfo::new(name.to_string(), ResourceInfo::Texture));
+                inputs.push(ResourceSlotInfo::new(
+                    name.to_string(),
+                    ResourceInfo::Texture,
+                ));
                 depth_stencil_attachment_input_index = Some(inputs.len() - 1);
             }
         }
@@ -46,7 +54,11 @@ impl PassNode {
         }
     }
 
-    pub fn add_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>, draw_targets: Vec<Box<dyn DrawTarget>>) {
+    pub fn add_pipeline(
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+        draw_targets: Vec<Box<dyn DrawTarget>>,
+    ) {
         self.pipelines.push((pipeline_handle, draw_targets));
     }
 }
@@ -70,13 +82,43 @@ impl Node for PassNode {
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
-                color_attachment.attachment = TextureAttachment::RenderResource(input.get(input_index).unwrap());
+                color_attachment.attachment =
+                    TextureAttachment::RenderResource(input.get(input_index).unwrap());
             }
-            
         }
 
         if let Some(input_index) = self.depth_stencil_attachment_input_index {
-            self.descriptor.depth_stencil_attachment.as_mut().unwrap().attachment = TextureAttachment::RenderResource(input.get(input_index).unwrap());
+            self.descriptor
+                .depth_stencil_attachment
+                .as_mut()
+                .unwrap()
+                .attachment = TextureAttachment::RenderResource(input.get(input_index).unwrap());
+        }
+
+        let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
+        for (pipeline_handle, draw_targets) in self.pipelines.iter_mut() {
+            if let Some(compiled_pipelines_iter) =
+                pipeline_compiler.iter_compiled_pipelines(*pipeline_handle)
+            {
+                for compiled_pipeline_handle in compiled_pipelines_iter {
+                    let compiled_pipeline_descriptor =
+                        pipeline_storage.get(compiled_pipeline_handle).unwrap();
+                    render_context.create_render_pipeline(
+                        *compiled_pipeline_handle,
+                        &compiled_pipeline_descriptor,
+                        &shader_storage,
+                    );
+                    for draw_target in draw_targets.iter_mut() {
+                        draw_target.setup(
+                            world,
+                            resources,
+                            render_context,
+                            *compiled_pipeline_handle,
+                            compiled_pipeline_descriptor,
+                        );
+                    }
+                }
+            }
         }
 
         render_context.begin_pass(
@@ -88,7 +130,7 @@ impl Node for PassNode {
                         pipeline_compiler.iter_compiled_pipelines(*pipeline_handle)
                     {
                         for compiled_pipeline_handle in compiled_pipelines_iter {
-                            let pipeline_descriptor =
+                            let compiled_pipeline_descriptor =
                                 pipeline_storage.get(compiled_pipeline_handle).unwrap();
                             render_pass.set_pipeline(*compiled_pipeline_handle);
                             for draw_target in draw_targets.iter() {
@@ -97,7 +139,7 @@ impl Node for PassNode {
                                     resources,
                                     render_pass,
                                     *compiled_pipeline_handle,
-                                    pipeline_descriptor,
+                                    compiled_pipeline_descriptor,
                                 );
                             }
                         }

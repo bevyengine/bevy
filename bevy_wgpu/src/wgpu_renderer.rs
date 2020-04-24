@@ -267,8 +267,8 @@ impl WgpuRenderer {
         }
 
         // setup draw targets
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.setup_pipeline_draw_targets(world, resources, &mut render_context);
+        // let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+        // render_graph.setup_pipeline_draw_targets(world, resources, &mut render_context);
 
         let command_buffer = render_context.finish();
         if let Some(command_buffer) = command_buffer {

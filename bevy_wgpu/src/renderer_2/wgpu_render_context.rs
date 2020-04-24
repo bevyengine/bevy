@@ -248,7 +248,7 @@ impl RenderContext for WgpuRenderContext {
     fn create_render_pipeline(
         &mut self,
         pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline_descriptor: &mut PipelineDescriptor,
+        pipeline_descriptor: &PipelineDescriptor,
         shader_storage: &AssetStorage<Shader>,
     ) {
         if let Some(_) = self
