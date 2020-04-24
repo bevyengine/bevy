@@ -1,11 +1,12 @@
 use crate::renderer_2::{
-    render_resource_sets_system, WgpuRenderContext, WgpuRenderResourceContext, WgpuRenderGraphExecutor,
+    render_resource_sets_system, WgpuRenderContext, WgpuRenderGraphExecutor,
+    WgpuRenderResourceContext,
 };
 use bevy_app::{EventReader, Events};
 use bevy_render::{
-    pipeline::{update_shader_assignments},
+    pipeline::update_shader_assignments,
     render_graph::RenderGraph,
-    render_graph_2::{RenderGraph2, RenderGraphStager, DependentNodeStager},
+    render_graph_2::{DependentNodeStager, RenderGraph2, RenderGraphStager},
     render_resource::RenderResourceAssignments,
     renderer_2::{GlobalRenderResourceContext, RenderResourceContext},
 };
@@ -127,30 +128,19 @@ impl WgpuRenderer {
         let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
                                                                                                     // crossbeam_utils::thread::scope(|s| {
         for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-            // TODO: try to unify this Device usage
             let device = self.device.clone();
-            // let sender = sender.clone();
-            // s.spawn(|_| {
-            // TODO: replace WgpuResources with Global+Local resources
             let mut render_context =
                 WgpuRenderContext::new(device, render_resource_context.clone());
             for resource_provider in resource_provider_chunk.iter_mut() {
                 resource_provider.finish_update(&mut render_context, world, resources);
             }
             results.push(render_context.finish());
-            // sender.send(render_context.finish()).unwrap();
-            // });
         }
-        // });
 
         for command_buffer in results {
-            // for i in 0..thread_count {
-            // let (command_buffer, wgpu_resources) = receiver.recv().unwrap();
             if let Some(command_buffer) = command_buffer {
                 command_buffers.push(command_buffer);
             }
-
-            // println!("got {}", i);
         }
 
         self.queue.submit(&command_buffers);
@@ -206,6 +196,8 @@ impl WgpuRenderer {
             executor.execute(world, resources);
         }
 
+        render_resource_sets_system().run(world, resources);
+
         let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
         if let Some(executor) = executor.take() {
             render_graph.set_executor(executor);
@@ -220,11 +212,17 @@ impl WgpuRenderer {
         let executor = WgpuRenderGraphExecutor {
             max_thread_count: 2,
         };
-        executor.execute(world, resources, self.device.clone(), &mut self.queue, &mut borrowed);
+        executor.execute(
+            world,
+            resources,
+            self.device.clone(),
+            &mut self.queue,
+            &mut borrowed,
+        );
     }
 
     pub fn update(&mut self, world: &mut World, resources: &mut Resources) {
-        let mut encoder = {
+        {
             let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
             let render_resource_context = global_context
                 .context
@@ -248,36 +246,13 @@ impl WgpuRenderer {
 
             update_shader_assignments(world, resources, &render_context);
             self.create_queued_textures(resources, &mut render_context.render_resources);
-            render_context.command_encoder.take()
         };
 
         self.run_graph(world, resources);
-        render_resource_sets_system().run(world, resources);
-        // TODO: add to POST_UPDATE and remove redundant global_context
-        let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-        let render_resource_context = global_context
+
+        let render_resource_context = resources.get::<GlobalRenderResourceContext>().unwrap();
+        render_resource_context
             .context
-            .downcast_mut::<WgpuRenderResourceContext>()
-            .unwrap();
-
-        let mut render_context =
-            WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
-        if let Some(command_encoder) = encoder.take() {
-            render_context.command_encoder.set(command_encoder);
-        }
-
-        // setup draw targets
-        // let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        // render_graph.setup_pipeline_draw_targets(world, resources, &mut render_context);
-
-        let command_buffer = render_context.finish();
-        if let Some(command_buffer) = command_buffer {
-            self.queue.submit(&[command_buffer]);
-        }
-
-        // clear swap chain textures
-        render_context
-            .render_resources
             .drop_all_swap_chain_textures();
     }
 }

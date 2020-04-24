@@ -255,6 +255,19 @@ impl PipelineCompiler {
             None
         }
     }
+
+    pub fn iter_all_compiled_pipelines(
+        &self,
+    ) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
+        self.pipeline_source_to_compiled
+            .values()
+            .map(|compiled_pipelines| {
+                compiled_pipelines
+                    .iter()
+                    .map(|(_, pipeline_handle)| pipeline_handle)
+            })
+            .flatten()
+    }
 }
 
 pub struct PipelineAssignments {

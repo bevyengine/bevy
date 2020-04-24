@@ -76,7 +76,6 @@ impl Node for PassNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
         let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
         let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
 
@@ -103,6 +102,18 @@ impl Node for PassNode {
                 for compiled_pipeline_handle in compiled_pipelines_iter {
                     let compiled_pipeline_descriptor =
                         pipeline_storage.get(compiled_pipeline_handle).unwrap();
+
+                    let pipeline_layout = compiled_pipeline_descriptor.get_layout().unwrap();
+                    {
+                        // TODO: this breaks down in a parallel setting. it needs to change. ideally in a way that
+                        // doesn't require modifying RenderResourceAssignments
+                        let mut render_resource_assignments =
+                            resources.get_mut::<RenderResourceAssignments>().unwrap();
+                        for bind_group in pipeline_layout.bind_groups.iter() {
+                            render_resource_assignments.update_render_resource_set_id(bind_group);
+                        }
+                    }
+
                     render_context.create_render_pipeline(
                         *compiled_pipeline_handle,
                         &compiled_pipeline_descriptor,
@@ -121,6 +132,7 @@ impl Node for PassNode {
             }
         }
 
+        let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
         render_context.begin_pass(
             &self.descriptor,
             &render_resource_assignments,
