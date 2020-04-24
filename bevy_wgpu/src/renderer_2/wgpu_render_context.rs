@@ -7,7 +7,7 @@ use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     pass::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
     pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
     render_resource::{
@@ -456,11 +456,7 @@ pub fn create_render_pass<'a, 'b>(
             .color_attachments
             .iter()
             .map(|c| {
-                create_wgpu_color_attachment_descriptor(
-                    global_render_resource_assignments,
-                    refs,
-                    c,
-                )
+                create_wgpu_color_attachment_descriptor(global_render_resource_assignments, refs, c)
             })
             .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
         depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
@@ -476,30 +472,30 @@ pub fn create_render_pass<'a, 'b>(
 fn get_texture_view<'a>(
     global_render_resource_assignments: &RenderResourceAssignments,
     refs: &WgpuResourceRefs<'a>,
-    name: &str,
+    attachment: &TextureAttachment,
 ) -> &'a wgpu::TextureView {
-    match name {
-        resource_name::texture::SWAP_CHAIN => {
-            if let Some(primary_swap_chain) = refs
-                .swap_chain_outputs
-                .values()
-                .next()
-            {
-                &primary_swap_chain.view
-            } else {
-                panic!("No primary swap chain found for color attachment");
+    match attachment {
+        TextureAttachment::Name(name) => match name.as_str() {
+            resource_name::texture::SWAP_CHAIN => {
+                if let Some(primary_swap_chain) = refs.swap_chain_outputs.values().next() {
+                    &primary_swap_chain.view
+                } else {
+                    panic!("No primary swap chain found for color attachment");
+                }
             }
-        }
-        _ => match global_render_resource_assignments.get(name) {
-            Some(resource) => refs.textures.get(&resource).unwrap(),
-            None => {
-                // if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
-                //     &swap_chain_output.view
-                // } else {
-                panic!("Color attachment {} does not exist", name);
-                // }
-            }
+            _ => match global_render_resource_assignments.get(&name) {
+                Some(resource) => refs.textures.get(&resource).unwrap(),
+                None => {
+                    // if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
+                    //     &swap_chain_output.view
+                    // } else {
+                    panic!("Color attachment {} does not exist", name);
+                    // }
+                }
+            },
         },
+        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap(),
+        TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
     }
 }
 
@@ -511,19 +507,13 @@ fn create_wgpu_color_attachment_descriptor<'a>(
     let attachment = get_texture_view(
         global_render_resource_assignments,
         refs,
-        color_attachment_descriptor.attachment.as_str(),
+        &color_attachment_descriptor.attachment,
     );
 
     let resolve_target = color_attachment_descriptor
         .resolve_target
         .as_ref()
-        .map(|target| {
-            get_texture_view(
-                global_render_resource_assignments,
-                refs,
-                target.as_str(),
-            )
-        });
+        .map(|target| get_texture_view(global_render_resource_assignments, refs, &target));
 
     wgpu::RenderPassColorAttachmentDescriptor {
         store_op: color_attachment_descriptor.store_op.wgpu_into(),
@@ -542,7 +532,7 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
     let attachment = get_texture_view(
         global_render_resource_assignments,
         refs,
-        depth_stencil_attachment_descriptor.attachment.as_str(),
+        &depth_stencil_attachment_descriptor.attachment,
     );
 
     wgpu::RenderPassDepthStencilAttachmentDescriptor {

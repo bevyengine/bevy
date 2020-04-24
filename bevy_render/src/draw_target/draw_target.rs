@@ -3,7 +3,7 @@ use bevy_asset::Handle;
 use legion::prelude::{Resources, World};
 
 // A set of draw calls. ex: get + draw meshes, get + draw instanced meshes, draw ui meshes, etc
-pub trait DrawTarget {
+pub trait DrawTarget: Send + Sync + 'static {
     fn draw(
         &self,
         world: &World,

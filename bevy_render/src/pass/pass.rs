@@ -1,12 +1,18 @@
 use super::{LoadOp, StoreOp};
-use crate::Color;
+use crate::{render_resource::RenderResource, Color};
+
+pub enum TextureAttachment {
+    RenderResource(RenderResource),
+    Name(String),
+    Input(String),
+}
 
 pub struct RenderPassColorAttachmentDescriptor {
     /// The actual color attachment.
-    pub attachment: String,
+    pub attachment: TextureAttachment,
 
     /// The resolve target for this color attachment, if any.
-    pub resolve_target: Option<String>,
+    pub resolve_target: Option<TextureAttachment>,
 
     /// The beginning-of-pass load operation for this color attachment.
     pub load_op: LoadOp,
@@ -19,7 +25,7 @@ pub struct RenderPassColorAttachmentDescriptor {
 }
 
 pub struct RenderPassDepthStencilAttachmentDescriptor {
-    pub attachment: String,
+    pub attachment: TextureAttachment,
     pub depth_load_op: LoadOp,
     pub depth_store_op: StoreOp,
     pub clear_depth: f32,

@@ -18,6 +18,7 @@ legion = { path = "../bevy_legion" }
 # rendering
 spirv-reflect = "0.2.3"
 shaderc = "0.6"
+# TODO: move this to its own crate
 png = "0.16.0"
 
 # misc

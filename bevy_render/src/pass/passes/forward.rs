@@ -1,7 +1,7 @@
 use crate::{
     pass::{
         LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, StoreOp,
+        RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment
     },
     render_graph::RenderGraphBuilder,
     render_resource::{resource_name, resource_providers::FrameTextureResourceProvider},
@@ -35,14 +35,14 @@ impl<'a, 'b, 'c> ForwardPassBuilder for RenderGraphBuilder<'a, 'b, 'c> {
             resource_name::pass::MAIN,
             PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
-                    attachment: resource_name::texture::SWAP_CHAIN.to_string(),
+                    attachment: TextureAttachment::Name(resource_name::texture::SWAP_CHAIN.to_string()),
                     resolve_target: None,
                     load_op: LoadOp::Clear,
                     store_op: StoreOp::Store,
                     clear_color: Color::rgb(0.1, 0.1, 0.1),
                 }],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: resource_name::texture::DEPTH.to_string(),
+                    attachment: TextureAttachment::Name(resource_name::texture::DEPTH.to_string()),
                     depth_load_op: LoadOp::Clear,
                     depth_store_op: StoreOp::Store,
                     stencil_load_op: LoadOp::Clear,

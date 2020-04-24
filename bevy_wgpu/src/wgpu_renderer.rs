@@ -1,14 +1,13 @@
 use crate::renderer_2::{
-    render_resource_sets_system, WgpuRenderContext, WgpuRenderResourceContext,
+    render_resource_sets_system, WgpuRenderContext, WgpuRenderResourceContext, WgpuRenderGraphExecutor,
 };
 use bevy_app::{EventReader, Events};
-use bevy_asset::AssetStorage;
 use bevy_render::{
-    pipeline::{update_shader_assignments, PipelineCompiler, PipelineDescriptor},
+    pipeline::{update_shader_assignments},
     render_graph::RenderGraph,
-    render_graph_2::{LinearScheduler, RenderGraph2, RenderGraphScheduler},
+    render_graph_2::{RenderGraph2, RenderGraphStager, DependentNodeStager},
     render_resource::RenderResourceAssignments,
-    renderer_2::{GlobalRenderResourceContext, RenderContext, RenderResourceContext},
+    renderer_2::{GlobalRenderResourceContext, RenderResourceContext},
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
@@ -197,6 +196,7 @@ impl WgpuRenderer {
     }
 
     pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
+        // run systems
         let mut executor = {
             let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
             render_graph.take_executor()
@@ -210,32 +210,17 @@ impl WgpuRenderer {
         if let Some(executor) = executor.take() {
             render_graph.set_executor(executor);
         }
-        let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-        let render_resource_context = global_context
-            .context
-            .downcast_mut::<WgpuRenderResourceContext>()
-            .unwrap();
-        let mut linear_scheduler = LinearScheduler::default();
-        let mut render_context =
-            WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
-        for mut stage in linear_scheduler.get_stages(&mut render_graph) {
-            for job in stage.iter_mut() {
-                for node_state in job.iter_mut() {
-                    node_state.node.update(
-                        world,
-                        resources,
-                        &mut render_context,
-                        &node_state.input,
-                        &mut node_state.output,
-                    );
-                }
-            }
-        }
 
-        let command_buffer = render_context.finish();
-        if let Some(command_buffer) = command_buffer {
-            self.queue.submit(&[command_buffer]);
-        }
+        // stage nodes
+        let mut stager = DependentNodeStager::loose_grouping();
+        let stages = stager.get_stages(&render_graph).unwrap();
+        let mut borrowed = stages.borrow(&mut render_graph);
+
+        // execute stages
+        let executor = WgpuRenderGraphExecutor {
+            max_thread_count: 2,
+        };
+        executor.execute(world, resources, self.device.clone(), &mut self.queue, &mut borrowed);
     }
 
     pub fn update(&mut self, world: &mut World, resources: &mut Resources) {
@@ -267,8 +252,8 @@ impl WgpuRenderer {
         };
 
         self.run_graph(world, resources);
-        // TODO: add to POST_UPDATE and remove redundant global_context
         render_resource_sets_system().run(world, resources);
+        // TODO: add to POST_UPDATE and remove redundant global_context
         let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
         let render_resource_context = global_context
             .context
@@ -284,59 +269,6 @@ impl WgpuRenderer {
         // setup draw targets
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.setup_pipeline_draw_targets(world, resources, &mut render_context);
-
-        // get next swap chain texture on primary window
-        let primary_window_id = resources
-            .get::<Windows>()
-            .unwrap()
-            .get_primary()
-            .map(|window| window.id);
-        if let Some(primary_window_id) = primary_window_id {
-            render_context.primary_window = Some(primary_window_id);
-        }
-
-        // begin render passes
-        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
-        let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
-
-        for (pass_name, pass_descriptor) in render_graph.pass_descriptors.iter() {
-            let global_render_resource_assignments =
-                resources.get::<RenderResourceAssignments>().unwrap();
-            render_context.begin_pass(
-                pass_descriptor,
-                &global_render_resource_assignments,
-                &mut |render_pass| {
-                    if let Some(pass_pipelines) = render_graph.pass_pipelines.get(pass_name) {
-                        for pass_pipeline in pass_pipelines.iter() {
-                            if let Some(compiled_pipelines_iter) =
-                                pipeline_compiler.iter_compiled_pipelines(*pass_pipeline)
-                            {
-                                for compiled_pipeline_handle in compiled_pipelines_iter {
-                                    let pipeline_descriptor =
-                                        pipeline_storage.get(compiled_pipeline_handle).unwrap();
-                                    render_pass.set_pipeline(*compiled_pipeline_handle);
-
-                                    for draw_target_name in pipeline_descriptor.draw_targets.iter()
-                                    {
-                                        let draw_target = render_graph
-                                            .draw_targets
-                                            .get(draw_target_name)
-                                            .unwrap();
-                                        draw_target.draw(
-                                            world,
-                                            resources,
-                                            render_pass,
-                                            *compiled_pipeline_handle,
-                                            pipeline_descriptor,
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-            );
-        }
 
         let command_buffer = render_context.finish();
         if let Some(command_buffer) = command_buffer {

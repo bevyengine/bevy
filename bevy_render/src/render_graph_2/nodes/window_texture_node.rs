@@ -1,5 +1,5 @@
 use crate::{
-    render_graph_2::{Node, ResourceBindings, ResourceSlot},
+    render_graph_2::{Node, ResourceSlots, ResourceSlotInfo},
     render_resource::ResourceInfo,
     renderer_2::RenderContext,
     texture::TextureDescriptor,
@@ -7,6 +7,7 @@ use crate::{
 use bevy_app::{EventReader, Events};
 use bevy_window::WindowResized;
 use legion::prelude::*;
+use std::borrow::Cow;
 
 pub struct WindowTextureNode {
     pub descriptor: TextureDescriptor,
@@ -14,9 +15,11 @@ pub struct WindowTextureNode {
 }
 
 impl Node for WindowTextureNode {
-    fn output(&self) -> &[ResourceSlot] {
-        static OUTPUT: &[ResourceSlot] =
-            &[ResourceSlot::new("window_texture", ResourceInfo::Texture)];
+    fn output(&self) -> &[ResourceSlotInfo] {
+        static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
+            name: Cow::Borrowed("texture"),
+            resource_type: ResourceInfo::Texture,
+        }];
         OUTPUT
     }
 
@@ -25,8 +28,8 @@ impl Node for WindowTextureNode {
         _world: &World,
         resources: &Resources,
         render_context: &mut dyn RenderContext,
-        _input: &ResourceBindings,
-        output: &mut ResourceBindings,
+        _input: &ResourceSlots,
+        output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();

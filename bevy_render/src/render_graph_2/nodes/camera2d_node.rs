@@ -3,7 +3,7 @@ use bevy_window::WindowResized;
 
 use crate::{
     camera::{ActiveCamera2d, Camera},
-    render_graph_2::{CommandQueue, Node, SystemNode, ResourceBindings},
+    render_graph_2::{CommandQueue, Node, SystemNode, ResourceSlots},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer_2::{GlobalRenderResourceContext, RenderContext},
 };
@@ -23,8 +23,8 @@ impl Node for Camera2dNode {
         _world: &World,
         _resources: &Resources,
         render_context: &mut dyn RenderContext,
-        _input: &ResourceBindings,
-        _output: &mut ResourceBindings,
+        _input: &ResourceSlots,
+        _output: &mut ResourceSlots,
     ) {
         self.command_queue.execute(render_context);
     }

@@ -1,11 +1,12 @@
 use crate::{
-    render_graph_2::{Node, ResourceBindings, ResourceSlot},
+    render_graph_2::{Node, ResourceSlots, ResourceSlotInfo},
     render_resource::ResourceInfo,
     renderer_2::RenderContext,
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use legion::prelude::*;
+use std::borrow::Cow;
 
 pub enum SwapChainWindowSource {
     Primary,
@@ -25,6 +26,7 @@ pub struct WindowSwapChainNode {
 }
 
 impl WindowSwapChainNode {
+    pub const OUT_TEXTURE: &'static str = "texture";
     pub fn new(
         source_window: SwapChainWindowSource,
         window_created_event_reader: EventReader<WindowCreated>,
@@ -39,11 +41,11 @@ impl WindowSwapChainNode {
 }
 
 impl Node for WindowSwapChainNode {
-    fn output(&self) -> &[ResourceSlot] {
-        static OUTPUT: &[ResourceSlot] = &[ResourceSlot::new(
-            "swapchain_texture",
-            ResourceInfo::Texture,
-        )];
+    fn output(&self) -> &[ResourceSlotInfo] {
+        static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
+            name: Cow::Borrowed(WindowSwapChainNode::OUT_TEXTURE),
+            resource_type: ResourceInfo::Texture,
+        }];
         OUTPUT
     }
 
@@ -52,8 +54,8 @@ impl Node for WindowSwapChainNode {
         _world: &World,
         resources: &Resources,
         render_context: &mut dyn RenderContext,
-        _input: &ResourceBindings,
-        output: &mut ResourceBindings,
+        _input: &ResourceSlots,
+        output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();

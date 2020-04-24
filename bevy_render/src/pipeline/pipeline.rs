@@ -14,6 +14,7 @@ use crate::{
 
 use bevy_asset::{AssetStorage, Handle};
 
+// TODO: consider removing this in favor of Option<Layout>
 #[derive(Clone, Debug)]
 pub enum PipelineLayoutType {
     Manual(PipelineLayout),
@@ -61,6 +62,23 @@ pub struct PipelineDescriptor {
 }
 
 impl PipelineDescriptor {
+    pub fn new_new(shader_stages: ShaderStages) -> Self {
+        PipelineDescriptor {
+            name: None,
+            layout: PipelineLayoutType::Reflected(None),
+            color_states: Vec::new(),
+            depth_stencil_state: None,
+            draw_targets: Vec::new(),
+            shader_stages,
+            rasterization_state: None,
+            primitive_topology: PrimitiveTopology::TriangleList,
+            index_format: IndexFormat::Uint16,
+            sample_count: 1,
+            sample_mask: !0,
+            alpha_to_coverage_enabled: false,
+        }
+    }
+
     fn new(name: Option<&str>, vertex_shader: Handle<Shader>) -> Self {
         PipelineDescriptor {
             name: name.map(|name| name.to_string()),

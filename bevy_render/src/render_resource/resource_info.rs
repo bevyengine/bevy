@@ -1,12 +1,12 @@
 use crate::render_resource::BufferUsage;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct BufferArrayInfo {
     pub item_size: usize,
     pub item_capacity: usize,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BufferInfo {
     pub size: usize,
     pub buffer_usage: BufferUsage,
@@ -25,7 +25,7 @@ impl Default for BufferInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ResourceInfo {
     Buffer(BufferInfo),
     Texture,
