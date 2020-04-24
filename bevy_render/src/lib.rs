@@ -50,14 +50,15 @@ use self::{
 use bevy_app::{stage, AppBuilder, AppPlugin, GetEventReader};
 use bevy_asset::AssetStorage;
 use bevy_transform::prelude::LocalToWorld;
-use bevy_window::{WindowCreated, WindowResized};
+use bevy_window::{WindowCreated, WindowReference, WindowResized};
 use pass::PassDescriptor;
 use pipeline::pipelines::build_forward_pipeline;
 use render_graph_2::{
-    nodes::{Camera2dNode, CameraNode, PassNode, SwapChainWindowSource, WindowSwapChainNode},
+    nodes::{Camera2dNode, CameraNode, PassNode, WindowSwapChainNode, WindowTextureNode},
     RenderGraph2,
 };
 use render_resource::resource_providers::mesh_resource_provider_system;
+use texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage};
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -126,7 +127,28 @@ impl AppPlugin for RenderPlugin {
             render_graph.add_node_named(
                 "swapchain",
                 WindowSwapChainNode::new(
-                    SwapChainWindowSource::Primary,
+                    WindowReference::Primary,
+                    resources.get_event_reader::<WindowCreated>(),
+                    resources.get_event_reader::<WindowResized>(),
+                ),
+            );
+            render_graph.add_node_named(
+                "main_pass_depth_texture",
+                WindowTextureNode::new(
+                    WindowReference::Primary,
+                    TextureDescriptor {
+                        size: Extent3d {
+                            depth: 1,
+                            width: 1,
+                            height: 1,
+                        },
+                        array_layer_count: 1,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: TextureDimension::D2,
+                        format: TextureFormat::Depth32Float, // PERF: vulkan recommends using 24 bit depth for better performance
+                        usage: TextureUsage::OUTPUT_ATTACHMENT,
+                    },
                     resources.get_event_reader::<WindowCreated>(),
                     resources.get_event_reader::<WindowResized>(),
                 ),
@@ -164,7 +186,20 @@ impl AppPlugin for RenderPlugin {
             render_graph.add_node_edge("camera", "main_pass").unwrap();
             render_graph.add_node_edge("camera2d", "main_pass").unwrap();
             render_graph
-                .add_slot_edge("swapchain", WindowSwapChainNode::OUT_TEXTURE, "main_pass", "color")
+                .add_slot_edge(
+                    "swapchain",
+                    WindowSwapChainNode::OUT_TEXTURE,
+                    "main_pass",
+                    "color",
+                )
+                .unwrap();
+            render_graph
+                .add_slot_edge(
+                    "main_pass_depth_texture",
+                    WindowTextureNode::OUT_TEXTURE,
+                    "main_pass",
+                    "depth",
+                )
                 .unwrap();
         }
         app.add_resource(render_graph);

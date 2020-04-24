@@ -1,23 +1,42 @@
 use crate::{
-    render_graph_2::{Node, ResourceSlots, ResourceSlotInfo},
+    render_graph_2::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::ResourceInfo,
     renderer_2::RenderContext,
     texture::TextureDescriptor,
 };
 use bevy_app::{EventReader, Events};
-use bevy_window::WindowResized;
+use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
 use legion::prelude::*;
 use std::borrow::Cow;
 
 pub struct WindowTextureNode {
-    pub descriptor: TextureDescriptor,
+    window_reference: WindowReference,
+    descriptor: TextureDescriptor,
+    window_created_event_reader: EventReader<WindowCreated>,
     window_resized_event_reader: EventReader<WindowResized>,
+}
+
+impl WindowTextureNode {
+    pub const OUT_TEXTURE: &'static str = "texture";
+    pub fn new(
+        window_reference: WindowReference,
+        descriptor: TextureDescriptor,
+        window_created_event_reader: EventReader<WindowCreated>,
+        window_resized_event_reader: EventReader<WindowResized>,
+    ) -> Self {
+        WindowTextureNode {
+            window_reference,
+            descriptor,
+            window_created_event_reader,
+            window_resized_event_reader,
+        }
+    }
 }
 
 impl Node for WindowTextureNode {
     fn output(&self) -> &[ResourceSlotInfo] {
         static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
-            name: Cow::Borrowed("texture"),
+            name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
             resource_type: ResourceInfo::Texture,
         }];
         OUTPUT
@@ -32,15 +51,29 @@ impl Node for WindowTextureNode {
         output: &mut ResourceSlots,
     ) {
         const WINDOW_TEXTURE: usize = 0;
+        let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
-        if let Some(event) = window_resized_events.latest(&mut self.window_resized_event_reader) {
+        let windows = resources.get::<Windows>().unwrap();
+
+        let window = match self.window_reference {
+            WindowReference::Primary => windows.get_primary().expect("No primary window exists"),
+            WindowReference::Id(id) => windows
+                .get(id)
+                .expect("Received window resized event for non-existent window"),
+        };
+
+        if window_created_events
+            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id).is_some() ||
+            window_resized_events
+            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id).is_some()
+        {
             let render_resources = render_context.resources_mut();
             if let Some(old_texture) = output.get(WINDOW_TEXTURE) {
                 render_resources.remove_texture(old_texture);
             }
 
-            self.descriptor.size.width = event.width;
-            self.descriptor.size.height = event.height;
+            self.descriptor.size.width = window.width;
+            self.descriptor.size.height = window.height;
             let texture_resource = render_resources.create_texture(&self.descriptor);
             output.set(WINDOW_TEXTURE, texture_resource);
         }

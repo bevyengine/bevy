@@ -187,6 +187,7 @@ fn stage_node(
     // don't re-visit nodes or visit them before all of their parents have been visited
     if node_stages_and_jobs.contains_key(&node.id)
         || node
+            .edges
             .input_edges
             .iter()
             .find(|e| !node_stages_and_jobs.contains_key(&e.get_output_node()))
@@ -204,6 +205,7 @@ fn stage_node(
 
     // check to see if the current node has a parent. if so, grab the parent with the highest stage
     if let Some((max_parent_stage, max_parent_job)) = node
+        .edges
         .input_edges
         .iter()
         .map(|e| {
@@ -215,6 +217,7 @@ fn stage_node(
     {
         // count the number of parents that are in the highest stage
         let max_stage_parent_count = node
+            .edges
             .input_edges
             .iter()
             .filter(|e| {

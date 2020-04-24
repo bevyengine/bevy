@@ -131,10 +131,10 @@ impl RenderGraph2 {
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
-            output_node.add_output_edge(edge.clone())?;
+            output_node.edges.add_output_edge(edge.clone())?;
         }
         let input_node = self.get_node_state_mut(input_node_id)?;
-        input_node.add_input_edge(edge)?;
+        input_node.edges.add_input_edge(edge)?;
 
         Ok(())
     }
@@ -156,10 +156,10 @@ impl RenderGraph2 {
 
         {
             let output_node = self.get_node_state_mut(output_node_id)?;
-            output_node.add_output_edge(edge.clone())?;
+            output_node.edges.add_output_edge(edge.clone())?;
         }
         let input_node = self.get_node_state_mut(input_node_id)?;
-        input_node.add_input_edge(edge)?;
+        input_node.edges.add_input_edge(edge)?;
 
         Ok(())
     }
@@ -185,7 +185,7 @@ impl RenderGraph2 {
                 if let Some(Edge::SlotEdge {
                     output_node: current_output_node,
                     ..
-                }) = input_node_state.input_edges.iter().find(|e| {
+                }) = input_node_state.edges.input_edges.iter().find(|e| {
                     if let Edge::SlotEdge {
                         input_index: current_input_index,
                         ..
@@ -222,9 +222,9 @@ impl RenderGraph2 {
         let output_node_state = self.get_node_state(edge.get_output_node());
         let input_node_state = self.get_node_state(edge.get_input_node());
         if let Ok(output_node_state) = output_node_state {
-            if output_node_state.output_edges.contains(edge) {
+            if output_node_state.edges.output_edges.contains(edge) {
                 if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.input_edges.contains(edge) {
+                    if input_node_state.edges.input_edges.contains(edge) {
                         return true;
                     }
                 }
@@ -270,6 +270,7 @@ impl RenderGraph2 {
     ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
+            .edges
             .input_edges
             .iter()
             .map(|edge| (edge, edge.get_output_node()))
@@ -284,6 +285,7 @@ impl RenderGraph2 {
     ) -> Result<impl Iterator<Item = (&Edge, &NodeState)>, RenderGraphError> {
         let node = self.get_node_state(label)?;
         Ok(node
+            .edges
             .output_edges
             .iter()
             .map(|edge| (edge, edge.get_input_node()))

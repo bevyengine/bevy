@@ -4,23 +4,12 @@ use crate::{
     renderer_2::RenderContext,
 };
 use bevy_app::{EventReader, Events};
-use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
+use bevy_window::{WindowCreated, WindowResized, Windows, WindowReference};
 use legion::prelude::*;
 use std::borrow::Cow;
 
-pub enum SwapChainWindowSource {
-    Primary,
-    Id(WindowId),
-}
-
-impl Default for SwapChainWindowSource {
-    fn default() -> Self {
-        SwapChainWindowSource::Primary
-    }
-}
-
 pub struct WindowSwapChainNode {
-    source_window: SwapChainWindowSource,
+    window_reference: WindowReference,
     window_created_event_reader: EventReader<WindowCreated>,
     window_resized_event_reader: EventReader<WindowResized>,
 }
@@ -28,12 +17,12 @@ pub struct WindowSwapChainNode {
 impl WindowSwapChainNode {
     pub const OUT_TEXTURE: &'static str = "texture";
     pub fn new(
-        source_window: SwapChainWindowSource,
+        window_reference: WindowReference,
         window_created_event_reader: EventReader<WindowCreated>,
         window_resized_event_reader: EventReader<WindowResized>,
     ) -> Self {
         WindowSwapChainNode {
-            source_window,
+            window_reference,
             window_created_event_reader,
             window_resized_event_reader,
         }
@@ -62,26 +51,22 @@ impl Node for WindowSwapChainNode {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let windows = resources.get::<Windows>().unwrap();
 
-        let render_resources = render_context.resources_mut();
-        let window = match self.source_window {
-            SwapChainWindowSource::Primary => {
+        let window = match self.window_reference {
+            WindowReference::Primary => {
                 windows.get_primary().expect("No primary window exists")
             }
-            SwapChainWindowSource::Id(id) => windows
+            WindowReference::Id(id) => windows
                 .get(id)
                 .expect("Received window resized event for non-existent window"),
         };
 
-        // create window swapchain
-        if let Some(_) = window_created_events
-            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id)
-        {
-            render_resources.create_swap_chain(window);
-        }
+        let render_resources = render_context.resources_mut();
 
-        // resize window swapchain
-        if let Some(_) = window_resized_events
-            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id)
+        // create window swapchain when window is resized or created
+        if window_created_events
+            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id).is_some() ||
+            window_resized_events
+            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id).is_some()
         {
             render_resources.create_swap_chain(window);
         }

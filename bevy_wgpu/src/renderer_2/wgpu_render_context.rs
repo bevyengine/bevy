@@ -11,7 +11,7 @@ use bevy_render::{
     },
     pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
     render_resource::{
-        resource_name, RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+        RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
     renderer_2::{RenderContext, RenderResourceContext},
     shader::Shader,
@@ -475,26 +475,13 @@ fn get_texture_view<'a>(
     attachment: &TextureAttachment,
 ) -> &'a wgpu::TextureView {
     match attachment {
-        TextureAttachment::Name(name) => match name.as_str() {
-            resource_name::texture::SWAP_CHAIN => {
-                if let Some(primary_swap_chain) = refs.swap_chain_outputs.values().next() {
-                    &primary_swap_chain.view
-                } else {
-                    panic!("No primary swap chain found for color attachment");
-                }
+        TextureAttachment::Name(name) => match global_render_resource_assignments.get(&name) {
+            Some(resource) => refs.textures.get(&resource).unwrap(),
+            None => {
+                panic!("Color attachment {} does not exist", name);
             }
-            _ => match global_render_resource_assignments.get(&name) {
-                Some(resource) => refs.textures.get(&resource).unwrap(),
-                None => {
-                    // if let Some(swap_chain_output) = swap_chain_outputs.get(name) {
-                    //     &swap_chain_output.view
-                    // } else {
-                    panic!("Color attachment {} does not exist", name);
-                    // }
-                }
-            },
         },
-        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap(),
+        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_outputs.get(&render_resource).unwrap().view),
         TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
     }
 }

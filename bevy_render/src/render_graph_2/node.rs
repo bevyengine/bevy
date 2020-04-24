@@ -39,56 +39,13 @@ pub trait SystemNode: Node {
     fn get_system(&self, resources: &mut Resources) -> Box<dyn Schedulable>;
 }
 
-pub struct NodeState {
+pub struct Edges {
     pub id: NodeId,
-    pub name: Option<Cow<'static, str>>,
-    pub node: Box<dyn Node>,
-    pub input_slots: ResourceSlots,
-    pub output_slots: ResourceSlots,
     pub input_edges: Vec<Edge>,
     pub output_edges: Vec<Edge>,
 }
 
-impl Debug for NodeState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.id, self.name)
-    }
-}
-
-impl NodeState {
-    pub fn new<T>(id: NodeId, node: T) -> Self
-    where
-        T: Node,
-    {
-        NodeState {
-            id,
-            name: None,
-            input_slots: ResourceSlots::from(node.input()),
-            output_slots: ResourceSlots::from(node.output()),
-            node: Box::new(node),
-            input_edges: Vec::new(),
-            output_edges: Vec::new(),
-        }
-    }
-
-    pub fn node<T>(&self) -> Result<&T, RenderGraphError>
-    where
-        T: Node,
-    {
-        self.node
-            .downcast_ref::<T>()
-            .ok_or_else(|| RenderGraphError::WrongNodeType)
-    }
-
-    pub fn node_mut<T>(&mut self) -> Result<&mut T, RenderGraphError>
-    where
-        T: Node,
-    {
-        self.node
-            .downcast_mut::<T>()
-            .ok_or_else(|| RenderGraphError::WrongNodeType)
-    }
-
+impl Edges {
     pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_input_edge(&edge) {
             return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
@@ -144,10 +101,64 @@ impl NodeState {
                 node: self.id,
             })
     }
+}
+
+pub struct NodeState {
+    pub id: NodeId,
+    pub name: Option<Cow<'static, str>>,
+    pub node: Box<dyn Node>,
+    pub input_slots: ResourceSlots,
+    pub output_slots: ResourceSlots,
+    pub edges: Edges,
+}
+
+impl Debug for NodeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{:?} ({:?})", self.id, self.name)
+    }
+}
+
+impl NodeState {
+    pub fn new<T>(id: NodeId, node: T) -> Self
+    where
+        T: Node,
+    {
+        NodeState {
+            id,
+            name: None,
+            input_slots: ResourceSlots::from(node.input()),
+            output_slots: ResourceSlots::from(node.output()),
+            node: Box::new(node),
+            edges: Edges {
+                id,
+                input_edges: Vec::new(),
+                output_edges: Vec::new(),
+            },
+        }
+    }
+
+    pub fn node<T>(&self) -> Result<&T, RenderGraphError>
+    where
+        T: Node,
+    {
+        self.node
+            .downcast_ref::<T>()
+            .ok_or_else(|| RenderGraphError::WrongNodeType)
+    }
+
+    pub fn node_mut<T>(&mut self) -> Result<&mut T, RenderGraphError>
+    where
+        T: Node,
+    {
+        self.node
+            .downcast_mut::<T>()
+            .ok_or_else(|| RenderGraphError::WrongNodeType)
+    }
+
 
     pub fn validate_output_slots(&self) -> Result<(), RenderGraphError> {
         for i in 0..self.output_slots.len() {
-            self.get_output_slot_edge(i)?;
+            self.edges.get_output_slot_edge(i)?;
         }
 
         Ok(())
@@ -155,7 +166,7 @@ impl NodeState {
 
     pub fn validate_input_slots(&self) -> Result<(), RenderGraphError> {
         for i in 0..self.input_slots.len() {
-            self.get_input_slot_edge(i)?;
+            self.edges.get_input_slot_edge(i)?;
         }
 
         Ok(())

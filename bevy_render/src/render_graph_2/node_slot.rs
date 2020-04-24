@@ -2,13 +2,13 @@ use super::RenderGraphError;
 use crate::render_resource::{RenderResource, ResourceInfo};
 use std::borrow::Cow;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResourceSlot {
     pub resource: Option<RenderResource>,
     pub info: ResourceSlotInfo,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct ResourceSlots {
     slots: Vec<ResourceSlot>,
 }
@@ -91,6 +91,10 @@ impl ResourceSlots {
     }
     pub fn iter(&self) -> impl Iterator<Item = &ResourceSlot> {
         self.slots.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ResourceSlot> {
+        self.slots.iter_mut()
     }
 
     pub fn len(&self) -> usize {

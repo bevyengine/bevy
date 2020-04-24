@@ -23,7 +23,7 @@ impl PassNode {
         for color_attachment in descriptor.color_attachments.iter() {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(name.to_string(), ResourceInfo::Texture));
-                color_attachment_input_indices.push(Some(inputs.len()));
+                color_attachment_input_indices.push(Some(inputs.len() - 1));
             } else {
                 color_attachment_input_indices.push(None);
             }
@@ -33,7 +33,7 @@ impl PassNode {
         if let Some(ref depth_stencil_attachment)= descriptor.depth_stencil_attachment {
             if let TextureAttachment::Input(ref name) = depth_stencil_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(name.to_string(), ResourceInfo::Texture));
-                depth_stencil_attachment_input_index = Some(inputs.len());
+                depth_stencil_attachment_input_index = Some(inputs.len() - 1);
             }
         }
 

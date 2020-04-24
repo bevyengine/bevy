@@ -1,5 +1,10 @@
 use uuid::Uuid;
 
+pub enum WindowReference {
+    Primary,
+    Id(WindowId),
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
