@@ -30,6 +30,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
     fn create_texture(&self, texture_descriptor: &TextureDescriptor) -> RenderResource;
     fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource;
+    // TODO: remove RenderResourceContext here
     fn create_buffer_mapped(
         &self,
         buffer_info: BufferInfo,

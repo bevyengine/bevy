@@ -10,7 +10,7 @@ use bevy_asset::{AssetStorage, Handle};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 
-pub trait AsUniforms {
+pub trait AsUniforms: Send + Sync + 'static {
     fn get_field_infos() -> &'static [FieldInfo];
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
     fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;

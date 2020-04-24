@@ -6,7 +6,7 @@ use crate::{
     render_resource::{
         BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer_2::RenderContext,
+    renderer_2::{RenderResourceContext, GlobalRenderResourceContext},
     shader::{Shader, ShaderSource},
     Renderable,
 };
@@ -48,7 +48,7 @@ impl PipelineCompiler {
         shader_storage: &AssetStorage<Shader>,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_descriptor: &mut PipelineDescriptor,
-        render_context: &dyn RenderContext,
+        render_resource_context: &dyn RenderResourceContext,
         render_resource_assignments: &RenderResourceAssignments,
     ) {
         let vertex_spirv = shader_storage
@@ -75,7 +75,7 @@ impl PipelineCompiler {
         for bind_group in layout.bind_groups.iter_mut() {
             for binding in bind_group.bindings.iter_mut() {
                 if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
-                    render_context.resources().get_resource_info(
+                    render_resource_context.get_resource_info(
                         render_resource,
                         &mut |resource_info| {
                             if let Some(ResourceInfo::Buffer(BufferInfo { is_dynamic, .. })) =
@@ -142,7 +142,7 @@ impl PipelineCompiler {
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_storage: &mut AssetStorage<Shader>,
-        render_context: &dyn RenderContext,
+        render_resource_context: &dyn RenderResourceContext,
         pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> PipelineDescriptor {
@@ -173,7 +173,7 @@ impl PipelineCompiler {
             shader_storage,
             vertex_buffer_descriptors,
             &mut compiled_pipeline_descriptor,
-            render_context,
+            render_resource_context,
             render_resource_assignments,
         );
 
@@ -187,7 +187,7 @@ impl PipelineCompiler {
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_pipeline_assignments: &mut PipelineAssignments,
-        render_context: &dyn RenderContext,
+        render_resource_context: &dyn RenderResourceContext,
         pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
         shader_storage: &mut AssetStorage<Shader>,
         pipelines: &[Handle<PipelineDescriptor>],
@@ -213,7 +213,7 @@ impl PipelineCompiler {
                 let compiled_pipeline = self.compile_pipeline(
                     vertex_buffer_descriptors,
                     shader_storage,
-                    render_context,
+                    render_resource_context,
                     pipeline_descriptor,
                     render_resource_assignments,
                 );
@@ -286,7 +286,6 @@ impl PipelineAssignments {
 pub fn update_shader_assignments(
     world: &mut World,
     resources: &Resources,
-    render_context: &dyn RenderContext,
 ) {
     // PERF: this seems like a lot of work for things that don't change that often.
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
@@ -295,6 +294,7 @@ pub fn update_shader_assignments(
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
+        let global_render_resource_context = resources.get::<GlobalRenderResourceContext>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
@@ -312,7 +312,7 @@ pub fn update_shader_assignments(
             pipeline_compiler.update_shader_assignments(
                 &vertex_buffer_descriptors,
                 &mut shader_pipeline_assignments,
-                render_context,
+                &*global_render_resource_context.context,
                 &mut pipeline_descriptor_storage,
                 &mut shader_storage,
                 &renderable.pipelines,

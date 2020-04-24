@@ -54,7 +54,7 @@ use bevy_window::{WindowCreated, WindowReference, WindowResized};
 use pass::PassDescriptor;
 use pipeline::pipelines::build_forward_pipeline;
 use render_graph_2::{
-    nodes::{Camera2dNode, CameraNode, PassNode, WindowSwapChainNode, WindowTextureNode},
+    nodes::{Camera2dNode, CameraNode, PassNode, WindowSwapChainNode, WindowTextureNode, UniformNode},
     RenderGraph2,
 };
 use render_resource::resource_providers::mesh_resource_provider_system;
@@ -78,7 +78,6 @@ impl RenderPlugin {
         render_graph
             .build(&mut pipelines, &mut shaders)
             .add_resource_provider(LightResourceProvider::new(10))
-            .add_resource_provider(UniformResourceProvider::<StandardMaterial>::new(true))
             .add_resource_provider(UniformResourceProvider::<LocalToWorld>::new(true));
     }
 }
@@ -124,6 +123,7 @@ impl AppPlugin for RenderPlugin {
             let resources = app.resources_mut();
             render_graph.add_system_node_named("camera", CameraNode::default(), resources);
             render_graph.add_system_node_named("camera2d", Camera2dNode::default(), resources);
+            render_graph.add_system_node_named("standard_material", UniformNode::<StandardMaterial>::new(true), resources);
             render_graph.add_node_named(
                 "swapchain",
                 WindowSwapChainNode::new(
@@ -185,6 +185,7 @@ impl AppPlugin for RenderPlugin {
             // TODO: replace these with "autowire" groups
             render_graph.add_node_edge("camera", "main_pass").unwrap();
             render_graph.add_node_edge("camera2d", "main_pass").unwrap();
+            render_graph.add_node_edge("standard_material", "main_pass").unwrap();
             render_graph
                 .add_slot_edge(
                     "swapchain",

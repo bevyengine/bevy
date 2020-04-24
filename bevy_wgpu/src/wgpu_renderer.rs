@@ -187,19 +187,20 @@ impl WgpuRenderer {
 
     pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
         // run systems
-        let mut executor = {
+        let mut system_executor = {
             let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
             render_graph.take_executor()
         };
 
-        if let Some(executor) = executor.as_mut() {
+        if let Some(executor) = system_executor.as_mut() {
             executor.execute(world, resources);
         }
 
+        update_shader_assignments(world, resources);
         render_resource_sets_system().run(world, resources);
 
         let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
-        if let Some(executor) = executor.take() {
+        if let Some(executor) = system_executor.take() {
             render_graph.set_executor(executor);
         }
 
@@ -207,12 +208,12 @@ impl WgpuRenderer {
         let mut stager = DependentNodeStager::loose_grouping();
         let stages = stager.get_stages(&render_graph).unwrap();
         let mut borrowed = stages.borrow(&mut render_graph);
-
+        
         // execute stages
-        let executor = WgpuRenderGraphExecutor {
+        let graph_executor = WgpuRenderGraphExecutor {
             max_thread_count: 2,
         };
-        executor.execute(
+        graph_executor.execute(
             world,
             resources,
             self.device.clone(),
@@ -244,7 +245,6 @@ impl WgpuRenderer {
 
             self.update_resource_providers(world, resources, render_resource_context);
 
-            update_shader_assignments(world, resources, &render_context);
             self.create_queued_textures(resources, &mut render_context.render_resources);
         };
 
