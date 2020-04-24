@@ -4,7 +4,7 @@ use crate::{
     pipeline::{BindGroupDescriptor, PipelineDescriptor},
     render_resource::{RenderResource, RenderResourceAssignments, RenderResourceSetId},
     shader::Shader,
-    texture::TextureDescriptor,
+    texture::{Extent3d, TextureDescriptor},
 };
 use bevy_asset::{AssetStorage, Handle};
 
@@ -24,6 +24,17 @@ pub trait RenderContext {
         destination_buffer: RenderResource,
         destination_offset: u64,
         size: u64,
+    );
+    fn copy_buffer_to_texture(
+        &mut self,
+        source_buffer: RenderResource,
+        source_offset: u64,
+        source_bytes_per_row: u32,
+        destination_texture: RenderResource,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        destination_array_layer: u32,
+        size: Extent3d,
     );
     fn create_bind_group(
         &mut self,

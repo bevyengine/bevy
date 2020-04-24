@@ -15,7 +15,7 @@ use bevy_render::{
     },
     renderer_2::{RenderContext, RenderResourceContext},
     shader::Shader,
-    texture::TextureDescriptor,
+    texture::{Extent3d, TextureDescriptor},
 };
 use bevy_window::WindowId;
 use std::{collections::HashMap, sync::Arc};
@@ -140,7 +140,7 @@ impl RenderContext for WgpuRenderContext {
                     let textures = self
                         .render_resources
                         .wgpu_resources
-                        .textures
+                        .texture_views
                         .read()
                         .unwrap();
                     let samplers = self
@@ -442,6 +442,29 @@ impl RenderContext for WgpuRenderContext {
         }
 
         self.command_encoder.set(encoder);
+    }
+    fn copy_buffer_to_texture(
+        &mut self,
+        source_buffer: RenderResource,
+        source_offset: u64,
+        source_bytes_per_row: u32,
+        destination_texture: RenderResource,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        destination_array_layer: u32,
+        size: Extent3d,
+    ) {
+        self.render_resources.wgpu_resources.copy_buffer_to_texture(
+            self.command_encoder.get_or_create(&self.device),
+            source_buffer,
+            source_offset,
+            source_bytes_per_row,
+            destination_texture,
+            destination_origin,
+            destination_mip_level,
+            destination_array_layer,
+            size,
+        )
     }
 }
 

@@ -17,6 +17,7 @@ pub enum TextureDimension {
     D3,
 }
 
+// TODO: use math type here
 #[derive(Clone, Copy, Debug)]
 pub struct Extent3d {
     pub width: u32,

@@ -5,7 +5,7 @@ use bevy_render::{
     render_resource::{BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo},
     renderer_2::RenderResourceContext,
     shader::Shader,
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_window::{Window, WindowId};
 use std::{
@@ -77,7 +77,8 @@ pub struct WgpuResources {
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_outputs: Arc<RwLock<HashMap<RenderResource, wgpu::SwapChainOutput>>>,
     pub buffers: Arc<RwLock<HashMap<RenderResource, wgpu::Buffer>>>,
-    pub textures: Arc<RwLock<HashMap<RenderResource, wgpu::TextureView>>>,
+    pub texture_views: Arc<RwLock<HashMap<RenderResource, wgpu::TextureView>>>,
+    pub textures: Arc<RwLock<HashMap<RenderResource, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<RenderResource, wgpu::Sampler>>>,
     pub resource_info: Arc<RwLock<HashMap<RenderResource, ResourceInfo>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
@@ -91,7 +92,7 @@ impl WgpuResources {
     pub fn read(&self) -> WgpuResourcesReadLock {
         WgpuResourcesReadLock {
             buffers: self.buffers.read().unwrap(),
-            textures: self.textures.read().unwrap(),
+            textures: self.texture_views.read().unwrap(),
             swap_chain_outputs: self.swap_chain_outputs.read().unwrap(),
             render_pipelines: self.render_pipelines.read().unwrap(),
             bind_groups: self.bind_groups.read().unwrap(),
@@ -119,7 +120,10 @@ impl WgpuResources {
     }
 
     pub fn remove_swap_chain_texture(&self, render_resource: RenderResource) {
-        self.swap_chain_outputs.write().unwrap().remove(&render_resource);
+        self.swap_chain_outputs
+            .write()
+            .unwrap()
+            .remove(&render_resource);
     }
 
     pub fn remove_all_swap_chain_textures(&self) {
@@ -274,6 +278,43 @@ impl WgpuResources {
         encoder.copy_buffer_to_buffer(source, source_offset, destination, destination_offset, size);
     }
 
+    pub fn copy_buffer_to_texture(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        source_buffer: RenderResource,
+        source_offset: u64,
+        source_bytes_per_row: u32,
+        destination_texture: RenderResource,
+        destination_origin: [u32; 3], // TODO: replace with math type
+        destination_mip_level: u32,
+        destination_array_layer: u32,
+        size: Extent3d,
+    ) {
+        let buffers = self.buffers.read().unwrap();
+        let textures = self.textures.read().unwrap();
+        let source = buffers.get(&source_buffer).unwrap();
+        let destination = textures.get(&destination_texture).unwrap();
+        encoder.copy_buffer_to_texture(
+            wgpu::BufferCopyView {
+                buffer: source,
+                offset: source_offset,
+                bytes_per_row: source_bytes_per_row,
+                rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
+            },
+            wgpu::TextureCopyView {
+                texture: destination,
+                mip_level: destination_mip_level,
+                array_layer: destination_array_layer,
+                origin: wgpu::Origin3d {
+                    x: destination_origin[0],
+                    y: destination_origin[1],
+                    z: destination_origin[2],
+                },
+            },
+            size.wgpu_into(),
+        );
+    }
+
     pub fn create_shader_module(
         &self,
         device: &wgpu::Device,
@@ -310,10 +351,14 @@ impl WgpuResources {
         let texture_view = texture.create_default_view();
         let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Texture);
-        self.textures
+        self.texture_views
             .write()
             .unwrap()
             .insert(resource, texture_view);
+        self.textures
+            .write()
+            .unwrap()
+            .insert(resource, texture);
         resource
     }
 
@@ -346,7 +391,7 @@ impl WgpuResources {
 
         let resource = RenderResource::new();
         self.add_resource_info(resource, ResourceInfo::Texture);
-        self.textures
+        self.texture_views
             .write()
             .unwrap()
             .insert(resource, texture_view);
@@ -354,6 +399,7 @@ impl WgpuResources {
     }
 
     pub fn remove_texture(&self, resource: RenderResource) {
+        self.texture_views.write().unwrap().remove(&resource);
         self.textures.write().unwrap().remove(&resource);
         self.resource_info.write().unwrap().remove(&resource);
     }

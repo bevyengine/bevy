@@ -367,6 +367,7 @@ where
 
     fn setup_uniform_texture_resources(
         uniforms: &T,
+        command_queue: &mut CommandQueue,
         texture_storage: &AssetStorage<Texture>,
         render_resource_context: &dyn RenderResourceContext,
         render_resource_assignments: &mut RenderResourceAssignments,
@@ -395,6 +396,21 @@ where
                                 render_resource_context.create_texture(&texture_descriptor);
                             // TODO: queue texture copy
                             // .create_texture_with_data(&texture_descriptor, &texture.data);
+                            let texture_buffer = render_resource_context.create_buffer_with_data(BufferInfo {
+                                buffer_usage: BufferUsage::COPY_SRC,
+                                ..Default::default()
+                            }, &texture.data);
+                            command_queue.copy_buffer_to_texture(
+                                texture_buffer,
+                                0,
+                                (4 * texture.width) as u32,
+                                texture_resource,
+                                [0, 0, 0],
+                                0,
+                                0,
+                                texture_descriptor.size.clone(),
+                            );
+                            command_queue.free_buffer(texture_buffer);
 
                             let sampler_descriptor: SamplerDescriptor = texture.into();
                             let sampler_resource =
@@ -521,6 +537,7 @@ where
                         } else {
                             Self::setup_uniform_texture_resources(
                                 &uniforms,
+                                &mut command_queue,
                                 textures,
                                 render_resource_context,
                                 &mut renderable.render_resource_assignments,
@@ -541,6 +558,7 @@ where
                                 .expect("Handle points to a non-existent resource");
                             Self::setup_uniform_texture_resources(
                                 &uniforms,
+                                &mut command_queue,
                                 textures,
                                 render_resource_context,
                                 &mut renderable.render_resource_assignments,
