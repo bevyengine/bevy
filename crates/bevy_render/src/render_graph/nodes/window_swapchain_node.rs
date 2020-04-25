@@ -1,10 +1,10 @@
 use crate::{
-    render_graph::{Node, ResourceSlots, ResourceSlotInfo},
+    render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::ResourceInfo,
     renderer::RenderContext,
 };
 use bevy_app::{EventReader, Events};
-use bevy_window::{WindowCreated, WindowResized, Windows, WindowReference};
+use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
 use legion::prelude::*;
 use std::borrow::Cow;
 
@@ -52,9 +52,7 @@ impl Node for WindowSwapChainNode {
         let windows = resources.get::<Windows>().unwrap();
 
         let window = match self.window_reference {
-            WindowReference::Primary => {
-                windows.get_primary().expect("No primary window exists")
-            }
+            WindowReference::Primary => windows.get_primary().expect("No primary window exists"),
             WindowReference::Id(id) => windows
                 .get(id)
                 .expect("Received window resized event for non-existent window"),
@@ -64,9 +62,11 @@ impl Node for WindowSwapChainNode {
 
         // create window swapchain when window is resized or created
         if window_created_events
-            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id).is_some() ||
-            window_resized_events
-            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id).is_some()
+            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id)
+            .is_some()
+            || window_resized_events
+                .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id)
+                .is_some()
         {
             render_resources.create_swap_chain(window);
         }

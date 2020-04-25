@@ -155,7 +155,6 @@ impl NodeState {
             .ok_or_else(|| RenderGraphError::WrongNodeType)
     }
 
-
     pub fn validate_output_slots(&self) -> Result<(), RenderGraphError> {
         for i in 0..self.output_slots.len() {
             self.edges.get_output_slot_edge(i)?;

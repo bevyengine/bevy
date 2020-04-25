@@ -3,7 +3,7 @@ use bevy_window::WindowResized;
 
 use crate::{
     camera::{ActiveCamera2d, Camera},
-    render_graph::{CommandQueue, Node, SystemNode, ResourceSlots},
+    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer::{GlobalRenderResourceContext, RenderContext},
 };

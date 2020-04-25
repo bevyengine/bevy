@@ -1,7 +1,4 @@
-use crate::{
-    mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera,
-    CameraType, Renderable,
-};
+use crate::{mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera, CameraType, Renderable};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};

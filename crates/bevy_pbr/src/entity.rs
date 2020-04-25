@@ -1,8 +1,8 @@
 use crate::{light::Light, material::StandardMaterial};
 use bevy_asset::Handle;
+use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
 use bevy_transform::prelude::{LocalToWorld, Rotation, Scale, Translation};
-use bevy_derive::EntityArchetype;
 
 #[derive(EntityArchetype, Default)]
 #[module(meta = false)]

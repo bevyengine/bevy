@@ -74,7 +74,6 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
                 })
                 .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
 
-
             reader.read_indices().map(|indices| {
                 mesh.indices = Some(indices.into_u32().collect::<Vec<u32>>());
             });

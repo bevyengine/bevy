@@ -1,3 +1,4 @@
+use bevy_asset::AssetStorage;
 use bevy_render::{
     pipeline::{
         state_descriptors::{
@@ -10,7 +11,6 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_asset::AssetStorage;
 
 pub fn build_forward_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -30,22 +30,20 @@ pub fn build_forward_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDes
             stencil_read_mask: 0,
             stencil_write_mask: 0,
         }),
-        color_states: vec![
-            ColorStateDescriptor {
-                format: TextureFormat::Bgra8UnormSrgb,
-                color_blend: BlendDescriptor {
-                    src_factor: BlendFactor::SrcAlpha,
-                    dst_factor: BlendFactor::OneMinusSrcAlpha,
-                    operation: BlendOperation::Add,
-                },
-                alpha_blend: BlendDescriptor {
-                    src_factor: BlendFactor::One,
-                    dst_factor: BlendFactor::One,
-                    operation: BlendOperation::Add,
-                },
-                write_mask: ColorWrite::ALL, 
-            }
-        ],
+        color_states: vec![ColorStateDescriptor {
+            format: TextureFormat::Bgra8UnormSrgb,
+            color_blend: BlendDescriptor {
+                src_factor: BlendFactor::SrcAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha_blend: BlendDescriptor {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            write_mask: ColorWrite::ALL,
+        }],
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,

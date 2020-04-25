@@ -20,7 +20,8 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
         ..Default::default()
     });
 
-    world.build()
+    world
+        .build()
         // cube
         .add_entity(MeshEntity {
             mesh: cube_handle,

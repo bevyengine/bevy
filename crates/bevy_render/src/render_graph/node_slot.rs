@@ -54,10 +54,7 @@ impl ResourceSlots {
         slot.resource.clone()
     }
 
-    pub fn get_slot(
-        &self,
-        label: impl Into<SlotLabel>,
-    ) -> Result<&ResourceSlot, RenderGraphError> {
+    pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Result<&ResourceSlot, RenderGraphError> {
         let label = label.into();
         let index = self.get_slot_index(&label)?;
         self.slots

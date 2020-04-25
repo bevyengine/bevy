@@ -141,9 +141,7 @@ pub struct RenderResourceSetId(u64);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{
-        BindType, BindingDescriptor, UniformProperty, UniformPropertyType,
-    };
+    use crate::pipeline::{BindType, BindingDescriptor, UniformProperty, UniformPropertyType};
 
     #[test]
     fn test_render_resource_sets() {

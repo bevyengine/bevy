@@ -1,14 +1,14 @@
-pub mod nodes;
 mod command;
+mod edge;
 mod graph;
 mod node;
-mod edge;
 mod node_slot;
+pub mod nodes;
 mod schedule;
 pub use command::*;
+pub use edge::*;
 pub use graph::*;
 pub use node::*;
-pub use edge::*;
 pub use node_slot::*;
 pub use schedule::*;
 
@@ -36,5 +36,9 @@ pub enum RenderGraphError {
     #[error("Node has an unconnected output slot.")]
     UnconnectedNodeOutputSlot { node: NodeId, output_slot: usize },
     #[error("Node input slot already occupied")]
-    NodeInputSlotAlreadyOccupied { node: NodeId, input_slot: usize, occupied_by_node: NodeId },
+    NodeInputSlotAlreadyOccupied {
+        node: NodeId,
+        input_slot: usize,
+        occupied_by_node: NodeId,
+    },
 }

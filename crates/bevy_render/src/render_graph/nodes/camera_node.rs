@@ -1,5 +1,5 @@
 use crate::{
-    render_graph::{CommandQueue, Node, SystemNode, ResourceSlots},
+    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer::{GlobalRenderResourceContext, RenderContext},
     ActiveCamera, Camera,
@@ -7,9 +7,9 @@ use crate::{
 
 use bevy_app::{Events, GetEventReader};
 use bevy_transform::prelude::*;
+use bevy_window::WindowResized;
 use legion::prelude::*;
 use zerocopy::AsBytes;
-use bevy_window::WindowResized;
 
 #[derive(Default)]
 pub struct CameraNode {

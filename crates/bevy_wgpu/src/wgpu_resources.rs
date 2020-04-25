@@ -355,10 +355,7 @@ impl WgpuResources {
             .write()
             .unwrap()
             .insert(resource, texture_view);
-        self.textures
-            .write()
-            .unwrap()
-            .insert(resource, texture);
+        self.textures.write().unwrap().insert(resource, texture);
         resource
     }
 

@@ -8,10 +8,10 @@ pub mod pipelines;
 mod forward_pbr_render_graph;
 pub use forward_pbr_render_graph::*;
 
-use bevy_app::{AppBuilder, AppPlugin, stage};
+use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
-use material::StandardMaterial;
 use bevy_render::{render_graph::RenderGraph, shader};
+use material::StandardMaterial;
 
 #[derive(Default)]
 pub struct PbrPlugin;

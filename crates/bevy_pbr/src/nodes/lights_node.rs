@@ -4,10 +4,10 @@ use bevy_render::{
     renderer::{GlobalRenderResourceContext, RenderContext},
 };
 
+use crate::light::{Light, LightRaw};
 use bevy_transform::prelude::*;
 use legion::prelude::*;
 use zerocopy::AsBytes;
-use crate::light::{LightRaw, Light};
 
 #[derive(Default)]
 pub struct LightsNode {

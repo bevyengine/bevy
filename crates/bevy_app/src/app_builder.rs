@@ -1,7 +1,7 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
     schedule_plan::{SchedulePlan, System},
-    stage, App, Events, AppExit,
+    stage, App, AppExit, Events,
 };
 
 use legion::prelude::{Resources, Universe, World};

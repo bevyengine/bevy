@@ -48,8 +48,7 @@ pub static RENDER_STAGE: &str = "render";
 #[derive(Default)]
 pub struct RenderPlugin;
 
-impl RenderPlugin {
-}
+impl RenderPlugin {}
 
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {

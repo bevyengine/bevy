@@ -63,9 +63,11 @@ impl Node for WindowTextureNode {
         };
 
         if window_created_events
-            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id).is_some() ||
-            window_resized_events
-            .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id).is_some()
+            .find_latest(&mut self.window_created_event_reader, |e| e.id == window.id)
+            .is_some()
+            || window_resized_events
+                .find_latest(&mut self.window_resized_event_reader, |e| e.id == window.id)
+                .is_some()
         {
             let render_resources = render_context.resources_mut();
             if let Some(old_texture) = output.get(WINDOW_TEXTURE) {

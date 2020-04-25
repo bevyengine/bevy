@@ -47,7 +47,8 @@ impl WgpuRenderGraphExecutor {
                         for job in jobs_chunk.iter_mut() {
                             for node_state in job.node_states.iter_mut() {
                                 // bind inputs from connected node outputs
-                                for (i, mut input_slot) in node_state.input_slots.iter_mut().enumerate()
+                                for (i, mut input_slot) in
+                                    node_state.input_slots.iter_mut().enumerate()
                                 {
                                     if let Edge::SlotEdge {
                                         output_node,

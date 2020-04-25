@@ -6,7 +6,7 @@ use crate::{
     render_resource::{
         BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer::{RenderResourceContext, GlobalRenderResourceContext},
+    renderer::{GlobalRenderResourceContext, RenderResourceContext},
     shader::{Shader, ShaderSource},
     Renderable,
 };
@@ -256,9 +256,7 @@ impl PipelineCompiler {
         }
     }
 
-    pub fn iter_all_compiled_pipelines(
-        &self,
-    ) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
+    pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
         self.pipeline_source_to_compiled
             .values()
             .map(|compiled_pipelines| {
@@ -283,10 +281,7 @@ impl PipelineAssignments {
 }
 
 // TODO: make this a system
-pub fn update_shader_assignments(
-    world: &mut World,
-    resources: &Resources,
-) {
+pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
     // PERF: this seems like a lot of work for things that don't change that often.
     // lots of string + hashset allocations. sees uniform_resource_provider for more context
     {
@@ -294,7 +289,8 @@ pub fn update_shader_assignments(
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
-        let global_render_resource_context = resources.get::<GlobalRenderResourceContext>().unwrap();
+        let global_render_resource_context =
+            resources.get::<GlobalRenderResourceContext>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();

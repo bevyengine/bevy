@@ -1,7 +1,7 @@
 use bevy_asset::AssetStorage;
 use bevy_render::{
     pipeline::{PipelineAssignments, PipelineCompiler, PipelineDescriptor},
-    render_resource::{EntityRenderResourceAssignments},
+    render_resource::EntityRenderResourceAssignments,
     Renderable,
 };
 use legion::prelude::*;

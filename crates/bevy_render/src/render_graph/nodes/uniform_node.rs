@@ -332,7 +332,7 @@ where
     }
 }
 
-// TODO: use something like this to remove redundancy between AssetUniformNode and UniformNode 
+// TODO: use something like this to remove redundancy between AssetUniformNode and UniformNode
 // fn update_uniforms<T>(
 //     render_resource_context: &dyn RenderResourceContext,
 //     staging_buffer_resource: &mut Option<RenderResource>,

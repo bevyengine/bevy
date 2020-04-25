@@ -33,8 +33,8 @@
 
 #![feature(min_specialization)]
 
-pub mod prelude;
 mod add_default_plugins;
+pub mod prelude;
 
 pub use add_default_plugins::*;
 pub use bevy_app as app;

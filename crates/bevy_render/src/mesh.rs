@@ -1,11 +1,12 @@
 use crate::{
     pipeline::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
-        VertexBufferDescriptor, VertexFormat, VertexBufferDescriptors,
+        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{RenderResourceAssignments, AssetBatchers, BufferInfo, BufferUsage},
-    Renderable, renderer::{GlobalRenderResourceContext, RenderResourceContext}, Vertex,
+    render_resource::{AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments},
+    renderer::{GlobalRenderResourceContext, RenderResourceContext},
     shader::AsUniforms,
+    Renderable, Vertex,
 };
 use bevy_asset::{AssetStorage, Handle};
 use glam::*;
@@ -326,12 +327,16 @@ pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("mesh_batcher")
         .read_resource::<AssetStorage<Mesh>>()
         .with_query(
-            <(Read<Handle<Mesh>>, Write<Renderable>)>::query().filter(changed::<Handle<Mesh>>() | changed::<Renderable>()),
+            <(Read<Handle<Mesh>>, Write<Renderable>)>::query()
+                .filter(changed::<Handle<Mesh>>() | changed::<Renderable>()),
         )
         .build(|_, world, meshes, query| {
             for (mesh_handle, mut renderable) in query.iter_mut(world) {
                 let mesh = meshes.get(&mesh_handle).unwrap();
-                renderable.render_resource_assignments.pipeline_specialization.primitive_topology = mesh.primitive_topology;
+                renderable
+                    .render_resource_assignments
+                    .pipeline_specialization
+                    .primitive_topology = mesh.primitive_topology;
             }
         })
 }
@@ -422,11 +427,10 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         )
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::{Vertex, pipeline::state_descriptors::PrimitiveTopology, shader::AsUniforms};
     use super::{Mesh, VertexAttribute};
+    use crate::{pipeline::state_descriptors::PrimitiveTopology, shader::AsUniforms, Vertex};
     use zerocopy::AsBytes;
 
     #[test]
@@ -475,6 +479,10 @@ mod tests {
         ];
 
         let descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
-        assert_eq!(mesh.get_vertex_buffer_bytes(descriptor).unwrap(), expected_vertices.as_bytes(), "buffer bytes are equal");
+        assert_eq!(
+            mesh.get_vertex_buffer_bytes(descriptor).unwrap(),
+            expected_vertices.as_bytes(),
+            "buffer bytes are equal"
+        );
     }
 }

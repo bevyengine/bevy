@@ -1,4 +1,4 @@
-use super::{Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode, Edge};
+use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
 use legion::prelude::{Executor, Resources, Schedulable};
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
@@ -41,14 +41,18 @@ impl RenderGraph {
         self.add_node(node)
     }
 
-    pub fn add_system_node_named<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T, resources: &Resources) -> NodeId
+    pub fn add_system_node_named<T>(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        node: T,
+        resources: &Resources,
+    ) -> NodeId
     where
         T: SystemNode + 'static,
     {
         self.new_node_systems.push(node.get_system(resources));
         self.add_node_named(name, node)
     }
-
 
     pub fn get_node_state(
         &self,
@@ -367,7 +371,7 @@ mod tests {
         let b_id = graph.add_node_named("B", TestNode::new(0, 1));
         let c_id = graph.add_node_named("C", TestNode::new(1, 1));
         let d_id = graph.add_node_named("D", TestNode::new(1, 0));
-        
+
         graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
         graph.add_node_edge("B", "C").unwrap();
         graph.add_slot_edge("C", 0, "D", 0).unwrap();
