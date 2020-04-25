@@ -47,6 +47,7 @@ glam = "0.8.6"
 [workspace]
 members = [
     "crates/*",
+    "examples/dynamic_plugin_loading/example_plugin"
 ]
 
 [dev-dependencies]

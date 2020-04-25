@@ -4,8 +4,8 @@ use bevy::prelude::*;
 pub struct ExamplePlugin;
 
 impl AppPlugin for ExamplePlugin {
-    fn build(&self, app_builder: AppBuilder) -> AppBuilder {
-        app_builder.setup(setup)
+    fn build(&self, app_builder: &mut AppBuilder) {
+        app_builder.add_startup_system(setup);
     }
 }
 
@@ -40,6 +40,5 @@ pub fn setup(world: &mut World, resources: &mut Resources) {
                 Vec3::new(0.0, 0.0, 1.0),
             )),
             ..Default::default()
-        })
-    .build();
+        });
 }
