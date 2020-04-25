@@ -1,0 +1,5 @@
+[book]
+title = "The Legion Book"
+multilingual = false
+author = "Walter Pearce"
+description = "Introduction to Legion ECS"
