@@ -1,9 +1,0 @@
-[package]
-name = "hello_world"
-version = "0.1.0"
-authors = ["Thomas Gillen <thomas.gillen@googlemail.com>"]
-edition = "2018"
-
-[dependencies]
-legion = { path = "../.." }
-tracing-subscriber = "0.2"

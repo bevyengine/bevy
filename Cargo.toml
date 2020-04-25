@@ -24,44 +24,29 @@ winit = ["bevy_winit"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "bevy_app" }
-bevy_asset = { path = "bevy_asset", optional = true }
-bevy_core = { path = "bevy_core", optional = true }
-bevy_derive = { path = "bevy_derive", optional = true }
-bevy_diagnostic = { path = "bevy_diagnostic", optional = true }
-bevy_gltf = { path = "bevy_gltf", optional = true }
-bevy_input = { path = "bevy_input", optional = true }
-bevy_pbr = { path = "bevy_pbr", optional = true }
-bevy_render = { path = "bevy_render", optional = true }
-bevy_serialization = { path = "bevy_serialization", optional = true }
-bevy_transform = { path = "bevy_transform", optional = true }
-bevy_ui = { path = "bevy_ui", optional = true }
-bevy_window = { path = "bevy_window", optional = true }
-bevy_wgpu = { path = "bevy_wgpu", optional = true }
-bevy_winit = { path = "bevy_winit", optional = true }
-legion = { path = "bevy_legion" }
+bevy_app = { path = "crates/bevy_app" }
+bevy_asset = { path = "crates/bevy_asset", optional = true }
+bevy_core = { path = "crates/bevy_core", optional = true }
+bevy_derive = { path = "crates/bevy_derive", optional = true }
+bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
+bevy_gltf = { path = "crates/bevy_gltf", optional = true }
+bevy_input = { path = "crates/bevy_input", optional = true }
+bevy_pbr = { path = "crates/bevy_pbr", optional = true }
+bevy_render = { path = "crates/bevy_render", optional = true }
+bevy_serialization = { path = "crates/bevy_serialization", optional = true }
+bevy_transform = { path = "crates/bevy_transform", optional = true }
+bevy_ui = { path = "crates/bevy_ui", optional = true }
+bevy_window = { path = "crates/bevy_window", optional = true }
+bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
+bevy_winit = { path = "crates/bevy_winit", optional = true }
+legion = { path = "crates/bevy_legion" }
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
 glam = "0.8.6"
 
 [workspace]
 members = [
-    "bevy_app",
-    "bevy_asset",
-    "bevy_core",
-    "bevy_derive",
-    "bevy_diagnostic",
-    "bevy_gltf",
-    "bevy_input",
-    "bevy_pbr",
-    "bevy_render",
-    "bevy_serialization",
-    "bevy_transform",
-    "bevy_legion",
-    "bevy_ui",
-    "bevy_window",
-    "bevy_wgpu",
-    "bevy_winit",
+    "crates/*",
 ]
 
 [dev-dependencies]
