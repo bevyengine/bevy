@@ -6,7 +6,7 @@ use crate::{
     render_resource::{
         BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer_2::{RenderResourceContext, GlobalRenderResourceContext},
+    renderer::{RenderResourceContext, GlobalRenderResourceContext},
     shader::{Shader, ShaderSource},
     Renderable,
 };

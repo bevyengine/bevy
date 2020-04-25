@@ -1,9 +1,9 @@
-use crate::{renderer_2::WgpuRenderResourceContext, wgpu_type_converter::WgpuInto};
+use crate::{renderer::WgpuRenderResourceContext, wgpu_type_converter::WgpuInto};
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{BufferInfo, RenderResource, RenderResourceSetId, ResourceInfo},
-    renderer_2::RenderResourceContext,
+    renderer::RenderResourceContext,
     shader::Shader,
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };

@@ -1,4 +1,4 @@
-use crate::{renderer_2::WgpuRenderContext, WgpuResourceRefs};
+use crate::{renderer::WgpuRenderContext, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
@@ -6,7 +6,7 @@ use bevy_render::{
     render_resource::{
         RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
-    renderer_2::RenderContext,
+    renderer::RenderContext,
 };
 use std::{collections::HashMap, ops::Range};
 

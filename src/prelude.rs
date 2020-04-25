@@ -9,16 +9,19 @@ pub use crate::core::{
 pub use crate::derive::*;
 #[cfg(feature = "diagnostic")]
 pub use crate::diagnostic::DiagnosticsPlugin;
+#[cfg(feature = "pbr")]
+pub use crate::pbr::{material::StandardMaterial, light::Light, entity::*};
 #[cfg(feature = "render")]
 pub use crate::render::{
     entity::*,
     mesh::{Mesh, shape},
     pipeline::PipelineDescriptor,
-    render_graph::RenderGraph,
-    render_resource::{resource_name, resource_providers::UniformResourceProvider, AssetBatchers},
-    shader::{uniforms::StandardMaterial, Shader, ShaderDefSuffixProvider, ShaderStage},
+    draw_target,
+    render_graph::{RenderGraph, nodes::{UniformNode, AssetUniformNode, PassNode, WindowSwapChainNode, WindowTextureNode, Camera2dNode, CameraNode}},
+    render_resource::{resource_name, AssetBatchers},
+    shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
     texture::{Texture, TextureType},
-    ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Light, Renderable,
+    ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
 };
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;

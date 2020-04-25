@@ -6,13 +6,14 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "render", "serialization", "transform", "ui", "window"]
+headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "render", "serialization", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 derive = ["bevy_derive"]
 diagnostic = ["bevy_diagnostic"]
 gltf = ["bevy_gltf"]
 input = ["bevy_input"]
+pbr = ["bevy_pbr"]
 render = ["bevy_render"]
 serialization = ["bevy_serialization"]
 transform = ["bevy_transform"]
@@ -30,6 +31,7 @@ bevy_derive = { path = "bevy_derive", optional = true }
 bevy_diagnostic = { path = "bevy_diagnostic", optional = true }
 bevy_gltf = { path = "bevy_gltf", optional = true }
 bevy_input = { path = "bevy_input", optional = true }
+bevy_pbr = { path = "bevy_pbr", optional = true }
 bevy_render = { path = "bevy_render", optional = true }
 bevy_serialization = { path = "bevy_serialization", optional = true }
 bevy_transform = { path = "bevy_transform", optional = true }
@@ -51,6 +53,7 @@ members = [
     "bevy_diagnostic",
     "bevy_gltf",
     "bevy_input",
+    "bevy_pbr",
     "bevy_render",
     "bevy_serialization",
     "bevy_transform",

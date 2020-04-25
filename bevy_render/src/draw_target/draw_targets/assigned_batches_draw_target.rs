@@ -3,7 +3,7 @@ use crate::{
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{resource_name, AssetBatchers, RenderResourceAssignments},
-    renderer_2::RenderContext,
+    renderer::RenderContext,
     Renderable,
 };
 use bevy_asset::Handle;

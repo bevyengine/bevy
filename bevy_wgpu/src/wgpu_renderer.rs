@@ -1,14 +1,11 @@
-use crate::renderer_2::{
-    render_resource_sets_system, WgpuRenderContext, WgpuRenderGraphExecutor,
-    WgpuRenderResourceContext,
+use crate::renderer::{
+    render_resource_sets_system, WgpuRenderGraphExecutor, WgpuRenderResourceContext,
 };
 use bevy_app::{EventReader, Events};
 use bevy_render::{
     pipeline::update_shader_assignments,
-    render_graph::RenderGraph,
-    render_graph_2::{DependentNodeStager, RenderGraph2, RenderGraphStager},
-    render_resource::RenderResourceAssignments,
-    renderer_2::{GlobalRenderResourceContext, RenderResourceContext},
+    render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
+    renderer::GlobalRenderResourceContext,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
@@ -54,117 +51,12 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn initialize_resource_providers(
-        world: &mut World,
-        resources: &Resources,
-        render_context: &mut WgpuRenderContext,
-    ) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        for resource_provider in render_graph.resource_providers.iter_mut() {
-            resource_provider.initialize(render_context, world, resources);
-        }
-    }
-
-    fn parallel_resource_provider_update(
-        world: &World,
-        resources: &Resources,
-        device: Arc<wgpu::Device>,
-        render_resource_context: &WgpuRenderResourceContext,
-    ) -> Vec<wgpu::CommandBuffer> {
-        let max_thread_count = 8;
-        let (sender, receiver) = crossbeam_channel::bounded(max_thread_count);
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        let chunk_size =
-            (render_graph.resource_providers.len() + max_thread_count - 1) / max_thread_count; // divide ints rounding remainder up
-                                                                                               // println!("chunk {} {}", chunk_size, render_graph.resource_providers.len());
-        let mut actual_thread_count = 0;
-        crossbeam_utils::thread::scope(|s| {
-            for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-                let device = device.clone();
-                let sender = sender.clone();
-                let world = &*world;
-                let resources = &*resources;
-                actual_thread_count += 1;
-                let render_resource_context = render_resource_context.clone();
-                s.spawn(move |_| {
-                    let mut render_context =
-                        WgpuRenderContext::new(device, render_resource_context);
-                    for resource_provider in resource_provider_chunk.iter_mut() {
-                        resource_provider.update(&mut render_context, world, resources);
-                    }
-                    sender.send(render_context.finish()).unwrap();
-                });
-            }
-        })
-        .unwrap();
-
-        let mut command_buffers = Vec::new();
-        for _i in 0..actual_thread_count {
-            let command_buffer = receiver.recv().unwrap();
-            if let Some(command_buffer) = command_buffer {
-                command_buffers.push(command_buffer);
-            }
-        }
-
-        command_buffers
-    }
-
-    pub fn update_resource_providers(
-        &mut self,
-        world: &mut World,
-        resources: &Resources,
-        render_resource_context: &WgpuRenderResourceContext,
-    ) {
-        let mut command_buffers = Self::parallel_resource_provider_update(
-            world,
-            resources,
-            self.device.clone(),
-            render_resource_context,
-        );
-
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        let mut results = Vec::new();
-        let thread_count = 5;
-        let chunk_size = (render_graph.resource_providers.len() + thread_count - 1) / thread_count; // divide ints rounding remainder up
-                                                                                                    // crossbeam_utils::thread::scope(|s| {
-        for resource_provider_chunk in render_graph.resource_providers.chunks_mut(chunk_size) {
-            let device = self.device.clone();
-            let mut render_context =
-                WgpuRenderContext::new(device, render_resource_context.clone());
-            for resource_provider in resource_provider_chunk.iter_mut() {
-                resource_provider.finish_update(&mut render_context, world, resources);
-            }
-            results.push(render_context.finish());
-        }
-
-        for command_buffer in results {
-            if let Some(command_buffer) = command_buffer {
-                command_buffers.push(command_buffer);
-            }
-        }
-
-        self.queue.submit(&command_buffers);
-    }
-
-    pub fn create_queued_textures(
-        &mut self,
-        resources: &Resources,
-        global_render_resources: &mut WgpuRenderResourceContext,
-    ) {
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        let mut render_resource_assignments =
-            resources.get_mut::<RenderResourceAssignments>().unwrap();
-        for (name, texture_descriptor) in render_graph.queued_textures.drain(..) {
-            let resource = global_render_resources.create_texture(&texture_descriptor);
-            render_resource_assignments.set(&name, resource);
-        }
-    }
-
-    pub fn handle_window_created_events(
-        &mut self,
-        resources: &Resources,
-        global_render_resource_context: &mut WgpuRenderResourceContext,
-    ) {
+    pub fn handle_window_created_events(&mut self, resources: &Resources) {
+        let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
+        let render_resource_context = global_context
+            .context
+            .downcast_mut::<WgpuRenderResourceContext>()
+            .unwrap();
         let windows = resources.get::<Windows>().unwrap();
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
         for window_created_event in
@@ -178,7 +70,7 @@ impl WgpuRenderer {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
                 let winit_window = winit_windows.get_window(window.id).unwrap();
                 let surface = wgpu::Surface::create(winit_window.deref());
-                global_render_resource_context
+                render_resource_context
                     .wgpu_resources
                     .set_window_surface(window.id, surface);
             }
@@ -188,7 +80,7 @@ impl WgpuRenderer {
     pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
         // run systems
         let mut system_executor = {
-            let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
+            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
             render_graph.take_executor()
         };
 
@@ -199,7 +91,7 @@ impl WgpuRenderer {
         update_shader_assignments(world, resources);
         render_resource_sets_system().run(world, resources);
 
-        let mut render_graph = resources.get_mut::<RenderGraph2>().unwrap();
+        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         if let Some(executor) = system_executor.take() {
             render_graph.set_executor(executor);
         }
@@ -208,7 +100,7 @@ impl WgpuRenderer {
         let mut stager = DependentNodeStager::loose_grouping();
         let stages = stager.get_stages(&render_graph).unwrap();
         let mut borrowed = stages.borrow(&mut render_graph);
-        
+
         // execute stages
         let graph_executor = WgpuRenderGraphExecutor {
             max_thread_count: 2,
@@ -223,31 +115,7 @@ impl WgpuRenderer {
     }
 
     pub fn update(&mut self, world: &mut World, resources: &mut Resources) {
-        {
-            let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-            let render_resource_context = global_context
-                .context
-                .downcast_mut::<WgpuRenderResourceContext>()
-                .unwrap();
-
-            self.handle_window_created_events(resources, render_resource_context);
-
-            let mut render_context =
-                WgpuRenderContext::new(self.device.clone(), render_resource_context.clone());
-            if !self.intialized {
-                Self::initialize_resource_providers(world, resources, &mut render_context);
-                let buffer = render_context.finish();
-                if let Some(buffer) = buffer {
-                    self.queue.submit(&[buffer]);
-                }
-                self.intialized = true;
-            }
-
-            self.update_resource_providers(world, resources, render_resource_context);
-
-            self.create_queued_textures(resources, &mut render_context.render_resources);
-        };
-
+        self.handle_window_created_events(resources);
         self.run_graph(world, resources);
 
         let render_resource_context = resources.get::<GlobalRenderResourceContext>().unwrap();

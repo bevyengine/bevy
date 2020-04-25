@@ -9,7 +9,7 @@ use crate::{
     render_resource::{
         resource_name, EntityRenderResourceAssignments, RenderResourceAssignments, ResourceInfo,
     },
-    renderer_2::RenderContext,
+    renderer::RenderContext,
     Renderable,
 };
 

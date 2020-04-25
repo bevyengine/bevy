@@ -7,7 +7,7 @@ use crate::{
         resource_name, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         ResourceInfo,
     },
-    renderer_2::RenderContext,
+    renderer::RenderContext,
 };
 use bevy_asset::Handle;
 use legion::prelude::*;

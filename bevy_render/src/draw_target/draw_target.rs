@@ -1,4 +1,4 @@
-use crate::{pass::RenderPass, pipeline::PipelineDescriptor, renderer_2::RenderContext};
+use crate::{pass::RenderPass, pipeline::PipelineDescriptor, renderer::RenderContext};
 use bevy_asset::Handle;
 use legion::prelude::{Resources, World};
 

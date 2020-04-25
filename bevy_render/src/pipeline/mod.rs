@@ -3,7 +3,6 @@ mod binding;
 mod pipeline;
 mod pipeline_compiler;
 mod pipeline_layout;
-pub mod pipelines;
 pub mod state_descriptors;
 mod vertex_buffer_descriptor;
 mod vertex_format;

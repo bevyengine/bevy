@@ -1,4 +1,4 @@
-pub mod renderer_2;
+pub mod renderer;
 mod wgpu_render_pass;
 mod wgpu_renderer;
 mod wgpu_resources;
@@ -9,10 +9,10 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
-use bevy_render::{renderer_2::GlobalRenderResourceContext, RENDER_STAGE};
+use bevy_render::{renderer::GlobalRenderResourceContext, RENDER_STAGE};
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
-use renderer_2::WgpuRenderResourceContext;
+use renderer::WgpuRenderResourceContext;
 
 #[derive(Default)]
 pub struct WgpuPlugin;

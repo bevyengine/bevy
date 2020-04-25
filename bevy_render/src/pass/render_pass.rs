@@ -1,7 +1,7 @@
 use crate::{
     pipeline::PipelineDescriptor,
     render_resource::{RenderResource, RenderResourceAssignments},
-    renderer_2::RenderContext,
+    renderer::RenderContext,
 };
 use bevy_asset::Handle;
 use std::ops::Range;

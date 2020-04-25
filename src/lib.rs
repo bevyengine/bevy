@@ -53,6 +53,8 @@ pub use bevy_diagnostic as diagnostic;
 pub use bevy_gltf as gltf;
 #[cfg(feature = "input")]
 pub use bevy_input as input;
+#[cfg(feature = "pbr")]
+pub use bevy_pbr as pbr;
 #[cfg(feature = "render")]
 pub use bevy_render as render;
 #[cfg(feature = "serialization")]

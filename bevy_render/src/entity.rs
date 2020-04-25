@@ -1,24 +1,10 @@
 use crate::{
-    mesh::Mesh, shader::uniforms::StandardMaterial, ActiveCamera, ActiveCamera2d, Camera,
-    CameraType, Light, Renderable,
+    mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera,
+    CameraType, Renderable,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
-
-#[derive(EntityArchetype, Default)]
-#[module(meta = false)]
-pub struct MeshEntity {
-    // #[tag]
-    pub mesh: Handle<Mesh>,
-    // #[tag]
-    pub material: Handle<StandardMaterial>,
-    pub renderable: Renderable,
-    pub local_to_world: LocalToWorld,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
-}
 
 #[derive(EntityArchetype, Default)]
 #[module(meta = false)]
@@ -30,15 +16,6 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub translation: Translation,
     pub rotation: Rotation,
     pub scale: Scale,
-}
-
-#[derive(EntityArchetype, Default)]
-#[module(meta = false)]
-pub struct LightEntity {
-    pub light: Light,
-    pub local_to_world: LocalToWorld,
-    pub translation: Translation,
-    pub rotation: Rotation,
 }
 
 #[derive(EntityArchetype, Default)]

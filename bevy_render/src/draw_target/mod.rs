@@ -1,4 +1,5 @@
 mod draw_target;
-pub mod draw_targets;
+mod draw_targets;
 
 pub use draw_target::*;
+pub use draw_targets::*;
