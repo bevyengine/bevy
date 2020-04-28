@@ -22,8 +22,13 @@ where
     R: EntityFilter + Sync + 'static,
     X: ResourceSet<PreparedResources = X> + 'static,
 {
-    let resource_access: Access<ResourceTypeId> = Access::default();
-    let component_access: Access<ComponentTypeId> = Access::default();
+    let mut resource_access: Access<ResourceTypeId> = Access::default();
+    resource_access.reads.extend(X::read_types().iter());
+    resource_access.writes.extend(X::write_types().iter());
+
+    let mut component_access: Access<ComponentTypeId> = Access::default();
+    component_access.reads.extend(Q::read_types().iter());
+    component_access.writes.extend(Q::write_types().iter());
 
     let run_fn = SystemFnWrapper(
         move |_,

@@ -32,8 +32,8 @@ use legion_core::{
 #[derive(Derivative, Debug, Clone)]
 #[derivative(Default(bound = ""))]
 pub struct Access<T> {
-    reads: Vec<T>,
-    writes: Vec<T>,
+    pub reads: Vec<T>,
+    pub writes: Vec<T>,
 }
 
 /// Structure describing the resource and component access conditions of the system.
