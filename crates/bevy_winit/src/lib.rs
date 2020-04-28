@@ -52,7 +52,7 @@ pub fn winit_runner(mut app: App) {
         };
 
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-            if app_exit_events.latest(&mut app_exit_event_reader).is_some() {
+            if app_exit_event_reader.latest(&app_exit_events).is_some() {
                 *control_flow = ControlFlow::Exit;
             }
         }
@@ -141,7 +141,7 @@ fn handle_create_window_events(
     let mut windows = resources.get_mut::<Windows>().unwrap();
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
-    for create_window_event in create_window_events.iter(create_window_event_reader) {
+    for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = Window::new(&create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;

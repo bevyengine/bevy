@@ -22,11 +22,11 @@ pub fn mouse_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
                   _world,
                   (mouse_button_input_events, mouse_motion_events),
                   _queries| {
-                for event in mouse_button_input_events.iter(&mut mouse_button_input_event_reader) {
+                for event in mouse_button_input_event_reader.iter(&mouse_button_input_events) {
                     println!("{:?}", event);
                 }
 
-                for event in mouse_motion_events.iter(&mut mouse_motion_event_reader) {
+                for event in mouse_motion_event_reader.iter(&mouse_motion_events) {
                     println!("{:?}", event);
                 }
             },

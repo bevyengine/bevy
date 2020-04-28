@@ -54,7 +54,7 @@ impl From<&mut Resources> for EventListenerState {
 fn event_listener_system(
     (state, my_events): &mut (ResourceMut<EventListenerState>, Resource<Events<MyEvent>>),
 ) {
-    for my_event in my_events.iter(&mut state.my_event_reader) {
+    for my_event in state.my_event_reader.iter(&my_events) {
         println!("{}", my_event.message);
     }
 }

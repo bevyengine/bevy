@@ -14,7 +14,7 @@ pub fn exit_on_window_close_system(
         .build(
             move |_, _, (ref window_close_requested_events, ref mut app_exit_events), _| {
                 for window_close_requested_event in
-                    window_close_requested_events.iter(&mut window_close_requested_event_reader)
+                    window_close_requested_event_reader.iter(window_close_requested_events)
                 {
                     match window_id.as_ref() {
                         Some(window_id) => {

@@ -61,8 +61,8 @@ impl SystemNode for CameraNode {
                         camera_buffer = Some(buffer);
                     }
 
-                    let primary_window_resized_event = window_resized_events
-                        .find_latest(&mut window_resized_event_reader, |event| event.is_primary);
+                    let primary_window_resized_event = window_resized_event_reader
+                        .find_latest(&window_resized_events, |event| event.is_primary);
                     if let Some(_) = primary_window_resized_event {
                         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
                         for (camera, local_to_world, _) in query.iter(world) {

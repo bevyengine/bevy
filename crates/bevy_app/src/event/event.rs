@@ -35,12 +35,12 @@ enum State {
 /// events.send(MyEvent { value: 1 });
 ///
 /// // somewhere else: read the events
-/// for event in events.iter(&mut reader) {
+/// for event in reader.iter(&events) {
 ///     assert_eq!(event.value, 1)
 /// }
 ///
 /// // events are only processed once per reader
-/// assert_eq!(events.iter(&mut reader).count(), 0);
+/// assert_eq!(reader.iter(&events).count(), 0);
 /// ```  
 ///
 /// # Details
@@ -93,6 +93,81 @@ pub struct EventReader<T> {
     _marker: PhantomData<T>,
 }
 
+impl<T> EventReader<T>
+where
+    T: Send + Sync + 'static,
+{
+    /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened before now.
+    pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
+        // if the reader has seen some of the events in a buffer, find the proper index offset.
+        // otherwise read all events in the buffer
+        let a_index = if self.last_event_count > events.a_start_event_count {
+            self.last_event_count - events.a_start_event_count
+        } else {
+            0
+        };
+        let b_index = if self.last_event_count > events.b_start_event_count {
+            self.last_event_count - events.b_start_event_count
+        } else {
+            0
+        };
+        self.last_event_count = events.event_count;
+        match events.state {
+            State::A => events
+                .events_b
+                .get(b_index..)
+                .unwrap_or_else(|| &[])
+                .iter()
+                .map(map_event_instance)
+                .chain(
+                    events
+                        .events_a
+                        .get(a_index..)
+                        .unwrap_or_else(|| &[])
+                        .iter()
+                        .map(map_event_instance),
+                ),
+            State::B => events
+                .events_a
+                .get(a_index..)
+                .unwrap_or_else(|| &[])
+                .iter()
+                .map(map_event_instance)
+                .chain(
+                    events
+                        .events_b
+                        .get(b_index..)
+                        .unwrap_or_else(|| &[])
+                        .iter()
+                        .map(map_event_instance),
+                ),
+        }
+    }
+
+    /// Retrieves the latest event that this EventReader hasn't seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened before now.
+    pub fn latest<'a>(&mut self, events: &'a Events<T>) -> Option<&'a T> {
+        self.iter(events).rev().next()
+    }
+
+    /// Retrieves the latest event that matches the given `predicate` that this reader hasn't seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened before now.
+    pub fn find_latest<'a>(
+        &mut self,
+        events: &'a Events<T>,
+        predicate: impl FnMut(&&T) -> bool,
+    ) -> Option<&'a T> {
+        self.iter(events).rev().filter(predicate).next()
+    }
+
+    /// Retrieves the earliest event in `events` that this reader hasn't seen yet. This updates the EventReader's
+    /// event counter, which means subsequent event reads will not include events that happened before now.
+    pub fn earliest<'a>(&mut self, events: &'a Events<T>) -> Option<&'a T> {
+        self.iter(events).next()
+    }
+}
+
 impl<T> Events<T>
 where
     T: Send + Sync + 'static,
@@ -110,74 +185,6 @@ where
         }
 
         self.event_count += 1;
-    }
-
-    /// Iterates over the events the `event_reader` has not seen yet. This updates the `event_reader`'s event counter,
-    /// which means subsequent event reads will not include events that happened before now.
-    pub fn iter(&self, event_reader: &mut EventReader<T>) -> impl DoubleEndedIterator<Item = &T> {
-        // if the reader has seen some of the events in a buffer, find the proper index offset.
-        // otherwise read all events in the buffer
-        let a_index = if event_reader.last_event_count > self.a_start_event_count {
-            event_reader.last_event_count - self.a_start_event_count
-        } else {
-            0
-        };
-        let b_index = if event_reader.last_event_count > self.b_start_event_count {
-            event_reader.last_event_count - self.b_start_event_count
-        } else {
-            0
-        };
-        event_reader.last_event_count = self.event_count;
-        match self.state {
-            State::A => self
-                .events_b
-                .get(b_index..)
-                .unwrap_or_else(|| &[])
-                .iter()
-                .map(map_event_instance)
-                .chain(
-                    self.events_a
-                        .get(a_index..)
-                        .unwrap_or_else(|| &[])
-                        .iter()
-                        .map(map_event_instance),
-                ),
-            State::B => self
-                .events_a
-                .get(a_index..)
-                .unwrap_or_else(|| &[])
-                .iter()
-                .map(map_event_instance)
-                .chain(
-                    self.events_b
-                        .get(b_index..)
-                        .unwrap_or_else(|| &[])
-                        .iter()
-                        .map(map_event_instance),
-                ),
-        }
-    }
-
-    /// Retrieves the latest event. This updates the `event_reader`'s event counter,
-    /// which means subsequent event reads will not include events that happened before now.
-    pub fn latest(&self, event_reader: &mut EventReader<T>) -> Option<&T> {
-        self.iter(event_reader).rev().next()
-    }
-
-    /// Retrieves the latest event that matches the given `predicate`. This updates the `event_reader`'s event counter,
-    /// which means subsequent event reads will not include events that happened before now.
-    pub fn find_latest(
-        &self,
-        event_reader: &mut EventReader<T>,
-        predicate: impl FnMut(&&T) -> bool,
-    ) -> Option<&T> {
-        self.iter(event_reader).rev().filter(predicate).next()
-    }
-
-    /// Retrieves the earliest event. This updates the `event_reader`'s event counter,
-    /// which means subsequent event reads will not include events that happened before now.
-    pub fn earliest(&self, event_reader: &mut EventReader<T>) -> Option<&T> {
-        self.iter(event_reader).next()
     }
 
     /// Gets a new [EventReader]. This will include all events already in the event buffers.
@@ -342,6 +349,6 @@ mod tests {
         events: &Events<TestEvent>,
         reader: &mut EventReader<TestEvent>,
     ) -> Vec<TestEvent> {
-        events.iter(reader).cloned().collect::<Vec<TestEvent>>()
+        reader.iter(events).cloned().collect::<Vec<TestEvent>>()
     }
 }

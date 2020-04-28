@@ -126,8 +126,8 @@ pub fn camera_update_system(resources: &mut Resources) -> Box<dyn Schedulable> {
         .read_resource::<Events<WindowResized>>()
         .with_query(<Write<Camera>>::query())
         .build(move |_, world, window_resized_events, query| {
-            let primary_window_resized_event = window_resized_events
-                .find_latest(&mut window_resized_event_reader, |event| event.is_primary);
+            let primary_window_resized_event = window_resized_event_reader
+                .find_latest(&window_resized_events, |event| event.is_primary);
             if let Some(primary_window_resized_event) = primary_window_resized_event {
                 for mut camera in query.iter_mut(world) {
                     camera.update(

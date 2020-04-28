@@ -32,7 +32,7 @@ impl AppPlugin for ScheduleRunnerPlugin {
                 }
                 RunMode::Loop { wait } => loop {
                     if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                        if app_exit_events.latest(&mut app_exit_event_reader).is_some() {
+                        if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
                         }
                     }

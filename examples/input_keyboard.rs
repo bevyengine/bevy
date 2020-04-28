@@ -22,7 +22,7 @@ pub fn move_on_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
         .with_query(<(Write<Translation>, Read<Handle<Mesh>>)>::query())
         .build(
             move |_command_buffer, world, (time, keyboard_input_events), mesh_query| {
-                for event in keyboard_input_events.iter(&mut keyboard_input_event_reader) {
+                for event in keyboard_input_event_reader.iter(&keyboard_input_events) {
                     match event {
                         KeyboardInput {
                             virtual_key_code: Some(VirtualKeyCode::Left),

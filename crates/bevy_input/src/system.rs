@@ -9,7 +9,7 @@ pub fn exit_on_esc_system(resources: &mut Resources) -> Box<dyn Schedulable> {
         .write_resource::<Events<AppExit>>()
         .build(
             move |_, _, (ref keyboard_input_events, ref mut app_exit_events), _| {
-                for event in keyboard_input_events.iter(&mut keyboard_input_event_reader) {
+                for event in keyboard_input_event_reader.iter(keyboard_input_events) {
                     if let Some(virtual_key_code) = event.virtual_key_code {
                         if event.state == ElementState::Pressed
                             && virtual_key_code == VirtualKeyCode::Escape
