@@ -9,7 +9,7 @@ fn main() {
             ..Default::default()
         })
         .add_startup_system(setup)
-        .add_system(into_system("move", move_system))
+        .add_system_fn("move", move_system)
         .run();
 }
 
