@@ -3,7 +3,7 @@ use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::Handle;
 use bevy_core::bytes::GetBytes;
 use glam::Vec4;
-use std::ops::Add;
+use std::ops::{AddAssign, Add};
 use zerocopy::AsBytes;
 
 #[repr(C)]
@@ -22,6 +22,17 @@ impl Color {
 
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
+    }
+}
+
+impl AddAssign<Color> for Color {
+    fn add_assign(&mut self, rhs: Color) {
+        *self = Color {
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+            a: self.a + rhs.a,
+        }
     }
 }
 
