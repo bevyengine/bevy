@@ -14,11 +14,11 @@ use std::marker::PhantomData;
 use bit_set::BitSet;
 
 
-pub fn into_system<'a, Q, F, R, X>(name: &'static str, system: F) -> Box<dyn Schedulable>
+pub fn into_system<'a, Q, F, R, X>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
 where
     Q: IntoQuery + DefaultFilter<Filter = R>,
     <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-    F: Fn(&mut X, Q) + Send + Sync + 'static,
+    F: FnMut(&mut X, Q) + Send + Sync + 'static,
     R: EntityFilter + Sync + 'static,
     X: ResourceSet<PreparedResources = X> + 'static,
 {
@@ -45,6 +45,41 @@ where
     Box::new(System {
         name: name.into(),
         queries: AtomicRefCell::new(Q::query()),
+        access: SystemAccess {
+            resources: resource_access,
+            components: component_access,
+            tags: Access::default(),
+        },
+        archetypes: ArchetypeAccess::Some(BitSet::default()),
+        _resources: PhantomData::<X>,
+        command_buffer: FxHashMap::default(),
+        run_fn: AtomicRefCell::new(run_fn),
+    })
+}
+
+pub fn into_resource_system<'a, F, X>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
+where
+    F: FnMut(&mut X) + Send + Sync + 'static,
+    X: ResourceSet<PreparedResources = X> + 'static,
+{
+    let mut resource_access: Access<ResourceTypeId> = Access::default();
+    resource_access.reads.extend(X::read_types().iter());
+    resource_access.writes.extend(X::write_types().iter());
+
+    let component_access: Access<ComponentTypeId> = Access::default();
+    let run_fn = SystemFnWrapper(
+        move |_,
+              _,
+              resources: &mut X,
+              _| {
+            system(resources);
+        },
+        PhantomData,
+    );
+
+    Box::new(System {
+        name: name.into(),
+        queries: AtomicRefCell::new(()),
         access: SystemAccess {
             resources: resource_access,
             components: component_access,

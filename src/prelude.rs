@@ -55,7 +55,7 @@ pub use legion::{
         resource::{ResourceSet, Resources, PreparedRead as Resource, PreparedWrite as ResourceMut},
         schedule::{Executor, Runnable, Schedulable, Schedule},
         SubWorld, System, SystemBuilder,
-        into_system
+        into_system, into_resource_system
     },
     world::{Universe, World},
 };

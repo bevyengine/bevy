@@ -207,6 +207,16 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_resource_init<R>(&mut self) -> &mut Self
+    where
+        R: for<'a> From<&'a mut Resources> + Send + Sync + 'static,
+    {
+        let resources = self.resources_mut();
+        let resource = R::from(resources);
+        resources.insert(resource);
+        self
+    }
+
     pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
         self.app_mut().runner = Some(Box::new(run_fn));
         self
