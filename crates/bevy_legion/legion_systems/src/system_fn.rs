@@ -13,7 +13,6 @@ use legion_core::{
 use std::marker::PhantomData;
 use bit_set::BitSet;
 
-
 pub fn into_system<'a, Q, F, R, X>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
 where
     Q: IntoQuery + DefaultFilter<Filter = R>,

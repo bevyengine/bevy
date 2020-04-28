@@ -1,12 +1,10 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
-    schedule_plan::{SchedulePlan, System},
-    stage, App, AppExit, Events,
+    schedule_plan::SchedulePlan,
+    stage, App, AppExit, Events, System,
 };
 
-use legion::prelude::{Resources, Universe, World, IntoQuery, ResourceSet, into_system, into_resource_system};
-use legion::query::{View, DefaultFilter};
-use legion::filter::EntityFilter;
+use legion::prelude::{Resources, Universe, World};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
@@ -237,48 +235,6 @@ impl AppBuilder {
     {
         log::debug!("added plugin: {}", plugin.name());
         plugin.build(self);
-        self
-    }
-
-    pub fn add_system_fn<'a, Q, F, R, X>(&mut self, name: &'static str, system: F) -> &mut Self
-    where
-        Q: IntoQuery + DefaultFilter<Filter = R>,
-        <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-        F: FnMut(&mut X, Q) + Send + Sync + 'static,
-        R: EntityFilter + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        self.add_system_fn_to_stage(stage::UPDATE, name, system)
-    }
-
-    pub fn add_system_fn_to_stage<'a, Q, F, R, X>(&mut self, stage_name: &str, name: &'static str, system: F) -> &mut Self
-    where
-        Q: IntoQuery + DefaultFilter<Filter = R>,
-        <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-        F: FnMut(&mut X, Q) + Send + Sync + 'static,
-        R: EntityFilter + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        let system = into_system(name, system);
-        self.add_system_to_stage(stage_name, system);
-        self
-    }
-
-    pub fn add_resource_system_fn<'a, F, X>(&mut self, name: &'static str, system: F) -> &mut Self
-    where
-        F: FnMut(&mut X) + Send + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        self.add_resource_system_fn_to_stage(stage::UPDATE, name, system)
-    }
-
-    pub fn add_resource_system_fn_to_stage<'a, F, X>(&mut self, stage_name: &str, name: &'static str, system: F) -> &mut Self
-    where
-        F: FnMut(&mut X) + Send + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        let system = into_resource_system(name, system);
-        self.add_system_to_stage(stage_name, system);
         self
     }
 }

@@ -38,7 +38,7 @@ pub use crate::ui::{entity::*, Anchors, Margins, Node};
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
-        stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader,
+        stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader, System
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,
@@ -54,7 +54,7 @@ pub use legion::{
         bit_set::BitSet,
         resource::{ResourceSet, Resources, PreparedRead as Resource, PreparedWrite as ResourceMut},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        SubWorld, System, SystemBuilder,
+        SubWorld, SystemBuilder,
         into_system, into_resource_system
     },
     world::{Universe, World},
