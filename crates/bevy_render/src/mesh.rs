@@ -3,10 +3,10 @@ use crate::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{AssetBatchers, BufferInfo, BufferUsage, RenderResourceAssignments},
+    render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer::{GlobalRenderResourceContext, RenderResourceContext},
     shader::AsUniforms,
-    Renderable, Vertex,
+    Renderable, Vertex, batch::AssetBatchers,
 };
 use bevy_asset::{AssetStorage, Handle};
 use glam::*;

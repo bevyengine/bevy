@@ -1,4 +1,5 @@
 #![feature(min_specialization)]
+pub mod batch;
 mod camera;
 pub mod entity;
 pub mod mesh;
@@ -30,13 +31,14 @@ use self::{
         PipelineAssignments, PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors,
     },
     render_resource::{
-        entity_render_resource_assignments_system, AssetBatchers, EntityRenderResourceAssignments,
+        entity_render_resource_assignments_system, EntityRenderResourceAssignments,
         RenderResourceAssignments,
     },
     shader::Shader,
     texture::Texture,
 };
 
+use batch::AssetBatchers;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use mesh::mesh_resource_provider_system;
