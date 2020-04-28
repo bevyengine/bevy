@@ -16,6 +16,6 @@ pub mod prelude {
         resource::{ResourceSet, Resources, PreparedRead as Resource, PreparedWrite as ResourceMut},
         schedule::{Executor, Runnable, Schedulable, Schedule},
         System, SystemBuilder,
-        into_system, into_resource_system
+        into_for_each_system, into_resource_system, into_resource_for_each_system,
     };
 }

@@ -3,17 +3,56 @@ use crate::{
     schedule::{ArchetypeAccess, Schedulable},
     Access, System, SystemAccess, SystemFnWrapper, SystemQuery,
 };
+use bit_set::BitSet;
 use fxhash::FxHashMap;
 use legion_core::{
-    borrow::{AtomicRefCell},
+    borrow::AtomicRefCell,
     filter::EntityFilter,
     query::{DefaultFilter, IntoQuery, View},
-    storage::{ComponentTypeId},
+    storage::ComponentTypeId,
 };
 use std::marker::PhantomData;
-use bit_set::BitSet;
 
-pub fn into_system<'a, Q, F, R, X>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
+pub fn into_for_each_system<'a, Q, F, R>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
+where
+    Q: IntoQuery + DefaultFilter<Filter = R>,
+    <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
+    F: FnMut(Q) + Send + Sync + 'static,
+    R: EntityFilter + Sync + 'static,
+{
+    let resource_access: Access<ResourceTypeId> = Access::default();
+    let mut component_access: Access<ComponentTypeId> = Access::default();
+    component_access.reads.extend(Q::read_types().iter());
+    component_access.writes.extend(Q::write_types().iter());
+
+    let run_fn = SystemFnWrapper(
+        move |_, world, _, query: &mut SystemQuery<Q, <Q as DefaultFilter>::Filter>| {
+            for components in query.iter_mut(world) {
+                system(components);
+            }
+        },
+        PhantomData,
+    );
+
+    Box::new(System {
+        name: name.into(),
+        queries: AtomicRefCell::new(Q::query()),
+        access: SystemAccess {
+            resources: resource_access,
+            components: component_access,
+            tags: Access::default(),
+        },
+        archetypes: ArchetypeAccess::Some(BitSet::default()),
+        _resources: PhantomData::<()>,
+        command_buffer: FxHashMap::default(),
+        run_fn: AtomicRefCell::new(run_fn),
+    })
+}
+
+pub fn into_resource_for_each_system<'a, Q, F, R, X>(
+    name: &'static str,
+    mut system: F,
+) -> Box<dyn Schedulable>
 where
     Q: IntoQuery + DefaultFilter<Filter = R>,
     <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
@@ -67,10 +106,7 @@ where
 
     let component_access: Access<ComponentTypeId> = Access::default();
     let run_fn = SystemFnWrapper(
-        move |_,
-              _,
-              resources: &mut X,
-              _| {
+        move |_, _, resources: &mut X, _| {
             system(resources);
         },
         PhantomData,
@@ -93,8 +129,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::into_system;
     use crate::{
+        into_resource_for_each_system,
         resource::{PreparedRead, PreparedWrite, Resources},
     };
     use legion_core::{
@@ -113,15 +149,13 @@ mod tests {
 
     #[test]
     fn test_system_fn() {
-        fn read_write_system(_: &mut (), (_x, mut y): (Ref<X>, RefMut<Y>)) {
-            y.0 += 1;
-        }
+        fn read_write_system(_: &mut (), (_x, mut y): (Ref<X>, RefMut<Y>)) { y.0 += 1; }
 
         let mut world = World::new();
         let mut resources = Resources::default();
         world.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
 
-        let mut system = into_system("read_write", read_write_system);
+        let mut system = into_resource_for_each_system("read_write", read_write_system);
         system.run(&mut world, &mut resources);
     }
 
@@ -154,7 +188,7 @@ mod tests {
         resources.insert(A(0));
         resources.insert(B(1));
         world.insert((), vec![(X(2), Y(3)), (X(4), Y(5))]);
-        let mut my_system = into_system("read_resources", my_system);
+        let mut my_system = into_resource_for_each_system("read_resources", my_system);
         my_system.run(&mut world, &mut resources);
     }
 }
