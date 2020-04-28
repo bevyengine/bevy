@@ -807,18 +807,18 @@ where
         Queries = <Q as QuerySet>::Queries,
     >,
 {
-    name: SystemId,
-    _resources: PhantomData<R>,
-    queries: AtomicRefCell<Q>,
-    run_fn: AtomicRefCell<F>,
-    archetypes: ArchetypeAccess,
+    pub name: SystemId,
+    pub _resources: PhantomData<R>,
+    pub queries: AtomicRefCell<Q>,
+    pub run_fn: AtomicRefCell<F>,
+    pub archetypes: ArchetypeAccess,
 
     // These are stored statically instead of always iterated and created from the
     // query types, which would make allocations every single request
-    access: SystemAccess,
+    pub access: SystemAccess,
 
     // We pre-allocate a command buffer for ourself. Writes are self-draining so we never have to rellocate.
-    command_buffer: FxHashMap<WorldId, AtomicRefCell<CommandBuffer>>,
+    pub command_buffer: FxHashMap<WorldId, AtomicRefCell<CommandBuffer>>,
 }
 
 impl<R, Q, F> Runnable for System<R, Q, F>
@@ -896,9 +896,9 @@ pub trait SystemFn {
     );
 }
 
-struct SystemFnWrapper<R, Q, F: FnMut(&mut CommandBuffer, &mut SubWorld, &mut R, &mut Q) + 'static>(
-    F,
-    PhantomData<(R, Q)>,
+pub struct SystemFnWrapper<R, Q, F: FnMut(&mut CommandBuffer, &mut SubWorld, &mut R, &mut Q) + 'static>(
+    pub F,
+    pub PhantomData<(R, Q)>,
 );
 
 impl<F, R, Q> SystemFn for SystemFnWrapper<R, Q, F>

@@ -13,9 +13,12 @@ Legion aims to be a feature rich high performance ECS library for Rust game proj
 
 ## Bevy Fork Info
 
-This is a fork that enables dynamic plugin loading in bevy.
+Bevy currently forks Legion to give it some additional functionality:
+* Stable TypeIds across binaries to support dynamic plugin loading
+* Simple "function only" system declarations
 
 Here are the changes made:
+* Add system_fn.rs containing "function only" system declarations
 * ResourceTypeId, ComponentTypeId, TagTypeId use static str (std::any::type_name) instead of TypeId (std::any::TypeId is not constant across rust binaries) 
 * Implement "DowncastTypeName" to allow downcasting based on type name
 

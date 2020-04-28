@@ -45,15 +45,17 @@ pub use crate::{
 };
 pub use legion::{
     command::CommandBuffer,
+    borrow::{Ref, RefMut},
     entity::Entity,
     event::Event as LegionEvent,
     filter::filter_fns::*,
     query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
     systems::{
         bit_set::BitSet,
-        resource::{ResourceSet, Resources},
+        resource::{ResourceSet, Resources, PreparedRead as Resource, PreparedWrite as ResourceMut},
         schedule::{Executor, Runnable, Schedulable, Schedule},
         SubWorld, System, SystemBuilder,
+        into_system
     },
     world::{Universe, World},
 };

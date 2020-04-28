@@ -9,23 +9,17 @@ fn main() {
             ..Default::default()
         })
         .add_startup_system(setup)
-        .add_system(build_move_system())
+        .add_system(into_system("move", move_system))
         .run();
 }
 
-fn build_move_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("move")
-        .read_resource::<Time>()
-        .write_resource::<AssetStorage<StandardMaterial>>()
-        .with_query(<(Write<Translation>, Read<Handle<StandardMaterial>>)>::query())
-        .build(move |_, world, (time, material_storage), person_query| {
-            for (mut translation, material_handle) in person_query.iter_mut(world) {
-                let material = material_storage.get_mut(&material_handle).unwrap();
-                translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-                material.albedo = material.albedo
-                    + Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
-            }
-        })
+fn move_system(
+    (time, materials): &mut (Resource<Time>, ResourceMut<AssetStorage<StandardMaterial>>),
+    (mut translation, material_handle): (RefMut<Translation>, Ref<Handle<StandardMaterial>>),
+) {
+    let material = materials.get_mut(&material_handle).unwrap();
+    translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+    material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
