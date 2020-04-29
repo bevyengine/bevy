@@ -2,7 +2,7 @@ use legion::{
     filter::EntityFilter,
     prelude::{
         into_resource_system, IntoQuery, ResourceSet, Resources, Runnable,
-        Schedulable, World, into_resource_for_each_system, into_for_each_system,
+        Schedulable, World, into_resource_for_each_system,
     },
     query::{DefaultFilter, View},
 };
@@ -34,16 +34,6 @@ where
 }
 
 impl System {
-    pub fn for_each<'a, Q, F, R>(name: &'static str, system: F) -> Self
-    where
-        Q: IntoQuery + DefaultFilter<Filter = R>,
-        <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-        F: FnMut(Q) + Send + Sync + 'static,
-        R: EntityFilter + Sync + 'static,
-    {
-        into_for_each_system(name, system).into()
-    }
-
     pub fn resource_for_each<'a, Q, F, R, X>(name: &'static str, system: F) -> Self
     where
         Q: IntoQuery + DefaultFilter<Filter = R>,
