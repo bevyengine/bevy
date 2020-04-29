@@ -1,10 +1,8 @@
 use legion::{
-    filter::EntityFilter,
     prelude::{
-        into_resource_for_each_system, into_resource_system, IntoQuery, ResourceSet, Resources,
+        Resources,
         Runnable, Schedulable, World,
     },
-    query::{DefaultFilter, View},
 };
 pub enum System {
     Schedulable(Box<dyn Schedulable>),
@@ -30,26 +28,5 @@ where
 {
     fn from(system: T) -> Self {
         System::ThreadLocalFn(Box::new(system))
-    }
-}
-
-impl System {
-    pub fn resource_for_each<'a, Q, F, R, X>(name: &'static str, system: F) -> Self
-    where
-        Q: IntoQuery + DefaultFilter<Filter = R>,
-        <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-        F: FnMut(&mut X, Q) + Send + Sync + 'static,
-        R: EntityFilter + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        into_resource_for_each_system(name, system).into()
-    }
-
-    pub fn resource<'a, F, X>(name: &'static str, system: F) -> Self
-    where
-        F: FnMut(&mut X) + Send + Sync + 'static,
-        X: ResourceSet<PreparedResources = X> + 'static,
-    {
-        into_resource_system(name, system).into()
     }
 }

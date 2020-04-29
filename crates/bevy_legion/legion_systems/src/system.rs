@@ -630,7 +630,7 @@ pub struct SubWorld {
 }
 
 impl SubWorld {
-    unsafe fn new(
+    pub(super) unsafe fn new(
         world: &World,
         access: &Access<ComponentTypeId>,
         archetypes: &ArchetypeAccess,

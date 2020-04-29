@@ -1,7 +1,7 @@
 use crate::{
-    resource::{PreparedRead, Resource, ResourceSet, ResourceTypeId},
+    resource::{ResourceSet, ResourceTypeId},
     schedule::{ArchetypeAccess, Schedulable},
-    Access, System, SystemAccess, SystemFnWrapper, SystemQuery,
+    Access, SystemAccess, SystemQuery, system_fn_types::{FuncSystem, FuncSystemFnWrapper},
 };
 use bit_set::BitSet;
 use fxhash::FxHashMap;
@@ -20,9 +20,9 @@ pub fn into_resource_for_each_system<'a, Q, F, R, X>(
 where
     Q: IntoQuery + DefaultFilter<Filter = R>,
     <Q as View<'a>>::Iter: Iterator<Item = Q> + 'a,
-    F: FnMut(&mut X, Q) + Send + Sync + 'static,
+    F: FnMut(X, Q) + Send + Sync + 'static,
     R: EntityFilter + Sync + 'static,
-    X: ResourceSet<PreparedResources = X> + 'static,
+    X: ResourceSet<PreparedResources = X> + 'static + Clone,
 {
     let mut resource_access: Access<ResourceTypeId> = Access::default();
     resource_access.reads.extend(X::read_types().iter());
@@ -32,19 +32,19 @@ where
     component_access.reads.extend(Q::read_types().iter());
     component_access.writes.extend(Q::write_types().iter());
 
-    let run_fn = SystemFnWrapper(
+    let run_fn = FuncSystemFnWrapper(
         move |_,
               world,
-              resources: &mut X,
+              resources: X,
               query: &mut SystemQuery<Q, <Q as DefaultFilter>::Filter>| {
             for components in query.iter_mut(world) {
-                system(resources, components);
+                system(resources.clone(), components);
             }
         },
         PhantomData,
     );
 
-    Box::new(System {
+    Box::new(FuncSystem {
         name: name.into(),
         queries: AtomicRefCell::new(Q::query()),
         access: SystemAccess {
@@ -61,7 +61,7 @@ where
 
 pub fn into_resource_system<'a, F, X>(name: &'static str, mut system: F) -> Box<dyn Schedulable>
 where
-    F: FnMut(&mut X) + Send + Sync + 'static,
+    F: FnMut(X) + Send + Sync + 'static,
     X: ResourceSet<PreparedResources = X> + 'static,
 {
     let mut resource_access: Access<ResourceTypeId> = Access::default();
@@ -69,14 +69,14 @@ where
     resource_access.writes.extend(X::write_types().iter());
 
     let component_access: Access<ComponentTypeId> = Access::default();
-    let run_fn = SystemFnWrapper(
-        move |_, _, resources: &mut X, _| {
+    let run_fn = FuncSystemFnWrapper(
+        move |_, _, resources: X, _| {
             system(resources);
         },
         PhantomData,
     );
 
-    Box::new(System {
+    Box::new(FuncSystem {
         name: name.into(),
         queries: AtomicRefCell::new(()),
         access: SystemAccess {
@@ -98,72 +98,17 @@ where
     fn into_system(self, name: &'static str) -> Box<dyn Schedulable>;
 }
 
-// impl<F, X: Resource + Send + Sync + 'static, A: Component, B: Component> IntoSystem<(X,), (A, B)> for F
-// where
-//     F: for<'a> FnMut(&X, Ref<'a, A>, Ref<'a, B>) + Send + Sync + 'static,
-// {
-//     fn into_system(mut self, name: &'static str) -> Box<dyn Schedulable> {
-//         let mut resource_access: Access<ResourceTypeId> = Access::default();
-//         resource_access
-//             .reads
-//             .extend(<PreparedRead<X>>::read_types().iter());
-//         resource_access
-//             .writes
-//             .extend(<PreparedRead<X>>::write_types().iter());
-//         let mut component_access: Access<ComponentTypeId> = Access::default();
-//         component_access
-//             .reads
-//             .extend(<(Ref<A>, Ref<B>) as View>::read_types().iter());
-//         component_access
-//             .writes
-//             .extend(<(Ref<A>, Ref<B>) as View>::write_types().iter());
-
-//         let run_fn = SystemFnWrapper(
-//             move |_,
-//                   world,
-//                   x: &mut PreparedRead<X>,
-//                   query: &mut SystemQuery<
-//                 (Ref<A>, Ref<B>),
-//                 EntityFilterTuple<
-//                     And<(ComponentFilter<A>, ComponentFilter<B>)>,
-//                     And<(Passthrough, Passthrough)>,
-//                     And<(Passthrough, Passthrough)>,
-//                 >,
-//             >| {
-//                 for (a, b) in query.iter_mut(world) {
-//                     self(&*x, a, b);
-//                 }
-//             },
-//             PhantomData,
-//         );
-
-//         Box::new(System {
-//             name: name.into(),
-//             queries: AtomicRefCell::new(<(Ref<A>, Ref<B>)>::query()),
-//             access: SystemAccess {
-//                 resources: resource_access,
-//                 components: component_access,
-//                 tags: Access::default(),
-//             },
-//             archetypes: ArchetypeAccess::Some(BitSet::default()),
-//             _resources: PhantomData::<PreparedRead<X>>,
-//             command_buffer: FxHashMap::default(),
-//             run_fn: AtomicRefCell::new(run_fn),
-//         })
-//     }
-// }
-
 impl<
         'a,
         F,
-        X: Resource + Send + Sync + 'static,
+        X: ResourceSet<PreparedResources = X> + 'static + Clone,
         A: for<'b> View<'b> + DefaultFilter<Filter = AF> + ViewElement,
         AF: EntityFilter + Sync + 'static,
         B: for<'b> View<'b> + DefaultFilter<Filter = BF> + ViewElement,
         BF: EntityFilter + Sync + 'static,
     > IntoSystem<'a, (X,), (A, B)> for F
 where
-    F: FnMut(&X, A, B) + Send + Sync + 'static,
+    F: FnMut(X, A, B) + Send + Sync + 'static,
     <A as View<'a>>::Iter: Iterator<Item = A>,
     <B as View<'a>>::Iter: Iterator<Item = B>,
 {
@@ -171,10 +116,10 @@ where
         let mut resource_access: Access<ResourceTypeId> = Access::default();
         resource_access
             .reads
-            .extend(<PreparedRead<X>>::read_types().iter());
+            .extend(<X>::read_types().iter());
         resource_access
             .writes
-            .extend(<PreparedRead<X>>::write_types().iter());
+            .extend(<X>::write_types().iter());
         let mut component_access: Access<ComponentTypeId> = Access::default();
         component_access
             .reads
@@ -183,10 +128,10 @@ where
             .writes
             .extend(<(A, B) as View>::write_types().iter());
 
-        let run_fn = SystemFnWrapper(
+        let run_fn = FuncSystemFnWrapper(
             move |_,
                   world,
-                  x: &mut PreparedRead<X>,
+                  x: X::PreparedResources,
                   query: &mut SystemQuery<
                 (A, B),
                 EntityFilterTuple<
@@ -205,13 +150,13 @@ where
                 >,
             >| {
                 for (a, b) in query.iter_mut(world) {
-                    self(&*x, a, b);
+                    self(x.clone(), a, b);
                 }
             },
             PhantomData,
         );
 
-        Box::new(System {
+        Box::new(FuncSystem {
             name: name.into(),
             queries: AtomicRefCell::new(<(A, B)>::query()),
             access: SystemAccess {
@@ -220,7 +165,7 @@ where
                 tags: Access::default(),
             },
             archetypes: ArchetypeAccess::Some(BitSet::default()),
-            _resources: PhantomData::<PreparedRead<X>>,
+            _resources: PhantomData::<X::PreparedResources>,
             command_buffer: FxHashMap::default(),
             run_fn: AtomicRefCell::new(run_fn),
         })
@@ -242,10 +187,10 @@ macro_rules! impl_system {
                 let resource_access: Access<ResourceTypeId> = Access::default();
                 let component_access: Access<ComponentTypeId> = component_access!(($($view),+));
 
-                let run_fn = SystemFnWrapper(
+                let run_fn = FuncSystemFnWrapper(
                     move |_,
                         world,
-                        _: &mut (),
+                        _: (),
                         query: &mut system_query!($($view, $filter),+)
                         ,
                     | {
@@ -256,7 +201,7 @@ macro_rules! impl_system {
                     PhantomData,
                 );
 
-                Box::new(System {
+                Box::new(FuncSystem {
                     name: name.into(),
                     queries: AtomicRefCell::new(query!($($view),+)),
                     access: SystemAccess {
@@ -357,7 +302,7 @@ mod tests {
     use crate::{
         into_resource_for_each_system,
         resource::{PreparedRead, PreparedWrite, Resources},
-        IntoSystem,
+        IntoSystem, system_fn_types::{ResourceMut, Resource},
     };
     use legion_core::{
         borrow::{Ref, RefMut},
@@ -375,30 +320,53 @@ mod tests {
 
     #[test]
     fn test_into_system() {
-        // fn read_system(a: &A, x: Ref<X>, y: Ref<Y>) {
-        //     println!("{} {} {}", a.0, x.0, y.0);
-        // }
-
-        // fn read_system(x: Ref<X>) {
-        //     println!("{}", x.0);
-        // }
-        fn read_system(x: Ref<X>, y: Ref<Y>, mut z: RefMut<A>) {
-            z.0 += 1;
-            println!("{} {} {}", x.0, y.0, z.0);
-        }
 
         let mut world = World::new();
         let mut resources = Resources::default();
         resources.insert(A(0));
         world.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
 
-        let mut system = read_system.into_system("hi");
+        // fn single_read_system(x: Ref<X>) {
+        //     println!("{}", x.0);
+        // }
+        // let mut system = single_read_system.into_system("hi");
+        // system.run(&mut world, &mut resources);
+
+        // fn read_write_system(x: Ref<X>, y: Ref<Y>, mut z: RefMut<A>) {
+        //     z.0 += 1;
+        //     println!("{} {} {}", x.0, y.0, z.0);
+        // }
+
+        // (
+        //     {
+        //     |x: Resource<A>, y: Ref<Y>, mut z: RefMut<A>| {
+        //     z.0 += 1;
+        //     println!("{} {} {}", x.0, y.0, z.0);
+        // }}).into_system("bleh");
+
+        // let mut system = read_write_system.into_system("read_write");
+        // system.run(&mut world, &mut resources);
+
+        // fn resource_system(a: Resource<A>, x: Ref<X>, y: Ref<Y>) {
+        //     println!("{} {} {}", a.0, x.0, y.0);
+        // }
+
+        // let mut system = resource_system.into_system("hi");
+        // system.run(&mut world, &mut resources);
+
+        fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
+            let hi = &mut a;
+            a.0 += 1;
+            println!("{} {} {}", a.0, x.0, y.0);
+        }
+        let mut system = resource_system_mut.into_system("hi");
         system.run(&mut world, &mut resources);
+
     }
 
     #[test]
     fn test_system_fn() {
-        fn read_write_system(_: &mut (), (_x, mut y): (Ref<X>, RefMut<Y>)) { y.0 += 1; }
+        fn read_write_system(_: (), (_x, mut y): (Ref<X>, RefMut<Y>)) { y.0 += 1; }
 
         let mut world = World::new();
         let mut resources = Resources::default();
@@ -410,34 +378,34 @@ mod tests {
 
     #[test]
     fn test_resource_system_fn() {
-        fn my_system(
-            (a, b): &mut (PreparedWrite<A>, PreparedRead<B>),
-            (x, mut y): (Ref<X>, RefMut<Y>),
-        ) {
-            assert_eq!(**b, B(1));
-            // assert_eq!(**b, B(0));
-            if a.0 == 0 {
-                assert_eq!(*x, X(2));
-                assert_eq!(*y, Y(3));
-            } else if a.0 == 1 {
-                assert_eq!(*x, X(4));
-                assert_eq!(*y, Y(5));
-                y.0 += 1;
-                assert_eq!(*y, Y(6));
-            } else {
-                panic!("unexpected value");
-            }
+        // fn my_system(
+        //     (a,): (Resource<A>,),
+        //     (x, mut y): (Ref<X>, RefMut<Y>),
+        // ) {
+        //     assert_eq!(*a, A(1));
+        //     // assert_eq!(**b, B(0));
+        //     if a.0 == 0 {
+        //         assert_eq!(*x, X(2));
+        //         assert_eq!(*y, Y(3));
+        //     } else if a.0 == 1 {
+        //         assert_eq!(*x, X(4));
+        //         assert_eq!(*y, Y(5));
+        //         y.0 += 1;
+        //         assert_eq!(*y, Y(6));
+        //     } else {
+        //         panic!("unexpected value");
+        //     }
 
-            a.0 += 1;
-        }
+        //     // a.0 += 1;
+        // }
 
-        let mut world = World::new();
-        let mut resources = Resources::default();
+        // let mut world = World::new();
+        // let mut resources = Resources::default();
 
-        resources.insert(A(0));
-        resources.insert(B(1));
-        world.insert((), vec![(X(2), Y(3)), (X(4), Y(5))]);
-        let mut my_system = into_resource_for_each_system("read_resources", my_system);
-        my_system.run(&mut world, &mut resources);
+        // resources.insert(A(0));
+        // resources.insert(B(1));
+        // world.insert((), vec![(X(2), Y(3)), (X(4), Y(5))]);
+        // let mut my_system = into_resource_for_each_system("read_resources", my_system);
+        // my_system.run(&mut world, &mut resources);
     }
 }

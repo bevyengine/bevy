@@ -54,10 +54,11 @@ pub use legion::{
     systems::{
         bit_set::BitSet,
         resource::{
-            PreparedRead as Resource, PreparedWrite as ResourceMut, ResourceSet, Resources,
+            ResourceSet, Resources,
         },
         schedule::{Executor, Runnable, Schedulable, Schedule},
         IntoSystem, SubWorld, SystemBuilder,
+        Resource, ResourceMut,
     },
     world::{Universe, World},
 };
