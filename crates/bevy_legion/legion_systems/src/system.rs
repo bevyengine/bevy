@@ -896,10 +896,11 @@ pub trait SystemFn {
     );
 }
 
-pub struct SystemFnWrapper<R, Q, F: FnMut(&mut CommandBuffer, &mut SubWorld, &mut R, &mut Q) + 'static>(
-    pub F,
-    pub PhantomData<(R, Q)>,
-);
+pub struct SystemFnWrapper<
+    R,
+    Q,
+    F: FnMut(&mut CommandBuffer, &mut SubWorld, &mut R, &mut Q) + 'static,
+>(pub F, pub PhantomData<(R, Q)>);
 
 impl<F, R, Q> SystemFn for SystemFnWrapper<R, Q, F>
 where

@@ -1,5 +1,14 @@
-use crate::{borrow::{RefIterMut, RefMut, RefIter, Ref}, storage::{ArchetypeData, Component, ComponentStorage, ComponentTypeId}, query::{View, DefaultFilter, ViewElement}, filter::{ComponentFilter, EntityFilterTuple, Passthrough}, index::{SetIndex, ChunkIndex}};
-use std::{any::TypeId, slice::{IterMut, Iter}};
+use crate::{
+    borrow::{Ref, RefIter, RefIterMut, RefMut},
+    filter::{ComponentFilter, EntityFilterTuple, Passthrough},
+    index::{ChunkIndex, SetIndex},
+    query::{DefaultFilter, View, ViewElement},
+    storage::{ArchetypeData, Component, ComponentStorage, ComponentTypeId},
+};
+use std::{
+    any::TypeId,
+    slice::{Iter, IterMut},
+};
 
 impl<'a, T: Component> DefaultFilter for RefMut<'static, T> {
     type Filter = EntityFilterTuple<ComponentFilter<T>, Passthrough, Passthrough>;
@@ -7,7 +16,7 @@ impl<'a, T: Component> DefaultFilter for RefMut<'static, T> {
     fn filter() -> Self::Filter { super::filter::filter_fns::component() }
 }
 
-impl<'a, T: Component> View<'a> for RefMut<'static, T>{
+impl<'a, T: Component> View<'a> for RefMut<'static, T> {
     type Iter = RefIterMut<'a, T, IterMut<'a, T>>;
 
     #[inline]
@@ -58,7 +67,7 @@ impl<'a, T: Component> DefaultFilter for Ref<'static, T> {
     fn filter() -> Self::Filter { super::filter::filter_fns::component() }
 }
 
-impl<'a, T: Component> View<'a> for Ref<'static, T>{
+impl<'a, T: Component> View<'a> for Ref<'static, T> {
     type Iter = RefIter<'a, T, Iter<'a, T>>;
 
     #[inline]

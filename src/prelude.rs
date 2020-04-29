@@ -13,6 +13,7 @@ pub use crate::diagnostic::DiagnosticsPlugin;
 pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
 #[cfg(feature = "render")]
 pub use crate::render::{
+    batch::AssetBatchers,
     draw_target,
     entity::*,
     mesh::{shape, Mesh},
@@ -25,7 +26,6 @@ pub use crate::render::{
         RenderGraph,
     },
     render_resource::resource_name,
-    batch::AssetBatchers,
     shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
     texture::{Texture, TextureType},
     ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
@@ -38,24 +38,26 @@ pub use crate::ui::{entity::*, Anchors, Margins, Node};
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
-        stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader, System
+        stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader,
+        System,
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,
 };
 pub use legion::{
-    command::CommandBuffer,
     borrow::{Ref, RefMut},
+    command::CommandBuffer,
     entity::Entity,
     event::Event as LegionEvent,
     filter::filter_fns::*,
     query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
     systems::{
         bit_set::BitSet,
-        resource::{ResourceSet, Resources, PreparedRead as Resource, PreparedWrite as ResourceMut},
+        resource::{
+            PreparedRead as Resource, PreparedWrite as ResourceMut, ResourceSet, Resources,
+        },
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        SubWorld, SystemBuilder,
-        IntoSystem
+        IntoSystem, SubWorld, SystemBuilder,
     },
     world::{Universe, World},
 };

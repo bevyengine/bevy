@@ -41,7 +41,8 @@ fn closure_system() -> Box<dyn Schedulable> {
         println!("processed entity: {} {}", x.0, y.0);
         println!("ran {} times", counter);
         counter += 1;
-    }).into_system("closure_system")
+    })
+    .into_system("closure_system")
 }
 
 // if you need more flexibility, you can define complex systems using the system builder

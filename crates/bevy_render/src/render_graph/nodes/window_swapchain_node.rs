@@ -61,10 +61,12 @@ impl Node for WindowSwapChainNode {
         let render_resources = render_context.resources_mut();
 
         // create window swapchain when window is resized or created
-        if self.window_created_event_reader
+        if self
+            .window_created_event_reader
             .find_latest(&window_created_events, |e| e.id == window.id)
             .is_some()
-            || self.window_resized_event_reader
+            || self
+                .window_resized_event_reader
                 .find_latest(&window_resized_events, |e| e.id == window.id)
                 .is_some()
         {

@@ -1,4 +1,5 @@
 use crate::{
+    batch::AssetBatchers,
     pipeline::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
@@ -6,7 +7,7 @@ use crate::{
     render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments},
     renderer::{GlobalRenderResourceContext, RenderResourceContext},
     shader::AsUniforms,
-    Renderable, Vertex, batch::AssetBatchers,
+    Renderable, Vertex,
 };
 use bevy_asset::{AssetStorage, Handle};
 use glam::*;

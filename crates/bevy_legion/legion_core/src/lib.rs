@@ -15,19 +15,19 @@ pub mod world;
 #[cfg(feature = "serialize")]
 pub mod serialize;
 
+mod system_fn_types;
 mod tuple;
 mod zip;
-mod system_fn_types;
 
 pub mod prelude {
     pub use crate::{
+        // used by system_fn
+        borrow::{Ref, RefMut},
         command::CommandBuffer,
         entity::Entity,
         event::Event,
         filter::filter_fns::*,
         query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
         world::{Universe, World},
-        // used by system_fn
-        borrow::{Ref, RefMut}
     };
 }

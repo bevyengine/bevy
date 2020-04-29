@@ -1,8 +1,9 @@
 use crate::{
+    batch::AssetBatchers,
     color::ColorSource,
     pipeline::{BindType, VertexBufferDescriptor},
     texture::Texture,
-    Renderable, batch::AssetBatchers,
+    Renderable,
 };
 
 use bevy_asset::{AssetStorage, Handle};

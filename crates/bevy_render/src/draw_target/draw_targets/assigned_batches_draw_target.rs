@@ -1,10 +1,11 @@
 use crate::{
+    batch::AssetBatchers,
     draw_target::DrawTarget,
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{resource_name, RenderResourceAssignments},
     renderer::RenderContext,
-    Renderable, batch::AssetBatchers,
+    Renderable,
 };
 use bevy_asset::Handle;
 use legion::prelude::*;

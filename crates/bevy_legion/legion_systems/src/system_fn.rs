@@ -13,7 +13,6 @@ use legion_core::{
 };
 use std::marker::PhantomData;
 
-
 pub fn into_resource_for_each_system<'a, Q, F, R, X>(
     name: &'static str,
     mut system: F,
@@ -153,7 +152,6 @@ where
 //         })
 //     }
 // }
-
 
 impl<
         'a,

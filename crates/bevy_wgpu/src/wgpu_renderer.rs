@@ -59,8 +59,9 @@ impl WgpuRenderer {
             .unwrap();
         let windows = resources.get::<Windows>().unwrap();
         let window_created_events = resources.get::<Events<WindowCreated>>().unwrap();
-        for window_created_event in
-            self.window_created_event_reader.iter(&window_created_events)
+        for window_created_event in self
+            .window_created_event_reader
+            .iter(&window_created_events)
         {
             let window = windows
                 .get(window_created_event.id)

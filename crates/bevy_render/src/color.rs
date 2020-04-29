@@ -3,7 +3,7 @@ use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::Handle;
 use bevy_core::bytes::GetBytes;
 use glam::Vec4;
-use std::ops::{AddAssign, Add};
+use std::ops::{Add, AddAssign};
 use zerocopy::AsBytes;
 
 #[repr(C)]

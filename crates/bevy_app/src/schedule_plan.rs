@@ -1,6 +1,6 @@
-use std::{cmp::Ordering, collections::HashMap};
 use crate::System;
 use legion::prelude::Schedule;
+use std::{cmp::Ordering, collections::HashMap};
 
 #[derive(Default)]
 pub struct SchedulePlan {

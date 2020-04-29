@@ -381,9 +381,7 @@ impl<T: Resource> ResourceSet for Read<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedRead::new(resource.deref() as *const T)
     }
-    fn read_types() -> Vec<ResourceTypeId> {
-        vec![ResourceTypeId::of::<T>()]
-    }
+    fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
     fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
 }
 impl<T: Resource> ResourceSet for Write<T> {
@@ -395,12 +393,8 @@ impl<T: Resource> ResourceSet for Write<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedWrite::new(resource.deref_mut() as *mut T)
     }
-    fn read_types() -> Vec<ResourceTypeId> {
-        Vec::new()
-    }
-    fn write_types() -> Vec<ResourceTypeId> {
-        vec![ResourceTypeId::of::<T>()]
-    }
+    fn read_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn write_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
 }
 
 macro_rules! impl_resource_tuple {

@@ -1,8 +1,8 @@
 use legion::{
     filter::EntityFilter,
     prelude::{
-        into_resource_system, IntoQuery, ResourceSet, Resources, Runnable,
-        Schedulable, World, into_resource_for_each_system,
+        into_resource_for_each_system, into_resource_system, IntoQuery, ResourceSet, Resources,
+        Runnable, Schedulable, World,
     },
     query::{DefaultFilter, View},
 };

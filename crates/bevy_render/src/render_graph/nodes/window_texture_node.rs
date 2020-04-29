@@ -62,10 +62,12 @@ impl Node for WindowTextureNode {
                 .expect("Received window resized event for non-existent window"),
         };
 
-        if self.window_created_event_reader
+        if self
+            .window_created_event_reader
             .find_latest(&window_created_events, |e| e.id == window.id)
             .is_some()
-            || self.window_resized_event_reader
+            || self
+                .window_resized_event_reader
                 .find_latest(&window_resized_events, |e| e.id == window.id)
                 .is_some()
         {
