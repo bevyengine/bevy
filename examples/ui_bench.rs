@@ -4,7 +4,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
-        .add_system(build_move_system())
+        .add_system(move_system.system())
         .add_plugin(DiagnosticsPlugin {
             print_diagnostics: true,
             ..Default::default()
@@ -12,18 +12,10 @@ fn main() {
         .run();
 }
 
-fn build_move_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("move")
-        .read_resource::<Time>()
-        .with_query(<Write<Node>>::query())
-        .build(move |_, world, time, query| {
-            for (_i, mut node) in query.iter_mut(world).enumerate() {
-                if node.color.r > 0.2 {
-                    node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
-                    // println!("{}", node.position.x());
-                }
-            }
-        })
+fn move_system(time: Resource<Time>, mut node: RefMut<Node>) {
+    if node.color.r > 0.2 {
+        node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
+    }
 }
 
 fn setup(world: &mut World, _resources: &mut Resources) {

@@ -4,7 +4,7 @@ pub use winit_windows::*;
 
 use bevy_input::{
     keyboard::KeyboardInput,
-    mouse::{MouseButtonInput, MouseMotion},
+    mouse::{MouseButtonInput, MouseMotionInput},
 };
 
 use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events, GetEventReader};
@@ -114,8 +114,8 @@ pub fn winit_runner(mut app: App) {
             event::Event::DeviceEvent { ref event, .. } => match event {
                 DeviceEvent::MouseMotion { delta } => {
                     let mut mouse_motion_events =
-                        app.resources.get_mut::<Events<MouseMotion>>().unwrap();
-                    mouse_motion_events.send(MouseMotion { delta: *delta });
+                        app.resources.get_mut::<Events<MouseMotionInput>>().unwrap();
+                    mouse_motion_events.send(MouseMotionInput { delta: *delta });
                 }
                 _ => {}
             },

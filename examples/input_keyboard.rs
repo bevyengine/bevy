@@ -6,53 +6,60 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_system_init(move_on_input_system)
+        .add_resource_init::<State>()
+        .add_system(collect_input_system.system())
+        .add_system(move_system.system())
         .add_startup_system(setup)
         .run();
 }
 
+#[derive(Resource)]
+struct State {
+    event_reader: EventReader<KeyboardInput>,
+    moving_right: bool,
+    moving_left: bool,
+}
+
+/// adjusts move state based on keyboard input
+fn collect_input_system(
+    mut state: ResourceMut<State>,
+    keyboard_input_events: Resource<Events<KeyboardInput>>,
+) {
+    for event in state.event_reader.iter(&keyboard_input_events) {
+        match event {
+            KeyboardInput {
+                virtual_key_code: Some(VirtualKeyCode::Left),
+                state: element_state,
+                ..
+            } => {
+                state.moving_left = element_state.is_pressed();
+            }
+            KeyboardInput {
+                virtual_key_code: Some(VirtualKeyCode::Right),
+                state: element_state,
+                ..
+            } => {
+                state.moving_right = element_state.is_pressed();
+            }
+            _ => {}
+        }
+    }
+}
+
 /// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
-pub fn move_on_input_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let mut keyboard_input_event_reader = resources.get_event_reader::<KeyboardInput>();
-    let mut moving_left = false;
-    let mut moving_right = false;
-    SystemBuilder::new("input_handler")
-        .read_resource::<Time>()
-        .read_resource::<Events<KeyboardInput>>()
-        .with_query(<(Write<Translation>, Read<Handle<Mesh>>)>::query())
-        .build(
-            move |_command_buffer, world, (time, keyboard_input_events), mesh_query| {
-                for event in keyboard_input_event_reader.iter(&keyboard_input_events) {
-                    match event {
-                        KeyboardInput {
-                            virtual_key_code: Some(VirtualKeyCode::Left),
-                            state,
-                            ..
-                        } => {
-                            moving_left = state.is_pressed();
-                        }
-                        KeyboardInput {
-                            virtual_key_code: Some(VirtualKeyCode::Right),
-                            state,
-                            ..
-                        } => {
-                            moving_right = state.is_pressed();
-                        }
-                        _ => {}
-                    }
-                }
+fn move_system(
+    state: Resource<State>,
+    time: Resource<Time>,
+    mut translation: RefMut<Translation>,
+    _: Ref<Handle<Mesh>>,
+) {
+    if state.moving_left {
+        translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+    }
 
-                for (mut translation, _mesh) in mesh_query.iter_mut(world) {
-                    if moving_left {
-                        translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-                    }
-
-                    if moving_right {
-                        translation.0 += math::vec3(-1.0, 0.0, 0.0) * time.delta_seconds;
-                    }
-                }
-            },
-        )
+    if state.moving_right {
+        translation.0 += math::vec3(-1.0, 0.0, 0.0) * time.delta_seconds;
+    }
 }
 
 /// creates a simple scene

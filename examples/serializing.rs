@@ -35,7 +35,7 @@ fn main() {
 
 #[derive(Serialize, Deserialize, TypeUuid)]
 #[uuid = "14dec17f-ae14-40a3-8e44-e487fc423287"]
-pub struct Test {
+struct Test {
     pub x: f32,
     pub y: f32,
 }

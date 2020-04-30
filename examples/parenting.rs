@@ -6,12 +6,12 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
-        .add_system(rotator.system())
+        .add_system(rotator_system.system())
         .run();
 }
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator(time: Resource<Time>, _rotator: RefMut<Rotator>, mut rotation: RefMut<Rotation>) {
+fn rotator_system(time: Resource<Time>, _rotator: RefMut<Rotator>, mut rotation: RefMut<Rotation>) {
     rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
 }
 

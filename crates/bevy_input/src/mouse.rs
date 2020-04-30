@@ -15,6 +15,6 @@ pub enum MouseButton {
 }
 
 #[derive(Debug, Clone)]
-pub struct MouseMotion {
+pub struct MouseMotionInput {
     pub delta: (f64, f64),
 }
