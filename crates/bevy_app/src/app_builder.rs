@@ -1,10 +1,10 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
     schedule_plan::SchedulePlan,
-    stage, App, AppExit, Events, System, FromResources,
+    stage, App, AppExit, Events, FromResources, System,
 };
 
-use legion::prelude::{Resources, Universe, World};
+use legion::prelude::{IntoSystem, Resources, Universe, World};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
@@ -196,7 +196,11 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT_UPDATE, Events::<T>::build_update_system())
+            .add_system_to_stage(
+                stage::EVENT_UPDATE,
+                Events::<T>::update_system
+                    .system_id(format!("events_update::{}", std::any::type_name::<T>()).into()),
+            )
     }
 
     pub fn add_resource<T>(&mut self, resource: T) -> &mut Self

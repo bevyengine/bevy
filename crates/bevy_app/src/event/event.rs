@@ -1,4 +1,4 @@
-use legion::prelude::{Resources, Schedulable, SystemBuilder};
+use legion::prelude::{Resources, ResourceMut};
 use std::marker::PhantomData;
 
 struct EventInstance<T> {
@@ -12,8 +12,8 @@ enum State {
 }
 
 /// An event collection that represents the events that occurred within the last two [Events::update] calls. Events can be cheaply read using
-/// an [EventReader]. This collection is meant to be paired with a system that calls [Events::update] exactly once per update/frame. [Events::build_update_system]
-/// will produce a system that does this. [EventReader]s are expected to read events from this collection at least once per update/frame. If events are not handled
+/// an [EventReader]. This collection is meant to be paired with a system that calls [Events::update] exactly once per update/frame. [Events::update_system]
+/// is a system that does this. [EventReader]s are expected to read events from this collection at least once per update/frame. If events are not handled
 /// within one frame/update, they will be dropped.
 ///
 /// # Example
@@ -219,13 +219,12 @@ where
         }
     }
 
-    /// Builds a system that calls [Events::update] once per frame.
-    pub fn build_update_system() -> Box<dyn Schedulable> {
-        SystemBuilder::new(format!("events_update::{}", std::any::type_name::<T>()))
-            .write_resource::<Self>()
-            .build(|_, _, events, _| events.update())
+    /// A system that calls [Events::update] once per frame.
+    pub fn update_system(mut events: ResourceMut<Self>) {
+        events.update();
     }
 }
+
 
 pub trait GetEventReader {
     /// returns an [EventReader] of the given type
