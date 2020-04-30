@@ -36,16 +36,9 @@ fn event_trigger_system(
     }
 }
 
+#[derive(Resource)]
 struct EventListenerState {
     my_event_reader: EventReader<MyEvent>,
-}
-
-impl From<&mut Resources> for EventListenerState {
-    fn from(resources: &mut Resources) -> Self {
-        EventListenerState {
-            my_event_reader: resources.get_event_reader::<MyEvent>(),
-        }
-    }
 }
 
 // prints events as they come in

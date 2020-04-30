@@ -1,7 +1,7 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
     schedule_plan::SchedulePlan,
-    stage, App, AppExit, Events, System,
+    stage, App, AppExit, Events, System, FromResources,
 };
 
 use legion::prelude::{Resources, Universe, World};
@@ -209,10 +209,10 @@ impl AppBuilder {
 
     pub fn add_resource_init<R>(&mut self) -> &mut Self
     where
-        R: for<'a> From<&'a mut Resources> + Send + Sync + 'static,
+        R: FromResources + Send + Sync + 'static,
     {
         let resources = self.resources_mut();
-        let resource = R::from(resources);
+        let resource = R::from_resources(resources);
         resources.insert(resource);
         self
     }
