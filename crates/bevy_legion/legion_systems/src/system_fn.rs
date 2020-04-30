@@ -276,7 +276,6 @@ mod tests {
         system.run(&mut world, &mut resources);
 
         fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
-            let hi = &mut a;
             a.0 += 1;
             println!("{} {} {}", a.0, x.0, y.0);
         }
