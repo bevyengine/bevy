@@ -14,10 +14,12 @@
 //!fn main() {
 //!    App::build()
 //!        .add_default_plugins()
-//!        .add_system(|_: &mut World, _: &mut Resources| {
-//!            println!("hello world");
-//!        })
+//!        .add_system(hello_world_system.system())
 //!        .run();
+//!}
+//!
+//!fn hello_world_system() {
+//!    println!("hello world");
 //!}
 //! ```
 
