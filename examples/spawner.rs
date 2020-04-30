@@ -9,13 +9,15 @@ fn main() {
             ..Default::default()
         })
         .add_startup_system(setup)
-        .add_system(System::resource_for_each("move", move_system))
+        .add_system(move_system.into_system("move"))
         .run();
 }
 
 fn move_system(
-    (time, materials): &mut (Resource<Time>, ResourceMut<AssetStorage<StandardMaterial>>),
-    (mut translation, material_handle): (RefMut<Translation>, Ref<Handle<StandardMaterial>>),
+    time: Resource<Time>,
+    mut materials: ResourceMut<AssetStorage<StandardMaterial>>,
+    mut translation: RefMut<Translation>,
+    material_handle: Ref<Handle<StandardMaterial>>,
 ) {
     let material = materials.get_mut(&material_handle).unwrap();
     translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;

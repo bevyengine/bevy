@@ -6,8 +6,8 @@ fn main() {
         .add_event::<MyEvent>()
         .add_resource(EventTriggerState::default())
         .add_resource_init::<EventListenerState>()
-        .add_system(System::resource("event_trigger", event_trigger_system))
-        .add_system(System::resource("event_listener", event_listener_system))
+        .add_system(event_trigger_system.into_system("event_trigger"))
+        .add_system(event_listener_system.into_system("event_listener"))
         .run();
 }
 
@@ -22,11 +22,9 @@ struct EventTriggerState {
 
 // sends MyEvent every second
 fn event_trigger_system(
-    (state, my_events, time): &mut (
-        ResourceMut<EventTriggerState>,
-        ResourceMut<Events<MyEvent>>,
-        Resource<Time>,
-    ),
+    mut state: ResourceMut<EventTriggerState>,
+    mut my_events: ResourceMut<Events<MyEvent>>,
+    time: Resource<Time>,
 ) {
     state.elapsed += time.delta_seconds;
     if state.elapsed > 1.0 {
@@ -52,7 +50,8 @@ impl From<&mut Resources> for EventListenerState {
 
 // prints events as they come in
 fn event_listener_system(
-    (state, my_events): &mut (ResourceMut<EventListenerState>, Resource<Events<MyEvent>>),
+    mut state: ResourceMut<EventListenerState>,
+    my_events: Resource<Events<MyEvent>>,
 ) {
     for my_event in state.my_event_reader.iter(&my_events) {
         println!("{}", my_event.message);
