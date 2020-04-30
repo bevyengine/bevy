@@ -17,7 +17,7 @@ fn main() {
         .add_plugin(ScheduleRunnerPlugin {
             run_mode: RunMode::Once,
         })
-        .add_system(hello_world_system())
+        .add_system(hello_world_system.into_system("hello"))
         .run();
 
     // this app loops forever at 60 fps
@@ -27,12 +27,10 @@ fn main() {
                 wait: Some(Duration::from_secs_f64(1.0 / 60.0)),
             },
         })
-        .add_system(hello_world_system())
+        .add_system(hello_world_system.into_system("hello"))
         .run();
 }
 
-pub fn hello_world_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("hello_world").build(move |_, _, _, _| {
-        println!("hello world");
-    })
+pub fn hello_world_system() {
+    println!("hello world");
 }

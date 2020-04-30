@@ -11,31 +11,31 @@ use legion_core::{
     filter::{And, EntityFilter, EntityFilterTuple},
     query::{DefaultFilter, IntoQuery, View, ViewElement},
     storage::ComponentTypeId,
+    command::CommandBuffer,
 };
 use std::marker::PhantomData;
 
-pub trait IntoSystem<'a, ResourceArgs, ComponentArgs> {
+pub trait IntoSystem<'a, CommandBuffer, ResourceArgs, ComponentArgs> {
     fn into_system(self, name: &'static str) -> Box<dyn Schedulable>;
 }
 
 macro_rules! impl_system {
-    (($(($resource:ident, $resource_var:ident)),*), ($(($view:ident, $filter:ident, $view_var:ident)),*)) => {
+    (($($command_buffer:ident)*), ($(($resource:ident, $resource_var:ident)),*), ($(($view:ident, $filter:ident, $view_var:ident)),*)) => {
         impl<'a,
         Func,
         $($resource: ResourceSet<PreparedResources = $resource> + 'static + Clone,)*
         $($view: for<'b> View<'b> + DefaultFilter<Filter = $filter> + ViewElement,
         $filter: EntityFilter + Sync + 'static),*
-    > IntoSystem<'a, ($($resource,)*), ($($view,)*)> for Func
+    > IntoSystem<'a, tuple!($($command_buffer)*), ($($resource,)*), ($($view,)*)> for Func
         where
-            Func: FnMut($($resource,)* $($view),*) + Send + Sync + 'static,
+            Func: FnMut($(&mut $command_buffer,)* $($resource,)* $($view),*) + Send + Sync + 'static,
             $(<$view as View<'a>>::Iter: Iterator<Item = $view>),*
         {
             fn into_system(mut self, name: &'static str) -> Box<dyn Schedulable> {
                 let resource_access: Access<ResourceTypeId> = resource_access!(($($resource),*));
                 let component_access: Access<ComponentTypeId> = component_access!(($($view),*));
 
-                let run_fn = function_wrapper!(self, ($($resource, $resource_var),*), ($($view, $filter, $view_var),*));
-
+                let run_fn = function_wrapper!(self, ($($command_buffer)*), ($($resource, $resource_var),*), ($($view, $filter, $view_var),*));
                 Box::new(FuncSystem {
                     name: name.into(),
                     queries: AtomicRefCell::new(query!($($view),*)),
@@ -55,7 +55,7 @@ macro_rules! impl_system {
 }
 
 macro_rules! function_wrapper {
-    ($me:ident, ($($resource:ident, $resource_var:ident),*), ($($view:ident, $filter:ident, $view_var:ident),*)) => {
+    ($me:ident, ($($command_buffer:ident)*), ($($resource:ident, $resource_var:ident),*), ($($view:ident, $filter:ident, $view_var:ident),*)) => {
         FuncSystemFnWrapper(
             move |_command_buffer,
                 _world,
@@ -63,7 +63,7 @@ macro_rules! function_wrapper {
                 _query: &mut system_query!($($view, $filter),*)
             | {
                 let tuple!($($resource_var),*) = _resources;
-                run_function!($me, ($($resource, $resource_var),*), _world, _query, ($($view, $filter, $view_var),*))
+                run_function!($me, ($(_command_buffer, $command_buffer)*), ($($resource, $resource_var),*), _world, _query, ($($view, $filter, $view_var),*))
             },
             PhantomData,
         )
@@ -71,12 +71,12 @@ macro_rules! function_wrapper {
 }
 
 macro_rules! run_function {
-    ($me:ident, ($($resource:ident, $resource_var:ident),*), $world:ident, $query:ident, ()) => {
-        $me($($resource_var),*);
+    ($me:ident, ($($command_buffer_var:ident, $command_buffer:ident)*), ($($resource:ident, $resource_var:ident),*), $world:ident, $query:ident, ()) => {
+        $me($($command_buffer_var,)*$($resource_var),*);
     };
-    ($me:ident, ($($resource:ident, $resource_var:ident),*), $world:ident, $query:ident, ($($view:ident, $filter:ident, $view_var:ident),+)) => {
+    ($me:ident, ($($command_buffer_var:ident, $command_buffer:ident)*), ($($resource:ident, $resource_var:ident),*), $world:ident, $query:ident, ($($view:ident, $filter:ident, $view_var:ident),+)) => {
         for tuple!($($view_var),*) in $query.iter_mut($world) {
-            $me($($resource_var.clone(),)* $($view_var),*);
+            $me($($command_buffer_var,)*$($resource_var.clone(),)* $($view_var),*);
         }
     }
 }
@@ -155,31 +155,58 @@ macro_rules! query {
 macro_rules! impl_system_variants {
    ($(($resource:ident, $resource_var:ident)),*) => {
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ()];
+        impl_system![(), ($(($resource, $resource_var)),*), ()];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11))];
         #[rustfmt::skip]
-        impl_system![($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11), (V12, V12F, v12))];
+        impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11), (V12, V12F, v12))];
+
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ()];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11))];
+        #[rustfmt::skip]
+        impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11), (V12, V12F, v12))];
 
    }
 }
@@ -220,7 +247,7 @@ mod tests {
     };
     use legion_core::{
         borrow::{Ref, RefMut},
-        world::World,
+        world::World, command::CommandBuffer,
     };
 
     #[derive(Debug, Eq, PartialEq)]
@@ -281,17 +308,25 @@ mod tests {
         }
         let mut system = resource_system_mut.into_system("hi");
         system.run(&mut world, &mut resources);
+
+        fn command_buffer_system(command_buffer: &mut CommandBuffer, mut a: ResourceMut<A>) {
+            a.0 += 1;
+            command_buffer.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
+            println!("{}", a.0);
+        }
+        let mut system = command_buffer_system.into_system("hi");
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
     fn test_resource_system_fn() {
         fn my_system(mut a: ResourceMut<A>, x: Ref<X>, mut y: RefMut<Y>) {
-            assert_eq!(*a, A(1));
-            // assert_eq!(**b, B(0));
             if a.0 == 0 {
+                assert_eq!(*a, A(0));
                 assert_eq!(*x, X(2));
                 assert_eq!(*y, Y(3));
             } else if a.0 == 1 {
+                assert_eq!(*a, A(1));
                 assert_eq!(*x, X(4));
                 assert_eq!(*y, Y(5));
                 y.0 += 1;
