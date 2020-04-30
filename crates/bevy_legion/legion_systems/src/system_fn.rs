@@ -92,8 +92,8 @@ where
 }
 
 pub trait IntoSystem<'a, ResourceArgs, ComponentArgs>
-where
-    ComponentArgs: IntoQuery + DefaultFilter,
+// where
+//     ComponentArgs: IntoQuery + DefaultFilter,
 {
     fn into_system(self, name: &'static str) -> Box<dyn Schedulable>;
 }
@@ -173,37 +173,35 @@ where
 }
 
 macro_rules! impl_system {
-    ($(($view:ident, $filter:ident, $var:ident)),+) => {
+    (($(($view:ident, $filter:ident, $var:ident)),*)) => {
         impl<'a,
         Func,
         $($view: for<'b> View<'b> + DefaultFilter<Filter = $filter> + ViewElement,
-        $filter: EntityFilter + Sync + 'static),+
-    > IntoSystem<'a, (), ($($view,)+)> for Func
+        $filter: EntityFilter + Sync + 'static),*
+    > IntoSystem<'a, (), ($($view,)*)> for Func
         where
-            Func: FnMut($($view),+) + Send + Sync + 'static,
-            $(<$view as View<'a>>::Iter: Iterator<Item = $view>),+
+            Func: FnMut($($view),*) + Send + Sync + 'static,
+            $(<$view as View<'a>>::Iter: Iterator<Item = $view>),*
         {
             fn into_system(mut self, name: &'static str) -> Box<dyn Schedulable> {
                 let resource_access: Access<ResourceTypeId> = Access::default();
-                let component_access: Access<ComponentTypeId> = component_access!(($($view),+));
+                let component_access: Access<ComponentTypeId> = component_access!(($($view),*));
 
                 let run_fn = FuncSystemFnWrapper(
                     move |_,
                         world,
                         _: (),
-                        query: &mut system_query!($($view, $filter),+)
+                        query: &mut system_query!($($view, $filter),*)
                         ,
                     | {
-                        for tuple!($($var),+) in query.iter_mut(world) {
-                            self($($var),+);
-                        }
+                        run_system!(self, query, world, $($var),*)
                     },
                     PhantomData,
                 );
 
                 Box::new(FuncSystem {
                     name: name.into(),
-                    queries: AtomicRefCell::new(query!($($view),+)),
+                    queries: AtomicRefCell::new(query!($($view),*)),
                     access: SystemAccess {
                         resources: resource_access,
                         components: component_access,
@@ -219,7 +217,19 @@ macro_rules! impl_system {
     }
 }
 
+macro_rules! run_system {
+    ($me:ident, $query:ident, $world:ident, ) => {{
+        $me();
+    }};
+    ($me:ident, $query:ident, $world:ident, $($var:ident),+) => {{
+        for tuple!($($var),*) in $query.iter_mut($world) {
+            $me($($var),*);
+        }
+    }}
+}
+
 macro_rules! tuple {
+    () => { () };
     // single value: v1
     ($value:ident) => { $value };
     // multiple values: (v1, v2, v3)
@@ -241,6 +251,9 @@ macro_rules! component_access {
 }
 
 macro_rules! system_query {
+    () => {
+        ()
+    };
     ($view:ident, $filter:ident) => {
         SystemQuery<
         $view,
@@ -266,36 +279,38 @@ macro_rules! system_query {
 }
 
 macro_rules! query {
-    (()) => { () };
+    () => { () };
     ($($query:ident),+) => {
         <tuple!($($query),+)>::query()
     }
 }
 
 #[rustfmt::skip]
-impl_system![(A, AF, a)];
+impl_system![()];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b)];
+impl_system![((A, AF, a))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c)];
+impl_system![((A, AF, a), (B, BF, b))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j), (K, KF, k)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j))];
 #[rustfmt::skip]
-impl_system![(A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j), (K, KF, k), (L, LF, l)];
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j), (K, KF, k))];
+#[rustfmt::skip]
+impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF, f), (G, GF, g), (H, HF, h), (I, IF, i), (J, JF, j), (K, KF, k), (L, LF, l))];
 
 #[cfg(test)]
 mod tests {
@@ -354,13 +369,20 @@ mod tests {
         // let mut system = resource_system.into_system("hi");
         // system.run(&mut world, &mut resources);
 
-        fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
-            let hi = &mut a;
-            a.0 += 1;
-            println!("{} {} {}", a.0, x.0, y.0);
+        fn empty_system_mut() {
+            println!("hello world");
         }
-        let mut system = resource_system_mut.into_system("hi");
+
+        let mut system = empty_system_mut.into_system("hi");
         system.run(&mut world, &mut resources);
+
+        // fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
+        //     let hi = &mut a;
+        //     a.0 += 1;
+        //     println!("{} {} {}", a.0, x.0, y.0);
+        // }
+        // let mut system = resource_system_mut.into_system("hi");
+        // system.run(&mut world, &mut resources);
 
     }
 
