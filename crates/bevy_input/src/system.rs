@@ -4,20 +4,17 @@ use legion::prelude::*;
 
 pub fn exit_on_esc_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut keyboard_input_event_reader = resources.get_event_reader::<KeyboardInput>();
-    SystemBuilder::new("exit_on_esc")
-        .read_resource::<Events<KeyboardInput>>()
-        .write_resource::<Events<AppExit>>()
-        .build(
-            move |_, _, (ref keyboard_input_events, ref mut app_exit_events), _| {
-                for event in keyboard_input_event_reader.iter(keyboard_input_events) {
-                    if let Some(virtual_key_code) = event.virtual_key_code {
-                        if event.state == ElementState::Pressed
-                            && virtual_key_code == VirtualKeyCode::Escape
-                        {
-                            app_exit_events.send(AppExit);
-                        }
-                    }
+    (move |keyboard_input_events: Resource<Events<KeyboardInput>>,
+           mut app_exit_events: ResourceMut<Events<AppExit>>| {
+        for event in keyboard_input_event_reader.iter(&keyboard_input_events) {
+            if let Some(virtual_key_code) = event.virtual_key_code {
+                if event.state == ElementState::Pressed
+                    && virtual_key_code == VirtualKeyCode::Escape
+                {
+                    app_exit_events.send(AppExit);
                 }
-            },
-        )
+            }
+        }
+    })
+    .system_named("exit_on_esc")
 }
