@@ -21,6 +21,7 @@ ui = ["bevy_ui"]
 window = ["bevy_window"]
 wgpu = ["bevy_wgpu"]
 winit = ["bevy_winit"]
+more-system-fns = ["legion/more-system-fns"]
 
 [dependencies]
 # bevy

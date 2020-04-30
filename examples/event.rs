@@ -6,8 +6,8 @@ fn main() {
         .add_event::<MyEvent>()
         .add_resource(EventTriggerState::default())
         .add_resource_init::<EventListenerState>()
-        .add_system(event_trigger_system.into_system("event_trigger"))
-        .add_system(event_listener_system.into_system("event_listener"))
+        .add_system(event_trigger_system.system())
+        .add_system(event_listener_system.system())
         .run();
 }
 

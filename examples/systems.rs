@@ -7,7 +7,7 @@ fn main() {
         .add_event::<MyEvent>()
         .add_startup_system(setup)
         .add_system_init(built_system)
-        .add_system(simple_system.into_system("simple_system"))
+        .add_system(simple_system.system())
         .add_system(closure_system())
         .run();
 }
@@ -42,7 +42,7 @@ fn closure_system() -> Box<dyn Schedulable> {
         println!("ran {} times", counter);
         counter += 1;
     })
-    .into_system("closure_system")
+    .system()
 }
 
 // if you need more flexibility, you can define complex systems using the system builder

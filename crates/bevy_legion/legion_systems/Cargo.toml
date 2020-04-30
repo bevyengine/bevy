@@ -16,6 +16,7 @@ travis-ci = { repository = "TomGillen/legion", branch = "master" }
 [features]
 par-iter = ["rayon", "legion-core/par-iter"]
 par-schedule = ["rayon", "crossbeam-queue"]
+more-system-fns = []
 
 [dependencies]
 legion-core = { path = "../legion_core", version = "0.2.1", default-features = false }
@@ -30,6 +31,7 @@ bit-set = "0.5"
 paste = "0.1"
 tracing = "0.1"
 fxhash = "0.2"
+uuid = "0.8"
 
 [dev-dependencies]
 tracing-subscriber = "0.2"

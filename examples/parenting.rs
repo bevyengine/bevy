@@ -6,20 +6,13 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
-        .add_system(build_rotator_system())
+        .add_system(rotator.system())
         .run();
 }
 
 /// rotates the parent, which will result in the child also rotating
-fn build_rotator_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("rotator")
-        .read_resource::<Time>()
-        .with_query(<(Write<Rotator>, Write<Rotation>)>::query())
-        .build(move |_, world, time, rotator_query| {
-            for (_rotator, mut rotation) in rotator_query.iter_mut(world) {
-                rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
-            }
-        })
+fn rotator(time: Resource<Time>, _rotator: RefMut<Rotator>, mut rotation: RefMut<Rotation>) {
+    rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
 }
 
 /// set up a simple scene with a "parent" cube and a "child" cube

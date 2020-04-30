@@ -3,14 +3,14 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(startup_system.into_system("startup"))
+        .add_startup_system(startup.system())
         .run();
 }
 
 /// Set up a simple scene using a "startup system".
 /// Startup systems are run exactly once when the app starts up.
 /// They run right before "normal" systems run.
-fn startup_system(
+fn startup(
     command_buffer: &mut CommandBuffer,
     mut meshes: ResourceMut<AssetStorage<Mesh>>,
     mut materials: ResourceMut<AssetStorage<StandardMaterial>>,

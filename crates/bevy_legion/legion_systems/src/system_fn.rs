@@ -2,21 +2,24 @@ use crate::{
     resource::{ResourceSet, ResourceTypeId},
     schedule::{ArchetypeAccess, Schedulable},
     system_fn_types::{FuncSystem, FuncSystemFnWrapper},
-    Access, SystemAccess, SystemQuery,
+    Access, SystemAccess, SystemId, SystemQuery,
 };
 use bit_set::BitSet;
 use fxhash::FxHashMap;
 use legion_core::{
     borrow::AtomicRefCell,
+    command::CommandBuffer,
     filter::{And, EntityFilter, EntityFilterTuple},
     query::{DefaultFilter, IntoQuery, View, ViewElement},
     storage::ComponentTypeId,
-    command::CommandBuffer,
 };
 use std::marker::PhantomData;
+use uuid::Uuid;
 
-pub trait IntoSystem<'a, CommandBuffer, ResourceArgs, ComponentArgs> {
-    fn into_system(self, name: &'static str) -> Box<dyn Schedulable>;
+pub trait IntoSystem<'a, CommandBuffer, Resources, Components> {
+    fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
+    fn system_named(self, name: &'static str) -> Box<dyn Schedulable>;
+    fn system(self) -> Box<dyn Schedulable>;
 }
 
 macro_rules! impl_system {
@@ -31,13 +34,13 @@ macro_rules! impl_system {
             Func: FnMut($(&mut $command_buffer,)* $($resource,)* $($view),*) + Send + Sync + 'static,
             $(<$view as View<'a>>::Iter: Iterator<Item = $view>),*
         {
-            fn into_system(mut self, name: &'static str) -> Box<dyn Schedulable> {
+            fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
                 let resource_access: Access<ResourceTypeId> = resource_access!(($($resource),*));
                 let component_access: Access<ComponentTypeId> = component_access!(($($view),*));
 
                 let run_fn = function_wrapper!(self, ($($command_buffer)*), ($($resource, $resource_var),*), ($($view, $filter, $view_var),*));
                 Box::new(FuncSystem {
-                    name: name.into(),
+                    name: id,
                     queries: AtomicRefCell::new(query!($($view),*)),
                     access: SystemAccess {
                         resources: resource_access,
@@ -49,6 +52,15 @@ macro_rules! impl_system {
                     command_buffer: FxHashMap::default(),
                     run_fn: AtomicRefCell::new(run_fn),
                 })
+            }
+
+            fn system_named(self, name: &'static str) -> Box<dyn Schedulable> {
+                self.system_id(name.into())
+            }
+
+            fn system(self) -> Box<dyn Schedulable> {
+                let uuid = Uuid::new_v4();
+                self.system_id(uuid.to_simple().to_string().into())
             }
         }
     }
@@ -172,13 +184,18 @@ macro_rules! impl_system_variants {
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7))];
         #[rustfmt::skip]
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8))];
+
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11), (V12, V12F, v12))];
 
         #[rustfmt::skip]
@@ -199,15 +216,19 @@ macro_rules! impl_system_variants {
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7))];
         #[rustfmt::skip]
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8))];
+
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11))];
         #[rustfmt::skip]
+        #[cfg(feature = "more-system-fns")]
         impl_system![(CommandBuffer), ($(($resource, $resource_var)),*), ((V1, V1F, v1), (V2, V2F, v2), (V3, V3F, v3), (V4, V4F, v4), (V5, V5F, v5), (V6, V6F, v6), (V7, V7F, v7), (V8, V8F, v8), (V9, V9F, v9), (V10, V10F, v10), (V11, V11F, v11), (V12, V12F, v12))];
-
    }
 }
 
@@ -229,13 +250,18 @@ impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6)
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7)];
 #[rustfmt::skip]
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7), (R8, r8)];
+
 #[rustfmt::skip]
+#[cfg(feature = "more-system-fns")]
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7), (R8, r8), (R9, r9)];
 #[rustfmt::skip]
+#[cfg(feature = "more-system-fns")]
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7), (R8, r8), (R9, r9), (R10, r10)];
 #[rustfmt::skip]
+#[cfg(feature = "more-system-fns")]
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7), (R8, r8), (R9, r9), (R10, r10), (R11, r11)];
 #[rustfmt::skip]
+#[cfg(feature = "more-system-fns")]
 impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6), (R7, r7), (R8, r8), (R9, r9), (R10, r10), (R11, r11), (R12, r12)];
 
 #[cfg(test)]
@@ -247,7 +273,8 @@ mod tests {
     };
     use legion_core::{
         borrow::{Ref, RefMut},
-        world::World, command::CommandBuffer,
+        command::CommandBuffer,
+        world::World,
     };
 
     #[derive(Debug, Eq, PartialEq)]
@@ -269,7 +296,7 @@ mod tests {
         fn single_read_system(x: Ref<X>) {
             println!("{}", x.0);
         }
-        let mut system = single_read_system.into_system("hi");
+        let mut system = single_read_system.system();
         system.run(&mut world, &mut resources);
 
         fn read_write_system(x: Ref<X>, y: Ref<Y>, mut z: RefMut<A>) {
@@ -283,30 +310,30 @@ mod tests {
                 println!("{} {} {}", x.0, y.0, z.0);
             }
         })
-        .into_system("bleh");
+        .system();
 
-        let mut system = read_write_system.into_system("read_write");
+        let mut system = read_write_system.system();
         system.run(&mut world, &mut resources);
 
         fn resource_system(a: Resource<A>, x: Ref<X>, y: Ref<Y>) {
             println!("{} {} {}", a.0, x.0, y.0);
         }
 
-        let mut system = resource_system.into_system("hi");
+        let mut system = resource_system.system();
         system.run(&mut world, &mut resources);
 
         fn empty_system_mut() {
             println!("hello world");
         }
 
-        let mut system = empty_system_mut.into_system("hi");
+        let mut system = empty_system_mut.system();
         system.run(&mut world, &mut resources);
 
         fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
             a.0 += 1;
             println!("{} {} {}", a.0, x.0, y.0);
         }
-        let mut system = resource_system_mut.into_system("hi");
+        let mut system = resource_system_mut.system();
         system.run(&mut world, &mut resources);
 
         fn command_buffer_system(command_buffer: &mut CommandBuffer, mut a: ResourceMut<A>) {
@@ -314,7 +341,7 @@ mod tests {
             command_buffer.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
             println!("{}", a.0);
         }
-        let mut system = command_buffer_system.into_system("hi");
+        let mut system = command_buffer_system.system();
         system.run(&mut world, &mut resources);
     }
 
@@ -344,7 +371,7 @@ mod tests {
         resources.insert(A(0));
         resources.insert(B(1));
         world.insert((), vec![(X(2), Y(3)), (X(4), Y(5))]);
-        let mut my_system = my_system.into_system("my_system");
+        let mut my_system = my_system.system();
         my_system.run(&mut world, &mut resources);
     }
 }
