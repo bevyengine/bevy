@@ -1,7 +1,8 @@
 use crate::{
     resource::{ResourceSet, ResourceTypeId},
     schedule::{ArchetypeAccess, Schedulable},
-    Access, SystemAccess, SystemQuery, system_fn_types::{FuncSystem, FuncSystemFnWrapper},
+    system_fn_types::{FuncSystem, FuncSystemFnWrapper},
+    Access, SystemAccess, SystemQuery,
 };
 use bit_set::BitSet;
 use fxhash::FxHashMap;
@@ -33,10 +34,7 @@ where
     component_access.writes.extend(Q::write_types().iter());
 
     let run_fn = FuncSystemFnWrapper(
-        move |_,
-              world,
-              resources: X,
-              query: &mut SystemQuery<Q, <Q as DefaultFilter>::Filter>| {
+        move |_, world, resources: X, query: &mut SystemQuery<Q, <Q as DefaultFilter>::Filter>| {
             for components in query.iter_mut(world) {
                 system(resources.clone(), components);
             }
@@ -114,12 +112,8 @@ where
 {
     fn into_system(mut self, name: &'static str) -> Box<dyn Schedulable> {
         let mut resource_access: Access<ResourceTypeId> = Access::default();
-        resource_access
-            .reads
-            .extend(<X>::read_types().iter());
-        resource_access
-            .writes
-            .extend(<X>::write_types().iter());
+        resource_access.reads.extend(<X>::read_types().iter());
+        resource_access.writes.extend(<X>::write_types().iter());
         let mut component_access: Access<ComponentTypeId> = Access::default();
         component_access
             .reads
@@ -187,17 +181,7 @@ macro_rules! impl_system {
                 let resource_access: Access<ResourceTypeId> = Access::default();
                 let component_access: Access<ComponentTypeId> = component_access!(($($view),*));
 
-                let run_fn = FuncSystemFnWrapper(
-                    move |_,
-                        world,
-                        _: (),
-                        query: &mut system_query!($($view, $filter),*)
-                        ,
-                    | {
-                        run_system!(self, query, world, $($var),*)
-                    },
-                    PhantomData,
-                );
+                let run_fn = function_wrapper!(self, $($view, $filter, $var),*);
 
                 Box::new(FuncSystem {
                     name: name.into(),
@@ -217,15 +201,29 @@ macro_rules! impl_system {
     }
 }
 
-macro_rules! run_system {
-    ($me:ident, $query:ident, $world:ident, ) => {{
-        $me();
-    }};
-    ($me:ident, $query:ident, $world:ident, $($var:ident),+) => {{
-        for tuple!($($var),*) in $query.iter_mut($world) {
-            $me($($var),*);
-        }
-    }}
+macro_rules! function_wrapper {
+    ($me:ident, ) => {
+        FuncSystemFnWrapper(
+            move |_, _, _, _,| {
+                $me();
+            },
+            PhantomData,
+        )
+    };
+    ($me:ident, $($view:ident, $filter:ident, $var:ident),+) => {
+        FuncSystemFnWrapper(
+            move |_,
+                world,
+                _: (),
+                query: &mut system_query!($($view, $filter),*)
+            | {
+                for tuple!($($var),*) in query.iter_mut(world) {
+                    $me($($var),*);
+                }
+            },
+            PhantomData,
+        )
+    }
 }
 
 macro_rules! tuple {
@@ -251,9 +249,6 @@ macro_rules! component_access {
 }
 
 macro_rules! system_query {
-    () => {
-        ()
-    };
     ($view:ident, $filter:ident) => {
         SystemQuery<
         $view,
@@ -316,8 +311,9 @@ impl_system![((A, AF, a), (B, BF, b), (C, CF, c), (D, DF, d), (E, EF, e), (F, FF
 mod tests {
     use crate::{
         into_resource_for_each_system,
-        resource::{PreparedRead, PreparedWrite, Resources},
-        IntoSystem, system_fn_types::{ResourceMut, Resource},
+        resource::Resources,
+        system_fn_types::{Resource, ResourceMut},
+        IntoSystem,
     };
     use legion_core::{
         borrow::{Ref, RefMut},
@@ -335,39 +331,39 @@ mod tests {
 
     #[test]
     fn test_into_system() {
-
         let mut world = World::new();
         let mut resources = Resources::default();
         resources.insert(A(0));
         world.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
 
-        // fn single_read_system(x: Ref<X>) {
-        //     println!("{}", x.0);
-        // }
-        // let mut system = single_read_system.into_system("hi");
-        // system.run(&mut world, &mut resources);
+        fn single_read_system(x: Ref<X>) {
+            println!("{}", x.0);
+        }
+        let mut system = single_read_system.into_system("hi");
+        system.run(&mut world, &mut resources);
 
-        // fn read_write_system(x: Ref<X>, y: Ref<Y>, mut z: RefMut<A>) {
-        //     z.0 += 1;
-        //     println!("{} {} {}", x.0, y.0, z.0);
-        // }
+        fn read_write_system(x: Ref<X>, y: Ref<Y>, mut z: RefMut<A>) {
+            z.0 += 1;
+            println!("{} {} {}", x.0, y.0, z.0);
+        }
 
-        // (
-        //     {
-        //     |x: Resource<A>, y: Ref<Y>, mut z: RefMut<A>| {
-        //     z.0 += 1;
-        //     println!("{} {} {}", x.0, y.0, z.0);
-        // }}).into_system("bleh");
+        ({
+            |x: Resource<A>, y: Ref<Y>, mut z: RefMut<A>| {
+                z.0 += 1;
+                println!("{} {} {}", x.0, y.0, z.0);
+            }
+        })
+        .into_system("bleh");
 
-        // let mut system = read_write_system.into_system("read_write");
-        // system.run(&mut world, &mut resources);
+        let mut system = read_write_system.into_system("read_write");
+        system.run(&mut world, &mut resources);
 
-        // fn resource_system(a: Resource<A>, x: Ref<X>, y: Ref<Y>) {
-        //     println!("{} {} {}", a.0, x.0, y.0);
-        // }
+        fn resource_system(a: Resource<A>, x: Ref<X>, y: Ref<Y>) {
+            println!("{} {} {}", a.0, x.0, y.0);
+        }
 
-        // let mut system = resource_system.into_system("hi");
-        // system.run(&mut world, &mut resources);
+        let mut system = resource_system.into_system("hi");
+        system.run(&mut world, &mut resources);
 
         fn empty_system_mut() {
             println!("hello world");
@@ -376,14 +372,13 @@ mod tests {
         let mut system = empty_system_mut.into_system("hi");
         system.run(&mut world, &mut resources);
 
-        // fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
-        //     let hi = &mut a;
-        //     a.0 += 1;
-        //     println!("{} {} {}", a.0, x.0, y.0);
-        // }
-        // let mut system = resource_system_mut.into_system("hi");
-        // system.run(&mut world, &mut resources);
-
+        fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
+            let hi = &mut a;
+            a.0 += 1;
+            println!("{} {} {}", a.0, x.0, y.0);
+        }
+        let mut system = resource_system_mut.into_system("hi");
+        system.run(&mut world, &mut resources);
     }
 
     #[test]
