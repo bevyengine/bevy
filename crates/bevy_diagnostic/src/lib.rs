@@ -3,7 +3,11 @@ pub mod diagnostics;
 pub use diagnostic::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use diagnostics::{frame_time_diagnostic_system, print_diagnostics_system};
+use diagnostics::{
+    frame_time_diagnostic_system, print_diagnostics_system, setup_frame_time_diagnostic_system,
+    PrintDiagnosticsState,
+};
+use legion::prelude::IntoSystem;
 use std::time::Duration;
 
 pub struct DiagnosticsPlugin {
@@ -24,15 +28,15 @@ impl Default for DiagnosticsPlugin {
 
 impl AppPlugin for DiagnosticsPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_resource(Diagnostics::default());
+        app.add_resource_init::<Diagnostics>();
         if self.add_defaults {
-            let frame_time_diagnostic_system =
-                { frame_time_diagnostic_system(app.resources_mut(), 10) };
-            app.add_system(frame_time_diagnostic_system);
+            app.add_startup_system(setup_frame_time_diagnostic_system.system())
+                .add_system(frame_time_diagnostic_system.system());
         }
 
         if self.print_diagnostics {
-            app.add_system(print_diagnostics_system(self.print_wait_duration));
+            app.add_resource(PrintDiagnosticsState::new(self.print_wait_duration))
+                .add_system(print_diagnostics_system.system());
         }
     }
 }

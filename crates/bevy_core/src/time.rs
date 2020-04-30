@@ -30,18 +30,10 @@ impl Time {
     }
 }
 
-pub fn start_timer_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("start_timer")
-        .write_resource::<Time>()
-        .build(|_, _, time, _| {
-            time.start();
-        })
+pub fn start_timer_system(mut time: ResourceMut<Time>) {
+    time.start();
 }
 
-pub fn stop_timer_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("stop_timer")
-        .write_resource::<Time>()
-        .build(|_, _, time, _| {
-            time.stop();
-        })
+pub fn stop_timer_system(mut time: ResourceMut<Time>) {
+    time.stop();
 }
