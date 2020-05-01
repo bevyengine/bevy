@@ -17,11 +17,15 @@ fn main() {
 
     // this app loops forever at 60 fps
     App::build()
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / 60.0)))
-        .add_system(hello_world_system.system())
+        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )))
+        .add_system(some_other_system.system())
         .run();
 }
 
 fn hello_world_system() {
     println!("hello world");
 }
+
+fn some_other_system() {}
