@@ -432,7 +432,7 @@ where
         let mut staging_buffer_resource = None;
         initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
-        SystemBuilder::new("uniform_resource_provider")
+        SystemBuilder::new(format!("uniform_resource_provider::<{}>", std::any::type_name::<T>()))
             .read_resource::<AssetStorage<Texture>>()
             .read_resource::<GlobalRenderResourceContext>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same

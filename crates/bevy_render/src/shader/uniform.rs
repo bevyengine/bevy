@@ -20,53 +20,40 @@ pub trait AsUniforms: Send + Sync + 'static {
     fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
 }
 
-pub fn shader_def_system<T>() -> Box<dyn Schedulable>
+pub fn shader_def_system<T>(uniforms: Ref<T>, mut renderable: RefMut<Renderable>)
 where
     T: AsUniforms + Send + Sync + 'static,
 {
-    SystemBuilder::new(format!("shader_def::{}", std::any::type_name::<T>()))
-        .with_query(<(Read<T>, Write<Renderable>)>::query())
-        .build(|_, world, _, query| {
-            for (uniforms, mut renderable) in query.iter_mut(world) {
-                if let Some(shader_defs) = uniforms.get_shader_defs() {
-                    renderable
-                        .render_resource_assignments
-                        .pipeline_specialization
-                        .shader_specialization
-                        .shader_defs
-                        .extend(shader_defs)
-                }
-            }
-        })
+    if let Some(shader_defs) = uniforms.get_shader_defs() {
+        renderable
+            .render_resource_assignments
+            .pipeline_specialization
+            .shader_specialization
+            .shader_defs
+            .extend(shader_defs)
+    }
 }
 
-pub fn asset_handle_shader_def_system<T>() -> Box<dyn Schedulable>
-where
+pub fn asset_handle_shader_def_system<T>(
+    asset_storage: Resource<AssetStorage<T>>,
+    asset_handle: Ref<Handle<T>>,
+    mut renderable: RefMut<Renderable>,
+) where
     T: AsUniforms + Send + Sync + 'static,
 {
-    SystemBuilder::new(format!(
-        "asset_handle_shader_def::{}",
-        std::any::type_name::<T>()
-    ))
-    .read_resource::<AssetStorage<T>>()
-    .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
-    .build(|_, world, asset_storage, query| {
-        for (uniform_handle, mut renderable) in query.iter_mut(world) {
-            if !renderable.is_visible || renderable.is_instanced {
-                continue;
-            }
+    if !renderable.is_visible || renderable.is_instanced {
+        return;
+    }
 
-            let uniforms = asset_storage.get(&uniform_handle).unwrap();
-            if let Some(shader_defs) = uniforms.get_shader_defs() {
-                renderable
-                    .render_resource_assignments
-                    .pipeline_specialization
-                    .shader_specialization
-                    .shader_defs
-                    .extend(shader_defs)
-            }
-        }
-    })
+    let uniforms = asset_storage.get(&asset_handle).unwrap();
+    if let Some(shader_defs) = uniforms.get_shader_defs() {
+        renderable
+            .render_resource_assignments
+            .pipeline_specialization
+            .shader_specialization
+            .shader_defs
+            .extend(shader_defs)
+    }
 }
 
 pub fn asset_handle_batcher_system<T>() -> Box<dyn Schedulable>

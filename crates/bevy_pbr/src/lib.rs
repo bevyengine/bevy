@@ -12,6 +12,7 @@ use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use bevy_render::{render_graph::RenderGraph, shader};
 use material::StandardMaterial;
+use legion::prelude::IntoSystem;
 
 #[derive(Default)]
 pub struct PbrPlugin;
@@ -23,7 +24,7 @@ impl AppPlugin for PbrPlugin {
         app.add_resource(AssetStorage::<StandardMaterial>::new())
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                shader::asset_handle_shader_def_system::<StandardMaterial>(),
+                shader::asset_handle_shader_def_system::<StandardMaterial>.system(),
             )
             .add_system_to_stage(
                 stage::POST_UPDATE,

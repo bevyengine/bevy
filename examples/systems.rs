@@ -5,7 +5,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_event::<MyEvent>()
-        .add_startup_system(setup)
+        .add_startup_system(setup_system)
         .add_system_init(built_system)
         .add_system(simple_system.system())
         .add_system(closure_system())
@@ -22,7 +22,7 @@ struct X(usize);
 struct Y(usize);
 
 // add our resources and entities
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup_system(world: &mut World, resources: &mut Resources) {
     resources.insert(A(0));
     world.insert((), vec![(X(0), Y(1)), (X(2), Y(3))]);
 }

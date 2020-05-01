@@ -36,7 +36,7 @@ impl SystemNode for Camera2dNode {
         let mut tmp_buffer = None;
         let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
         let mut command_queue = self.command_queue.clone();
-        SystemBuilder::new("camera_resource_provider")
+        SystemBuilder::new("camera_2d_resource_provider")
             .read_resource::<GlobalRenderResourceContext>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .write_resource::<RenderResourceAssignments>()
