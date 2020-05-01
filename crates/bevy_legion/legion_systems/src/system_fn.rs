@@ -15,6 +15,9 @@ use legion_core::{
 };
 use std::marker::PhantomData;
 
+// TODO: add params for component access
+// TODO: add subworld to function parameters
+// TODO: somehow support filters
 pub trait IntoSystem<'a, CommandBuffer, Resources, Components> {
     fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
     fn system_named(self, name: &'static str) -> Box<dyn Schedulable>;
