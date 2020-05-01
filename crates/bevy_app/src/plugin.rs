@@ -5,7 +5,7 @@ use std::any::Any;
 pub trait AppPlugin: Any + Send + Sync {
     fn build(&self, app: &mut AppBuilder);
     fn name(&self) -> &str {
-        type_name_of_val(self)
+        std::any::type_name::<Self>()
     }
 }
 
@@ -19,8 +19,4 @@ pub fn load_plugin(path: &str) -> (Library, Box<dyn AppPlugin>) {
         let plugin = Box::from_raw(func());
         (lib, plugin)
     }
-}
-
-fn type_name_of_val<T: ?Sized>(_val: &T) -> &'static str {
-    std::any::type_name::<T>()
 }
