@@ -14,7 +14,6 @@ use legion_core::{
     storage::ComponentTypeId,
 };
 use std::marker::PhantomData;
-use uuid::Uuid;
 
 pub trait IntoSystem<'a, CommandBuffer, Resources, Components> {
     fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
@@ -59,8 +58,7 @@ macro_rules! impl_system {
             }
 
             fn system(self) -> Box<dyn Schedulable> {
-                let uuid = Uuid::new_v4();
-                self.system_id(uuid.to_simple().to_string().into())
+                self.system_id(std::any::type_name::<Self>().to_string().into())
             }
         }
     }

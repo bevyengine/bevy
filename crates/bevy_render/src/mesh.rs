@@ -325,7 +325,7 @@ pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
 }
 
 pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("mesh_batcher")
+    SystemBuilder::new("mesh_specializer")
         .read_resource::<AssetStorage<Mesh>>()
         .with_query(
             <(Read<Handle<Mesh>>, Write<Renderable>)>::query()

@@ -1,11 +1,12 @@
 use crate::System;
 use legion::prelude::Schedule;
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::{HashSet, HashMap}, borrow::Cow};
 
 #[derive(Default)]
 pub struct SchedulePlan {
     stages: HashMap<String, Vec<System>>,
     stage_order: Vec<String>,
+    system_names: HashSet<Cow<'static, str>>,
 }
 
 impl SchedulePlan {
@@ -23,7 +24,7 @@ impl SchedulePlan {
                         System::ThreadLocal(runnable) => {
                             schedule_builder = schedule_builder.add_thread_local(runnable);
                         }
-                        System::ThreadLocalFn(thread_local) => {
+                        System::ThreadLocalFn((_name, thread_local)) => {
                             schedule_builder = schedule_builder.add_thread_local_fn(thread_local);
                         }
                     }
@@ -90,6 +91,12 @@ impl SchedulePlan {
             .stages
             .get_mut(stage_name)
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
+        let system = system.into();
+        let system_name = system.name();
+        if self.system_names.contains(&system_name) {
+            panic!("System with name {} already exists", system_name);
+        }
+        self.system_names.insert(system_name);
         systems.push(system.into());
 
         self
