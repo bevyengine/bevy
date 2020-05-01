@@ -6,7 +6,7 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_resource_init::<State>()
+        .init_resource::<State>()
         .add_system(collect_input_system.system())
         .add_system(move_system.system())
         .add_startup_system(setup)

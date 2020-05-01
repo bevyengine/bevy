@@ -39,7 +39,7 @@ pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
         stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader,
-        System,
+        System, schedule_runner::ScheduleRunnerPlugin
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,

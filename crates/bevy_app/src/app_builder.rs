@@ -116,14 +116,14 @@ impl AppBuilder {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
-    pub fn add_system_init<T>(&mut self, build: impl FnMut(&mut Resources) -> T) -> &mut Self
+    pub fn init_system<T>(&mut self, build: impl FnMut(&mut Resources) -> T) -> &mut Self
     where
         T: Into<System>,
     {
-        self.add_system_to_stage_init(stage::UPDATE, build)
+        self.init_system_to_stage(stage::UPDATE, build)
     }
 
-    pub fn add_system_to_stage_init<T>(
+    pub fn init_system_to_stage<T>(
         &mut self,
         stage: &str,
         mut build: impl FnMut(&mut Resources) -> T,
@@ -151,17 +151,17 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_startup_system_init<T>(
+    pub fn init_startup_system<T>(
         &mut self,
         build: impl FnMut(&mut Resources) -> T,
     ) -> &mut Self
     where
         T: Into<System>,
     {
-        self.add_startup_system_to_stage_init(stage::STARTUP, build)
+        self.init_startup_system_to_stage(stage::STARTUP, build)
     }
 
-    pub fn add_startup_system_to_stage_init<T>(
+    pub fn init_startup_system_to_stage<T>(
         &mut self,
         stage: &str,
         mut build: impl FnMut(&mut Resources) -> T,
@@ -211,7 +211,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_resource_init<R>(&mut self) -> &mut Self
+    pub fn init_resource<R>(&mut self) -> &mut Self
     where
         R: FromResources + Send + Sync + 'static,
     {

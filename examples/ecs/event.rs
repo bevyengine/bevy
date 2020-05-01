@@ -5,7 +5,7 @@ fn main() {
         .add_default_plugins()
         .add_event::<MyEvent>()
         .add_resource(EventTriggerState::default())
-        .add_resource_init::<EventListenerState>()
+        .init_resource::<EventListenerState>()
         .add_system(event_trigger_system.system())
         .add_system(event_listener_system.system())
         .run();
@@ -29,7 +29,7 @@ fn event_trigger_system(
     state.elapsed += time.delta_seconds;
     if state.elapsed > 1.0 {
         my_events.send(MyEvent {
-            message: "Hello World".to_string(),
+            message: "MyEvent just happened!".to_string(),
         });
 
         state.elapsed = 0.0;

@@ -1,48 +1,35 @@
-use bevy::prelude::*;
-use bevy_input::system::exit_on_esc_system;
+use bevy::{gltf, prelude::*};
 
 fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
-        .add_system_init(exit_on_esc_system)
         .run();
 }
 
-/// set up a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
-    // create a cube and a plane mesh
+    // load the mesh
+    let model_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/models/Monkey.gltf");
+    let mesh = gltf::load_gltf(&model_path).unwrap().unwrap();
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
-    let plane_handle = mesh_storage.add(Mesh::from(shape::Plane { size: 10.0 }));
+    let mesh_handle = mesh_storage.add(mesh);
 
-    // create materials for our cube and plane
+    // create a material for the mesh
     let mut material_storage = resources
         .get_mut::<AssetStorage<StandardMaterial>>()
         .unwrap();
-    let cube_material_handle = material_storage.add(StandardMaterial {
+    let material_handle = material_storage.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
-        ..Default::default()
-    });
-    let plane_material_handle = material_storage.add(StandardMaterial {
-        albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });
 
     // add entities to the world
     world
         .build()
-        // plane
+        // mesh
         .add_entity(MeshEntity {
-            mesh: plane_handle,
-            material: plane_material_handle,
-            ..Default::default()
-        })
-        // cube
-        .add_entity(MeshEntity {
-            mesh: cube_handle,
-            material: cube_material_handle,
-            translation: Translation::new(0.0, 0.0, 1.0),
+            mesh: mesh_handle,
+            material: material_handle,
             ..Default::default()
         })
         // light
@@ -53,7 +40,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         // camera
         .add_entity(CameraEntity {
             local_to_world: LocalToWorld(Mat4::look_at_rh(
-                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(2.0, -6.0, 2.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),

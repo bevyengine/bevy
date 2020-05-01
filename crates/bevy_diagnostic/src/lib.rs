@@ -28,7 +28,7 @@ impl Default for DiagnosticsPlugin {
 
 impl AppPlugin for DiagnosticsPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_resource_init::<Diagnostics>();
+        app.init_resource::<Diagnostics>();
         if self.add_defaults {
             app.add_startup_system(setup_frame_time_diagnostic_system.system())
                 .add_system(frame_time_diagnostic_system.system());

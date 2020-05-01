@@ -11,9 +11,11 @@ fn main() {
 fn setup(world: &mut World, resources: &mut Resources) {
     // load a texture
     let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
-    let texture = Texture::load(TextureType::Png(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/assets/bevy_logo_dark_big.png").to_string(),
-    ));
+    let texture_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/branding/bevy_logo_dark_big.png"
+    );
+    let texture = Texture::load(TextureType::Png(texture_path.to_string()));
     let aspect = texture.height as f32 / texture.width as f32;
     let texture_handle = texture_storage.add(texture);
 

@@ -70,10 +70,10 @@ impl AppPlugin for RenderPlugin {
             .add_resource(AssetBatchers::default())
             // core systems
             .add_system(entity_render_resource_assignments_system())
-            .add_system_to_stage_init(stage::POST_UPDATE, camera::camera_update_system)
+            .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_specializer_system())
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             // render resource provider systems
-            .add_system_to_stage_init(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
+            .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
     }
 }

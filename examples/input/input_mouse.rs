@@ -6,7 +6,7 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_resource_init::<State>()
+        .init_resource::<State>()
         .add_system(mouse_input_system.system())
         .run();
 }

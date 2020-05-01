@@ -48,6 +48,7 @@ glam = "0.8.6"
 [workspace]
 members = [
     "crates/*",
+    "examples/app/dynamic_plugin_loading/example_plugin"
 ]
 
 [dev-dependencies]
@@ -59,3 +60,87 @@ env_logger = "0.7"
 
 [profile.dev]
 opt-level = 3
+
+[[example]]
+name = "hello_world"
+path = "examples/hello_world.rs"
+
+[[example]]
+name = "load_model"
+path = "examples/3d/load_model.rs"
+
+[[example]]
+name = "parenting"
+path = "examples/3d/parenting.rs"
+
+[[example]]
+name = "scene"
+path = "examples/3d/scene.rs"
+
+[[example]]
+name = "spawner"
+path = "examples/3d/spawner.rs"
+
+[[example]]
+name = "texture"
+path = "examples/3d/texture.rs"
+
+[[example]]
+name = "dynamic_plugin_loading"
+path = "examples/app/dynamic_plugin_loading/main.rs"
+
+[[example]]
+name = "empty_defaults"
+path = "examples/app/empty_defaults.rs"
+
+[[example]]
+name = "empty"
+path = "examples/app/empty.rs"
+
+[[example]]
+name = "headless"
+path = "examples/app/headless.rs"
+
+[[example]]
+name = "event"
+path = "examples/ecs/event.rs"
+
+[[example]]
+name = "startup_system"
+path = "examples/ecs/startup_system.rs"
+
+[[example]]
+name = "ecs_guide"
+path = "examples/ecs/ecs_guide.rs"
+
+[[example]]
+name = "input_mouse"
+path = "examples/input/input_mouse.rs"
+
+[[example]]
+name = "input_keyboard"
+path = "examples/input/input_keyboard.rs"
+
+[[example]]
+name = "serializing"
+path = "examples/serializing/serializing.rs"
+
+[[example]]
+name = "shader_custom_material"
+path = "examples/shader/shader_custom_material.rs"
+
+[[example]]
+name = "shader_defs"
+path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "ui"
+path = "examples/ui/ui.rs"
+
+[[example]]
+name = "ui_bench"
+path = "examples/ui/ui_bench.rs"
+
+[[example]]
+name = "multiple_windows"
+path = "examples/window/multiple_windows.rs"

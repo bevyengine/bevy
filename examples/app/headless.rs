@@ -1,7 +1,4 @@
-use bevy::{
-    app::schedule_runner::{RunMode, ScheduleRunnerPlugin},
-    prelude::*,
-};
+use bevy::prelude::*;
 use std::time::Duration;
 
 // This example disables the default plugins by not registering them during setup.
@@ -14,19 +11,13 @@ use std::time::Duration;
 fn main() {
     // this app runs once
     App::build()
-        .add_plugin(ScheduleRunnerPlugin {
-            run_mode: RunMode::Once,
-        })
+        .add_plugin(ScheduleRunnerPlugin::run_once())
         .add_system(hello_world_system.system())
         .run();
 
     // this app loops forever at 60 fps
     App::build()
-        .add_plugin(ScheduleRunnerPlugin {
-            run_mode: RunMode::Loop {
-                wait: Some(Duration::from_secs_f64(1.0 / 60.0)),
-            },
-        })
+        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(1.0 / 60.0)))
         .add_system(hello_world_system.system())
         .run();
 }

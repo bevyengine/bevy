@@ -8,7 +8,4 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-bevy = { path = "../../../../bevy" }
-
-[profile.release]
-debug = true
+bevy = { path = "../../../../../bevy" }
