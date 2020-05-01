@@ -14,7 +14,10 @@ where
     }
 }
 
-impl<T> FromResources for EventReader<T> where T: Send + Sync + 'static {
+impl<T> FromResources for EventReader<T>
+where
+    T: Send + Sync + 'static,
+{
     fn from_resources(resources: &mut Resources) -> Self {
         resources.get_event_reader::<T>()
     }

@@ -1,9 +1,4 @@
-use legion::{
-    prelude::{
-        Resources,
-        Runnable, Schedulable, World,
-    },
-};
+use legion::prelude::{Resources, Runnable, Schedulable, World};
 pub enum System {
     Schedulable(Box<dyn Schedulable>),
     ThreadLocal(Box<dyn Runnable>),

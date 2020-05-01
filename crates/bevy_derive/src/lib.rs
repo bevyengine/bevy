@@ -132,13 +132,9 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let modules = get_modules(&ast);
     let bevy_app_path = get_path(&modules.bevy_app);
 
-    let field_types = fields
-        .iter()
-        .map(|field| &field.ty);
+    let field_types = fields.iter().map(|field| &field.ty);
 
-    let fields = fields
-        .iter()
-        .map(|field| field.ident.as_ref().unwrap());
+    let fields = fields.iter().map(|field| field.ident.as_ref().unwrap());
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();

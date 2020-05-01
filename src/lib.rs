@@ -34,7 +34,10 @@
 //! If you prefer it, you can also consume the individual bevy crates directly.
 
 #![feature(min_specialization)]
-#![doc(html_logo_url = "https://bevyengine.org/assets/icon.png", html_favicon_url = "https://bevyengine.org/assets/icon.png")]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 mod add_default_plugins;
 pub mod prelude;

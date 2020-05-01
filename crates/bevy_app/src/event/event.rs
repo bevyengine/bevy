@@ -1,4 +1,4 @@
-use legion::prelude::{Resources, ResourceMut};
+use legion::prelude::{ResourceMut, Resources};
 use std::marker::PhantomData;
 
 struct EventInstance<T> {
@@ -224,7 +224,6 @@ where
         events.update();
     }
 }
-
 
 pub trait GetEventReader {
     /// returns an [EventReader] of the given type

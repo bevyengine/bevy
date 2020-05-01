@@ -1,10 +1,21 @@
-use crate::{schedule::{ArchetypeAccess, Runnable}, resource::{
-    PreparedRead, PreparedWrite, ResourceSet, ResourceTypeId, Resources, self
-}, QuerySet, SystemId, SubWorld, SystemAccess};
-use std::{marker::PhantomData, ops::{Deref, DerefMut}, hash::{Hasher, Hash}};
-use legion_core::{world::{World, WorldId}, storage::ComponentTypeId, borrow::{AtomicRefCell, RefMut}, command::CommandBuffer};
-use tracing::{debug, span, info, Level};
+use crate::{
+    resource::{self, PreparedRead, PreparedWrite, ResourceSet, ResourceTypeId, Resources},
+    schedule::{ArchetypeAccess, Runnable},
+    QuerySet, SubWorld, SystemAccess, SystemId,
+};
 use fxhash::FxHashMap;
+use legion_core::{
+    borrow::{AtomicRefCell, RefMut},
+    command::CommandBuffer,
+    storage::ComponentTypeId,
+    world::{World, WorldId},
+};
+use std::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
+use tracing::{debug, info, span, Level};
 #[derive(Debug)]
 pub struct Resource<'a, T: 'a> {
     #[allow(dead_code)]
@@ -22,7 +33,12 @@ impl<'a, T: 'a> Clone for Resource<'a, T> {
 
 impl<'a, T: 'a> Resource<'a, T> {
     #[inline(always)]
-    fn new(resource: *const T) -> Self { Self { value: resource, _marker: PhantomData::default()} }
+    fn new(resource: *const T) -> Self {
+        Self {
+            value: resource,
+            _marker: PhantomData::default(),
+        }
+    }
 
     #[inline(always)]
     pub fn map<K: 'a, F: FnMut(&T) -> &K>(&self, mut f: F) -> Resource<'a, K> {
@@ -106,7 +122,12 @@ impl<'a, T: 'a> Clone for ResourceMut<'a, T> {
 
 impl<'a, T: 'a> ResourceMut<'a, T> {
     #[inline(always)]
-    fn new(resource: *mut T) -> Self { Self { value: resource, _marker: PhantomData::default()} }
+    fn new(resource: *mut T) -> Self {
+        Self {
+            value: resource,
+            _marker: PhantomData::default(),
+        }
+    }
 
     #[inline(always)]
     pub fn map_into<K: 'a, F: FnMut(&mut T) -> K>(mut self, mut f: F) -> ResourceMut<'a, K> {
@@ -179,7 +200,6 @@ impl<'a, T: resource::Resource> ResourceSet for ResourceMut<'a, T> {
     fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
 }
 
-
 impl<T: resource::Resource> ResourceSet for PreparedRead<T> {
     type PreparedResources = PreparedRead<T>;
 
@@ -205,7 +225,6 @@ impl<T: resource::Resource> ResourceSet for PreparedWrite<T> {
     fn read_types() -> Vec<ResourceTypeId> { Vec::new() }
     fn write_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
 }
-
 
 /// The concrete type which contains the system closure provided by the user.  This struct should
 /// not be instantiated directly, and instead should be created using `SystemBuilder`.

@@ -53,12 +53,9 @@ pub use legion::{
     query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
     systems::{
         bit_set::BitSet,
-        resource::{
-            ResourceSet, Resources,
-        },
+        resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        IntoSystem, SubWorld, SystemBuilder,
-        Resource, ResourceMut,
+        IntoSystem, Resource, ResourceMut, SubWorld, SystemBuilder,
     },
     world::{Universe, World},
 };
