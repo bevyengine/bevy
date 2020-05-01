@@ -772,9 +772,7 @@ impl SystemId {
         }
     }
 
-    pub fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
+    pub fn name(&self) -> Cow<'static, str> { self.name.clone() }
 }
 
 impl std::fmt::Display for SystemId {

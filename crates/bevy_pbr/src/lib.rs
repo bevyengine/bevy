@@ -11,8 +11,8 @@ pub use forward_pbr_render_graph::*;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use bevy_render::{render_graph::RenderGraph, shader};
-use material::StandardMaterial;
 use legion::prelude::IntoSystem;
+use material::StandardMaterial;
 
 #[derive(Default)]
 pub struct PbrPlugin;

@@ -432,41 +432,64 @@ where
         let mut staging_buffer_resource = None;
         initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
-        SystemBuilder::new(format!("uniform_resource_provider::<{}>", std::any::type_name::<T>()))
-            .read_resource::<AssetStorage<Texture>>()
-            .read_resource::<GlobalRenderResourceContext>()
-            // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-            .with_query(<(Read<T>, Read<Renderable>)>::query())
-            .with_query(<(Read<T>, Write<Renderable>)>::query())
-            .build(
-                move |_,
-                      world,
-                      (textures, global_render_resource_context),
-                      (read_uniform_query, write_uniform_query)| {
-                    let render_resource_context = &*global_render_resource_context.context;
-                    if let Some(staging_buffer_resource) = staging_buffer_resource {
-                        render_resource_context.remove_buffer(staging_buffer_resource);
-                    }
-                    staging_buffer_resource = None;
+        SystemBuilder::new(format!(
+            "uniform_resource_provider::<{}>",
+            std::any::type_name::<T>()
+        ))
+        .read_resource::<AssetStorage<Texture>>()
+        .read_resource::<GlobalRenderResourceContext>()
+        // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
+        .with_query(<(Read<T>, Read<Renderable>)>::query())
+        .with_query(<(Read<T>, Write<Renderable>)>::query())
+        .build(
+            move |_,
+                  world,
+                  (textures, global_render_resource_context),
+                  (read_uniform_query, write_uniform_query)| {
+                let render_resource_context = &*global_render_resource_context.context;
+                if let Some(staging_buffer_resource) = staging_buffer_resource {
+                    render_resource_context.remove_buffer(staging_buffer_resource);
+                }
+                staging_buffer_resource = None;
 
-                    uniform_buffer_arrays.reset_new_item_counts();
-                    // update uniforms info
-                    for (uniforms, renderable) in read_uniform_query.iter(world) {
-                        if !renderable.is_visible {
-                            return;
-                        }
-
-                        if renderable.is_instanced {
-                            panic!("instancing not currently supported");
-                        } else {
-                            uniform_buffer_arrays.increment_uniform_counts(&uniforms);
-                        }
+                uniform_buffer_arrays.reset_new_item_counts();
+                // update uniforms info
+                for (uniforms, renderable) in read_uniform_query.iter(world) {
+                    if !renderable.is_visible {
+                        return;
                     }
 
-                    uniform_buffer_arrays
-                        .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-                    let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
+                    if renderable.is_instanced {
+                        panic!("instancing not currently supported");
+                    } else {
+                        uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+                    }
+                }
 
+                uniform_buffer_arrays
+                    .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
+                let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
+
+                for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
+                    if !renderable.is_visible {
+                        return;
+                    }
+
+                    if renderable.is_instanced {
+                        panic!("instancing not currently supported");
+                    } else {
+                        setup_uniform_texture_resources::<T>(
+                            &uniforms,
+                            &mut command_queue,
+                            textures,
+                            render_resource_context,
+                            &mut renderable.render_resource_assignments,
+                        )
+                    }
+                }
+
+                if staging_buffer_size == 0 {
+                    let mut staging_buffer: [u8; 0] = [];
                     for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
                         if !renderable.is_visible {
                             return;
@@ -475,74 +498,50 @@ where
                         if renderable.is_instanced {
                             panic!("instancing not currently supported");
                         } else {
-                            setup_uniform_texture_resources::<T>(
+                            uniform_buffer_arrays.setup_uniform_buffer_resources(
                                 &uniforms,
-                                &mut command_queue,
-                                textures,
+                                dynamic_uniforms,
                                 render_resource_context,
                                 &mut renderable.render_resource_assignments,
-                            )
+                                &mut staging_buffer,
+                            );
                         }
                     }
-
-                    if staging_buffer_size == 0 {
-                        let mut staging_buffer: [u8; 0] = [];
-                        for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
-                            if !renderable.is_visible {
-                                return;
-                            }
-
-                            if renderable.is_instanced {
-                                panic!("instancing not currently supported");
-                            } else {
-                                uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                    &uniforms,
-                                    dynamic_uniforms,
-                                    render_resource_context,
-                                    &mut renderable.render_resource_assignments,
-                                    &mut staging_buffer,
-                                );
-                            }
-                        }
-                    } else {
-                        let staging_buffer = render_resource_context.create_buffer_mapped(
-                            BufferInfo {
-                                buffer_usage: BufferUsage::COPY_SRC,
-                                size: staging_buffer_size,
-                                ..Default::default()
-                            },
-                            &mut |mut staging_buffer, _render_resources| {
-                                for (uniforms, mut renderable) in
-                                    write_uniform_query.iter_mut(world)
-                                {
-                                    if !renderable.is_visible {
-                                        return;
-                                    }
-
-                                    if renderable.is_instanced {
-                                        panic!("instancing not currently supported");
-                                    } else {
-                                        uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                            &uniforms,
-                                            dynamic_uniforms,
-                                            render_resource_context,
-                                            &mut renderable.render_resource_assignments,
-                                            &mut staging_buffer,
-                                        );
-                                    }
+                } else {
+                    let staging_buffer = render_resource_context.create_buffer_mapped(
+                        BufferInfo {
+                            buffer_usage: BufferUsage::COPY_SRC,
+                            size: staging_buffer_size,
+                            ..Default::default()
+                        },
+                        &mut |mut staging_buffer, _render_resources| {
+                            for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
+                                if !renderable.is_visible {
+                                    return;
                                 }
-                            },
-                        );
 
-                        uniform_buffer_arrays.copy_staging_buffer_to_final_buffers(
-                            &mut command_queue,
-                            staging_buffer,
-                        );
+                                if renderable.is_instanced {
+                                    panic!("instancing not currently supported");
+                                } else {
+                                    uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                        &uniforms,
+                                        dynamic_uniforms,
+                                        render_resource_context,
+                                        &mut renderable.render_resource_assignments,
+                                        &mut staging_buffer,
+                                    );
+                                }
+                            }
+                        },
+                    );
 
-                        staging_buffer_resource = Some(staging_buffer);
-                    }
-                },
-            )
+                    uniform_buffer_arrays
+                        .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
+
+                    staging_buffer_resource = Some(staging_buffer);
+                }
+            },
+        )
     }
 }
 
