@@ -143,7 +143,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_app_path::FromResources for #struct_name#ty_generics {
-            fn from_resources(resources: &mut Resources) -> Self {
+            fn from_resources(resources: &Resources) -> Self {
                 use #bevy_app_path::FromResources;
                 #struct_name {
                     #(#fields: <#field_types>::from_resources(resources),)*
