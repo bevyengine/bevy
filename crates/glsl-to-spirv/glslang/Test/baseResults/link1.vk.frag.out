@@ -1,0 +1,56 @@
+link1.vk.frag
+Shader version: 450
+gl_FragCoord origin is upper left
+0:? Sequence
+0:7  Function Definition: main( ( global void)
+0:7    Function Parameters: 
+0:9    Sequence
+0:9      move second child to first child ( temp highp 4-component vector of float)
+0:9        'color' ( out highp 4-component vector of float)
+0:9        Function Call: getColor( ( global highp 4-component vector of float)
+0:?   Linker Objects
+0:?     'color' ( out highp 4-component vector of float)
+
+link2.vk.frag
+Shader version: 450
+gl_FragCoord origin is upper left
+0:? Sequence
+0:5  Function Definition: getColor( ( global highp 4-component vector of float)
+0:5    Function Parameters: 
+0:7    Sequence
+0:7      Branch: Return with expression
+0:7        texture ( global highp 4-component vector of float)
+0:7          's2D' ( uniform highp sampler2D)
+0:7          Constant:
+0:7            0.500000
+0:7            0.500000
+0:?   Linker Objects
+0:?     's2D' ( uniform highp sampler2D)
+
+
+Linked fragment stage:
+
+
+Shader version: 450
+gl_FragCoord origin is upper left
+0:? Sequence
+0:7  Function Definition: main( ( global void)
+0:7    Function Parameters: 
+0:9    Sequence
+0:9      move second child to first child ( temp highp 4-component vector of float)
+0:9        'color' ( out highp 4-component vector of float)
+0:9        Function Call: getColor( ( global highp 4-component vector of float)
+0:5  Function Definition: getColor( ( global highp 4-component vector of float)
+0:5    Function Parameters: 
+0:7    Sequence
+0:7      Branch: Return with expression
+0:7        texture ( global highp 4-component vector of float)
+0:7          's2D' ( uniform highp sampler2D)
+0:7          Constant:
+0:7            0.500000
+0:7            0.500000
+0:?   Linker Objects
+0:?     'color' ( out highp 4-component vector of float)
+0:?     's2D' ( uniform highp sampler2D)
+
+SPIR-V is not generated for failed compile or link

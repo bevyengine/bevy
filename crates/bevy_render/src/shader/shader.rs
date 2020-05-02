@@ -1,7 +1,8 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
 use std::marker::Copy;
-
+use glsl_to_spirv::compile;
+use std::io::Read;
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ShaderStage {
     Vertex,
@@ -9,12 +10,12 @@ pub enum ShaderStage {
     Compute,
 }
 
-impl Into<shaderc::ShaderKind> for ShaderStage {
-    fn into(self) -> shaderc::ShaderKind {
+impl Into<glsl_to_spirv::ShaderType> for ShaderStage {
+    fn into(self) -> glsl_to_spirv::ShaderType {
         match self {
-            ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
-            ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
-            ShaderStage::Compute => shaderc::ShaderKind::Compute,
+            ShaderStage::Vertex => glsl_to_spirv::ShaderType::Vertex,
+            ShaderStage::Fragment => glsl_to_spirv::ShaderType::Fragment,
+            ShaderStage::Compute => glsl_to_spirv::ShaderType::Compute,
         }
     }
 }
@@ -24,26 +25,15 @@ pub fn glsl_to_spirv(
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
-    let shader_kind: shaderc::ShaderKind = stage.into();
-    let mut compiler = shaderc::Compiler::new().unwrap();
-    let mut options = shaderc::CompileOptions::new().unwrap();
-    if let Some(shader_defs) = shader_defs {
-        for shader_def in shader_defs.iter() {
-            options.add_macro_definition(shader_def.as_str(), None);
-        }
+    let mut output = compile(glsl_source, stage.into(), shader_defs).unwrap();
+    let mut spv_bytes = Vec::new();
+    output.read_to_end(&mut spv_bytes).unwrap();
+
+    let mut spv_words = Vec::new();
+    for bytes4 in spv_bytes.chunks(4) {
+        spv_words.push(u32::from_le_bytes([bytes4[0], bytes4[1], bytes4[2], bytes4[3]]));
     }
-
-    let binary_result = compiler
-        .compile_into_spirv(
-            glsl_source,
-            shader_kind,
-            "shader.glsl",
-            "main",
-            Some(&options),
-        )
-        .unwrap();
-
-    binary_result.as_binary().into()
+    spv_words
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]

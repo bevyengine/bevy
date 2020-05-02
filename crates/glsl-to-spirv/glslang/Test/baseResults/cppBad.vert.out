@@ -1,0 +1,23 @@
+cppBad.vert
+ERROR: 0:2: 'preprocessor evaluation' : bad expression 
+ERROR: 0:2: '#if' : unexpected tokens following directive 
+ERROR: 0:5: 'string' : End of line in string 
+ERROR: 0:5: 'macro expansion' : expected '(' following n
+ERROR: 0:5: '""' : string literals not supported 
+ERROR: 0:5: '' :  syntax error, unexpected INT, expecting COMMA or SEMICOLON
+ERROR: 6 compilation errors.  No code generated.
+
+
+Shader version: 100
+ERROR: node is still EOpNull!
+0:?   Linker Objects
+
+
+Linked vertex stage:
+
+ERROR: Linking vertex stage: Missing entry point: Each stage requires one entry point
+
+Shader version: 100
+ERROR: node is still EOpNull!
+0:?   Linker Objects
+

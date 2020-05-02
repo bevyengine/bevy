@@ -1,0 +1,1 @@
+{"rustc":4273150828529414342,"features":"","target":0,"profile":0,"path":0,"deps":[[524318319933249921,"build_script_build",false,2489063350484700074]],"local":[{"RerunIfChanged":{"output":"debug\\build\\glsl-to-spirv-037e443b3fcc8f52\\output","paths":["build/glslangValidator.exe"]}}],"rustflags":[],"metadata":0}

@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+
+TARGETDIR=localResults
+BASEDIR=baseResults
+EXE=../build/install/bin/glslangValidator
+HASERROR=0
+mkdir -p localResults
+
+if [ -a localtestlist ]
+  then
+    while read t; do
+        echo Running $t...
+        b=`basename $t`
+        $EXE -i -l $t > $TARGETDIR/$b.out
+        diff -b $BASEDIR/$b.out $TARGETDIR/$b.out || HASERROR=1
+    done < localtestlist
+fi
+
+rm -f comp.spv frag.spv geom.spv tesc.spv tese.spv vert.spv
+
+#
+# special tests
+#
+
+$EXE badMacroArgs.frag > $TARGETDIR/badMacroArgs.frag.out
+diff -b $BASEDIR/badMacroArgs.frag.out $TARGETDIR/badMacroArgs.frag.out || HASERROR=1
+
+#
+# reflection tests
+#
+echo Running reflection...
+$EXE -l -q -C reflection.vert > $TARGETDIR/reflection.vert.out
+diff -b $BASEDIR/reflection.vert.out $TARGETDIR/reflection.vert.out || HASERROR=1
+$EXE -D -e flizv -l -q -C -V hlsl.reflection.vert > $TARGETDIR/hlsl.reflection.vert.out
+diff -b $BASEDIR/hlsl.reflection.vert.out $TARGETDIR/hlsl.reflection.vert.out || HASERROR=1
+$EXE -D -e main -l -q -C -V hlsl.reflection.binding.frag > $TARGETDIR/hlsl.reflection.binding.frag.out
+diff -b $BASEDIR/hlsl.reflection.binding.frag.out $TARGETDIR/hlsl.reflection.binding.frag.out || HASERROR=1
+$EXE -D -e main -l -q --hlsl-iomap --auto-map-bindings --stb 10 --sbb 20 --ssb 30 --suavb 40 --scb 50 -D -V -e main hlsl.automap.frag > $TARGETDIR/hlsl.automap.frag.out
+diff -b $BASEDIR/hlsl.automap.frag.out $TARGETDIR/hlsl.automap.frag.out || HASERROR=1
+
+#
+# multi-threaded test
+#
+echo Comparing single thread to multithread for all tests in current directory...
+$EXE -i -C *.vert *.geom *.frag *.tes* *.comp > singleThread.out
+$EXE -i -C *.vert *.geom *.frag *.tes* *.comp -t > multiThread.out
+diff singleThread.out multiThread.out || HASERROR=1
+
+#
+# entry point renaming tests
+#
+echo Running entry-point renaming tests
+$EXE -i -H -V -D -e main_in_spv --ku --source-entrypoint main hlsl.entry.rename.frag > $TARGETDIR/hlsl.entry.rename.frag.out
+diff -b $BASEDIR/hlsl.entry.rename.frag.out $TARGETDIR/hlsl.entry.rename.frag.out || HASERROR=1
+
+#
+# Testing ill-defined uncalled function
+#
+echo Running ill-defined uncalled function
+$EXE -D -e main -H hlsl.deadFunctionMissingBody.vert > $TARGETDIR/hlsl.deadFunctionMissingBody.vert.out
+diff -b $BASEDIR/hlsl.deadFunctionMissingBody.vert.out $TARGETDIR/hlsl.deadFunctionMissingBody.vert.out || HASERROR=1
+
+if [ $HASERROR -eq 0 ]
+then
+    echo Tests Succeeded.
+else
+    echo Tests Failed.
+fi
+
+#
+# Testing -S
+#
+echo Running explicit stage test
+$EXE -i -S vert nosuffix > $TARGETDIR/nosuffix.out
+diff -b $BASEDIR/nosuffix.out $TARGETDIR/nosuffix.out || HASERROR=1
+
+#
+# Testing --hlsl-offsets
+#
+echo Running hlsl offsets
+$EXE -i --hlsl-offsets -H spv.hlslOffsets.vert > $TARGETDIR/spv.hlslOffsets.vert.out
+diff -b $BASEDIR/spv.hlslOffsets.vert.out $TARGETDIR/spv.hlslOffsets.vert.out || HASERROR=1
+
+echo Running hlsl offsets
+$EXE -i  --hlsl-offsets -D -e main -H hlsl.hlslOffset.vert > $TARGETDIR/hlsl.hlslOffset.vert.out
+diff -b $BASEDIR/hlsl.hlslOffset.vert.out $TARGETDIR/hlsl.hlslOffset.vert.out || HASERROR=1
+
+#
+# Testing --resource-set-binding
+#
+echo Configuring HLSL descriptor set and binding number manually
+$EXE -V -D -e main -H hlsl.multiDescriptorSet.frag --rsb frag t0 0 0 t1 1 0 s0 0 1 s1 1 1 b0 2 0 b1 2 1 b2 2 2 > $TARGETDIR/hlsl.multiDescriptorSet.frag.out
+diff -b $BASEDIR/hlsl.multiDescriptorSet.frag.out $TARGETDIR/hlsl.multiDescriptorSet.frag.out || HASERROR=1
+
+#
+# Testing location error
+#
+echo Testing SPV no location
+$EXE -V -C spv.noLocation.vert > $TARGETDIR/spv.noLocation.vert.out
+diff -b $BASEDIR/spv.noLocation.vert.out $TARGETDIR/spv.noLocation.vert.out || HASERROR=1
+
+#
+# Testing debug information
+#
+echo Testing SPV Debug Information
+$EXE -g -H spv.debugInfo.frag > $TARGETDIR/spv.debugInfo.frag.out
+diff -b $BASEDIR/spv.debugInfo.frag.out $TARGETDIR/spv.debugInfo.frag.out || HASERROR=1
+
+#
+# Testing Includer
+#
+echo Testing Includer
+$EXE -D -e main -H ../Test/hlsl.include.vert > $TARGETDIR/hlsl.include.vert.out
+diff -b $BASEDIR/hlsl.include.vert.out $TARGETDIR/hlsl.include.vert.out || HASERROR=1
+$EXE -D -e main -H hlsl.includeNegative.vert > $TARGETDIR/hlsl.includeNegative.vert.out
+diff -b $BASEDIR/hlsl.includeNegative.vert.out $TARGETDIR/hlsl.includeNegative.vert.out || HASERROR=1
+$EXE -l -i include.vert > $TARGETDIR/include.vert.out
+diff -b $BASEDIR/include.vert.out $TARGETDIR/include.vert.out || HASERROR=1
+$EXE -D -e main -H -Iinc1/path1 -Iinc1/path2 hlsl.dashI.vert > $TARGETDIR/hlsl.dashI.vert.out
+diff -b $BASEDIR/hlsl.dashI.vert.out $TARGETDIR/hlsl.dashI.vert.out || HASERROR=1
+
+#
+# Testing -D and -U
+#
+$EXE -DUNDEFED -UIN_SHADER -DFOO=200 -i -l -UUNDEFED -DMUL=FOO*2 glsl.-D-U.frag > $TARGETDIR/glsl.-D-U.frag.out
+diff -b $BASEDIR/glsl.-D-U.frag.out $TARGETDIR/glsl.-D-U.frag.out || HASERROR=1
+$EXE -D -e main -V -i -DUNDEFED -UIN_SHADER -DFOO=200 -UUNDEFED hlsl.-D-U.frag > $TARGETDIR/hlsl.-D-U.frag.out
+diff -b $BASEDIR/hlsl.-D-U.frag.out $TARGETDIR/hlsl.-D-U.frag.out || HASERROR=1
+
+#
+# Final checking
+#
+if [ $HASERROR -eq 0 ]
+then
+    echo Tests Succeeded.
+else
+    echo Tests Failed.
+fi
+
+exit $HASERROR

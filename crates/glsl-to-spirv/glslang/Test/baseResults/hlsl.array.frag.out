@@ -1,0 +1,277 @@
+hlsl.array.frag
+Shader version: 500
+gl_FragCoord origin is upper left
+0:? Sequence
+0:8  Function Definition: @PixelShaderFunction(i1;vf4[3]; ( temp 4-component vector of float)
+0:8    Function Parameters: 
+0:8      'i' ( in int)
+0:8      'input' ( in 3-element array of 4-component vector of float)
+0:?     Sequence
+0:10      Branch: Return with expression
+0:10        add ( temp 4-component vector of float)
+0:10          add ( temp 4-component vector of float)
+0:10            add ( temp 4-component vector of float)
+0:10              add ( temp 4-component vector of float)
+0:10                add ( temp 4-component vector of float)
+0:10                  add ( temp 4-component vector of float)
+0:10                    direct index ( temp 4-component vector of float)
+0:10                      a: direct index for structure ( uniform 4-element array of 4-component vector of float)
+0:10                        'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                        Constant:
+0:10                          0 (const uint)
+0:10                      Constant:
+0:10                        1 (const int)
+0:10                    indirect index ( temp 4-component vector of float)
+0:10                      a: direct index for structure ( uniform 4-element array of 4-component vector of float)
+0:10                        'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                        Constant:
+0:10                          0 (const uint)
+0:10                      'i' ( in int)
+0:10                  direct index ( temp 4-component vector of float)
+0:10                    'input' ( in 3-element array of 4-component vector of float)
+0:10                    Constant:
+0:10                      2 (const int)
+0:10                indirect index ( temp 4-component vector of float)
+0:10                  'input' ( in 3-element array of 4-component vector of float)
+0:10                  'i' ( in int)
+0:10              direct index ( temp 4-component vector of float)
+0:10                'b' ( temp 10-element array of 4-component vector of float)
+0:10                Constant:
+0:10                  5 (const int)
+0:10            indirect index ( temp 4-component vector of float)
+0:10              'b' ( temp 10-element array of 4-component vector of float)
+0:10              'i' ( in int)
+0:10          indirect index ( temp 4-component vector of float)
+0:10            m: direct index for structure ( temp 7-element array of 4-component vector of float)
+0:10              indirect index ( temp structure{ temp 7-element array of 4-component vector of float m})
+0:10                s: direct index for structure ( uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m})
+0:10                  'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                  Constant:
+0:10                    1 (const uint)
+0:10                'i' ( in int)
+0:10              Constant:
+0:10                0 (const int)
+0:10            'i' ( in int)
+0:8  Function Definition: PixelShaderFunction( ( temp void)
+0:8    Function Parameters: 
+0:?     Sequence
+0:8      move second child to first child ( temp int)
+0:?         'i' ( temp int)
+0:?         'i' (layout( location=0) flat in int)
+0:8      move second child to first child ( temp 3-element array of 4-component vector of float)
+0:?         'input' ( temp 3-element array of 4-component vector of float)
+0:?         'input' (layout( location=1) in 3-element array of 4-component vector of float)
+0:8      move second child to first child ( temp 4-component vector of float)
+0:?         '@entryPointOutput' (layout( location=0) out 4-component vector of float)
+0:8        Function Call: @PixelShaderFunction(i1;vf4[3]; ( temp 4-component vector of float)
+0:?           'i' ( temp int)
+0:?           'input' ( temp 3-element array of 4-component vector of float)
+0:?   Linker Objects
+0:?     'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:?     '@entryPointOutput' (layout( location=0) out 4-component vector of float)
+0:?     'i' (layout( location=0) flat in int)
+0:?     'input' (layout( location=1) in 3-element array of 4-component vector of float)
+
+
+Linked fragment stage:
+
+
+Shader version: 500
+gl_FragCoord origin is upper left
+0:? Sequence
+0:8  Function Definition: @PixelShaderFunction(i1;vf4[3]; ( temp 4-component vector of float)
+0:8    Function Parameters: 
+0:8      'i' ( in int)
+0:8      'input' ( in 3-element array of 4-component vector of float)
+0:?     Sequence
+0:10      Branch: Return with expression
+0:10        add ( temp 4-component vector of float)
+0:10          add ( temp 4-component vector of float)
+0:10            add ( temp 4-component vector of float)
+0:10              add ( temp 4-component vector of float)
+0:10                add ( temp 4-component vector of float)
+0:10                  add ( temp 4-component vector of float)
+0:10                    direct index ( temp 4-component vector of float)
+0:10                      a: direct index for structure ( uniform 4-element array of 4-component vector of float)
+0:10                        'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                        Constant:
+0:10                          0 (const uint)
+0:10                      Constant:
+0:10                        1 (const int)
+0:10                    indirect index ( temp 4-component vector of float)
+0:10                      a: direct index for structure ( uniform 4-element array of 4-component vector of float)
+0:10                        'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                        Constant:
+0:10                          0 (const uint)
+0:10                      'i' ( in int)
+0:10                  direct index ( temp 4-component vector of float)
+0:10                    'input' ( in 3-element array of 4-component vector of float)
+0:10                    Constant:
+0:10                      2 (const int)
+0:10                indirect index ( temp 4-component vector of float)
+0:10                  'input' ( in 3-element array of 4-component vector of float)
+0:10                  'i' ( in int)
+0:10              direct index ( temp 4-component vector of float)
+0:10                'b' ( temp 10-element array of 4-component vector of float)
+0:10                Constant:
+0:10                  5 (const int)
+0:10            indirect index ( temp 4-component vector of float)
+0:10              'b' ( temp 10-element array of 4-component vector of float)
+0:10              'i' ( in int)
+0:10          indirect index ( temp 4-component vector of float)
+0:10            m: direct index for structure ( temp 7-element array of 4-component vector of float)
+0:10              indirect index ( temp structure{ temp 7-element array of 4-component vector of float m})
+0:10                s: direct index for structure ( uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m})
+0:10                  'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:10                  Constant:
+0:10                    1 (const uint)
+0:10                'i' ( in int)
+0:10              Constant:
+0:10                0 (const int)
+0:10            'i' ( in int)
+0:8  Function Definition: PixelShaderFunction( ( temp void)
+0:8    Function Parameters: 
+0:?     Sequence
+0:8      move second child to first child ( temp int)
+0:?         'i' ( temp int)
+0:?         'i' (layout( location=0) flat in int)
+0:8      move second child to first child ( temp 3-element array of 4-component vector of float)
+0:?         'input' ( temp 3-element array of 4-component vector of float)
+0:?         'input' (layout( location=1) in 3-element array of 4-component vector of float)
+0:8      move second child to first child ( temp 4-component vector of float)
+0:?         '@entryPointOutput' (layout( location=0) out 4-component vector of float)
+0:8        Function Call: @PixelShaderFunction(i1;vf4[3]; ( temp 4-component vector of float)
+0:?           'i' ( temp int)
+0:?           'input' ( temp 3-element array of 4-component vector of float)
+0:?   Linker Objects
+0:?     'anon@0' (layout( row_major std140) uniform block{ uniform 4-element array of 4-component vector of float a,  uniform 11-element array of structure{ temp 7-element array of 4-component vector of float m} s})
+0:?     '@entryPointOutput' (layout( location=0) out 4-component vector of float)
+0:?     'i' (layout( location=0) flat in int)
+0:?     'input' (layout( location=1) in 3-element array of 4-component vector of float)
+
+// Module Version 10000
+// Generated by (magic number): 80001
+// Id's are bound by 81
+
+                              Capability Shader
+               1:             ExtInstImport  "GLSL.std.450"
+                              MemoryModel Logical GLSL450
+                              EntryPoint Fragment 4  "PixelShaderFunction" 68 72 75
+                              ExecutionMode 4 OriginUpperLeft
+                              Source HLSL 500
+                              Name 4  "PixelShaderFunction"
+                              Name 17  "@PixelShaderFunction(i1;vf4[3];"
+                              Name 15  "i"
+                              Name 16  "input"
+                              Name 23  ""
+                              MemberName 23 0  "m"
+                              Name 26  "$Global"
+                              MemberName 26($Global) 0  "a"
+                              MemberName 26($Global) 1  "s"
+                              Name 28  ""
+                              Name 50  "b"
+                              Name 66  "i"
+                              Name 68  "i"
+                              Name 70  "input"
+                              Name 72  "input"
+                              Name 75  "@entryPointOutput"
+                              Name 76  "param"
+                              Name 78  "param"
+                              Decorate 20 ArrayStride 16
+                              Decorate 22 ArrayStride 16
+                              MemberDecorate 23 0 Offset 0
+                              Decorate 25 ArrayStride 112
+                              MemberDecorate 26($Global) 0 Offset 0
+                              MemberDecorate 26($Global) 1 Offset 64
+                              Decorate 26($Global) Block
+                              Decorate 28 DescriptorSet 0
+                              Decorate 68(i) Flat
+                              Decorate 68(i) Location 0
+                              Decorate 72(input) Location 1
+                              Decorate 75(@entryPointOutput) Location 0
+               2:             TypeVoid
+               3:             TypeFunction 2
+               6:             TypeInt 32 1
+               7:             TypePointer Function 6(int)
+               8:             TypeFloat 32
+               9:             TypeVector 8(float) 4
+              10:             TypeInt 32 0
+              11:     10(int) Constant 3
+              12:             TypeArray 9(fvec4) 11
+              13:             TypePointer Function 12
+              14:             TypeFunction 9(fvec4) 7(ptr) 13(ptr)
+              19:     10(int) Constant 4
+              20:             TypeArray 9(fvec4) 19
+              21:     10(int) Constant 7
+              22:             TypeArray 9(fvec4) 21
+              23:             TypeStruct 22
+              24:     10(int) Constant 11
+              25:             TypeArray 23(struct) 24
+     26($Global):             TypeStruct 20 25
+              27:             TypePointer Uniform 26($Global)
+              28:     27(ptr) Variable Uniform
+              29:      6(int) Constant 0
+              30:      6(int) Constant 1
+              31:             TypePointer Uniform 9(fvec4)
+              38:      6(int) Constant 2
+              39:             TypePointer Function 9(fvec4)
+              47:     10(int) Constant 10
+              48:             TypeArray 9(fvec4) 47
+              49:             TypePointer Function 48
+              51:      6(int) Constant 5
+              67:             TypePointer Input 6(int)
+           68(i):     67(ptr) Variable Input
+              71:             TypePointer Input 12
+       72(input):     71(ptr) Variable Input
+              74:             TypePointer Output 9(fvec4)
+75(@entryPointOutput):     74(ptr) Variable Output
+4(PixelShaderFunction):           2 Function None 3
+               5:             Label
+           66(i):      7(ptr) Variable Function
+       70(input):     13(ptr) Variable Function
+       76(param):      7(ptr) Variable Function
+       78(param):     13(ptr) Variable Function
+              69:      6(int) Load 68(i)
+                              Store 66(i) 69
+              73:          12 Load 72(input)
+                              Store 70(input) 73
+              77:      6(int) Load 66(i)
+                              Store 76(param) 77
+              79:          12 Load 70(input)
+                              Store 78(param) 79
+              80:    9(fvec4) FunctionCall 17(@PixelShaderFunction(i1;vf4[3];) 76(param) 78(param)
+                              Store 75(@entryPointOutput) 80
+                              Return
+                              FunctionEnd
+17(@PixelShaderFunction(i1;vf4[3];):    9(fvec4) Function None 14
+           15(i):      7(ptr) FunctionParameter
+       16(input):     13(ptr) FunctionParameter
+              18:             Label
+           50(b):     49(ptr) Variable Function
+              32:     31(ptr) AccessChain 28 29 30
+              33:    9(fvec4) Load 32
+              34:      6(int) Load 15(i)
+              35:     31(ptr) AccessChain 28 29 34
+              36:    9(fvec4) Load 35
+              37:    9(fvec4) FAdd 33 36
+              40:     39(ptr) AccessChain 16(input) 38
+              41:    9(fvec4) Load 40
+              42:    9(fvec4) FAdd 37 41
+              43:      6(int) Load 15(i)
+              44:     39(ptr) AccessChain 16(input) 43
+              45:    9(fvec4) Load 44
+              46:    9(fvec4) FAdd 42 45
+              52:     39(ptr) AccessChain 50(b) 51
+              53:    9(fvec4) Load 52
+              54:    9(fvec4) FAdd 46 53
+              55:      6(int) Load 15(i)
+              56:     39(ptr) AccessChain 50(b) 55
+              57:    9(fvec4) Load 56
+              58:    9(fvec4) FAdd 54 57
+              59:      6(int) Load 15(i)
+              60:      6(int) Load 15(i)
+              61:     31(ptr) AccessChain 28 30 59 29 60
+              62:    9(fvec4) Load 61
+              63:    9(fvec4) FAdd 58 62
+                              ReturnValue 63
+                              FunctionEnd

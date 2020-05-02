@@ -1,0 +1,13 @@
+*.o
+*.a
+*.so
+*.exe
+tags
+TAGS
+build/
+Test/localResults/
+Test/multiThread.out
+Test/singleThread.out
+Test/vert.spv
+Test/frag.spv
+External/googletest

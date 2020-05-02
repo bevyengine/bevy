@@ -1,0 +1,915 @@
+hlsl.getsampleposition.dx10.frag
+Shader version: 500
+gl_FragCoord origin is upper left
+0:? Sequence
+0:13  Function Definition: @main(i1; ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13    Function Parameters: 
+0:13      'sample' ( in int)
+0:?     Sequence
+0:16      Sequence
+0:16        move second child to first child ( temp 2-component vector of float)
+0:16          'r00' ( temp 2-component vector of float)
+0:16          Sequence
+0:16            move second child to first child ( temp uint)
+0:16              '@sampleCount' ( temp uint)
+0:16              imageQuerySamples ( temp uint)
+0:16                'g_tTex2dmsf4' ( uniform texture2DMS)
+0:16            Test condition and select ( temp 2-component vector of float)
+0:16              Condition
+0:16              Compare Equal ( temp bool)
+0:16                '@sampleCount' ( temp uint)
+0:16                Constant:
+0:16                  2 (const int)
+0:16              true case
+0:16              indirect index ( temp 2-component vector of float)
+0:?                 Constant:
+0:?                   0.250000
+0:?                   0.250000
+0:?                   -0.250000
+0:?                   -0.250000
+0:16                'sample' ( in int)
+0:16              false case
+0:16              Test condition and select ( temp 2-component vector of float)
+0:16                Condition
+0:16                Compare Equal ( temp bool)
+0:16                  '@sampleCount' ( temp uint)
+0:16                  Constant:
+0:16                    4 (const int)
+0:16                true case
+0:16                indirect index ( temp 2-component vector of float)
+0:?                   Constant:
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.375000
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.125000
+0:?                     0.125000
+0:?                     0.375000
+0:16                  'sample' ( in int)
+0:16                false case
+0:16                Test condition and select ( temp 2-component vector of float)
+0:16                  Condition
+0:16                  Compare Equal ( temp bool)
+0:16                    '@sampleCount' ( temp uint)
+0:16                    Constant:
+0:16                      8 (const int)
+0:16                  true case
+0:16                  indirect index ( temp 2-component vector of float)
+0:?                     Constant:
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.312500
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.312500
+0:?                       -0.312500
+0:?                       0.312500
+0:?                       -0.437500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.437500
+0:?                       0.437500
+0:?                       -0.437500
+0:16                    'sample' ( in int)
+0:16                  false case
+0:16                  Test condition and select ( temp 2-component vector of float)
+0:16                    Condition
+0:16                    Compare Equal ( temp bool)
+0:16                      '@sampleCount' ( temp uint)
+0:16                      Constant:
+0:16                        16 (const int)
+0:16                    true case
+0:16                    indirect index ( temp 2-component vector of float)
+0:?                       Constant:
+0:?                         0.062500
+0:?                         0.062500
+0:?                         -0.062500
+0:?                         -0.187500
+0:?                         -0.187500
+0:?                         0.125000
+0:?                         0.250000
+0:?                         -0.062500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.125000
+0:?                         0.312500
+0:?                         0.312500
+0:?                         0.187500
+0:?                         0.187500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.375000
+0:?                         0.000000
+0:?                         -0.437500
+0:?                         -0.250000
+0:?                         -0.375000
+0:?                         -0.375000
+0:?                         0.250000
+0:?                         -0.500000
+0:?                         0.000000
+0:?                         0.437500
+0:?                         -0.250000
+0:?                         0.375000
+0:?                         0.437500
+0:?                         -0.437500
+0:?                         -0.500000
+0:16                      'sample' ( in int)
+0:16                    false case
+0:?                     Constant:
+0:?                       0.000000
+0:?                       0.000000
+0:17      Sequence
+0:17        move second child to first child ( temp 2-component vector of float)
+0:17          'r01' ( temp 2-component vector of float)
+0:17          Sequence
+0:17            move second child to first child ( temp uint)
+0:17              '@sampleCount' ( temp uint)
+0:17              imageQuerySamples ( temp uint)
+0:17                'g_tTex2dmsf4a' ( uniform texture2DMSArray)
+0:17            Test condition and select ( temp 2-component vector of float)
+0:17              Condition
+0:17              Compare Equal ( temp bool)
+0:17                '@sampleCount' ( temp uint)
+0:17                Constant:
+0:17                  2 (const int)
+0:17              true case
+0:17              indirect index ( temp 2-component vector of float)
+0:?                 Constant:
+0:?                   0.250000
+0:?                   0.250000
+0:?                   -0.250000
+0:?                   -0.250000
+0:17                'sample' ( in int)
+0:17              false case
+0:17              Test condition and select ( temp 2-component vector of float)
+0:17                Condition
+0:17                Compare Equal ( temp bool)
+0:17                  '@sampleCount' ( temp uint)
+0:17                  Constant:
+0:17                    4 (const int)
+0:17                true case
+0:17                indirect index ( temp 2-component vector of float)
+0:?                   Constant:
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.375000
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.125000
+0:?                     0.125000
+0:?                     0.375000
+0:17                  'sample' ( in int)
+0:17                false case
+0:17                Test condition and select ( temp 2-component vector of float)
+0:17                  Condition
+0:17                  Compare Equal ( temp bool)
+0:17                    '@sampleCount' ( temp uint)
+0:17                    Constant:
+0:17                      8 (const int)
+0:17                  true case
+0:17                  indirect index ( temp 2-component vector of float)
+0:?                     Constant:
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.312500
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.312500
+0:?                       -0.312500
+0:?                       0.312500
+0:?                       -0.437500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.437500
+0:?                       0.437500
+0:?                       -0.437500
+0:17                    'sample' ( in int)
+0:17                  false case
+0:17                  Test condition and select ( temp 2-component vector of float)
+0:17                    Condition
+0:17                    Compare Equal ( temp bool)
+0:17                      '@sampleCount' ( temp uint)
+0:17                      Constant:
+0:17                        16 (const int)
+0:17                    true case
+0:17                    indirect index ( temp 2-component vector of float)
+0:?                       Constant:
+0:?                         0.062500
+0:?                         0.062500
+0:?                         -0.062500
+0:?                         -0.187500
+0:?                         -0.187500
+0:?                         0.125000
+0:?                         0.250000
+0:?                         -0.062500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.125000
+0:?                         0.312500
+0:?                         0.312500
+0:?                         0.187500
+0:?                         0.187500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.375000
+0:?                         0.000000
+0:?                         -0.437500
+0:?                         -0.250000
+0:?                         -0.375000
+0:?                         -0.375000
+0:?                         0.250000
+0:?                         -0.500000
+0:?                         0.000000
+0:?                         0.437500
+0:?                         -0.250000
+0:?                         0.375000
+0:?                         0.437500
+0:?                         -0.437500
+0:?                         -0.500000
+0:17                      'sample' ( in int)
+0:17                    false case
+0:?                     Constant:
+0:?                       0.000000
+0:?                       0.000000
+0:19      move second child to first child ( temp 4-component vector of float)
+0:19        Color: direct index for structure ( temp 4-component vector of float)
+0:19          'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:19          Constant:
+0:19            0 (const int)
+0:19        Constant:
+0:19          1.000000
+0:19          1.000000
+0:19          1.000000
+0:19          1.000000
+0:20      move second child to first child ( temp float)
+0:20        Depth: direct index for structure ( temp float)
+0:20          'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:20          Constant:
+0:20            1 (const int)
+0:20        Constant:
+0:20          1.000000
+0:22      Branch: Return with expression
+0:22        'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13  Function Definition: main( ( temp void)
+0:13    Function Parameters: 
+0:?     Sequence
+0:13      move second child to first child ( temp int)
+0:?         'sample' ( temp int)
+0:?         'sample' (layout( location=0) flat in int)
+0:13      Sequence
+0:13        move second child to first child ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13          'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13          Function Call: @main(i1; ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:?             'sample' ( temp int)
+0:13        move second child to first child ( temp 4-component vector of float)
+0:?           'Color' (layout( location=0) out 4-component vector of float)
+0:13          Color: direct index for structure ( temp 4-component vector of float)
+0:13            'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13            Constant:
+0:13              0 (const int)
+0:13        move second child to first child ( temp float)
+0:?           'Depth' ( out float FragDepth)
+0:13          Depth: direct index for structure ( temp float)
+0:13            'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13            Constant:
+0:13              1 (const int)
+0:?   Linker Objects
+0:?     'g_sSamp' (layout( binding=0) uniform sampler)
+0:?     'g_tTex2dmsf4' ( uniform texture2DMS)
+0:?     'g_tTex2dmsf4a' ( uniform texture2DMSArray)
+0:?     'Color' (layout( location=0) out 4-component vector of float)
+0:?     'Depth' ( out float FragDepth)
+0:?     'sample' (layout( location=0) flat in int)
+
+
+Linked fragment stage:
+
+
+Shader version: 500
+gl_FragCoord origin is upper left
+0:? Sequence
+0:13  Function Definition: @main(i1; ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13    Function Parameters: 
+0:13      'sample' ( in int)
+0:?     Sequence
+0:16      Sequence
+0:16        move second child to first child ( temp 2-component vector of float)
+0:16          'r00' ( temp 2-component vector of float)
+0:16          Sequence
+0:16            move second child to first child ( temp uint)
+0:16              '@sampleCount' ( temp uint)
+0:16              imageQuerySamples ( temp uint)
+0:16                'g_tTex2dmsf4' ( uniform texture2DMS)
+0:16            Test condition and select ( temp 2-component vector of float)
+0:16              Condition
+0:16              Compare Equal ( temp bool)
+0:16                '@sampleCount' ( temp uint)
+0:16                Constant:
+0:16                  2 (const int)
+0:16              true case
+0:16              indirect index ( temp 2-component vector of float)
+0:?                 Constant:
+0:?                   0.250000
+0:?                   0.250000
+0:?                   -0.250000
+0:?                   -0.250000
+0:16                'sample' ( in int)
+0:16              false case
+0:16              Test condition and select ( temp 2-component vector of float)
+0:16                Condition
+0:16                Compare Equal ( temp bool)
+0:16                  '@sampleCount' ( temp uint)
+0:16                  Constant:
+0:16                    4 (const int)
+0:16                true case
+0:16                indirect index ( temp 2-component vector of float)
+0:?                   Constant:
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.375000
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.125000
+0:?                     0.125000
+0:?                     0.375000
+0:16                  'sample' ( in int)
+0:16                false case
+0:16                Test condition and select ( temp 2-component vector of float)
+0:16                  Condition
+0:16                  Compare Equal ( temp bool)
+0:16                    '@sampleCount' ( temp uint)
+0:16                    Constant:
+0:16                      8 (const int)
+0:16                  true case
+0:16                  indirect index ( temp 2-component vector of float)
+0:?                     Constant:
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.312500
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.312500
+0:?                       -0.312500
+0:?                       0.312500
+0:?                       -0.437500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.437500
+0:?                       0.437500
+0:?                       -0.437500
+0:16                    'sample' ( in int)
+0:16                  false case
+0:16                  Test condition and select ( temp 2-component vector of float)
+0:16                    Condition
+0:16                    Compare Equal ( temp bool)
+0:16                      '@sampleCount' ( temp uint)
+0:16                      Constant:
+0:16                        16 (const int)
+0:16                    true case
+0:16                    indirect index ( temp 2-component vector of float)
+0:?                       Constant:
+0:?                         0.062500
+0:?                         0.062500
+0:?                         -0.062500
+0:?                         -0.187500
+0:?                         -0.187500
+0:?                         0.125000
+0:?                         0.250000
+0:?                         -0.062500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.125000
+0:?                         0.312500
+0:?                         0.312500
+0:?                         0.187500
+0:?                         0.187500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.375000
+0:?                         0.000000
+0:?                         -0.437500
+0:?                         -0.250000
+0:?                         -0.375000
+0:?                         -0.375000
+0:?                         0.250000
+0:?                         -0.500000
+0:?                         0.000000
+0:?                         0.437500
+0:?                         -0.250000
+0:?                         0.375000
+0:?                         0.437500
+0:?                         -0.437500
+0:?                         -0.500000
+0:16                      'sample' ( in int)
+0:16                    false case
+0:?                     Constant:
+0:?                       0.000000
+0:?                       0.000000
+0:17      Sequence
+0:17        move second child to first child ( temp 2-component vector of float)
+0:17          'r01' ( temp 2-component vector of float)
+0:17          Sequence
+0:17            move second child to first child ( temp uint)
+0:17              '@sampleCount' ( temp uint)
+0:17              imageQuerySamples ( temp uint)
+0:17                'g_tTex2dmsf4a' ( uniform texture2DMSArray)
+0:17            Test condition and select ( temp 2-component vector of float)
+0:17              Condition
+0:17              Compare Equal ( temp bool)
+0:17                '@sampleCount' ( temp uint)
+0:17                Constant:
+0:17                  2 (const int)
+0:17              true case
+0:17              indirect index ( temp 2-component vector of float)
+0:?                 Constant:
+0:?                   0.250000
+0:?                   0.250000
+0:?                   -0.250000
+0:?                   -0.250000
+0:17                'sample' ( in int)
+0:17              false case
+0:17              Test condition and select ( temp 2-component vector of float)
+0:17                Condition
+0:17                Compare Equal ( temp bool)
+0:17                  '@sampleCount' ( temp uint)
+0:17                  Constant:
+0:17                    4 (const int)
+0:17                true case
+0:17                indirect index ( temp 2-component vector of float)
+0:?                   Constant:
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.375000
+0:?                     -0.125000
+0:?                     -0.375000
+0:?                     0.125000
+0:?                     0.125000
+0:?                     0.375000
+0:17                  'sample' ( in int)
+0:17                false case
+0:17                Test condition and select ( temp 2-component vector of float)
+0:17                  Condition
+0:17                  Compare Equal ( temp bool)
+0:17                    '@sampleCount' ( temp uint)
+0:17                    Constant:
+0:17                      8 (const int)
+0:17                  true case
+0:17                  indirect index ( temp 2-component vector of float)
+0:?                     Constant:
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.312500
+0:?                       0.062500
+0:?                       -0.187500
+0:?                       -0.312500
+0:?                       -0.312500
+0:?                       0.312500
+0:?                       -0.437500
+0:?                       -0.062500
+0:?                       0.187500
+0:?                       0.437500
+0:?                       0.437500
+0:?                       -0.437500
+0:17                    'sample' ( in int)
+0:17                  false case
+0:17                  Test condition and select ( temp 2-component vector of float)
+0:17                    Condition
+0:17                    Compare Equal ( temp bool)
+0:17                      '@sampleCount' ( temp uint)
+0:17                      Constant:
+0:17                        16 (const int)
+0:17                    true case
+0:17                    indirect index ( temp 2-component vector of float)
+0:?                       Constant:
+0:?                         0.062500
+0:?                         0.062500
+0:?                         -0.062500
+0:?                         -0.187500
+0:?                         -0.187500
+0:?                         0.125000
+0:?                         0.250000
+0:?                         -0.062500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.125000
+0:?                         0.312500
+0:?                         0.312500
+0:?                         0.187500
+0:?                         0.187500
+0:?                         -0.312500
+0:?                         -0.125000
+0:?                         0.375000
+0:?                         0.000000
+0:?                         -0.437500
+0:?                         -0.250000
+0:?                         -0.375000
+0:?                         -0.375000
+0:?                         0.250000
+0:?                         -0.500000
+0:?                         0.000000
+0:?                         0.437500
+0:?                         -0.250000
+0:?                         0.375000
+0:?                         0.437500
+0:?                         -0.437500
+0:?                         -0.500000
+0:17                      'sample' ( in int)
+0:17                    false case
+0:?                     Constant:
+0:?                       0.000000
+0:?                       0.000000
+0:19      move second child to first child ( temp 4-component vector of float)
+0:19        Color: direct index for structure ( temp 4-component vector of float)
+0:19          'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:19          Constant:
+0:19            0 (const int)
+0:19        Constant:
+0:19          1.000000
+0:19          1.000000
+0:19          1.000000
+0:19          1.000000
+0:20      move second child to first child ( temp float)
+0:20        Depth: direct index for structure ( temp float)
+0:20          'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:20          Constant:
+0:20            1 (const int)
+0:20        Constant:
+0:20          1.000000
+0:22      Branch: Return with expression
+0:22        'psout' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13  Function Definition: main( ( temp void)
+0:13    Function Parameters: 
+0:?     Sequence
+0:13      move second child to first child ( temp int)
+0:?         'sample' ( temp int)
+0:?         'sample' (layout( location=0) flat in int)
+0:13      Sequence
+0:13        move second child to first child ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13          'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13          Function Call: @main(i1; ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:?             'sample' ( temp int)
+0:13        move second child to first child ( temp 4-component vector of float)
+0:?           'Color' (layout( location=0) out 4-component vector of float)
+0:13          Color: direct index for structure ( temp 4-component vector of float)
+0:13            'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13            Constant:
+0:13              0 (const int)
+0:13        move second child to first child ( temp float)
+0:?           'Depth' ( out float FragDepth)
+0:13          Depth: direct index for structure ( temp float)
+0:13            'flattenTemp' ( temp structure{ temp 4-component vector of float Color,  temp float Depth})
+0:13            Constant:
+0:13              1 (const int)
+0:?   Linker Objects
+0:?     'g_sSamp' (layout( binding=0) uniform sampler)
+0:?     'g_tTex2dmsf4' ( uniform texture2DMS)
+0:?     'g_tTex2dmsf4a' ( uniform texture2DMSArray)
+0:?     'Color' (layout( location=0) out 4-component vector of float)
+0:?     'Depth' ( out float FragDepth)
+0:?     'sample' (layout( location=0) flat in int)
+
+// Module Version 10000
+// Generated by (magic number): 80001
+// Id's are bound by 221
+
+                              Capability Shader
+                              Capability ImageMSArray
+                              Capability ImageQuery
+               1:             ExtInstImport  "GLSL.std.450"
+                              MemoryModel Logical GLSL450
+                              EntryPoint Fragment 4  "main" 204 211 215
+                              ExecutionMode 4 OriginUpperLeft
+                              Source HLSL 500
+                              Name 4  "main"
+                              Name 10  "PS_OUTPUT"
+                              MemberName 10(PS_OUTPUT) 0  "Color"
+                              MemberName 10(PS_OUTPUT) 1  "Depth"
+                              Name 13  "@main(i1;"
+                              Name 12  "sample"
+                              Name 17  "r00"
+                              Name 20  "@sampleCount"
+                              Name 23  "g_tTex2dmsf4"
+                              Name 42  "indexable"
+                              Name 65  "indexable"
+                              Name 96  "indexable"
+                              Name 129  "indexable"
+                              Name 138  "r01"
+                              Name 139  "@sampleCount"
+                              Name 142  "g_tTex2dmsf4a"
+                              Name 151  "indexable"
+                              Name 161  "indexable"
+                              Name 171  "indexable"
+                              Name 181  "indexable"
+                              Name 190  "psout"
+                              Name 202  "sample"
+                              Name 204  "sample"
+                              Name 206  "flattenTemp"
+                              Name 207  "param"
+                              Name 211  "Color"
+                              Name 215  "Depth"
+                              Name 220  "g_sSamp"
+                              Decorate 23(g_tTex2dmsf4) DescriptorSet 0
+                              Decorate 142(g_tTex2dmsf4a) DescriptorSet 0
+                              Decorate 204(sample) Flat
+                              Decorate 204(sample) Location 0
+                              Decorate 211(Color) Location 0
+                              Decorate 215(Depth) BuiltIn FragDepth
+                              Decorate 220(g_sSamp) DescriptorSet 0
+                              Decorate 220(g_sSamp) Binding 0
+               2:             TypeVoid
+               3:             TypeFunction 2
+               6:             TypeInt 32 1
+               7:             TypePointer Function 6(int)
+               8:             TypeFloat 32
+               9:             TypeVector 8(float) 4
+   10(PS_OUTPUT):             TypeStruct 9(fvec4) 8(float)
+              11:             TypeFunction 10(PS_OUTPUT) 7(ptr)
+              15:             TypeVector 8(float) 2
+              16:             TypePointer Function 15(fvec2)
+              18:             TypeInt 32 0
+              19:             TypePointer Function 18(int)
+              21:             TypeImage 8(float) 2D multi-sampled sampled format:Unknown
+              22:             TypePointer UniformConstant 21
+23(g_tTex2dmsf4):     22(ptr) Variable UniformConstant
+              28:      6(int) Constant 2
+              29:             TypeBool
+              33:     18(int) Constant 2
+              34:             TypeArray 15(fvec2) 33
+              35:    8(float) Constant 1048576000
+              36:   15(fvec2) ConstantComposite 35 35
+              37:    8(float) Constant 3196059648
+              38:   15(fvec2) ConstantComposite 37 37
+              39:          34 ConstantComposite 36 38
+              41:             TypePointer Function 34
+              48:      6(int) Constant 4
+              52:     18(int) Constant 4
+              53:             TypeArray 15(fvec2) 52
+              54:    8(float) Constant 3187671040
+              55:    8(float) Constant 3200253952
+              56:   15(fvec2) ConstantComposite 54 55
+              57:    8(float) Constant 1052770304
+              58:   15(fvec2) ConstantComposite 57 54
+              59:    8(float) Constant 1040187392
+              60:   15(fvec2) ConstantComposite 55 59
+              61:   15(fvec2) ConstantComposite 59 57
+              62:          53 ConstantComposite 56 58 60 61
+              64:             TypePointer Function 53
+              71:      6(int) Constant 8
+              75:     18(int) Constant 8
+              76:             TypeArray 15(fvec2) 75
+              77:    8(float) Constant 1031798784
+              78:    8(float) Constant 3191865344
+              79:   15(fvec2) ConstantComposite 77 78
+              80:    8(float) Constant 3179282432
+              81:    8(float) Constant 1044381696
+              82:   15(fvec2) ConstantComposite 80 81
+              83:    8(float) Constant 1050673152
+              84:   15(fvec2) ConstantComposite 83 77
+              85:    8(float) Constant 3198156800
+              86:   15(fvec2) ConstantComposite 78 85
+              87:   15(fvec2) ConstantComposite 85 83
+              88:    8(float) Constant 3202351104
+              89:   15(fvec2) ConstantComposite 88 80
+              90:    8(float) Constant 1054867456
+              91:   15(fvec2) ConstantComposite 81 90
+              92:   15(fvec2) ConstantComposite 90 88
+              93:          76 ConstantComposite 79 82 84 86 87 89 91 92
+              95:             TypePointer Function 76
+             102:      6(int) Constant 16
+             106:     18(int) Constant 16
+             107:             TypeArray 15(fvec2) 106
+             108:   15(fvec2) ConstantComposite 77 77
+             109:   15(fvec2) ConstantComposite 80 78
+             110:   15(fvec2) ConstantComposite 78 59
+             111:   15(fvec2) ConstantComposite 35 80
+             112:   15(fvec2) ConstantComposite 85 54
+             113:   15(fvec2) ConstantComposite 59 83
+             114:   15(fvec2) ConstantComposite 83 81
+             115:   15(fvec2) ConstantComposite 81 85
+             116:   15(fvec2) ConstantComposite 54 57
+             117:    8(float) Constant 0
+             118:   15(fvec2) ConstantComposite 117 88
+             119:   15(fvec2) ConstantComposite 37 55
+             120:   15(fvec2) ConstantComposite 55 35
+             121:    8(float) Constant 3204448256
+             122:   15(fvec2) ConstantComposite 121 117
+             123:   15(fvec2) ConstantComposite 90 37
+             124:   15(fvec2) ConstantComposite 57 90
+             125:   15(fvec2) ConstantComposite 88 121
+             126:         107 ConstantComposite 108 109 110 111 112 113 114 115 116 118 119 120 122 123 124 125
+             128:             TypePointer Function 107
+             133:   15(fvec2) ConstantComposite 117 117
+             140:             TypeImage 8(float) 2D array multi-sampled sampled format:Unknown
+             141:             TypePointer UniformConstant 140
+142(g_tTex2dmsf4a):    141(ptr) Variable UniformConstant
+             189:             TypePointer Function 10(PS_OUTPUT)
+             191:      6(int) Constant 0
+             192:    8(float) Constant 1065353216
+             193:    9(fvec4) ConstantComposite 192 192 192 192
+             194:             TypePointer Function 9(fvec4)
+             196:      6(int) Constant 1
+             197:             TypePointer Function 8(float)
+             203:             TypePointer Input 6(int)
+     204(sample):    203(ptr) Variable Input
+             210:             TypePointer Output 9(fvec4)
+      211(Color):    210(ptr) Variable Output
+             214:             TypePointer Output 8(float)
+      215(Depth):    214(ptr) Variable Output
+             218:             TypeSampler
+             219:             TypePointer UniformConstant 218
+    220(g_sSamp):    219(ptr) Variable UniformConstant
+         4(main):           2 Function None 3
+               5:             Label
+     202(sample):      7(ptr) Variable Function
+206(flattenTemp):    189(ptr) Variable Function
+      207(param):      7(ptr) Variable Function
+             205:      6(int) Load 204(sample)
+                              Store 202(sample) 205
+             208:      6(int) Load 202(sample)
+                              Store 207(param) 208
+             209:10(PS_OUTPUT) FunctionCall 13(@main(i1;) 207(param)
+                              Store 206(flattenTemp) 209
+             212:    194(ptr) AccessChain 206(flattenTemp) 191
+             213:    9(fvec4) Load 212
+                              Store 211(Color) 213
+             216:    197(ptr) AccessChain 206(flattenTemp) 196
+             217:    8(float) Load 216
+                              Store 215(Depth) 217
+                              Return
+                              FunctionEnd
+   13(@main(i1;):10(PS_OUTPUT) Function None 11
+      12(sample):      7(ptr) FunctionParameter
+              14:             Label
+         17(r00):     16(ptr) Variable Function
+20(@sampleCount):     19(ptr) Variable Function
+              26:     16(ptr) Variable Function
+   42(indexable):     41(ptr) Variable Function
+              46:     16(ptr) Variable Function
+   65(indexable):     64(ptr) Variable Function
+              69:     16(ptr) Variable Function
+   96(indexable):     95(ptr) Variable Function
+             100:     16(ptr) Variable Function
+  129(indexable):    128(ptr) Variable Function
+        138(r01):     16(ptr) Variable Function
+139(@sampleCount):     19(ptr) Variable Function
+             145:     16(ptr) Variable Function
+  151(indexable):     41(ptr) Variable Function
+             155:     16(ptr) Variable Function
+  161(indexable):     64(ptr) Variable Function
+             165:     16(ptr) Variable Function
+  171(indexable):     95(ptr) Variable Function
+             175:     16(ptr) Variable Function
+  181(indexable):    128(ptr) Variable Function
+      190(psout):    189(ptr) Variable Function
+              24:          21 Load 23(g_tTex2dmsf4)
+              25:     18(int) ImageQuerySamples 24
+                              Store 20(@sampleCount) 25
+              27:     18(int) Load 20(@sampleCount)
+              30:    29(bool) IEqual 27 28
+                              SelectionMerge 32 None
+                              BranchConditional 30 31 45
+              31:               Label
+              40:      6(int)   Load 12(sample)
+                                Store 42(indexable) 39
+              43:     16(ptr)   AccessChain 42(indexable) 40
+              44:   15(fvec2)   Load 43
+                                Store 26 44
+                                Branch 32
+              45:               Label
+              47:     18(int)   Load 20(@sampleCount)
+              49:    29(bool)   IEqual 47 48
+                                SelectionMerge 51 None
+                                BranchConditional 49 50 68
+              50:                 Label
+              63:      6(int)     Load 12(sample)
+                                  Store 65(indexable) 62
+              66:     16(ptr)     AccessChain 65(indexable) 63
+              67:   15(fvec2)     Load 66
+                                  Store 46 67
+                                  Branch 51
+              68:                 Label
+              70:     18(int)     Load 20(@sampleCount)
+              72:    29(bool)     IEqual 70 71
+                                  SelectionMerge 74 None
+                                  BranchConditional 72 73 99
+              73:                   Label
+              94:      6(int)       Load 12(sample)
+                                    Store 96(indexable) 93
+              97:     16(ptr)       AccessChain 96(indexable) 94
+              98:   15(fvec2)       Load 97
+                                    Store 69 98
+                                    Branch 74
+              99:                   Label
+             101:     18(int)       Load 20(@sampleCount)
+             103:    29(bool)       IEqual 101 102
+                                    SelectionMerge 105 None
+                                    BranchConditional 103 104 132
+             104:                     Label
+             127:      6(int)         Load 12(sample)
+                                      Store 129(indexable) 126
+             130:     16(ptr)         AccessChain 129(indexable) 127
+             131:   15(fvec2)         Load 130
+                                      Store 100 131
+                                      Branch 105
+             132:                     Label
+                                      Store 100 133
+                                      Branch 105
+             105:                   Label
+             134:   15(fvec2)       Load 100
+                                    Store 69 134
+                                    Branch 74
+              74:                 Label
+             135:   15(fvec2)     Load 69
+                                  Store 46 135
+                                  Branch 51
+              51:               Label
+             136:   15(fvec2)   Load 46
+                                Store 26 136
+                                Branch 32
+              32:             Label
+             137:   15(fvec2) Load 26
+                              Store 17(r00) 137
+             143:         140 Load 142(g_tTex2dmsf4a)
+             144:     18(int) ImageQuerySamples 143
+                              Store 139(@sampleCount) 144
+             146:     18(int) Load 139(@sampleCount)
+             147:    29(bool) IEqual 146 28
+                              SelectionMerge 149 None
+                              BranchConditional 147 148 154
+             148:               Label
+             150:      6(int)   Load 12(sample)
+                                Store 151(indexable) 39
+             152:     16(ptr)   AccessChain 151(indexable) 150
+             153:   15(fvec2)   Load 152
+                                Store 145 153
+                                Branch 149
+             154:               Label
+             156:     18(int)   Load 139(@sampleCount)
+             157:    29(bool)   IEqual 156 48
+                                SelectionMerge 159 None
+                                BranchConditional 157 158 164
+             158:                 Label
+             160:      6(int)     Load 12(sample)
+                                  Store 161(indexable) 62
+             162:     16(ptr)     AccessChain 161(indexable) 160
+             163:   15(fvec2)     Load 162
+                                  Store 155 163
+                                  Branch 159
+             164:                 Label
+             166:     18(int)     Load 139(@sampleCount)
+             167:    29(bool)     IEqual 166 71
+                                  SelectionMerge 169 None
+                                  BranchConditional 167 168 174
+             168:                   Label
+             170:      6(int)       Load 12(sample)
+                                    Store 171(indexable) 93
+             172:     16(ptr)       AccessChain 171(indexable) 170
+             173:   15(fvec2)       Load 172
+                                    Store 165 173
+                                    Branch 169
+             174:                   Label
+             176:     18(int)       Load 139(@sampleCount)
+             177:    29(bool)       IEqual 176 102
+                                    SelectionMerge 179 None
+                                    BranchConditional 177 178 184
+             178:                     Label
+             180:      6(int)         Load 12(sample)
+                                      Store 181(indexable) 126
+             182:     16(ptr)         AccessChain 181(indexable) 180
+             183:   15(fvec2)         Load 182
+                                      Store 175 183
+                                      Branch 179
+             184:                     Label
+                                      Store 175 133
+                                      Branch 179
+             179:                   Label
+             185:   15(fvec2)       Load 175
+                                    Store 165 185
+                                    Branch 169
+             169:                 Label
+             186:   15(fvec2)     Load 165
+                                  Store 155 186
+                                  Branch 159
+             159:               Label
+             187:   15(fvec2)   Load 155
+                                Store 145 187
+                                Branch 149
+             149:             Label
+             188:   15(fvec2) Load 145
+                              Store 138(r01) 188
+             195:    194(ptr) AccessChain 190(psout) 191
+                              Store 195 193
+             198:    197(ptr) AccessChain 190(psout) 196
+                              Store 198 192
+             199:10(PS_OUTPUT) Load 190(psout)
+                              ReturnValue 199
+                              FunctionEnd
