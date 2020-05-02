@@ -21,5 +21,5 @@ void main() {
 }
 "#;
 
-    glsl_to_spirv::compile(shader, glsl_to_spirv::ShaderType::Fragment).unwrap();
+    glsl_to_spirv::compile(shader, glsl_to_spirv::ShaderType::Fragment, None).unwrap();
 }
