@@ -81,6 +81,12 @@ pub struct HandleUntyped {
     pub type_id: TypeId,
 }
 
+impl HandleUntyped {
+    pub fn is_handle<T: 'static>(untyped: &HandleUntyped) -> bool {
+        TypeId::of::<T>() == untyped.type_id
+    }
+}
+
 impl<T> From<Handle<T>> for HandleUntyped
 where
     T: 'static,

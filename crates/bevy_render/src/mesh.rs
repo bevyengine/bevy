@@ -1,5 +1,4 @@
 use crate::{
-    batch::AssetBatchers,
     pipeline::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
@@ -311,19 +310,6 @@ pub mod shape {
     }
 }
 
-pub fn mesh_batcher_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("mesh_batcher")
-        .write_resource::<AssetBatchers>()
-        .with_query(
-            <(Read<Handle<Mesh>>, Read<Renderable>)>::query().filter(changed::<Handle<Mesh>>()),
-        )
-        .build(|_, world, asset_batchers, query| {
-            for (entity, (mesh_handle, _renderable)) in query.iter_entities(world) {
-                asset_batchers.set_entity_handle(entity, *mesh_handle);
-            }
-        })
-}
-
 pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("mesh_specializer")
         .read_resource::<AssetStorage<Mesh>>()
@@ -396,24 +382,10 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     SystemBuilder::new("mesh_resource_provider")
         .read_resource::<GlobalRenderResourceContext>()
         .read_resource::<AssetStorage<Mesh>>()
-        .write_resource::<AssetBatchers>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_, world, (render_resource_context, meshes, asset_batchers), query| {
+            move |_, world, (render_resource_context, meshes,/* asset_batchers*/), query| {
                 let render_resources = &*render_resource_context.context;
-                if let Some(batches) = asset_batchers.get_handle_batches_mut::<Mesh>() {
-                    for batch in batches {
-                        let handle = batch.get_handle::<Mesh>().unwrap();
-                        setup_mesh_resource(
-                            render_resources,
-                            &mut batch.render_resource_assignments,
-                            &vertex_buffer_descriptor,
-                            handle,
-                            &meshes,
-                        );
-                    }
-                }
-
                 // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
                 for (handle, mut renderable) in query.iter_mut(world) {
                     setup_mesh_resource(

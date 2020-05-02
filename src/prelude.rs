@@ -13,7 +13,6 @@ pub use crate::diagnostic::DiagnosticsPlugin;
 pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
 #[cfg(feature = "render")]
 pub use crate::render::{
-    batch::AssetBatchers,
     draw_target,
     entity::*,
     mesh::{shape, Mesh},

@@ -38,7 +38,6 @@ use self::{
     texture::Texture,
 };
 
-use batch::AssetBatchers;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use mesh::mesh_resource_provider_system;
@@ -67,12 +66,10 @@ impl AppPlugin for RenderPlugin {
             .add_resource(RenderResourceAssignments::default())
             .add_resource(VertexBufferDescriptors::default())
             .add_resource(EntityRenderResourceAssignments::default())
-            .add_resource(AssetBatchers::default())
             // core systems
             .add_system(entity_render_resource_assignments_system())
             .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_specializer_system())
-            .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_batcher_system())
             // render resource provider systems
             .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
     }

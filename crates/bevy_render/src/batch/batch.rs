@@ -1,38 +1,36 @@
-use crate::render_resource::RenderResourceAssignments;
-use bevy_asset::{Handle, HandleUntyped};
-use legion::prelude::Entity;
-use std::collections::{HashMap, HashSet};
+use super::{BatchKey, Key};
 
-#[derive(PartialEq, Eq, Debug, Default)]
-pub struct Batch {
-    pub handles: Vec<HandleUntyped>,
-    pub entities: HashSet<Entity>,
-    pub instanced_entity_indices: HashMap<Entity, usize>,
-    pub current_instanced_entity_index: usize,
-    pub render_resource_assignments: RenderResourceAssignments,
+#[derive(Debug, Eq, PartialEq)]
+pub struct Batch<TKey, TValue, TData>
+where
+    TKey: Key,
+{
+    pub batch_key: BatchKey<TKey>,
+    pub values: Vec<TValue>,
+    pub data: TData,
 }
 
-impl Batch {
-    pub fn add_entity(&mut self, entity: Entity) {
-        self.entities.insert(entity);
-    }
-
-    pub fn add_instanced_entity(&mut self, entity: Entity) {
-        if let None = self.instanced_entity_indices.get(&entity) {
-            self.instanced_entity_indices
-                .insert(entity, self.current_instanced_entity_index);
-            self.current_instanced_entity_index += 1;
+impl<TKey, TValue, TData> Batch<TKey, TValue, TData>
+where
+    TKey: Key,
+{
+    pub fn new(batch_key: BatchKey<TKey>, data: TData) -> Self {
+        Batch {
+            data,
+            values: Vec::new(),
+            batch_key,
         }
     }
 
-    pub fn get_handle<T>(&self) -> Option<Handle<T>>
-    where
-        T: 'static,
-    {
-        self.handles
-            .iter()
-            .map(|h| Handle::from_untyped(*h))
-            .find(|h| h.is_some())
-            .map(|h| h.unwrap())
+    pub fn add(&mut self, value: TValue) {
+        self.values.push(value);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &TValue> {
+        self.values.iter()
+    }
+
+    pub fn get_key(&self, index: usize) -> Option<&TKey> {
+        self.batch_key.0.get(index)
     }
 }

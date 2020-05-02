@@ -20,15 +20,10 @@ pub struct PbrPlugin;
 // NOTE: this isn't PBR yet. consider this name "aspirational" :)
 impl AppPlugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        // asset_batchers.batch_types2::<Mesh, StandardMaterial>();
         app.add_resource(AssetStorage::<StandardMaterial>::new())
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 shader::asset_handle_shader_def_system::<StandardMaterial>.system(),
-            )
-            .add_system_to_stage(
-                stage::POST_UPDATE,
-                shader::asset_handle_batcher_system::<StandardMaterial>(),
             );
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

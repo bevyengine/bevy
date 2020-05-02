@@ -1,5 +1,4 @@
 use crate::{
-    batch::AssetBatchers,
     color::ColorSource,
     pipeline::{BindType, VertexBufferDescriptor},
     texture::Texture,
@@ -54,27 +53,6 @@ pub fn asset_handle_shader_def_system<T>(
             .shader_defs
             .extend(shader_defs)
     }
-}
-
-pub fn asset_handle_batcher_system<T>() -> Box<dyn Schedulable>
-where
-    T: AsUniforms + Send + Sync + 'static,
-{
-    SystemBuilder::new(format!(
-        "asset_handle_batcher::{}",
-        std::any::type_name::<T>()
-    ))
-    .write_resource::<AssetBatchers>()
-    .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
-    .build(|_, world, asset_batchers, query| {
-        for (entity, (uniform_handle, renderable)) in query.iter_entities(world) {
-            if !renderable.is_visible || renderable.is_instanced {
-                continue;
-            }
-
-            asset_batchers.set_entity_handle(entity, *uniform_handle);
-        }
-    })
 }
 
 pub trait ShaderDefSuffixProvider {
