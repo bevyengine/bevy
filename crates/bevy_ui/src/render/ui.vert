@@ -20,6 +20,6 @@ layout(set = 1, binding = 0) uniform Rect {
 void main() {
     v_Color = Rect_Color;
     vec3 position = Vertex_Position * vec3(Rect_Size, 0.0);
-    position = position + vec4(Rect_Position + Rect_Size / 2.0, -Rect_ZIndex, 0.0);
-    gl_Position = ViewProj * vec4(position, 1.0)
+    position = position + vec3(Rect_Position + Rect_Size / 2.0, -Rect_ZIndex);
+    gl_Position = ViewProj * vec4(position, 1.0);
 }

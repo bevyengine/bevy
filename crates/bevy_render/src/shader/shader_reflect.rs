@@ -269,6 +269,8 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
     } else {
         match (number_type, traits.numeric.vector.component_count) {
             (NumberType::Int, 1) => UniformPropertyType::Int,
+            (NumberType::Float, 0) => UniformPropertyType::Float,
+            (NumberType::Float, 2) => UniformPropertyType::Vec2,
             (NumberType::Float, 3) => UniformPropertyType::Vec3,
             (NumberType::Float, 4) => UniformPropertyType::Vec4,
             (NumberType::UInt, 4) => UniformPropertyType::UVec4,

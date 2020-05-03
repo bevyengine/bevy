@@ -7,7 +7,7 @@ use std::{any::TypeId, marker::PhantomData};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct HandleId(Uuid);
+pub struct HandleId(pub Uuid);
 pub const DEFAULT_HANDLE_ID: HandleId = HandleId(Uuid::from_bytes([
     238, 232, 56, 216, 245, 246, 77, 29, 165, 188, 211, 202, 249, 248, 15, 4,
 ]));
@@ -24,9 +24,16 @@ pub struct Handle<T> {
 }
 
 impl<T> Handle<T> {
-    pub fn new(id: HandleId) -> Self {
+    pub const fn new(id: HandleId) -> Self {
         Handle {
             id,
+            marker: PhantomData,
+        }
+    }
+
+    pub const fn from_bytes(bytes: [u8; 16]) -> Self {
+        Handle {
+            id: HandleId(Uuid::from_bytes(bytes)),
             marker: PhantomData,
         }
     }
