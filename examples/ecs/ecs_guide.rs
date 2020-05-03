@@ -24,38 +24,21 @@ use bevy::prelude::*;
 ///
 /// Now that you know a little bit about ECS, lets look at some Bevy code!
 
-// Our Bevy app's entry point
-fn main() {
-    // Bevy apps are created using the builder pattern. Here add our
-    App::build()
-        // This plugin runs our app's "system schedule" exactly once. Most apps will run on a loop,
-        // but we don't want to spam your console with a bunch of example text :)
-        .add_plugin(ScheduleRunnerPlugin::run_once())
-        // Resources can be added to our app like this
-        .add_resource(A { value: 1 })
-        // Resources that implement the Default or FromResources trait can be added like this:
-        .init_resource::<B>()
-        .init_resource::<State>()
-        // Systems can be added to our app like this
-        // the system() call converts normal rust functions into ECS systems
-        .add_system(empty_system.system())
-        // Startup systems run exactly once BEFORE all other systems. These are generally used for
-        // app initialization code (adding entities and resources)
-        .add_startup_system(startup_system)
-        // Systems that need resources to be constructed can be added like this
-        .init_system(complex_system)
-        // Here we just the rest of the example systems
-        .add_system(resource_system.system())
-        .add_system(for_each_entity_system.system())
-        .add_system(resources_and_components_system.system())
-        .add_system(command_buffer_system.system())
-        .add_system(thread_local_system)
-        .add_system(closure_system())
-        .add_system(stateful_system.system())
-        .run();
+
+//
+// COMPONENTS: Pieces of functionality we add to entities. These are just normal Rust data types
+//
+
+struct X {
+    value: usize,
+}
+struct Y {
+    value: usize,
 }
 
-// RESOURCES: "global" state accessible by systems
+//
+// RESOURCES: "Global" state accessible by systems. These are also just normal Rust data types!
+//
 
 struct A {
     value: usize,
@@ -66,20 +49,15 @@ struct B {
     value: usize,
 }
 
-struct C;
-
-// COMPONENTS: pieces of functionality we add to entities
-
-struct X {
-    value: usize,
-}
-struct Y {
+struct C {
     value: usize,
 }
 
-// SYSTEMS: logic that runs on entities, components, and resources
+//
+// SYSTEMS: Logic that runs on entities, components, and resources. These run once each time the app updates.
+//
 
-// This is the simplest system. It will run once each time our app updates:
+// This is the simplest system:
 fn empty_system() {
     println!("hello!");
 }
@@ -108,13 +86,12 @@ fn resources_and_components_system(a: Resource<A>, x: Ref<X>, mut y: RefMut<Y>) 
 
 // This is a "startup" system that runs once when the app starts up. The only thing that distinguishes a
 // startup" system from a "normal" system is how it is registered:
-//      app.add_startup_system(startup_system)
-//      app.add_system(normal_system)
+//      Startup: app.add_startup_system(startup_system)
+//      Normal:  app.add_system(normal_system)
 // With startup systems we can create resources and add entities to our world, which can then be used by
 // our other systems:
 fn startup_system(world: &mut World, resources: &mut Resources) {
-    // We already added A and B when we built our App above, so we don't re-add them here
-    resources.insert(C);
+    resources.insert(A { value: 1 });
 
     // Add some entities to our world
     world.insert(
@@ -192,14 +169,15 @@ fn complex_system(_resources: &mut Resources) -> Box<dyn Schedulable> {
     SystemBuilder::new("complex_system")
         .read_resource::<A>()
         .write_resource::<B>()
+        .read_resource::<C>()
         // this query is equivalent to the system we saw above: system(x: Ref<X>, y: RefMut<Y>)
         .with_query(<(Read<X>, Write<Y>)>::query())
         // this query only runs on entities with an X component that has changed since the last update
         .with_query(<Read<X>>::query().filter(changed::<X>()))
         .build(
-            move |_command_buffer, world, (a, ref mut b), (x_y_query, x_changed_query)| {
+            move |_command_buffer, world, (a, ref mut b, c), (x_y_query, x_changed_query)| {
                 println!("complex_system:");
-                println!("    resources: {} {}", a.value, b.value);
+                println!("    resources: {} {} {}", a.value, b.value, c.value);
                 for (x, mut y) in x_y_query.iter_mut(world) {
                     y.value += 1;
                     println!(
@@ -214,4 +192,36 @@ fn complex_system(_resources: &mut Resources) -> Box<dyn Schedulable> {
                 }
             },
         )
+}
+
+// Our Bevy app's entry point
+fn main() {
+    // Bevy apps are created using the builder pattern. We use the builder to add systems and resources to our app 
+    App::build()
+        // Plugins are just a grouped set of app builder calls (just like we're doing here).
+        // The plugin below runs our app's "system schedule" exactly once. Most apps will run on a loop,
+        // but we don't want to spam your console with a bunch of example text :)
+        .add_plugin(ScheduleRunnerPlugin::run_once())
+        // Resources can be added to our app like this
+        .add_resource(C { value: 1 })
+        // Resources that implement the Default or FromResources trait can be added like this:
+        .init_resource::<B>()
+        .init_resource::<State>()
+        // Systems can be added to our app like this
+        // the system() call converts normal rust functions into ECS systems
+        .add_system(empty_system.system())
+        // Startup systems run exactly once BEFORE all other systems. These are generally used for
+        // app initialization code (adding entities and resources)
+        .add_startup_system(startup_system)
+        // Systems that need resources to be constructed can be added like this
+        .init_system(complex_system)
+        // Here we just add the rest of the example systems
+        .add_system(resource_system.system())
+        .add_system(for_each_entity_system.system())
+        .add_system(resources_and_components_system.system())
+        .add_system(command_buffer_system.system())
+        .add_system(thread_local_system)
+        .add_system(closure_system())
+        .add_system(stateful_system.system())
+        .run();
 }
