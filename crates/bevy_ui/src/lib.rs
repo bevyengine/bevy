@@ -2,11 +2,13 @@ mod anchors;
 pub mod entity;
 mod margins;
 mod node;
+mod rect;
 mod ui_update_system;
 
 pub use anchors::*;
 pub use margins::*;
 pub use node::*;
+pub use rect::*;
 pub use ui_update_system::*;
 
 use bevy_app::{AppBuilder, AppPlugin};

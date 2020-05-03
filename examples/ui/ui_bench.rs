@@ -37,6 +37,7 @@ fn setup(world: &mut World, _resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
             ),
+            ..Default::default()
         });
 
         prev = cur;

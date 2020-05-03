@@ -1,6 +1,7 @@
 use super::{Anchors, Margins};
 use bevy_render::Color;
 use glam::{self, Vec2};
+use crate::Rect;
 
 #[derive(Debug, Clone)]
 enum GrowDirection {
@@ -11,9 +12,7 @@ enum GrowDirection {
 #[derive(Debug, Clone)]
 pub struct Node {
     pub position: Vec2,
-    pub global_position: Vec2,
     pub size: Vec2,
-    pub parent_dimensions: Vec2,
     pub anchors: Anchors,
     pub margins: Margins,
     pub color: Color,
@@ -23,9 +22,7 @@ impl Default for Node {
     fn default() -> Self {
         Node {
             position: Vec2::default(),
-            global_position: Vec2::default(),
             size: Vec2::default(),
-            parent_dimensions: Vec2::default(),
             anchors: Anchors::default(),
             margins: Margins::default(),
             color: Color::rgb(0.0, 0.0, 0.0),
@@ -37,16 +34,14 @@ impl Node {
     pub fn new(position: Vec2, anchors: Anchors, margins: Margins, color: Color) -> Self {
         Node {
             position,
-            global_position: Vec2::default(),
             size: Vec2::default(),
-            parent_dimensions: Vec2::default(),
             anchors,
             margins,
             color,
         }
     }
 
-    pub fn update(&mut self, parent_dimensions: Vec2, parent_position: Vec2) {
+    pub fn update(&mut self, rect: &mut Rect, parent_dimensions: Vec2, parent_position: Vec2) {
         let (rect_x, rect_width) = Self::compute_dimension_properties(
             self.position.x(),
             self.margins.left,
@@ -65,7 +60,7 @@ impl Node {
         );
 
         self.size = glam::vec2(rect_width, rect_height);
-        self.global_position = glam::vec2(rect_x, rect_y) + parent_position;
+        rect.position = glam::vec2(rect_x, rect_y) + parent_position;
     }
 
     fn compute_dimension_properties(

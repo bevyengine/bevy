@@ -53,6 +53,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(10.0, 200.0, 10.0, 10.0),
                 Color::rgb(0.1, 0.1, 0.1),
             ),
+            ..Default::default()
         })
         // top right anchor with vertical fill
         .add_entity(UiEntity {
@@ -62,6 +63,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(10.0, 100.0, 50.0, 100.0),
                 Color::rgb(0.1, 0.1, 0.1),
             ),
+            ..Default::default()
         })
         // render order test: reddest in the back, whitest in the front
         .add_entity(UiEntity {
@@ -71,6 +73,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgb(1.0, 0.1, 0.1),
             ),
+            ..Default::default()
         })
         .add_entity(UiEntity {
             node: Node::new(
@@ -79,6 +82,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgb(1.0, 0.3, 0.3),
             ),
+            ..Default::default()
         })
         .add_entity(UiEntity {
             node: Node::new(
@@ -87,6 +91,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgb(1.0, 0.5, 0.5),
             ),
+            ..Default::default()
         })
         .add_entity(UiEntity {
             node: Node::new(
@@ -95,6 +100,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgb(1.0, 0.7, 0.7),
             ),
+            ..Default::default()
         })
         // parenting
         .add_entity(UiEntity {
@@ -104,6 +110,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 200.0, 0.0, 200.0),
                 Color::rgb(0.1, 0.1, 1.0),
             ),
+            ..Default::default()
         })
         .add_children(|builder| {
             builder.add_entity(UiEntity {
@@ -113,6 +120,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                     Color::rgb(0.6, 0.6, 1.0),
                 ),
+                ..Default::default()
             });
         })
         // alpha test
@@ -123,5 +131,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
                 Color::rgba(1.0, 0.9, 0.9, 0.4),
             ),
+            ..Default::default()
         });
 }
