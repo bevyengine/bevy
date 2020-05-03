@@ -1,8 +1,9 @@
 use glam::Vec2;
 use bevy_render::Color;
 use bevy_derive::Uniforms;
+use zerocopy::AsBytes;
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug, Uniforms)]
+#[derive(Default, Clone, Copy, Debug, Uniforms, AsBytes)]
 #[module(meta = "false")]
 pub struct Rect {
     pub position: Vec2,

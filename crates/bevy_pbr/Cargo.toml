@@ -15,4 +15,4 @@ bevy_window = { path = "../bevy_window", version = "0.1.0" }
 legion = { path = "../bevy_legion"}
 
 zerocopy = "0.3"
-glam = "0.8.6"
+glam = { path =  "../bevy_glam" }

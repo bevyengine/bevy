@@ -41,9 +41,9 @@ bevy_window = { path = "crates/bevy_window", optional = true }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
 legion = { path = "crates/bevy_legion" }
+glam = { path = "crates/bevy_glam" }
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
-glam = "0.8.6"
 
 [workspace]
 members = [
