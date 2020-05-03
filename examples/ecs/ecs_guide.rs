@@ -53,7 +53,7 @@ struct GameState {
     winning_player: Option<String>,
 }
 
-// The game rules resource provides rules for our "game".
+// This resource provides rules for our "game".
 struct GameRules {
     winning_score: usize,
     max_rounds: usize,
@@ -61,15 +61,17 @@ struct GameRules {
 }
 
 //
-// SYSTEMS: Logic that runs on entities, components, and resources. These run once each time the app updates.
+// SYSTEMS: Logic that runs on entities, components, and resources. These generally run once each time the app updates.
 //
 
-// This is the simplest type of system. It just prints "This game is fun" on each run:
+// This is the simplest type of system. It just prints "This game is fun!" on each run:
 fn print_message_system() {
     println!("This game is fun!");
 }
 
 // Systems can also read and modify resources. This system starts a new "round" on each update:
+// NOTE: "mut" denotes that the resource is "mutable"
+// Resource<GameRules> is read-only. ResourceMut<GameState> can modify the resource
 fn new_round_system(game_rules: Resource<GameRules>, mut game_state: ResourceMut<GameState>) {
     game_state.current_round += 1;
     println!(
@@ -79,7 +81,7 @@ fn new_round_system(game_rules: Resource<GameRules>, mut game_state: ResourceMut
 }
 
 // This system runs once for each entity with both the "Player" and "Score" component.
-// NOTE: "player" is a read-only reference (Ref) whereas "score" can be modified (RefMut)
+// NOTE: Ref<Player> is a read-only reference, whereas RefMut<Score> can modify the component
 fn score_system(player: Ref<Player>, mut score: RefMut<Score>) {
     let scored_a_point = random::<bool>();
     if scored_a_point {
@@ -113,7 +115,7 @@ fn score_check_system(
 }
 
 // This system ends the game if we meet the right conditions. This fires an AppExit event, which tells our
-// App to quit. Check out the "event.rs" example if you want to learn more about using events (and creating your own!)
+// App to quit. Check out the "event.rs" example if you want to learn more about using events.
 fn game_over_system(
     game_rules: Resource<GameRules>,
     game_state: Resource<GameState>,
@@ -134,8 +136,7 @@ fn game_over_system(
 // startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
-// With startup systems we can create resources and add entities to our world, which can then be used by
-// our other systems:
+// Startup systems are generally used to create the initial "state" of our game:
 fn startup_system(world: &mut World, resources: &mut Resources) {
     // Create our game rules resource
     resources.insert(GameRules {
@@ -163,13 +164,13 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
         ],
     );
 
-    // set the current players to "2"
+    // set the total players to "2"
     let mut game_state = resources.get_mut::<GameState>().unwrap();
     game_state.total_players = 2;
 }
 
-// This system uses a command buffer to (potentially) create a new entity on each iteration
-// Normal systems cannot safely access the World instance because they run in parallel
+// This system uses a command buffer to (potentially) add a new player to our game on each iteration
+// Normal systems cannot safely access the World instance directly because they run in parallel
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
 // NOTE: Command buffers must always come before resources and components in system functions
 fn new_player_system(
@@ -195,9 +196,10 @@ fn new_player_system(
     }
 }
 
-// If you really need full/immediate read/write access to the world or resources, you can use a "thread local system".
+// If you really need full, immediate read/write access to the world or resources, you can use a "thread local system".
 // These run on the main app thread (hence the name "thread local")
-// WARNING: These will block all parallel execution of other systems until they finish, so they should generally be avoided
+// WARNING: These will block all parallel execution of other systems until they finish, so they should generally be avoided if you
+// care about performance
 // NOTE: You may notice that this looks exactly like the "startup_system" above. Thats because they are both thread local!
 #[allow(dead_code)]
 fn thread_local_system(world: &mut World, resources: &mut Resources) {
@@ -225,13 +227,13 @@ fn thread_local_system(world: &mut World, resources: &mut Resources) {
 // This system captures the "counter" variable and uses it to maintain a count across executions
 // NOTE: This function returns a Box<dyn Schedulable> type. If you are new to rust don't worry! All you
 // need to know for now is that the Box contains our system AND the state it captured.
-// The .system() call converts a function into the Box<dyn Schedulable> type. We will use the same approach
-// when we add our other systems to our app
+// The .system() call converts the function into the Box<dyn Schedulable> type. We will use the same approach
+// when we add our other systems to our app in the main() function below.
 #[allow(dead_code)]
 fn closure_system() -> Box<dyn Schedulable> {
     let mut counter = 0;
-    (move |x: Ref<Player>, y: Ref<Score>| {
-        println!("processed: {} {}", x.name, y.value);
+    (move |player: Ref<Player>, score: Ref<Score>| {
+        println!("processed: {} {}", player.name, score.value);
         println!("this ran {} times", counter);
         counter += 1;
     })
@@ -246,15 +248,17 @@ struct State {
     counter: usize,
 }
 
+// NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn stateful_system(mut state: RefMut<State>, x: Ref<Player>, y: RefMut<Score>) {
-    println!("processed: {} {}", x.name, y.value);
+fn stateful_system(mut state: RefMut<State>, player: Ref<Player>, score: RefMut<Score>) {
+    println!("processed: {} {}", player.name, score.value);
     println!("this ran {} times", state.counter);
     state.counter += 1;
 }
 
 // If you need more flexibility, you can define complex systems using "system builders".
 // SystemBuilder enables scenarios like "multiple queries" and "query filters"
+// NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
 fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut counter = 0;
@@ -288,10 +292,10 @@ fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
 
 // Our Bevy app's entry point
 fn main() {
-    // Bevy apps are created using the builder pattern. We use the builder to add systems and resources to our app
+    // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
         // Plugins are just a grouped set of app builder calls (just like we're doing here).
-        // We could easily turn this game into a plugin, but you can check out the plugin example for that :)
+        // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
         // The plugin below runs our app's "system schedule" once every 5 seconds.
         .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
         // Resources can be added to our app like this
@@ -301,10 +305,9 @@ fn main() {
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
         .add_startup_system(startup_system)
-        // This .system() call converts normal rust functions into ECS systems
-        // Functions can be added to our app as systems like this:
+        // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
-        // Systems that need a reference to Resources to be constructed can be added like this:
+        // Systems that need a reference to Resources to be constructed can be added using "init_system":
         // .init_system(complex_system)
         //
         // SYSTEM EXECUTION ORDER
@@ -321,22 +324,24 @@ fn main() {
         // at the right time. But that is complicated and error prone!
         //
         // This is where "stages" come in. A "stage" is a group of systems that execute (in parallel). Stages are executed in order,
-        // and the next stage won't start until all systems in the previous stage have finished.
-        // .add_system(system) adds systems to the UPDATE stage by default:
-        // However we can manually specify the stage if we want to:
+        // and the next stage won't start until all systems in the current stage have finished.
+        // add_system(system) adds systems to the UPDATE stage by default
+        // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system.system())
         .add_system_to_stage(stage::UPDATE, score_system.system())
-        // add_system_to_stage(stage::UPDATE, system) is equivalent to add_system(system):
-        // We can also create new stages. "before_round" will contain the systems that run before a round starts
+        // We can also create new stages. Here is what our games stage order will look like:
+        // "before_round": new_player_system, new_round_system 
+        // "update": print_message_system, score_system
+        // "after_round": score_check_system, game_over_system
         .add_stage_before(stage::UPDATE, "before_round")
-        // The "end_game" stage will contain the systems that run after a round finishes
-        .add_stage_after(stage::UPDATE, "end_game")
+        .add_stage_after(stage::UPDATE, "after_round")
         .add_system_to_stage("before_round", new_round_system.system())
         .add_system_to_stage("before_round", new_player_system.system())
+        .add_system_to_stage("after_round", score_check_system.system())
+        .add_system_to_stage("after_round", game_over_system.system())
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
         // reads GameState. This works, but its a bit confusing. In practice, it would be clearer to create a new stage that runs
-        // before "end_game"
-        .add_system_to_stage("end_game", score_check_system.system())
-        .add_system_to_stage("end_game", game_over_system.system())
+        // before "after_round"
+        
         // This call to run() starts the app we just built!
         .run();
 }
