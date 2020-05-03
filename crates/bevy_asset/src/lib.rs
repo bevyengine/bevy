@@ -1,113 +1,8 @@
+mod handle;
+pub use handle::*;
+
 use bevy_core::bytes::GetBytes;
-use std::{
-    fmt::Debug,
-    hash::{Hash, Hasher},
-};
-
-use std::{any::TypeId, collections::HashMap, marker::PhantomData};
-
-// TODO: move these types to their own files
-pub type HandleId = usize;
-pub const DEFAULT_HANDLE_ID: HandleId = 0;
-
-pub struct Handle<T> {
-    pub id: HandleId,
-    marker: PhantomData<T>,
-}
-
-impl<T> Handle<T> {
-    pub fn new(id: HandleId) -> Self {
-        Handle {
-            id,
-            marker: PhantomData,
-        }
-    }
-
-    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>>
-    where
-        T: 'static,
-    {
-        if TypeId::of::<T>() == untyped_handle.type_id {
-            Some(Handle::new(untyped_handle.id))
-        } else {
-            None
-        }
-    }
-}
-
-impl<T> Hash for Handle<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl<T> PartialEq for Handle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<T> Eq for Handle<T> {}
-
-impl<T> Debug for Handle<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        let name = std::any::type_name::<T>().split("::").last().unwrap();
-        write!(f, "Handle<{}>({})", name, self.id)
-    }
-}
-
-impl<T> Default for Handle<T> {
-    fn default() -> Self {
-        Handle {
-            id: DEFAULT_HANDLE_ID,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl<T> Copy for Handle<T> {}
-impl<T> Clone for Handle<T> {
-    fn clone(&self) -> Self {
-        Handle {
-            id: self.id.clone(),
-            marker: PhantomData,
-        }
-    }
-}
-
-#[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
-pub struct HandleUntyped {
-    pub id: HandleId,
-    pub type_id: TypeId,
-}
-
-impl HandleUntyped {
-    pub fn is_handle<T: 'static>(untyped: &HandleUntyped) -> bool {
-        TypeId::of::<T>() == untyped.type_id
-    }
-}
-
-impl<T> From<Handle<T>> for HandleUntyped
-where
-    T: 'static,
-{
-    fn from(handle: Handle<T>) -> Self {
-        HandleUntyped {
-            id: handle.id,
-            type_id: TypeId::of::<T>(),
-        }
-    }
-}
-
-impl<T> From<HandleUntyped> for Handle<T>
-where
-    T: 'static,
-{
-    fn from(handle: HandleUntyped) -> Self {
-        Handle::from_untyped(handle)
-            .expect("attempted to convert untyped handle to incorrect typed handle")
-    }
-}
+use std::collections::HashMap;
 
 pub trait Asset<D> {
     fn load(descriptor: D) -> Self;
@@ -116,7 +11,6 @@ pub trait Asset<D> {
 pub struct AssetStorage<T> {
     assets: HashMap<HandleId, T>,
     names: HashMap<String, Handle<T>>,
-    current_index: HandleId,
 }
 
 impl<T> AssetStorage<T> {
@@ -124,7 +18,6 @@ impl<T> AssetStorage<T> {
         AssetStorage {
             assets: HashMap::new(),
             names: HashMap::new(),
-            current_index: DEFAULT_HANDLE_ID + 1, // ensure we don't start on the default handle id
         }
     }
 
@@ -133,13 +26,13 @@ impl<T> AssetStorage<T> {
     }
 
     pub fn add(&mut self, asset: T) -> Handle<T> {
-        let id = self.current_index;
-        self.current_index += 1;
+        let id = HandleId::new();
         self.assets.insert(id, asset);
-        Handle {
-            id,
-            marker: PhantomData,
-        }
+        Handle::new(id)
+    }
+
+    pub fn add_with_handle(&mut self, handle: Handle<T>, asset: T) {
+        self.assets.insert(handle.id, asset);
     }
 
     pub fn add_default(&mut self, asset: T) -> Handle<T> {

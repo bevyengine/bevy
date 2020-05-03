@@ -154,7 +154,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Batch, BatchKey, Batcher};
-    use bevy_asset::{Handle, HandleUntyped};
+    use bevy_asset::{Handle, HandleUntyped, HandleId};
 
     #[derive(Debug, Eq, PartialEq)]
     struct A;
@@ -177,12 +177,12 @@ mod tests {
         let e2 = Entity(2);
         let e3 = Entity(3);
 
-        let a1: HandleUntyped = Handle::<A>::new(1).into();
-        let b1: HandleUntyped = Handle::<B>::new(1).into();
-        let c1: HandleUntyped = Handle::<C>::new(1).into();
+        let a1: HandleUntyped = Handle::<A>::new(HandleId::new()).into();
+        let b1: HandleUntyped = Handle::<B>::new(HandleId::new()).into();
+        let c1: HandleUntyped = Handle::<C>::new(HandleId::new()).into();
 
-        let a2: HandleUntyped = Handle::<A>::new(2).into();
-        let b2: HandleUntyped = Handle::<B>::new(2).into();
+        let a2: HandleUntyped = Handle::<A>::new(HandleId::new()).into();
+        let b2: HandleUntyped = Handle::<B>::new(HandleId::new()).into();
 
         let a1_b1 = BatchKey::key2(a1, b1);
         let a2_b2 = BatchKey::key2(a2, b2);
