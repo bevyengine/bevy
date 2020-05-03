@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 bevy_core = { path = "../bevy_core" }
 
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }

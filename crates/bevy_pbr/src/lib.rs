@@ -2,7 +2,6 @@ pub mod entity;
 pub mod light;
 pub mod material;
 pub mod nodes;
-pub mod passes;
 pub mod pipelines;
 
 mod forward_pbr_render_graph;
@@ -14,10 +13,10 @@ use bevy_render::{render_graph::RenderGraph, shader};
 use legion::prelude::IntoSystem;
 use material::StandardMaterial;
 
+/// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]
 pub struct PbrPlugin;
 
-// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 impl AppPlugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_resource(AssetStorage::<StandardMaterial>::new())

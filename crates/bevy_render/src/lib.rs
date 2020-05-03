@@ -16,6 +16,7 @@ pub use renderable::*;
 
 pub use vertex::Vertex;
 
+pub mod base_render_graph;
 pub mod draw_target;
 pub mod pass;
 pub mod pipeline;
@@ -38,6 +39,7 @@ use self::{
     texture::Texture,
 };
 
+use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AssetStorage;
 use mesh::mesh_resource_provider_system;
@@ -46,17 +48,30 @@ use render_graph::RenderGraph;
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
 
-#[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  
+    pub base_render_graph_config: Option<BaseRenderGraphConfig>,
+}
 
-impl RenderPlugin {}
+impl Default for RenderPlugin {
+    fn default() -> Self {
+        RenderPlugin {
+            base_render_graph_config: Some(BaseRenderGraphConfig::default()),
+        }
+    }
+}
 
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        let mut render_graph = RenderGraph::default();
+        if let Some(ref config) = self.base_render_graph_config {
+            render_graph.add_base_graph(app.resources(), config);
+        }
+
         app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)
             .add_stage_after(RENDER_RESOURCE_STAGE, RENDER_STAGE)
             // resources
-            .add_resource(RenderGraph::default())
+            .add_resource(render_graph)
             .add_resource(AssetStorage::<Mesh>::new())
             .add_resource(AssetStorage::<Texture>::new())
             .add_resource(AssetStorage::<Shader>::new())

@@ -9,4 +9,4 @@ legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1", features = ["derive"]}
 erased-serde = "0.3"
 type-uuid = "0.1"
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "0.8", features = ["v4", "serde"] }
