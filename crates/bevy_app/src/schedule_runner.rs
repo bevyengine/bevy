@@ -54,6 +54,13 @@ impl AppPlugin for ScheduleRunnerPlugin {
                     if let Some(ref mut schedule) = app.schedule {
                         schedule.execute(&mut app.world, &mut app.resources);
                     }
+
+                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                        if app_exit_event_reader.latest(&app_exit_events).is_some() {
+                            break;
+                        }
+                    }
+
                     if let Some(wait) = wait {
                         thread::sleep(wait);
                     }
