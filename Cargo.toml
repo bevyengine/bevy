@@ -102,6 +102,10 @@ name = "headless"
 path = "examples/app/headless.rs"
 
 [[example]]
+name = "plugin"
+path = "examples/app/plugin.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 

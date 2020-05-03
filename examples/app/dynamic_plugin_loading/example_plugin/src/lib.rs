@@ -4,8 +4,8 @@ use bevy::prelude::*;
 pub struct ExamplePlugin;
 
 impl AppPlugin for ExamplePlugin {
-    fn build(&self, app_builder: &mut AppBuilder) {
-        app_builder.add_startup_system(setup);
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_system(setup);
     }
 }
 
