@@ -98,7 +98,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                             };
 
                         // don't bind bind groups if they are already set
-                        // TODO: these checks come at a performance cost. make sure its worth it!
+                        // TODO: these checks come at a performance cost. make sure it's worth it!
                         if let Some(bound_render_resource_set) =
                             self.bound_bind_groups.get(&bind_group.index)
                         {

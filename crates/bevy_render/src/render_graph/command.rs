@@ -24,7 +24,7 @@ pub enum Command {
 
 #[derive(Default, Clone)]
 pub struct CommandQueue {
-    // TODO: this shouldn't really need a mutex. its just needs to be shared on whatever thread its scheduled on
+    // TODO: this shouldn't really need a mutex. it just needs to be shared on whatever thread it's scheduled on
     queue: Arc<Mutex<Vec<Command>>>,
 }
 

@@ -339,7 +339,7 @@ fn main() {
         .add_system_to_stage("after_round", score_check_system.system())
         .add_system_to_stage("after_round", game_over_system.system())
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
-        // reads GameState. This works, but its a bit confusing. In practice, it would be clearer to create a new stage that runs
+        // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
         // before "after_round"
         
         // This call to run() starts the app we just built!
