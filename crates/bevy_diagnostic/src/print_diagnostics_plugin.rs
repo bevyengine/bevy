@@ -73,7 +73,7 @@ impl PrintDiagnosticsPlugin {
         if state.elapsed >= state.wait_seconds {
             state.elapsed = 0.0;
             println!("Diagnostics:");
-            println!("{}", "-".repeat(50));
+            println!("{}", "-".repeat(60));
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     Self::print_diagnostic(diagnostic);
@@ -95,7 +95,7 @@ impl PrintDiagnosticsPlugin {
         if state.elapsed >= state.wait_seconds {
             state.elapsed = 0.0;
             println!("Diagnostics (Debug):");
-            println!("{}", "-".repeat(30));
+            println!("{}", "-".repeat(60));
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     println!("{:#?}\n", diagnostic);

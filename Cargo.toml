@@ -110,6 +110,14 @@ name = "plugin"
 path = "examples/app/plugin.rs"
 
 [[example]]
+name = "custom_diagnostic"
+path = "examples/diagnostics/custom_diagnostic.rs"
+
+[[example]]
+name = "print_diagnostics"
+path = "examples/diagnostics/print_diagnostics.rs"
+
+[[example]]
 name = "event"
 path = "examples/ecs/event.rs"
 
