@@ -1,5 +1,8 @@
 extern crate proc_macro;
 
+mod modules;
+
+use modules::{get_modules, get_path};
 use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
@@ -10,112 +13,6 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident
 struct EntityArchetypeAttributeArgs {
     #[darling(default)]
     pub tag: Option<bool>,
-}
-
-#[derive(FromMeta, Debug)]
-struct ModuleAttributeArgs {
-    #[darling(default)]
-    pub bevy_render: Option<String>,
-    #[darling(default)]
-    pub bevy_asset: Option<String>,
-    #[darling(default)]
-    pub bevy_core: Option<String>,
-    #[darling(default)]
-    pub bevy_app: Option<String>,
-    #[darling(default)]
-    pub legion: Option<String>,
-
-    /// If true, it will use the meta "bevy" crate for dependencies by default (ex: bevy:app). If this is set to false, the individual bevy crates
-    /// will be used (ex: "bevy_app"). Defaults to "true"
-    #[darling(default)]
-    pub meta: bool,
-}
-
-struct Modules {
-    pub bevy_render: String,
-    pub bevy_asset: String,
-    pub bevy_core: String,
-    pub bevy_app: String,
-    pub legion: String,
-}
-
-impl Modules {
-    pub fn meta() -> Modules {
-        Modules {
-            bevy_asset: "bevy::asset".to_string(),
-            bevy_render: "bevy::render".to_string(),
-            bevy_core: "bevy::core".to_string(),
-            bevy_app: "bevy::app".to_string(),
-            legion: "bevy".to_string(),
-        }
-    }
-
-    pub fn external() -> Modules {
-        Modules {
-            bevy_asset: "bevy_asset".to_string(),
-            bevy_render: "bevy_render".to_string(),
-            bevy_core: "bevy_core".to_string(),
-            bevy_app: "bevy_app".to_string(),
-            legion: "legion".to_string(),
-        }
-    }
-}
-
-impl Default for ModuleAttributeArgs {
-    fn default() -> Self {
-        ModuleAttributeArgs {
-            bevy_asset: None,
-            bevy_render: None,
-            bevy_core: None,
-            bevy_app: None,
-            legion: None,
-            meta: true,
-        }
-    }
-}
-
-static MODULE_ATTRIBUTE_NAME: &'static str = "module";
-
-fn get_modules(ast: &DeriveInput) -> Modules {
-    let module_attribute_args = ast
-        .attrs
-        .iter()
-        .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == MODULE_ATTRIBUTE_NAME)
-        .map(|a| {
-            ModuleAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                .unwrap_or_else(|_err| ModuleAttributeArgs::default())
-        });
-    if let Some(module_attribute_args) = module_attribute_args {
-        let mut modules = if module_attribute_args.meta {
-            Modules::meta()
-        } else {
-            Modules::external()
-        };
-
-        if let Some(path) = module_attribute_args.bevy_asset {
-            modules.bevy_asset = path;
-        }
-
-        if let Some(path) = module_attribute_args.bevy_render {
-            modules.bevy_render = path;
-        }
-
-        if let Some(path) = module_attribute_args.bevy_core {
-            modules.bevy_core = path;
-        }
-
-        if let Some(path) = module_attribute_args.bevy_app {
-            modules.bevy_app = path;
-        }
-
-        modules
-    } else {
-        Modules::meta()
-    }
-}
-
-fn get_path(path_str: &str) -> Path {
-    syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap()
 }
 
 #[proc_macro_derive(Resource)]
@@ -148,6 +45,78 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
                 #struct_name {
                     #(#fields: <#field_types>::from_resources(resources),)*
                 }
+            }
+        }
+    })
+}
+
+#[proc_macro_derive(Uniform, attributes(uniform, module))]
+pub fn derive_uniform(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let modules = get_modules(&ast);
+    let bevy_asset_path = get_path(&modules.bevy_asset);
+    let bevy_core_path = get_path(&modules.bevy_core);
+    let bevy_render_path = get_path(&modules.bevy_render);
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
+    let struct_name = &ast.ident;
+    let struct_name_string = struct_name.to_string();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_render_path::shader::AsUniforms for #struct_name#ty_generics {
+            fn get_field_infos() -> &'static [#bevy_render_path::shader::FieldInfo] {
+                static FIELD_INFOS: &[#bevy_render_path::shader::FieldInfo] = &[
+                    #bevy_render_path::shader::FieldInfo {
+                       name: #struct_name_string,
+                       uniform_name: #struct_name_string,
+                       texture_name: #struct_name_string,
+                       sampler_name: #struct_name_string,
+                       is_instanceable: false,
+                   }
+                ];
+                &FIELD_INFOS
+            }
+
+            fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
+                use #bevy_render_path::shader::AsFieldBindType;
+                match name {
+                    #struct_name_string => self.get_bind_type(),
+                    _ => None,
+                }
+            }
+
+            fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
+                use #bevy_core_path::bytes::GetBytes;
+                match name {
+                    #struct_name_string => Some(self.get_bytes()),
+                    _ => None,
+                }
+            }
+
+            fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
+                use #bevy_core_path::bytes::GetBytes;
+                match name {
+                    #struct_name_string => self.get_bytes_ref(),
+                    _ => None,
+                }
+            }
+
+            fn get_uniform_texture(&self, name: &str) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
+                None
+            }
+
+            // TODO: move this to field_info and add has_shader_def(&self, &str) -> bool
+            // TODO: this will be very allocation heavy. find a way to either make this allocation free
+            // or alternatively only run it when the shader_defs have changed
+            fn get_shader_defs(&self) -> Option<Vec<String>> {
+                None
+            }
+
+            fn get_vertex_buffer_descriptor() -> Option<&'static #bevy_render_path::pipeline::VertexBufferDescriptor> {
+                None
             }
         }
     })
@@ -449,7 +418,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
                 use #bevy_render_path::shader::AsFieldBindType;
                 match name {
-                    #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_field_bind_type(),)*
+                    #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_bind_type(),)*
                     _ => None,
                 }
             }

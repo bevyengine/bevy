@@ -82,20 +82,20 @@ pub struct FieldInfo {
 }
 
 pub trait AsFieldBindType {
-    fn get_field_bind_type(&self) -> Option<FieldBindType>;
+    fn get_bind_type(&self) -> Option<FieldBindType>;
 }
 
 impl AsFieldBindType for ColorSource {
-    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+    fn get_bind_type(&self) -> Option<FieldBindType> {
         match *self {
             ColorSource::Texture(_) => Some(FieldBindType::Texture),
-            ColorSource::Color(color) => color.get_field_bind_type(),
+            ColorSource::Color(color) => color.get_bind_type(),
         }
     }
 }
 
 impl AsFieldBindType for Option<Handle<Texture>> {
-    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+    fn get_bind_type(&self) -> Option<FieldBindType> {
         match *self {
             Some(_) => Some(FieldBindType::Texture),
             None => None,
@@ -104,7 +104,7 @@ impl AsFieldBindType for Option<Handle<Texture>> {
 }
 
 impl AsFieldBindType for Handle<Texture> {
-    fn get_field_bind_type(&self) -> Option<FieldBindType> {
+    fn get_bind_type(&self) -> Option<FieldBindType> {
         Some(FieldBindType::Texture)
     }
 }
@@ -114,7 +114,7 @@ where
     T: GetBytes,
 {
     // TODO: this breaks if get_bytes_ref() isn't supported for a datatype
-    default fn get_field_bind_type(&self) -> Option<FieldBindType> {
+    default fn get_bind_type(&self) -> Option<FieldBindType> {
         Some(FieldBindType::Uniform {
             size: self.get_bytes_ref().unwrap().len(),
         })

@@ -65,7 +65,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     }
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType> {
         match name {
-            "object" => self.0.get_field_bind_type(),
+            "object" => self.0.get_bind_type(),
             _ => None,
         }
     }
