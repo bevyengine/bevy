@@ -1,11 +1,11 @@
 use bevy::prelude::*;
-use bevy_ui::Rect;
+use bevy_ui::{ColorMaterial, Rect};
 
 fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
-        .add_system(move_system.system())
+        .add_system(placement_system.system())
         .add_plugin(DiagnosticsPlugin {
             print_diagnostics: true,
             ..Default::default()
@@ -13,8 +13,14 @@ fn main() {
         .run();
 }
 
-fn move_system(time: Resource<Time>, mut node: RefMut<Node>, rect: Ref<Rect>) {
-    if rect.color.r > 0.2 {
+fn placement_system(
+    time: Resource<Time>,
+    materials: Resource<AssetStorage<ColorMaterial>>,
+    mut node: RefMut<Node>,
+    material_handle: Ref<Handle<ColorMaterial>>,
+) {
+    let material = materials.get(&material_handle).unwrap();
+    if material.color.r > 0.2 {
         node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
     }
 }
@@ -38,7 +44,7 @@ fn setup(world: &mut World, _resources: &mut Resources) {
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             rect: Rect {
-                color: Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
+                // color: Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
                 ..Default::default()
             },
             ..Default::default()

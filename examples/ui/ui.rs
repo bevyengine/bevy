@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_ui::Rect;
 
 fn main() {
     App::build()
@@ -18,6 +17,18 @@ fn setup(world: &mut World, resources: &mut Resources) {
         albedo: Color::rgb(0.5, 0.3, 0.3),
         ..Default::default()
     });
+
+    let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
+    let texture_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/assets/branding/bevy_logo_dark_big.png"
+    );
+    let texture = Texture::load(TextureType::Png(texture_path.to_string()));
+    let aspect = texture.height as f32 / texture.width as f32;
+    let texture_handle = texture_storage.add(texture);
+
+    let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+    let blue_material_handle = color_materials.add(Color::rgb(0.6, 0.6, 1.0).into());
 
     world
         .build()
@@ -53,10 +64,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.0, 0.0, 0.0, 1.0),
                 Margins::new(10.0, 200.0, 10.0, 10.0),
             ),
-            rect: Rect {
-                color: Color::rgb(0.02, 0.02, 0.02),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
         })
         // top right anchor with vertical fill
@@ -66,10 +74,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(1.0, 1.0, 0.0, 1.0),
                 Margins::new(10.0, 100.0, 50.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgb(0.02, 0.02, 0.02),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
         })
         // render order test: reddest in the back, whitest in the front
@@ -79,10 +84,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgb(1.0, 0.00, 0.0),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -91,10 +93,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgb(1.0, 0.3, 0.3),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -103,10 +102,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgb(1.0, 0.5, 0.5),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -115,10 +111,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgb(1.0, 0.7, 0.7),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
             ..Default::default()
         })
         // parenting
@@ -128,10 +121,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.0, 0.0, 0.0, 0.0),
                 Margins::new(0.0, 200.0, 0.0, 200.0),
             ),
-            rect: Rect {
-                color: Color::rgb(0.1, 0.1, 1.0),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
             ..Default::default()
         })
         .add_children(|builder| {
@@ -141,10 +131,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                     Anchors::new(0.0, 1.0, 0.0, 1.0),
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                 ),
-                rect: Rect {
-                    color: Color::rgb(0.6, 0.6, 1.0),
-                    ..Default::default()
-                },
+                material: blue_material_handle,
                 ..Default::default()
             });
         })
@@ -155,10 +142,17 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                color: Color::rgba(1.0, 0.9, 0.9, 0.4),
-                ..Default::default()
-            },
+            material: color_materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+            ..Default::default()
+        })
+        // texture
+        .add_entity(UiEntity {
+            node: Node::new(
+                math::vec2(400.0, 100.0),
+                Anchors::new(0.0, 0.0, 0.0, 0.0),
+                Margins::new(0.0, 500.0, 0.0, 500.0 * aspect),
+            ),
+            material: color_materials.add(ColorMaterial::texture(texture_handle)),
             ..Default::default()
         });
 }

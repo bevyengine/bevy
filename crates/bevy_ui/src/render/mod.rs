@@ -2,12 +2,12 @@ use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     draw_target::AssignedMeshesDrawTarget,
     pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{nodes::{UniformNode, PassNode}, RenderGraph},
+    render_graph::{nodes::{UniformNode, PassNode, AssetUniformNode}, RenderGraph},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat, base_render_graph,
 };
 use legion::prelude::Resources;
-use crate::Rect;
+use crate::{ColorMaterial, Rect};
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_bytes([
@@ -65,6 +65,8 @@ pub trait UiRenderGraphBuilder {
 
 impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
+        self.add_system_node_named("color_material", AssetUniformNode::<ColorMaterial>::new(false), resources);
+        self.add_node_edge("color_material", base_render_graph::node::MAIN_PASS).unwrap();
         self.add_system_node_named("rect", UniformNode::<Rect>::new(false), resources);
         self.add_node_edge("rect", base_render_graph::node::MAIN_PASS).unwrap();
         let mut pipelines = resources.get_mut::<AssetStorage<PipelineDescriptor>>().unwrap();
