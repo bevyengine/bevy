@@ -3,42 +3,6 @@ use bevy_core::time::Time;
 use legion::prelude::*;
 use std::time::Duration;
 
-pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
-pub const FRAME_TIME: DiagnosticId =
-    DiagnosticId::from_u128(54021991829115352065418785002088010276);
-
-pub fn setup_frame_time_diagnostic_system(mut diagnostics: ResourceMut<Diagnostics>) {
-    diagnostics.add(Diagnostic::new(FRAME_TIME, "frame_time", 10));
-    diagnostics.add(Diagnostic::new(FPS, "fps", 10));
-}
-
-pub fn frame_time_diagnostic_system(
-    mut diagnostics: ResourceMut<Diagnostics>,
-    time: Resource<Time>,
-) {
-    if time.delta_seconds_f64 == 0.0 {
-        return;
-    }
-
-    diagnostics.add_measurement(FRAME_TIME, time.delta_seconds_f64);
-    if let Some(fps) = diagnostics
-        .get(FRAME_TIME)
-        .and_then(|frame_time_diagnostic| {
-            frame_time_diagnostic
-                .average()
-                .and_then(|frame_time_average| {
-                    if frame_time_average > 0.0 {
-                        Some(1.0 / frame_time_average)
-                    } else {
-                        None
-                    }
-                })
-        })
-    {
-        diagnostics.add_measurement(FPS, fps);
-    }
-}
-
 pub struct PrintDiagnosticsState {
     elapsed: f64,
     wait_seconds: f64,

@@ -1,10 +1,11 @@
-use bevy::prelude::*;
+use bevy::{diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 fn main() {
     App::build()
         .add_default_plugins()
         .add_plugin(DiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(move_system.system())
         .run();
