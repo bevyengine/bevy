@@ -65,7 +65,7 @@ impl PrintDiagnosticsState {
 
 fn print_diagnostic(diagnostic: &Diagnostic) {
     if let Some(value) = diagnostic.value() {
-        print!("{:<10}: {:<9.6}", diagnostic.name, value);
+        print!("{:<20}: {:<19.6}", diagnostic.name, value);
         if let Some(average) = diagnostic.average() {
             print!("  (avg {:.6})", average);
         }

@@ -12,6 +12,7 @@ default = ["bevy_winit"]
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_core = { path = "../bevy_core" }
+bevy_diagnostic = { path = "../bevy_diagnostic" }
 bevy_render = { path = "../bevy_render" }
 bevy_window = { path = "../bevy_window" }
 bevy_winit = { path = "../bevy_winit", optional = true }
