@@ -25,13 +25,14 @@ fn placement_system(
     }
 }
 
-fn setup(world: &mut World, _resources: &mut Resources) {
+fn setup(world: &mut World, resources: &mut Resources) {
     let mut builder = world.build();
     builder.add_entity(Camera2dEntity {
         camera: Camera::new(CameraType::default_orthographic()),
         ..Default::default()
     });
 
+    let mut materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
     let mut prev = Vec2::default();
     let count = 1000;
     for i in 0..count {
@@ -43,10 +44,7 @@ fn setup(world: &mut World, _resources: &mut Resources) {
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            rect: Rect {
-                // color: Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
-                ..Default::default()
-            },
+            material: materials.add(Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1).into()),
             ..Default::default()
         });
 
