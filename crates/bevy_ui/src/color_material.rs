@@ -1,6 +1,6 @@
 use bevy_asset::{self, Handle};
 use bevy_derive::Uniforms;
-use bevy_render::{colors, texture::Texture, Color};
+use bevy_render::{texture::Texture, Color};
 
 #[derive(Uniforms)]
 #[module(meta = false)]
@@ -20,7 +20,7 @@ impl ColorMaterial {
 
     pub fn texture(texture: Handle<Texture>) -> Self {
         ColorMaterial {
-            color: colors::WHITE,
+            color: Color::WHITE,
             texture: Some(texture),
         }
     }

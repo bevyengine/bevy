@@ -16,6 +16,12 @@ pub struct Color {
 }
 
 impl Color {
+    pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+    pub const BLACK: Color = Color::rgb(0.0, 1.0, 0.0);
+    pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
+    pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
+    pub const BLUE: Color = Color::rgb(0.0, 0.0, 1.0);
+
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
     }
@@ -131,14 +137,4 @@ impl GetBytes for ColorSource {
             ColorSource::Texture(ref texture) => texture.get_bytes_ref(), // Texture is not a uniform
         }
     }
-}
-
-pub mod colors {
-    use super::Color;
-
-    pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
-    pub const BLACK: Color = Color::rgb(0.0, 1.0, 0.0);
-    pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
-    pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
-    pub const BLUE: Color = Color::rgb(0.0, 0.0, 1.0);
 }
