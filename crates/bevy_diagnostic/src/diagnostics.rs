@@ -2,15 +2,10 @@ use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_core::time::Time;
 use legion::prelude::*;
 use std::time::Duration;
-use uuid::Uuid;
 
-pub const FPS: DiagnosticId = DiagnosticId(Uuid::from_bytes([
-    157, 191, 0, 72, 223, 223, 70, 128, 137, 117, 54, 177, 132, 13, 170, 124,
-]));
-
-pub const FRAME_TIME: DiagnosticId = DiagnosticId(Uuid::from_bytes([
-    216, 184, 55, 12, 28, 116, 69, 201, 187, 137, 176, 77, 83, 89, 251, 241,
-]));
+pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
+pub const FRAME_TIME: DiagnosticId =
+    DiagnosticId::from_u128(54021991829115352065418785002088010276);
 
 pub fn setup_frame_time_diagnostic_system(mut diagnostics: ResourceMut<Diagnostics>) {
     diagnostics.add(Diagnostic::new(FRAME_TIME, "frame_time", 10));

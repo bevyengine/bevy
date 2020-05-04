@@ -7,6 +7,12 @@ use uuid::Uuid;
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct DiagnosticId(pub Uuid);
 
+impl DiagnosticId {
+    pub const fn from_u128(value: u128) -> Self {
+        DiagnosticId(Uuid::from_u128(value))
+    }
+}
+
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: SystemTime,

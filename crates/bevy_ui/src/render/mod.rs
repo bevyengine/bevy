@@ -1,18 +1,20 @@
+use crate::{ColorMaterial, Rect};
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
+    base_render_graph,
     draw_target::AssignedMeshesDrawTarget,
     pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{nodes::{UniformNode, PassNode, AssetUniformNode}, RenderGraph},
+    render_graph::{
+        nodes::{AssetUniformNode, PassNode, UniformNode},
+        RenderGraph,
+    },
     shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat, base_render_graph,
+    texture::TextureFormat,
 };
 use legion::prelude::Resources;
-use crate::{ColorMaterial, Rect};
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_bytes([
-        163, 238, 40, 24, 156, 49, 73, 203, 156, 189, 249, 55, 133, 242, 116, 51,
-    ]);
+    Handle::from_u128(323432002226399387835192542539754486265);
 
 pub fn build_ui_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -65,14 +67,24 @@ pub trait UiRenderGraphBuilder {
 
 impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node_named("color_material", AssetUniformNode::<ColorMaterial>::new(false), resources);
-        self.add_node_edge("color_material", base_render_graph::node::MAIN_PASS).unwrap();
+        self.add_system_node_named(
+            "color_material",
+            AssetUniformNode::<ColorMaterial>::new(false),
+            resources,
+        );
+        self.add_node_edge("color_material", base_render_graph::node::MAIN_PASS)
+            .unwrap();
         self.add_system_node_named("rect", UniformNode::<Rect>::new(false), resources);
-        self.add_node_edge("rect", base_render_graph::node::MAIN_PASS).unwrap();
-        let mut pipelines = resources.get_mut::<AssetStorage<PipelineDescriptor>>().unwrap();
+        self.add_node_edge("rect", base_render_graph::node::MAIN_PASS)
+            .unwrap();
+        let mut pipelines = resources
+            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .unwrap();
         let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         pipelines.add_with_handle(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
-        let main_pass: &mut PassNode = self.get_node_mut(base_render_graph::node::MAIN_PASS).unwrap();
+        let main_pass: &mut PassNode = self
+            .get_node_mut(base_render_graph::node::MAIN_PASS)
+            .unwrap();
         main_pass.add_pipeline(UI_PIPELINE_HANDLE, vec![Box::new(AssignedMeshesDrawTarget)]);
         self
     }

@@ -4,8 +4,8 @@ pub mod entity;
 mod margins;
 mod node;
 mod rect;
-mod sprite;
 mod render;
+mod sprite;
 mod ui_update_system;
 
 pub use anchors::*;
@@ -14,8 +14,8 @@ pub use margins::*;
 pub use node::*;
 pub use rect::*;
 pub use render::*;
-pub use ui_update_system::*;
 pub use sprite::*;
+pub use ui_update_system::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AssetStorage, Handle};
@@ -31,9 +31,7 @@ use sprite::sprite_system;
 #[derive(Default)]
 pub struct UiPlugin;
 
-pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_bytes([
-    179, 41, 129, 128, 95, 217, 79, 194, 167, 95, 107, 115, 97, 151, 20, 62,
-]);
+pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013514540294236421);
 
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {

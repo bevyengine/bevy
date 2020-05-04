@@ -8,9 +8,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct HandleId(pub Uuid);
-pub const DEFAULT_HANDLE_ID: HandleId = HandleId(Uuid::from_bytes([
-    238, 232, 56, 216, 245, 246, 77, 29, 165, 188, 211, 202, 249, 248, 15, 4,
-]));
+pub const DEFAULT_HANDLE_ID: HandleId = HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
 
 impl HandleId {
     pub fn new() -> HandleId {
@@ -27,6 +25,13 @@ impl<T> Handle<T> {
     pub const fn new(id: HandleId) -> Self {
         Handle {
             id,
+            marker: PhantomData,
+        }
+    }
+
+    pub const fn from_u128(value: u128) -> Self {
+        Handle {
+            id: HandleId(Uuid::from_u128(value)),
             marker: PhantomData,
         }
     }
