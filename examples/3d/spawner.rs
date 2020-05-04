@@ -4,10 +4,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_plugin(DiagnosticsPlugin {
-            print_diagnostics: true,
-            ..Default::default()
-        })
+        .add_plugin(DiagnosticsPlugin::default())
         .add_startup_system(setup)
         .add_system(move_system.system())
         .run();

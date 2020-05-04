@@ -54,9 +54,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             ..Default::default()
         })
         // 2d camera
-        .add_entity(Camera2dEntity {
-            ..Default::default()
-        })
+        .add_entity(Camera2dEntity::default())
         // left vertical fill
         .add_entity(UiEntity {
             node: Node::new(

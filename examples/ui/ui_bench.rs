@@ -1,15 +1,11 @@
 use bevy::prelude::*;
-use bevy_ui::{ColorMaterial, Rect};
 
 fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup)
         .add_system(placement_system.system())
-        .add_plugin(DiagnosticsPlugin {
-            print_diagnostics: true,
-            ..Default::default()
-        })
+        .add_plugin(DiagnosticsPlugin::default())
         .run();
 }
 
@@ -27,10 +23,7 @@ fn placement_system(
 
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut builder = world.build();
-    builder.add_entity(Camera2dEntity {
-        camera: Camera::new(CameraType::default_orthographic()),
-        ..Default::default()
-    });
+    builder.add_entity(Camera2dEntity::default());
 
     let mut materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
     let mut prev = Vec2::default();

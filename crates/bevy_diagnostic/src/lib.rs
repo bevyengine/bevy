@@ -10,17 +10,23 @@ use diagnostics::{
 use legion::prelude::IntoSystem;
 use std::time::Duration;
 
+pub struct PrintDiagnostics {
+    pub wait_duration: Duration,
+    pub filter: Option<Vec<DiagnosticId>>,
+}
+
 pub struct DiagnosticsPlugin {
-    pub print_wait_duration: Duration,
-    pub print_diagnostics: bool,
+    pub print_diagnostics: Option<PrintDiagnostics>,
     pub add_defaults: bool,
 }
 
 impl Default for DiagnosticsPlugin {
     fn default() -> Self {
         DiagnosticsPlugin {
-            print_wait_duration: Duration::from_secs_f64(1.0),
-            print_diagnostics: false,
+            print_diagnostics: Some(PrintDiagnostics {
+                wait_duration: Duration::from_secs_f64(1.0),
+                filter: None,
+            }),
             add_defaults: true,
         }
     }
@@ -34,8 +40,8 @@ impl AppPlugin for DiagnosticsPlugin {
                 .add_system(frame_time_diagnostic_system.system());
         }
 
-        if self.print_diagnostics {
-            app.add_resource(PrintDiagnosticsState::new(self.print_wait_duration))
+        if let Some(ref print_diagnostics) = self.print_diagnostics {
+            app.add_resource(PrintDiagnosticsState::new(print_diagnostics.wait_duration))
                 .add_system(print_diagnostics_system.system());
         }
     }
