@@ -5,13 +5,13 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.1.0" }
-bevy_asset = { path = "../bevy_asset", version = "0.1.0" }
-bevy_core = { path = "../bevy_core", version = "0.1.0" }
-bevy_derive = { path = "../bevy_derive", version = "0.1.0" }
-bevy_render = { path = "../bevy_render", version = "0.1.0" }
+bevy_app = { path = "../bevy_app" }
+bevy_asset = { path = "../bevy_asset" }
+bevy_core = { path = "../bevy_core" }
+bevy_derive = { path = "../bevy_derive" }
+bevy_render = { path = "../bevy_render" }
 bevy_transform = { path = "../bevy_transform" }
-bevy_window = { path = "../bevy_window", version = "0.1.0" }
+bevy_window = { path = "../bevy_window" }
 legion = { path = "../bevy_legion"}
 
 zerocopy = "0.3"
