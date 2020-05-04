@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_ui::Rect;
 
 fn main() {
     App::build()
@@ -12,8 +13,8 @@ fn main() {
         .run();
 }
 
-fn move_system(time: Resource<Time>, mut node: RefMut<Node>) {
-    if node.color.r > 0.2 {
+fn move_system(time: Resource<Time>, mut node: RefMut<Node>, rect: Ref<Rect>) {
+    if rect.color.r > 0.2 {
         node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
     }
 }
@@ -35,8 +36,11 @@ fn setup(world: &mut World, _resources: &mut Resources) {
                 math::vec2(75.0, 75.0) + cur,
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
             ),
+            rect: Rect {
+                color: Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1),
+                ..Default::default()
+            },
             ..Default::default()
         });
 
