@@ -8,7 +8,6 @@ use crate::{
     renderer::{GlobalRenderResourceContext, RenderContext},
 };
 
-use bevy_transform::components::LocalToWorld;
 use legion::prelude::*;
 use zerocopy::AsBytes;
 
@@ -41,7 +40,7 @@ impl SystemNode for Camera2dNode {
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .write_resource::<RenderResourceAssignments>()
             .read_resource::<Events<WindowResized>>()
-            .with_query(<(Read<Camera>, Read<LocalToWorld>, Read<ActiveCamera2d>)>::query())
+            .with_query(<(Read<Camera>, Read<ActiveCamera2d>)>::query())
             .build(
                 move |_,
                       world,
@@ -66,9 +65,9 @@ impl SystemNode for Camera2dNode {
                         .find_latest(&window_resized_events, |event| event.is_primary);
                     if let Some(_) = primary_window_resized_event {
                         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-                        for (camera, local_to_world, _) in query.iter(world) {
+                        for (camera, _) in query.iter(world) {
                             let camera_matrix: [[f32; 4]; 4] =
-                                (camera.view_matrix * local_to_world.0).to_cols_array_2d();
+                                camera.view_matrix.to_cols_array_2d();
 
                             if let Some(old_tmp_buffer) = tmp_buffer {
                                 render_resources.remove_buffer(old_tmp_buffer);

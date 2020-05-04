@@ -9,6 +9,7 @@ pub struct ActiveCamera;
 #[derive(Default)]
 pub struct ActiveCamera2d;
 
+#[derive(Debug)]
 pub struct OrthographicCamera {
     pub left: f32,
     pub right: f32,
@@ -45,6 +46,7 @@ impl Default for OrthographicCamera {
     }
 }
 
+#[derive(Debug)]
 pub struct PerspectiveCamera {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -70,6 +72,7 @@ impl Default for PerspectiveCamera {
     }
 }
 
+#[derive(Debug)]
 pub enum CameraType {
     Perspective(PerspectiveCamera),
     Orthographic(OrthographicCamera),
@@ -91,7 +94,7 @@ impl Default for CameraType {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Camera {
     pub view_matrix: Mat4,
     pub camera_type: CameraType,

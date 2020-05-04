@@ -10,7 +10,7 @@ pub struct UiEntity {
     pub node: Node,
     pub rect: Rect,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    // pub renderable: Renderable,
+    pub renderable: Renderable,
 }
 
 impl Default for UiEntity {
@@ -19,12 +19,12 @@ impl Default for UiEntity {
             node: Default::default(),
             rect: Default::default(),
             mesh: QUAD_HANDLE,
-            // renderable: Renderable {
-            //     pipelines: vec![
-            //         UI_PIPELINE_HANDLE
-            //     ],
-            //     ..Default::default()
-            // }
+            renderable: Renderable {
+                pipelines: vec![
+                    UI_PIPELINE_HANDLE
+                ],
+                ..Default::default()
+            }
         }
     }
 }

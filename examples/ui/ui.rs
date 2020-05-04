@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_ui::Rect;
 
 fn main() {
     App::build()
@@ -51,8 +52,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(0.0, 0.0),
                 Anchors::new(0.0, 0.0, 0.0, 1.0),
                 Margins::new(10.0, 200.0, 10.0, 10.0),
-                Color::rgb(0.1, 0.1, 0.1),
             ),
+            rect: Rect {
+                color: Color::rgb(0.02, 0.02, 0.02),
+                ..Default::default()
+            },
             ..Default::default()
         })
         // top right anchor with vertical fill
@@ -61,8 +65,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(0.0, 0.0),
                 Anchors::new(1.0, 1.0, 0.0, 1.0),
                 Margins::new(10.0, 100.0, 50.0, 100.0),
-                Color::rgb(0.1, 0.1, 0.1),
             ),
+            rect: Rect {
+                color: Color::rgb(0.02, 0.02, 0.02),
+                ..Default::default()
+            },
             ..Default::default()
         })
         // render order test: reddest in the back, whitest in the front
@@ -71,8 +78,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(75.0, 75.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgb(1.0, 0.1, 0.1),
             ),
+            rect: Rect {
+                color: Color::rgb(1.0, 0.00, 0.0),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -80,8 +90,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(50.0, 50.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgb(1.0, 0.3, 0.3),
             ),
+            rect: Rect {
+                color: Color::rgb(1.0, 0.3, 0.3),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -89,8 +102,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(100.0, 100.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgb(1.0, 0.5, 0.5),
             ),
+            rect: Rect {
+                color: Color::rgb(1.0, 0.5, 0.5),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -98,8 +114,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(150.0, 150.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgb(1.0, 0.7, 0.7),
             ),
+            rect: Rect {
+                color: Color::rgb(1.0, 0.7, 0.7),
+                ..Default::default()
+            },
             ..Default::default()
         })
         // parenting
@@ -108,8 +127,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(300.0, 300.0),
                 Anchors::new(0.0, 0.0, 0.0, 0.0),
                 Margins::new(0.0, 200.0, 0.0, 200.0),
-                Color::rgb(0.1, 0.1, 1.0),
             ),
+            rect: Rect {
+                color: Color::rgb(0.1, 0.1, 1.0),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .add_children(|builder| {
@@ -118,8 +140,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                     math::vec2(0.0, 0.0),
                     Anchors::new(0.0, 1.0, 0.0, 1.0),
                     Margins::new(20.0, 20.0, 20.0, 20.0),
-                    Color::rgb(0.6, 0.6, 1.0),
                 ),
+                rect: Rect {
+                    color: Color::rgb(0.6, 0.6, 1.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         })
@@ -129,8 +154,11 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 math::vec2(200.0, 200.0),
                 Anchors::new(0.5, 0.5, 0.5, 0.5),
                 Margins::new(0.0, 100.0, 0.0, 100.0),
-                Color::rgba(1.0, 0.9, 0.9, 0.4),
             ),
+            rect: Rect {
+                color: Color::rgba(1.0, 0.9, 0.9, 0.4),
+                ..Default::default()
+            },
             ..Default::default()
         });
 }

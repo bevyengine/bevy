@@ -80,6 +80,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     pipeline_descriptor,
                     &renderable.render_resource_assignments,
                 );
+
                 render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
             }
         }
