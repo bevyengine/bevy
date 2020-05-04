@@ -11,6 +11,7 @@ use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
 use std::{ops::Deref, sync::Arc};
 pub struct WgpuRenderer {
+    pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
     pub queue: wgpu::Queue,
     pub window_resized_event_reader: EventReader<WindowResized>,
@@ -23,26 +24,33 @@ impl WgpuRenderer {
         window_resized_event_reader: EventReader<WindowResized>,
         window_created_event_reader: EventReader<WindowCreated>,
     ) -> Self {
-        let adapter = wgpu::Adapter::request(
-            &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: None,
-            },
-            wgpu::BackendBit::PRIMARY,
-        )
-        .await
-        .unwrap();
+        let instance = wgpu::Instance::new();
+        let adapter = instance
+            .request_adapter(
+                &wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::Default,
+                    compatible_surface: None,
+                },
+                wgpu::BackendBit::PRIMARY,
+            )
+            .await
+            .unwrap();
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                extensions: wgpu::Extensions {
-                    anisotropic_filtering: false,
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    extensions: wgpu::Extensions {
+                        anisotropic_filtering: false,
+                    },
+                    limits: wgpu::Limits::default(),
                 },
-                limits: wgpu::Limits::default(),
-            })
-            .await;
+                None,
+            )
+            .await
+            .unwrap();
         let device = Arc::new(device);
         WgpuRenderer {
+            instance,
             device,
             queue,
             window_resized_event_reader,
@@ -70,7 +78,7 @@ impl WgpuRenderer {
             {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
                 let winit_window = winit_windows.get_window(window.id).unwrap();
-                let surface = wgpu::Surface::create(winit_window.deref());
+                let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
                 render_resource_context
                     .wgpu_resources
                     .set_window_surface(window.id, surface);

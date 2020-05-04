@@ -3,7 +3,6 @@ use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
 #[derive(Copy, Clone)]
 pub struct TextureDescriptor {
     pub size: Extent3d,
-    pub array_layer_count: u32,
     pub mip_level_count: u32,
     pub sample_count: u32,
     pub dimension: TextureDimension,
@@ -19,7 +18,6 @@ impl From<&Texture> for TextureDescriptor {
                 width: texture.width as u32,
                 depth: 1,
             },
-            array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,

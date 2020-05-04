@@ -180,7 +180,6 @@ impl WgpuResources {
             "created bind group for RenderResourceSet {:?}",
             render_resource_set_id
         );
-        log::trace!("{:#?}", bind_group_descriptor);
         device.create_bind_group(bind_group_descriptor)
     }
 
@@ -259,7 +258,7 @@ impl WgpuResources {
             usage: buffer_info.buffer_usage.wgpu_into(),
             label: None,
         });
-        setup_data(&mut mapped.data, render_resources);
+        setup_data(&mut mapped.data(), render_resources);
         mapped.finish()
     }
 

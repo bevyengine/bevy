@@ -105,7 +105,7 @@ impl WgpuRenderGraphExecutor {
                 node_outputs.extend(local_node_outputs.drain());
             }
 
-            queue.submit(&command_buffers);
+            queue.submit(command_buffers.drain(..));
         }
     }
 }

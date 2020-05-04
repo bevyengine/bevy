@@ -221,7 +221,6 @@ impl WgpuFrom<TextureDescriptor> for wgpu::TextureDescriptor<'_> {
         wgpu::TextureDescriptor {
             label: None,
             size: texture_descriptor.size.wgpu_into(),
-            array_layer_count: texture_descriptor.array_layer_count,
             mip_level_count: texture_descriptor.mip_level_count,
             sample_count: texture_descriptor.sample_count,
             dimension: texture_descriptor.dimension.wgpu_into(),
@@ -495,9 +494,10 @@ impl WgpuFrom<IndexFormat> for wgpu::IndexFormat {
     }
 }
 
-impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor {
+impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
     fn from(sampler_descriptor: SamplerDescriptor) -> Self {
         wgpu::SamplerDescriptor {
+            label: None,
             address_mode_u: sampler_descriptor.address_mode_u.wgpu_into(),
             address_mode_v: sampler_descriptor.address_mode_v.wgpu_into(),
             address_mode_w: sampler_descriptor.address_mode_w.wgpu_into(),
