@@ -57,7 +57,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(Camera2dEntity {
             ..Default::default()
         })
-        // bottom left anchor with vertical fill
+        // left vertical fill
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
@@ -67,7 +67,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
         })
-        // top right anchor with vertical fill
+        // right vertical fill
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
