@@ -5,16 +5,16 @@ use bevy_render::renderer::GlobalRenderResourceContext;
 use legion::prelude::{IntoSystem, Resource, ResourceMut};
 
 #[derive(Default)]
-pub struct WgpuResourceDiagnosticPlugin;
+pub struct WgpuResourceDiagnosticsPlugin;
 
-impl AppPlugin for WgpuResourceDiagnosticPlugin {
+impl AppPlugin for WgpuResourceDiagnosticsPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(Self::setup_system.system())
             .add_system(Self::diagnostic_system.system());
     }
 }
 
-impl WgpuResourceDiagnosticPlugin {
+impl WgpuResourceDiagnosticsPlugin {
     pub const WINDOW_SURFACES: DiagnosticId =
         DiagnosticId::from_u128(108237028251680341878766034324149135605);
 
