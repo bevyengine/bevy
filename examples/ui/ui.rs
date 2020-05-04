@@ -61,7 +61,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
-                Anchors::new(0.0, 0.0, 0.0, 1.0),
+                Anchors::LEFT_FULL,
                 Margins::new(10.0, 200.0, 10.0, 10.0),
             ),
             material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
@@ -71,8 +71,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
-                Anchors::new(1.0, 1.0, 0.0, 1.0),
-                Margins::new(10.0, 100.0, 50.0, 100.0),
+                Anchors::RIGHT_FULL,
+                Margins::new(10.0, 100.0, 100.0, 100.0),
             ),
             material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
@@ -81,7 +81,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(75.0, 75.0),
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
+                Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             material: color_materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
@@ -90,7 +90,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(50.0, 50.0),
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
+                Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             material: color_materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
@@ -99,7 +99,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(100.0, 100.0),
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
+                Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             material: color_materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
@@ -108,7 +108,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(150.0, 150.0),
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
+                Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             material: color_materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
@@ -117,8 +117,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
         // parenting
         .add_entity(UiEntity {
             node: Node::new(
-                math::vec2(300.0, 300.0),
-                Anchors::new(0.0, 0.0, 0.0, 0.0),
+                math::vec2(210.0, 10.0),
+                Anchors::BOTTOM_LEFT,
                 Margins::new(0.0, 200.0, 0.0, 200.0),
             ),
             material: color_materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
@@ -128,7 +128,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
             builder.add_entity(UiEntity {
                 node: Node::new(
                     math::vec2(0.0, 0.0),
-                    Anchors::new(0.0, 1.0, 0.0, 1.0),
+                    Anchors::FULL,
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                 ),
                 material: blue_material_handle,
@@ -139,7 +139,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         .add_entity(UiEntity {
             node: Node::new(
                 math::vec2(200.0, 200.0),
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
+                Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
             material: color_materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
@@ -148,9 +148,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
         // texture
         .add_entity(UiEntity {
             node: Node::new(
-                math::vec2(400.0, 100.0),
-                Anchors::new(0.0, 0.0, 0.0, 0.0),
-                Margins::new(0.0, 500.0, 0.0, 500.0 * aspect),
+                math::vec2(0.0, 0.0),
+                Anchors::CENTER_BOTTOM,
+                Margins::new(0.0, 500.0, 10.0, 10.0 + 500.0 * aspect),
             ),
             material: color_materials.add(ColorMaterial::texture(texture_handle)),
             ..Default::default()
