@@ -4,6 +4,7 @@ pub mod entity;
 mod margins;
 mod node;
 mod rect;
+mod sprite;
 mod render;
 mod ui_update_system;
 
@@ -14,6 +15,7 @@ pub use node::*;
 pub use rect::*;
 pub use render::*;
 pub use ui_update_system::*;
+pub use sprite::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AssetStorage, Handle};
@@ -24,6 +26,7 @@ use bevy_render::{
 };
 use glam::Vec2;
 use legion::prelude::IntoSystem;
+use sprite::sprite_system;
 
 #[derive(Default)]
 pub struct UiPlugin;
@@ -42,7 +45,8 @@ impl AppPlugin for UiPlugin {
                 stage::POST_UPDATE,
                 asset_handle_shader_def_system::<ColorMaterial>.system(),
             )
-            .add_system(ui_update_system());
+            .add_system_to_stage(stage::POST_UPDATE, sprite_system())
+            .add_system_to_stage(stage::POST_UPDATE, ui_update_system());
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

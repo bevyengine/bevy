@@ -16,7 +16,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         "/assets/branding/bevy_logo_dark_big.png"
     );
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
-    let aspect = texture.height as f32 / texture.width as f32;
+    let aspect = texture.aspect();
     let texture_handle = texture_storage.add(texture);
 
     // create a new quad mesh. this is what we will apply the texture to

@@ -15,6 +15,12 @@ pub struct Texture {
     pub height: usize,
 }
 
+impl Texture {
+    pub fn aspect(&self) -> f32 {
+        self.height as f32 / self.width as f32
+    } 
+}
+
 impl Asset<TextureType> for Texture {
     fn load(descriptor: TextureType) -> Self {
         let (data, width, height) = match descriptor {

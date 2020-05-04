@@ -32,7 +32,7 @@ pub use crate::render::{
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;
 #[cfg(feature = "ui")]
-pub use crate::ui::{entity::*, Anchors, Margins, Node, ColorMaterial};
+pub use crate::ui::{entity::*, Anchors, Rect, Sprite, Margins, Node, ColorMaterial};
 #[cfg(feature = "window")]
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{

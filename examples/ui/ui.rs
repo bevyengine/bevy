@@ -24,7 +24,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         "/assets/branding/bevy_logo_dark_big.png"
     );
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
-    let aspect = texture.height as f32 / texture.width as f32;
+    let aspect = texture.aspect();
     let texture_handle = texture_storage.add(texture);
 
     let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
