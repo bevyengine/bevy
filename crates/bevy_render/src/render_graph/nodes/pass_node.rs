@@ -114,7 +114,7 @@ impl Node for PassNode {
                         }
                     }
 
-                    render_context.create_render_pipeline(
+                    render_context.resources().create_render_pipeline(
                         *compiled_pipeline_handle,
                         &compiled_pipeline_descriptor,
                         &shader_storage,

@@ -1,7 +1,7 @@
 use crate::{
-    render_resource::{BufferInfo, RenderResource, ResourceInfo},
+    render_resource::{BufferInfo, RenderResource, ResourceInfo, RenderResourceAssignments, RenderResourceSetId},
     shader::Shader,
-    texture::{SamplerDescriptor, TextureDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor}, pipeline::{BindGroupDescriptor, PipelineDescriptor},
 };
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
@@ -38,7 +38,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     ) -> RenderResource;
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
     fn create_shader_module(
-        &mut self,
+        &self,
         shader_handle: Handle<Shader>,
         shader_storage: &AssetStorage<Shader>,
     );
@@ -61,6 +61,27 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         handle: HandleUntyped,
         index: usize,
     ) -> Option<RenderResource>;
+    fn create_render_pipeline(
+        &self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_descriptor: &PipelineDescriptor,
+        shader_storage: &AssetStorage<Shader>,
+    );
+    fn create_bind_group(
+        &self,
+        bind_group_descriptor: &BindGroupDescriptor,
+        render_resource_assignments: &RenderResourceAssignments,
+    ) -> Option<RenderResourceSetId>;
+    fn setup_bind_groups(
+        &self,
+        pipeline_descriptor: &PipelineDescriptor,
+        render_resource_assignments: &RenderResourceAssignments,
+    ) {
+        let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
+        for bind_group in pipeline_layout.bind_groups.iter() {
+            self.create_bind_group(bind_group, render_resource_assignments);
+        }
+    }
 }
 
 impl dyn RenderResourceContext {

@@ -1,12 +1,9 @@
 use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
-    render_resource::{RenderResource, RenderResourceAssignments, RenderResourceSetId},
-    shader::Shader,
+    render_resource::{RenderResource, RenderResourceAssignments},
     texture::{Extent3d, TextureDescriptor},
 };
-use bevy_asset::{AssetStorage, Handle};
 
 pub trait RenderContext {
     fn resources(&self) -> &dyn RenderResourceContext;
@@ -36,27 +33,6 @@ pub trait RenderContext {
         destination_array_layer: u32,
         size: Extent3d,
     );
-    fn create_bind_group(
-        &mut self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<RenderResourceSetId>;
-    fn create_render_pipeline(
-        &mut self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline_descriptor: &PipelineDescriptor,
-        shader_storage: &AssetStorage<Shader>,
-    );
-    fn setup_bind_groups(
-        &mut self,
-        pipeline_descriptor: &PipelineDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) {
-        let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
-        for bind_group in pipeline_layout.bind_groups.iter() {
-            self.create_bind_group(bind_group, render_resource_assignments);
-        }
-    }
     fn begin_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,

@@ -1,20 +1,13 @@
 use super::WgpuRenderResourceContext;
-use crate::{
-    wgpu_type_converter::{OwnedWgpuVertexBufferDescriptor, WgpuInto},
-    WgpuRenderPass, WgpuResourceRefs,
-};
-use bevy_asset::{AssetStorage, Handle};
+use crate::{wgpu_type_converter::WgpuInto, WgpuRenderPass, WgpuResourceRefs};
+
 use bevy_render::{
     pass::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
-    render_resource::{
-        RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
-    },
+    render_resource::{RenderResource, RenderResourceAssignments},
     renderer::{RenderContext, RenderResourceContext},
-    shader::Shader,
     texture::{Extent3d, TextureDescriptor},
 };
 use bevy_window::WindowId;
@@ -86,14 +79,11 @@ impl RenderContext for WgpuRenderContext {
         texture_descriptor: &TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource {
-        self.render_resources
-            .wgpu_resources
-            .create_texture_with_data(
-                &self.device,
-                self.command_encoder.get_or_create(&self.device),
-                texture_descriptor,
-                bytes,
-            )
+        self.render_resources.create_texture_with_data(
+            self.command_encoder.get_or_create(&self.device),
+            texture_descriptor,
+            bytes,
+        )
     }
     fn copy_buffer_to_buffer(
         &mut self,
@@ -103,9 +93,8 @@ impl RenderContext for WgpuRenderContext {
         destination_offset: u64,
         size: u64,
     ) {
-        let command_encoder = self.command_encoder.get_or_create(&self.device);
-        self.render_resources.wgpu_resources.copy_buffer_to_buffer(
-            command_encoder,
+        self.render_resources.copy_buffer_to_buffer(
+            self.command_encoder.get_or_create(&self.device),
             source_buffer,
             source_offset,
             destination_buffer,
@@ -113,305 +102,38 @@ impl RenderContext for WgpuRenderContext {
             size,
         );
     }
+
+    fn copy_buffer_to_texture(
+        &mut self,
+        source_buffer: RenderResource,
+        source_offset: u64,
+        source_bytes_per_row: u32,
+        destination_texture: RenderResource,
+        destination_origin: [u32; 3],
+        destination_mip_level: u32,
+        destination_array_layer: u32,
+        size: Extent3d,
+    ) {
+        self.render_resources.copy_buffer_to_texture(
+            self.command_encoder.get_or_create(&self.device),
+            source_buffer,
+            source_offset,
+            source_bytes_per_row,
+            destination_texture,
+            destination_origin,
+            destination_mip_level,
+            destination_array_layer,
+            size,
+        )
+    }
+
     fn resources(&self) -> &dyn RenderResourceContext {
         &self.render_resources
     }
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext {
         &mut self.render_resources
     }
-    fn create_bind_group(
-        &mut self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<RenderResourceSetId> {
-        if let Some((render_resource_set_id, _indices)) =
-            render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
-        {
-            if !self
-                .render_resources
-                .wgpu_resources
-                .has_bind_group(bind_group_descriptor.id, *render_resource_set_id)
-            {
-                log::trace!(
-                    "start creating bind group for RenderResourceSet {:?}",
-                    render_resource_set_id
-                );
-                let wgpu_bind_group = {
-                    let textures = self
-                        .render_resources
-                        .wgpu_resources
-                        .texture_views
-                        .read()
-                        .unwrap();
-                    let samplers = self
-                        .render_resources
-                        .wgpu_resources
-                        .samplers
-                        .read()
-                        .unwrap();
-                    let buffers = self.render_resources.wgpu_resources.buffers.read().unwrap();
-                    let bindings = bind_group_descriptor
-                        .bindings
-                        .iter()
-                        .map(|binding| {
-                            if let Some(resource) = render_resource_assignments.get(&binding.name) {
-                                let mut wgpu_resource = None;
-                                self.resources().get_resource_info(
-                                    resource,
-                                    &mut |resource_info| {
-                                        log::trace!(
-                                            "found binding {} ({}) resource: {:?} {:?}",
-                                            binding.index,
-                                            binding.name,
-                                            resource,
-                                            resource_info
-                                        );
-                                        wgpu_resource = match &binding.bind_type {
-                                            BindType::SampledTexture { .. } => {
-                                                if let Some(ResourceInfo::Texture) = resource_info {
-                                                    let texture = textures.get(&resource).unwrap();
-                                                    Some(wgpu::BindingResource::TextureView(
-                                                        texture,
-                                                    ))
-                                                } else {
-                                                    panic!("expected a Texture resource");
-                                                }
-                                            }
-                                            BindType::Sampler { .. } => {
-                                                if let Some(ResourceInfo::Sampler) = resource_info {
-                                                    let sampler = samplers.get(&resource).unwrap();
-                                                    Some(wgpu::BindingResource::Sampler(sampler))
-                                                } else {
-                                                    panic!("expected a Sampler resource");
-                                                }
-                                            }
-                                            BindType::Uniform { .. } => {
-                                                if let Some(ResourceInfo::Buffer(buffer_info)) =
-                                                    resource_info
-                                                {
-                                                    let buffer = buffers.get(&resource).unwrap();
-                                                    Some(wgpu::BindingResource::Buffer {
-                                                        buffer,
-                                                        range: 0..buffer_info.size as u64,
-                                                    })
-                                                } else {
-                                                    panic!("expected a Buffer resource");
-                                                }
-                                            }
-                                            _ => panic!("unsupported bind type"),
-                                        }
-                                    },
-                                );
-                                wgpu::Binding {
-                                    binding: binding.index,
-                                    resource: wgpu_resource.expect("No resource binding found"),
-                                }
-                            } else {
-                                panic!(
-                        "No resource assigned to uniform \"{}\" for RenderResourceAssignments {:?}",
-                        binding.name,
-                        render_resource_assignments.id
-                    );
-                            }
-                        })
-                        .collect::<Vec<wgpu::Binding>>();
-                    let bind_group_layouts = self
-                        .render_resources
-                        .wgpu_resources
-                        .bind_group_layouts
-                        .read()
-                        .unwrap();
-                    let bind_group_layout =
-                        bind_group_layouts.get(&bind_group_descriptor.id).unwrap();
-                    let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
-                        label: None,
-                        layout: bind_group_layout,
-                        bindings: bindings.as_slice(),
-                    };
-                    self.render_resources.wgpu_resources.create_bind_group(
-                        &self.device,
-                        *render_resource_set_id,
-                        &wgpu_bind_group_descriptor,
-                    )
-                };
-                self.render_resources.wgpu_resources.set_bind_group(
-                    bind_group_descriptor.id,
-                    *render_resource_set_id,
-                    wgpu_bind_group,
-                );
-                return Some(*render_resource_set_id);
-            }
-        }
 
-        None
-    }
-    fn create_render_pipeline(
-        &mut self,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        pipeline_descriptor: &PipelineDescriptor,
-        shader_storage: &AssetStorage<Shader>,
-    ) {
-        if let Some(_) = self
-            .render_resources
-            .wgpu_resources
-            .render_pipelines
-            .read()
-            .unwrap()
-            .get(&pipeline_handle)
-        {
-            return;
-        }
-
-        let layout = pipeline_descriptor.get_layout().unwrap();
-        for bind_group in layout.bind_groups.iter() {
-            if self
-                .render_resources
-                .wgpu_resources
-                .bind_group_layouts
-                .read()
-                .unwrap()
-                .get(&bind_group.id)
-                .is_none()
-            {
-                let bind_group_layout_binding = bind_group
-                    .bindings
-                    .iter()
-                    .map(|binding| wgpu::BindGroupLayoutEntry {
-                        binding: binding.index,
-                        visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                        ty: (&binding.bind_type).wgpu_into(),
-                    })
-                    .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
-                self.render_resources
-                    .wgpu_resources
-                    .create_bind_group_layout(
-                        &self.device,
-                        bind_group.id,
-                        &wgpu::BindGroupLayoutDescriptor {
-                            bindings: bind_group_layout_binding.as_slice(),
-                            label: None,
-                        },
-                    );
-            }
-        }
-
-        let pipeline_layout = {
-            let bind_group_layouts = self
-                .render_resources
-                .wgpu_resources
-                .bind_group_layouts
-                .read()
-                .unwrap();
-            // setup and collect bind group layouts
-            let bind_group_layouts = layout
-                .bind_groups
-                .iter()
-                .map(|bind_group| bind_group_layouts.get(&bind_group.id).unwrap())
-                .collect::<Vec<&wgpu::BindGroupLayout>>();
-            self.device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    bind_group_layouts: bind_group_layouts.as_slice(),
-                })
-        };
-
-        let owned_vertex_buffer_descriptors = layout
-            .vertex_buffer_descriptors
-            .iter()
-            .map(|v| v.wgpu_into())
-            .collect::<Vec<OwnedWgpuVertexBufferDescriptor>>();
-
-        let color_states = pipeline_descriptor
-            .color_states
-            .iter()
-            .map(|c| c.wgpu_into())
-            .collect::<Vec<wgpu::ColorStateDescriptor>>();
-
-        if self
-            .render_resources
-            .wgpu_resources
-            .shader_modules
-            .read()
-            .unwrap()
-            .get(&pipeline_descriptor.shader_stages.vertex)
-            .is_none()
-        {
-            self.render_resources
-                .create_shader_module(pipeline_descriptor.shader_stages.vertex, shader_storage);
-        }
-
-        if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
-            if self
-                .render_resources
-                .wgpu_resources
-                .shader_modules
-                .read()
-                .unwrap()
-                .get(&fragment_handle)
-                .is_none()
-            {
-                self.render_resources
-                    .create_shader_module(fragment_handle, shader_storage);
-            }
-        };
-        let wgpu_pipeline = {
-            let shader_modules = self
-                .render_resources
-                .wgpu_resources
-                .shader_modules
-                .read()
-                .unwrap();
-            let vertex_shader_module = shader_modules
-                .get(&pipeline_descriptor.shader_stages.vertex)
-                .unwrap();
-
-            let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-                Some(fragment_handle) => Some(shader_modules.get(&fragment_handle).unwrap()),
-                None => None,
-            };
-
-            let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-                layout: &pipeline_layout,
-                vertex_stage: wgpu::ProgrammableStageDescriptor {
-                    module: &vertex_shader_module,
-                    entry_point: "main",
-                },
-                fragment_stage: match pipeline_descriptor.shader_stages.fragment {
-                    Some(_) => Some(wgpu::ProgrammableStageDescriptor {
-                        entry_point: "main",
-                        module: fragment_shader_module.as_ref().unwrap(),
-                    }),
-                    None => None,
-                },
-                rasterization_state: pipeline_descriptor
-                    .rasterization_state
-                    .as_ref()
-                    .map(|r| r.wgpu_into()),
-                primitive_topology: pipeline_descriptor.primitive_topology.wgpu_into(),
-                color_states: &color_states,
-                depth_stencil_state: pipeline_descriptor
-                    .depth_stencil_state
-                    .as_ref()
-                    .map(|d| d.wgpu_into()),
-                vertex_state: wgpu::VertexStateDescriptor {
-                    index_format: pipeline_descriptor.index_format.wgpu_into(),
-                    vertex_buffers: &owned_vertex_buffer_descriptors
-                        .iter()
-                        .map(|v| v.into())
-                        .collect::<Vec<wgpu::VertexBufferDescriptor>>(),
-                },
-                sample_count: pipeline_descriptor.sample_count,
-                sample_mask: pipeline_descriptor.sample_mask,
-                alpha_to_coverage_enabled: pipeline_descriptor.alpha_to_coverage_enabled,
-            };
-
-            self.render_resources
-                .wgpu_resources
-                .create_render_pipeline(&self.device, &render_pipeline_descriptor)
-        };
-        self.render_resources
-            .wgpu_resources
-            .set_render_pipeline(pipeline_handle, wgpu_pipeline);
-    }
     fn begin_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
@@ -421,7 +143,7 @@ impl RenderContext for WgpuRenderContext {
         if !self.command_encoder.is_some() {
             self.command_encoder.create(&self.device);
         }
-        let resource_lock = self.render_resources.wgpu_resources.read();
+        let resource_lock = self.render_resources.resources.read();
         let refs = resource_lock.refs();
         let mut encoder = self.command_encoder.take().unwrap();
         {
@@ -442,29 +164,6 @@ impl RenderContext for WgpuRenderContext {
         }
 
         self.command_encoder.set(encoder);
-    }
-    fn copy_buffer_to_texture(
-        &mut self,
-        source_buffer: RenderResource,
-        source_offset: u64,
-        source_bytes_per_row: u32,
-        destination_texture: RenderResource,
-        destination_origin: [u32; 3],
-        destination_mip_level: u32,
-        destination_array_layer: u32,
-        size: Extent3d,
-    ) {
-        self.render_resources.wgpu_resources.copy_buffer_to_texture(
-            self.command_encoder.get_or_create(&self.device),
-            source_buffer,
-            source_offset,
-            source_bytes_per_row,
-            destination_texture,
-            destination_origin,
-            destination_mip_level,
-            destination_array_layer,
-            size,
-        )
     }
 }
 

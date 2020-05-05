@@ -128,7 +128,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::WINDOW_SURFACES,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .window_surfaces
                 .read()
                 .unwrap()
@@ -138,7 +138,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::SWAP_CHAINS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .window_swap_chains
                 .read()
                 .unwrap()
@@ -148,7 +148,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::SWAP_CHAIN_OUTPUTS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .swap_chain_outputs
                 .read()
                 .unwrap()
@@ -158,7 +158,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::BUFFERS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .buffers
                 .read()
                 .unwrap()
@@ -168,7 +168,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::TEXTURES,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .textures
                 .read()
                 .unwrap()
@@ -178,7 +178,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::TEXTURE_VIEWS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .texture_views
                 .read()
                 .unwrap()
@@ -188,7 +188,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::SAMPLERS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .samplers
                 .read()
                 .unwrap()
@@ -198,7 +198,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::BIND_GROUPS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .bind_groups
                 .read()
                 .unwrap()
@@ -208,7 +208,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::BIND_GROUP_LAYOUTS,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .bind_group_layouts
                 .read()
                 .unwrap()
@@ -218,7 +218,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::SHADER_MODULES,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .shader_modules
                 .read()
                 .unwrap()
@@ -228,7 +228,7 @@ impl WgpuResourceDiagnosticsPlugin {
         diagnostics.add_measurement(
             Self::RENDER_PIPELINES,
             render_resource_context
-                .wgpu_resources
+                .resources
                 .render_pipelines
                 .read()
                 .unwrap()
