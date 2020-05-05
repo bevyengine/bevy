@@ -10,7 +10,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderResourceContext},
     texture::{Extent3d, TextureDescriptor},
 };
-use bevy_window::WindowId;
+
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Default)]
@@ -50,8 +50,6 @@ impl LazyCommandEncoder {
 
 pub struct WgpuRenderContext {
     pub device: Arc<wgpu::Device>,
-    // TODO: remove this
-    pub primary_window: Option<WindowId>,
     pub command_encoder: LazyCommandEncoder,
     pub render_resources: WgpuRenderResourceContext,
 }
@@ -60,7 +58,6 @@ impl WgpuRenderContext {
     pub fn new(device: Arc<wgpu::Device>, resources: WgpuRenderResourceContext) -> Self {
         WgpuRenderContext {
             device,
-            primary_window: None,
             render_resources: resources,
             command_encoder: LazyCommandEncoder::default(),
         }
