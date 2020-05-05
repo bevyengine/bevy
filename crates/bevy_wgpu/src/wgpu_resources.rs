@@ -72,7 +72,7 @@ pub struct WgpuResourceRefs<'a> {
 
 #[derive(Default, Clone)]
 pub struct WgpuResources {
-    // TODO: remove this from WgpuResources. it doesn't need to be here
+    pub resource_info: Arc<RwLock<HashMap<RenderResource, ResourceInfo>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_outputs: Arc<RwLock<HashMap<RenderResource, wgpu::SwapChainOutput>>>,
@@ -80,7 +80,6 @@ pub struct WgpuResources {
     pub texture_views: Arc<RwLock<HashMap<RenderResource, wgpu::TextureView>>>,
     pub textures: Arc<RwLock<HashMap<RenderResource, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<RenderResource, wgpu::Sampler>>>,
-    pub resource_info: Arc<RwLock<HashMap<RenderResource, ResourceInfo>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
