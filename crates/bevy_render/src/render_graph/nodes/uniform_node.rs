@@ -429,7 +429,6 @@ where
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
         let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
         let dynamic_uniforms = self.dynamic_uniforms;
-        let mut staging_buffer_resource = None;
         initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
         SystemBuilder::new(format!(
@@ -447,10 +446,6 @@ where
                   (textures, render_resources),
                   (read_uniform_query, write_uniform_query)| {
                 let render_resource_context = &*render_resources.context;
-                if let Some(staging_buffer_resource) = staging_buffer_resource {
-                    render_resource_context.remove_buffer(staging_buffer_resource);
-                }
-                staging_buffer_resource = None;
 
                 uniform_buffer_arrays.reset_new_item_counts();
                 // update uniforms info
@@ -537,8 +532,7 @@ where
 
                     uniform_buffer_arrays
                         .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
-
-                    staging_buffer_resource = Some(staging_buffer);
+                    command_queue.free_buffer(staging_buffer);
                 }
             },
         )
@@ -593,7 +587,6 @@ where
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
         let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
         let dynamic_uniforms = self.dynamic_uniforms;
-        let mut staging_buffer_resource = None;
         initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
         SystemBuilder::new("uniform_resource_provider")
@@ -609,11 +602,6 @@ where
                       (assets, textures, render_resources),
                       (read_handle_query, write_handle_query)| {
                     let render_resource_context = &*render_resources.context;
-                    if let Some(staging_buffer_resource) = staging_buffer_resource {
-                        render_resource_context.remove_buffer(staging_buffer_resource);
-                    }
-                    staging_buffer_resource = None;
-
                     uniform_buffer_arrays.reset_new_item_counts();
 
                     // update uniform handles info
@@ -714,8 +702,7 @@ where
                             &mut command_queue,
                             staging_buffer,
                         );
-
-                        staging_buffer_resource = Some(staging_buffer);
+                        command_queue.free_buffer(staging_buffer);
                     }
                 },
             )

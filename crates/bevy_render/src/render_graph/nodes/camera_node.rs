@@ -32,9 +32,9 @@ impl Node for CameraNode {
 impl SystemNode for CameraNode {
     fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable> {
         let mut camera_buffer = None;
-        let mut tmp_buffer = None;
         let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
         let mut command_queue = self.command_queue.clone();
+        
         SystemBuilder::new("camera_resource_provider")
             .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
@@ -69,11 +69,7 @@ impl SystemNode for CameraNode {
                             let camera_matrix: [[f32; 4]; 4] =
                                 (camera.view_matrix * local_to_world.0).to_cols_array_2d();
 
-                            if let Some(old_tmp_buffer) = tmp_buffer {
-                                render_resources.remove_buffer(old_tmp_buffer);
-                            }
-
-                            tmp_buffer = Some(render_resources.create_buffer_mapped(
+                            let tmp_buffer = render_resources.create_buffer_mapped(
                                 BufferInfo {
                                     size: matrix_size,
                                     buffer_usage: BufferUsage::COPY_SRC,
@@ -82,15 +78,16 @@ impl SystemNode for CameraNode {
                                 &mut |data, _renderer| {
                                     data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
                                 },
-                            ));
+                            );
 
                             command_queue.copy_buffer_to_buffer(
-                                tmp_buffer.unwrap(),
+                                tmp_buffer,
                                 0,
                                 camera_buffer.unwrap(),
                                 0,
                                 matrix_size as u64,
                             );
+                            command_queue.free_buffer(tmp_buffer);
                         }
                     }
                 },
