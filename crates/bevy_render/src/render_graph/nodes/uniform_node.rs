@@ -5,7 +5,7 @@ use crate::{
         BufferArrayInfo, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer::{GlobalRenderResourceContext, RenderContext, RenderResourceContext},
+    renderer::{RenderResources, RenderContext, RenderResourceContext},
     shader::{AsUniforms, FieldBindType},
     texture, Renderable,
 };
@@ -437,16 +437,16 @@ where
             std::any::type_name::<T>()
         ))
         .read_resource::<AssetStorage<Texture>>()
-        .read_resource::<GlobalRenderResourceContext>()
+        .read_resource::<RenderResources>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
         .with_query(<(Read<T>, Read<Renderable>)>::query())
         .with_query(<(Read<T>, Write<Renderable>)>::query())
         .build(
             move |_,
                   world,
-                  (textures, global_render_resource_context),
+                  (textures, render_resources),
                   (read_uniform_query, write_uniform_query)| {
-                let render_resource_context = &*global_render_resource_context.context;
+                let render_resource_context = &*render_resources.context;
                 if let Some(staging_buffer_resource) = staging_buffer_resource {
                     render_resource_context.remove_buffer(staging_buffer_resource);
                 }
@@ -599,16 +599,16 @@ where
         SystemBuilder::new("uniform_resource_provider")
             .read_resource::<AssetStorage<T>>()
             .read_resource::<AssetStorage<Texture>>()
-            .read_resource::<GlobalRenderResourceContext>()
+            .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
             .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
             .build(
                 move |_,
                       world,
-                      (assets, textures, global_render_resource_context),
+                      (assets, textures, render_resources),
                       (read_handle_query, write_handle_query)| {
-                    let render_resource_context = &*global_render_resource_context.context;
+                    let render_resource_context = &*render_resources.context;
                     if let Some(staging_buffer_resource) = staging_buffer_resource {
                         render_resource_context.remove_buffer(staging_buffer_resource);
                     }

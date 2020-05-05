@@ -1,7 +1,7 @@
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{GlobalRenderResourceContext, RenderContext},
+    renderer::{RenderResources, RenderContext},
 };
 
 use crate::light::{Light, LightRaw};
@@ -53,7 +53,7 @@ impl SystemNode for LightsNode {
         let mut command_queue = self.command_queue.clone();
         let max_lights = self.max_lights;
         SystemBuilder::new("light_node")
-            .read_resource::<GlobalRenderResourceContext>()
+            .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .write_resource::<RenderResourceAssignments>()
             .with_query(<(Read<Light>, Read<LocalToWorld>, Read<Translation>)>::query())

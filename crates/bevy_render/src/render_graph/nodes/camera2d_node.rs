@@ -5,7 +5,7 @@ use crate::{
     camera::{ActiveCamera2d, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{GlobalRenderResourceContext, RenderContext},
+    renderer::{RenderResources, RenderContext},
 };
 
 use legion::prelude::*;
@@ -36,7 +36,7 @@ impl SystemNode for Camera2dNode {
         let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
         let mut command_queue = self.command_queue.clone();
         SystemBuilder::new("camera_2d_resource_provider")
-            .read_resource::<GlobalRenderResourceContext>()
+            .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .write_resource::<RenderResourceAssignments>()
             .read_resource::<Events<WindowResized>>()

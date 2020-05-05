@@ -7,16 +7,16 @@ use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use downcast_rs::{impl_downcast, Downcast};
 
-pub struct GlobalRenderResourceContext {
+pub struct RenderResources {
     pub context: Box<dyn RenderResourceContext>,
 }
 
-impl GlobalRenderResourceContext {
-    pub fn new<T>(context: T) -> GlobalRenderResourceContext
+impl RenderResources {
+    pub fn new<T>(context: T) -> RenderResources
     where
         T: RenderResourceContext,
     {
-        GlobalRenderResourceContext {
+        RenderResources {
             context: Box::new(context),
         }
     }

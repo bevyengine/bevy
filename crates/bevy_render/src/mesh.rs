@@ -4,7 +4,7 @@ use crate::{
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{GlobalRenderResourceContext, RenderResourceContext},
+    renderer::{RenderResources, RenderResourceContext},
     shader::AsUniforms,
     Renderable, Vertex,
 };
@@ -380,7 +380,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     let vertex_buffer_descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     SystemBuilder::new("mesh_resource_provider")
-        .read_resource::<GlobalRenderResourceContext>()
+        .read_resource::<RenderResources>()
         .read_resource::<AssetStorage<Mesh>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(

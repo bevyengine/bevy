@@ -10,7 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
-use bevy_render::{renderer::GlobalRenderResourceContext, RENDER_STAGE};
+use bevy_render::{renderer::RenderResources, RENDER_STAGE};
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 use renderer::WgpuRenderResourceContext;
@@ -34,7 +34,7 @@ pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &
             window_created_event.get_reader(),
         ))
     };
-    resources.insert(GlobalRenderResourceContext::new(
+    resources.insert(RenderResources::new(
         WgpuRenderResourceContext::new(wgpu_renderer.device.clone()),
     ));
     move |world, resources| {

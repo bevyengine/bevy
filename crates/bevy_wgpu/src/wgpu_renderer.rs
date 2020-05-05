@@ -5,7 +5,7 @@ use bevy_app::{EventReader, Events};
 use bevy_render::{
     pipeline::update_shader_assignments,
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
-    renderer::GlobalRenderResourceContext,
+    renderer::RenderResources,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
@@ -60,8 +60,8 @@ impl WgpuRenderer {
     }
 
     pub fn handle_window_created_events(&mut self, resources: &Resources) {
-        let mut global_context = resources.get_mut::<GlobalRenderResourceContext>().unwrap();
-        let render_resource_context = global_context
+        let mut render_resources = resources.get_mut::<RenderResources>().unwrap();
+        let render_resource_context = render_resources
             .context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
@@ -127,7 +127,7 @@ impl WgpuRenderer {
         self.handle_window_created_events(resources);
         self.run_graph(world, resources);
 
-        let render_resource_context = resources.get::<GlobalRenderResourceContext>().unwrap();
+        let render_resource_context = resources.get::<RenderResources>().unwrap();
         render_resource_context
             .context
             .drop_all_swap_chain_textures();
