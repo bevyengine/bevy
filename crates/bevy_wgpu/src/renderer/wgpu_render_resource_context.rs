@@ -219,8 +219,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> RenderResource {
-        // TODO: consider moving this below "create" for efficiency
-
         let mut mapped = self.device.create_buffer_mapped(&wgpu::BufferDescriptor {
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
