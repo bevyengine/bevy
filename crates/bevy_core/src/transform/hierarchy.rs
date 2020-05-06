@@ -32,7 +32,7 @@ pub fn run_on_hierarchy_mut<T>(
 ) where
     T: Copy,
 {
-    // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocactions?
+    // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocations?
     let children = match world.get_component::<Children>(entity) {
         Some(children) => Some(
             children
@@ -78,11 +78,12 @@ pub fn run_on_hierarchy_subworld_mut<T>(
     world: &mut SubWorld,
     entity: Entity,
     input: T,
-    func: &mut dyn FnMut(&mut SubWorld, Entity, T) -> Option<T>,
-) where
+    run: &mut dyn FnMut(&mut SubWorld, Entity, T) -> Option<T>,
+    child_result_action: &mut dyn FnMut(T, T) -> T,
+) -> Option<T> where
     T: Copy,
 {
-    // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocactions?
+    // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocations?
     let children = match world.get_component::<Children>(entity) {
         Some(children) => Some(
             children
@@ -93,13 +94,20 @@ pub fn run_on_hierarchy_subworld_mut<T>(
         None => None,
     };
 
-    let result = func(world, entity, input);
+    let result = run(world, entity, input);
 
-    if let Some(result) = result {
+    if let Some(mut result) = result {
         if let Some(children) = children {
             for child in children {
-                run_on_hierarchy_subworld_mut(world, child, result, func);
+                let child_result = run_on_hierarchy_subworld_mut(world, child, result, run, child_result_action);
+                if let Some(child_result) = child_result {
+                    result = child_result_action(result, child_result)
+                }
             }
         }
+
+        Some(result)
+    } else {
+        None
     }
 }

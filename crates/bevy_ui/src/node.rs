@@ -3,7 +3,7 @@ use crate::Rect;
 use glam::Vec2;
 
 #[derive(Debug, Clone)]
-enum GrowDirection {
+enum MarginGrowDirection {
     Negative,
     Positive,
 }
@@ -37,7 +37,7 @@ impl Node {
     pub fn update(
         &mut self,
         rect: &mut Rect,
-        parent_dimensions: Vec2,
+        parent_size: Vec2,
         parent_position: Vec2,
         z_index: f32,
     ) {
@@ -47,7 +47,7 @@ impl Node {
             self.margins.right,
             self.anchors.left,
             self.anchors.right,
-            parent_dimensions.x(),
+            parent_size.x(),
         );
         let (rect_y, rect_height) = Self::compute_dimension_properties(
             self.position.y(),
@@ -55,7 +55,7 @@ impl Node {
             self.margins.top,
             self.anchors.bottom,
             self.anchors.top,
-            parent_dimensions.y(),
+            parent_size.y(),
         );
 
         rect.size = Vec2::new(rect_width, rect_height);
@@ -75,37 +75,33 @@ impl Node {
         let anchor_p1 = anchor1 * length;
 
         let p0_grow_direction = if anchor_p0 <= 0.5 {
-            GrowDirection::Positive
+            MarginGrowDirection::Positive
         } else {
-            GrowDirection::Negative
+            MarginGrowDirection::Negative
         };
-        let p1_grow_direction = if anchor_p1 < 0.5 {
-            GrowDirection::Positive
+        let p1_grow_direction = if anchor_p1 <= 0.5 {
+            MarginGrowDirection::Positive
         } else {
-            GrowDirection::Negative
+            MarginGrowDirection::Negative
         };
 
         let p0 = Self::compute_rect_position(offset, margin0, anchor_p0, p0_grow_direction);
         let p1 = Self::compute_rect_position(offset, margin1, anchor_p1, p1_grow_direction);
 
         let final_width = p1 - p0;
-        let mut p = (p0 + p1) / 2.0;
-
-        // move position to "origin" in bottom left hand corner
-        p = p - final_width / 2.0;
-
-        (p, final_width)
+        let p = (p0 + p1) / 2.0;
+        (p, final_width.abs())
     }
 
     fn compute_rect_position(
         position: f32,
         margin: f32,
         anchor_position: f32,
-        grow_direction: GrowDirection,
+        grow_direction: MarginGrowDirection,
     ) -> f32 {
         match grow_direction {
-            GrowDirection::Negative => position + anchor_position - margin,
-            GrowDirection::Positive => position + anchor_position + margin,
+            MarginGrowDirection::Negative => position + anchor_position - margin,
+            MarginGrowDirection::Positive => position + anchor_position + margin,
         }
     }
 }

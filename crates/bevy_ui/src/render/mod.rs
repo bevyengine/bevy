@@ -27,8 +27,8 @@ pub fn build_ui_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDescript
         }),
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
-            depth_write_enabled: false,
-            depth_compare: CompareFunction::Always,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Less,
             stencil_front: StencilStateFaceDescriptor::IGNORE,
             stencil_back: StencilStateFaceDescriptor::IGNORE,
             stencil_read_mask: 0,

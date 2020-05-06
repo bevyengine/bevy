@@ -6,6 +6,8 @@ use bevy_window::Windows;
 use glam::Vec2;
 use legion::{prelude::*, systems::SubWorld};
 
+pub const UI_Z_STEP: f32 = 0.0001;
+
 pub fn ui_update_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("ui_update")
         .read_resource::<Windows>()
@@ -15,39 +17,58 @@ pub fn ui_update_system() -> Box<dyn Schedulable> {
         .read_component::<Children>()
         .build(move |_, world, windows, node_query| {
             if let Some(window) = windows.get_primary() {
-                let parent_size = glam::vec2(window.width as f32, window.height as f32);
-                let parent_position = glam::vec2(0.0, 0.0);
+                let mut window_rect = Rect {
+                    size: Vec2::new(window.width as f32, window.height as f32),
+                    position: Vec2::new(0.0, 0.0),
+                    z_index: 0.9999,
+                };
                 for entity in node_query
                     .iter_entities(world)
                     .map(|(e, _)| e)
                     .collect::<Vec<Entity>>()
                 {
-                    run_on_hierarchy_subworld_mut(
+                    let result = run_on_hierarchy_subworld_mut(
                         world,
                         entity,
-                        (parent_size, parent_position, 0.9999),
+                        window_rect.clone(),
                         &mut update_node_entity,
+                        &mut process_child_result,
                     );
+
+                    if let Some(result) = result {
+                        window_rect.z_index = result.z_index;
+                    }
                 }
             }
         })
 }
 
-fn update_node_entity(
-    world: &mut SubWorld,
-    entity: Entity,
-    parent_properties: (Vec2, Vec2, f32),
-) -> Option<(Vec2, Vec2, f32)> {
-    let (parent_size, parent_position, z_index) = parent_properties;
+fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_rect: Rect) -> Option<Rect> {
     // TODO: Somehow remove this unsafe
     unsafe {
         if let Some(mut node) = world.get_component_mut_unchecked::<Node>(entity) {
             if let Some(mut rect) = world.get_component_mut_unchecked::<Rect>(entity) {
-                node.update(&mut rect, parent_size, parent_position, z_index);
-                return Some((rect.size, rect.position, z_index - 0.0001));
+                node.update(
+                    &mut rect,
+                    parent_rect.size,
+                    parent_rect.position,
+                    parent_rect.z_index,
+                );
+                return Some(Rect {
+                    size: rect.size,
+                    position: rect.position - rect.size / 2.0,
+                    z_index: rect.z_index - UI_Z_STEP,
+                });
             }
         }
     }
 
     None
+}
+
+fn process_child_result(_parent_result: Rect, child_result: Rect) -> Rect {
+    // "earlier" children are sorted behind "later" children  
+    let mut result = child_result.clone();
+    result.z_index -= UI_Z_STEP;
+    result
 }
