@@ -1,6 +1,7 @@
 use crate::{render_resource::RenderResource, renderer::RenderContext, texture::Extent3d};
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone, Debug)]
 pub enum Command {
     CopyBufferToBuffer {
         source_buffer: RenderResource,

@@ -9,10 +9,7 @@ fn main() {
 
 fn setup(world: &mut World, resources: &mut Resources) {
     let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
-    let texture_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/branding/icon.png"
-    );
+    let texture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/branding/icon.png");
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
     let texture_handle = texture_storage.add(texture);
     let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();

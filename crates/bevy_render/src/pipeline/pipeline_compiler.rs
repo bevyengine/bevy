@@ -6,7 +6,7 @@ use crate::{
     render_resource::{
         BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer::{RenderResources, RenderResourceContext},
+    renderer::{RenderResourceContext, RenderResources},
     shader::{Shader, ShaderSource},
     Renderable,
 };
@@ -289,8 +289,7 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
-        let render_resources =
-            resources.get::<RenderResources>().unwrap();
+        let render_resources = resources.get::<RenderResources>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();

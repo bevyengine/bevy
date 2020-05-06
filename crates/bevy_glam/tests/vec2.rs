@@ -345,9 +345,10 @@ fn test_vec2mask_eq() {
 
 #[test]
 fn test_vec2mask_hash() {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hash;
-    use std::hash::Hasher;
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
 
     let a = Vec2Mask::new(true, false);
     let b = Vec2Mask::new(true, false);

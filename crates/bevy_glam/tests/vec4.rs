@@ -494,9 +494,10 @@ fn test_vec4mask_eq() {
 
 #[test]
 fn test_vec4mask_hash() {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hash;
-    use std::hash::Hasher;
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
 
     let a = Vec4Mask::new(true, false, true, false);
     let b = Vec4Mask::new(true, false, true, false);

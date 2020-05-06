@@ -4,10 +4,7 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     render_graph::{
-        nodes::{
-            Camera2dNode, CameraNode, PassNode, WindowSwapChainNode,
-            WindowTextureNode,
-        },
+        nodes::{Camera2dNode, CameraNode, PassNode, WindowSwapChainNode, WindowTextureNode},
         RenderGraph,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
@@ -18,10 +15,10 @@ use bevy_window::{WindowCreated, WindowReference, WindowResized};
 use legion::prelude::Resources;
 
 pub struct BaseRenderGraphConfig {
-    add_2d_camera: bool,
-    add_3d_camera: bool,
-    add_main_pass: bool,
-    connect_main_pass_to_swapchain: bool,
+    pub add_2d_camera: bool,
+    pub add_3d_camera: bool,
+    pub add_main_pass: bool,
+    pub connect_main_pass_to_swapchain: bool,
 }
 
 pub mod node {
@@ -123,12 +120,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
             if config.add_3d_camera {
                 self.add_node_edge(node::CAMERA, node::MAIN_PASS).unwrap();
             }
-    
+
             if config.add_2d_camera {
                 self.add_node_edge(node::CAMERA2D, node::MAIN_PASS).unwrap();
             }
         }
-
 
         self.add_node_named(
             node::PRIMARY_SWAP_CHAIN,

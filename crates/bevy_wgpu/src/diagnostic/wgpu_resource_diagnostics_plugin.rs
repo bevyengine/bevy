@@ -55,11 +55,7 @@ impl WgpuResourceDiagnosticsPlugin {
             10,
         ));
 
-        diagnostics.add(Diagnostic::new(
-            Self::SWAP_CHAINS,
-            "swap_chains",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::SWAP_CHAINS, "swap_chains", 10));
 
         diagnostics.add(Diagnostic::new(
             Self::SWAP_CHAIN_OUTPUTS,
@@ -67,35 +63,15 @@ impl WgpuResourceDiagnosticsPlugin {
             10,
         ));
 
-        diagnostics.add(Diagnostic::new(
-            Self::BUFFERS,
-            "buffers",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::BUFFERS, "buffers", 10));
 
-        diagnostics.add(Diagnostic::new(
-            Self::TEXTURES,
-            "textures",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::TEXTURES, "textures", 10));
 
-        diagnostics.add(Diagnostic::new(
-            Self::TEXTURE_VIEWS,
-            "texture_views",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::TEXTURE_VIEWS, "texture_views", 10));
 
-        diagnostics.add(Diagnostic::new(
-            Self::SAMPLERS,
-            "samplers",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::SAMPLERS, "samplers", 10));
 
-        diagnostics.add(Diagnostic::new(
-            Self::BIND_GROUPS,
-            "bind_groups",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::BIND_GROUPS, "bind_groups", 10));
 
         diagnostics.add(Diagnostic::new(
             Self::BIND_GROUP_LAYOUTS,
@@ -103,11 +79,7 @@ impl WgpuResourceDiagnosticsPlugin {
             10,
         ));
 
-        diagnostics.add(Diagnostic::new(
-            Self::SHADER_MODULES,
-            "shader_modules",
-            10,
-        ));
+        diagnostics.add(Diagnostic::new(Self::SHADER_MODULES, "shader_modules", 10));
 
         diagnostics.add(Diagnostic::new(
             Self::RENDER_PIPELINES,

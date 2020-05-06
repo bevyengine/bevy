@@ -9,20 +9,23 @@
 
 extern crate tempfile;
 
-use std::fs::File;
-use std::io::Write;
-use std::process::Command;
+use std::{fs::File, io::Write, process::Command};
 
 pub type SpirvOutput = File;
 
-pub fn compile(code: &str, ty: ShaderType, shader_defs: Option<&[String]>) -> Result<SpirvOutput, String> {
+pub fn compile(
+    code: &str,
+    ty: ShaderType,
+    shader_defs: Option<&[String]>,
+) -> Result<SpirvOutput, String> {
     compile_inner(Some((code, ty)), shader_defs)
 }
 
 // Eventually the API will look like this, with an iterator for multiple shader stages.
 // However for the moment GLSLang doesn't like that, so we only pass one shader at a time.
 fn compile_inner<'a, I>(shaders: I, shader_defs: Option<&[String]>) -> Result<SpirvOutput, String>
-    where I: IntoIterator<Item = (&'a str, ShaderType)>
+where
+    I: IntoIterator<Item = (&'a str, ShaderType)>,
 {
     let temp_dir = tempfile::tempdir().unwrap();
     let output_file = temp_dir.path().join("compilation_output.spv");

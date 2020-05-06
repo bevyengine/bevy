@@ -449,9 +449,10 @@ fn test_vec3mask_eq() {
 
 #[test]
 fn test_vec3mask_hash() {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::Hash;
-    use std::hash::Hasher;
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
 
     let a = Vec3Mask::new(true, false, true);
     let b = Vec3Mask::new(true, false, true);

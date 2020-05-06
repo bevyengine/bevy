@@ -154,7 +154,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Batch, BatchKey, Batcher};
-    use bevy_asset::{Handle, HandleUntyped, HandleId};
+    use bevy_asset::{Handle, HandleId, HandleUntyped};
 
     #[derive(Debug, Eq, PartialEq)]
     struct A;

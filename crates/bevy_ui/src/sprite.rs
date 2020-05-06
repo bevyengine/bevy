@@ -8,9 +8,7 @@ pub struct Sprite {
 
 impl Default for Sprite {
     fn default() -> Self {
-        Sprite {
-            scale: 1.0
-        }
+        Sprite { scale: 1.0 }
     }
 }
 

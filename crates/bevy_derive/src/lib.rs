@@ -2,9 +2,9 @@ extern crate proc_macro;
 
 mod modules;
 
-use modules::{get_modules, get_path};
 use darling::FromMeta;
 use inflector::Inflector;
+use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Path, Type};

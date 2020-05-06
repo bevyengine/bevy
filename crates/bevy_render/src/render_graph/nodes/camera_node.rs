@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{RenderResources, RenderContext},
+    renderer::{RenderContext, RenderResources},
     ActiveCamera, Camera,
 };
 
@@ -34,7 +34,7 @@ impl SystemNode for CameraNode {
         let mut camera_buffer = None;
         let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
         let mut command_queue = self.command_queue.clone();
-        
+
         SystemBuilder::new("camera_resource_provider")
             .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same

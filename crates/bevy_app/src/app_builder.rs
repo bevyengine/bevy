@@ -151,10 +151,7 @@ impl AppBuilder {
         self
     }
 
-    pub fn init_startup_system<T>(
-        &mut self,
-        build: impl FnMut(&mut Resources) -> T,
-    ) -> &mut Self
+    pub fn init_startup_system<T>(&mut self, build: impl FnMut(&mut Resources) -> T) -> &mut Self
     where
         T: Into<System>,
     {

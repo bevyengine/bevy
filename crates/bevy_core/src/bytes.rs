@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec4, Vec3, Vec2};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use zerocopy::AsBytes;
 
 pub trait GetBytes {
@@ -63,7 +63,6 @@ impl GetBytes for Vec2 {
         Some(self.as_ref().as_bytes())
     }
 }
-
 
 impl GetBytes for Vec4 {
     fn get_bytes(&self) -> Vec<u8> {

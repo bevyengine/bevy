@@ -12,6 +12,10 @@ pub struct Rect {
 }
 
 impl GetBytes for Rect {
-    fn get_bytes(&self) -> Vec<u8> { self.as_bytes().to_vec() }
-    fn get_bytes_ref(&self) -> Option<&[u8]> { Some(self.as_bytes()) }
+    fn get_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+    fn get_bytes_ref(&self) -> Option<&[u8]> {
+        Some(self.as_bytes())
+    }
 }

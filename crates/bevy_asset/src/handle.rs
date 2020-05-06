@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct HandleId(pub Uuid);
-pub const DEFAULT_HANDLE_ID: HandleId = HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
+pub const DEFAULT_HANDLE_ID: HandleId =
+    HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
 
 impl HandleId {
     pub fn new() -> HandleId {

@@ -101,7 +101,9 @@ impl DrawTarget for AssignedMeshesDrawTarget {
             pipeline_assignments.assignments.get(&pipeline_handle);
         let global_render_resource_assignments =
             resources.get::<RenderResourceAssignments>().unwrap();
-        render_context.resources().setup_bind_groups(pipeline_descriptor, &global_render_resource_assignments);
+        render_context
+            .resources()
+            .setup_bind_groups(pipeline_descriptor, &global_render_resource_assignments);
         if let Some(assigned_render_resource_assignments) = assigned_render_resource_assignments {
             for assignment_id in assigned_render_resource_assignments.iter() {
                 let entity = entity_render_resource_assignments

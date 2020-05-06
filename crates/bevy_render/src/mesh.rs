@@ -4,7 +4,7 @@ use crate::{
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{RenderResources, RenderResourceContext},
+    renderer::{RenderResourceContext, RenderResources},
     shader::AsUniforms,
     Renderable, Vertex,
 };
@@ -384,7 +384,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         .read_resource::<AssetStorage<Mesh>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_, world, (render_resource_context, meshes,/* asset_batchers*/), query| {
+            move |_, world, (render_resource_context, meshes /* asset_batchers*/), query| {
                 let render_resources = &*render_resource_context.context;
                 // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
                 for (handle, mut renderable) in query.iter_mut(world) {

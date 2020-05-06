@@ -46,32 +46,32 @@ fn vec3_into_tuple(v: Vec3) -> (f32, f32, f32) {
 }
 
 bench_func!(
-    vec3_to_rgb,
-    "vec3 to rgb",
-    op => vec3_to_rgb_op,
-    from => random_vec3
-    );
+vec3_to_rgb,
+"vec3 to rgb",
+op => vec3_to_rgb_op,
+from => random_vec3
+);
 
 bench_func!(
-    vec3_to_array_accessors,
-    "vec3 into array slow",
-    op => vec3_accessors,
-    from => random_vec3
-    );
+vec3_to_array_accessors,
+"vec3 into array slow",
+op => vec3_accessors,
+from => random_vec3
+);
 
 bench_func!(
-    vec3_to_array_into,
-    "vec3 into array fast",
-    op => vec3_into_array,
-    from => random_vec3
-    );
+vec3_to_array_into,
+"vec3 into array fast",
+op => vec3_into_array,
+from => random_vec3
+);
 
 bench_func!(
-    vec3_to_tuple_into,
-    "vec3 into tuple fast",
-    op => vec3_into_tuple,
-    from => random_vec3
-    );
+vec3_to_tuple_into,
+"vec3 into tuple fast",
+op => vec3_into_tuple,
+from => random_vec3
+);
 
 euler!(vec3_euler, "vec3 euler", ty => Vec3, storage => Vec3, zero => Vec3::zero(), rand => random_vec3);
 

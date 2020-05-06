@@ -1,8 +1,7 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
-use std::marker::Copy;
 use glsl_to_spirv::compile;
-use std::io::Read;
+use std::{io::Read, marker::Copy};
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ShaderStage {
     Vertex,
@@ -31,7 +30,9 @@ pub fn glsl_to_spirv(
 
     let mut spv_words = Vec::new();
     for bytes4 in spv_bytes.chunks(4) {
-        spv_words.push(u32::from_le_bytes([bytes4[0], bytes4[1], bytes4[2], bytes4[3]]));
+        spv_words.push(u32::from_le_bytes([
+            bytes4[0], bytes4[1], bytes4[2], bytes4[3],
+        ]));
     }
     spv_words
 }

@@ -1,7 +1,10 @@
 use crate::{
-    render_resource::{BufferInfo, RenderResource, ResourceInfo, RenderResourceAssignments, RenderResourceSetId},
+    pipeline::{BindGroupDescriptor, PipelineDescriptor},
+    render_resource::{
+        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+    },
     shader::Shader,
-    texture::{SamplerDescriptor, TextureDescriptor}, pipeline::{BindGroupDescriptor, PipelineDescriptor},
+    texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};

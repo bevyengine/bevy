@@ -34,7 +34,13 @@ impl Node {
         }
     }
 
-    pub fn update(&mut self, rect: &mut Rect, parent_dimensions: Vec2, parent_position: Vec2, z_index: f32) {
+    pub fn update(
+        &mut self,
+        rect: &mut Rect,
+        parent_dimensions: Vec2,
+        parent_position: Vec2,
+        z_index: f32,
+    ) {
         let (rect_x, rect_width) = Self::compute_dimension_properties(
             self.position.x(),
             self.margins.left,

@@ -329,7 +329,7 @@ fn main() {
         // However we can manually specify the stage if we want to. The following is equivalent to add_system(score_system.system())
         .add_system_to_stage(stage::UPDATE, score_system.system())
         // We can also create new stages. Here is what our games stage order will look like:
-        // "before_round": new_player_system, new_round_system 
+        // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
         .add_stage_before(stage::UPDATE, "before_round")
@@ -341,7 +341,6 @@ fn main() {
         // score_check_system will run before game_over_system because score_check_system modifies GameState and game_over_system
         // reads GameState. This works, but it's a bit confusing. In practice, it would be clearer to create a new stage that runs
         // before "after_round"
-        
         // This call to run() starts the app we just built!
         .run();
 }

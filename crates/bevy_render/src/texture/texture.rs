@@ -18,7 +18,7 @@ pub struct Texture {
 impl Texture {
     pub fn aspect(&self) -> f32 {
         self.height as f32 / self.width as f32
-    } 
+    }
 }
 
 impl Asset<TextureType> for Texture {

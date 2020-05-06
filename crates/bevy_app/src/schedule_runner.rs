@@ -28,7 +28,9 @@ impl ScheduleRunnerPlugin {
 
     pub fn run_loop(wait_duration: Duration) -> Self {
         ScheduleRunnerPlugin {
-            run_mode: RunMode::Loop { wait: Some(wait_duration) },
+            run_mode: RunMode::Loop {
+                wait: Some(wait_duration),
+            },
         }
     }
 }

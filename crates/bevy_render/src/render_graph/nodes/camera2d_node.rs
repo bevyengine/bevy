@@ -5,7 +5,7 @@ use crate::{
     camera::{ActiveCamera2d, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
-    renderer::{RenderResources, RenderContext},
+    renderer::{RenderContext, RenderResources},
 };
 
 use legion::prelude::*;

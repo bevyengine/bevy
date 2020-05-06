@@ -1,5 +1,5 @@
-pub mod renderer;
 pub mod diagnostic;
+pub mod renderer;
 mod wgpu_render_pass;
 mod wgpu_renderer;
 mod wgpu_resources;
@@ -34,9 +34,9 @@ pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &
             window_created_event.get_reader(),
         ))
     };
-    resources.insert(RenderResources::new(
-        WgpuRenderResourceContext::new(wgpu_renderer.device.clone()),
-    ));
+    resources.insert(RenderResources::new(WgpuRenderResourceContext::new(
+        wgpu_renderer.device.clone(),
+    )));
     move |world, resources| {
         wgpu_renderer.update(world, resources);
     }

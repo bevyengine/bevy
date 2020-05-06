@@ -23,6 +23,12 @@ wgpu = ["bevy_wgpu"]
 winit = ["bevy_winit"]
 more-system-fns = ["legion/more-system-fns"]
 
+[workspace]
+members = [
+    "crates/*",
+    "examples/app/dynamic_plugin_loading/example_plugin"
+]
+
 [dependencies]
 # bevy
 bevy_app = { path = "crates/bevy_app" }
@@ -44,12 +50,6 @@ legion = { path = "crates/bevy_legion" }
 glam = { path = "crates/bevy_glam" }
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
-
-[workspace]
-members = [
-    "crates/*",
-    "examples/app/dynamic_plugin_loading/example_plugin"
-]
 
 [dev-dependencies]
 rand = "0.7.2"

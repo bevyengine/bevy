@@ -5,7 +5,7 @@ use crate::{
         BufferArrayInfo, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
         RenderResourceAssignmentsId, ResourceInfo,
     },
-    renderer::{RenderResources, RenderContext, RenderResourceContext},
+    renderer::{RenderContext, RenderResourceContext, RenderResources},
     shader::{AsUniforms, FieldBindType},
     texture, Renderable,
 };

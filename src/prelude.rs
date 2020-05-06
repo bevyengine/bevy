@@ -32,13 +32,13 @@ pub use crate::render::{
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;
 #[cfg(feature = "ui")]
-pub use crate::ui::{entity::*, Anchors, Rect, Sprite, Margins, Node, ColorMaterial};
+pub use crate::ui::{entity::*, Anchors, ColorMaterial, Margins, Node, Rect, Sprite};
 #[cfg(feature = "window")]
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
-        stage, App, AppBuilder, AppPlugin, EntityArchetype, EventReader, Events, GetEventReader,
-        System, schedule_runner::ScheduleRunnerPlugin
+        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
+        EventReader, Events, GetEventReader, System,
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,

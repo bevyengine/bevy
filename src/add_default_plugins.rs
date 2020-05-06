@@ -8,7 +8,7 @@ impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
         #[cfg(feature = "core")]
         self.add_plugin(bevy_core::CorePlugin::default());
-        
+
         #[cfg(feature = "diagnostic")]
         self.add_plugin(bevy_diagnostic::DiagnosticsPlugin::default());
 
