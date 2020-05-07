@@ -23,7 +23,14 @@ pub struct Handle<T> {
 }
 
 impl<T> Handle<T> {
-    pub const fn new(id: HandleId) -> Self {
+    pub fn new() -> Self {
+        Handle {
+            id: HandleId::new(),
+            marker: PhantomData,
+        }
+    }
+
+    pub const fn from_id(id: HandleId) -> Self {
         Handle {
             id,
             marker: PhantomData,
@@ -49,7 +56,7 @@ impl<T> Handle<T> {
         T: 'static,
     {
         if TypeId::of::<T>() == untyped_handle.type_id {
-            Some(Handle::new(untyped_handle.id))
+            Some(Handle::from_id(untyped_handle.id))
         } else {
             None
         }

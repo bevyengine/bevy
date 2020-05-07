@@ -28,7 +28,7 @@ impl<T> AssetStorage<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let id = HandleId::new();
         self.assets.insert(id, asset);
-        Handle::new(id)
+        Handle::from_id(id)
     }
 
     pub fn add_with_handle(&mut self, handle: Handle<T>, asset: T) {
@@ -61,7 +61,7 @@ impl<T> AssetStorage<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
-        self.assets.iter().map(|(k, v)| (Handle::new(*k), v))
+        self.assets.iter().map(|(k, v)| (Handle::from_id(*k), v))
     }
 }
 
