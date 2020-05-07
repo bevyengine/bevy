@@ -4,9 +4,14 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    PipelineLayout,
+    PipelineLayout, VertexBufferDescriptors, BindType,
 };
-use crate::{shader::ShaderStages, texture::TextureFormat};
+use crate::{
+    render_resource::{ResourceInfo, RenderResourceAssignments, BufferInfo},
+    shader::{Shader, ShaderStages},
+    texture::TextureFormat, renderer::RenderResourceContext,
+};
+use bevy_asset::AssetStorage;
 
 // TODO: consider removing this in favor of Option<Layout>
 #[derive(Clone, Debug)]
@@ -126,5 +131,67 @@ impl PipelineDescriptor {
             PipelineLayoutType::Reflected(ref mut layout) => layout.as_mut(),
             PipelineLayoutType::Manual(ref mut layout) => Some(layout),
         }
+    }
+
+    /// Reflects the pipeline layout from its shaders.
+    /// 
+    /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
+    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
+    ///
+    /// If `dynamic_uniform_lookup` is set, shader uniforms will be set to "dynamic" if there is a matching "dynamic uniform"
+    /// render resource.
+    pub fn reflect_layout(
+        &mut self,
+        shaders: &AssetStorage<Shader>,
+        vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
+        dynamic_uniform_lookup: Option<(&RenderResourceAssignments, &dyn RenderResourceContext)>,
+    ) {
+        let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
+        let fragment_spirv = self
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|handle| shaders.get(&handle).unwrap());
+
+        let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
+        if let Some(ref fragment_spirv) = fragment_spirv {
+            layouts.push(fragment_spirv.reflect_layout().unwrap());
+        }
+
+        let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
+        if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
+            layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
+        }
+
+        if let Some((render_resource_assignments, render_resource_context)) = dynamic_uniform_lookup {
+            // set binding uniforms to dynamic if render resource assignments use dynamic
+            // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
+            // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
+            // for all permutations of dynamic/non-dynamic
+            for bind_group in layout.bind_groups.iter_mut() {
+                for binding in bind_group.bindings.iter_mut() {
+                    if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
+                        render_resource_context.get_resource_info(
+                            render_resource,
+                            &mut |resource_info| {
+                                if let Some(ResourceInfo::Buffer(BufferInfo {
+                                    is_dynamic, ..
+                                })) = resource_info
+                                {
+                                    if let BindType::Uniform {
+                                        ref mut dynamic, ..
+                                    } = binding.bind_type
+                                    {
+                                        *dynamic = *is_dynamic
+                                    }
+                                }
+                            },
+                        );
+                    }
+                }
+            }
+        }
+
+        self.layout = PipelineLayoutType::Reflected(Some(layout));
     }
 }

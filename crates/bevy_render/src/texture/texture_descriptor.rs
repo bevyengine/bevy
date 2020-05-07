@@ -1,6 +1,6 @@
 use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TextureDescriptor {
     pub size: Extent3d,
     pub mip_level_count: u32,

@@ -1,11 +1,6 @@
-use super::{
-    state_descriptors::PrimitiveTopology, BindType, PipelineDescriptor, PipelineLayout,
-    PipelineLayoutType, VertexBufferDescriptors,
-};
+use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
 use crate::{
-    render_resource::{
-        BufferInfo, RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
-    },
+    render_resource::{RenderResourceAssignments, RenderResourceAssignmentsId},
     renderer::{RenderResourceContext, RenderResources},
     shader::{Shader, ShaderSource},
     Renderable,
@@ -42,59 +37,6 @@ impl PipelineCompiler {
             shader_source_to_compiled: HashMap::new(),
             pipeline_source_to_compiled: HashMap::new(),
         }
-    }
-
-    fn reflect_layout(
-        shader_storage: &AssetStorage<Shader>,
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
-        pipeline_descriptor: &mut PipelineDescriptor,
-        render_resource_context: &dyn RenderResourceContext,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) {
-        let vertex_spirv = shader_storage
-            .get(&pipeline_descriptor.shader_stages.vertex)
-            .unwrap();
-        let fragment_spirv = pipeline_descriptor
-            .shader_stages
-            .fragment
-            .as_ref()
-            .map(|handle| &*shader_storage.get(&handle).unwrap());
-
-        let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
-        if let Some(ref fragment_spirv) = fragment_spirv {
-            layouts.push(fragment_spirv.reflect_layout().unwrap());
-        }
-
-        let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-        layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
-
-        // set binding uniforms to dynamic if render resource assignments use dynamic
-        // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
-        // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
-        // for all permutations of dynamic/non-dynamic
-        for bind_group in layout.bind_groups.iter_mut() {
-            for binding in bind_group.bindings.iter_mut() {
-                if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
-                    render_resource_context.get_resource_info(
-                        render_resource,
-                        &mut |resource_info| {
-                            if let Some(ResourceInfo::Buffer(BufferInfo { is_dynamic, .. })) =
-                                resource_info
-                            {
-                                if let BindType::Uniform {
-                                    ref mut dynamic, ..
-                                } = binding.bind_type
-                                {
-                                    *dynamic = *is_dynamic
-                                }
-                            }
-                        },
-                    );
-                }
-            }
-        }
-
-        pipeline_descriptor.layout = PipelineLayoutType::Reflected(Some(layout));
     }
 
     fn compile_shader(
@@ -141,7 +83,7 @@ impl PipelineCompiler {
     fn compile_pipeline(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
-        shader_storage: &mut AssetStorage<Shader>,
+        shaders: &mut AssetStorage<Shader>,
         render_resource_context: &dyn RenderResourceContext,
         pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
@@ -149,7 +91,7 @@ impl PipelineCompiler {
         let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
 
         compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
-            shader_storage,
+            shaders,
             &pipeline_descriptor.shader_stages.vertex,
             &render_resource_assignments
                 .pipeline_specialization
@@ -161,7 +103,7 @@ impl PipelineCompiler {
             .as_ref()
             .map(|fragment| {
                 self.compile_shader(
-                    shader_storage,
+                    shaders,
                     fragment,
                     &render_resource_assignments
                         .pipeline_specialization
@@ -169,12 +111,10 @@ impl PipelineCompiler {
                 )
             });
 
-        Self::reflect_layout(
-            shader_storage,
-            vertex_buffer_descriptors,
-            &mut compiled_pipeline_descriptor,
-            render_resource_context,
-            render_resource_assignments,
+        compiled_pipeline_descriptor.reflect_layout(
+            shaders,
+            Some(vertex_buffer_descriptors),
+            Some((render_resource_assignments, render_resource_context)),
         );
 
         compiled_pipeline_descriptor.primitive_topology = render_resource_assignments
