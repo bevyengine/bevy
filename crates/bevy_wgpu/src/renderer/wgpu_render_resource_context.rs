@@ -287,6 +287,16 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         handle_info(info);
     }
 
+    fn create_shader_module_from_source(
+        &self,
+        shader_handle: Handle<Shader>,
+        shader: &Shader,
+    ) {
+        let mut shader_modules = self.resources.shader_modules.write().unwrap();
+        let shader_module = self.device.create_shader_module(&shader.get_spirv(None));
+        shader_modules.insert(shader_handle, shader_module);
+    }
+
     fn create_shader_module(
         &self,
         shader_handle: Handle<Shader>,
@@ -302,13 +312,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         {
             return;
         }
-
-        let mut shader_modules = self.resources.shader_modules.write().unwrap();
-        // TODO: consider re-checking existence here
-
         let shader = shader_storage.get(&shader_handle).unwrap();
-        let shader_module = self.device.create_shader_module(&shader.get_spirv(None));
-        shader_modules.insert(shader_handle, shader_module);
+        self.create_shader_module_from_source(shader_handle, shader);
     }
 
     fn create_swap_chain(&self, window: &Window) {

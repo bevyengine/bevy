@@ -45,6 +45,11 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         shader_handle: Handle<Shader>,
         shader_storage: &AssetStorage<Shader>,
     );
+    fn create_shader_module_from_source(
+        &self,
+        shader_handle: Handle<Shader>,
+        shader: &Shader,
+    );
     fn remove_buffer(&self, resource: RenderResource);
     fn remove_texture(&self, resource: RenderResource);
     fn remove_sampler(&self, resource: RenderResource);

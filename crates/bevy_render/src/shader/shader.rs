@@ -27,20 +27,30 @@ pub fn glsl_to_spirv(
     let mut output = compile(glsl_source, stage.into(), shader_defs).unwrap();
     let mut spv_bytes = Vec::new();
     output.read_to_end(&mut spv_bytes).unwrap();
+    bytes_to_words(&spv_bytes)
+}
 
-    let mut spv_words = Vec::new();
-    for bytes4 in spv_bytes.chunks(4) {
-        spv_words.push(u32::from_le_bytes([
+fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
+    let mut words = Vec::new();
+    for bytes4 in bytes.chunks(4) {
+        words.push(u32::from_le_bytes([
             bytes4[0], bytes4[1], bytes4[2], bytes4[3],
         ]));
     }
-    spv_words
+
+    words
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum ShaderSource {
     Spirv(Vec<u32>),
     Glsl(String),
+}
+
+impl ShaderSource {
+    pub fn spirv_from_bytes(bytes: &[u8]) -> ShaderSource {
+        ShaderSource::Spirv(bytes_to_words(bytes))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +61,12 @@ pub struct Shader {
 }
 
 impl Shader {
+    pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
+        Shader {
+            stage,
+            source,
+        }
+    }
     pub fn from_glsl(stage: ShaderStage, glsl: &str) -> Shader {
         Shader {
             source: ShaderSource::Glsl(glsl.to_string()),

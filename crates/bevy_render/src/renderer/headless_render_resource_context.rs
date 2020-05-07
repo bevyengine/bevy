@@ -129,4 +129,10 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
             None
         }
     }
+    fn create_shader_module_from_source(
+        &self,
+        _shader_handle: Handle<Shader>,
+        _shader: &Shader,
+    ) {
+    }
 }
