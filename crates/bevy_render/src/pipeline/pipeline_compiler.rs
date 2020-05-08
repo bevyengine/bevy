@@ -113,6 +113,7 @@ impl PipelineCompiler {
 
         compiled_pipeline_descriptor.reflect_layout(
             shaders,
+            true,
             Some(vertex_buffer_descriptors),
             Some((render_resource_assignments, render_resource_context)),
         );

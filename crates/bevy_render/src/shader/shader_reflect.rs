@@ -36,7 +36,7 @@ pub struct ShaderLayout {
 }
 
 impl ShaderLayout {
-    pub fn from_spirv(spirv_data: &[u32]) -> ShaderLayout {
+    pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
         match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
             Ok(ref mut module) => {
                 let entry_point_name = module.get_entry_point_name();
@@ -62,21 +62,25 @@ impl ShaderLayout {
                 for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
                     let mut instance = false;
                     let current_buffer_name = {
-                        let parts = vertex_attribute_descriptor
-                            .name
-                            .splitn(3, "_")
-                            .collect::<Vec<&str>>();
-                        if parts.len() == 3 {
-                            if parts[0] == "I" {
-                                instance = true;
-                                parts[1].to_string()
-                            } else {
+                        if bevy_conventions {
+                            let parts = vertex_attribute_descriptor
+                                .name
+                                .splitn(3, "_")
+                                .collect::<Vec<&str>>();
+                            if parts.len() == 3 {
+                                if parts[0] == "I" {
+                                    instance = true;
+                                    parts[1].to_string()
+                                } else {
+                                    parts[0].to_string()
+                                }
+                            } else if parts.len() == 2 {
                                 parts[0].to_string()
+                            } else {
+                                panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
                             }
-                        } else if parts.len() == 2 {
-                            parts[0].to_string()
                         } else {
-                            panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
+                            "DefaultVertex".to_string()
                         }
                     };
 
@@ -360,7 +364,7 @@ mod tests {
         )
         .get_spirv_shader(None);
 
-        let layout = vertex_shader.reflect_layout().unwrap();
+        let layout = vertex_shader.reflect_layout(true).unwrap();
         assert_eq!(
             layout,
             ShaderLayout {
@@ -459,6 +463,6 @@ mod tests {
         )
         .get_spirv_shader(None);
 
-        let _layout = vertex_shader.reflect_layout().unwrap();
+        let _layout = vertex_shader.reflect_layout(true).unwrap();
     }
 }

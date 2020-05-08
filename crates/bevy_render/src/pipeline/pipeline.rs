@@ -135,6 +135,9 @@ impl PipelineDescriptor {
 
     /// Reflects the pipeline layout from its shaders.
     /// 
+    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
+    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
+    ///
     /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
     /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
     ///
@@ -143,6 +146,7 @@ impl PipelineDescriptor {
     pub fn reflect_layout(
         &mut self,
         shaders: &AssetStorage<Shader>,
+        bevy_conventions: bool,
         vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
         dynamic_uniform_lookup: Option<(&RenderResourceAssignments, &dyn RenderResourceContext)>,
     ) {
@@ -153,9 +157,9 @@ impl PipelineDescriptor {
             .as_ref()
             .map(|handle| shaders.get(&handle).unwrap());
 
-        let mut layouts = vec![vertex_spirv.reflect_layout().unwrap()];
+        let mut layouts = vec![vertex_spirv.reflect_layout(bevy_conventions).unwrap()];
         if let Some(ref fragment_spirv) = fragment_spirv {
-            layouts.push(fragment_spirv.reflect_layout().unwrap());
+            layouts.push(fragment_spirv.reflect_layout(bevy_conventions).unwrap());
         }
 
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
