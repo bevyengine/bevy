@@ -1,4 +1,4 @@
-TARGET_DIR?=.
+TARGET_DIR?=spirv
 
 EMPTY=
 
@@ -23,7 +23,7 @@ INCLUDES=\
 	$(EMPTY)
 
 OUT=\
-	$(SHADERS:%.glsl=$(TARGET_DIR)/spirv-vulkan/%.spv) \
+	$(SHADERS:%.glsl=$(TARGET_DIR)/%.spv) \
 	$(EMPTY)
 
 GLSLANGFLAGS=--auto-map-locations -I.
@@ -36,8 +36,8 @@ all:	$(OUT)
 clean:
 	rm -f $(OUT)
 
-$(TARGET_DIR)/spirv-vulkan/%.fs.spv:	%.fs.glsl $(INCLUDES)
-	mkdir -p $(TARGET_DIR)/spirv && glslangValidator $(GLSLANGFLAGS_VULKAN) -S frag -o $@ $<
+$(TARGET_DIR)/%.fs.spv:	glsl/%.fs.glsl $(INCLUDES)
+	mkdir -p $(TARGET_DIR) && glslangValidator $(GLSLANGFLAGS_VULKAN) -S frag -o $@ $<
 
-$(TARGET_DIR)/spirv-vulkan/%.vs.spv:	%.vs.glsl $(INCLUDES)
-	mkdir -p $(TARGET_DIR)/spirv && glslangValidator $(GLSLANGFLAGS_VULKAN) -S vert -o $@ $<
+$(TARGET_DIR)/%.vs.spv:	glsl/%.vs.glsl $(INCLUDES)
+	mkdir -p $(TARGET_DIR) && glslangValidator $(GLSLANGFLAGS_VULKAN) -S vert -o $@ $<
