@@ -1,0 +1,41 @@
+[package]
+name = "canvas_metal_minimal"
+version = "0.1.0"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+edition = "2018"
+
+[dependencies]
+foreign-types = "0.3"
+gl = "0.14"
+metal = "0.17"
+objc = "0.2"
+sdl2 = "0.33"
+sdl2-sys = "0.33"
+
+[dependencies.pathfinder_canvas]
+features = ["pf-text"]
+path = "../../canvas"
+
+[dependencies.pathfinder_color]
+path = "../../color"
+
+[dependencies.pathfinder_content]
+path = "../../content"
+
+[dependencies.pathfinder_geometry]
+path = "../../geometry"
+
+[dependencies.pathfinder_gl]
+path = "../../gl"
+
+[dependencies.pathfinder_gpu]
+path = "../../gpu"
+
+[dependencies.pathfinder_metal]
+path = "../../metal"
+
+[dependencies.pathfinder_renderer]
+path = "../../renderer"
+
+[dependencies.pathfinder_resources]
+path = "../../resources"

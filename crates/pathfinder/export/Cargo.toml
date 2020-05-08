@@ -1,0 +1,12 @@
+[package]
+name = "pathfinder_export"
+version = "0.1.0"
+authors = ["Sebastian Köln <sebk@rynx.org>"]
+edition = "2018"
+
+[dependencies]
+pathfinder_color = { path = "../color" }
+pathfinder_content = { path = "../content" }
+pathfinder_geometry = { path = "../geometry" }
+pathfinder_renderer = { path = "../renderer" }
+deflate = "*"

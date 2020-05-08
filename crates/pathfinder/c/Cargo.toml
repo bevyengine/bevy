@@ -1,0 +1,52 @@
+[package]
+name = "pathfinder_c"
+version = "0.1.0"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+edition = "2018"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+font-kit = "0.6"
+foreign-types = "0.3"
+gl = "0.14"
+libc = "0.2"
+
+[dependencies.pathfinder_canvas]
+features = ["pf-text"]
+path = "../canvas"
+
+[dependencies.pathfinder_color]
+path = "../color"
+
+[dependencies.pathfinder_content]
+path = "../content"
+
+[dependencies.pathfinder_geometry]
+path = "../geometry"
+
+[dependencies.pathfinder_gl]
+path = "../gl"
+
+[dependencies.pathfinder_gpu]
+path = "../gpu"
+
+[dependencies.pathfinder_renderer]
+path = "../renderer"
+
+[dependencies.pathfinder_resources]
+path = "../resources"
+
+[dependencies.pathfinder_simd]
+path = "../simd"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = "0.17"
+
+[target.'cfg(target_os = "macos")'.dependencies.pathfinder_metal]
+path = "../metal"
+
+[build-dependencies]
+cbindgen = "0.13"

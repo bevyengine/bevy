@@ -1,0 +1,3 @@
+
+USES =  "scenes"  "pipeline/cache/AssetManifest" 
+REFS = PathfinderDemo

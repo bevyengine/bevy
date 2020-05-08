@@ -1,0 +1,3 @@
+DATAS = \
+	scenes/PathfinderDemo.scene.res.xml : assets/scenes/PathfinderDemo.scene.res.xml \
+	scenes/PathfinderDemo.scene.xml : assets/scenes/PathfinderDemo.scene.xml

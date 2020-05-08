@@ -1,0 +1,40 @@
+[package]
+name = "pathfinder_content"
+version = "0.5.0"
+edition = "2018"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+description = "Vector path utilities for the Pathfinder rendering library"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/servo/pathfinder"
+homepage = "https://github.com/servo/pathfinder"
+
+[dependencies]
+arrayvec = "0.5"
+bitflags = "1.0"
+log = "0.4"
+smallvec = "1.2"
+
+[dependencies.image]
+version = "0.23"
+default-features = false
+features = []
+optional = true
+
+[features]
+default = ["pf-image"]
+pf-image = ["image"]
+
+[dependencies.pathfinder_color]
+path = "../color"
+version = "0.5"
+
+[dependencies.pathfinder_geometry]
+path = "../geometry"
+version = "0.5"
+
+[dependencies.pathfinder_simd]
+path = "../simd"
+version = "0.5"
+
+[dev-dependencies]
+quickcheck = "0.9"

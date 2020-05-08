@@ -29,6 +29,10 @@ members = [
     "crates/*",
     "examples/app/dynamic_plugin_loading/example_plugin"
 ]
+exclude = [
+    "crates/pathfinder"
+]
+
 
 [dependencies]
 # bevy

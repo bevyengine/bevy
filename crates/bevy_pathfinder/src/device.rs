@@ -216,8 +216,8 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             }
         }
 
-        // TODO: remove this
-        panic!("failed to find attribute {} ", attribute_name);
+        // // TODO: remove this
+        // panic!("failed to find attribute {} ", attribute_name);
 
         None
     }

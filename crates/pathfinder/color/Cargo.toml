@@ -1,0 +1,15 @@
+[package]
+name = "pathfinder_color"
+version = "0.5.0"
+edition = "2018"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+description = "A minimal SIMD-accelerated color handling library"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/servo/pathfinder"
+homepage = "https://github.com/servo/pathfinder"
+
+[dependencies]
+
+[dependencies.pathfinder_simd]
+path = "../simd"
+version = "0.5"

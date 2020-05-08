@@ -1,0 +1,12 @@
+.DS_Store
+*.log
+*.json.dirty
+*.json.lock
+*.pyc
+*.sln
+*.vcxproj*
+
+pipeline/cache/intermediate/
+.out/
+.vscode/
+.vs/

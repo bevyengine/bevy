@@ -1,0 +1,11 @@
+[package]
+name = "pathfinder_resources"
+version = "0.5.0"
+edition = "2018"
+authors = ["Patrick Walton <pcwalton@mimiga.net>"]
+description = "Shaders, textures, etc. for the Pathfinder vector graphics library"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/servo/pathfinder"
+homepage = "https://github.com/servo/pathfinder"
+
+[dependencies]

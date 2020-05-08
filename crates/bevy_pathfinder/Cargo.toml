@@ -12,12 +12,12 @@ bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
 legion = { path = "../bevy_legion" }
 
-pathfinder_geometry = "0.5.0"
-pathfinder_gpu = "0.5.0"
-pathfinder_renderer = "0.5.0"
-pathfinder_simd = "0.5.0"
-pathfinder_resources = "0.5.0"
-pathfinder_color = "0.5.0"
-pathfinder_canvas = "0.5.0"
+pathfinder_geometry = { path = "../pathfinder/geometry" }
+pathfinder_gpu = { path = "../pathfinder/gpu" }
+pathfinder_renderer = { path = "../pathfinder/renderer" }
+pathfinder_simd = { path = "../pathfinder/simd" }
+pathfinder_resources = { path = "../pathfinder/resources" }
+pathfinder_color = { path = "../pathfinder/color" }
+pathfinder_canvas = { path = "../pathfinder/canvas" }
 
 zerocopy = "0.3.0"
