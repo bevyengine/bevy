@@ -85,6 +85,7 @@ pub struct UniformProperty {
 pub enum UniformPropertyType {
     // TODO: Use VertexFormat here
     Int,
+    IVec2,
     Float,
     UVec4,
     Vec2,
@@ -100,6 +101,7 @@ impl UniformPropertyType {
     pub fn get_size(&self) -> u64 {
         match self {
             UniformPropertyType::Int => 4,
+            UniformPropertyType::IVec2 => 4 * 2,
             UniformPropertyType::Float => 4,
             UniformPropertyType::UVec4 => 4 * 4,
             UniformPropertyType::Vec2 => 4 * 2,

@@ -1,32 +1,44 @@
 use crate::shaders;
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
-    pipeline::{PipelineDescriptor, VertexBufferDescriptor},
+    pipeline::{
+        state_descriptors::CompareFunction, InputStepMode, PipelineDescriptor,
+        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+    },
     render_resource::{BufferInfo, BufferUsage, RenderResource},
     renderer::{RenderContext, RenderResourceContext},
     shader::{Shader, ShaderSource, ShaderStage, ShaderStages},
-    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
+    texture::{
+        AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureUsage,
+    },
 };
 use pathfinder_canvas::vec2i;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 use pathfinder_gpu::{
     BufferData, BufferTarget, BufferUploadMode, Device, RenderState, RenderTarget, ShaderKind,
-    TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrDescriptor,
+    TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass, VertexAttrDescriptor,
+    VertexAttrType,
 };
 use pathfinder_resources::ResourceLoader;
-use std::{cell::RefCell, mem, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
 use zerocopy::AsBytes;
 
 pub struct BevyPathfinderDevice<'a> {
     render_context: RefCell<&'a mut dyn RenderContext>,
     shaders: RefCell<&'a mut AssetStorage<Shader>>,
+    samplers: RefCell<HashMap<u8, RenderResource>>,
 }
 
 impl<'a> BevyPathfinderDevice<'a> {
-    pub fn new(render_context: &'a mut dyn RenderContext, shaders: &'a mut AssetStorage<Shader>) -> Self {
+    pub fn new(
+        render_context: &'a mut dyn RenderContext,
+        shaders: &'a mut AssetStorage<Shader>,
+    ) -> Self {
         BevyPathfinderDevice {
             render_context: RefCell::new(render_context),
             shaders: RefCell::new(shaders),
+            samplers: RefCell::new(HashMap::new()),
         }
     }
 }
@@ -37,22 +49,21 @@ pub struct BevyUniform {
     name: String,
 }
 
+pub struct BevyVertexAttr {
+    attr: RefCell<VertexAttributeDescriptor>,
+}
+
 #[derive(Debug)]
 pub struct BevyVertexArray {
-    descriptor: (),
+    requested_descriptors: RefCell<HashMap<u32, VertexBufferDescriptor>>,
     vertex_buffers: RefCell<Vec<RenderResource>>,
     index_buffer: RefCell<Option<RenderResource>>,
 }
 
-#[derive(Debug)]
-pub struct BevyVertexAttr {
-    name: String,
-    bind_location: u32,
-}
-
 pub struct BevyTexture {
     handle: RenderResource,
-    descriptor: TextureDescriptor,
+    texture_descriptor: TextureDescriptor,
+    sampler_resource: RefCell<Option<RenderResource>>,
 }
 
 pub struct BevyBuffer {
@@ -61,7 +72,7 @@ pub struct BevyBuffer {
 
 impl<'a> Device for BevyPathfinderDevice<'a> {
     type Buffer = BevyBuffer;
-    type Framebuffer = RenderResource;
+    type Framebuffer = BevyTexture;
     type Program = PipelineDescriptor;
     type Shader = Handle<Shader>;
     type Texture = BevyTexture;
@@ -70,6 +81,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     type Uniform = BevyUniform;
     type VertexArray = BevyVertexArray;
     type VertexAttr = BevyVertexAttr;
+
     fn create_texture(
         &self,
         format: pathfinder_gpu::TextureFormat,
@@ -99,7 +111,8 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 .borrow()
                 .resources()
                 .create_texture(&descriptor),
-            descriptor,
+            texture_descriptor: descriptor,
+            sampler_resource: RefCell::new(None),
         }
     }
     fn create_texture_from_data(
@@ -162,7 +175,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
 
     fn create_vertex_array(&self) -> Self::VertexArray {
         BevyVertexArray {
-            descriptor: (),
+            requested_descriptors: RefCell::new(HashMap::new()),
             index_buffer: RefCell::new(None),
             vertex_buffers: RefCell::new(Vec::new()),
         }
@@ -187,8 +200,26 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         descriptor: &PipelineDescriptor,
         name: &str,
     ) -> Option<Self::VertexAttr> {
+        // TODO: this probably isn't actually used for anything. try to optimize
         let layout = descriptor.get_layout().unwrap();
-        panic!("{:?}", layout);
+        let attribute_name = format!("a{}", name);
+        for buffer_descriptor in layout.vertex_buffer_descriptors.iter() {
+            let attribute = buffer_descriptor
+                .attributes
+                .iter()
+                .find(|a| a.name == attribute_name)
+                .cloned();
+            if attribute.is_some() {
+                return attribute.map(|a| BevyVertexAttr {
+                    attr: RefCell::new(a),
+                });
+            }
+        }
+
+        // TODO: remove this
+        panic!("failed to find attribute {} ", attribute_name);
+
+        None
     }
     fn get_uniform(&self, _program: &PipelineDescriptor, name: &str) -> Self::Uniform {
         BevyUniform {
@@ -207,26 +238,114 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 .borrow_mut()
                 .push(buffer.handle.borrow().unwrap().clone()),
             BufferTarget::Index => {
-                *vertex_array.index_buffer.borrow_mut() = Some(buffer.handle.borrow().unwrap().clone())
+                *vertex_array.index_buffer.borrow_mut() =
+                    Some(buffer.handle.borrow().unwrap().clone())
             }
         }
     }
     fn configure_vertex_attr(
         &self,
-        vertex_array: &Self::VertexArray,
-        attr: &Self::VertexAttr,
+        vertex_array: &BevyVertexArray,
+        bevy_attr: &BevyVertexAttr,
         descriptor: &VertexAttrDescriptor,
     ) {
-        todo!()
+        let format = match (descriptor.class, descriptor.attr_type, descriptor.size) {
+            (VertexAttrClass::Int, VertexAttrType::I8, 2) => VertexFormat::Char2,
+            // (VertexAttrClass::Int, VertexAttrType::I8, 3) => VertexFormat::Char3,
+            (VertexAttrClass::Int, VertexAttrType::I8, 4) => VertexFormat::Char4,
+            (VertexAttrClass::Int, VertexAttrType::U8, 2) => VertexFormat::Uchar2,
+            // (VertexAttrClass::Int, VertexAttrType::U8, 3) => VertexFormat::Uchar3,
+            (VertexAttrClass::Int, VertexAttrType::U8, 4) => VertexFormat::Uchar4,
+            (VertexAttrClass::FloatNorm, VertexAttrType::U8, 2) => VertexFormat::Uchar2Norm,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::U8, 3) => {
+            //     VertexFormat::UChar3Normalized
+            // }
+            (VertexAttrClass::FloatNorm, VertexAttrType::U8, 4) => VertexFormat::Uchar4Norm,
+            (VertexAttrClass::FloatNorm, VertexAttrType::I8, 2) => VertexFormat::Char2Norm,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::I8, 3) => {
+            //     VertexFormat::Char3Norm
+            // }
+            (VertexAttrClass::FloatNorm, VertexAttrType::I8, 4) => VertexFormat::Char4Norm,
+            (VertexAttrClass::Int, VertexAttrType::I16, 2) => VertexFormat::Short2,
+            // (VertexAttrClass::Int, VertexAttrType::I16, 3) => VertexFormat::Short3,
+            (VertexAttrClass::Int, VertexAttrType::I16, 4) => VertexFormat::Short4,
+            (VertexAttrClass::Int, VertexAttrType::U16, 2) => VertexFormat::Ushort2,
+            // (VertexAttrClass::Int, VertexAttrType::U16, 3) => VertexFormat::UShort3,
+            (VertexAttrClass::Int, VertexAttrType::U16, 4) => VertexFormat::Ushort4,
+            (VertexAttrClass::FloatNorm, VertexAttrType::U16, 2) => VertexFormat::Ushort2Norm,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::U16, 3) => {
+            //     VertexFormat::UShort3Normalized
+            // }
+            (VertexAttrClass::FloatNorm, VertexAttrType::U16, 4) => VertexFormat::Ushort4Norm,
+            (VertexAttrClass::FloatNorm, VertexAttrType::I16, 2) => VertexFormat::Short2Norm,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::I16, 3) => {
+            //     VertexFormat::Short3Normalized
+            // }
+            (VertexAttrClass::FloatNorm, VertexAttrType::I16, 4) => VertexFormat::Short4Norm,
+            (VertexAttrClass::Float, VertexAttrType::F32, 1) => VertexFormat::Float,
+            (VertexAttrClass::Float, VertexAttrType::F32, 2) => VertexFormat::Float2,
+            (VertexAttrClass::Float, VertexAttrType::F32, 3) => VertexFormat::Float3,
+            (VertexAttrClass::Float, VertexAttrType::F32, 4) => VertexFormat::Float4,
+            // (VertexAttrClass::Int, VertexAttrType::I8, 1) => VertexFormat::Char,
+            // (VertexAttrClass::Int, VertexAttrType::U8, 1) => VertexFormat::UChar,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::I8, 1) => VertexFormat::CharNormalized,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::U8, 1) => {
+            //     VertexFormat::UCharNormalized
+            // }
+            // (VertexAttrClass::Int, VertexAttrType::I16, 1) => VertexFormat::Short,
+            // (VertexAttrClass::Int, VertexAttrType::U16, 1) => VertexFormat::UShort,
+            // (VertexAttrClass::FloatNorm, VertexAttrType::U16, 1) => {
+            //     VertexFormat::UShortNormalized
+            // }
+            // (VertexAttrClass::FloatNorm, VertexAttrType::I16, 1) => {
+            //     VertexFormat::ShortNormalized
+            // }
+            (attr_class, attr_type, attr_size) => panic!(
+                "Unsupported vertex class/type/size combination: {:?}/{:?}/{}!",
+                attr_class, attr_type, attr_size
+            ),
+        };
+
+        let mut requested_descriptors = vertex_array.requested_descriptors.borrow_mut();
+        let buffer_index = descriptor.buffer_index;
+        let step_mode = if descriptor.divisor == 0 {
+            InputStepMode::Vertex
+        } else {
+            InputStepMode::Instance
+        };
+
+        assert!(
+            descriptor.divisor <= 1,
+            "instanced step size greater than 1 not supported"
+        );
+
+        let vertex_buffer_descriptor =
+            requested_descriptors
+                .entry(buffer_index)
+                .or_insert_with(|| VertexBufferDescriptor {
+                    name: Cow::Borrowed("placeholder"),
+                    attributes: Vec::new(),
+                    step_mode,
+                    stride: descriptor.stride as u64,
+                });
+
+        let mut attr = bevy_attr.attr.borrow_mut();
+        attr.format = format;
+        attr.offset = descriptor.offset as u64;
+
+        vertex_buffer_descriptor.attributes.push(attr.clone());
     }
-    fn create_framebuffer(&self, texture: Self::Texture) -> Self::Framebuffer {
-        todo!()
+
+    fn create_framebuffer(&self, texture: BevyTexture) -> BevyTexture {
+        texture
     }
+
     fn create_buffer(&self) -> Self::Buffer {
         BevyBuffer {
             handle: Rc::new(RefCell::new(None)),
         }
     }
+
     fn allocate_buffer<T>(
         &self,
         buffer: &BevyBuffer,
@@ -238,7 +357,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             BufferUploadMode::Dynamic => BufferUsage::WRITE_ALL,
             BufferUploadMode::Static => BufferUsage::COPY_DST,
         };
-        // TODO: use mod
         match data {
             BufferData::Uninitialized(size) => {
                 let size = size * mem::size_of::<T>();
@@ -255,44 +373,91 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             }
             BufferData::Memory(slice) => {
                 let size = slice.len() * mem::size_of::<T>();
-                let new_buffer =
-                    self.render_context
-                        .borrow()
-                        .resources()
-                        .create_buffer_with_data(BufferInfo {
+                let new_buffer = self
+                    .render_context
+                    .borrow()
+                    .resources()
+                    .create_buffer_with_data(
+                        BufferInfo {
                             size,
                             buffer_usage,
                             ..Default::default()
-                        }, slice_to_u8(slice));
+                        },
+                        slice_to_u8(slice),
+                    );
                 *buffer.handle.borrow_mut() = Some(new_buffer);
             }
         }
     }
-    fn framebuffer_texture<'f>(&self, framebuffer: &'f Self::Framebuffer) -> &'f Self::Texture {
-        todo!()
+
+    fn framebuffer_texture<'f>(&self, framebuffer: &'f BevyTexture) -> &'f BevyTexture {
+        framebuffer
     }
-    fn destroy_framebuffer(&self, framebuffer: Self::Framebuffer) -> Self::Texture {
-        todo!()
+
+    fn destroy_framebuffer(&self, framebuffer: BevyTexture) -> BevyTexture {
+        // TODO: should this deallocate the bevy texture?
+        framebuffer
     }
+
     fn texture_format(&self, texture: &BevyTexture) -> pathfinder_gpu::TextureFormat {
-        match texture.descriptor.format {
+        match texture.texture_descriptor.format {
             TextureFormat::R8Unorm => pathfinder_gpu::TextureFormat::R8,
             TextureFormat::R16Float => pathfinder_gpu::TextureFormat::R16F,
             TextureFormat::Rgba8Unorm => pathfinder_gpu::TextureFormat::RGBA8,
             TextureFormat::Rgba16Float => pathfinder_gpu::TextureFormat::RGBA16F,
             TextureFormat::Rgba32Float => pathfinder_gpu::TextureFormat::RGBA32F,
-            _ => panic!("unexpected texture format {:?}", texture.descriptor.format),
+            _ => panic!(
+                "unexpected texture format {:?}",
+                texture.texture_descriptor.format
+            ),
         }
     }
+
     fn texture_size(&self, texture: &BevyTexture) -> Vector2I {
         vec2i(
-            texture.descriptor.size.width as i32,
-            texture.descriptor.size.height as i32,
+            texture.texture_descriptor.size.width as i32,
+            texture.texture_descriptor.size.height as i32,
         )
     }
-    fn set_texture_sampling_mode(&self, texture: &Self::Texture, flags: TextureSamplingFlags) {
-        todo!()
+
+    fn set_texture_sampling_mode(&self, texture: &BevyTexture, flags: TextureSamplingFlags) {
+        let mut samplers = self.samplers.borrow_mut();
+        let resource = samplers.entry(flags.bits()).or_insert_with(|| {
+            let descriptor = SamplerDescriptor {
+                address_mode_u: if flags.contains(TextureSamplingFlags::REPEAT_U) {
+                    AddressMode::Repeat
+                } else {
+                    AddressMode::ClampToEdge
+                },
+                address_mode_v: if flags.contains(TextureSamplingFlags::REPEAT_V) {
+                    AddressMode::Repeat
+                } else {
+                    AddressMode::ClampToEdge
+                },
+                address_mode_w: AddressMode::ClampToEdge,
+                mag_filter: if flags.contains(TextureSamplingFlags::NEAREST_MAG) {
+                    FilterMode::Nearest
+                } else {
+                    FilterMode::Linear
+                },
+                min_filter: if flags.contains(TextureSamplingFlags::NEAREST_MIN) {
+                    FilterMode::Nearest
+                } else {
+                    FilterMode::Linear
+                },
+                mipmap_filter: FilterMode::Nearest,
+                lod_min_clamp: -100.0,
+                lod_max_clamp: 100.0,
+                compare_function: CompareFunction::Always,
+            };
+            self.render_context
+                .borrow_mut()
+                .resources()
+                .create_sampler(&descriptor)
+        });
+        *texture.sampler_resource.borrow_mut() = Some(*resource);
     }
+
     fn upload_to_texture(&self, texture: &BevyTexture, rect: RectI, data: TextureDataRef) {
         let texture_size = self.texture_size(texture);
         assert!(rect.size().x() >= 0);
@@ -346,12 +511,10 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         todo!()
     }
     fn begin_commands(&self) {
-        // TODO: maybe not needed?
-        // todo!()
+        // NOTE: the Bevy Render Graph handles command buffer creation
     }
     fn end_commands(&self) {
-        // TODO: maybe not needed?
-        // todo!()
+        // NOTE: the Bevy Render Graph handles command buffer submission
     }
     fn draw_arrays(&self, index_count: u32, render_state: &RenderState<Self>) {
         todo!()
@@ -371,28 +534,18 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         // TODO: maybe not needed
         BevyTimerQuery {}
     }
-    fn begin_timer_query(&self, query: &Self::TimerQuery) {
-        // TODO: maybe not needed
-        todo!()
-    }
-    fn end_timer_query(&self, query: &Self::TimerQuery) {
-        // TODO: maybe not needed
-        todo!()
-    }
+    fn begin_timer_query(&self, query: &Self::TimerQuery) {}
+    fn end_timer_query(&self, query: &Self::TimerQuery) {}
     fn try_recv_timer_query(&self, query: &Self::TimerQuery) -> Option<std::time::Duration> {
-        // TODO: maybe not needed
         None
     }
     fn recv_timer_query(&self, query: &Self::TimerQuery) -> std::time::Duration {
-        // TODO: maybe not needed
         Duration::from_millis(0)
     }
     fn try_recv_texture_data(&self, receiver: &Self::TextureDataReceiver) -> Option<TextureData> {
-        // TODO: maybe not needed
         None
     }
     fn recv_texture_data(&self, receiver: &Self::TextureDataReceiver) -> TextureData {
-        // TODO: maybe not needed
         todo!()
     }
 }

@@ -13,8 +13,8 @@
 precision highp float;
 precision highp sampler2D;
 
-layout(set=0, binding=0) uniform texture2D uAreaLUT;
-layout(set=0, binding=1) uniform sampler uAreaLUTSampler;
+layout(set=1, binding=0) uniform texture2D uAreaLUT;
+layout(set=1, binding=1) uniform sampler uAreaLUTSampler;
 
 in vec2 vFrom;
 in vec2 vTo;

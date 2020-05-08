@@ -28,7 +28,6 @@ impl Node for PathfinderNode {
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        println!("run");
         let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let device = BevyPathfinderDevice::new(render_context, &mut shaders);
         let window_size = Vector2I::new(640 as i32, 480 as i32);

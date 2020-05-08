@@ -78,28 +78,28 @@ precision highp sampler2D;
 #define COMBINER_CTRL_COLOR_COMBINE_SHIFT       6
 #define COMBINER_CTRL_COMPOSITE_SHIFT           8
 
-layout(set=0, binding=0) uniform sampler textureSampler;
-layout(set=0, binding=1) uniform texture2D uColorTexture0;
-layout(set=0, binding=2) uniform texture2D uMaskTexture0;
-layout(set=0, binding=3) uniform texture2D uDestTexture;
-layout(set=0, binding=4) uniform texture2D uGammaLUT;
+layout(set=1, binding=0) uniform sampler textureSampler;
+layout(set=1, binding=1) uniform texture2D uColorTexture0;
+layout(set=1, binding=2) uniform texture2D uMaskTexture0;
+layout(set=1, binding=3) uniform texture2D uDestTexture;
+layout(set=1, binding=4) uniform texture2D uGammaLUT;
 
-layout(set=1, binding=0) uniform uFilterParams0 {
+layout(set=2, binding=0) uniform uFilterParams0 {
     vec4 filterParams0; 
 };
-layout(set=1, binding=1) uniform uFilterParams1 {
+layout(set=2, binding=1) uniform uFilterParams1 {
     vec4 filterParams1; 
 };
-layout(set=1, binding=2) uniform uFilterParams2 {
+layout(set=2, binding=2) uniform uFilterParams2 {
     vec4 filterParams2; 
 };
-layout(set=1, binding=3) uniform uFramebufferSize {
+layout(set=2, binding=3) uniform uFramebufferSize {
     vec2 framebufferSize; 
 };
-layout(set=1, binding=4) uniform uColorTexture0Size {
+layout(set=2, binding=4) uniform uColorTexture0Size {
     vec2 colorTexture0Size; 
 };
-layout(set=1, binding=5) uniform uCtrl {
+layout(set=2, binding=5) uniform uCtrl {
     int ctrl;
 };
 
