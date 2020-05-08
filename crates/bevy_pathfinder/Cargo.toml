@@ -1,0 +1,23 @@
+[package]
+name = "bevy_pathfinder"
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_app = { path = "../bevy_app" }
+bevy_asset = { path = "../bevy_asset" }
+bevy_render = { path = "../bevy_render" }
+legion = { path = "../bevy_legion" }
+
+pathfinder_geometry = "0.5.0"
+pathfinder_gpu = "0.5.0"
+pathfinder_renderer = "0.5.0"
+pathfinder_simd = "0.5.0"
+pathfinder_resources = "0.5.0"
+pathfinder_color = "0.5.0"
+pathfinder_canvas = "0.5.0"
+
+zerocopy = "0.3.0"

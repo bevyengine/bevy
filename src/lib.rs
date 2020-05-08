@@ -59,6 +59,8 @@ pub use bevy_diagnostic as diagnostic;
 pub use bevy_gltf as gltf;
 #[cfg(feature = "input")]
 pub use bevy_input as input;
+#[cfg(feature = "pathfinder")]
+pub use bevy_pathfinder as pathfinder;
 #[cfg(feature = "pbr")]
 pub use bevy_pbr as pbr;
 #[cfg(feature = "render")]
