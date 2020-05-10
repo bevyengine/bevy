@@ -11,8 +11,9 @@
 //! Line segment types, optimized with SIMD.
 
 use crate::transform2d::Matrix2x2F;
-use crate::vector::{Vector2F, vec2f};
+use crate::alignment::AlignedU8;
 use crate::util;
+use crate::vector::{vec2f, Vector2F};
 use pathfinder_simd::default::F32x4;
 use std::ops::{Add, Mul, MulAssign, Sub};
 
@@ -294,8 +295,8 @@ impl MulAssign<Vector2F> for LineSegment2F {
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
 pub struct LineSegmentU4 {
-    pub from: u8,
-    pub to: u8,
+    pub from: AlignedU8,
+    pub to: AlignedU8,
 }
 
 #[derive(Clone, Copy, Debug, Default)]

@@ -11,7 +11,10 @@
 // except according to those terms.
 
 precision highp float;
+
+#ifdef GL_ES
 precision highp sampler2D;
+#endif
 
 in ivec2 aTileOffset;
 in ivec2 aDestTileOrigin;

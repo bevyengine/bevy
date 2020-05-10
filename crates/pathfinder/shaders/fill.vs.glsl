@@ -2,7 +2,7 @@
 
 // pathfinder/shaders/fill.vs.glsl
 //
-// Copyright © 2019 The Pathfinder Project Developers.
+// Copyright © 2020 The Pathfinder Project Developers.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -11,12 +11,15 @@
 // except according to those terms.
 
 precision highp float;
-precision highp sampler2D;
 
-layout(set=0, binding=0) uniform uFramebufferSize {
+#ifdef GL_ES
+precision highp sampler2D;
+#endif
+
+layout(std140, set=0, binding=0) uniform uFramebufferSize {
     vec2 framebufferSize;
 };
-layout(set=0, binding=1) uniform uTileSize {
+layout(std140, set=0, binding=1) uniform uTileSize {
     vec2 tileSize;
 };
 
@@ -33,7 +36,7 @@ out vec2 vTo;
 vec2 computeTileOffset(uint tileIndex, float stencilTextureWidth) {
     uint tilesPerRow = uint(stencilTextureWidth / tileSize.x);
     uvec2 tileOffset = uvec2(tileIndex % tilesPerRow, tileIndex / tilesPerRow);
-    return vec2(tileOffset) * tileSize;
+    return vec2(tileOffset) * tileSize * vec2(1.0, 0.25);
 }
 
 void main() {
@@ -51,9 +54,15 @@ void main() {
         position.y = floor(min(from.y, to.y));
     else
         position.y = tileSize.y;
+    position.y = floor(position.y * 0.25);
 
-    vFrom = from - position;
-    vTo = to - position;
+    // Since each fragment corresponds to 4 pixels on a scanline, the varying interpolation will
+    // land the fragment halfway between the four-pixel strip, at pixel offset 2.0. But we want to
+    // do our coverage calculation on the center of the first pixel in the strip instead, at pixel
+    // offset 0.5. This adjustment of 1.5 accomplishes that.
+    vec2 offset = vec2(0.0, 1.5) - position * vec2(1.0, 4.0);
+    vFrom = from + offset;
+    vTo = to + offset;
 
     vec2 globalPosition = (tileOrigin + position) / framebufferSize * 2.0 - 1.0;
 #ifdef PF_ORIGIN_UPPER_LEFT

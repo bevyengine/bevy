@@ -12,8 +12,8 @@ bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
 legion = { path = "../bevy_legion" }
 
-pathfinder_geometry = { path = "../pathfinder/geometry" }
-pathfinder_gpu = { path = "../pathfinder/gpu" }
+pathfinder_geometry = { path = "../pathfinder/geometry", features = ["shader_alignment_32_bits"] }
+pathfinder_gpu = { path = "../pathfinder/gpu", features = ["shader_alignment_32_bits"] }
 pathfinder_renderer = { path = "../pathfinder/renderer" }
 pathfinder_simd = { path = "../pathfinder/simd" }
 pathfinder_resources = { path = "../pathfinder/resources" }

@@ -11,7 +11,10 @@
 // except according to those terms.
 
 precision highp float;
+
+#ifdef GL_ES
 precision highp sampler2D;
+#endif
 
 layout(set=0, binding=0) uniform uNewTransform {
     mat4 newTransform;

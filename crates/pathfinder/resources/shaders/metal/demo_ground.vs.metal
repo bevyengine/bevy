@@ -4,10 +4,14 @@
 
 using namespace metal;
 
-struct spvDescriptorSetBuffer0
+struct uGridlineCount
 {
-    constant int* uGridlineCount [[id(0)]];
-    constant float4x4* uTransform [[id(1)]];
+    int gridlineCount;
+};
+
+struct uTransform
+{
+    float4x4 transform;
 };
 
 struct main0_out
@@ -21,11 +25,11 @@ struct main0_in
     int2 aPosition [[attribute(0)]];
 };
 
-vertex main0_out main0(main0_in in [[stage_in]], constant spvDescriptorSetBuffer0& spvDescriptorSet0 [[buffer(0)]])
+vertex main0_out main0(main0_in in [[stage_in]], constant uGridlineCount& _17 [[buffer(0)]], constant uTransform& _35 [[buffer(1)]])
 {
     main0_out out = {};
-    out.vTexCoord = float2(in.aPosition * int2((*spvDescriptorSet0.uGridlineCount)));
-    out.gl_Position = (*spvDescriptorSet0.uTransform) * float4(int4(in.aPosition.x, 0, in.aPosition.y, 1));
+    out.vTexCoord = float2(in.aPosition * int2(_17.gridlineCount));
+    out.gl_Position = _35.transform * float4(int4(in.aPosition.x, 0, in.aPosition.y, 1));
     return out;
 }
 

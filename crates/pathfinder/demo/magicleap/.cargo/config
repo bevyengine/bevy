@@ -1,4 +1,0 @@
-[target.aarch64-linux-android]
-linker = "./fake-ld.sh"
-ar = "aarch64-linux-android-ar"
-rustflags = "-Clinker-flavor=ld"

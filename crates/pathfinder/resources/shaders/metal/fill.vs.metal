@@ -6,10 +6,14 @@
 
 using namespace metal;
 
-struct spvDescriptorSetBuffer0
+struct uTileSize
 {
-    constant float2* uTileSize [[id(0)]];
-    constant float2* uFramebufferSize [[id(1)]];
+    float2 tileSize;
+};
+
+struct uFramebufferSize
+{
+    float2 framebufferSize;
 };
 
 struct main0_out
@@ -30,19 +34,19 @@ struct main0_in
 };
 
 static inline __attribute__((always_inline))
-float2 computeTileOffset(thread const uint& tileIndex, thread const float& stencilTextureWidth, thread float2 uTileSize)
+float2 computeTileOffset(thread const uint& tileIndex, thread const float& stencilTextureWidth, constant uTileSize& v_20)
 {
-    uint tilesPerRow = uint(stencilTextureWidth / uTileSize.x);
+    uint tilesPerRow = uint(stencilTextureWidth / v_20.tileSize.x);
     uint2 tileOffset = uint2(tileIndex % tilesPerRow, tileIndex / tilesPerRow);
-    return float2(tileOffset) * uTileSize;
+    return (float2(tileOffset) * v_20.tileSize) * float2(1.0, 0.25);
 }
 
-vertex main0_out main0(main0_in in [[stage_in]], constant spvDescriptorSetBuffer0& spvDescriptorSet0 [[buffer(0)]])
+vertex main0_out main0(main0_in in [[stage_in]], constant uTileSize& v_20 [[buffer(0)]], constant uFramebufferSize& _57 [[buffer(1)]])
 {
     main0_out out = {};
     uint param = in.aTileIndex;
-    float param_1 = (*spvDescriptorSet0.uFramebufferSize).x;
-    float2 tileOrigin = computeTileOffset(param, param_1, (*spvDescriptorSet0.uTileSize));
+    float param_1 = _57.framebufferSize.x;
+    float2 tileOrigin = computeTileOffset(param, param_1, v_20);
     float2 from = float2(float(in.aFromPx & 15u), float(in.aFromPx >> 4u)) + in.aFromSubpx;
     float2 to = float2(float(in.aToPx & 15u), float(in.aToPx >> 4u)) + in.aToSubpx;
     float2 position;
@@ -60,11 +64,13 @@ vertex main0_out main0(main0_in in [[stage_in]], constant spvDescriptorSetBuffer
     }
     else
     {
-        position.y = (*spvDescriptorSet0.uTileSize).y;
+        position.y = v_20.tileSize.y;
     }
-    out.vFrom = from - position;
-    out.vTo = to - position;
-    float2 globalPosition = (((tileOrigin + position) / (*spvDescriptorSet0.uFramebufferSize)) * 2.0) - float2(1.0);
+    position.y = floor(position.y * 0.25);
+    float2 offset = float2(0.0, 1.5) - (position * float2(1.0, 4.0));
+    out.vFrom = from + offset;
+    out.vTo = to + offset;
+    float2 globalPosition = (((tileOrigin + position) / _57.framebufferSize) * 2.0) - float2(1.0);
     globalPosition.y = -globalPosition.y;
     out.gl_Position = float4(globalPosition, 0.0, 1.0);
     return out;

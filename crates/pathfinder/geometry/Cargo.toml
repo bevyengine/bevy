@@ -8,6 +8,9 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/servo/pathfinder"
 homepage = "https://github.com/servo/pathfinder"
 
+[features]
+shader_alignment_32_bits = []
+
 [dependencies]
 
 [dependencies.log]

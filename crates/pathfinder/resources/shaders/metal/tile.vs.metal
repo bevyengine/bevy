@@ -4,13 +4,19 @@
 
 using namespace metal;
 
-struct spvDescriptorSetBuffer0
+struct uTileSize
 {
-    constant float2* uTileSize [[id(0)]];
-    constant int2* uTextureMetadataSize [[id(1)]];
-    texture2d<float> uTextureMetadata [[id(2)]];
-    sampler uTextureMetadataSmplr [[id(3)]];
-    constant float4x4* uTransform [[id(4)]];
+    float2 tileSize;
+};
+
+struct uTextureMetadataSize
+{
+    int2 textureMetadataSize;
+};
+
+struct uTransform
+{
+    float4x4 transform;
 };
 
 struct main0_out
@@ -32,26 +38,26 @@ struct main0_in
     int aTileCtrl [[attribute(5)]];
 };
 
-vertex main0_out main0(main0_in in [[stage_in]], constant spvDescriptorSetBuffer0& spvDescriptorSet0 [[buffer(0)]])
+vertex main0_out main0(main0_in in [[stage_in]], constant uTileSize& _26 [[buffer(0)]], constant uTextureMetadataSize& _49 [[buffer(1)]], constant uTransform& _161 [[buffer(2)]], texture2d<float> uTextureMetadata [[texture(0)]], sampler uSampler [[sampler(0)]])
 {
     main0_out out = {};
     float2 tileOrigin = float2(in.aTileOrigin);
     float2 tileOffset = float2(in.aTileOffset);
-    float2 position = (tileOrigin + tileOffset) * (*spvDescriptorSet0.uTileSize);
-    float2 maskTexCoord0 = (float2(in.aMaskTexCoord0) + tileOffset) / float2(256.0);
-    float2 textureMetadataScale = float2(1.0) / float2((*spvDescriptorSet0.uTextureMetadataSize));
+    float2 position = (tileOrigin + tileOffset) * _26.tileSize;
+    float2 maskTexCoord0 = (float2(in.aMaskTexCoord0) + tileOffset) * _26.tileSize;
+    float2 textureMetadataScale = float2(1.0) / float2(_49.textureMetadataSize);
     float2 metadataEntryCoord = float2(float((in.aColor % 128) * 4), float(in.aColor / 128));
     float2 colorTexMatrix0Coord = (metadataEntryCoord + float2(0.5)) * textureMetadataScale;
     float2 colorTexOffsetsCoord = (metadataEntryCoord + float2(1.5, 0.5)) * textureMetadataScale;
     float2 baseColorCoord = (metadataEntryCoord + float2(2.5, 0.5)) * textureMetadataScale;
-    float4 colorTexMatrix0 = spvDescriptorSet0.uTextureMetadata.sample(spvDescriptorSet0.uTextureMetadataSmplr, colorTexMatrix0Coord, level(0.0));
-    float4 colorTexOffsets = spvDescriptorSet0.uTextureMetadata.sample(spvDescriptorSet0.uTextureMetadataSmplr, colorTexOffsetsCoord, level(0.0));
-    float4 baseColor = spvDescriptorSet0.uTextureMetadata.sample(spvDescriptorSet0.uTextureMetadataSmplr, baseColorCoord, level(0.0));
+    float4 colorTexMatrix0 = uTextureMetadata.sample(uSampler, colorTexMatrix0Coord, level(0.0));
+    float4 colorTexOffsets = uTextureMetadata.sample(uSampler, colorTexOffsetsCoord, level(0.0));
+    float4 baseColor = uTextureMetadata.sample(uSampler, baseColorCoord, level(0.0));
     out.vColorTexCoord0 = (float2x2(float2(colorTexMatrix0.xy), float2(colorTexMatrix0.zw)) * position) + colorTexOffsets.xy;
     out.vMaskTexCoord0 = float3(maskTexCoord0, float(in.aMaskBackdrop.x));
     out.vBaseColor = baseColor;
     out.vTileCtrl = float(in.aTileCtrl);
-    out.gl_Position = (*spvDescriptorSet0.uTransform) * float4(position, 0.0, 1.0);
+    out.gl_Position = _161.transform * float4(position, 0.0, 1.0);
     return out;
 }
 

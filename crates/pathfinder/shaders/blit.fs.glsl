@@ -11,16 +11,19 @@
 // except according to those terms.
 
 precision highp float;
+
+#ifdef GL_ES
 precision highp sampler2D;
+#endif
 
 layout(set=0, binding=0) uniform texture2D uSrc;
-layout(set=0, binding=1) uniform sampler uSrcSampler;
+layout(set=0, binding=1) uniform sampler uSampler;
 
 in vec2 vTexCoord;
 
 out vec4 oFragColor;
 
 void main() {
-    vec4 color = texture(sampler2D(uSrc, uSrcSampler), vTexCoord);
+    vec4 color = texture(sampler2D(uSrc, uSampler), vTexCoord);
     oFragColor = vec4(color.rgb * color.a, color.a);
 }

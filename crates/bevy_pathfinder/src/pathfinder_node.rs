@@ -1,4 +1,4 @@
-use crate::{BevyPathfinderDevice, BevyResourceLoader};
+use crate::BevyPathfinderDevice;
 use bevy_asset::AssetStorage;
 use bevy_render::{
     render_graph::{Node, ResourceSlots},
@@ -15,6 +15,7 @@ use pathfinder_renderer::{
     },
     options::BuildOptions,
 };
+use pathfinder_resources::embedded::EmbeddedResourceLoader;
 
 #[derive(Default)]
 pub struct PathfinderNode;
@@ -33,10 +34,11 @@ impl Node for PathfinderNode {
         let window_size = Vector2I::new(640 as i32, 480 as i32);
         let mut renderer = Renderer::new(
             device,
-            &BevyResourceLoader::new(),
+            &EmbeddedResourceLoader::new(),
             DestFramebuffer::full_window(window_size),
             RendererOptions {
                 background_color: Some(ColorF::white()),
+                ..Default::default()
             },
         );
 

@@ -4,9 +4,9 @@
 
 using namespace metal;
 
-struct spvDescriptorSetBuffer0
+struct uNewTransform
 {
-    constant float4x4* uNewTransform [[id(0)]];
+    float4x4 newTransform;
 };
 
 struct main0_out
@@ -20,13 +20,13 @@ struct main0_in
     int2 aPosition [[attribute(0)]];
 };
 
-vertex main0_out main0(main0_in in [[stage_in]], constant spvDescriptorSetBuffer0& spvDescriptorSet0 [[buffer(0)]])
+vertex main0_out main0(main0_in in [[stage_in]], constant uNewTransform& _36 [[buffer(0)]])
 {
     main0_out out = {};
     float2 position = float2(in.aPosition);
     out.vTexCoord = position;
     position.y = 1.0 - position.y;
-    out.gl_Position = (*spvDescriptorSet0.uNewTransform) * float4(position, 0.0, 1.0);
+    out.gl_Position = _36.newTransform * float4(position, 0.0, 1.0);
     return out;
 }
 

@@ -16,6 +16,7 @@ use crate::paint::PaintCompositeOp;
 use pathfinder_color::ColorU;
 use pathfinder_content::effects::{BlendMode, Filter};
 use pathfinder_content::render_target::RenderTargetId;
+use pathfinder_geometry::alignment::{AlignedI8, AlignedU8, AlignedI16, AlignedU16};
 use pathfinder_geometry::line_segment::{LineSegmentU4, LineSegmentU8};
 use pathfinder_geometry::rect::RectI;
 use pathfinder_geometry::transform2d::Transform2F;
@@ -147,13 +148,12 @@ pub struct FillBatchEntry {
     pub page: u16,
 }
 
-// FIXME(pcwalton): Move `subpx` before `px` and remove `repr(packed)`.
 #[derive(Clone, Copy, Debug, Default)]
-#[repr(packed)]
+#[repr(C)]
 pub struct Fill {
-    pub px: LineSegmentU4,
     pub subpx: LineSegmentU8,
-    pub alpha_tile_index: u16,
+    pub px: LineSegmentU4,
+    pub alpha_tile_index: AlignedU16,
 }
 
 #[derive(Clone, Debug)]
@@ -179,26 +179,26 @@ pub enum ClipBatchKind {
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
 pub struct Clip {
-    pub dest_u: u8,
-    pub dest_v: u8,
-    pub src_u: u8,
-    pub src_v: u8,
-    pub backdrop: i8,
-    pub pad_0: u8,
-    pub pad_1: u16,
+    pub dest_u: AlignedU8,
+    pub dest_v: AlignedU8,
+    pub src_u: AlignedU8,
+    pub src_v: AlignedU8,
+    pub backdrop: AlignedI8,
+    pub pad_0: AlignedU8,
+    pub pad_1: AlignedU16,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
 pub struct Tile {
-    pub tile_x: i16,
-    pub tile_y: i16,
-    pub mask_0_u: u8,
-    pub mask_0_v: u8,
-    pub mask_0_backdrop: i8,
-    pub pad: u8,
-    pub color: u16,
-    pub ctrl: u16,
+    pub tile_x: AlignedI16,
+    pub tile_y: AlignedI16,
+    pub mask_0_u: AlignedU8,
+    pub mask_0_v: AlignedU8,
+    pub mask_0_backdrop: AlignedI8,
+    pub pad: AlignedU8,
+    pub color: AlignedU16,
+    pub ctrl: AlignedU16,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]

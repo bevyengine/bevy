@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:lineSpacingExtra="14sp"
-    android:textAppearance="@android:style/TextAppearance"
-    android:textSize="18sp">
-
-</TextView>

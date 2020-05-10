@@ -11,17 +11,20 @@
 // except according to those terms.
 
 precision highp float;
-precision highp sampler2D;
 
-layout(set=0, binding=0) uniform uFramebufferSize {
+#ifdef GL_ES
+precision highp sampler2D;
+#endif
+
+layout(set=0, binding=2) uniform uFramebufferSize {
     vec2 framebufferSize;
 };
-layout(set=0, binding=1) uniform texture2D uSrc;
-layout(set=0, binding=2) uniform sampler uSrcSampler;
+layout(set=0, binding=3) uniform texture2D uSrc;
+layout(set=0, binding=4) uniform sampler uSampler;
 
 out vec4 oFragColor;
 
 void main() {
     vec2 texCoord = gl_FragCoord.xy / framebufferSize;
-    oFragColor = texture(sampler2D(uSrc, uSrcSampler), texCoord);
+    oFragColor = texture(sampler2D(uSrc, uSampler), texCoord);
 }

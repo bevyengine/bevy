@@ -1,10 +1,7 @@
 mod device;
-mod resource_loader;
 mod pathfinder_node;
-mod shaders;
 use bevy_app::{AppBuilder, AppPlugin};
 pub use device::*;
-pub use resource_loader::*;
 
 use bevy_render::render_graph::RenderGraph;
 use pathfinder_node::PathfinderNode;

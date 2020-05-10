@@ -14,7 +14,6 @@ members = [
     "examples/canvas_moire",
     "examples/canvas_nanovg",
     "examples/canvas_text",
-    "examples/canvas_webgpu_minimal",
     "examples/lottie_basic",
     "examples/swf_basic",
     "geometry",
@@ -35,7 +34,6 @@ members = [
     "utils/svg-to-skia",
     "utils/convert",
     "webgl",
-    "webgpu",
 ]
 
 default-members = [

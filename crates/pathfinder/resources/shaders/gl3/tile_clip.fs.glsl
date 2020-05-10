@@ -1,39 +1,15 @@
 #version {{version}}
 // Automatically generated from files in pathfinder/shaders/. Do not edit!
-#version 450
 
 
+uniform sampler2D SPIRV_Cross_CombineduSrcuSampler;
 
-
-
-
-
-
-
-
-
-precision highp float;
-precision highp sampler2D;
-
-
-
-
-
-uniform sampler2D uSrc;
-
-
+layout(location = 0) out vec4 oFragColor;
 in vec2 vTexCoord;
 in float vBackdrop;
 
-out vec4 oFragColor;
-
-void main(){
-
-
-
-    vec4 alpha_texture_color = texture(uSrc, vTexCoord);
-
-    float alpha = clamp(abs(alpha_texture_color . r + vBackdrop), 0.0, 1.0);
-    oFragColor = vec4(alpha, 0.0, 0.0, 1.0);
+void main()
+{
+    oFragColor = clamp(abs(texture(SPIRV_Cross_CombineduSrcuSampler, vTexCoord) + vec4(vBackdrop)), vec4(0.0), vec4(1.0));
 }
 

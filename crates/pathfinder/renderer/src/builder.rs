@@ -26,10 +26,10 @@ use crate::z_buffer::{DepthMetadata, ZBuffer};
 use pathfinder_content::effects::{BlendMode, Filter};
 use pathfinder_content::fill::FillRule;
 use pathfinder_content::render_target::RenderTargetId;
+use pathfinder_geometry::alignment::{AlignedI16, AlignedU8, AlignedU16, AlignedI8};
 use pathfinder_geometry::line_segment::{LineSegment2F, LineSegmentU4, LineSegmentU8};
 use pathfinder_geometry::rect::{RectF, RectI};
 use pathfinder_geometry::transform2d::Transform2F;
-use pathfinder_geometry::util;
 use pathfinder_geometry::vector::{Vector2F, Vector2I, vec2f, vec2i};
 use pathfinder_gpu::TextureSamplingFlags;
 use pathfinder_simd::default::{F32x4, I32x4};
@@ -464,30 +464,6 @@ impl<'a, 'b> SceneBuilder<'a, 'b> {
             display_item_index: usize,
             tile_page: u16,
         }
-
-        /*
-        // Create a new `DrawTiles` display item if we don't have one or if we have to break a
-        // batch due to blend mode or paint page. Note that every path with a blend mode that
-        // requires a readable framebuffer needs its own batch.
-        //
-        // TODO(pcwalton): If we really wanted to, we could use tile maps to avoid
-        // batch breaks in some cases…
-
-        // Fetch the destination alpha tiles buffer.
-        let culled_alpha_tiles = match *culled_tiles.display_list.last_mut().unwrap() {
-            CulledDisplayItem::DrawTiles(TileBatch { tiles: ref mut culled_alpha_tiles, .. }) => {
-                culled_alpha_tiles
-            }
-            _ => unreachable!(),
-        };
-
-        for alpha_tile in alpha_tiles {
-            let alpha_tile_coords = alpha_tile.tile_position();
-            if layer_z_buffer.test(alpha_tile_coords, current_depth) {
-                culled_alpha_tiles.push(*alpha_tile);
-            }
-        }
-        */
     }
 
     fn pack_tiles(&mut self, culled_tiles: CulledTiles) {
@@ -641,7 +617,7 @@ impl ObjectBuilder {
         // Ensure this fill is in bounds. If not, cull it.
         if self.tile_coords_to_local_index(tile_coords).is_none() {
             return;
-        };
+        }
 
         debug_assert_eq!(TILE_WIDTH, TILE_HEIGHT);
 
@@ -673,14 +649,14 @@ impl ObjectBuilder {
         self.fills.push(FillBatchEntry {
             page: alpha_tile_id.page(),
             fill: Fill {
-                px: LineSegmentU4 { from: px[0] as u8, to: px[2] as u8 },
+                px: LineSegmentU4 { from: px[0] as AlignedU8, to: px[2] as AlignedU8 },
                 subpx: LineSegmentU8 {
                     from_x: from_x as u8,
                     from_y: from_y as u8,
                     to_x:   to_x   as u8,
                     to_y:   to_y   as u8,
                 },
-                alpha_tile_index: alpha_tile_id.tile(),
+                alpha_tile_index: alpha_tile_id.tile() as AlignedU16,
             },
         });
     }
@@ -758,23 +734,12 @@ impl ObjectBuilder {
             (segment.to_x(), segment.from_x())
         };
 
-        // FIXME(pcwalton): Optimize this.
-        let segment_tile_left = f32::floor(segment_left) as i32 / TILE_WIDTH as i32;
-        let segment_tile_right =
-            util::alignup_i32(f32::ceil(segment_right) as i32, TILE_WIDTH as i32);
-        debug!(
-            "segment_tile_left={} segment_tile_right={} tile_rect={:?}",
-            segment_tile_left,
-            segment_tile_right,
-            self.tile_rect()
-        );
-
-        for subsegment_tile_x in segment_tile_left..segment_tile_right {
+        let mut subsegment_x = (segment_left as i32 & !(TILE_WIDTH as i32 - 1)) as f32;
+        while subsegment_x < segment_right {
             let (mut fill_from, mut fill_to) = (segment.from(), segment.to());
-            let subsegment_tile_right =
-                ((i32::from(subsegment_tile_x) + 1) * TILE_HEIGHT as i32) as f32;
-            if subsegment_tile_right < segment_right {
-                let x = subsegment_tile_right;
+            let subsegment_x_next = subsegment_x + TILE_WIDTH as f32;
+            if subsegment_x_next < segment_right {
+                let x = subsegment_x_next;
                 let point = Vector2F::new(x, segment.solve_y_for_x(x));
                 if !winding {
                     fill_to = point;
@@ -786,8 +751,10 @@ impl ObjectBuilder {
             }
 
             let fill_segment = LineSegment2F::new(fill_from, fill_to);
-            let fill_tile_coords = vec2i(subsegment_tile_x, tile_y);
+            let fill_tile_coords = vec2i(subsegment_x as i32 / TILE_WIDTH as i32, tile_y);
             self.add_fill(scene_builder, fill_segment, fill_tile_coords);
+
+            subsegment_x = subsegment_x_next;
         }
     }
 
@@ -875,14 +842,14 @@ impl Tile {
         }
 
         Tile {
-            tile_x: tile_origin.x() as i16,
-            tile_y: tile_origin.y() as i16,
-            mask_0_u: mask_0_uv.x() as u8,
-            mask_0_v: mask_0_uv.y() as u8,
-            mask_0_backdrop: draw_tile_backdrop,
-            ctrl: ctrl as u16,
+            tile_x: tile_origin.x() as AlignedI16,
+            tile_y: tile_origin.y() as AlignedI16,
+            mask_0_u: mask_0_uv.x() as AlignedU8,
+            mask_0_v: mask_0_uv.y() as AlignedU8,
+            mask_0_backdrop: draw_tile_backdrop as AlignedI8,
+            ctrl: ctrl as AlignedU16,
             pad: 0,
-            color: draw_tiling_path_info.paint_id.0,
+            color: draw_tiling_path_info.paint_id.0 as AlignedU16,
         }
     }
 
@@ -898,11 +865,11 @@ impl Clip {
         let dest_uv = calculate_mask_uv(dest_tile_index);
         let src_uv = calculate_mask_uv(src_tile_index);
         Clip {
-            dest_u: dest_uv.x() as u8,
-            dest_v: dest_uv.y() as u8,
-            src_u: src_uv.x() as u8,
-            src_v: src_uv.y() as u8,
-            backdrop: src_backdrop,
+            dest_u: dest_uv.x() as AlignedU8,
+            dest_v: dest_uv.y() as AlignedU8,
+            src_u: src_uv.x() as AlignedU8,
+            src_v: src_uv.y() as AlignedU8,
+            backdrop: src_backdrop as AlignedI8,
             pad_0: 0,
             pad_1: 0,
         }

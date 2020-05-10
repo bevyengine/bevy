@@ -1,4 +1,3 @@
-use crate::shaders;
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     pipeline::{
@@ -6,7 +5,7 @@ use bevy_render::{
         VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage, RenderResource},
-    renderer::{RenderContext, RenderResourceContext},
+    renderer::RenderContext,
     shader::{Shader, ShaderSource, ShaderStage, ShaderStages},
     texture::{
         AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor, TextureDimension,
@@ -16,9 +15,9 @@ use bevy_render::{
 use pathfinder_canvas::vec2i;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 use pathfinder_gpu::{
-    BufferData, BufferTarget, BufferUploadMode, Device, RenderState, RenderTarget, ShaderKind,
-    TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass, VertexAttrDescriptor,
-    VertexAttrType,
+    BufferData, BufferTarget, BufferUploadMode, Device, ProgramKind, RenderState, RenderTarget,
+    ShaderKind, TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass,
+    VertexAttrDescriptor, VertexAttrType, FeatureLevel,
 };
 use pathfinder_resources::ResourceLoader;
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
@@ -46,7 +45,7 @@ impl<'a> BevyPathfinderDevice<'a> {
 pub struct BevyTimerQuery {}
 pub struct BevyTextureDataReceiver {}
 pub struct BevyUniform {
-    name: String,
+    pub name: String,
 }
 
 pub struct BevyVertexAttr {
@@ -56,8 +55,8 @@ pub struct BevyVertexAttr {
 #[derive(Debug)]
 pub struct BevyVertexArray {
     requested_descriptors: RefCell<HashMap<u32, VertexBufferDescriptor>>,
-    vertex_buffers: RefCell<Vec<RenderResource>>,
-    index_buffer: RefCell<Option<RenderResource>>,
+    vertex_buffers: RefCell<Vec<BevyBuffer>>,
+    index_buffer: RefCell<Option<BevyBuffer>>,
 }
 
 pub struct BevyTexture {
@@ -66,15 +65,19 @@ pub struct BevyTexture {
     sampler_resource: RefCell<Option<RenderResource>>,
 }
 
+#[derive(Debug, Clone)]
 pub struct BevyBuffer {
     handle: Rc<RefCell<Option<RenderResource>>>,
+    mode: BufferUploadMode,
 }
 
 impl<'a> Device for BevyPathfinderDevice<'a> {
     type Buffer = BevyBuffer;
+    type Fence = ();
     type Framebuffer = BevyTexture;
     type Program = PipelineDescriptor;
     type Shader = Handle<Shader>;
+    type StorageBuffer = ();
     type Texture = BevyTexture;
     type TextureDataReceiver = BevyTextureDataReceiver;
     type TimerQuery = BevyTimerQuery;
@@ -127,31 +130,38 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     }
     fn create_shader(
         &self,
-        _resources: &dyn ResourceLoader,
+        resources: &dyn ResourceLoader,
         name: &str,
         kind: ShaderKind,
     ) -> Self::Shader {
-        let shader_bytes = match (name, kind) {
-            ("blit", ShaderKind::Fragment) => shaders::BLIT_FS,
-            ("blit", ShaderKind::Vertex) => shaders::BLIT_VS,
-            // ("debug_solid", ShaderKind::Fragment) => shaders::DEMO_GROUND_FS,
-            // ("demo_ground", ShaderKind::Vertex) => shaders::DEMO_GROUND_VS,
-            ("fill", ShaderKind::Fragment) => shaders::FILL_FS,
-            ("fill", ShaderKind::Vertex) => shaders::FILL_VS,
-            ("reproject", ShaderKind::Fragment) => shaders::REPROJECT_FS,
-            ("reproject", ShaderKind::Vertex) => shaders::REPROJECT_VS,
-            ("stencil", ShaderKind::Fragment) => shaders::STENCIL_FS,
-            ("stencil", ShaderKind::Vertex) => shaders::STENCIL_VS,
-            ("tile_clip", ShaderKind::Fragment) => shaders::TILE_CLIP_FS,
-            ("tile_clip", ShaderKind::Vertex) => shaders::TILE_CLIP_VS,
-            ("tile_copy", ShaderKind::Fragment) => shaders::TILE_COPY_FS,
-            ("tile_copy", ShaderKind::Vertex) => shaders::TILE_COPY_VS,
-            ("tile", ShaderKind::Fragment) => shaders::TILE_FS,
-            ("tile", ShaderKind::Vertex) => shaders::TILE_VS,
-            _ => panic!("encountered unexpected shader {} {:?}", name, kind),
+        // let shader_bytes = match (name, kind) {
+        //     ("blit", ShaderKind::Fragment) => shaders::BLIT_FS,
+        //     ("blit", ShaderKind::Vertex) => shaders::BLIT_VS,
+        //     // ("debug_solid", ShaderKind::Fragment) => shaders::DEMO_GROUND_FS,
+        //     // ("demo_ground", ShaderKind::Vertex) => shaders::DEMO_GROUND_VS,
+        //     ("fill", ShaderKind::Fragment) => shaders::FILL_FS,
+        //     ("fill", ShaderKind::Vertex) => shaders::FILL_VS,
+        //     ("reproject", ShaderKind::Fragment) => shaders::REPROJECT_FS,
+        //     ("reproject", ShaderKind::Vertex) => shaders::REPROJECT_VS,
+        //     ("stencil", ShaderKind::Fragment) => shaders::STENCIL_FS,
+        //     ("stencil", ShaderKind::Vertex) => shaders::STENCIL_VS,
+        //     ("tile_clip", ShaderKind::Fragment) => shaders::TILE_CLIP_FS,
+        //     ("tile_clip", ShaderKind::Vertex) => shaders::TILE_CLIP_VS,
+        //     ("tile_copy", ShaderKind::Fragment) => shaders::TILE_COPY_FS,
+        //     ("tile_copy", ShaderKind::Vertex) => shaders::TILE_COPY_VS,
+        //     ("tile", ShaderKind::Fragment) => shaders::TILE_FS,
+        //     ("tile", ShaderKind::Vertex) => shaders::TILE_VS,
+        //     _ => panic!("encountered unexpected shader {} {:?}", name, kind),
+        // };
+        let suffix = match kind {
+            ShaderKind::Vertex => 'v',
+            ShaderKind::Fragment => 'f',
+            ShaderKind::Compute => 'c',
         };
+        let path = format!("shaders/vulkan/{}.{}s.spv", name, suffix);
+        let bytes = resources.slurp(&path).unwrap();
 
-        self.create_shader_from_source(name, shader_bytes, kind)
+        self.create_shader_from_source(name, &bytes, kind)
     }
     fn create_shader_from_source(
         &self,
@@ -162,6 +172,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         let stage = match kind {
             ShaderKind::Fragment => ShaderStage::Fragment,
             ShaderKind::Vertex => ShaderStage::Vertex,
+            ShaderKind::Compute => panic!("bevy does not currently support compute shaders"),
         };
         let shader = Shader::new(stage, ShaderSource::spirv_from_bytes(source));
         let mut shaders = self.shaders.borrow_mut();
@@ -183,17 +194,20 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     fn create_program_from_shaders(
         &self,
         _resources: &dyn ResourceLoader,
-        name: &str,
-        vertex_shader: Self::Shader,
-        fragment_shader: Self::Shader,
+        _name: &str,
+        shaders: ProgramKind<Handle<Shader>>,
     ) -> Self::Program {
-        println!("{}", name);
-        let mut descriptor = PipelineDescriptor::new(ShaderStages {
-            vertex: vertex_shader,
-            fragment: Some(fragment_shader),
-        });
-        descriptor.reflect_layout(&self.shaders.borrow(), false, None, None);
-        descriptor
+        match shaders {
+            ProgramKind::Compute(_) => panic!("bevy does not currently support compute shaders"),
+            ProgramKind::Raster { vertex, fragment } => {
+                let mut descriptor = PipelineDescriptor::new(ShaderStages {
+                    vertex,
+                    fragment: Some(fragment),
+                });
+                descriptor.reflect_layout(&self.shaders.borrow(), false, None, None);
+                descriptor
+            }
+        }
     }
     fn get_vertex_attr(
         &self,
@@ -228,19 +242,20 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     }
     fn bind_buffer(
         &self,
-        vertex_array: &Self::VertexArray,
-        buffer: &Self::Buffer,
+        vertex_array: &BevyVertexArray,
+        buffer: &BevyBuffer,
         target: BufferTarget,
     ) {
         match target {
             BufferTarget::Vertex => vertex_array
                 .vertex_buffers
                 .borrow_mut()
-                .push(buffer.handle.borrow().unwrap().clone()),
+                .push(buffer.clone()),
             BufferTarget::Index => {
                 *vertex_array.index_buffer.borrow_mut() =
-                    Some(buffer.handle.borrow().unwrap().clone())
+                    Some(buffer.clone())
             }
+            _ => panic!("Buffers bound to vertex arrays must be vertex or index buffers!"),
         }
     }
     fn configure_vertex_attr(
@@ -282,6 +297,14 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             //     VertexFormat::Short3Normalized
             // }
             (VertexAttrClass::FloatNorm, VertexAttrType::I16, 4) => VertexFormat::Short4Norm,
+            (VertexAttrClass::Int, VertexAttrType::I32, 1) => VertexFormat::Int,
+            (VertexAttrClass::Int, VertexAttrType::I32, 2) => VertexFormat::Int2,
+            (VertexAttrClass::Int, VertexAttrType::I32, 3) => VertexFormat::Int3,
+            (VertexAttrClass::Int, VertexAttrType::I32, 4) => VertexFormat::Int4,
+            (VertexAttrClass::Int, VertexAttrType::U32, 1) => VertexFormat::Uint,
+            (VertexAttrClass::Int, VertexAttrType::U32, 2) => VertexFormat::Uint2,
+            (VertexAttrClass::Int, VertexAttrType::U32, 3) => VertexFormat::Uint3,
+            (VertexAttrClass::Int, VertexAttrType::U32, 4) => VertexFormat::Uint4,
             (VertexAttrClass::Float, VertexAttrType::F32, 1) => VertexFormat::Float,
             (VertexAttrClass::Float, VertexAttrType::F32, 2) => VertexFormat::Float2,
             (VertexAttrClass::Float, VertexAttrType::F32, 3) => VertexFormat::Float3,
@@ -340,20 +363,15 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         texture
     }
 
-    fn create_buffer(&self) -> Self::Buffer {
+    fn create_buffer(&self, mode: BufferUploadMode) -> Self::Buffer {
         BevyBuffer {
             handle: Rc::new(RefCell::new(None)),
+            mode,
         }
     }
 
-    fn allocate_buffer<T>(
-        &self,
-        buffer: &BevyBuffer,
-        data: BufferData<T>,
-        _target: BufferTarget,
-        mode: BufferUploadMode,
-    ) {
-        let buffer_usage = match mode {
+    fn allocate_buffer<T>(&self, buffer: &BevyBuffer, data: BufferData<T>, _target: BufferTarget) {
+        let buffer_usage = match buffer.mode {
             BufferUploadMode::Dynamic => BufferUsage::WRITE_ALL,
             BufferUploadMode::Static => BufferUsage::COPY_DST,
         };
@@ -504,8 +522,8 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     }
     fn read_pixels(
         &self,
-        target: &RenderTarget<Self>,
-        viewport: RectI,
+        _target: &RenderTarget<Self>,
+        _viewport: RectI,
     ) -> Self::TextureDataReceiver {
         // TODO: this might actually be optional, which is great because otherwise this requires a command buffer sync
         todo!()
@@ -516,17 +534,17 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     fn end_commands(&self) {
         // NOTE: the Bevy Render Graph handles command buffer submission
     }
-    fn draw_arrays(&self, index_count: u32, render_state: &RenderState<Self>) {
+    fn draw_arrays(&self, _index_count: u32, _render_state: &RenderState<Self>) {
         todo!()
     }
-    fn draw_elements(&self, index_count: u32, render_state: &RenderState<Self>) {
+    fn draw_elements(&self, _index_count: u32, _render_state: &RenderState<Self>) {
         todo!()
     }
     fn draw_elements_instanced(
         &self,
-        index_count: u32,
-        instance_count: u32,
-        render_state: &RenderState<Self>,
+        _index_count: u32,
+        _instance_count: u32,
+        _render_state: &RenderState<Self>,
     ) {
         todo!()
     }
@@ -534,27 +552,82 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         // TODO: maybe not needed
         BevyTimerQuery {}
     }
-    fn begin_timer_query(&self, query: &Self::TimerQuery) {}
-    fn end_timer_query(&self, query: &Self::TimerQuery) {}
-    fn try_recv_timer_query(&self, query: &Self::TimerQuery) -> Option<std::time::Duration> {
+    fn begin_timer_query(&self, _query: &Self::TimerQuery) {}
+    fn end_timer_query(&self, _query: &Self::TimerQuery) {}
+    fn try_recv_timer_query(&self, _query: &Self::TimerQuery) -> Option<std::time::Duration> {
         None
     }
-    fn recv_timer_query(&self, query: &Self::TimerQuery) -> std::time::Duration {
+    fn recv_timer_query(&self, _query: &Self::TimerQuery) -> std::time::Duration {
         Duration::from_millis(0)
     }
-    fn try_recv_texture_data(&self, receiver: &Self::TextureDataReceiver) -> Option<TextureData> {
+    fn try_recv_texture_data(&self, _receiver: &Self::TextureDataReceiver) -> Option<TextureData> {
         None
     }
-    fn recv_texture_data(&self, receiver: &Self::TextureDataReceiver) -> TextureData {
+    fn recv_texture_data(&self, _receiver: &Self::TextureDataReceiver) -> TextureData {
         todo!()
     }
+    fn feature_level(&self) -> pathfinder_gpu::FeatureLevel {
+        // TODO: change to 11 when compute is added
+        FeatureLevel::D3D10
+    }
+    fn set_compute_program_local_size(
+        &self,
+        _program: &mut Self::Program,
+        _local_size: pathfinder_gpu::ComputeDimensions,
+    ) {
+    }
+    fn get_storage_buffer(
+        &self,
+        _program: &Self::Program,
+        _name: &str,
+        _binding: u32,
+    ) -> Self::StorageBuffer {
+        panic!("Compute shader is unsupported in Bevy!");
+    }
+    fn upload_to_buffer<T>(
+        &self,
+        buffer: &BevyBuffer,
+        position: usize,
+        data: &[T],
+        _target: BufferTarget,
+    ) {
+        let data_slice = &data[position..];
+        let temp_buffer = self
+            .render_context
+            .borrow()
+            .resources()
+            .create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::COPY_DST,
+                    ..Default::default()
+                },
+                slice_to_u8(data_slice),
+            );
+        let buffer_handle = buffer.handle.borrow().unwrap();
+        self.render_context.borrow_mut().copy_buffer_to_buffer(
+            temp_buffer,
+            0,
+            buffer_handle,
+            0,
+            data_slice.len() as u64,
+        )
+    }
+    fn dispatch_compute(
+        &self,
+        _dimensions: pathfinder_gpu::ComputeDimensions,
+        _state: &pathfinder_gpu::ComputeState<Self>,
+    ) {
+        panic!("Compute shader is unsupported in Bevy!");
+    }
+    fn add_fence(&self) -> Self::Fence {}
+    fn wait_for_fence(&self, _fence: &Self::Fence) {}
 }
 
 fn get_texture_bytes<'a>(data_ref: &'a TextureDataRef) -> &'a [u8] {
     match data_ref {
         TextureDataRef::U8(data) => data,
         TextureDataRef::F16(data) => {
-            panic!("we dont do half measures");
+            slice_to_u8(data)
         }
         TextureDataRef::F32(data) => data.as_bytes(),
     }

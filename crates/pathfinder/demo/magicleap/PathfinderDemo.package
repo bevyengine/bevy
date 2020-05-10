@@ -1,8 +1,0 @@
-USES = "lre/scenes"
-
-REFS = PathfinderImmersiveDemo PathfinderLandscapeDemo
-
-OPTIONS=package/debuggable/on
-
-DATAS = \
-    ../../target/aarch64-linux-android/release/*.so : bin/

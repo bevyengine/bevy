@@ -50,6 +50,7 @@ enum TreeNode {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+#[allow(dead_code)]
 pub enum AllocationMode {
     Atlas,
     OwnPage,

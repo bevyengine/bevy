@@ -16,6 +16,7 @@ use crate::paint::{PaintId, PaintMetadata};
 use crate::tile_map::DenseTileMap;
 use crate::tiles;
 use pathfinder_content::effects::BlendMode;
+use pathfinder_geometry::alignment::{AlignedU16, AlignedI16};
 use pathfinder_geometry::rect::RectF;
 use pathfinder_geometry::vector::Vector2I;
 use vec_map::VecMap;
@@ -109,14 +110,14 @@ impl ZBuffer {
 impl Tile {
     pub(crate) fn new_solid_from_paint_id(tile_origin: Vector2I, paint_id: PaintId) -> Tile {
         Tile {
-            tile_x: tile_origin.x() as i16,
-            tile_y: tile_origin.y() as i16,
+            tile_x: tile_origin.x() as AlignedI16,
+            tile_y: tile_origin.y() as AlignedI16,
             mask_0_backdrop: 0,
             mask_0_u: 0,
             mask_0_v: 0,
             ctrl: 0,
             pad: 0,
-            color: paint_id.0,
+            color: paint_id.0 as AlignedU16,
         }
     }
 }

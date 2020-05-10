@@ -2,28 +2,14 @@
 // Automatically generated from files in pathfinder/shaders/. Do not edit!
 
 
-
-
-
-
-
-
-
-
-
-
-precision highp float;
-precision highp sampler2D;
-
-uniform mat4 uTransform;
-uniform int uGridlineCount;
-
-in ivec2 aPosition;
-
+uniform ivec4 uGridlineCount[1];
+uniform vec4 uTransform[4];
 out vec2 vTexCoord;
+layout(location = 0) in ivec2 aPosition;
 
-void main(){
-    vTexCoord = vec2(aPosition * uGridlineCount);
-    gl_Position = uTransform * vec4(ivec4(aPosition . x, 0, aPosition . y, 1));
+void main()
+{
+    vTexCoord = vec2(aPosition * ivec2(uGridlineCount[0].x));
+    gl_Position = mat4(uTransform[0], uTransform[1], uTransform[2], uTransform[3]) * vec4(ivec4(aPosition.x, 0, aPosition.y, 1));
 }
 

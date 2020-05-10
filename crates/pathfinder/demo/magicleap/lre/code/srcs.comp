@@ -1,8 +1,0 @@
-SRCS = \
-    src/gen/scenes.cpp \
-    src/gen/PathfinderDemo/PathfinderDemo.cpp \
-    src/gen/PrismSceneManager.cpp \
-    src/gen/SceneDescriptor.cpp \
-    src/gen/SpawnedSceneBase.cpp \
-    src/gen/SpawnedSceneHandlers.cpp \
-    src/gen/SpawnedSceneUserData.cpp \

@@ -1,34 +1,15 @@
 #version {{version}}
 // Automatically generated from files in pathfinder/shaders/. Do not edit!
-#version 450
 
 
-
-
-
-
-
-
-
-
-
-precision highp float;
-precision highp sampler2D;
-
-uniform sampler2D uSrc;
-
+uniform sampler2D SPIRV_Cross_CombineduSrcuSampler;
 
 in vec2 vTexCoord;
+layout(location = 0) out vec4 oFragColor;
 
-out vec4 oFragColor;
-
-void main(){
-
-
-
-    vec4 color = texture(uSrc, vTexCoord);
-
-
-    oFragColor = vec4(color . rgb * color . a, color . a);
+void main()
+{
+    vec4 color = texture(SPIRV_Cross_CombineduSrcuSampler, vTexCoord);
+    oFragColor = vec4(color.xyz * color.w, color.w);
 }
 

@@ -17,13 +17,11 @@ use pathfinder_gpu::Device;
 #[derive(Default)]
 pub struct RendererOptions {
     pub background_color: Option<ColorF>,
+    pub no_compute: bool,
 }
 
 #[derive(Clone)]
-pub enum DestFramebuffer<D>
-where
-    D: Device,
-{
+pub enum DestFramebuffer<D> where D: Device {
     Default {
         viewport: RectI,
         window_size: Vector2I,
