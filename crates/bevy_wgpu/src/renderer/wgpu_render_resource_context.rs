@@ -7,7 +7,8 @@ use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
     render_resource::{
-        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+        BufferInfo, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
+        RenderResourceSetId, ResourceInfo,
     },
     renderer::RenderResourceContext,
     shader::Shader,
@@ -287,11 +288,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         handle_info(info);
     }
 
-    fn create_shader_module_from_source(
-        &self,
-        shader_handle: Handle<Shader>,
-        shader: &Shader,
-    ) {
+    fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write().unwrap();
         let shader_module = self.device.create_shader_module(&shader.get_spirv(None));
         shader_modules.insert(shader_handle, shader_module);
@@ -484,21 +481,20 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         bind_group_descriptor: &BindGroupDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> Option<RenderResourceSetId> {
-        if let Some((render_resource_set_id, _indices)) =
-            render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
+        if let Some(render_resource_set) =
+            render_resource_assignments.get_render_resource_set(bind_group_descriptor.id)
         {
             if !self
                 .resources
-                .has_bind_group(bind_group_descriptor.id, *render_resource_set_id)
+                .has_bind_group(bind_group_descriptor.id, render_resource_set.id)
             {
                 log::trace!(
                     "start creating bind group for RenderResourceSet {:?}",
-                    render_resource_set_id
+                    render_resource_set.id
                 );
                 let texture_views = self.resources.texture_views.read().unwrap();
                 let samplers = self.resources.samplers.read().unwrap();
                 let buffers = self.resources.buffers.read().unwrap();
-                let resource_info = self.resources.resource_info.read().unwrap();
                 let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
                 let mut bind_groups = self.resources.bind_groups.write().unwrap();
 
@@ -506,43 +502,27 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                     .bindings
                     .iter()
                     .map(|binding| {
-                        if let Some(resource) = render_resource_assignments.get(&binding.name) {
-                            let info = resource_info
-                                .get(&resource)
-                                .expect("referenced resource does not exist");
+                        if let Some(assignment) = render_resource_assignments.get(&binding.name) {
                             log::trace!(
-                                "found binding {} ({}) resource: {:?} {:?}",
+                                "found binding {} ({}) assignment: {:?}",
                                 binding.index,
                                 binding.name,
-                                resource,
-                                resource_info
+                                assignment,
                             );
-                            let wgpu_resource = match &binding.bind_type {
-                                BindType::SampledTexture { .. } => {
-                                    if let ResourceInfo::Texture = info {
-                                        let texture = texture_views.get(&resource).unwrap();
-                                        wgpu::BindingResource::TextureView(texture)
-                                    } else {
-                                        panic!("expected a Texture resource");
-                                    }
+                            let wgpu_resource = match assignment {
+                                RenderResourceAssignment::Texture(resource) => {
+                                    let texture = texture_views.get(&resource).unwrap();
+                                    wgpu::BindingResource::TextureView(texture)
                                 }
-                                BindType::Sampler { .. } => {
-                                    if let ResourceInfo::Sampler = info {
-                                        let sampler = samplers.get(&resource).unwrap();
-                                        wgpu::BindingResource::Sampler(sampler)
-                                    } else {
-                                        panic!("expected a Sampler resource");
-                                    }
+                                RenderResourceAssignment::Sampler(resource) => {
+                                    let sampler = samplers.get(&resource).unwrap();
+                                    wgpu::BindingResource::Sampler(sampler)
                                 }
-                                BindType::Uniform { .. } => {
-                                    if let ResourceInfo::Buffer(buffer_info) = info {
-                                        let buffer = buffers.get(&resource).unwrap();
-                                        wgpu::BindingResource::Buffer {
-                                            buffer,
-                                            range: 0..buffer_info.size as u64,
-                                        }
-                                    } else {
-                                        panic!("expected a Buffer resource");
+                                RenderResourceAssignment::Buffer { resource, range , .. } => {
+                                    let buffer = buffers.get(&resource).unwrap();
+                                    wgpu::BindingResource::Buffer {
+                                        buffer,
+                                        range: range.clone(),
                                     }
                                 }
                                 _ => panic!("unsupported bind type"),
@@ -574,12 +554,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                     .or_insert_with(|| WgpuBindGroupInfo::default());
                 bind_group_info
                     .bind_groups
-                    .insert(*render_resource_set_id, wgpu_bind_group);
+                    .insert(render_resource_set.id, wgpu_bind_group);
                 log::trace!(
                     "created bind group for RenderResourceSet {:?}",
-                    render_resource_set_id
+                    render_resource_set.id
                 );
-                return Some(*render_resource_set_id);
+                return Some(render_resource_set.id);
             }
         }
 

@@ -2,8 +2,8 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferArrayInfo, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments,
-        RenderResourceAssignmentsId, ResourceInfo,
+        BufferArrayInfo, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
+        RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
     shader::{AsUniforms, FieldBindType},
@@ -224,42 +224,40 @@ where
                     let (_name, uniform_buffer_status) = self.uniform_arrays[i].as_mut().unwrap();
                     let (target_buffer, target_offset) = if dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
-                        let mut offset = 0;
-                        render_resources.get_resource_info(buffer, &mut |resource_info| {
-                            if let Some(ResourceInfo::Buffer(BufferInfo {
-                                array_info: Some(ref array_info),
-                                is_dynamic: true,
-                                ..
-                            })) = resource_info
-                            {
-                                let index = uniform_buffer_status
-                                    .get_or_assign_index(render_resource_assignments.id);
-                                render_resource_assignments.set_indexed(
-                                    &field_info.uniform_name,
-                                    buffer,
-                                    (index * array_info.item_size) as u32,
-                                );
-                                offset = index * uniform_buffer_status.aligned_size;
-                            } else {
-                                panic!("Expected a dynamic uniform buffer");
-                            }
-                        });
-                        (buffer, offset)
+                        let index = uniform_buffer_status
+                            .get_or_assign_index(render_resource_assignments.id);
+                        render_resource_assignments.set(
+                            &field_info.uniform_name,
+                            RenderResourceAssignment::Buffer {
+                                resource: buffer,
+                                dynamic_index: Some(
+                                    (index * uniform_buffer_status.aligned_size) as u32,
+                                ),
+                                range: 0..size as u64,
+                            },
+                        );
+                        (buffer, index * uniform_buffer_status.aligned_size)
                     } else {
-                        let resource = match render_resource_assignments
-                            .get(field_info.uniform_name)
-                        {
-                            Some(render_resource) => render_resource,
-                            None => {
-                                let resource = render_resources.create_buffer(BufferInfo {
-                                    size,
-                                    buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                                    ..Default::default()
-                                });
-                                render_resource_assignments.set(&field_info.uniform_name, resource);
-                                resource
-                            }
-                        };
+                        let resource =
+                            match render_resource_assignments.get(field_info.uniform_name) {
+                                Some(assignment) => assignment.get_resource(),
+                                None => {
+                                    let resource = render_resources.create_buffer(BufferInfo {
+                                        size,
+                                        buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                                        ..Default::default()
+                                    });
+                                    render_resource_assignments.set(
+                                        &field_info.uniform_name,
+                                        RenderResourceAssignment::Buffer {
+                                            resource,
+                                            range: 0..size as u64,
+                                            dynamic_index: None,
+                                        },
+                                    );
+                                    resource
+                                }
+                            };
 
                         (resource, 0)
                     };
@@ -791,8 +789,14 @@ fn setup_uniform_texture_resources<T>(
                     }
                 };
 
-                render_resource_assignments.set(field_info.texture_name, texture_resource);
-                render_resource_assignments.set(field_info.sampler_name, sampler_resource);
+                render_resource_assignments.set(
+                    field_info.texture_name,
+                    RenderResourceAssignment::Texture(texture_resource),
+                );
+                render_resource_assignments.set(
+                    field_info.sampler_name,
+                    RenderResourceAssignment::Sampler(sampler_resource),
+                );
             }
             _ => {}
         }

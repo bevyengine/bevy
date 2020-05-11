@@ -89,17 +89,17 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         }
 
         for bind_group in pipeline_layout.bind_groups.iter() {
-            if let Some((render_resource_set_id, dynamic_uniform_indices)) =
-                render_resource_assignments.get_render_resource_set_id(bind_group.id)
+            if let Some(resource_set) =
+                render_resource_assignments.get_render_resource_set(bind_group.id)
             {
                 if let Some(bind_group_info) = self.render_resources.bind_groups.get(&bind_group.id)
                 {
                     if let Some(wgpu_bind_group) =
-                        bind_group_info.bind_groups.get(render_resource_set_id)
+                        bind_group_info.bind_groups.get(&resource_set.id)
                     {
                         const EMPTY: &'static [u32] = &[];
                         let dynamic_uniform_indices =
-                            if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
+                            if let Some(ref dynamic_uniform_indices) = resource_set.dynamic_uniform_indices {
                                 dynamic_uniform_indices.as_slice()
                             } else {
                                 EMPTY
@@ -110,7 +110,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                         if let Some(bound_render_resource_set) =
                             self.bound_bind_groups.get(&bind_group.index)
                         {
-                            if *bound_render_resource_set == *render_resource_set_id
+                            if *bound_render_resource_set == resource_set.id
                                 && dynamic_uniform_indices.len() == 0
                             {
                                 continue;
@@ -119,7 +119,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
 
                         if dynamic_uniform_indices.len() == 0 {
                             self.bound_bind_groups
-                                .insert(bind_group.index, *render_resource_set_id);
+                                .insert(bind_group.index, resource_set.id);
                         } else {
                             self.bound_bind_groups.remove(&bind_group.index);
                         }
@@ -128,7 +128,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                             "set bind group {} {:?}: {:?}",
                             bind_group.index,
                             dynamic_uniform_indices,
-                            render_resource_set_id
+                            resource_set.id
                         );
                         self.render_pass.set_bind_group(
                             bind_group.index,

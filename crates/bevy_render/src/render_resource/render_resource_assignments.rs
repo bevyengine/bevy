@@ -2,46 +2,63 @@ use super::RenderResource;
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher}, ops::Range,
 };
 use uuid::Uuid;
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum RenderResourceAssignment {
+    Buffer {
+        resource: RenderResource,
+        range: Range<u64>,
+        dynamic_index: Option<u32>,
+    },
+    Texture(RenderResource),
+    Sampler(RenderResource),
+}
+
+impl RenderResourceAssignment {
+    pub fn get_resource(&self) -> RenderResource {
+        match self {
+            RenderResourceAssignment::Buffer { resource, .. } => *resource,
+            RenderResourceAssignment::Texture(resource) => *resource,
+            RenderResourceAssignment::Sampler(resource) => *resource,
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub struct RenderResourceSet {
+    pub id: RenderResourceSetId,
+    pub dynamic_uniform_indices: Option<Vec<u32>>,
+}
 
 // PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default)]
 pub struct RenderResourceAssignments {
     pub id: RenderResourceAssignmentsId,
-    render_resources: HashMap<String, (RenderResource, Option<u32>)>,
+    render_resources: HashMap<String, RenderResourceAssignment>,
     vertex_buffers: HashMap<String, (RenderResource, Option<RenderResource>)>,
     bind_group_resource_sets:
-        HashMap<BindGroupDescriptorId, (RenderResourceSetId, Option<Vec<u32>>)>,
+        HashMap<BindGroupDescriptorId, RenderResourceSet>,
     dirty_bind_groups: HashSet<BindGroupDescriptorId>,
     pub pipeline_specialization: PipelineSpecialization,
 }
 
 impl RenderResourceAssignments {
-    pub fn get(&self, name: &str) -> Option<RenderResource> {
-        self.render_resources.get(name).map(|(r, _i)| *r)
+    pub fn get(&self, name: &str) -> Option<&RenderResourceAssignment> {
+        self.render_resources.get(name)
     }
 
-    pub fn get_indexed(&self, name: &str) -> Option<(RenderResource, Option<u32>)> {
-        self.render_resources.get(name).cloned()
-    }
-
-    pub fn set(&mut self, name: &str, resource: RenderResource) {
-        self.try_set_dirty(name, resource);
+    pub fn set(&mut self, name: &str, assignment: RenderResourceAssignment) {
+        self.try_set_dirty(name, &assignment);
         self.render_resources
-            .insert(name.to_string(), (resource, None));
+            .insert(name.to_string(), assignment);
     }
 
-    pub fn set_indexed(&mut self, name: &str, resource: RenderResource, index: u32) {
-        self.try_set_dirty(name, resource);
-        self.render_resources
-            .insert(name.to_string(), (resource, Some(index)));
-    }
-
-    fn try_set_dirty(&mut self, name: &str, resource: RenderResource) {
-        if let Some((render_resource, _)) = self.render_resources.get(name) {
-            if *render_resource != resource {
+    fn try_set_dirty(&mut self, name: &str, assignment: &RenderResourceAssignment) {
+        if let Some(current_assignment) = self.render_resources.get(name) {
+            if current_assignment != assignment {
                 // TODO: this is pretty crude. can we do better?
                 for bind_group_id in self.bind_group_resource_sets.keys() {
                     self.dirty_bind_groups.insert(*bind_group_id);
@@ -76,53 +93,55 @@ impl RenderResourceAssignments {
             .contains_key(&bind_group_descriptor.id)
             || self.dirty_bind_groups.contains(&bind_group_descriptor.id)
         {
-            let result = self.generate_render_resource_set_id(bind_group_descriptor);
-            if let Some((set_id, indices)) = result {
+            let resource_set = self.generate_render_resource_set(bind_group_descriptor);
+            if let Some(resource_set) = resource_set {
+                let id = resource_set.id;
                 self.bind_group_resource_sets
-                    .insert(bind_group_descriptor.id, (set_id, indices));
-                Some(set_id)
+                    .insert(bind_group_descriptor.id, resource_set);
+                Some(id)
             } else {
                 None
             }
         } else {
             self.bind_group_resource_sets
                 .get(&bind_group_descriptor.id)
-                .map(|(set_id, _indices)| *set_id)
+                .map(|set| set.id)
         }
     }
 
-    pub fn get_render_resource_set_id(
+    pub fn get_render_resource_set(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
-    ) -> Option<&(RenderResourceSetId, Option<Vec<u32>>)> {
+    ) -> Option<&RenderResourceSet> {
         self.bind_group_resource_sets.get(&bind_group_descriptor_id)
     }
 
-    fn generate_render_resource_set_id(
+    fn generate_render_resource_set(
         &self,
         bind_group_descriptor: &BindGroupDescriptor,
-    ) -> Option<(RenderResourceSetId, Option<Vec<u32>>)> {
+    ) -> Option<RenderResourceSet> {
         let mut hasher = DefaultHasher::new();
         let mut indices = Vec::new();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
-            if let Some((render_resource, index)) = self.get_indexed(&binding_descriptor.name) {
-                render_resource.hash(&mut hasher);
-                if let Some(index) = index {
-                    indices.push(index);
+            if let Some(assignment) = self.get(&binding_descriptor.name) {
+                let resource = assignment.get_resource();
+                resource.hash(&mut hasher);
+                if let RenderResourceAssignment::Buffer { dynamic_index: Some(index), .. } = assignment {
+                    indices.push(*index);
                 }
             } else {
                 return None;
             }
         }
 
-        Some((
-            RenderResourceSetId(hasher.finish()),
-            if indices.is_empty() {
+        Some(RenderResourceSet {
+            id: RenderResourceSetId(hasher.finish()),
+            dynamic_uniform_indices: if indices.is_empty() {
                 None
             } else {
                 Some(indices)
             },
-        ))
+        })
     }
 }
 
@@ -176,22 +195,22 @@ mod tests {
             ],
         );
 
-        let resource1 = RenderResource::new();
-        let resource2 = RenderResource::new();
-        let resource3 = RenderResource::new();
-        let resource4 = RenderResource::new();
+        let resource1 = RenderResourceAssignment::Texture(RenderResource::new());
+        let resource2 = RenderResourceAssignment::Texture(RenderResource::new());
+        let resource3 = RenderResourceAssignment::Texture(RenderResource::new());
+        let resource4 = RenderResourceAssignment::Texture(RenderResource::new());
 
         let mut assignments = RenderResourceAssignments::default();
-        assignments.set("a", resource1);
-        assignments.set("b", resource2);
+        assignments.set("a", resource1.clone());
+        assignments.set("b", resource2.clone());
 
         let mut different_assignments = RenderResourceAssignments::default();
-        different_assignments.set("a", resource3);
-        different_assignments.set("b", resource4);
+        different_assignments.set("a", resource3.clone());
+        different_assignments.set("b", resource4.clone());
 
         let mut equal_assignments = RenderResourceAssignments::default();
-        equal_assignments.set("a", resource1);
-        equal_assignments.set("b", resource2);
+        equal_assignments.set("a", resource1.clone());
+        equal_assignments.set("b", resource2.clone());
 
         let set_id = assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_ne!(set_id, None);
@@ -206,7 +225,7 @@ mod tests {
         assert_eq!(equal_set_id, set_id);
 
         let mut unmatched_assignments = RenderResourceAssignments::default();
-        unmatched_assignments.set("a", resource1);
+        unmatched_assignments.set("a", resource1.clone());
         let unmatched_set_id =
             unmatched_assignments.update_render_resource_set_id(&bind_group_descriptor);
         assert_eq!(unmatched_set_id, None);

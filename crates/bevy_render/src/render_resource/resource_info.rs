@@ -10,6 +10,7 @@ pub struct BufferArrayInfo {
 pub struct BufferInfo {
     pub size: usize,
     pub buffer_usage: BufferUsage,
+    // TODO: remove array info and is_dynamic
     pub array_info: Option<BufferArrayInfo>,
     pub is_dynamic: bool,
 }

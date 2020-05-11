@@ -4,7 +4,7 @@ use bevy_window::WindowResized;
 use crate::{
     camera::{ActiveCamera2d, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
+    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments, RenderResourceAssignment},
     renderer::{RenderContext, RenderResources},
 };
 
@@ -52,12 +52,20 @@ impl SystemNode for Camera2dNode {
                       query| {
                     let render_resources = &render_resource_context.context;
                     if camera_buffer.is_none() {
+                        let size = std::mem::size_of::<[[f32; 4]; 4]>();
                         let buffer = render_resources.create_buffer(BufferInfo {
-                            size: std::mem::size_of::<[[f32; 4]; 4]>(),
+                            size,
                             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                             ..Default::default()
                         });
-                        render_resource_assignments.set(resource_name::uniform::CAMERA2D, buffer);
+                        render_resource_assignments.set(
+                            resource_name::uniform::CAMERA2D,
+                            RenderResourceAssignment::Buffer {
+                                resource: buffer,
+                                range: 0..size as u64,
+                                dynamic_index: None,
+                            },
+                        );
                         camera_buffer = Some(buffer);
                     }
 

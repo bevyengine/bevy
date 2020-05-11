@@ -121,10 +121,10 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         bind_group_descriptor: &BindGroupDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> Option<RenderResourceSetId> {
-        if let Some((render_resource_set_id, _indices)) =
-            render_resource_assignments.get_render_resource_set_id(bind_group_descriptor.id)
+        if let Some(resource_set) =
+            render_resource_assignments.get_render_resource_set(bind_group_descriptor.id)
         {
-            Some(*render_resource_set_id)
+            Some(resource_set.id)
         } else {
             None
         }

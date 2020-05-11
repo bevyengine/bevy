@@ -84,7 +84,6 @@ impl PipelineCompiler {
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shaders: &mut AssetStorage<Shader>,
-        render_resource_context: &dyn RenderResourceContext,
         pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> PipelineDescriptor {
@@ -115,7 +114,7 @@ impl PipelineCompiler {
             shaders,
             true,
             Some(vertex_buffer_descriptors),
-            Some((render_resource_assignments, render_resource_context)),
+            Some(render_resource_assignments),
         );
 
         compiled_pipeline_descriptor.primitive_topology = render_resource_assignments
@@ -128,7 +127,6 @@ impl PipelineCompiler {
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_pipeline_assignments: &mut PipelineAssignments,
-        render_resource_context: &dyn RenderResourceContext,
         pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
         shader_storage: &mut AssetStorage<Shader>,
         pipelines: &[Handle<PipelineDescriptor>],
@@ -154,7 +152,6 @@ impl PipelineCompiler {
                 let compiled_pipeline = self.compile_pipeline(
                     vertex_buffer_descriptors,
                     shader_storage,
-                    render_resource_context,
                     pipeline_descriptor,
                     render_resource_assignments,
                 );
@@ -230,7 +227,6 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
-        let render_resources = resources.get::<RenderResources>().unwrap();
         let mut pipeline_descriptor_storage = resources
             .get_mut::<AssetStorage<PipelineDescriptor>>()
             .unwrap();
@@ -248,7 +244,6 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
             pipeline_compiler.update_shader_assignments(
                 &vertex_buffer_descriptors,
                 &mut shader_pipeline_assignments,
-                &*render_resources.context,
                 &mut pipeline_descriptor_storage,
                 &mut shader_storage,
                 &renderable.pipelines,

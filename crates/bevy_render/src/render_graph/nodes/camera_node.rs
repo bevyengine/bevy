@@ -1,6 +1,8 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
+    render_resource::{
+        resource_name, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+    },
     renderer::{RenderContext, RenderResources},
     ActiveCamera, Camera,
 };
@@ -52,12 +54,20 @@ impl SystemNode for CameraNode {
                       query| {
                     let render_resources = &render_resource_context.context;
                     if camera_buffer.is_none() {
+                        let size = std::mem::size_of::<[[f32; 4]; 4]>();
                         let buffer = render_resources.create_buffer(BufferInfo {
-                            size: std::mem::size_of::<[[f32; 4]; 4]>(),
+                            size,
                             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                             ..Default::default()
                         });
-                        render_resource_assignments.set(resource_name::uniform::CAMERA, buffer);
+                        render_resource_assignments.set(
+                            resource_name::uniform::CAMERA,
+                            RenderResourceAssignment::Buffer {
+                                resource: buffer,
+                                range: 0..size as u64,
+                                dynamic_index: None,
+                            },
+                        );
                         camera_buffer = Some(buffer);
                     }
 

@@ -6,7 +6,7 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{RenderResource, RenderResourceAssignments},
+    render_resource::{RenderResource, RenderResourceAssignments, RenderResourceAssignment},
     renderer::{RenderContext, RenderResourceContext},
     texture::{Extent3d, TextureDescriptor},
 };
@@ -195,8 +195,8 @@ fn get_texture_view<'a>(
 ) -> &'a wgpu::TextureView {
     match attachment {
         TextureAttachment::Name(name) => match global_render_resource_assignments.get(&name) {
-            Some(resource) => refs.textures.get(&resource).unwrap(),
-            None => {
+            Some(RenderResourceAssignment::Texture(resource)) => refs.textures.get(&resource).unwrap(),
+            _ => {
                 panic!("Color attachment {} does not exist", name);
             }
         },

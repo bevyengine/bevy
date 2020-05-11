@@ -1,6 +1,8 @@
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments},
+    render_resource::{
+        resource_name, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+    },
     renderer::{RenderContext, RenderResources},
 };
 
@@ -78,7 +80,14 @@ impl SystemNode for LightsNode {
                                 | BufferUsage::COPY_DST,
                             ..Default::default()
                         });
-                        render_resource_assignments.set(resource_name::uniform::LIGHTS, buffer);
+                        render_resource_assignments.set(
+                            resource_name::uniform::LIGHTS,
+                            RenderResourceAssignment::Buffer {
+                                resource: buffer,
+                                range: 0..light_uniform_size as u64,
+                                dynamic_index: None,
+                            },
+                        );
                         light_buffer = Some(buffer);
                     }
 

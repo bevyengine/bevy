@@ -4,12 +4,15 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    PipelineLayout, VertexBufferDescriptors, BindType,
+    BindType, PipelineLayout, VertexBufferDescriptors,
 };
 use crate::{
-    render_resource::{ResourceInfo, RenderResourceAssignments, BufferInfo},
+    render_resource::{
+        BufferInfo, RenderResourceAssignment, RenderResourceAssignments, ResourceInfo,
+    },
+    renderer::RenderResourceContext,
     shader::{Shader, ShaderStages},
-    texture::TextureFormat, renderer::RenderResourceContext,
+    texture::TextureFormat,
 };
 use bevy_asset::AssetStorage;
 
@@ -134,21 +137,21 @@ impl PipelineDescriptor {
     }
 
     /// Reflects the pipeline layout from its shaders.
-    /// 
+    ///
     /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
     /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
     ///
     /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
     /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
     ///
-    /// If `dynamic_uniform_lookup` is set, shader uniforms will be set to "dynamic" if there is a matching "dynamic uniform"
+    /// If `render_resource_assignments` is set, shader uniforms will be set to "dynamic" if there is a matching "dynamic uniform"
     /// render resource.
     pub fn reflect_layout(
         &mut self,
         shaders: &AssetStorage<Shader>,
         bevy_conventions: bool,
         vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
-        dynamic_uniform_lookup: Option<(&RenderResourceAssignments, &dyn RenderResourceContext)>,
+        render_resource_assignments: Option<&RenderResourceAssignments>,
     ) {
         let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
         let fragment_spirv = self
@@ -167,30 +170,23 @@ impl PipelineDescriptor {
             layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
         }
 
-        if let Some((render_resource_assignments, render_resource_context)) = dynamic_uniform_lookup {
+        if let Some(render_resource_assignments) = render_resource_assignments
+        {
             // set binding uniforms to dynamic if render resource assignments use dynamic
             // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
             // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
             // for all permutations of dynamic/non-dynamic
             for bind_group in layout.bind_groups.iter_mut() {
                 for binding in bind_group.bindings.iter_mut() {
-                    if let Some(render_resource) = render_resource_assignments.get(&binding.name) {
-                        render_resource_context.get_resource_info(
-                            render_resource,
-                            &mut |resource_info| {
-                                if let Some(ResourceInfo::Buffer(BufferInfo {
-                                    is_dynamic, ..
-                                })) = resource_info
-                                {
-                                    if let BindType::Uniform {
-                                        ref mut dynamic, ..
-                                    } = binding.bind_type
-                                    {
-                                        *dynamic = *is_dynamic
-                                    }
-                                }
-                            },
-                        );
+                    if let Some(RenderResourceAssignment::Buffer { dynamic_index: Some(_), .. }) =
+                        render_resource_assignments.get(&binding.name)
+                    {
+                        if let BindType::Uniform {
+                            ref mut dynamic, ..
+                        } = binding.bind_type
+                        {
+                            *dynamic = true;
+                        }
                     }
                 }
             }
