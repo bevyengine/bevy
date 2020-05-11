@@ -2,7 +2,7 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferArrayInfo, BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
+        BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
         RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
@@ -136,36 +136,9 @@ where
         render_resource_context: &dyn RenderResourceContext,
         align: bool,
     ) {
-        let new_capacity = if let Some(buffer) = buffer_array_status.buffer {
-            let mut new_capacity = None;
-            render_resource_context.get_resource_info(buffer, &mut |resource_info| {
-                new_capacity = if let Some(ResourceInfo::Buffer(BufferInfo {
-                    array_info: Some(array_info),
-                    ..
-                })) = resource_info
-                {
-                    if array_info.item_capacity < buffer_array_status.new_item_count {
-                        // over capacity. lets resize
-                        Some(
-                            buffer_array_status.new_item_count
-                                + buffer_array_status.new_item_count / 2,
-                        )
-                    } else {
-                        // under capacity. no change needed
-                        None
-                    }
-                } else {
-                    // incorrect resource type. overwrite with new buffer
-                    Some(buffer_array_status.new_item_count)
-                };
-            });
-            new_capacity
-        } else {
-            // buffer does not exist. create it now.
-            Some(buffer_array_status.new_item_count)
-        };
-
-        if let Some(new_capacity) = new_capacity {
+        if buffer_array_status.current_item_capacity < buffer_array_status.new_item_count {
+            let new_capacity =
+                buffer_array_status.new_item_count + buffer_array_status.new_item_count / 2;
             let mut item_size = buffer_array_status.item_size;
             if align {
                 item_size = Self::get_aligned_dynamic_uniform_size(item_size);
@@ -174,14 +147,8 @@ where
             let total_size = item_size * new_capacity;
 
             let buffer = render_resource_context.create_buffer(BufferInfo {
-                array_info: Some(BufferArrayInfo {
-                    item_capacity: new_capacity,
-                    item_size,
-                    ..Default::default()
-                }),
                 size: total_size,
                 buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                is_dynamic: true,
             });
 
             buffer_array_status.current_item_capacity = new_capacity;
