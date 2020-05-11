@@ -28,6 +28,14 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .set_vertex_buffer(start_slot, &buffer, offset, 0);
     }
 
+    fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
+        self.render_pass.set_viewport(x, y, w, h, min_depth, max_depth);
+    }
+
+    fn set_stencil_reference(&mut self, reference: u32) {
+       self.render_pass.set_stencil_reference(reference); 
+    }
+
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
         let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(&buffer, offset, 0);

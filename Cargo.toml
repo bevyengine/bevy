@@ -72,6 +72,10 @@ name = "hello_world"
 path = "examples/hello_world.rs"
 
 [[example]]
+name = "pathfinder"
+path = "examples/2d/pathfinder.rs"
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 

@@ -1,7 +1,8 @@
 use crate::BevyPathfinderDevice;
 use bevy_asset::AssetStorage;
 use bevy_render::{
-    render_graph::{Node, ResourceSlots},
+    render_graph::{Node, ResourceSlotInfo, ResourceSlots},
+    render_resource::ResourceInfo,
     renderer::RenderContext,
     shader::Shader,
 };
@@ -16,21 +17,47 @@ use pathfinder_renderer::{
     options::BuildOptions,
 };
 use pathfinder_resources::embedded::EmbeddedResourceLoader;
+use std::borrow::Cow;
 
 #[derive(Default)]
 pub struct PathfinderNode;
 
+impl PathfinderNode {
+    pub const IN_COLOR_TEXTURE: &'static str = "color";
+    pub const IN_DEPTH_STENCIL_TEXTURE: &'static str = "depth_stencil";
+}
+
 impl Node for PathfinderNode {
+    fn input(&self) -> &[ResourceSlotInfo] {
+        static INPUT: &[ResourceSlotInfo] = &[
+            ResourceSlotInfo {
+                name: Cow::Borrowed(PathfinderNode::IN_COLOR_TEXTURE),
+                resource_type: ResourceInfo::Texture,
+            },
+            ResourceSlotInfo {
+                name: Cow::Borrowed(PathfinderNode::IN_DEPTH_STENCIL_TEXTURE),
+                resource_type: ResourceInfo::Texture,
+            },
+        ];
+        INPUT
+    }
     fn update(
         &mut self,
         _world: &World,
         resources: &Resources,
         render_context: &mut dyn RenderContext,
-        _input: &ResourceSlots,
+        input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
         let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
-        let device = BevyPathfinderDevice::new(render_context, &mut shaders);
+        let color_texture = input.get(PathfinderNode::IN_COLOR_TEXTURE).unwrap();
+        let depth_stencil_texture = input.get(PathfinderNode::IN_DEPTH_STENCIL_TEXTURE).unwrap();
+        let device = BevyPathfinderDevice::new(
+            render_context,
+            &mut shaders,
+            color_texture,
+            depth_stencil_texture,
+        );
         let window_size = Vector2I::new(640 as i32, 480 as i32);
         let mut renderer = Renderer::new(
             device,

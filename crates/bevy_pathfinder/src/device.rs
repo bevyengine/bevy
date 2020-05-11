@@ -1,23 +1,33 @@
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
-    pipeline::{
-        state_descriptors::CompareFunction, InputStepMode, PipelineDescriptor,
-        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+    pass::{
+        LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
-    render_resource::{BufferInfo, BufferUsage, RenderResource},
+    pipeline::{
+        state_descriptors::{
+            BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
+            CompareFunction, DepthStencilStateDescriptor, StencilOperation,
+            StencilStateFaceDescriptor,
+        },
+        InputStepMode, PipelineDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
+        VertexFormat,
+    },
+    render_resource::{BufferInfo, BufferUsage, RenderResource, RenderResourceAssignments},
     renderer::RenderContext,
     shader::{Shader, ShaderSource, ShaderStage, ShaderStages},
     texture::{
         AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureDescriptor, TextureDimension,
         TextureFormat, TextureUsage,
     },
+    Color,
 };
 use pathfinder_canvas::vec2i;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 use pathfinder_gpu::{
-    BufferData, BufferTarget, BufferUploadMode, Device, ProgramKind, RenderState, RenderTarget,
-    ShaderKind, TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass,
-    VertexAttrDescriptor, VertexAttrType, FeatureLevel,
+    BufferData, BufferTarget, BufferUploadMode, Device, FeatureLevel, ProgramKind, RenderState,
+    RenderTarget, ShaderKind, TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass,
+    VertexAttrDescriptor, VertexAttrType,
 };
 use pathfinder_resources::ResourceLoader;
 use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
@@ -27,17 +37,245 @@ pub struct BevyPathfinderDevice<'a> {
     render_context: RefCell<&'a mut dyn RenderContext>,
     shaders: RefCell<&'a mut AssetStorage<Shader>>,
     samplers: RefCell<HashMap<u8, RenderResource>>,
+    main_color_texture: RenderResource,
+    main_depth_stencil_texture: RenderResource,
 }
 
 impl<'a> BevyPathfinderDevice<'a> {
     pub fn new(
         render_context: &'a mut dyn RenderContext,
         shaders: &'a mut AssetStorage<Shader>,
+        main_color_texture: RenderResource,
+        main_depth_stencil_texture: RenderResource,
     ) -> Self {
         BevyPathfinderDevice {
             render_context: RefCell::new(render_context),
             shaders: RefCell::new(shaders),
             samplers: RefCell::new(HashMap::new()),
+            main_color_texture,
+            main_depth_stencil_texture,
+        }
+    }
+
+    pub fn prepare_to_draw(&self, render_state: &RenderState<BevyPathfinderDevice>) {
+        let pass_descriptor = self.create_pass_descriptor(render_state);
+        self.update_pipline_descriptor(render_state, &pass_descriptor);
+        // setup uniforms
+        let mut render_context = self.render_context.borrow_mut();
+        let render_resource_assignments = RenderResourceAssignments::default();
+        render_context.begin_pass(
+            &pass_descriptor,
+            &render_resource_assignments,
+            &mut |pass| {
+                let viewport = render_state.viewport;
+                pass.set_viewport(
+                    viewport.origin().x() as f32,
+                    viewport.origin().y() as f32,
+                    viewport.size().x() as f32,
+                    viewport.size().y() as f32,
+                    0.0,
+                    1.0,
+                );
+
+                if let Some(stencil_state) = render_state.options.stencil {
+                    pass.set_stencil_reference(stencil_state.reference);
+                }
+
+                for (i, vertex_buffer) in render_state
+                    .vertex_array
+                    .vertex_buffers
+                    .borrow()
+                    .iter()
+                    .enumerate()
+                {
+                    let resource = vertex_buffer.handle.borrow().unwrap();
+                    pass.set_vertex_buffer(i as u32, resource, 0);
+                }
+
+                if let Some(ref index_buffer) = *render_state.vertex_array.index_buffer.borrow(){
+                    let resource = index_buffer.handle.borrow().unwrap();
+                    pass.set_index_buffer(resource, 0);
+                } 
+            },
+        )
+    }
+
+    fn get_texture_format(&self, _render_resource: RenderResource) -> Option<TextureFormat> {
+        // TODO: lookup real texture format
+        // let mut texture_format = None;
+        // self.render_context.borrow().resources().get_resource_info(
+        //     texture_resource,
+        //     &mut |info| {
+        //         if let Some(info) = info {
+        //             match info {
+        //                 ResourceInfo::Texture {
+
+        //                 }
+        //             }
+        //             texture_format = Some(info)
+        //         }
+        //     },
+        // );
+        Some(TextureFormat::Bgra8UnormSrgb)
+    }
+
+    pub fn update_pipline_descriptor(
+        &self,
+        render_state: &RenderState<BevyPathfinderDevice>,
+        pass_descriptor: &PassDescriptor,
+    ) {
+        if self.render_context.borrow().resources().get_asset_resource(render_state.program.pipeline_handle, 0).is_some() {
+            return
+        }
+        
+        let mut pipeline_descriptor = render_state.program.pipeline_descriptor.borrow_mut();
+        let color_texture_format = if let TextureAttachment::RenderResource(texture_resource) =
+            pass_descriptor
+                .color_attachments
+                .first()
+                .unwrap()
+                .attachment
+        {
+            self.get_texture_format(texture_resource)
+                .expect("expected color attachment RenderResource to have a texture format")
+        } else {
+            panic!("expected a RenderResource color attachment");
+        };
+
+        // TODO: lookup real texture format
+        // TODO: make sure colors render correctly
+        let mut color_state = ColorStateDescriptor {
+            format: color_texture_format,
+            color_blend: BlendDescriptor {
+                src_factor: BlendFactor::SrcAlpha,
+                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                operation: BlendOperation::Add,
+            },
+            alpha_blend: BlendDescriptor {
+                src_factor: BlendFactor::One,
+                dst_factor: BlendFactor::One,
+                operation: BlendOperation::Add,
+            },
+            write_mask: if render_state.options.color_mask {
+                ColorWrite::all()
+            } else {
+                ColorWrite::empty()
+            },
+        };
+
+        if let Some(blend_state) = render_state.options.blend {
+            let blend_op = blend_state.op.to_bevy_blend_op();
+            color_state.color_blend.src_factor = blend_state.src_rgb_factor.to_bevy_blend_factor();
+            color_state.color_blend.dst_factor = blend_state.dest_rgb_factor.to_bevy_blend_factor();
+            color_state.color_blend.operation = blend_op;
+
+            color_state.alpha_blend.src_factor =
+                blend_state.src_alpha_factor.to_bevy_blend_factor();
+            color_state.alpha_blend.dst_factor =
+                blend_state.dest_alpha_factor.to_bevy_blend_factor();
+            color_state.color_blend.operation = blend_op;
+        }
+
+        pipeline_descriptor.color_states.push(color_state);
+
+        if let Some(ref _pass_depth_stencil_descriptor) = pass_descriptor.depth_stencil_attachment {
+            // TODO: lookup texture format
+            // TODO: maybe we need a stencil-type depth format? TextureFormat::Depth24PlusStencil8
+            let depth_format = TextureFormat::Depth32Float;
+            let mut descriptor = DepthStencilStateDescriptor {
+                format: depth_format,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::Less,
+                stencil_front: StencilStateFaceDescriptor::IGNORE,
+                stencil_back: StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            };
+
+            if let Some(depth_state) = render_state.options.depth {
+                let compare_function = depth_state.func.to_bevy_compare_function();
+                descriptor.depth_compare = compare_function;
+                descriptor.depth_write_enabled = true;
+            }
+
+            if let Some(stencil_state) = render_state.options.stencil {
+                let compare = stencil_state.func.to_bevy_compare_function();
+                let (pass_op, write_mask) = if stencil_state.write {
+                    (StencilOperation::Replace, stencil_state.mask)
+                } else {
+                    (StencilOperation::Keep, 0)
+                };
+
+                let stencil_descriptor = StencilStateFaceDescriptor {
+                    compare,
+                    pass_op,
+                    depth_fail_op: StencilOperation::Keep,
+                    fail_op: StencilOperation::Keep,
+                };
+
+                descriptor.stencil_write_mask = write_mask;
+                descriptor.stencil_front = stencil_descriptor.clone();
+                descriptor.stencil_back = stencil_descriptor;
+            }
+        }
+    }
+
+    pub fn create_pass_descriptor(
+        &self,
+        render_state: &RenderState<BevyPathfinderDevice>,
+    ) -> PassDescriptor {
+        let mut depth_texture = None;
+        let color_texture = match render_state.target {
+            RenderTarget::Default { .. } => {
+                depth_texture = Some(self.main_depth_stencil_texture);
+                self.main_color_texture
+            }
+            RenderTarget::Framebuffer(framebuffer) => framebuffer.handle,
+        };
+
+        let mut color_attachment = RenderPassColorAttachmentDescriptor {
+            attachment: TextureAttachment::RenderResource(color_texture),
+            clear_color: Color::WHITE,
+            load_op: LoadOp::Load,
+            store_op: StoreOp::Store,
+            resolve_target: None,
+        };
+
+        if let Some(color) = render_state.options.clear_ops.color {
+            color_attachment.clear_color = Color::rgba(color.r(), color.g(), color.b(), color.a());
+            color_attachment.load_op = LoadOp::Clear;
+        }
+
+        let depth_stencil_attachment = if let Some(depth_texture) = depth_texture {
+            let mut descriptor = RenderPassDepthStencilAttachmentDescriptor {
+                attachment: TextureAttachment::RenderResource(depth_texture),
+                depth_load_op: LoadOp::Load,
+                depth_store_op: StoreOp::Store,
+                stencil_load_op: LoadOp::Load,
+                stencil_store_op: StoreOp::Store,
+                clear_depth: 1.0,
+                clear_stencil: 0,
+            };
+
+            if let Some(depth) = render_state.options.clear_ops.depth {
+                descriptor.clear_depth = depth;
+                descriptor.depth_load_op = LoadOp::Clear;
+            }
+
+            if let Some(value) = render_state.options.clear_ops.stencil {
+                descriptor.clear_stencil = value as u32;
+                descriptor.stencil_load_op = LoadOp::Clear;
+            }
+
+            Some(descriptor)
+        } else {
+            None
+        };
+
+        PassDescriptor {
+            color_attachments: vec![color_attachment],
+            depth_stencil_attachment,
+            sample_count: 1,
         }
     }
 }
@@ -59,6 +297,11 @@ pub struct BevyVertexArray {
     index_buffer: RefCell<Option<BevyBuffer>>,
 }
 
+pub struct BevyProgram {
+    pipeline_descriptor: RefCell<PipelineDescriptor>,
+    pipeline_handle: Handle<PipelineDescriptor>,
+}
+
 pub struct BevyTexture {
     handle: RenderResource,
     texture_descriptor: TextureDescriptor,
@@ -75,7 +318,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     type Buffer = BevyBuffer;
     type Fence = ();
     type Framebuffer = BevyTexture;
-    type Program = PipelineDescriptor;
+    type Program = BevyProgram;
     type Shader = Handle<Shader>;
     type StorageBuffer = ();
     type Texture = BevyTexture;
@@ -134,25 +377,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         name: &str,
         kind: ShaderKind,
     ) -> Self::Shader {
-        // let shader_bytes = match (name, kind) {
-        //     ("blit", ShaderKind::Fragment) => shaders::BLIT_FS,
-        //     ("blit", ShaderKind::Vertex) => shaders::BLIT_VS,
-        //     // ("debug_solid", ShaderKind::Fragment) => shaders::DEMO_GROUND_FS,
-        //     // ("demo_ground", ShaderKind::Vertex) => shaders::DEMO_GROUND_VS,
-        //     ("fill", ShaderKind::Fragment) => shaders::FILL_FS,
-        //     ("fill", ShaderKind::Vertex) => shaders::FILL_VS,
-        //     ("reproject", ShaderKind::Fragment) => shaders::REPROJECT_FS,
-        //     ("reproject", ShaderKind::Vertex) => shaders::REPROJECT_VS,
-        //     ("stencil", ShaderKind::Fragment) => shaders::STENCIL_FS,
-        //     ("stencil", ShaderKind::Vertex) => shaders::STENCIL_VS,
-        //     ("tile_clip", ShaderKind::Fragment) => shaders::TILE_CLIP_FS,
-        //     ("tile_clip", ShaderKind::Vertex) => shaders::TILE_CLIP_VS,
-        //     ("tile_copy", ShaderKind::Fragment) => shaders::TILE_COPY_FS,
-        //     ("tile_copy", ShaderKind::Vertex) => shaders::TILE_COPY_VS,
-        //     ("tile", ShaderKind::Fragment) => shaders::TILE_FS,
-        //     ("tile", ShaderKind::Vertex) => shaders::TILE_VS,
-        //     _ => panic!("encountered unexpected shader {} {:?}", name, kind),
-        // };
         let suffix = match kind {
             ShaderKind::Vertex => 'v',
             ShaderKind::Fragment => 'f',
@@ -196,7 +420,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         _resources: &dyn ResourceLoader,
         _name: &str,
         shaders: ProgramKind<Handle<Shader>>,
-    ) -> Self::Program {
+    ) -> BevyProgram {
         match shaders {
             ProgramKind::Compute(_) => panic!("bevy does not currently support compute shaders"),
             ProgramKind::Raster { vertex, fragment } => {
@@ -205,17 +429,17 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                     fragment: Some(fragment),
                 });
                 descriptor.reflect_layout(&self.shaders.borrow(), false, None, None);
-                descriptor
+                BevyProgram {
+                    pipeline_descriptor: RefCell::new(descriptor),
+                    pipeline_handle: Handle::new(),
+                }
             }
         }
     }
-    fn get_vertex_attr(
-        &self,
-        descriptor: &PipelineDescriptor,
-        name: &str,
-    ) -> Option<Self::VertexAttr> {
+    fn get_vertex_attr(&self, program: &BevyProgram, name: &str) -> Option<BevyVertexAttr> {
         // TODO: this probably isn't actually used for anything. try to optimize
-        let layout = descriptor.get_layout().unwrap();
+        let pipeline_descriptor = program.pipeline_descriptor.borrow();
+        let layout = pipeline_descriptor.get_layout().unwrap();
         let attribute_name = format!("a{}", name);
         for buffer_descriptor in layout.vertex_buffer_descriptors.iter() {
             let attribute = buffer_descriptor
@@ -230,12 +454,9 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             }
         }
 
-        // // TODO: remove this
-        // panic!("failed to find attribute {} ", attribute_name);
-
         None
     }
-    fn get_uniform(&self, _program: &PipelineDescriptor, name: &str) -> Self::Uniform {
+    fn get_uniform(&self, _program: &BevyProgram, name: &str) -> Self::Uniform {
         BevyUniform {
             name: name.to_string(),
         }
@@ -251,10 +472,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 .vertex_buffers
                 .borrow_mut()
                 .push(buffer.clone()),
-            BufferTarget::Index => {
-                *vertex_array.index_buffer.borrow_mut() =
-                    Some(buffer.clone())
-            }
+            BufferTarget::Index => *vertex_array.index_buffer.borrow_mut() = Some(buffer.clone()),
             _ => panic!("Buffers bound to vertex arrays must be vertex or index buffers!"),
         }
     }
@@ -370,10 +588,16 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         }
     }
 
-    fn allocate_buffer<T>(&self, buffer: &BevyBuffer, data: BufferData<T>, _target: BufferTarget) {
+    fn allocate_buffer<T>(&self, buffer: &BevyBuffer, data: BufferData<T>, target: BufferTarget) {
+        let usage = match target {
+            BufferTarget::Vertex => BufferUsage::VERTEX,
+            BufferTarget::Index => BufferUsage::INDEX,
+            BufferTarget::Storage => BufferUsage::empty(),
+        };
+
         let buffer_usage = match buffer.mode {
-            BufferUploadMode::Dynamic => BufferUsage::WRITE_ALL,
-            BufferUploadMode::Static => BufferUsage::COPY_DST,
+            BufferUploadMode::Dynamic => BufferUsage::WRITE_ALL | usage,
+            BufferUploadMode::Static => BufferUsage::COPY_DST | usage,
         };
         match data {
             BufferData::Uninitialized(size) => {
@@ -534,19 +758,22 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     fn end_commands(&self) {
         // NOTE: the Bevy Render Graph handles command buffer submission
     }
-    fn draw_arrays(&self, _index_count: u32, _render_state: &RenderState<Self>) {
-        todo!()
+    fn draw_arrays(&self, _index_count: u32, render_state: &RenderState<Self>) {
+        self.prepare_to_draw(render_state);
+        println!("draw_arrays");
     }
-    fn draw_elements(&self, _index_count: u32, _render_state: &RenderState<Self>) {
-        todo!()
+    fn draw_elements(&self, _index_count: u32, render_state: &RenderState<Self>) {
+        self.prepare_to_draw(render_state);
+        println!("draw_elements");
     }
     fn draw_elements_instanced(
         &self,
         _index_count: u32,
         _instance_count: u32,
-        _render_state: &RenderState<Self>,
+        render_state: &RenderState<Self>,
     ) {
-        todo!()
+        self.prepare_to_draw(render_state);
+        println!("draw_elements_instanced");
     }
     fn create_timer_query(&self) -> Self::TimerQuery {
         // TODO: maybe not needed
@@ -598,7 +825,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             .resources()
             .create_buffer_with_data(
                 BufferInfo {
-                    buffer_usage: BufferUsage::COPY_DST,
+                    buffer_usage: BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
                     ..Default::default()
                 },
                 slice_to_u8(data_slice),
@@ -626,9 +853,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
 fn get_texture_bytes<'a>(data_ref: &'a TextureDataRef) -> &'a [u8] {
     match data_ref {
         TextureDataRef::U8(data) => data,
-        TextureDataRef::F16(data) => {
-            slice_to_u8(data)
-        }
+        TextureDataRef::F16(data) => slice_to_u8(data),
         TextureDataRef::F32(data) => data.as_bytes(),
     }
 }
@@ -639,5 +864,63 @@ fn slice_to_u8<T>(slice: &[T]) -> &[u8] {
             slice.as_ptr() as *const u8,
             slice.len() * mem::size_of::<T>(),
         )
+    }
+}
+
+trait ToBevyBlendOp {
+    fn to_bevy_blend_op(self) -> BlendOperation;
+}
+
+impl ToBevyBlendOp for pathfinder_gpu::BlendOp {
+    #[inline]
+    fn to_bevy_blend_op(self) -> BlendOperation {
+        match self {
+            pathfinder_gpu::BlendOp::Add => BlendOperation::Add,
+            pathfinder_gpu::BlendOp::Subtract => BlendOperation::Subtract,
+            pathfinder_gpu::BlendOp::ReverseSubtract => BlendOperation::ReverseSubtract,
+            pathfinder_gpu::BlendOp::Min => BlendOperation::Min,
+            pathfinder_gpu::BlendOp::Max => BlendOperation::Max,
+        }
+    }
+}
+
+trait ToBevyBlendFactor {
+    fn to_bevy_blend_factor(self) -> BlendFactor;
+}
+
+impl ToBevyBlendFactor for pathfinder_gpu::BlendFactor {
+    #[inline]
+    fn to_bevy_blend_factor(self) -> BlendFactor {
+        match self {
+            pathfinder_gpu::BlendFactor::Zero => BlendFactor::Zero,
+            pathfinder_gpu::BlendFactor::One => BlendFactor::One,
+            pathfinder_gpu::BlendFactor::SrcAlpha => BlendFactor::SrcAlpha,
+            pathfinder_gpu::BlendFactor::OneMinusSrcAlpha => BlendFactor::OneMinusSrcAlpha,
+            pathfinder_gpu::BlendFactor::DestAlpha => BlendFactor::DstAlpha,
+            pathfinder_gpu::BlendFactor::OneMinusDestAlpha => BlendFactor::OneMinusDstAlpha,
+            pathfinder_gpu::BlendFactor::DestColor => BlendFactor::DstColor,
+        }
+    }
+}
+
+trait ToBevyCompareFunction {
+    fn to_bevy_compare_function(self) -> CompareFunction;
+}
+
+impl ToBevyCompareFunction for pathfinder_gpu::DepthFunc {
+    fn to_bevy_compare_function(self) -> CompareFunction {
+        match self {
+            pathfinder_gpu::DepthFunc::Always => CompareFunction::Always,
+            pathfinder_gpu::DepthFunc::Less => CompareFunction::Less,
+        }
+    }
+}
+
+impl ToBevyCompareFunction for pathfinder_gpu::StencilFunc {
+    fn to_bevy_compare_function(self) -> CompareFunction {
+        match self {
+            pathfinder_gpu::StencilFunc::Always => CompareFunction::Always,
+            pathfinder_gpu::StencilFunc::Equal => CompareFunction::Equal,
+        }
     }
 }

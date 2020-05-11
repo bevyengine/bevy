@@ -17,15 +17,17 @@ use legion::prelude::Resources;
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
     pub add_3d_camera: bool,
+    pub add_main_depth_texture: bool,
     pub add_main_pass: bool,
     pub connect_main_pass_to_swapchain: bool,
+    pub connect_main_pass_to_main_depth_texture: bool,
 }
 
 pub mod node {
     pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
     pub const CAMERA: &str = "camera";
     pub const CAMERA2D: &str = "camera2d";
-    pub const MAIN_PASS_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
+    pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_PASS: &str = "main_pass";
 }
 
@@ -35,7 +37,9 @@ impl Default for BaseRenderGraphConfig {
             add_2d_camera: true,
             add_3d_camera: true,
             add_main_pass: true,
+            add_main_depth_texture: true,
             connect_main_pass_to_swapchain: true,
+            connect_main_pass_to_main_depth_texture: true,
         }
     }
 }
@@ -64,9 +68,9 @@ impl BaseRenderGraphBuilder for RenderGraph {
             self.add_system_node_named(node::CAMERA2D, Camera2dNode::default(), resources);
         }
 
-        if config.add_main_pass {
+        if config.add_main_depth_texture {
             self.add_node_named(
-                node::MAIN_PASS_DEPTH_TEXTURE,
+                node::MAIN_DEPTH_TEXTURE,
                 WindowTextureNode::new(
                     WindowReference::Primary,
                     TextureDescriptor {
@@ -85,7 +89,9 @@ impl BaseRenderGraphBuilder for RenderGraph {
                     resources.get_event_reader::<WindowResized>(),
                 ),
             );
+        }
 
+        if config.add_main_pass {
             self.add_node_named(
                 node::MAIN_PASS,
                 PassNode::new(PassDescriptor {
@@ -108,14 +114,6 @@ impl BaseRenderGraphBuilder for RenderGraph {
                     sample_count: 1,
                 }),
             );
-
-            self.add_slot_edge(
-                node::MAIN_PASS_DEPTH_TEXTURE,
-                WindowTextureNode::OUT_TEXTURE,
-                node::MAIN_PASS,
-                "depth",
-            )
-            .unwrap();
 
             if config.add_3d_camera {
                 self.add_node_edge(node::CAMERA, node::MAIN_PASS).unwrap();
@@ -141,6 +139,16 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 WindowSwapChainNode::OUT_TEXTURE,
                 node::MAIN_PASS,
                 "color",
+            )
+            .unwrap();
+        }
+
+        if config.connect_main_pass_to_main_depth_texture {
+            self.add_slot_edge(
+                node::MAIN_DEPTH_TEXTURE,
+                WindowTextureNode::OUT_TEXTURE,
+                node::MAIN_PASS,
+                "depth",
             )
             .unwrap();
         }

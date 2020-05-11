@@ -73,3 +73,7 @@ pub use bevy_transform as transform;
 pub use bevy_ui as ui;
 #[cfg(feature = "window")]
 pub use bevy_window as window;
+#[cfg(feature = "winit")]
+pub use bevy_winit as winit;
+#[cfg(feature = "wgpu")]
+pub use bevy_wgpu as wgpu;
