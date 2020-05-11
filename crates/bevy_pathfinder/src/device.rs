@@ -22,15 +22,16 @@ use bevy_render::{
     },
     Color,
 };
+use byteorder::{NativeEndian, WriteBytesExt};
 use pathfinder_canvas::vec2i;
 use pathfinder_geometry::{rect::RectI, vector::Vector2I};
 use pathfinder_gpu::{
     BufferData, BufferTarget, BufferUploadMode, Device, FeatureLevel, ProgramKind, RenderState,
-    RenderTarget, ShaderKind, TextureData, TextureDataRef, TextureSamplingFlags, VertexAttrClass,
-    VertexAttrDescriptor, VertexAttrType,
+    RenderTarget, ShaderKind, TextureData, TextureDataRef, TextureSamplingFlags, UniformData,
+    VertexAttrClass, VertexAttrDescriptor, VertexAttrType,
 };
 use pathfinder_resources::ResourceLoader;
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration, ops::Range};
 use zerocopy::AsBytes;
 
 pub struct BevyPathfinderDevice<'a> {
@@ -59,10 +60,31 @@ impl<'a> BevyPathfinderDevice<'a> {
 
     pub fn prepare_to_draw(&self, render_state: &RenderState<BevyPathfinderDevice>) {
         let pass_descriptor = self.create_pass_descriptor(render_state);
-        self.update_pipline_descriptor(render_state, &pass_descriptor);
-        // setup uniforms
+        self.setup_pipline_descriptor(render_state, &pass_descriptor, &render_state.vertex_array.requested_descriptors.borrow());
+        // TODO: setup uniforms
         let mut render_context = self.render_context.borrow_mut();
-        let render_resource_assignments = RenderResourceAssignments::default();
+        let mut render_resource_assignments = RenderResourceAssignments::default();
+        for (i, vertex_buffer) in render_state
+            .vertex_array
+            .vertex_buffers
+            .borrow()
+            .iter()
+            .enumerate()
+        {
+            let resource = vertex_buffer.handle.borrow().unwrap();
+            let mut indices_resource = None;
+            if i == 0 {
+                if let Some(ref index_buffer) = *render_state.vertex_array.index_buffer.borrow() {
+                    indices_resource = Some(index_buffer.handle.borrow().unwrap());
+                }
+            }
+            render_resource_assignments.set_vertex_buffer(get_vertex_buffer_name(i), resource, indices_resource);
+        }
+
+        // if let Some(ref index_buffer) = *render_state.vertex_array.index_buffer.borrow() {
+        //     let resource = index_buffer.handle.borrow().unwrap();
+        //     pass.set_index_buffer(resource, 0);
+        // }
         render_context.begin_pass(
             &pass_descriptor,
             &render_resource_assignments,
@@ -81,21 +103,8 @@ impl<'a> BevyPathfinderDevice<'a> {
                     pass.set_stencil_reference(stencil_state.reference);
                 }
 
-                for (i, vertex_buffer) in render_state
-                    .vertex_array
-                    .vertex_buffers
-                    .borrow()
-                    .iter()
-                    .enumerate()
-                {
-                    let resource = vertex_buffer.handle.borrow().unwrap();
-                    pass.set_vertex_buffer(i as u32, resource, 0);
-                }
-
-                if let Some(ref index_buffer) = *render_state.vertex_array.index_buffer.borrow(){
-                    let resource = index_buffer.handle.borrow().unwrap();
-                    pass.set_index_buffer(resource, 0);
-                } 
+                let pipeline_descriptor = render_state.program.pipeline_descriptor.borrow();
+                pass.set_render_resources(&pipeline_descriptor, &render_resource_assignments);
             },
         )
     }
@@ -119,16 +128,37 @@ impl<'a> BevyPathfinderDevice<'a> {
         Some(TextureFormat::Bgra8UnormSrgb)
     }
 
-    pub fn update_pipline_descriptor(
+    pub fn setup_pipline_descriptor(
         &self,
         render_state: &RenderState<BevyPathfinderDevice>,
         pass_descriptor: &PassDescriptor,
+        requested_vertex_descriptors: &HashMap<u32, VertexBufferDescriptor>,
     ) {
-        if self.render_context.borrow().resources().get_asset_resource(render_state.program.pipeline_handle, 0).is_some() {
-            return
+        if self
+            .render_context
+            .borrow()
+            .resources()
+            .get_asset_resource(render_state.program.pipeline_handle, 0)
+            .is_some()
+        {
+            return;
         }
-        
         let mut pipeline_descriptor = render_state.program.pipeline_descriptor.borrow_mut();
+        {
+            let mut layout = pipeline_descriptor.get_layout_mut().unwrap();
+            let mut i = 0;
+            let mut descriptors = Vec::with_capacity(requested_vertex_descriptors.len());
+            loop {
+                if let Some(descriptor) = requested_vertex_descriptors.get(&i) {
+                    descriptors.push(descriptor.clone());
+                    i += 1; 
+                } else {
+                    break;
+                }
+            }
+            layout.vertex_buffer_descriptors = descriptors;
+        }
+
         let color_texture_format = if let TextureAttachment::RenderResource(texture_resource) =
             pass_descriptor
                 .color_attachments
@@ -218,6 +248,15 @@ impl<'a> BevyPathfinderDevice<'a> {
                 descriptor.stencil_back = stencil_descriptor;
             }
         }
+
+        self.render_context
+            .borrow()
+            .resources()
+            .create_render_pipeline(
+                render_state.program.pipeline_handle,
+                &pipeline_descriptor,
+                &self.shaders.borrow(),
+            );
     }
 
     pub fn create_pass_descriptor(
@@ -276,6 +315,114 @@ impl<'a> BevyPathfinderDevice<'a> {
             color_attachments: vec![color_attachment],
             depth_stencil_attachment,
             sample_count: 1,
+        }
+    }
+    fn create_uniform_buffer(&self, uniforms: &[(&BevyUniform, UniformData)]) -> UniformBuffer {
+        let (mut uniform_buffer_data, mut uniform_buffer_ranges) = (vec![], vec![]);
+        for &(_, uniform_data) in uniforms.iter() {
+            let start_index = uniform_buffer_data.len();
+            match uniform_data {
+                UniformData::Float(value) => uniform_buffer_data
+                    .write_f32::<NativeEndian>(value)
+                    .unwrap(),
+                UniformData::IVec2(vector) => {
+                    uniform_buffer_data
+                        .write_i32::<NativeEndian>(vector.x())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_i32::<NativeEndian>(vector.y())
+                        .unwrap();
+                }
+                UniformData::IVec3(values) => {
+                    uniform_buffer_data
+                        .write_i32::<NativeEndian>(values[0])
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_i32::<NativeEndian>(values[1])
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_i32::<NativeEndian>(values[2])
+                        .unwrap();
+                }
+                UniformData::Int(value) => uniform_buffer_data
+                    .write_i32::<NativeEndian>(value)
+                    .unwrap(),
+                UniformData::Mat2(matrix) => {
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(matrix.x())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(matrix.y())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(matrix.z())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(matrix.w())
+                        .unwrap();
+                }
+                UniformData::Mat4(matrix) => {
+                    for column in &matrix {
+                        uniform_buffer_data
+                            .write_f32::<NativeEndian>(column.x())
+                            .unwrap();
+                        uniform_buffer_data
+                            .write_f32::<NativeEndian>(column.y())
+                            .unwrap();
+                        uniform_buffer_data
+                            .write_f32::<NativeEndian>(column.z())
+                            .unwrap();
+                        uniform_buffer_data
+                            .write_f32::<NativeEndian>(column.w())
+                            .unwrap();
+                    }
+                }
+                UniformData::Vec2(vector) => {
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.x())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.y())
+                        .unwrap();
+                }
+                UniformData::Vec3(array) => {
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(array[0])
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(array[1])
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(array[2])
+                        .unwrap();
+                }
+                UniformData::Vec4(vector) => {
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.x())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.y())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.z())
+                        .unwrap();
+                    uniform_buffer_data
+                        .write_f32::<NativeEndian>(vector.w())
+                        .unwrap();
+                }
+                UniformData::TextureUnit(_) | UniformData::ImageUnit(_) => {}
+            }
+            // TODO: this padding might not be necessary
+            let end_index = uniform_buffer_data.len();
+            while uniform_buffer_data.len() % 256 != 0 {
+                uniform_buffer_data.push(0);
+            }
+            uniform_buffer_ranges.push(start_index..end_index);
+        }
+
+        UniformBuffer {
+            data: uniform_buffer_data,
+            ranges: uniform_buffer_ranges,
         }
     }
 }
@@ -482,6 +629,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         bevy_attr: &BevyVertexAttr,
         descriptor: &VertexAttrDescriptor,
     ) {
+        println!("configure");
         let format = match (descriptor.class, descriptor.attr_type, descriptor.size) {
             (VertexAttrClass::Int, VertexAttrType::I8, 2) => VertexFormat::Char2,
             // (VertexAttrClass::Int, VertexAttrType::I8, 3) => VertexFormat::Char3,
@@ -564,7 +712,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             requested_descriptors
                 .entry(buffer_index)
                 .or_insert_with(|| VertexBufferDescriptor {
-                    name: Cow::Borrowed("placeholder"),
+                    name: Cow::Borrowed(get_vertex_buffer_name(buffer_index as usize)),
                     attributes: Vec::new(),
                     step_mode,
                     stride: descriptor.stride as u64,
@@ -922,5 +1070,25 @@ impl ToBevyCompareFunction for pathfinder_gpu::StencilFunc {
             pathfinder_gpu::StencilFunc::Always => CompareFunction::Always,
             pathfinder_gpu::StencilFunc::Equal => CompareFunction::Equal,
         }
+    }
+}
+
+struct UniformBuffer {
+    data: Vec<u8>,
+    ranges: Vec<Range<usize>>,
+}
+
+pub const pathfinder_vertex_buffer_0: &'static str = "P0";  
+pub const pathfinder_vertex_buffer_1: &'static str = "P1";  
+pub const pathfinder_vertex_buffer_2: &'static str = "P2";  
+pub const pathfinder_vertex_buffer_3: &'static str = "P3";  
+
+pub fn get_vertex_buffer_name(index: usize) -> &'static str {
+    match index {
+        0 => pathfinder_vertex_buffer_0,
+        1 => pathfinder_vertex_buffer_1,
+        2 => pathfinder_vertex_buffer_2,
+        3 => pathfinder_vertex_buffer_3,
+        _ => panic!("encountered unknown vertex buffer index"),
     }
 }

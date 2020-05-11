@@ -21,3 +21,4 @@ pathfinder_color = { path = "../pathfinder/color" }
 pathfinder_canvas = { path = "../pathfinder/canvas" }
 
 zerocopy = "0.3.0"
+byteorder = "1.3"

@@ -20,6 +20,7 @@ pub enum Command {
         destination_array_layer: u32,
         size: Extent3d,
     },
+    // TODO: Frees probably don't need to be queued?
     FreeBuffer(RenderResource),
 }
 
