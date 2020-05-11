@@ -5,7 +5,7 @@ use crate::{
 
 use bevy_asset::{AssetStorage, Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptor, BindType, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, PipelineDescriptor},
     render_resource::{
         BufferInfo, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
         RenderResourceSetId, ResourceInfo,
@@ -525,7 +525,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                                         range: range.clone(),
                                     }
                                 }
-                                _ => panic!("unsupported bind type"),
                             };
                             wgpu::Binding {
                                 binding: binding.index,

@@ -1078,17 +1078,17 @@ struct UniformBuffer {
     ranges: Vec<Range<usize>>,
 }
 
-pub const pathfinder_vertex_buffer_0: &'static str = "P0";  
-pub const pathfinder_vertex_buffer_1: &'static str = "P1";  
-pub const pathfinder_vertex_buffer_2: &'static str = "P2";  
-pub const pathfinder_vertex_buffer_3: &'static str = "P3";  
+pub const PATHFINDER_VERTEX_BUFFER_0: &'static str = "P0";  
+pub const PATHFINDER_VERTEX_BUFFER_1: &'static str = "P1";  
+pub const PATHFINDER_VERTEX_BUFFER_2: &'static str = "P2";  
+pub const PATHFINDER_VERTEX_BUFFER_3: &'static str = "P3";  
 
 pub fn get_vertex_buffer_name(index: usize) -> &'static str {
     match index {
-        0 => pathfinder_vertex_buffer_0,
-        1 => pathfinder_vertex_buffer_1,
-        2 => pathfinder_vertex_buffer_2,
-        3 => pathfinder_vertex_buffer_3,
+        0 => PATHFINDER_VERTEX_BUFFER_0,
+        1 => PATHFINDER_VERTEX_BUFFER_1,
+        2 => PATHFINDER_VERTEX_BUFFER_2,
+        3 => PATHFINDER_VERTEX_BUFFER_3,
         _ => panic!("encountered unknown vertex buffer index"),
     }
 }
