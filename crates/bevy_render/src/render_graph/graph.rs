@@ -314,7 +314,6 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        render_resource::ResourceInfo,
         renderer::RenderContext, shader::FieldBindType,
     };
     use legion::prelude::{Resources, World};

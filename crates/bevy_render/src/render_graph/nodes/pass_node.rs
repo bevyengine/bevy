@@ -3,7 +3,7 @@ use crate::{
     pass::{PassDescriptor, TextureAttachment},
     pipeline::{PipelineCompiler, PipelineDescriptor},
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{RenderResourceAssignments, ResourceInfo},
+    render_resource::RenderResourceAssignments,
     renderer::RenderContext,
     shader::{FieldBindType, Shader},
 };

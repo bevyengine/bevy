@@ -1,8 +1,0 @@
-[package]
-name = "svg-to-skia"
-version = "0.1.0"
-authors = ["Patrick Walton <pcwalton@mimiga.net>"]
-edition = "2018"
-
-[dependencies]
-usvg = "0.9"

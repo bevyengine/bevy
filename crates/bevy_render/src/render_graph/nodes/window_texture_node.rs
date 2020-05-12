@@ -1,6 +1,5 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::ResourceInfo,
     renderer::RenderContext,
     texture::TextureDescriptor, shader::FieldBindType,
 };

@@ -1,5 +1,5 @@
 use super::RenderGraphError;
-use crate::{shader::FieldBindType, render_resource::{RenderResource, ResourceInfo}};
+use crate::{render_resource::RenderResource, shader::FieldBindType};
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]

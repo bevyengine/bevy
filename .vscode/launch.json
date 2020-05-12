@@ -822,25 +822,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'bevy_pathfinder'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=bevy_pathfinder"
-                ],
-                "filter": {
-                    "name": "bevy_pathfinder",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug unit tests in library 'bevy_pbr'",
             "cargo": {
                 "args": [
@@ -983,43 +964,6 @@
                 ],
                 "filter": {
                     "name": "hello_world",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'pathfinder'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=pathfinder",
-                    "--package=bevy"
-                ],
-                "filter": {
-                    "name": "pathfinder",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'pathfinder'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=pathfinder",
-                    "--package=bevy"
-                ],
-                "filter": {
-                    "name": "pathfinder",
                     "kind": "example"
                 }
             },

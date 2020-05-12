@@ -6,14 +6,13 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pathfinder", "pbr", "render", "serialization", "transform", "ui", "window"]
+headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "render", "serialization", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 derive = ["bevy_derive"]
 diagnostic = ["bevy_diagnostic"]
 gltf = ["bevy_gltf"]
 input = ["bevy_input"]
-pathfinder = ["bevy_pathfinder"]
 pbr = ["bevy_pbr"]
 render = ["bevy_render"]
 serialization = ["bevy_serialization"]
@@ -29,10 +28,6 @@ members = [
     "crates/*",
     "examples/app/dynamic_plugin_loading/example_plugin"
 ]
-exclude = [
-    "crates/pathfinder"
-]
-
 
 [dependencies]
 # bevy
@@ -43,7 +38,6 @@ bevy_derive = { path = "crates/bevy_derive", optional = true }
 bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
 bevy_gltf = { path = "crates/bevy_gltf", optional = true }
 bevy_input = { path = "crates/bevy_input", optional = true }
-bevy_pathfinder = { path = "crates/bevy_pathfinder", optional = true }
 bevy_pbr = { path = "crates/bevy_pbr", optional = true }
 bevy_render = { path = "crates/bevy_render", optional = true }
 bevy_serialization = { path = "crates/bevy_serialization", optional = true }
@@ -70,10 +64,6 @@ opt-level = 3
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
-
-[[example]]
-name = "pathfinder"
-path = "examples/2d/pathfinder.rs"
 
 [[example]]
 name = "sprite"

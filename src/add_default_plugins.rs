@@ -21,9 +21,6 @@ impl AddDefaultPlugins for AppBuilder {
         #[cfg(feature = "render")]
         self.add_plugin(bevy_render::RenderPlugin::default());
 
-        // #[cfg(feature = "pathfinder")]
-        // self.add_plugin(bevy_pathfinder::PathfinderPlugin::default());
-
         #[cfg(feature = "pbr")]
         self.add_plugin(bevy_pbr::PbrPlugin::default());
 
