@@ -8,6 +8,16 @@ pub enum TextureAttachment {
     Input(String),
 }
 
+impl TextureAttachment {
+    pub fn get_resource(&self) -> Option<RenderResource> {
+        if let TextureAttachment::RenderResource(render_resource) =  self {
+            Some(*render_resource)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RenderPassColorAttachmentDescriptor {
     /// The actual color attachment.

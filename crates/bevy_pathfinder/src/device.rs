@@ -1,17 +1,17 @@
 use bevy_asset::{AssetStorage, Handle};
 use bevy_render::{
     pass::{
-        LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment, RenderPass,
+        LoadOp, PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     pipeline::{
         state_descriptors::{
             BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, DepthStencilStateDescriptor, StencilOperation,
-            StencilStateFaceDescriptor, RasterizationStateDescriptor, PrimitiveTopology,
+            CompareFunction, DepthStencilStateDescriptor, PrimitiveTopology,
+            RasterizationStateDescriptor, StencilOperation, StencilStateFaceDescriptor,
         },
-        InputStepMode, PipelineDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
-        VertexFormat,
+        BindType, InputStepMode, PipelineDescriptor, VertexAttributeDescriptor,
+        VertexBufferDescriptor, VertexFormat,
     },
     render_resource::{
         BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
@@ -34,9 +34,7 @@ use pathfinder_gpu::{
     VertexAttrClass, VertexAttrDescriptor, VertexAttrType,
 };
 use pathfinder_resources::ResourceLoader;
-use std::{
-    borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration,
-};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
 use zerocopy::AsBytes;
 
 pub struct BevyPathfinderDevice<'a> {
@@ -46,6 +44,8 @@ pub struct BevyPathfinderDevice<'a> {
     main_color_texture: RenderResource,
     main_depth_stencil_texture: RenderResource,
     default_sampler: RenderResource,
+    default_uniform_texture: RenderResource,
+    default_buffer: RenderResource,
 }
 
 impl<'a> BevyPathfinderDevice<'a> {
@@ -55,7 +55,30 @@ impl<'a> BevyPathfinderDevice<'a> {
         main_color_texture: RenderResource,
         main_depth_stencil_texture: RenderResource,
     ) -> Self {
-        let default_sampler = render_context.resources().create_sampler(&SamplerDescriptor::default());
+        let default_sampler = render_context
+            .resources()
+            .create_sampler(&SamplerDescriptor::default());
+        let default_texture = render_context
+            .resources()
+            .create_texture(TextureDescriptor {
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Bgra8UnormSrgb,
+                mip_level_count: 1,
+                sample_count: 1,
+                size: Extent3d {
+                    width: 32,
+                    height: 32,
+                    depth: 1,
+                },
+                usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
+            });
+        let default_uniform_buffer = render_context.resources().create_buffer_with_data(
+            BufferInfo {
+                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                ..Default::default()
+            },
+            &[0; 16],
+        );
         BevyPathfinderDevice {
             render_context: RefCell::new(render_context),
             shaders: RefCell::new(shaders),
@@ -63,6 +86,8 @@ impl<'a> BevyPathfinderDevice<'a> {
             main_color_texture,
             main_depth_stencil_texture,
             default_sampler,
+            default_uniform_texture: default_texture,
+            default_buffer: default_uniform_buffer,
         }
     }
 
@@ -170,13 +195,14 @@ impl<'a> BevyPathfinderDevice<'a> {
                         &bevy_uniform.name,
                         RenderResourceAssignment::Texture(texture.handle),
                     );
-                    let sampler_resource = if let Some(sampler_resource) = *texture.sampler_resource.borrow() {
-                        // NOTE: this assumes theres is only one sampler
-                        // TODO: see if we need more than one sampler
-                        sampler_resource
-                    } else {
-                        self.default_sampler
-                    };
+                    let sampler_resource =
+                        if let Some(sampler_resource) = *texture.sampler_resource.borrow() {
+                            // NOTE: this assumes theres is only one sampler
+                            // TODO: see if we need more than one sampler
+                            sampler_resource
+                        } else {
+                            self.default_sampler
+                        };
 
                     render_resource_assignments.set(
                         "uSampler",
@@ -226,6 +252,57 @@ impl<'a> BevyPathfinderDevice<'a> {
         }
     }
 
+    pub fn fill_in_missing_uniforms(
+        &self,
+        render_resource_assignments: &mut RenderResourceAssignments,
+        pipeline_descriptor: &PipelineDescriptor,
+    ) {
+        for bind_group in pipeline_descriptor.get_layout().unwrap().bind_groups.iter() {
+            for binding in bind_group.bindings.iter() {
+                if render_resource_assignments.get(&binding.name).is_none() {
+                    match binding.bind_type {
+                        BindType::SampledTexture { .. } => {
+                            render_resource_assignments.set(
+                                &binding.name,
+                                RenderResourceAssignment::Texture(self.default_uniform_texture),
+                            );
+                        }
+                        BindType::Buffer { .. } => {
+                            render_resource_assignments.set(
+                                &binding.name,
+                                RenderResourceAssignment::Buffer {
+                                    resource: self.default_buffer,
+                                    range: 0..binding.bind_type.get_uniform_size().unwrap(),
+                                    dynamic_index: None,
+                                },
+                            );
+                        }
+                        BindType::Uniform { .. } => {
+                            render_resource_assignments.set(
+                                &binding.name,
+                                RenderResourceAssignment::Buffer {
+                                    resource: self.default_buffer,
+                                    range: 0..binding.bind_type.get_uniform_size().unwrap(),
+                                    dynamic_index: None,
+                                },
+                            );
+                        }
+                        BindType::Sampler { .. } => {
+                            render_resource_assignments.set(
+                                &binding.name,
+                                RenderResourceAssignment::Sampler(self.default_sampler),
+                            );
+                        }
+                        _ => panic!(
+                            "no defaults available for bind type {:?}",
+                            binding.bind_type
+                        ),
+                    }
+                }
+            }
+        }
+    }
+
     pub fn setup_vertex_buffers(
         &self,
         render_state: &RenderState<BevyPathfinderDevice>,
@@ -267,7 +344,10 @@ impl<'a> BevyPathfinderDevice<'a> {
         }
     }
 
-    pub fn draw<F>(&self, render_state: &RenderState<BevyPathfinderDevice>, draw_func: F) where F: Fn(&mut dyn RenderPass) {
+    pub fn draw<F>(&self, render_state: &RenderState<BevyPathfinderDevice>, draw_func: F)
+    where
+        F: Fn(&mut dyn RenderPass),
+    {
         let pass_descriptor = self.create_pass_descriptor(render_state);
         self.setup_pipline_descriptor(
             render_state,
@@ -276,13 +356,15 @@ impl<'a> BevyPathfinderDevice<'a> {
         );
         let mut render_resource_assignments = RenderResourceAssignments::default();
         self.setup_uniforms(render_state, &mut render_resource_assignments);
+        self.fill_in_missing_uniforms(
+            &mut render_resource_assignments,
+            &render_state.program.pipeline_descriptor.borrow(),
+        );
         self.setup_bind_groups(
             &render_state.program.pipeline_descriptor.borrow(),
             &mut render_resource_assignments,
         );
         self.setup_vertex_buffers(render_state, &mut render_resource_assignments);
-        println!("pass {:#?}", pass_descriptor);
-        println!("pipeline {:#?}", render_state.program.pipeline_descriptor);
         self.render_context.borrow_mut().begin_pass(
             &pass_descriptor,
             &render_resource_assignments,
@@ -303,7 +385,6 @@ impl<'a> BevyPathfinderDevice<'a> {
 
                 let pipeline_descriptor = render_state.program.pipeline_descriptor.borrow();
                 pass.set_render_resources(&pipeline_descriptor, &render_resource_assignments);
-                println!("{:#?}", &render_resource_assignments);
                 pass.set_pipeline(render_state.program.pipeline_handle);
                 draw_func(pass);
             },
@@ -313,14 +394,14 @@ impl<'a> BevyPathfinderDevice<'a> {
     fn get_texture_format(&self, render_resource: RenderResource) -> Option<TextureFormat> {
         // TODO: add swap chain resource info so this isnt necessary
         let mut texture_format = Some(TextureFormat::Bgra8UnormSrgb);
-        self.render_context.borrow().resources().get_resource_info(
-            render_resource,
-            &mut |info| {
+        self.render_context
+            .borrow()
+            .resources()
+            .get_resource_info(render_resource, &mut |info| {
                 if let Some(ResourceInfo::Texture(descriptor)) = info {
                     texture_format = Some(descriptor.format)
                 }
-            },
-        );
+            });
         texture_format
     }
 
@@ -339,7 +420,7 @@ impl<'a> BevyPathfinderDevice<'a> {
         {
             return;
         }
-        
+
         let mut pipeline_descriptor = render_state.program.pipeline_descriptor.borrow_mut();
         pipeline_descriptor.primitive_topology = match render_state.primitive {
             pathfinder_gpu::Primitive::Triangles => PrimitiveTopology::TriangleList,
@@ -376,7 +457,6 @@ impl<'a> BevyPathfinderDevice<'a> {
             panic!("expected a RenderResource color attachment");
         };
 
-        // TODO: lookup real texture format
         // TODO: make sure colors render correctly
         let mut color_state = ColorStateDescriptor {
             format: color_texture_format,
@@ -412,12 +492,11 @@ impl<'a> BevyPathfinderDevice<'a> {
 
         pipeline_descriptor.color_states.push(color_state);
 
-        if let Some(ref _pass_depth_stencil_descriptor) = pass_descriptor.depth_stencil_attachment {
-            // TODO: lookup texture format
+        if let Some(ref pass_depth_stencil_descriptor) = pass_descriptor.depth_stencil_attachment {
             // TODO: maybe we need a stencil-type depth format? TextureFormat::Depth24PlusStencil8
-            let depth_format = TextureFormat::Depth32Float;
+            let format = self.get_texture_format(pass_depth_stencil_descriptor.attachment.get_resource().expect("Expected attachment to be a resource")).expect("expected a texture format");
             let mut descriptor = DepthStencilStateDescriptor {
-                format: depth_format,
+                format,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Less,
                 stencil_front: StencilStateFaceDescriptor::IGNORE,
@@ -474,10 +553,9 @@ impl<'a> BevyPathfinderDevice<'a> {
                 depth_texture = Some(self.main_depth_stencil_texture);
                 self.main_color_texture
             }
-            RenderTarget::Framebuffer(framebuffer) => {println!("{:?} {:?}", framebuffer.texture_descriptor, framebuffer.handle); framebuffer.handle },
+            RenderTarget::Framebuffer(framebuffer) => framebuffer.handle,
         };
 
-        println!("color main {:?} {:?}", self.main_color_texture, color_texture);
         let mut color_attachment = RenderPassColorAttachmentDescriptor {
             attachment: TextureAttachment::RenderResource(color_texture),
             clear_color: Color::WHITE,
@@ -674,7 +752,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                     fragment: Some(fragment),
                 });
                 descriptor.reflect_layout(&self.shaders.borrow(), false, None, None);
-                println!("orig {:?}", descriptor);
                 BevyProgram {
                     pipeline_descriptor: RefCell::new(descriptor),
                     pipeline_handle: Handle::new(),
@@ -694,7 +771,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 .find(|a| a.name == attribute_name)
                 .cloned();
             if attribute.is_some() {
-                println!("pre {:?}", attribute);
                 return attribute.map(|a| BevyVertexAttr {
                     attr: RefCell::new(a),
                 });
@@ -1013,7 +1089,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     }
     fn draw_elements(&self, index_count: u32, render_state: &RenderState<Self>) {
         self.draw(render_state, |pass| {
-            pass.draw_indexed( 0..index_count, 0,  0..1);
+            pass.draw_indexed(0..index_count, 0, 0..1);
         });
     }
     fn draw_elements_instanced(
@@ -1023,7 +1099,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         render_state: &RenderState<Self>,
     ) {
         self.draw(render_state, |pass| {
-            pass.draw_indexed( 0..index_count, 0,  0..instance_count);
+            pass.draw_indexed(0..index_count, 0, 0..instance_count);
         });
     }
     fn create_timer_query(&self) -> Self::TimerQuery {

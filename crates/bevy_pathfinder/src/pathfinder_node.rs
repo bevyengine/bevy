@@ -58,7 +58,7 @@ impl Node for PathfinderNode {
             color_texture,
             depth_stencil_texture,
         );
-        let window_size = Vector2I::new(640 as i32, 480 as i32);
+        let window_size = Vector2I::new(1280 as i32, 720 as i32);
         let mut renderer = Renderer::new(
             device,
             &EmbeddedResourceLoader::new(),
