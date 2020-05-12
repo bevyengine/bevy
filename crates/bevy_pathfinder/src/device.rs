@@ -339,8 +339,8 @@ impl<'a> BevyPathfinderDevice<'a> {
         let render_resources = render_context.resources();
         for bind_group in bind_groups.iter() {
             render_resource_assignments.update_render_resource_set_id(bind_group);
-            render_resources.setup_bind_groups(pipeline_descriptor, &render_resource_assignments);
         }
+        render_resources.setup_bind_groups(pipeline_descriptor, &render_resource_assignments);
     }
 
     pub fn draw<F>(&self, render_state: &RenderState<BevyPathfinderDevice>, draw_func: F)
@@ -378,6 +378,7 @@ impl<'a> BevyPathfinderDevice<'a> {
                     0.0,
                     1.0,
                 );
+                pass.set_pipeline(render_state.program.pipeline_handle);
 
                 if let Some(stencil_state) = render_state.options.stencil {
                     pass.set_stencil_reference(stencil_state.reference);
@@ -385,7 +386,6 @@ impl<'a> BevyPathfinderDevice<'a> {
 
                 let pipeline_descriptor = render_state.program.pipeline_descriptor.borrow();
                 pass.set_render_resources(&pipeline_descriptor, &render_resource_assignments);
-                pass.set_pipeline(render_state.program.pipeline_handle);
                 draw_func(pass);
             },
         )

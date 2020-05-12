@@ -52,6 +52,7 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                 let mesh_handle = *world.get_component::<Handle<Mesh>>(*entity).unwrap();
                 let render_context = render_pass.get_render_context();
                 let render_resources = render_context.resources();
+                // TODO: this can be removed
                 if current_mesh_handle != Some(mesh_handle) {
                     if let Some(vertex_buffer_resource) = render_resources
                         .get_asset_resource(mesh_handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
