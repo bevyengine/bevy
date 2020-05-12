@@ -7,7 +7,7 @@ use bevy_render::{
     pipeline::{
         state_descriptors::{
             BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, DepthStencilStateDescriptor, PrimitiveTopology,
+            CompareFunction, DepthStencilStateDescriptor, IndexFormat, PrimitiveTopology,
             RasterizationStateDescriptor, StencilOperation, StencilStateFaceDescriptor,
         },
         BindType, InputStepMode, PipelineDescriptor, VertexAttributeDescriptor,
@@ -34,8 +34,7 @@ use pathfinder_gpu::{
     VertexAttrClass, VertexAttrDescriptor, VertexAttrType,
 };
 use pathfinder_resources::ResourceLoader;
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc, time::Duration};
-use zerocopy::AsBytes;
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, mem, rc::Rc};
 
 pub struct BevyPathfinderDevice<'a> {
     render_context: RefCell<&'a mut dyn RenderContext>,
@@ -348,6 +347,7 @@ impl<'a> BevyPathfinderDevice<'a> {
     where
         F: Fn(&mut dyn RenderPass),
     {
+        // TODO: maybe sync textures here?
         let pass_descriptor = self.create_pass_descriptor(render_state);
         self.setup_pipline_descriptor(
             render_state,
@@ -405,21 +405,23 @@ impl<'a> BevyPathfinderDevice<'a> {
         texture_format
     }
 
+    // v
     pub fn setup_pipline_descriptor(
         &self,
         render_state: &RenderState<BevyPathfinderDevice>,
         pass_descriptor: &PassDescriptor,
         requested_vertex_descriptors: &HashMap<u32, VertexBufferDescriptor>,
     ) {
-        if self
-            .render_context
-            .borrow()
-            .resources()
-            .get_asset_resource(render_state.program.pipeline_handle, 0)
-            .is_some()
-        {
-            return;
-        }
+        // TODO: only create pipelines once
+        // if self
+        //     .render_context
+        //     .borrow()
+        //     .resources()
+        //     .get_asset_resource(render_state.program.pipeline_handle, 0)
+        //     .is_some()
+        // {
+        //     return;
+        // }
 
         let mut pipeline_descriptor = render_state.program.pipeline_descriptor.borrow_mut();
         pipeline_descriptor.primitive_topology = match render_state.primitive {
@@ -494,7 +496,14 @@ impl<'a> BevyPathfinderDevice<'a> {
 
         if let Some(ref pass_depth_stencil_descriptor) = pass_descriptor.depth_stencil_attachment {
             // TODO: maybe we need a stencil-type depth format? TextureFormat::Depth24PlusStencil8
-            let format = self.get_texture_format(pass_depth_stencil_descriptor.attachment.get_resource().expect("Expected attachment to be a resource")).expect("expected a texture format");
+            let format = self
+                .get_texture_format(
+                    pass_depth_stencil_descriptor
+                        .attachment
+                        .get_resource()
+                        .expect("Expected attachment to be a resource"),
+                )
+                .expect("expected a texture format");
             let mut descriptor = DepthStencilStateDescriptor {
                 format,
                 depth_write_enabled: false,
@@ -751,6 +760,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                     vertex,
                     fragment: Some(fragment),
                 });
+                descriptor.index_format = IndexFormat::Uint32;
                 descriptor.reflect_layout(&self.shaders.borrow(), false, None, None);
                 BevyProgram {
                     pipeline_descriptor: RefCell::new(descriptor),
@@ -938,14 +948,12 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 *buffer.handle.borrow_mut() = Some(new_buffer);
             }
             BufferData::Memory(slice) => {
-                let size = slice.len() * mem::size_of::<T>();
                 let new_buffer = self
                     .render_context
                     .borrow()
                     .resources()
                     .create_buffer_with_data(
                         BufferInfo {
-                            size,
                             buffer_usage,
                             ..Default::default()
                         },
@@ -1036,7 +1044,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         let height = rect.size().y() as u32;
         let origin = [rect.origin().x() as u32, rect.origin().y() as u32, 0];
         let bytes_per_pixel = format.bytes_per_pixel() as u32;
-        let size = (width * height * bytes_per_pixel) as usize;
 
         let staging_buffer = self
             .render_context
@@ -1045,7 +1052,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
             .create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::COPY_SRC,
-                    size,
                     ..Default::default()
                 },
                 get_texture_bytes(&data),
@@ -1109,13 +1115,13 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
     fn begin_timer_query(&self, _query: &Self::TimerQuery) {}
     fn end_timer_query(&self, _query: &Self::TimerQuery) {}
     fn try_recv_timer_query(&self, _query: &Self::TimerQuery) -> Option<std::time::Duration> {
-        None
+        todo!()
     }
     fn recv_timer_query(&self, _query: &Self::TimerQuery) -> std::time::Duration {
-        Duration::from_millis(0)
+        todo!()
     }
     fn try_recv_texture_data(&self, _receiver: &Self::TextureDataReceiver) -> Option<TextureData> {
-        None
+        todo!()
     }
     fn recv_texture_data(&self, _receiver: &Self::TextureDataReceiver) -> TextureData {
         todo!()
@@ -1129,6 +1135,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         _program: &mut Self::Program,
         _local_size: pathfinder_gpu::ComputeDimensions,
     ) {
+        todo!()
     }
     fn get_storage_buffer(
         &self,
@@ -1145,7 +1152,6 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
         data: &[T],
         _target: BufferTarget,
     ) {
-        let data_slice = &data[position..];
         let temp_buffer = self
             .render_context
             .borrow()
@@ -1155,15 +1161,15 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                     buffer_usage: BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
                     ..Default::default()
                 },
-                slice_to_u8(data_slice),
+                slice_to_u8(data),
             );
         let buffer_handle = buffer.handle.borrow().unwrap();
         self.render_context.borrow_mut().copy_buffer_to_buffer(
             temp_buffer,
             0,
             buffer_handle,
-            0,
-            data_slice.len() as u64,
+            (position * mem::size_of::<T>()) as u64,
+            (data.len() * mem::size_of::<T>()) as u64,
         )
     }
     fn dispatch_compute(
@@ -1179,9 +1185,9 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
 
 fn get_texture_bytes<'a>(data_ref: &'a TextureDataRef) -> &'a [u8] {
     match data_ref {
-        TextureDataRef::U8(data) => data,
+        TextureDataRef::U8(data) => slice_to_u8(data),
         TextureDataRef::F16(data) => slice_to_u8(data),
-        TextureDataRef::F32(data) => data.as_bytes(),
+        TextureDataRef::F32(data) => slice_to_u8(data),
     }
 }
 

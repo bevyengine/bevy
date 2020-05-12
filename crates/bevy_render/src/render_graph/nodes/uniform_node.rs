@@ -726,6 +726,7 @@ fn setup_uniform_texture_resources<T>(
                             },
                             &texture.data,
                         );
+                        // TODO: bytes_per_row could be incorrect for some texture formats
                         command_queue.copy_buffer_to_texture(
                             texture_buffer,
                             0,
