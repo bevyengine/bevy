@@ -46,6 +46,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .draw_indexed(indices, base_vertex, instances);
     }
 
+    fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
+        self.render_pass
+            .draw(vertices, instances);
+    }
+
     fn set_render_resources(
         &mut self,
         pipeline_descriptor: &PipelineDescriptor,

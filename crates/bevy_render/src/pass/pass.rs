@@ -1,12 +1,14 @@
 use super::{LoadOp, StoreOp};
 use crate::{render_resource::RenderResource, Color};
 
+#[derive(Debug, Clone)]
 pub enum TextureAttachment {
     RenderResource(RenderResource),
     Name(String),
     Input(String),
 }
 
+#[derive(Debug, Clone)]
 pub struct RenderPassColorAttachmentDescriptor {
     /// The actual color attachment.
     pub attachment: TextureAttachment,
@@ -24,6 +26,7 @@ pub struct RenderPassColorAttachmentDescriptor {
     pub clear_color: Color,
 }
 
+#[derive(Debug, Clone)]
 pub struct RenderPassDepthStencilAttachmentDescriptor {
     pub attachment: TextureAttachment,
     pub depth_load_op: LoadOp,
@@ -35,6 +38,7 @@ pub struct RenderPassDepthStencilAttachmentDescriptor {
 }
 
 // A set of pipeline bindings and draw calls with color and depth outputs
+#[derive(Debug, Clone)]
 pub struct PassDescriptor {
     pub color_attachments: Vec<RenderPassColorAttachmentDescriptor>,
     pub depth_stencil_attachment: Option<RenderPassDepthStencilAttachmentDescriptor>,

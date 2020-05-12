@@ -24,10 +24,10 @@ layout(std140, set=0, binding=1) uniform uTileSize {
 };
 
 in uvec2 aTessCoord;
-in uint aFromPx;
-in uint aToPx;
 in vec2 aFromSubpx;
 in vec2 aToSubpx;
+in uint aFromPx;
+in uint aToPx;
 in uint aTileIndex;
 
 out vec2 vFrom;

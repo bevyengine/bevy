@@ -5,10 +5,10 @@
 uniform vec4 uTileSize[1];
 uniform vec4 uFramebufferSize[1];
 layout(location = 5) in uint aTileIndex;
-layout(location = 1) in uint aFromPx;
-layout(location = 3) in vec2 aFromSubpx;
-layout(location = 2) in uint aToPx;
-layout(location = 4) in vec2 aToSubpx;
+layout(location = 3) in uint aFromPx;
+layout(location = 1) in vec2 aFromSubpx;
+layout(location = 4) in uint aToPx;
+layout(location = 2) in vec2 aToSubpx;
 layout(location = 0) in uvec2 aTessCoord;
 out vec2 vFrom;
 out vec2 vTo;

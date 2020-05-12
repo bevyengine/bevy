@@ -13,6 +13,7 @@ pub trait RenderPass {
     fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>);
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32);
     fn set_stencil_reference(&mut self, reference: u32);
+    fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
     // TODO: try to somehow take into account the "set" pipeline instead of passing it in here
     fn set_render_resources(

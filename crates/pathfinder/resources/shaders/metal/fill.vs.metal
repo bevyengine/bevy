@@ -26,10 +26,10 @@ struct main0_out
 struct main0_in
 {
     uint2 aTessCoord [[attribute(0)]];
-    uint aFromPx [[attribute(1)]];
-    uint aToPx [[attribute(2)]];
-    float2 aFromSubpx [[attribute(3)]];
-    float2 aToSubpx [[attribute(4)]];
+    float2 aFromSubpx [[attribute(1)]];
+    float2 aToSubpx [[attribute(2)]];
+    uint aFromPx [[attribute(3)]];
+    uint aToPx [[attribute(4)]];
     uint aTileIndex [[attribute(5)]];
 };
 

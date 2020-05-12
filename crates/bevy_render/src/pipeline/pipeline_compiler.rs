@@ -1,7 +1,6 @@
 use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
 use crate::{
     render_resource::{RenderResourceAssignments, RenderResourceAssignmentsId},
-    renderer::{RenderResourceContext, RenderResources},
     shader::{Shader, ShaderSource},
     Renderable,
 };

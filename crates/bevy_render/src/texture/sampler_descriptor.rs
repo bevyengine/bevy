@@ -14,6 +14,22 @@ pub struct SamplerDescriptor {
     pub compare_function: CompareFunction,
 }
 
+impl Default for SamplerDescriptor {
+    fn default() -> Self {
+        SamplerDescriptor {
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            lod_min_clamp: -100.0,
+            lod_max_clamp: 100.0,
+            compare_function: CompareFunction::Always,
+        }
+    }
+}
+
 impl From<&Texture> for SamplerDescriptor {
     fn from(_texture: &Texture) -> Self {
         SamplerDescriptor {

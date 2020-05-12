@@ -33,11 +33,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--example=scene",
+                    "--example=pathfinder",
                     "--package=bevy"
                 ],
                 "filter": {
-                    "name": "scene",
+                    "name": "pathfinder",
                     "kind": "example"
                 }
             },

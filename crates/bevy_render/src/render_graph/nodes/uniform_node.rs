@@ -3,7 +3,7 @@ use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
-        RenderResourceAssignments, RenderResourceAssignmentsId, ResourceInfo,
+        RenderResourceAssignments, RenderResourceAssignmentsId,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
     shader::{AsUniforms, FieldBindType},
