@@ -36,8 +36,11 @@ impl WgpuResourceDiagnosticsPlugin {
     pub const SAMPLERS: DiagnosticId =
         DiagnosticId::from_u128(305855369913076220671125671543184691267);
 
-    pub const BIND_GROUPS: DiagnosticId =
+    pub const BIND_GROUP_IDS: DiagnosticId =
         DiagnosticId::from_u128(283571569334075937453357861280307923122);
+
+    pub const BIND_GROUPS: DiagnosticId =
+        DiagnosticId::from_u128(21302464753369276741568507794995836890);
 
     pub const BIND_GROUP_LAYOUTS: DiagnosticId =
         DiagnosticId::from_u128(96406067032931216377076410852598331304);
@@ -71,6 +74,7 @@ impl WgpuResourceDiagnosticsPlugin {
 
         diagnostics.add(Diagnostic::new(Self::SAMPLERS, "samplers", 10));
 
+        diagnostics.add(Diagnostic::new(Self::BIND_GROUP_IDS, "bind_group_ids", 10));
         diagnostics.add(Diagnostic::new(Self::BIND_GROUPS, "bind_groups", 10));
 
         diagnostics.add(Diagnostic::new(
@@ -168,13 +172,23 @@ impl WgpuResourceDiagnosticsPlugin {
         );
 
         diagnostics.add_measurement(
-            Self::BIND_GROUPS,
+            Self::BIND_GROUP_IDS,
             render_resource_context
                 .resources
                 .bind_groups
                 .read()
                 .unwrap()
                 .len() as f64,
+        );
+
+        let mut bind_group_count = 0;
+        for bind_group in render_resource_context.resources.bind_groups.read().unwrap().values() {
+            bind_group_count += bind_group.bind_groups.len();
+        }
+
+        diagnostics.add_measurement(
+            Self::BIND_GROUPS,
+            bind_group_count as f64,
         );
 
         diagnostics.add_measurement(
