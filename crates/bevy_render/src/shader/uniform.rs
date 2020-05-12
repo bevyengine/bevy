@@ -68,6 +68,7 @@ impl ShaderDefSuffixProvider for bool {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FieldBindType {
     Uniform { size: usize },
     Texture,

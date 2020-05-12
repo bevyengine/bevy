@@ -2,7 +2,7 @@ use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::ResourceInfo,
     renderer::RenderContext,
-    texture::TextureDescriptor,
+    texture::TextureDescriptor, shader::FieldBindType,
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
@@ -37,7 +37,7 @@ impl Node for WindowTextureNode {
     fn output(&self) -> &[ResourceSlotInfo] {
         static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
             name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
-            resource_type: ResourceInfo::Texture,
+            resource_type: FieldBindType::Texture,
         }];
         OUTPUT
     }
@@ -78,7 +78,7 @@ impl Node for WindowTextureNode {
 
             self.descriptor.size.width = window.width;
             self.descriptor.size.height = window.height;
-            let texture_resource = render_resources.create_texture(&self.descriptor);
+            let texture_resource = render_resources.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, texture_resource);
         }
     }

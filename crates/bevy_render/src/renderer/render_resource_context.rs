@@ -31,7 +31,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn drop_swap_chain_texture(&self, render_resource: RenderResource);
     fn drop_all_swap_chain_textures(&self);
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResource;
-    fn create_texture(&self, texture_descriptor: &TextureDescriptor) -> RenderResource;
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResource;
     fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource;
     // TODO: remove RenderResourceContext here
     fn create_buffer_mapped(

@@ -73,7 +73,7 @@ impl WgpuRenderContext {
 impl RenderContext for WgpuRenderContext {
     fn create_texture_with_data(
         &mut self,
-        texture_descriptor: &TextureDescriptor,
+        texture_descriptor: TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource {
         self.render_resources.create_texture_with_data(

@@ -5,7 +5,7 @@ use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::{RenderResourceAssignments, ResourceInfo},
     renderer::RenderContext,
-    shader::Shader,
+    shader::{FieldBindType, Shader},
 };
 use bevy_asset::{AssetStorage, Handle};
 use legion::prelude::*;
@@ -26,7 +26,7 @@ impl PassNode {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
-                    ResourceInfo::Texture,
+                    FieldBindType::Texture,
                 ));
                 color_attachment_input_indices.push(Some(inputs.len() - 1));
             } else {
@@ -39,7 +39,7 @@ impl PassNode {
             if let TextureAttachment::Input(ref name) = depth_stencil_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
-                    ResourceInfo::Texture,
+                    FieldBindType::Texture,
                 ));
                 depth_stencil_attachment_input_index = Some(inputs.len() - 1);
             }

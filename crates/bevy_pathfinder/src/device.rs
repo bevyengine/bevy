@@ -15,7 +15,7 @@ use bevy_render::{
     },
     render_resource::{
         BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
-        RenderResourceAssignments,
+        RenderResourceAssignments, ResourceInfo,
     },
     renderer::RenderContext,
     shader::{Shader, ShaderSource, ShaderStage, ShaderStages},
@@ -310,23 +310,18 @@ impl<'a> BevyPathfinderDevice<'a> {
         )
     }
 
-    fn get_texture_format(&self, _render_resource: RenderResource) -> Option<TextureFormat> {
-        // TODO: lookup real texture format
-        // let mut texture_format = None;
-        // self.render_context.borrow().resources().get_resource_info(
-        //     texture_resource,
-        //     &mut |info| {
-        //         if let Some(info) = info {
-        //             match info {
-        //                 ResourceInfo::Texture {
-
-        //                 }
-        //             }
-        //             texture_format = Some(info)
-        //         }
-        //     },
-        // );
-        Some(TextureFormat::Rgba16Float)
+    fn get_texture_format(&self, render_resource: RenderResource) -> Option<TextureFormat> {
+        // TODO: add swap chain resource info so this isnt necessary
+        let mut texture_format = Some(TextureFormat::Bgra8UnormSrgb);
+        self.render_context.borrow().resources().get_resource_info(
+            render_resource,
+            &mut |info| {
+                if let Some(ResourceInfo::Texture(descriptor)) = info {
+                    texture_format = Some(descriptor.format)
+                }
+            },
+        );
+        texture_format
     }
 
     pub fn setup_pipline_descriptor(
@@ -606,7 +601,7 @@ impl<'a> Device for BevyPathfinderDevice<'a> {
                 .render_context
                 .borrow()
                 .resources()
-                .create_texture(&descriptor),
+                .create_texture(descriptor),
             texture_descriptor: descriptor,
             sampler_resource: RefCell::new(None),
         }

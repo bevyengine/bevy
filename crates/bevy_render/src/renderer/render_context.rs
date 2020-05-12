@@ -11,7 +11,7 @@ pub trait RenderContext {
 
     fn create_texture_with_data(
         &mut self,
-        texture_descriptor: &TextureDescriptor,
+        texture_descriptor: TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource;
     fn copy_buffer_to_buffer(

@@ -216,8 +216,8 @@ impl WgpuFrom<Extent3d> for wgpu::Extent3d {
     }
 }
 
-impl WgpuFrom<TextureDescriptor> for wgpu::TextureDescriptor<'_> {
-    fn from(texture_descriptor: TextureDescriptor) -> Self {
+impl WgpuFrom<&TextureDescriptor> for wgpu::TextureDescriptor<'_> {
+    fn from(texture_descriptor: &TextureDescriptor) -> Self {
         wgpu::TextureDescriptor {
             label: None,
             size: texture_descriptor.size.wgpu_into(),

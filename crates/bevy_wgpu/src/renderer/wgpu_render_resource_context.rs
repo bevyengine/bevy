@@ -39,14 +39,14 @@ impl WgpuRenderResourceContext {
     pub fn create_texture_with_data(
         &mut self,
         command_encoder: &mut wgpu::CommandEncoder,
-        texture_descriptor: &TextureDescriptor,
+        texture_descriptor: TextureDescriptor,
         bytes: &[u8],
     ) -> RenderResource {
         let mut resource_info = self.resources.resource_info.write().unwrap();
         let mut texture_views = self.resources.texture_views.write().unwrap();
         let mut textures = self.resources.textures.write().unwrap();
 
-        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).wgpu_into();
+        let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
         let texture_view = texture.create_default_view();
         let temp_buf = self
@@ -69,7 +69,7 @@ impl WgpuRenderResourceContext {
         );
 
         let resource = RenderResource::new();
-        resource_info.insert(resource, ResourceInfo::Texture);
+        resource_info.insert(resource, ResourceInfo::Texture(texture_descriptor));
         texture_views.insert(resource, texture_view);
         textures.insert(resource, texture);
 
@@ -182,17 +182,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         resource
     }
 
-    fn create_texture(&self, texture_descriptor: &TextureDescriptor) -> RenderResource {
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResource {
         let mut textures = self.resources.textures.write().unwrap();
         let mut texture_views = self.resources.texture_views.write().unwrap();
         let mut resource_info = self.resources.resource_info.write().unwrap();
 
-        let descriptor: wgpu::TextureDescriptor = (*texture_descriptor).wgpu_into();
+        let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
         let texture_view = texture.create_default_view();
 
         let resource = RenderResource::new();
-        resource_info.insert(resource, ResourceInfo::Texture);
+        resource_info.insert(resource, ResourceInfo::Texture(texture_descriptor));
         texture_views.insert(resource, texture_view);
         textures.insert(resource, texture);
         resource

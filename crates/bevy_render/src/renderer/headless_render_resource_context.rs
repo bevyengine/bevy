@@ -41,9 +41,9 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         self.add_resource_info(resource, ResourceInfo::Sampler);
         resource
     }
-    fn create_texture(&self, _texture_descriptor: &TextureDescriptor) -> RenderResource {
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResource {
         let resource = RenderResource::new();
-        self.add_resource_info(resource, ResourceInfo::Texture);
+        self.add_resource_info(resource, ResourceInfo::Texture(texture_descriptor));
         resource
     }
     fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource {

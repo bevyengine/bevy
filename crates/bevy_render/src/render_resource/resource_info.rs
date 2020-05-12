@@ -1,4 +1,4 @@
-use crate::render_resource::BufferUsage;
+use crate::{texture::TextureDescriptor, render_resource::BufferUsage};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BufferInfo {
@@ -18,6 +18,6 @@ impl Default for BufferInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ResourceInfo {
     Buffer(BufferInfo),
-    Texture,
+    Texture(TextureDescriptor),
     Sampler,
 }

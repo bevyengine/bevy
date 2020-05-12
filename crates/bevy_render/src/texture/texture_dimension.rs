@@ -10,7 +10,7 @@ pub enum TextureViewDimension {
     D3,
 }
 
-#[derive(Copy, Clone, Debug, Hash)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum TextureDimension {
     D1,
     D2,
@@ -18,7 +18,7 @@ pub enum TextureDimension {
 }
 
 // TODO: use math type here
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Extent3d {
     pub width: u32,
     pub height: u32,

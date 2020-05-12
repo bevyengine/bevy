@@ -716,7 +716,7 @@ fn setup_uniform_texture_resources<T>(
 
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let texture_resource =
-                            render_resource_context.create_texture(&texture_descriptor);
+                            render_resource_context.create_texture(texture_descriptor);
                         // TODO: queue texture copy
                         // .create_texture_with_data(&texture_descriptor, &texture.data);
                         let texture_buffer = render_resource_context.create_buffer_with_data(

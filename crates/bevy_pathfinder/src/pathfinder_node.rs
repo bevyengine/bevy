@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::ResourceInfo,
     renderer::RenderContext,
-    shader::Shader,
+    shader::{FieldBindType, Shader},
 };
 use legion::prelude::{Resources, World};
 use pathfinder_canvas::{vec2f, Canvas, CanvasFontContext, ColorF, Path2D, RectF, Vector2I};
@@ -32,11 +32,11 @@ impl Node for PathfinderNode {
         static INPUT: &[ResourceSlotInfo] = &[
             ResourceSlotInfo {
                 name: Cow::Borrowed(PathfinderNode::IN_COLOR_TEXTURE),
-                resource_type: ResourceInfo::Texture,
+                resource_type: FieldBindType::Texture,
             },
             ResourceSlotInfo {
                 name: Cow::Borrowed(PathfinderNode::IN_DEPTH_STENCIL_TEXTURE),
-                resource_type: ResourceInfo::Texture,
+                resource_type: FieldBindType::Texture,
             },
         ];
         INPUT

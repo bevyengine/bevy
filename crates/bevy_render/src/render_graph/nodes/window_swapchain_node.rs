@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::ResourceInfo,
-    renderer::RenderContext,
+    renderer::RenderContext, shader::FieldBindType,
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
@@ -33,7 +33,7 @@ impl Node for WindowSwapChainNode {
     fn output(&self) -> &[ResourceSlotInfo] {
         static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
             name: Cow::Borrowed(WindowSwapChainNode::OUT_TEXTURE),
-            resource_type: ResourceInfo::Texture,
+            resource_type: FieldBindType::Texture,
         }];
         OUTPUT
     }

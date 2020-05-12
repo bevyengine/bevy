@@ -1,5 +1,5 @@
 use super::RenderGraphError;
-use crate::render_resource::{RenderResource, ResourceInfo};
+use crate::{shader::FieldBindType, render_resource::{RenderResource, ResourceInfo}};
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
@@ -122,11 +122,11 @@ impl From<&[ResourceSlotInfo]> for ResourceSlots {
 #[derive(Clone, Debug)]
 pub struct ResourceSlotInfo {
     pub name: Cow<'static, str>,
-    pub resource_type: ResourceInfo,
+    pub resource_type: FieldBindType,
 }
 
 impl ResourceSlotInfo {
-    pub fn new(name: impl Into<Cow<'static, str>>, resource_type: ResourceInfo) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>, resource_type: FieldBindType) -> Self {
         ResourceSlotInfo {
             name: name.into(),
             resource_type,

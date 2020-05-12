@@ -265,7 +265,7 @@ mod tests {
     use crate::{
         render_graph::{Node, NodeId, RenderGraph, ResourceSlotInfo, ResourceSlots},
         render_resource::ResourceInfo,
-        renderer::RenderContext,
+        renderer::RenderContext, shader::FieldBindType,
     };
     use legion::prelude::{Resources, World};
 
@@ -280,13 +280,13 @@ mod tests {
                 inputs: (0..inputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("in_{}", i).into(),
-                        resource_type: ResourceInfo::Texture,
+                        resource_type: FieldBindType::Texture,
                     })
                     .collect(),
                 outputs: (0..outputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("out_{}", i).into(),
-                        resource_type: ResourceInfo::Texture,
+                        resource_type: FieldBindType::Texture,
                     })
                     .collect(),
             }
