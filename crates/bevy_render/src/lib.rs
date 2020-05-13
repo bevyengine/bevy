@@ -41,7 +41,7 @@ use self::{
 
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_asset::AssetStorage;
+use bevy_asset::AddAsset;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
 
@@ -71,11 +71,11 @@ impl AppPlugin for RenderPlugin {
         app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)
             .add_stage_after(RENDER_RESOURCE_STAGE, RENDER_STAGE)
             // resources
+            .add_asset::<Mesh>()
+            .add_asset::<Texture>()
+            .add_asset::<Shader>()
+            .add_asset::<PipelineDescriptor>()
             .add_resource(render_graph)
-            .add_resource(AssetStorage::<Mesh>::new())
-            .add_resource(AssetStorage::<Texture>::new())
-            .add_resource(AssetStorage::<Shader>::new())
-            .add_resource(AssetStorage::<PipelineDescriptor>::new())
             .add_resource(PipelineAssignments::new())
             .add_resource(PipelineCompiler::new())
             .add_resource(RenderResourceAssignments::default())

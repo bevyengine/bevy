@@ -18,7 +18,7 @@ pub use sprite::*;
 pub use ui_update_system::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{AddAsset, AssetStorage, Handle};
 use bevy_render::{
     mesh::{shape::Quad, Mesh},
     render_graph::RenderGraph,
@@ -35,10 +35,7 @@ pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013
 
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let mut color_materials = AssetStorage::<ColorMaterial>::new();
-        color_materials.add_default(ColorMaterial::default());
-
-        app.add_resource(color_materials)
+        app.add_asset::<ColorMaterial>()
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 asset_handle_shader_def_system::<ColorMaterial>.system(),
@@ -57,5 +54,8 @@ impl AppPlugin for UiPlugin {
                 size: Vec2::new(1.0, 1.0),
             }),
         );
+
+        let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+        color_materials.add_default(ColorMaterial::default());
     }
 }

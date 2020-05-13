@@ -1,12 +1,19 @@
 mod handle;
 pub use handle::*;
 
+use bevy_app::{stage, AppBuilder, Events};
 use bevy_core::bytes::GetBytes;
+use legion::prelude::*;
 use std::collections::HashMap;
+
+pub enum AssetEvent<T> {
+    Created { handle: Handle<T> },
+}
 
 pub struct AssetStorage<T> {
     assets: HashMap<HandleId, T>,
     names: HashMap<String, Handle<T>>,
+    events: Events<AssetEvent<T>>,
 }
 
 impl<T> AssetStorage<T> {
@@ -14,6 +21,7 @@ impl<T> AssetStorage<T> {
         AssetStorage {
             assets: HashMap::new(),
             names: HashMap::new(),
+            events: Events::default(),
         }
     }
 
@@ -24,16 +32,21 @@ impl<T> AssetStorage<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let id = HandleId::new();
         self.assets.insert(id, asset);
-        Handle::from_id(id)
+        let handle = Handle::from_id(id);
+        self.events.send(AssetEvent::Created { handle });
+        handle
     }
 
     pub fn add_with_handle(&mut self, handle: Handle<T>, asset: T) {
         self.assets.insert(handle.id, asset);
+        self.events.send(AssetEvent::Created { handle });
     }
 
     pub fn add_default(&mut self, asset: T) -> Handle<T> {
         self.assets.insert(DEFAULT_HANDLE_ID, asset);
-        Handle::default()
+        let handle = Handle::default();
+        self.events.send(AssetEvent::Created { handle });
+        handle
     }
 
     pub fn set_name(&mut self, name: &str, handle: Handle<T>) {
@@ -59,6 +72,13 @@ impl<T> AssetStorage<T> {
     pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
         self.assets.iter().map(|(k, v)| (Handle::from_id(*k), v))
     }
+
+    pub fn asset_event_system(
+        mut events: ResourceMut<Events<AssetEvent<T>>>,
+        mut storage: ResourceMut<AssetStorage<T>>,
+    ) {
+        events.extend(storage.events.drain())
+    }
 }
 
 impl<T> GetBytes for Handle<T> {
@@ -68,5 +88,25 @@ impl<T> GetBytes for Handle<T> {
 
     fn get_bytes_ref(&self) -> Option<&[u8]> {
         None
+    }
+}
+
+pub trait AddAsset {
+    fn add_asset<T>(&mut self) -> &mut Self
+    where
+        T: Send + Sync + 'static;
+}
+
+impl AddAsset for AppBuilder {
+    fn add_asset<T>(&mut self) -> &mut Self
+    where
+        T: Send + Sync + 'static,
+    {
+        self.add_resource(AssetStorage::<T>::new())
+            .add_system_to_stage(
+                stage::EVENT_UPDATE,
+                AssetStorage::<T>::asset_event_system.system(),
+            )
+            .add_event::<AssetEvent<T>>()
     }
 }

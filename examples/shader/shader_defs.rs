@@ -3,6 +3,7 @@ use bevy::{prelude::*, render::shader};
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_asset::<MyMaterial>()
         .add_startup_system(setup)
         .add_system_to_stage(
             stage::POST_UPDATE,
@@ -76,7 +77,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     };
 
     // create materials
-    let mut material_storage = AssetStorage::<MyMaterial>::new();
+    let mut material_storage = resources.get_mut::<AssetStorage<MyMaterial>>().unwrap();
     let green_material = material_storage.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
         always_red: false,
@@ -86,7 +87,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
         color: Color::rgb(0.0, 0.0, 0.0),
         always_red: true,
     });
-    resources.insert(material_storage);
 
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));

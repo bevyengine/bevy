@@ -3,6 +3,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_asset::<MyMaterial>()
         .add_startup_system(setup)
         .run();
 }
@@ -66,11 +67,10 @@ fn setup(world: &mut World, resources: &mut Resources) {
     };
 
     // create materials
-    let mut material_storage = AssetStorage::<MyMaterial>::new();
+    let mut material_storage = resources.get_mut::<AssetStorage<MyMaterial>>().unwrap();
     let material = material_storage.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
     });
-    resources.insert(material_storage);
 
     let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
