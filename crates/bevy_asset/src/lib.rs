@@ -4,10 +4,6 @@ pub use handle::*;
 use bevy_core::bytes::GetBytes;
 use std::collections::HashMap;
 
-pub trait Asset<D> {
-    fn load(descriptor: D) -> Self;
-}
-
 pub struct AssetStorage<T> {
     assets: HashMap<HandleId, T>,
     names: HashMap<String, Handle<T>>,

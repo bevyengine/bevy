@@ -1,5 +1,5 @@
 use crate::shader::ShaderDefSuffixProvider;
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Handle;
 use std::fs::File;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
@@ -19,10 +19,8 @@ impl Texture {
     pub fn aspect(&self) -> f32 {
         self.height as f32 / self.width as f32
     }
-}
 
-impl Asset<TextureType> for Texture {
-    fn load(descriptor: TextureType) -> Self {
+    pub fn load(descriptor: TextureType) -> Self {
         let (data, width, height) = match descriptor {
             TextureType::Data(data, width, height) => (data.clone(), width, height),
             TextureType::Png(path) => {

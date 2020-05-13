@@ -63,6 +63,8 @@ pub use bevy_input as input;
 pub use bevy_pbr as pbr;
 #[cfg(feature = "render")]
 pub use bevy_render as render;
+#[cfg(feature = "text")]
+pub use bevy_text as text;
 #[cfg(feature = "serialization")]
 pub use bevy_serialization as serialization;
 #[cfg(feature = "transform")]

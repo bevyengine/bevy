@@ -1,5 +1,5 @@
 #[cfg(feature = "asset")]
-pub use crate::asset::{Asset, AssetStorage, Handle};
+pub use crate::asset::{AssetStorage, Handle};
 #[cfg(feature = "core")]
 pub use crate::core::{
     time::Time,
@@ -29,6 +29,8 @@ pub use crate::render::{
     texture::{Texture, TextureType},
     ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
 };
+#[cfg(feature = "text")]
+pub use crate::text::Font;
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;
 #[cfg(feature = "ui")]

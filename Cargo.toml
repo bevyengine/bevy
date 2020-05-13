@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "render", "serialization", "transform", "ui", "window"]
+headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "render", "serialization", "text", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 derive = ["bevy_derive"]
@@ -16,6 +16,7 @@ input = ["bevy_input"]
 pbr = ["bevy_pbr"]
 render = ["bevy_render"]
 serialization = ["bevy_serialization"]
+text = ["bevy_text"]
 transform = ["bevy_transform"]
 ui = ["bevy_ui"]
 window = ["bevy_window"]
@@ -42,6 +43,7 @@ bevy_pbr = { path = "crates/bevy_pbr", optional = true }
 bevy_render = { path = "crates/bevy_render", optional = true }
 bevy_serialization = { path = "crates/bevy_serialization", optional = true }
 bevy_transform = { path = "crates/bevy_transform", optional = true }
+bevy_text = { path = "crates/bevy_text", optional = true }
 bevy_ui = { path = "crates/bevy_ui", optional = true }
 bevy_window = { path = "crates/bevy_window", optional = true }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
@@ -148,6 +150,10 @@ path = "examples/shader/shader_custom_material.rs"
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "text"
+path = "examples/ui/text.rs"
 
 [[example]]
 name = "ui"
