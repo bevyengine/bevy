@@ -11,7 +11,7 @@ fn main() {
 
 fn placement_system(
     time: Resource<Time>,
-    materials: Resource<AssetStorage<ColorMaterial>>,
+    materials: Resource<Assets<ColorMaterial>>,
     mut node: RefMut<Node>,
     material_handle: Ref<Handle<ColorMaterial>>,
 ) {
@@ -25,7 +25,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let mut builder = world.build();
     builder.add_entity(Camera2dEntity::default());
 
-    let mut materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+    let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
     let mut prev = Vec2::default();
     let count = 1000;
     for i in 0..count {

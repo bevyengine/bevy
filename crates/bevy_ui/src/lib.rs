@@ -18,7 +18,7 @@ pub use sprite::*;
 pub use ui_update_system::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_asset::{AddAsset, AssetStorage, Handle};
+use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_render::{
     mesh::{shape::Quad, Mesh},
     render_graph::RenderGraph,
@@ -47,7 +47,7 @@ impl AppPlugin for UiPlugin {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.add_ui_graph(resources);
 
-        let mut meshes = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+        let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
         meshes.add_with_handle(
             QUAD_HANDLE,
             Mesh::from(Quad {
@@ -55,7 +55,7 @@ impl AppPlugin for UiPlugin {
             }),
         );
 
-        let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+        let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
         color_materials.add_default(ColorMaterial::default());
     }
 }

@@ -10,15 +10,15 @@ pub enum AssetEvent<T> {
     Created { handle: Handle<T> },
 }
 
-pub struct AssetStorage<T> {
+pub struct Assets<T> {
     assets: HashMap<HandleId, T>,
     names: HashMap<String, Handle<T>>,
     events: Events<AssetEvent<T>>,
 }
 
-impl<T> Default for AssetStorage<T> {
+impl<T> Default for Assets<T> {
     fn default() -> Self {
-        AssetStorage {
+        Assets {
             assets: HashMap::default(),
             names: HashMap::default(),
             events: Events::default(),
@@ -26,7 +26,7 @@ impl<T> Default for AssetStorage<T> {
     }
 }
 
-impl<T> AssetStorage<T> {
+impl<T> Assets<T> {
     pub fn get_named(&mut self, name: &str) -> Option<Handle<T>> {
         self.names.get(name).map(|handle| *handle)
     }
@@ -77,9 +77,9 @@ impl<T> AssetStorage<T> {
 
     pub fn asset_event_system(
         mut events: ResourceMut<Events<AssetEvent<T>>>,
-        mut storage: ResourceMut<AssetStorage<T>>,
+        mut assets: ResourceMut<Assets<T>>,
     ) {
-        events.extend(storage.events.drain())
+        events.extend(assets.events.drain())
     }
 }
 
@@ -104,10 +104,10 @@ impl AddAsset for AppBuilder {
     where
         T: Send + Sync + 'static,
     {
-        self.init_resource::<AssetStorage<T>>()
+        self.init_resource::<Assets<T>>()
             .add_system_to_stage(
                 stage::EVENT_UPDATE,
-                AssetStorage::<T>::asset_event_system.system(),
+                Assets::<T>::asset_event_system.system(),
             )
             .add_event::<AssetEvent<T>>()
     }

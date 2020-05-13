@@ -9,7 +9,7 @@ fn main() {
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
+    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
     let font_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/fonts/FiraSans-Bold.ttf"
@@ -22,8 +22,8 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let texture = font.render_text("Hello from Bevy!", Color::rgba(0.9, 0.9, 0.9, 1.0), 500, 60);
     let half_width = texture.width as f32 / 2.0;
     let half_height = texture.height as f32 / 2.0;
-    let texture_handle = texture_storage.add(texture);
-    let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+    let texture_handle = textures.add(texture);
+    let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
     world
         .build()
         // 2d camera

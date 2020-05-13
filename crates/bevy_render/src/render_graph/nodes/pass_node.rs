@@ -7,7 +7,7 @@ use crate::{
     renderer::RenderContext,
     shader::{FieldBindType, Shader},
 };
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 
 pub struct PassNode {
@@ -77,7 +77,7 @@ impl Node for PassNode {
         _output: &mut ResourceSlots,
     ) {
         let pipeline_compiler = resources.get::<PipelineCompiler>().unwrap();
-        let pipeline_storage = resources.get::<AssetStorage<PipelineDescriptor>>().unwrap();
+        let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
@@ -94,14 +94,14 @@ impl Node for PassNode {
                 .attachment = TextureAttachment::RenderResource(input.get(input_index).unwrap());
         }
 
-        let shader_storage = resources.get::<AssetStorage<Shader>>().unwrap();
+        let shaders = resources.get::<Assets<Shader>>().unwrap();
         for (pipeline_handle, draw_targets) in self.pipelines.iter_mut() {
             if let Some(compiled_pipelines_iter) =
                 pipeline_compiler.iter_compiled_pipelines(*pipeline_handle)
             {
                 for compiled_pipeline_handle in compiled_pipelines_iter {
                     let compiled_pipeline_descriptor =
-                        pipeline_storage.get(compiled_pipeline_handle).unwrap();
+                        pipelines.get(compiled_pipeline_handle).unwrap();
 
                     let pipeline_layout = compiled_pipeline_descriptor.get_layout().unwrap();
                     {
@@ -117,7 +117,7 @@ impl Node for PassNode {
                     render_context.resources().create_render_pipeline(
                         *compiled_pipeline_handle,
                         &compiled_pipeline_descriptor,
-                        &shader_storage,
+                        &shaders,
                     );
                     for draw_target in draw_targets.iter_mut() {
                         draw_target.setup(
@@ -143,7 +143,7 @@ impl Node for PassNode {
                     {
                         for compiled_pipeline_handle in compiled_pipelines_iter {
                             let compiled_pipeline_descriptor =
-                                pipeline_storage.get(compiled_pipeline_handle).unwrap();
+                                pipelines.get(compiled_pipeline_handle).unwrap();
                             render_pass.set_pipeline(*compiled_pipeline_handle);
                             for draw_target in draw_targets.iter() {
                                 draw_target.draw(

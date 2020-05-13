@@ -6,7 +6,7 @@ use crate::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_asset::{AssetStorage, Handle, HandleUntyped};
+use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use downcast_rs::{impl_downcast, Downcast};
 
@@ -43,7 +43,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_shader_module(
         &self,
         shader_handle: Handle<Shader>,
-        shader_storage: &AssetStorage<Shader>,
+        shaders: &Assets<Shader>,
     );
     fn create_shader_module_from_source(
         &self,
@@ -73,7 +73,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
-        shader_storage: &AssetStorage<Shader>,
+        shaders: &Assets<Shader>,
     );
     fn create_bind_group(
         &self,

@@ -1,4 +1,4 @@
-use bevy_asset::AssetStorage;
+use bevy_asset::Assets;
 use bevy_render::{
     pipeline::{PipelineAssignments, PipelineCompiler, PipelineDescriptor},
     render_resource::EntityRenderResourceAssignments,
@@ -8,7 +8,7 @@ use legion::prelude::*;
 
 pub fn render_resource_sets_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("update_render_resource_sets")
-        .read_resource::<AssetStorage<PipelineDescriptor>>()
+        .read_resource::<Assets<PipelineDescriptor>>()
         .read_resource::<PipelineCompiler>()
         .read_resource::<PipelineAssignments>()
         .read_resource::<EntityRenderResourceAssignments>()

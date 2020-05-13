@@ -1,4 +1,4 @@
-use bevy_asset::AssetStorage;
+use bevy_asset::Assets;
 use bevy_render::{
     pipeline::{
         state_descriptors::{
@@ -12,7 +12,7 @@ use bevy_render::{
     texture::TextureFormat,
 };
 
-pub fn build_forward_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDescriptor {
+pub fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,

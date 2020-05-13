@@ -3,7 +3,7 @@ use crate::{
     WgpuBindGroupInfo, WgpuResources,
 };
 
-use bevy_asset::{AssetStorage, Handle, HandleUntyped};
+use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, PipelineDescriptor},
     render_resource::{
@@ -297,7 +297,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     fn create_shader_module(
         &self,
         shader_handle: Handle<Shader>,
-        shader_storage: &AssetStorage<Shader>,
+        shaders: &Assets<Shader>,
     ) {
         if self
             .resources
@@ -309,7 +309,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         {
             return;
         }
-        let shader = shader_storage.get(&shader_handle).unwrap();
+        let shader = shaders.get(&shader_handle).unwrap();
         self.create_shader_module_from_source(shader_handle, shader);
     }
 
@@ -374,7 +374,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
-        shaders: &AssetStorage<Shader>,
+        shaders: &Assets<Shader>,
     ) {
         if self
             .resources

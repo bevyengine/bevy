@@ -10,12 +10,12 @@ impl AppPlugin for ExamplePlugin {
 }
 
 pub fn setup(world: &mut World, resources: &mut Resources) {
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let mut material_storage = resources
-        .get_mut::<AssetStorage<StandardMaterial>>()
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
+    let mut materials = resources
+        .get_mut::<Assets<StandardMaterial>>()
         .unwrap();
-    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
-    let cube_material_handle = material_storage.add(StandardMaterial {
+    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });

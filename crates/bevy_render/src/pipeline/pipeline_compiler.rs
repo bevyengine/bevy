@@ -4,7 +4,7 @@ use crate::{
     shader::{Shader, ShaderSource},
     Renderable,
 };
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use std::collections::{HashMap, HashSet};
 
 use legion::prelude::*;
@@ -34,7 +34,7 @@ pub struct PipelineCompiler {
 impl PipelineCompiler {
     fn compile_shader(
         &mut self,
-        shader_storage: &mut AssetStorage<Shader>,
+        shaders: &mut Assets<Shader>,
         shader_handle: &Handle<Shader>,
         shader_specialization: &ShaderSpecialization,
     ) -> Handle<Shader> {
@@ -43,7 +43,7 @@ impl PipelineCompiler {
             .entry(*shader_handle)
             .or_insert_with(|| Vec::new());
 
-        let shader = shader_storage.get(shader_handle).unwrap();
+        let shader = shaders.get(shader_handle).unwrap();
 
         // don't produce new shader if the input source is already spirv
         if let ShaderSource::Spirv(_) = shader.source {
@@ -67,7 +67,7 @@ impl PipelineCompiler {
                 .cloned()
                 .collect::<Vec<String>>();
             let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
-            let compiled_handle = shader_storage.add(compiled_shader);
+            let compiled_handle = shaders.add(compiled_shader);
             compiled_shaders.push((shader_specialization.clone(), compiled_handle));
             compiled_handle
         }
@@ -76,7 +76,7 @@ impl PipelineCompiler {
     fn compile_pipeline(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
-        shaders: &mut AssetStorage<Shader>,
+        shaders: &mut Assets<Shader>,
         pipeline_descriptor: &PipelineDescriptor,
         render_resource_assignments: &RenderResourceAssignments,
     ) -> PipelineDescriptor {
@@ -120,12 +120,12 @@ impl PipelineCompiler {
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shader_pipeline_assignments: &mut PipelineAssignments,
-        pipeline_storage: &mut AssetStorage<PipelineDescriptor>,
-        shader_storage: &mut AssetStorage<Shader>,
-        pipelines: &[Handle<PipelineDescriptor>],
+        pipelines: &mut Assets<PipelineDescriptor>,
+        shaders: &mut Assets<Shader>,
+        pipeline_handles: &[Handle<PipelineDescriptor>],
         render_resource_assignments: &RenderResourceAssignments,
     ) {
-        for pipeline_handle in pipelines.iter() {
+        for pipeline_handle in pipeline_handles.iter() {
             if let None = self.pipeline_source_to_compiled.get(pipeline_handle) {
                 self.pipeline_source_to_compiled
                     .insert(*pipeline_handle, Vec::new());
@@ -141,14 +141,14 @@ impl PipelineCompiler {
                 }) {
                 *macroed_pipeline_handle
             } else {
-                let pipeline_descriptor = pipeline_storage.get(pipeline_handle).unwrap();
+                let pipeline_descriptor = pipelines.get(pipeline_handle).unwrap();
                 let compiled_pipeline = self.compile_pipeline(
                     vertex_buffer_descriptors,
-                    shader_storage,
+                    shaders,
                     pipeline_descriptor,
                     render_resource_assignments,
                 );
-                let compiled_pipeline_handle = pipeline_storage.add(compiled_pipeline);
+                let compiled_pipeline_handle = pipelines.add(compiled_pipeline);
 
                 let macro_pipelines = self
                     .pipeline_source_to_compiled
@@ -211,10 +211,10 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
     {
         let mut shader_pipeline_assignments = resources.get_mut::<PipelineAssignments>().unwrap();
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
-        let mut shader_storage = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
         let mut pipeline_descriptor_storage = resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .get_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
 
         // reset assignments so they are updated every frame
@@ -231,7 +231,7 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
                 &vertex_buffer_descriptors,
                 &mut shader_pipeline_assignments,
                 &mut pipeline_descriptor_storage,
-                &mut shader_storage,
+                &mut shaders,
                 &renderable.pipelines,
                 &renderable.render_resource_assignments,
             );

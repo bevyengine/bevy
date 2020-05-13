@@ -16,7 +16,7 @@ fn main() {
 
 fn move_system(
     time: Resource<Time>,
-    mut materials: ResourceMut<AssetStorage<StandardMaterial>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
     mut translation: RefMut<Translation>,
     material_handle: Ref<Handle<StandardMaterial>>,
 ) {
@@ -26,17 +26,17 @@ fn move_system(
 }
 
 fn setup(world: &mut World, resources: &mut Resources) {
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let mut material_storage = resources
-        .get_mut::<AssetStorage<StandardMaterial>>()
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
+    let mut materials = resources
+        .get_mut::<Assets<StandardMaterial>>()
         .unwrap();
-    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
-    let plane_handle = mesh_storage.add(Mesh::from(shape::Plane { size: 10.0 }));
-    let cube_material_handle = material_storage.add(StandardMaterial {
+    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
+    let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
-    let plane_material_handle = material_storage.add(StandardMaterial {
+    let plane_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });
@@ -73,7 +73,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
 
     let mut rng = StdRng::from_entropy();
     for _ in 0..10000 {
-        let spawned_material_handle = material_storage.add(StandardMaterial {
+        let spawned_material_handle = materials.add(StandardMaterial {
             albedo: Color::rgb(
                 rng.gen_range(0.0, 1.0),
                 rng.gen_range(0.0, 1.0),

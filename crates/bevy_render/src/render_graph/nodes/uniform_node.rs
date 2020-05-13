@@ -10,7 +10,7 @@ use crate::{
     texture, Renderable,
 };
 
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 use std::{collections::HashMap, marker::PhantomData};
 use texture::{SamplerDescriptor, Texture, TextureDescriptor};
@@ -400,7 +400,7 @@ where
             "uniform_resource_provider::<{}>",
             std::any::type_name::<T>()
         ))
-        .read_resource::<AssetStorage<Texture>>()
+        .read_resource::<Assets<Texture>>()
         .read_resource::<RenderResources>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
         .with_query(<(Read<T>, Read<Renderable>)>::query())
@@ -555,8 +555,8 @@ where
         initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
         SystemBuilder::new("uniform_resource_provider")
-            .read_resource::<AssetStorage<T>>()
-            .read_resource::<AssetStorage<Texture>>()
+            .read_resource::<Assets<T>>()
+            .read_resource::<Assets<Texture>>()
             .read_resource::<RenderResources>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
@@ -689,7 +689,7 @@ where
 fn setup_uniform_texture_resources<T>(
     uniforms: &T,
     command_queue: &mut CommandQueue,
-    texture_storage: &AssetStorage<Texture>,
+    textures: &Assets<Texture>,
     render_resource_context: &dyn RenderResourceContext,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
@@ -712,7 +712,7 @@ fn setup_uniform_texture_resources<T>(
                             .unwrap(),
                     ),
                     None => {
-                        let texture = texture_storage.get(&texture_handle).unwrap();
+                        let texture = textures.get(&texture_handle).unwrap();
 
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let texture_resource =

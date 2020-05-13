@@ -10,19 +10,19 @@ fn main() {
 /// set up a simple scene
 fn setup(world: &mut World, resources: &mut Resources) {
     // create a cube and a plane mesh
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
-    let plane_handle = mesh_storage.add(Mesh::from(shape::Plane { size: 10.0 }));
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
+    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
 
     // create materials for our cube and plane
-    let mut material_storage = resources
-        .get_mut::<AssetStorage<StandardMaterial>>()
+    let mut materials = resources
+        .get_mut::<Assets<StandardMaterial>>()
         .unwrap();
-    let cube_material_handle = material_storage.add(StandardMaterial {
+    let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
-    let plane_material_handle = material_storage.add(StandardMaterial {
+    let plane_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.1, 0.2, 0.1),
         ..Default::default()
     });

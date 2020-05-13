@@ -1,5 +1,5 @@
 use crate::{ColorMaterial, Rect};
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
     draw_target::AssignedMeshesDrawTarget,
@@ -16,7 +16,7 @@ use legion::prelude::Resources;
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_u128(323432002226399387835192542539754486265);
 
-pub fn build_ui_pipeline(shaders: &mut AssetStorage<Shader>) -> PipelineDescriptor {
+pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,
@@ -78,9 +78,9 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_node_edge("rect", base_render_graph::node::MAIN_PASS)
             .unwrap();
         let mut pipelines = resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .get_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
-        let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.add_with_handle(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
         let main_pass: &mut PassNode = self
             .get_node_mut(base_render_graph::node::MAIN_PASS)

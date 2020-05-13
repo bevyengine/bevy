@@ -19,16 +19,16 @@ fn setup(world: &mut World, resources: &mut Resources) {
     //     ..Default::default()
     // });
 
-    let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
+    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
     let texture_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/branding/bevy_logo_dark_big.png"
     );
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
     let aspect = texture.aspect();
-    let texture_handle = texture_storage.add(texture);
+    let texture_handle = textures.add(texture);
 
-    let mut color_materials = resources.get_mut::<AssetStorage<ColorMaterial>>().unwrap();
+    let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
     let blue_material_handle = color_materials.add(Color::rgb(0.6, 0.6, 1.0).into());
 
     world

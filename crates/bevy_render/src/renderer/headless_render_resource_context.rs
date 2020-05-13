@@ -7,7 +7,7 @@ use crate::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_asset::{AssetStorage, Handle, HandleUntyped};
+use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use std::{
     collections::HashMap,
@@ -68,7 +68,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_shader_module(
         &self,
         _shader_handle: Handle<Shader>,
-        _shader_storage: &AssetStorage<Shader>,
+        _shaders: &Assets<Shader>,
     ) {
     }
     fn remove_buffer(&self, resource: RenderResource) {
@@ -113,7 +113,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         &self,
         _pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_descriptor: &PipelineDescriptor,
-        _shader_storage: &AssetStorage<Shader>,
+        _shaders: &Assets<Shader>,
     ) {
     }
     fn create_bind_group(

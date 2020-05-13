@@ -5,7 +5,7 @@ use crate::{
     Renderable,
 };
 
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 
@@ -34,7 +34,7 @@ where
 }
 
 pub fn asset_handle_shader_def_system<T>(
-    asset_storage: Resource<AssetStorage<T>>,
+    assets: Resource<Assets<T>>,
     asset_handle: Ref<Handle<T>>,
     mut renderable: RefMut<Renderable>,
 ) where
@@ -44,7 +44,7 @@ pub fn asset_handle_shader_def_system<T>(
         return;
     }
 
-    let uniforms = asset_storage.get(&asset_handle).unwrap();
+    let uniforms = assets.get(&asset_handle).unwrap();
     if let Some(shader_defs) = uniforms.get_shader_defs() {
         renderable
             .render_resource_assignments

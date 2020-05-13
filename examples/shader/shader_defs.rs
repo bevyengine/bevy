@@ -23,9 +23,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
     // create new shader pipeline and add to main pass in Render Graph
     let pipeline_handle = {
         let mut pipelines = resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .get_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
-        let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
 
         let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
@@ -77,19 +77,19 @@ fn setup(world: &mut World, resources: &mut Resources) {
     };
 
     // create materials
-    let mut material_storage = resources.get_mut::<AssetStorage<MyMaterial>>().unwrap();
-    let green_material = material_storage.add(MyMaterial {
+    let mut materials = resources.get_mut::<Assets<MyMaterial>>().unwrap();
+    let green_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
         always_red: false,
     });
 
-    let red_material = material_storage.add(MyMaterial {
+    let red_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.0, 0.0),
         always_red: true,
     });
 
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let cube_handle = mesh_storage.add(Mesh::from(shape::Cube));
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
+    let cube_handle = meshes.add(Mesh::from(shape::Cube));
 
     world
         .build()

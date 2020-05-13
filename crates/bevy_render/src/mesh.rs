@@ -8,7 +8,7 @@ use crate::{
     shader::AsUniforms,
     Renderable, Vertex,
 };
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use glam::*;
 use legion::prelude::*;
 use std::borrow::Cow;
@@ -312,7 +312,7 @@ pub mod shape {
 
 pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("mesh_specializer")
-        .read_resource::<AssetStorage<Mesh>>()
+        .read_resource::<Assets<Mesh>>()
         .with_query(
             <(Read<Handle<Mesh>>, Write<Renderable>)>::query()
                 .filter(changed::<Handle<Mesh>>() | changed::<Renderable>()),
@@ -333,7 +333,7 @@ fn setup_mesh_resource(
     render_resource_assignments: &mut RenderResourceAssignments,
     vertex_buffer_descriptor: &VertexBufferDescriptor,
     handle: Handle<Mesh>,
-    meshes: &AssetStorage<Mesh>,
+    meshes: &Assets<Mesh>,
 ) {
     log::trace!("setup mesh for {:?}", render_resource_assignments.id);
     let index_format = IndexFormat::Uint16;
@@ -381,7 +381,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     SystemBuilder::new("mesh_resource_provider")
         .read_resource::<RenderResources>()
-        .read_resource::<AssetStorage<Mesh>>()
+        .read_resource::<Assets<Mesh>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
             move |_, world, (render_resource_context, meshes /* asset_batchers*/), query| {

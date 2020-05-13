@@ -10,35 +10,35 @@ fn main() {
 /// sets up a scene with textured entities
 fn setup(world: &mut World, resources: &mut Resources) {
     // load a texture
-    let mut texture_storage = resources.get_mut::<AssetStorage<Texture>>().unwrap();
+    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
     let texture_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/branding/bevy_logo_dark_big.png"
     );
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
     let aspect = texture.aspect();
-    let texture_handle = texture_storage.add(texture);
+    let texture_handle = textures.add(texture);
 
     // create a new quad mesh. this is what we will apply the texture to
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
     let quad_width = 8.0;
-    let quad_handle = mesh_storage.add(Mesh::from(shape::Quad {
+    let quad_handle = meshes.add(Mesh::from(shape::Quad {
         size: Vec2::new(quad_width, quad_width * aspect),
     }));
 
     // create materials that use our new texture
-    let mut material_storage = resources
-        .get_mut::<AssetStorage<StandardMaterial>>()
+    let mut materials = resources
+        .get_mut::<Assets<StandardMaterial>>()
         .unwrap();
 
     // this material renders the texture normally
-    let material_handle = material_storage.add(StandardMaterial {
+    let material_handle = materials.add(StandardMaterial {
         albedo_texture: Some(texture_handle),
         ..Default::default()
     });
 
     // this material modulates the texture to make it red
-    let modulated_material_handle = material_storage.add(StandardMaterial {
+    let modulated_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
         albedo_texture: Some(texture_handle),
         ..Default::default()

@@ -1,5 +1,5 @@
 use crate::{ColorMaterial, Rect};
-use bevy_asset::{AssetStorage, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_render::texture::Texture;
 pub use legion::prelude::*;
 pub struct Sprite {
@@ -14,8 +14,8 @@ impl Default for Sprite {
 
 pub fn sprite_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("sprite_system")
-        .read_resource::<AssetStorage<ColorMaterial>>()
-        .read_resource::<AssetStorage<Texture>>()
+        .read_resource::<Assets<ColorMaterial>>()
+        .read_resource::<Assets<Texture>>()
         .with_query(
             <(Read<Sprite>, Read<Handle<ColorMaterial>>, Write<Rect>)>::query().filter(
                 changed::<Sprite>() | changed::<Rect>() | changed::<Handle<ColorMaterial>>(),

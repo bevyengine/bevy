@@ -11,14 +11,14 @@ fn setup(world: &mut World, resources: &mut Resources) {
     // load the mesh
     let model_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/models/Monkey.gltf");
     let mesh = gltf::load_gltf(&model_path).unwrap().unwrap();
-    let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
-    let mesh_handle = mesh_storage.add(mesh);
+    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
+    let mesh_handle = meshes.add(mesh);
 
     // create a material for the mesh
-    let mut material_storage = resources
-        .get_mut::<AssetStorage<StandardMaterial>>()
+    let mut materials = resources
+        .get_mut::<Assets<StandardMaterial>>()
         .unwrap();
-    let material_handle = material_storage.add(StandardMaterial {
+    let material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });

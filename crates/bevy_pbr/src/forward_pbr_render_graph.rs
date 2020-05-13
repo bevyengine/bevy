@@ -1,5 +1,5 @@
 use crate::{material::StandardMaterial, nodes::LightsNode, pipelines::build_forward_pipeline};
-use bevy_asset::AssetStorage;
+use bevy_asset::Assets;
 use bevy_render::{
     base_render_graph,
     draw_target::AssignedMeshesDrawTarget,
@@ -36,9 +36,9 @@ impl ForwardPbrRenderGraphBuilder for RenderGraph {
             resources,
         );
         self.add_system_node_named(node::LIGHTS, LightsNode::new(10), resources);
-        let mut shaders = resources.get_mut::<AssetStorage<Shader>>().unwrap();
+        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = resources
-            .get_mut::<AssetStorage<PipelineDescriptor>>()
+            .get_mut::<Assets<PipelineDescriptor>>()
             .unwrap();
         {
             let main_pass: &mut PassNode = self

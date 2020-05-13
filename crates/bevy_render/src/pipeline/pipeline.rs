@@ -11,7 +11,7 @@ use crate::{
     shader::{Shader, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_asset::AssetStorage;
+use bevy_asset::Assets;
 
 // TODO: consider removing this in favor of Option<Layout>
 #[derive(Clone, Debug)]
@@ -145,7 +145,7 @@ impl PipelineDescriptor {
     /// render resource.
     pub fn reflect_layout(
         &mut self,
-        shaders: &AssetStorage<Shader>,
+        shaders: &Assets<Shader>,
         bevy_conventions: bool,
         vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
         render_resource_assignments: Option<&RenderResourceAssignments>,
