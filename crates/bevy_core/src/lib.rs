@@ -5,7 +5,7 @@ pub mod transform;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::transform_system_bundle;
 use legion::prelude::IntoSystem;
-use time::{start_timer_system, stop_timer_system};
+use time::{start_timer_system, stop_timer_system, Time};
 
 #[derive(Default)]
 pub struct CorePlugin;
@@ -16,7 +16,7 @@ impl AppPlugin for CorePlugin {
             app.add_system(transform_system);
         }
 
-        app.add_resource(time::Time::new())
+        app.init_resource::<Time>()
             .add_system_to_stage(stage::FIRST, start_timer_system.system())
             .add_system_to_stage(stage::LAST, stop_timer_system.system());
     }

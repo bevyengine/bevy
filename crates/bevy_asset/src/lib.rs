@@ -16,15 +16,17 @@ pub struct AssetStorage<T> {
     events: Events<AssetEvent<T>>,
 }
 
-impl<T> AssetStorage<T> {
-    pub fn new() -> AssetStorage<T> {
+impl<T> Default for AssetStorage<T> {
+    fn default() -> Self {
         AssetStorage {
-            assets: HashMap::new(),
-            names: HashMap::new(),
+            assets: HashMap::default(),
+            names: HashMap::default(),
             events: Events::default(),
         }
     }
+}
 
+impl<T> AssetStorage<T> {
     pub fn get_named(&mut self, name: &str) -> Option<Handle<T>> {
         self.names.get(name).map(|handle| *handle)
     }
@@ -102,7 +104,7 @@ impl AddAsset for AppBuilder {
     where
         T: Send + Sync + 'static,
     {
-        self.add_resource(AssetStorage::<T>::new())
+        self.init_resource::<AssetStorage<T>>()
             .add_system_to_stage(
                 stage::EVENT_UPDATE,
                 AssetStorage::<T>::asset_event_system.system(),

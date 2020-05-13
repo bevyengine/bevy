@@ -27,7 +27,7 @@ impl AppPlugin for WinitPlugin {
             // TODO: It would be great to provide a raw winit WindowEvent here, but the lifetime on it is
             // stopping us. there are plans to remove the lifetime: https://github.com/rust-windowing/winit/pull/1456
             // .add_event::<winit::event::WindowEvent>()
-            .add_resource(WinitWindows::default())
+            .init_resource::<WinitWindows>()
             .set_runner(winit_runner);
     }
 }

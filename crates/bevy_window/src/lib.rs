@@ -31,7 +31,7 @@ impl AppPlugin for WindowPlugin {
             .add_event::<WindowCreated>()
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
-            .add_resource(Windows::default());
+            .init_resource::<Windows>();
 
         if let Some(ref primary_window_descriptor) = self.primary_window {
             let mut create_window_event =

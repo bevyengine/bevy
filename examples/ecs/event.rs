@@ -4,7 +4,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_event::<MyEvent>()
-        .add_resource(EventTriggerState::default())
+        .init_resource::<EventTriggerState>()
         .init_resource::<EventListenerState>()
         .add_system(event_trigger_system.system())
         .add_system(event_listener_system.system())

@@ -21,6 +21,7 @@ pub struct ShaderSpecialization {
 }
 
 // TODO: consider using (Typeid, fieldinfo.index) in place of string for hashes
+#[derive(Default)]
 pub struct PipelineCompiler {
     pub shader_source_to_compiled:
         HashMap<Handle<Shader>, Vec<(ShaderSpecialization, Handle<Shader>)>>,
@@ -31,13 +32,6 @@ pub struct PipelineCompiler {
 }
 
 impl PipelineCompiler {
-    pub fn new() -> Self {
-        PipelineCompiler {
-            shader_source_to_compiled: HashMap::new(),
-            pipeline_source_to_compiled: HashMap::new(),
-        }
-    }
-
     fn compile_shader(
         &mut self,
         shader_storage: &mut AssetStorage<Shader>,
@@ -205,16 +199,9 @@ impl PipelineCompiler {
     }
 }
 
+#[derive(Default)]
 pub struct PipelineAssignments {
     pub assignments: HashMap<Handle<PipelineDescriptor>, Vec<RenderResourceAssignmentsId>>,
-}
-
-impl PipelineAssignments {
-    pub fn new() -> Self {
-        PipelineAssignments {
-            assignments: HashMap::new(),
-        }
-    }
 }
 
 // TODO: make this a system

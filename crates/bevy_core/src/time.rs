@@ -8,8 +8,8 @@ pub struct Time {
     pub delta_seconds: f32,
 }
 
-impl Time {
-    pub fn new() -> Time {
+impl Default for Time {
+    fn default() -> Time {
         Time {
             delta: Duration::from_secs(0),
             instant: Instant::now(),
@@ -17,7 +17,9 @@ impl Time {
             delta_seconds: 0.0,
         }
     }
+}
 
+impl Time {
     pub fn start(&mut self) {
         self.instant = Instant::now();
     }
