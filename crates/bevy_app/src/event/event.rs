@@ -53,10 +53,7 @@ enum State {
 ///
 /// An alternative call pattern would be to call [Events::update] manually across frames to control when events are cleared. However
 /// this complicates consumption
-pub struct Events<T>
-where
-    T: Send + Sync + 'static,
-{
+pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
     events_b: Vec<EventInstance<T>>,
     a_start_event_count: usize,
@@ -65,10 +62,7 @@ where
     state: State,
 }
 
-impl<T> Default for Events<T>
-where
-    T: Send + Sync + 'static,
-{
+impl<T> Default for Events<T> {
     fn default() -> Self {
         Events {
             a_start_event_count: 0,
@@ -81,10 +75,7 @@ where
     }
 }
 
-fn map_event_instance<T>(event_instance: &EventInstance<T>) -> &T
-where
-    T: Send + Sync + 'static,
-{
+fn map_event_instance<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
@@ -93,10 +84,7 @@ pub struct EventReader<T> {
     _marker: PhantomData<T>,
 }
 
-impl<T> EventReader<T>
-where
-    T: Send + Sync + 'static,
-{
+impl<T> EventReader<T> {
     /// Iterates over the events this EventReader has not seen yet. This updates the EventReader's
     /// event counter, which means subsequent event reads will not include events that happened before now.
     pub fn iter<'a>(&mut self, events: &'a Events<T>) -> impl DoubleEndedIterator<Item = &'a T> {
@@ -168,10 +156,7 @@ where
     }
 }
 
-impl<T> Events<T>
-where
-    T: Send + Sync + 'static,
-{
+impl<T> Events<T> {
     /// "Sends" an `event` by writing it to the current event buffer. [EventReader]s can then read the event.
     pub fn send(&mut self, event: T) {
         let event_instance = EventInstance {
@@ -222,6 +207,35 @@ where
     /// A system that calls [Events::update] once per frame.
     pub fn update_system(mut events: ResourceMut<Self>) {
         events.update();
+    }
+
+    /// Removes all events.
+    pub fn clear(&mut self) {
+        self.events_a.clear();
+        self.events_b.clear();
+    }
+
+    /// Creates a draining iterator that removes all events.
+    pub fn drain<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
+        let map = |i: EventInstance<T>| i.event;
+        match self.state {
+            State::A => self
+                .events_b
+                .drain(..)
+                .map(map)
+                .chain(self.events_a.drain(..).map(map)),
+            State::B => self
+                .events_a
+                .drain(..)
+                .map(map)
+                .chain(self.events_b.drain(..).map(map)),
+        }
+    }
+
+    pub fn extend<I>(&mut self, events: I) where I: Iterator<Item = T> {
+        for event in events {
+            self.send(event);
+        }
     }
 }
 
