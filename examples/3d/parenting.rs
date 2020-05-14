@@ -11,15 +11,15 @@ fn main() {
 }
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Resource<Time>, _rotator: RefMut<Rotator>, mut rotation: RefMut<Rotation>) {
+fn rotator_system(time: Res<Time>, _rotator: ComMut<Rotator>, mut rotation: ComMut<Rotation>) {
     rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
 }
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let cube_material_handle = materials.add(StandardMaterial {

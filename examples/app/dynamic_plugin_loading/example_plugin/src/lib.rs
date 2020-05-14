@@ -11,8 +11,8 @@ impl AppPlugin for ExamplePlugin {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let cube_material_handle = materials.add(StandardMaterial {

@@ -1,4 +1,4 @@
-use legion::prelude::{ResourceMut, Resources};
+use legion::prelude::{ResMut, Resources};
 use std::marker::PhantomData;
 
 struct EventInstance<T> {
@@ -205,7 +205,7 @@ impl<T> Events<T> {
     }
 
     /// A system that calls [Events::update] once per frame.
-    pub fn update_system(mut events: ResourceMut<Self>) {
+    pub fn update_system(mut events: ResMut<Self>) {
         events.update();
     }
 

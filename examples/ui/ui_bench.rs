@@ -10,10 +10,10 @@ fn main() {
 }
 
 fn placement_system(
-    time: Resource<Time>,
-    materials: Resource<Assets<ColorMaterial>>,
-    mut node: RefMut<Node>,
-    material_handle: Ref<Handle<ColorMaterial>>,
+    time: Res<Time>,
+    materials: Res<Assets<ColorMaterial>>,
+    mut node: ComMut<Node>,
+    material_handle: Com<Handle<ColorMaterial>>,
 ) {
     let material = materials.get(&material_handle).unwrap();
     if material.color.r > 0.2 {
@@ -21,7 +21,7 @@ fn placement_system(
     }
 }
 
-fn setup(command_buffer: &mut CommandBuffer, mut materials: ResourceMut<Assets<ColorMaterial>>) {
+fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>) {
     let mut builder = command_buffer.build();
     builder.add_entity(Camera2dEntity::default());
 

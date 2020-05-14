@@ -46,7 +46,7 @@ pub use crate::{
     AddDefaultPlugins,
 };
 pub use legion::{
-    borrow::{Ref, RefMut},
+    borrow::{Ref as Com, RefMut as ComMut},
     command::CommandBuffer,
     entity::Entity,
     event::Event as LegionEvent,
@@ -56,7 +56,7 @@ pub use legion::{
         bit_set::BitSet,
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        IntoSystem, Resource, ResourceMut, SubWorld, SystemBuilder,
+        IntoSystem, Res, ResMut, SubWorld, SystemBuilder,
     },
     world::{Universe, World},
 };

@@ -19,7 +19,7 @@ pub trait AsUniforms: Send + Sync + 'static {
     fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
 }
 
-pub fn shader_def_system<T>(uniforms: Ref<T>, mut renderable: RefMut<Renderable>)
+pub fn shader_def_system<T>(uniforms: Com<T>, mut renderable: ComMut<Renderable>)
 where
     T: AsUniforms + Send + Sync + 'static,
 {
@@ -34,9 +34,9 @@ where
 }
 
 pub fn asset_shader_def_system<T>(
-    assets: Resource<Assets<T>>,
-    asset_handle: Ref<Handle<T>>,
-    mut renderable: RefMut<Renderable>,
+    assets: Res<Assets<T>>,
+    asset_handle: Com<Handle<T>>,
+    mut renderable: ComMut<Renderable>,
 ) where
     T: AsUniforms + Send + Sync + 'static,
 {

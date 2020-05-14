@@ -8,7 +8,7 @@ mod system_fn_types;
 pub use bit_set;
 pub use system::*;
 pub use system_fn::*;
-pub use system_fn_types::{Resource, ResourceMut};
+pub use system_fn_types::{Res, ResMut};
 
 pub mod prelude {
     pub use crate::{
@@ -17,8 +17,8 @@ pub mod prelude {
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
         IntoSystem,
-        Resource,
-        ResourceMut,
+        Res,
+        ResMut,
         System,
         SystemBuilder,
     };

@@ -71,8 +71,8 @@ fn print_message_system() {
 
 // Systems can also read and modify resources. This system starts a new "round" on each update:
 // NOTE: "mut" denotes that the resource is "mutable"
-// Resource<GameRules> is read-only. ResourceMut<GameState> can modify the resource
-fn new_round_system(game_rules: Resource<GameRules>, mut game_state: ResourceMut<GameState>) {
+// Res<GameRules> is read-only. ResMut<GameState> can modify the resource
+fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState>) {
     game_state.current_round += 1;
     println!(
         "Begin round {} of {}",
@@ -81,8 +81,8 @@ fn new_round_system(game_rules: Resource<GameRules>, mut game_state: ResourceMut
 }
 
 // This system runs once for each entity with both the "Player" and "Score" component.
-// NOTE: Ref<Player> is a read-only reference, whereas RefMut<Score> can modify the component
-fn score_system(player: Ref<Player>, mut score: RefMut<Score>) {
+// NOTE: Com<Player> is a read-only component Comerence, whereas ComMut<Score> can modify the component
+fn score_system(player: Com<Player>, mut score: ComMut<Score>) {
     let scored_a_point = random::<bool>();
     if scored_a_point {
         score.value += 1;
@@ -104,10 +104,10 @@ fn score_system(player: Ref<Player>, mut score: RefMut<Score>) {
 // accesses the "GameRules" resource to determine if a player has won.
 // NOTE: resources must always come before components in system functions
 fn score_check_system(
-    game_rules: Resource<GameRules>,
-    mut game_state: ResourceMut<GameState>,
-    player: Ref<Player>,
-    score: Ref<Score>,
+    game_rules: Res<GameRules>,
+    mut game_state: ResMut<GameState>,
+    player: Com<Player>,
+    score: Com<Score>,
 ) {
     if score.value == game_rules.winning_score {
         game_state.winning_player = Some(player.name.clone());
@@ -117,9 +117,9 @@ fn score_check_system(
 // This system ends the game if we meet the right conditions. This fires an AppExit event, which tells our
 // App to quit. Check out the "event.rs" example if you want to learn more about using events.
 fn game_over_system(
-    game_rules: Resource<GameRules>,
-    game_state: Resource<GameState>,
-    mut app_exit_events: ResourceMut<Events<AppExit>>,
+    game_rules: Res<GameRules>,
+    game_state: Res<GameState>,
+    mut app_exit_events: ResMut<Events<AppExit>>,
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{} won the game!", player);
@@ -175,8 +175,8 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
 // NOTE: Command buffers must always come before resources and components in system functions
 fn new_player_system(
     command_buffer: &mut CommandBuffer,
-    game_rules: Resource<GameRules>,
-    mut game_state: ResourceMut<GameState>,
+    game_rules: Res<GameRules>,
+    mut game_state: ResMut<GameState>,
 ) {
     // Randomly add a new player
     let add_new_player = random::<bool>();
@@ -232,7 +232,7 @@ fn thread_local_system(world: &mut World, resources: &mut Resources) {
 #[allow(dead_code)]
 fn closure_system() -> Box<dyn Schedulable> {
     let mut counter = 0;
-    (move |player: Ref<Player>, score: Ref<Score>| {
+    (move |player: Com<Player>, score: Com<Score>| {
         println!("processed: {} {}", player.name, score.value);
         println!("this ran {} times", counter);
         counter += 1;
@@ -250,7 +250,7 @@ struct State {
 
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn stateful_system(mut state: RefMut<State>, player: Ref<Player>, score: RefMut<Score>) {
+fn stateful_system(mut state: ComMut<State>, player: Com<Player>, score: ComMut<Score>) {
     println!("processed: {} {}", player.name, score.value);
     println!("this ran {} times", state.counter);
     state.counter += 1;
@@ -267,7 +267,7 @@ fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     SystemBuilder::new("complex_system")
         .read_resource::<GameState>()
         .write_resource::<GameRules>()
-        // this query is equivalent to the system we saw above: system(player: Ref<Player>, mut score: RefMut<Score>)
+        // this query is equivalent to the system we saw above: system(player: Com<Player>, mut score: ComMut<Score>)
         .with_query(<(Read<Player>, Write<Score>)>::query())
         // this query only returns entities with a Player component that has changed since the last update
         .with_query(<Read<Player>>::query().filter(changed::<Player>()))
@@ -307,7 +307,7 @@ fn main() {
         .add_startup_system(startup_system)
         // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
-        // Systems that need a reference to Resources to be constructed can be added using "init_system":
+        // Systems that need a Comerence to Resources to be constructed can be added using "init_system":
         // .init_system(complex_system)
         //
         // SYSTEM EXECUTION ORDER
@@ -316,7 +316,7 @@ fn main() {
         // For example, we want our "game over" system to execute after all other systems to ensure we don't
         // accidentally run the game for an extra round.
         //
-        // First, if a system writes a component or resource (RefMut / ResourceMut), it will force a synchronization.
+        // First, if a system writes a component or resource (ComMut / ResMut), it will force a synchronization.
         // Any systems that access the data type and were registered BEFORE the system will need to finish first.
         // Any systems that were registered _after_ the system will need to wait for it to finish. This is a great
         // default that makes everything "just work" as fast as possible without us needing to think about it ... provided

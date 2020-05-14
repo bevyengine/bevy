@@ -32,10 +32,10 @@ impl Time {
     }
 }
 
-pub fn start_timer_system(mut time: ResourceMut<Time>) {
+pub fn start_timer_system(mut time: ResMut<Time>) {
     time.start();
 }
 
-pub fn stop_timer_system(mut time: ResourceMut<Time>) {
+pub fn stop_timer_system(mut time: ResMut<Time>) {
     time.stop();
 }

@@ -9,8 +9,8 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load the mesh
     let model_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/models/Monkey.gltf");

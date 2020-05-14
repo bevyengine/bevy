@@ -15,10 +15,10 @@ fn main() {
 }
 
 fn move_cubes(
-    time: Resource<Time>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
-    mut translation: RefMut<Translation>,
-    material_handle: Ref<Handle<StandardMaterial>>,
+    time: Res<Time>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut translation: ComMut<Translation>,
+    material_handle: Com<Handle<StandardMaterial>>,
 ) {
     let material = materials.get_mut(&material_handle).unwrap();
     translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
@@ -27,8 +27,8 @@ fn move_cubes(
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));

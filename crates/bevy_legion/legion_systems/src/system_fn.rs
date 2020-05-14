@@ -269,7 +269,7 @@ impl_system_variants![(R1, r1), (R2, r2), (R3, r3), (R4, r4), (R5, r5), (R6, r6)
 mod tests {
     use crate::{
         resource::Resources,
-        system_fn_types::{Resource, ResourceMut},
+        system_fn_types::{Res, ResMut},
         IntoSystem,
     };
     use legion_core::{
@@ -306,7 +306,7 @@ mod tests {
         }
 
         ({
-            |x: Resource<A>, y: Ref<Y>, mut z: RefMut<A>| {
+            |x: Res<A>, y: Ref<Y>, mut z: RefMut<A>| {
                 z.0 += 1;
                 println!("{} {} {}", x.0, y.0, z.0);
             }
@@ -316,7 +316,7 @@ mod tests {
         let mut system = read_write_system.system();
         system.run(&mut world, &mut resources);
 
-        fn resource_system(a: Resource<A>, x: Ref<X>, y: Ref<Y>) {
+        fn resource_system(a: Res<A>, x: Ref<X>, y: Ref<Y>) {
             println!("{} {} {}", a.0, x.0, y.0);
         }
 
@@ -330,14 +330,14 @@ mod tests {
         let mut system = empty_system_mut.system();
         system.run(&mut world, &mut resources);
 
-        fn resource_system_mut(mut a: ResourceMut<A>, x: Ref<X>, y: Ref<Y>) {
+        fn resource_system_mut(mut a: ResMut<A>, x: Ref<X>, y: Ref<Y>) {
             a.0 += 1;
             println!("{} {} {}", a.0, x.0, y.0);
         }
         let mut system = resource_system_mut.system();
         system.run(&mut world, &mut resources);
 
-        fn command_buffer_system(command_buffer: &mut CommandBuffer, mut a: ResourceMut<A>) {
+        fn command_buffer_system(command_buffer: &mut CommandBuffer, mut a: ResMut<A>) {
             a.0 += 1;
             command_buffer.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
             println!("{}", a.0);
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_resource_system_fn() {
-        fn my_system(mut a: ResourceMut<A>, x: Ref<X>, mut y: RefMut<Y>) {
+        fn my_system(mut a: ResMut<A>, x: Ref<X>, mut y: RefMut<Y>) {
             if a.0 == 0 {
                 assert_eq!(*a, A(0));
                 assert_eq!(*x, X(2));

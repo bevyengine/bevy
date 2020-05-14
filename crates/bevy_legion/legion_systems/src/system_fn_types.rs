@@ -17,21 +17,21 @@ use std::{
 };
 use tracing::{debug, info, span, Level};
 #[derive(Debug)]
-pub struct Resource<'a, T: 'a> {
+pub struct Res<'a, T: 'a> {
     #[allow(dead_code)]
     // held for drop impl
     _marker: PhantomData<&'a ()>,
     value: *const T,
 }
 
-unsafe impl<'a, T: resource::Resource> Send for Resource<'a, T> {}
-unsafe impl<'a, T: resource::Resource> Sync for Resource<'a, T> {}
-impl<'a, T: 'a> Clone for Resource<'a, T> {
+unsafe impl<'a, T: resource::Resource> Send for Res<'a, T> {}
+unsafe impl<'a, T: resource::Resource> Sync for Res<'a, T> {}
+impl<'a, T: 'a> Clone for Res<'a, T> {
     #[inline(always)]
-    fn clone(&self) -> Self { Resource::new(self.value) }
+    fn clone(&self) -> Self { Res::new(self.value) }
 }
 
-impl<'a, T: 'a> Resource<'a, T> {
+impl<'a, T: 'a> Res<'a, T> {
     #[inline(always)]
     fn new(resource: *const T) -> Self {
         Self {
@@ -41,37 +41,37 @@ impl<'a, T: 'a> Resource<'a, T> {
     }
 
     #[inline(always)]
-    pub fn map<K: 'a, F: FnMut(&T) -> &K>(&self, mut f: F) -> Resource<'a, K> {
-        Resource::new(f(&self))
+    pub fn map<K: 'a, F: FnMut(&T) -> &K>(&self, mut f: F) -> Res<'a, K> {
+        Res::new(f(&self))
     }
 }
 
-impl<'a, T: 'a> Deref for Resource<'a, T> {
+impl<'a, T: 'a> Deref for Res<'a, T> {
     type Target = T;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target { unsafe { &*self.value } }
 }
 
-impl<'a, T: 'a> AsRef<T> for Resource<'a, T> {
+impl<'a, T: 'a> AsRef<T> for Res<'a, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T { unsafe { &*self.value } }
 }
 
-impl<'a, T: 'a> std::borrow::Borrow<T> for Resource<'a, T> {
+impl<'a, T: 'a> std::borrow::Borrow<T> for Res<'a, T> {
     #[inline(always)]
     fn borrow(&self) -> &T { unsafe { &*self.value } }
 }
 
-impl<'a, T> PartialEq for Resource<'a, T>
+impl<'a, T> PartialEq for Res<'a, T>
 where
     T: 'a + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool { self.value == other.value }
 }
-impl<'a, T> Eq for Resource<'a, T> where T: 'a + Eq {}
+impl<'a, T> Eq for Res<'a, T> where T: 'a + Eq {}
 
-impl<'a, T> PartialOrd for Resource<'a, T>
+impl<'a, T> PartialOrd for Res<'a, T>
 where
     T: 'a + PartialOrd,
 {
@@ -79,48 +79,48 @@ where
         self.value.partial_cmp(&other.value)
     }
 }
-impl<'a, T> Ord for Resource<'a, T>
+impl<'a, T> Ord for Res<'a, T>
 where
     T: 'a + Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.value.cmp(&other.value) }
 }
 
-impl<'a, T> Hash for Resource<'a, T>
+impl<'a, T> Hash for Res<'a, T>
 where
     T: 'a + Hash,
 {
     fn hash<H: Hasher>(&self, state: &mut H) { self.value.hash(state); }
 }
 
-impl<'a, T: resource::Resource> ResourceSet for Resource<'a, T> {
-    type PreparedResources = Resource<'a, T>;
+impl<'a, T: resource::Resource> ResourceSet for Res<'a, T> {
+    type PreparedResources = Res<'a, T>;
 
     unsafe fn fetch_unchecked(resources: &Resources) -> Self::PreparedResources {
         let resource = resources
             .get::<T>()
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
-        Resource::new(resource.deref() as *const T)
+        Res::new(resource.deref() as *const T)
     }
     fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
     fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
 }
 
 #[derive(Debug)]
-pub struct ResourceMut<'a, T: 'a> {
+pub struct ResMut<'a, T: 'a> {
     // held for drop impl
     _marker: PhantomData<&'a mut ()>,
     value: *mut T,
 }
 
-unsafe impl<'a, T: resource::Resource> Send for ResourceMut<'a, T> {}
-unsafe impl<'a, T: resource::Resource> Sync for ResourceMut<'a, T> {}
-impl<'a, T: 'a> Clone for ResourceMut<'a, T> {
+unsafe impl<'a, T: resource::Resource> Send for ResMut<'a, T> {}
+unsafe impl<'a, T: resource::Resource> Sync for ResMut<'a, T> {}
+impl<'a, T: 'a> Clone for ResMut<'a, T> {
     #[inline(always)]
-    fn clone(&self) -> Self { ResourceMut::new(self.value) }
+    fn clone(&self) -> Self { ResMut::new(self.value) }
 }
 
-impl<'a, T: 'a> ResourceMut<'a, T> {
+impl<'a, T: 'a> ResMut<'a, T> {
     #[inline(always)]
     fn new(resource: *mut T) -> Self {
         Self {
@@ -130,42 +130,42 @@ impl<'a, T: 'a> ResourceMut<'a, T> {
     }
 
     #[inline(always)]
-    pub fn map_into<K: 'a, F: FnMut(&mut T) -> K>(mut self, mut f: F) -> ResourceMut<'a, K> {
-        ResourceMut::new(&mut f(&mut self))
+    pub fn map_into<K: 'a, F: FnMut(&mut T) -> K>(mut self, mut f: F) -> ResMut<'a, K> {
+        ResMut::new(&mut f(&mut self))
     }
 }
 
-impl<'a, T: 'a> Deref for ResourceMut<'a, T> {
+impl<'a, T: 'a> Deref for ResMut<'a, T> {
     type Target = T;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target { unsafe { &*self.value } }
 }
 
-impl<'a, T: 'a> DerefMut for ResourceMut<'a, T> {
+impl<'a, T: 'a> DerefMut for ResMut<'a, T> {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target { unsafe { &mut *self.value } }
 }
 
-impl<'a, T: 'a> AsRef<T> for ResourceMut<'a, T> {
+impl<'a, T: 'a> AsRef<T> for ResMut<'a, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T { unsafe { &*self.value } }
 }
 
-impl<'a, T: 'a> std::borrow::Borrow<T> for ResourceMut<'a, T> {
+impl<'a, T: 'a> std::borrow::Borrow<T> for ResMut<'a, T> {
     #[inline(always)]
     fn borrow(&self) -> &T { unsafe { &*self.value } }
 }
 
-impl<'a, T> PartialEq for ResourceMut<'a, T>
+impl<'a, T> PartialEq for ResMut<'a, T>
 where
     T: 'a + PartialEq,
 {
     fn eq(&self, other: &Self) -> bool { self.value == other.value }
 }
-impl<'a, T> Eq for ResourceMut<'a, T> where T: 'a + Eq {}
+impl<'a, T> Eq for ResMut<'a, T> where T: 'a + Eq {}
 
-impl<'a, T> PartialOrd for ResourceMut<'a, T>
+impl<'a, T> PartialOrd for ResMut<'a, T>
 where
     T: 'a + PartialOrd,
 {
@@ -173,28 +173,28 @@ where
         self.value.partial_cmp(&other.value)
     }
 }
-impl<'a, T> Ord for ResourceMut<'a, T>
+impl<'a, T> Ord for ResMut<'a, T>
 where
     T: 'a + Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.value.cmp(&other.value) }
 }
 
-impl<'a, T> Hash for ResourceMut<'a, T>
+impl<'a, T> Hash for ResMut<'a, T>
 where
     T: 'a + Hash,
 {
     fn hash<H: Hasher>(&self, state: &mut H) { self.value.hash(state); }
 }
 
-impl<'a, T: resource::Resource> ResourceSet for ResourceMut<'a, T> {
-    type PreparedResources = ResourceMut<'a, T>;
+impl<'a, T: resource::Resource> ResourceSet for ResMut<'a, T> {
+    type PreparedResources = ResMut<'a, T>;
 
     unsafe fn fetch_unchecked(resources: &Resources) -> Self::PreparedResources {
         let mut resource = resources
             .get_mut::<T>()
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
-        ResourceMut::new(resource.deref_mut() as *mut T)
+        ResMut::new(resource.deref_mut() as *mut T)
     }
     fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
     fn write_types() -> Vec<ResourceTypeId> { Vec::new() }

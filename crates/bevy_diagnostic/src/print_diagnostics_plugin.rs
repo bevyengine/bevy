@@ -65,9 +65,9 @@ impl PrintDiagnosticsPlugin {
     }
 
     pub fn print_diagnostics_system(
-        mut state: ResourceMut<PrintDiagnosticsState>,
-        time: Resource<Time>,
-        diagnostics: Resource<Diagnostics>,
+        mut state: ResMut<PrintDiagnosticsState>,
+        time: Res<Time>,
+        diagnostics: Res<Diagnostics>,
     ) {
         state.elapsed += time.delta_seconds_f64;
         if state.elapsed >= state.wait_seconds {
@@ -87,9 +87,9 @@ impl PrintDiagnosticsPlugin {
     }
 
     pub fn print_diagnostics_debug_system(
-        mut state: ResourceMut<PrintDiagnosticsState>,
-        time: Resource<Time>,
-        diagnostics: Resource<Diagnostics>,
+        mut state: ResMut<PrintDiagnosticsState>,
+        time: Res<Time>,
+        diagnostics: Res<Diagnostics>,
     ) {
         state.elapsed += time.delta_seconds_f64;
         if state.elapsed >= state.wait_seconds {

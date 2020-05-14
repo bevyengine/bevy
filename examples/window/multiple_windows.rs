@@ -7,7 +7,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut create_window_events: ResourceMut<Events<CreateWindow>>) {
+fn setup(mut create_window_events: ResMut<Events<CreateWindow>>) {
     // sends out a "CreateWindow" event, which will be received by the windowing backend
     create_window_events.send(CreateWindow {
         descriptor: WindowDescriptor {

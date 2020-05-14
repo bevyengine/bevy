@@ -21,11 +21,11 @@ struct MyMaterial {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut pipelines: ResourceMut<Assets<PipelineDescriptor>>,
-    mut shaders: ResourceMut<Assets<Shader>>,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<MyMaterial>>,
-    mut render_graph: ResourceMut<RenderGraph>,
+    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    mut shaders: ResMut<Assets<Shader>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<MyMaterial>>,
+    mut render_graph: ResMut<RenderGraph>,
 ) {
     // create new shader pipeline and add to main pass in Render Graph
     let pipeline_handle = {

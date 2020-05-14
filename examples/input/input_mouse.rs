@@ -19,9 +19,9 @@ struct State {
 
 /// prints out mouse events as they come in
 fn mouse_input_system(
-    mut state: ResourceMut<State>,
-    mouse_button_input_events: Ref<Events<MouseButtonInput>>,
-    mouse_motion_events: Ref<Events<MouseMotionInput>>,
+    mut state: ResMut<State>,
+    mouse_button_input_events: Com<Events<MouseButtonInput>>,
+    mouse_motion_events: Com<Events<MouseMotionInput>>,
 ) {
     for event in state
         .mouse_button_event_reader

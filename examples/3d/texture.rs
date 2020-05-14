@@ -10,9 +10,9 @@ fn main() {
 /// sets up a scene with textured entities
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut textures: ResourceMut<Assets<Texture>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load a texture
     let texture_path = concat!(

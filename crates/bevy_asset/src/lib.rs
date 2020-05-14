@@ -76,8 +76,8 @@ impl<T> Assets<T> {
     }
 
     pub fn asset_event_system(
-        mut events: ResourceMut<Events<AssetEvent<T>>>,
-        mut assets: ResourceMut<Assets<T>>,
+        mut events: ResMut<Events<AssetEvent<T>>>,
+        mut assets: ResMut<Assets<T>>,
     ) {
         events.extend(assets.events.drain())
     }

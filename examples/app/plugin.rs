@@ -40,7 +40,7 @@ struct PrintMessageState {
     elapsed_time: f32,
 }
 
-fn print_message_system(time: Resource<Time>, mut state: ResourceMut<PrintMessageState>) {
+fn print_message_system(time: Res<Time>, mut state: ResMut<PrintMessageState>) {
     state.elapsed_time += time.delta_seconds;
     if state.elapsed_time > state.duration.as_secs_f32() {
         println!("{}", state.message);

@@ -1,7 +1,7 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::AppPlugin;
 use bevy_core::time::Time;
-use legion::prelude::{IntoSystem, Resource, ResourceMut};
+use legion::prelude::{IntoSystem, Res, ResMut};
 
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;
@@ -18,12 +18,12 @@ impl FrameTimeDiagnosticsPlugin {
     pub const FRAME_TIME: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010276);
 
-    pub fn setup_system(mut diagnostics: ResourceMut<Diagnostics>) {
+    pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 10));
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 10));
     }
 
-    pub fn diagnostic_system(mut diagnostics: ResourceMut<Diagnostics>, time: Resource<Time>) {
+    pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
         if time.delta_seconds_f64 == 0.0 {
             return;
         }

@@ -10,8 +10,8 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut textures: ResourceMut<Assets<Texture>>,
-    mut materials: ResourceMut<Assets<ColorMaterial>>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let font_path = concat!(
         env!("CARGO_MANIFEST_DIR"),

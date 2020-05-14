@@ -2,7 +2,7 @@ use crate::renderer::WgpuRenderResourceContext;
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_render::renderer::RenderResources;
-use legion::prelude::{IntoSystem, Resource, ResourceMut};
+use legion::prelude::{IntoSystem, Res, ResMut};
 
 #[derive(Default)]
 pub struct WgpuResourceDiagnosticsPlugin;
@@ -51,7 +51,7 @@ impl WgpuResourceDiagnosticsPlugin {
     pub const RENDER_PIPELINES: DiagnosticId =
         DiagnosticId::from_u128(278527620040377353875091478462209885377);
 
-    pub fn setup_system(mut diagnostics: ResourceMut<Diagnostics>) {
+    pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(
             Self::WINDOW_SURFACES,
             "window_surfaces",
@@ -93,8 +93,8 @@ impl WgpuResourceDiagnosticsPlugin {
     }
 
     pub fn diagnostic_system(
-        mut diagnostics: ResourceMut<Diagnostics>,
-        render_resources: Resource<RenderResources>,
+        mut diagnostics: ResMut<Diagnostics>,
+        render_resources: Res<RenderResources>,
     ) {
         let render_resource_context = render_resources
             .context

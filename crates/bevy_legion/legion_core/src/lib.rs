@@ -21,8 +21,7 @@ mod zip;
 
 pub mod prelude {
     pub use crate::{
-        // used by system_fn
-        borrow::{Ref, RefMut},
+        borrow::{Ref as Com, RefMut as ComMut},
         command::CommandBuffer,
         entity::Entity,
         event::Event,

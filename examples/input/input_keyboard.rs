@@ -22,8 +22,8 @@ struct State {
 
 /// adjusts move state based on keyboard input
 fn collect_input(
-    mut state: ResourceMut<State>,
-    keyboard_input_events: Resource<Events<KeyboardInput>>,
+    mut state: ResMut<State>,
+    keyboard_input_events: Res<Events<KeyboardInput>>,
 ) {
     for event in state.event_reader.iter(&keyboard_input_events) {
         match event {
@@ -48,10 +48,10 @@ fn collect_input(
 
 /// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
 fn move_on_input(
-    state: Resource<State>,
-    time: Resource<Time>,
-    mut translation: RefMut<Translation>,
-    _: Ref<Handle<Mesh>>,
+    state: Res<State>,
+    time: Res<Time>,
+    mut translation: ComMut<Translation>,
+    _: Com<Handle<Mesh>>,
 ) {
     if state.moving_left {
         translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
@@ -65,8 +65,8 @@ fn move_on_input(
 /// creates a simple scene
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut meshes: ResourceMut<Assets<Mesh>>,
-    mut materials: ResourceMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let cube_material_handle = materials.add(StandardMaterial {

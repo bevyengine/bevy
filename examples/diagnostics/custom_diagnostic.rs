@@ -17,7 +17,7 @@ fn main() {
 pub const SYSTEM_ITERATION_COUNT: DiagnosticId =
     DiagnosticId::from_u128(337040787172757619024841343456040760896);
 
-fn setup_diagnostic_system(mut diagnostics: ResourceMut<Diagnostics>) {
+fn setup_diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
     // Diagnostics must be initialized before measurements can be added.
     // In general it's a good idea to set them up in a "startup system".
     diagnostics.add(Diagnostic::new(
@@ -27,7 +27,7 @@ fn setup_diagnostic_system(mut diagnostics: ResourceMut<Diagnostics>) {
     ));
 }
 
-fn my_system(mut diagnostics: ResourceMut<Diagnostics>) {
+fn my_system(mut diagnostics: ResMut<Diagnostics>) {
     // Add a measurement of 10.0 for our diagnostic each time this system runs
     diagnostics.add_measurement(SYSTEM_ITERATION_COUNT, 10.0);
 }
