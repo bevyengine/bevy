@@ -63,17 +63,17 @@ pub use bevy_input as input;
 pub use bevy_pbr as pbr;
 #[cfg(feature = "render")]
 pub use bevy_render as render;
-#[cfg(feature = "text")]
-pub use bevy_text as text;
 #[cfg(feature = "serialization")]
 pub use bevy_serialization as serialization;
+#[cfg(feature = "text")]
+pub use bevy_text as text;
 #[cfg(feature = "transform")]
 pub use bevy_transform as transform;
 #[cfg(feature = "ui")]
 pub use bevy_ui as ui;
+#[cfg(feature = "wgpu")]
+pub use bevy_wgpu as wgpu;
 #[cfg(feature = "window")]
 pub use bevy_window as window;
 #[cfg(feature = "winit")]
 pub use bevy_winit as winit;
-#[cfg(feature = "wgpu")]
-pub use bevy_wgpu as wgpu;

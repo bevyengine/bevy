@@ -2,7 +2,8 @@ use super::RenderResource;
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
-    hash::{Hash, Hasher}, ops::Range,
+    hash::{Hash, Hasher},
+    ops::Range,
 };
 use uuid::Uuid;
 
@@ -39,8 +40,7 @@ pub struct RenderResourceAssignments {
     pub id: RenderResourceAssignmentsId,
     render_resources: HashMap<String, RenderResourceAssignment>,
     vertex_buffers: HashMap<String, (RenderResource, Option<RenderResource>)>,
-    bind_group_resource_sets:
-        HashMap<BindGroupDescriptorId, RenderResourceSet>,
+    bind_group_resource_sets: HashMap<BindGroupDescriptorId, RenderResourceSet>,
     dirty_bind_groups: HashSet<BindGroupDescriptorId>,
     pub pipeline_specialization: PipelineSpecialization,
 }
@@ -52,8 +52,7 @@ impl RenderResourceAssignments {
 
     pub fn set(&mut self, name: &str, assignment: RenderResourceAssignment) {
         self.try_set_dirty(name, &assignment);
-        self.render_resources
-            .insert(name.to_string(), assignment);
+        self.render_resources.insert(name.to_string(), assignment);
     }
 
     fn try_set_dirty(&mut self, name: &str, assignment: &RenderResourceAssignment) {
@@ -126,7 +125,11 @@ impl RenderResourceAssignments {
             if let Some(assignment) = self.get(&binding_descriptor.name) {
                 let resource = assignment.get_resource();
                 resource.hash(&mut hasher);
-                if let RenderResourceAssignment::Buffer { dynamic_index: Some(index), .. } = assignment {
+                if let RenderResourceAssignment::Buffer {
+                    dynamic_index: Some(index),
+                    ..
+                } = assignment
+                {
                     indices.push(*index);
                 }
             } else {

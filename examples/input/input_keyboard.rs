@@ -21,10 +21,7 @@ struct State {
 }
 
 /// adjusts move state based on keyboard input
-fn collect_input(
-    mut state: ResMut<State>,
-    keyboard_input_events: Res<Events<KeyboardInput>>,
-) {
+fn collect_input(mut state: ResMut<State>, keyboard_input_events: Res<Events<KeyboardInput>>) {
     for event in state.event_reader.iter(&keyboard_input_events) {
         match event {
             KeyboardInput {

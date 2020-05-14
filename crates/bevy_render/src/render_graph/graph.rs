@@ -41,11 +41,7 @@ impl RenderGraph {
         self.add_node_nameless(node)
     }
 
-    pub fn add_system_node<T>(
-        &mut self,
-        name: impl Into<Cow<'static, str>>,
-        node: T,
-    ) -> NodeId
+    pub fn add_system_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: SystemNode + 'static,
     {
@@ -313,7 +309,8 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, shader::FieldBindType,
+        renderer::RenderContext,
+        shader::FieldBindType,
     };
     use legion::prelude::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};

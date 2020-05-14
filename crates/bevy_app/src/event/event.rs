@@ -232,7 +232,10 @@ impl<T> Events<T> {
         }
     }
 
-    pub fn extend<I>(&mut self, events: I) where I: Iterator<Item = T> {
+    pub fn extend<I>(&mut self, events: I)
+    where
+        I: Iterator<Item = T>,
+    {
         for event in events {
             self.send(event);
         }

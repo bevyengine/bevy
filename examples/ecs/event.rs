@@ -42,10 +42,7 @@ struct EventListenerState {
 }
 
 // prints events as they come in
-fn event_listener_system(
-    mut state: ResMut<EventListenerState>,
-    my_events: Res<Events<MyEvent>>,
-) {
+fn event_listener_system(mut state: ResMut<EventListenerState>, my_events: Res<Events<MyEvent>>) {
     for my_event in state.my_event_reader.iter(&my_events) {
         println!("{}", my_event.message);
     }

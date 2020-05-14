@@ -6,7 +6,7 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{RenderResource, RenderResourceAssignments, RenderResourceAssignment},
+    render_resource::{RenderResource, RenderResourceAssignment, RenderResourceAssignments},
     renderer::{RenderContext, RenderResourceContext},
     texture::{Extent3d, TextureDescriptor},
 };

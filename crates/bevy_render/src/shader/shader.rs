@@ -62,10 +62,7 @@ pub struct Shader {
 
 impl Shader {
     pub fn new(stage: ShaderStage, source: ShaderSource) -> Shader {
-        Shader {
-            stage,
-            source,
-        }
+        Shader { stage, source }
     }
     pub fn from_glsl(stage: ShaderStage, glsl: &str) -> Shader {
         Shader {
@@ -90,7 +87,10 @@ impl Shader {
 
     pub fn reflect_layout(&self, enforce_bevy_conventions: bool) -> Option<ShaderLayout> {
         if let ShaderSource::Spirv(ref spirv) = self.source {
-            Some(ShaderLayout::from_spirv(spirv.as_slice(), enforce_bevy_conventions))
+            Some(ShaderLayout::from_spirv(
+                spirv.as_slice(),
+                enforce_bevy_conventions,
+            ))
         } else {
             panic!("Cannot reflect layout of non-SpirV shader. Try compiling this shader to SpirV first using self.get_spirv_shader()");
         }

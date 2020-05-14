@@ -29,11 +29,12 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
-        self.render_pass.set_viewport(x, y, w, h, min_depth, max_depth);
+        self.render_pass
+            .set_viewport(x, y, w, h, min_depth, max_depth);
     }
 
     fn set_stencil_reference(&mut self, reference: u32) {
-       self.render_pass.set_stencil_reference(reference); 
+        self.render_pass.set_stencil_reference(reference);
     }
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
@@ -47,8 +48,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
-        self.render_pass
-            .draw(vertices, instances);
+        self.render_pass.draw(vertices, instances);
     }
 
     fn set_render_resources(
@@ -99,16 +99,16 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             {
                 if let Some(bind_group_info) = self.render_resources.bind_groups.get(&bind_group.id)
                 {
-                    if let Some(wgpu_bind_group) =
-                        bind_group_info.bind_groups.get(&resource_set.id)
+                    if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&resource_set.id)
                     {
                         const EMPTY: &'static [u32] = &[];
-                        let dynamic_uniform_indices =
-                            if let Some(ref dynamic_uniform_indices) = resource_set.dynamic_uniform_indices {
-                                dynamic_uniform_indices.as_slice()
-                            } else {
-                                EMPTY
-                            };
+                        let dynamic_uniform_indices = if let Some(ref dynamic_uniform_indices) =
+                            resource_set.dynamic_uniform_indices
+                        {
+                            dynamic_uniform_indices.as_slice()
+                        } else {
+                            EMPTY
+                        };
 
                         // don't bind bind groups if they are already set
                         // TODO: these checks come at a performance cost. make sure it's worth it!

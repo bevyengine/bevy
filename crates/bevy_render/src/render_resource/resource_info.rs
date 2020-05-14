@@ -1,4 +1,4 @@
-use crate::{texture::TextureDescriptor, render_resource::BufferUsage};
+use crate::{render_resource::BufferUsage, texture::TextureDescriptor};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BufferInfo {

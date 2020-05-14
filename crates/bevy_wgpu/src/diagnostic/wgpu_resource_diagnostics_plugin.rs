@@ -182,14 +182,17 @@ impl WgpuResourceDiagnosticsPlugin {
         );
 
         let mut bind_group_count = 0;
-        for bind_group in render_resource_context.resources.bind_groups.read().unwrap().values() {
+        for bind_group in render_resource_context
+            .resources
+            .bind_groups
+            .read()
+            .unwrap()
+            .values()
+        {
             bind_group_count += bind_group.bind_groups.len();
         }
 
-        diagnostics.add_measurement(
-            Self::BIND_GROUPS,
-            bind_group_count as f64,
-        );
+        diagnostics.add_measurement(Self::BIND_GROUPS, bind_group_count as f64);
 
         diagnostics.add_measurement(
             Self::BIND_GROUP_LAYOUTS,

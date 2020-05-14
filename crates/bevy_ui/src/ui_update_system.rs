@@ -67,7 +67,7 @@ fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_rect: Rect) -
 }
 
 fn process_child_result(_parent_result: Rect, child_result: Rect) -> Rect {
-    // "earlier" children are sorted behind "later" children  
+    // "earlier" children are sorted behind "later" children
     let mut result = child_result.clone();
     result.z_index -= UI_Z_STEP;
     result

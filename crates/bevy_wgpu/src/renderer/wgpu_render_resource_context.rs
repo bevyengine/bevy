@@ -294,11 +294,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         shader_modules.insert(shader_handle, shader_module);
     }
 
-    fn create_shader_module(
-        &self,
-        shader_handle: Handle<Shader>,
-        shaders: &Assets<Shader>,
-    ) {
+    fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>) {
         if self
             .resources
             .shader_modules

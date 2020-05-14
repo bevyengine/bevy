@@ -213,9 +213,8 @@ pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
         let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
-        let mut pipeline_descriptor_storage = resources
-            .get_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
+        let mut pipeline_descriptor_storage =
+            resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
 
         // reset assignments so they are updated every frame
         shader_pipeline_assignments.assignments = HashMap::new();

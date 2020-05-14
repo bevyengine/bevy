@@ -65,12 +65,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
         resource
     }
-    fn create_shader_module(
-        &self,
-        _shader_handle: Handle<Shader>,
-        _shaders: &Assets<Shader>,
-    ) {
-    }
+    fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}
     fn remove_buffer(&self, resource: RenderResource) {
         self.resource_info.write().unwrap().remove(&resource);
     }
@@ -129,10 +124,5 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
             None
         }
     }
-    fn create_shader_module_from_source(
-        &self,
-        _shader_handle: Handle<Shader>,
-        _shader: &Shader,
-    ) {
-    }
+    fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
 }

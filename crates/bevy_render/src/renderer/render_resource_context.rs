@@ -40,16 +40,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> RenderResource;
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> RenderResource;
-    fn create_shader_module(
-        &self,
-        shader_handle: Handle<Shader>,
-        shaders: &Assets<Shader>,
-    );
-    fn create_shader_module_from_source(
-        &self,
-        shader_handle: Handle<Shader>,
-        shader: &Shader,
-    );
+    fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>);
+    fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader);
     fn remove_buffer(&self, resource: RenderResource);
     fn remove_texture(&self, resource: RenderResource);
     fn remove_sampler(&self, resource: RenderResource);

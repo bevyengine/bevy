@@ -76,9 +76,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_system_node("rect", UniformNode::<Rect>::new(false));
         self.add_node_edge("rect", base_render_graph::node::MAIN_PASS)
             .unwrap();
-        let mut pipelines = resources
-            .get_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
+        let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.add_with_handle(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
         let main_pass: &mut PassNode = self

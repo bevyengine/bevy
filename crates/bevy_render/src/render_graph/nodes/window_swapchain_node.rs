@@ -1,6 +1,7 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    renderer::RenderContext, shader::FieldBindType,
+    renderer::RenderContext,
+    shader::FieldBindType,
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};

@@ -80,7 +80,8 @@ pub fn run_on_hierarchy_subworld_mut<T>(
     input: T,
     run: &mut dyn FnMut(&mut SubWorld, Entity, T) -> Option<T>,
     child_result_action: &mut dyn FnMut(T, T) -> T,
-) -> Option<T> where
+) -> Option<T>
+where
     T: Copy,
 {
     // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocations?
@@ -99,7 +100,8 @@ pub fn run_on_hierarchy_subworld_mut<T>(
     if let Some(mut result) = result {
         if let Some(children) = children {
             for child in children {
-                let child_result = run_on_hierarchy_subworld_mut(world, child, result, run, child_result_action);
+                let child_result =
+                    run_on_hierarchy_subworld_mut(world, child, result, run, child_result_action);
                 if let Some(child_result) = child_result {
                     result = child_result_action(result, child_result)
                 }

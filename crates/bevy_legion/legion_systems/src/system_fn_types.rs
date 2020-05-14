@@ -41,9 +41,7 @@ impl<'a, T: 'a> Res<'a, T> {
     }
 
     #[inline(always)]
-    pub fn map<K: 'a, F: FnMut(&T) -> &K>(&self, mut f: F) -> Res<'a, K> {
-        Res::new(f(&self))
-    }
+    pub fn map<K: 'a, F: FnMut(&T) -> &K>(&self, mut f: F) -> Res<'a, K> { Res::new(f(&self)) }
 }
 
 impl<'a, T: 'a> Deref for Res<'a, T> {

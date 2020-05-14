@@ -25,19 +25,14 @@ pub trait ForwardPbrRenderGraphBuilder {
 
 impl ForwardPbrRenderGraphBuilder for RenderGraph {
     fn add_pbr_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(
-            node::LOCAL_TO_WORLD,
-            UniformNode::<LocalToWorld>::new(true)
-        );
+        self.add_system_node(node::LOCAL_TO_WORLD, UniformNode::<LocalToWorld>::new(true));
         self.add_system_node(
             node::STANDARD_MATERIAL,
-            AssetUniformNode::<StandardMaterial>::new(true)
+            AssetUniformNode::<StandardMaterial>::new(true),
         );
         self.add_system_node(node::LIGHTS, LightsNode::new(10));
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        let mut pipelines = resources
-            .get_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
+        let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         {
             let main_pass: &mut PassNode = self
                 .get_node_mut(base_render_graph::node::MAIN_PASS)

@@ -10,7 +10,7 @@ pub enum TextureAttachment {
 
 impl TextureAttachment {
     pub fn get_resource(&self) -> Option<RenderResource> {
-        if let TextureAttachment::RenderResource(render_resource) =  self {
+        if let TextureAttachment::RenderResource(render_resource) = self {
             Some(*render_resource)
         } else {
             None
