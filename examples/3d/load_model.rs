@@ -13,8 +13,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load the mesh
-    let model_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/models/Monkey.gltf");
-    let mesh = gltf::load_gltf(&model_path).unwrap().unwrap();
+    let mesh = gltf::load_gltf("assets/models/monkey/Monkey.gltf").unwrap().unwrap();
     let mesh_handle = meshes.add(mesh);
 
     // create a material for the mesh

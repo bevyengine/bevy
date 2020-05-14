@@ -13,11 +13,7 @@ fn setup(
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let font_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/fonts/FiraSans-Bold.ttf"
-    );
-    let mut font_file = File::open(&font_path).unwrap();
+    let mut font_file = File::open("assets/fonts/FiraSans-Bold.ttf").unwrap();
     let mut buffer = Vec::new();
     font_file.read_to_end(&mut buffer).unwrap();
     let font = Font::try_from_bytes(buffer).unwrap();

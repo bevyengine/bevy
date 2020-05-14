@@ -15,11 +15,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load a texture
-    let texture_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/assets/branding/bevy_logo_dark_big.png"
-    );
-    let texture = Texture::load(TextureType::Png(texture_path.to_string()));
+    let texture = Texture::load(TextureType::Png(
+        "assets/branding/bevy_logo_dark_big.pn".to_string(),
+    ));
     let aspect = texture.aspect();
     let texture_handle = textures.add(texture);
 

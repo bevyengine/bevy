@@ -12,8 +12,7 @@ fn setup(
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let texture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/branding/icon.png");
-    let texture = Texture::load(TextureType::Png(texture_path.to_string()));
+    let texture = Texture::load(TextureType::Png("assets/branding/icon.png".to_string()));
     let texture_handle = textures.add(texture);
 
     command_buffer
