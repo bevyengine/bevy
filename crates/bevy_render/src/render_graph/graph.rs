@@ -11,7 +11,7 @@ pub struct RenderGraph {
 }
 
 impl RenderGraph {
-    pub fn add_node<T>(&mut self, node: T) -> NodeId
+    pub fn add_node_nameless<T>(&mut self, node: T) -> NodeId
     where
         T: Node,
     {
@@ -20,7 +20,7 @@ impl RenderGraph {
         id
     }
 
-    pub fn add_node_named<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
+    pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: Node,
     {
@@ -33,15 +33,15 @@ impl RenderGraph {
         id
     }
 
-    pub fn add_system_node<T>(&mut self, node: T) -> NodeId
+    pub fn add_system_node_nameless<T>(&mut self, node: T) -> NodeId
     where
         T: SystemNode + 'static,
     {
         self.new_node_systems.push(node.get_system());
-        self.add_node(node)
+        self.add_node_nameless(node)
     }
 
-    pub fn add_system_node_named<T>(
+    pub fn add_system_node<T>(
         &mut self,
         name: impl Into<Cow<'static, str>>,
         node: T,
@@ -50,7 +50,7 @@ impl RenderGraph {
         T: SystemNode + 'static,
     {
         self.new_node_systems.push(node.get_system());
-        self.add_node_named(name, node)
+        self.add_node(name, node)
     }
 
     pub fn get_node_state(
@@ -365,10 +365,10 @@ mod tests {
     #[test]
     pub fn test_graph_edges() {
         let mut graph = RenderGraph::default();
-        let a_id = graph.add_node_named("A", TestNode::new(0, 1));
-        let b_id = graph.add_node_named("B", TestNode::new(0, 1));
-        let c_id = graph.add_node_named("C", TestNode::new(1, 1));
-        let d_id = graph.add_node_named("D", TestNode::new(1, 0));
+        let a_id = graph.add_node("A", TestNode::new(0, 1));
+        let b_id = graph.add_node("B", TestNode::new(0, 1));
+        let c_id = graph.add_node("C", TestNode::new(1, 1));
+        let d_id = graph.add_node("D", TestNode::new(1, 0));
 
         graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
         graph.add_node_edge("B", "C").unwrap();
@@ -438,7 +438,7 @@ mod tests {
 
         let mut graph = RenderGraph::default();
 
-        graph.add_node_named("A", MyNode { value: 42 });
+        graph.add_node("A", MyNode { value: 42 });
 
         let node: &MyNode = graph.get_node("A").unwrap();
         assert_eq!(node.value, 42, "node value matches");
@@ -455,9 +455,9 @@ mod tests {
     pub fn test_slot_already_occupied() {
         let mut graph = RenderGraph::default();
 
-        graph.add_node_named("A", TestNode::new(0, 1));
-        graph.add_node_named("B", TestNode::new(0, 1));
-        graph.add_node_named("C", TestNode::new(1, 1));
+        graph.add_node("A", TestNode::new(0, 1));
+        graph.add_node("B", TestNode::new(0, 1));
+        graph.add_node("C", TestNode::new(1, 1));
 
         graph.add_slot_edge("A", 0, "C", 0).unwrap();
         assert_eq!(
@@ -475,8 +475,8 @@ mod tests {
     pub fn test_edge_already_exists() {
         let mut graph = RenderGraph::default();
 
-        graph.add_node_named("A", TestNode::new(0, 1));
-        graph.add_node_named("B", TestNode::new(1, 0));
+        graph.add_node("A", TestNode::new(0, 1));
+        graph.add_node("B", TestNode::new(1, 0));
 
         graph.add_slot_edge("A", 0, "B", 0).unwrap();
         assert_eq!(

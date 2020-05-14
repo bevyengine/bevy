@@ -323,16 +323,16 @@ mod tests {
         //
         // H -> I -> J
 
-        let a_id = graph.add_node_named("A", TestNode::new(0, 1));
-        let b_id = graph.add_node_named("B", TestNode::new(2, 1));
-        let c_id = graph.add_node_named("C", TestNode::new(2, 1));
-        let d_id = graph.add_node_named("D", TestNode::new(1, 0));
-        let e_id = graph.add_node_named("E", TestNode::new(0, 1));
-        let f_id = graph.add_node_named("F", TestNode::new(0, 2));
-        let g_id = graph.add_node_named("G", TestNode::new(1, 0));
-        let h_id = graph.add_node_named("H", TestNode::new(0, 1));
-        let i_id = graph.add_node_named("I", TestNode::new(1, 1));
-        let j_id = graph.add_node_named("J", TestNode::new(1, 0));
+        let a_id = graph.add_node("A", TestNode::new(0, 1));
+        let b_id = graph.add_node("B", TestNode::new(2, 1));
+        let c_id = graph.add_node("C", TestNode::new(2, 1));
+        let d_id = graph.add_node("D", TestNode::new(1, 0));
+        let e_id = graph.add_node("E", TestNode::new(0, 1));
+        let f_id = graph.add_node("F", TestNode::new(0, 2));
+        let g_id = graph.add_node("G", TestNode::new(1, 0));
+        let h_id = graph.add_node("H", TestNode::new(0, 1));
+        let i_id = graph.add_node("I", TestNode::new(1, 1));
+        let j_id = graph.add_node("J", TestNode::new(1, 0));
 
         graph.add_node_edge("A", "B").unwrap();
         graph.add_node_edge("B", "C").unwrap();
@@ -445,16 +445,16 @@ mod tests {
         //
         // H -> I -> J
 
-        let _a_id = graph.add_node_named("A", TestNode::new(0, 1));
-        let b_id = graph.add_node_named("B", TestNode::new(2, 1));
-        let c_id = graph.add_node_named("C", TestNode::new(2, 1));
-        let d_id = graph.add_node_named("D", TestNode::new(1, 0));
-        let _e_id = graph.add_node_named("E", TestNode::new(0, 1));
-        let f_id = graph.add_node_named("F", TestNode::new(0, 2));
-        let g_id = graph.add_node_named("G", TestNode::new(1, 0));
-        let h_id = graph.add_node_named("H", TestNode::new(0, 1));
-        let i_id = graph.add_node_named("I", TestNode::new(1, 1));
-        let j_id = graph.add_node_named("J", TestNode::new(1, 0));
+        let _a_id = graph.add_node("A", TestNode::new(0, 1));
+        let b_id = graph.add_node("B", TestNode::new(2, 1));
+        let c_id = graph.add_node("C", TestNode::new(2, 1));
+        let d_id = graph.add_node("D", TestNode::new(1, 0));
+        let _e_id = graph.add_node("E", TestNode::new(0, 1));
+        let f_id = graph.add_node("F", TestNode::new(0, 2));
+        let g_id = graph.add_node("G", TestNode::new(1, 0));
+        let h_id = graph.add_node("H", TestNode::new(0, 1));
+        let i_id = graph.add_node("I", TestNode::new(1, 1));
+        let j_id = graph.add_node("J", TestNode::new(1, 0));
 
         graph.add_node_edge("A", "B").unwrap();
         graph.add_node_edge("B", "C").unwrap();

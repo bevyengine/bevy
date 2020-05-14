@@ -61,15 +61,15 @@ impl BaseRenderGraphBuilder for RenderGraph {
         config: &BaseRenderGraphConfig,
     ) -> &mut Self {
         if config.add_3d_camera {
-            self.add_system_node_named(node::CAMERA, CameraNode::default());
+            self.add_system_node(node::CAMERA, CameraNode::default());
         }
 
         if config.add_2d_camera {
-            self.add_system_node_named(node::CAMERA2D, Camera2dNode::default());
+            self.add_system_node(node::CAMERA2D, Camera2dNode::default());
         }
 
         if config.add_main_depth_texture {
-            self.add_node_named(
+            self.add_node(
                 node::MAIN_DEPTH_TEXTURE,
                 WindowTextureNode::new(
                     WindowReference::Primary,
@@ -92,7 +92,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
         }
 
         if config.add_main_pass {
-            self.add_node_named(
+            self.add_node(
                 node::MAIN_PASS,
                 PassNode::new(PassDescriptor {
                     color_attachments: vec![RenderPassColorAttachmentDescriptor {
@@ -124,7 +124,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
             }
         }
 
-        self.add_node_named(
+        self.add_node(
             node::PRIMARY_SWAP_CHAIN,
             WindowSwapChainNode::new(
                 WindowReference::Primary,

@@ -65,7 +65,7 @@ fn setup(
             ))),
         }));
         render_graph
-            .add_system_node_named("my_material", AssetUniformNode::<MyMaterial>::new(true));
+            .add_system_node("my_material", AssetUniformNode::<MyMaterial>::new(true));
         let main_pass: &mut PassNode = render_graph.get_node_mut("main_pass").unwrap();
         main_pass.add_pipeline(
             pipeline_handle,

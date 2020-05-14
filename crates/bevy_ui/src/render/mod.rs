@@ -67,13 +67,13 @@ pub trait UiRenderGraphBuilder {
 
 impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node_named(
+        self.add_system_node(
             "color_material",
             AssetUniformNode::<ColorMaterial>::new(false),
         );
         self.add_node_edge("color_material", base_render_graph::node::MAIN_PASS)
             .unwrap();
-        self.add_system_node_named("rect", UniformNode::<Rect>::new(false));
+        self.add_system_node("rect", UniformNode::<Rect>::new(false));
         self.add_node_edge("rect", base_render_graph::node::MAIN_PASS)
             .unwrap();
         let mut pipelines = resources
