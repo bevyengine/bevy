@@ -3,28 +3,28 @@ use bevy::{gltf, prelude::*};
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     // load the mesh
     let model_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/models/Monkey.gltf");
     let mesh = gltf::load_gltf(&model_path).unwrap().unwrap();
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
     let mesh_handle = meshes.add(mesh);
 
     // create a material for the mesh
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
     let material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
 
     // add entities to the world
-    world
+    command_buffer
         .build()
         // mesh
         .add_entity(MeshEntity {

@@ -36,7 +36,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable>;
+    fn get_system(&self) -> Box<dyn Schedulable>;
 }
 
 pub struct Edges {

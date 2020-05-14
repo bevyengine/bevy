@@ -46,7 +46,7 @@ pub struct LightCount {
 }
 
 impl SystemNode for LightsNode {
-    fn get_system(&self, _resources: &Resources) -> Box<dyn Schedulable> {
+    fn get_system(&self) -> Box<dyn Schedulable> {
         let mut light_buffer = None;
         let mut lights_are_dirty = true;
         // TODO: merge these

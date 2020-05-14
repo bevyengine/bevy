@@ -3,21 +3,21 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
 /// set up a simple scene
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     // create a cube and a plane mesh
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
 
     // create materials for our cube and plane
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
     let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
@@ -28,7 +28,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     });
 
     // add entities to the world
-    world
+    command_buffer
         .build()
         // plane
         .add_entity(MeshEntity {

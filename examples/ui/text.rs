@@ -4,12 +4,15 @@ use std::{fs::File, io::Read};
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut textures: ResourceMut<Assets<Texture>>,
+    mut materials: ResourceMut<Assets<ColorMaterial>>,
+) {
     let font_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/fonts/FiraSans-Bold.ttf"
@@ -23,8 +26,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let half_width = texture.width as f32 / 2.0;
     let half_height = texture.height as f32 / 2.0;
     let texture_handle = textures.add(texture);
-    let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
-    world
+    command_buffer
         .build()
         // 2d camera
         .add_entity(Camera2dEntity::default())
@@ -35,7 +37,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(-half_width, half_width, -half_height, half_height),
             ),
-            material: color_materials.add(ColorMaterial::texture(texture_handle)),
+            material: materials.add(ColorMaterial::texture(texture_handle)),
             ..Default::default()
         });
 }

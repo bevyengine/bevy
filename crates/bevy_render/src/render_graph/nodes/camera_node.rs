@@ -7,7 +7,7 @@ use crate::{
     ActiveCamera, Camera,
 };
 
-use bevy_app::{Events, GetEventReader};
+use bevy_app::Events;
 use bevy_transform::prelude::*;
 use bevy_window::WindowResized;
 use legion::prelude::*;
@@ -32,9 +32,9 @@ impl Node for CameraNode {
 }
 
 impl SystemNode for CameraNode {
-    fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable> {
+    fn get_system(&self) -> Box<dyn Schedulable> {
         let mut camera_buffer = None;
-        let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
+        let mut window_resized_event_reader = None;
         let mut command_queue = self.command_queue.clone();
 
         SystemBuilder::new("camera_resource_provider")
@@ -70,8 +70,12 @@ impl SystemNode for CameraNode {
                         );
                         camera_buffer = Some(buffer);
                     }
-
+                    if window_resized_event_reader.is_none() {
+                        window_resized_event_reader = Some(window_resized_events.get_reader());
+                    }
                     let primary_window_resized_event = window_resized_event_reader
+                        .as_mut()
+                        .unwrap()
                         .find_latest(&window_resized_events, |event| event.is_primary);
                     if let Some(_) = primary_window_resized_event {
                         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();

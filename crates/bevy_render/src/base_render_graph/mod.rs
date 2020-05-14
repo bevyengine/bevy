@@ -61,11 +61,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
         config: &BaseRenderGraphConfig,
     ) -> &mut Self {
         if config.add_3d_camera {
-            self.add_system_node_named(node::CAMERA, CameraNode::default(), resources);
+            self.add_system_node_named(node::CAMERA, CameraNode::default());
         }
 
         if config.add_2d_camera {
-            self.add_system_node_named(node::CAMERA2D, Camera2dNode::default(), resources);
+            self.add_system_node_named(node::CAMERA2D, Camera2dNode::default());
         }
 
         if config.add_main_depth_texture {

@@ -389,12 +389,10 @@ impl<T> SystemNode for UniformNode<T>
 where
     T: AsUniforms,
 {
-    fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable> {
+    fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
-        let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
         let dynamic_uniforms = self.dynamic_uniforms;
-        initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
         SystemBuilder::new(format!(
             "uniform_resource_provider::<{}>",
@@ -547,12 +545,10 @@ impl<T> SystemNode for AssetUniformNode<T>
 where
     T: AsUniforms,
 {
-    fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable> {
+    fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
-        let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
         let dynamic_uniforms = self.dynamic_uniforms;
-        initialize_vertex_buffer_descriptor::<T>(&mut vertex_buffer_descriptors);
         // TODO: maybe run "update" here
         SystemBuilder::new("uniform_resource_provider")
             .read_resource::<Assets<T>>()
@@ -674,6 +670,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 fn initialize_vertex_buffer_descriptor<T>(vertex_buffer_descriptors: &mut VertexBufferDescriptors)
 where
     T: AsUniforms,

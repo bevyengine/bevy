@@ -3,18 +3,20 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut textures: ResourceMut<Assets<Texture>>,
+    mut materials: ResourceMut<Assets<ColorMaterial>>,
+) {
     let texture_path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/branding/icon.png");
     let texture = Texture::load(TextureType::Png(texture_path.to_string()));
     let texture_handle = textures.add(texture);
-    let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
 
-    world
+    command_buffer
         .build()
         .add_entity(Camera2dEntity::default())
         .add_entity(SpriteEntity {
@@ -23,7 +25,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 z_index: 0.5,
                 ..Default::default()
             },
-            material: color_materials.add(texture_handle.into()),
+            material: materials.add(texture_handle.into()),
             ..Default::default()
         });
 }

@@ -4,7 +4,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_asset::<MyMaterial>()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
@@ -13,14 +13,16 @@ struct MyMaterial {
     pub color: Color,
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut pipelines: ResourceMut<Assets<PipelineDescriptor>>,
+    mut shaders: ResourceMut<Assets<Shader>>,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<MyMaterial>>,
+    mut render_graph: ResourceMut<RenderGraph>,
+) {
     // create new shader pipeline and add to main pass in Render Graph
     let pipeline_handle = {
-        let mut pipelines = resources
-            .get_mut::<Assets<PipelineDescriptor>>()
-            .unwrap();
-        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-
         let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
@@ -52,12 +54,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
             "#,
             ))),
         }));
-        let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.add_system_node_named(
-            "my_material",
-            AssetUniformNode::<MyMaterial>::new(true),
-            resources,
-        );
+
+        render_graph
+            .add_system_node_named("my_material", AssetUniformNode::<MyMaterial>::new(true));
         let main_pass: &mut PassNode = render_graph.get_node_mut("main_pass").unwrap();
         main_pass.add_pipeline(
             pipeline_handle,
@@ -67,15 +66,12 @@ fn setup(world: &mut World, resources: &mut Resources) {
     };
 
     // create materials
-    let mut materials = resources.get_mut::<Assets<MyMaterial>>().unwrap();
     let material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
     });
-
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
 
-    world
+    command_buffer
         .build()
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {

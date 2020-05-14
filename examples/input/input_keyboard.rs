@@ -7,9 +7,9 @@ fn main() {
     App::build()
         .add_default_plugins()
         .init_resource::<State>()
-        .add_system(collect_input_system.system())
-        .add_system(move_system.system())
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
+        .add_system(collect_input.system())
+        .add_system(move_on_input.system())
         .run();
 }
 
@@ -21,7 +21,7 @@ struct State {
 }
 
 /// adjusts move state based on keyboard input
-fn collect_input_system(
+fn collect_input(
     mut state: ResourceMut<State>,
     keyboard_input_events: Resource<Events<KeyboardInput>>,
 ) {
@@ -47,7 +47,7 @@ fn collect_input_system(
 }
 
 /// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
-fn move_system(
+fn move_on_input(
     state: Resource<State>,
     time: Resource<Time>,
     mut translation: RefMut<Translation>,
@@ -63,18 +63,18 @@ fn move_system(
 }
 
 /// creates a simple scene
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
 
-    world
+    command_buffer
         .build()
         // cube
         .add_entity(MeshEntity {

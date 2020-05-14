@@ -3,7 +3,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .add_system(placement_system.system())
         .add_plugin(DiagnosticsPlugin::default())
         .run();
@@ -21,11 +21,10 @@ fn placement_system(
     }
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut builder = world.build();
+fn setup(command_buffer: &mut CommandBuffer, mut materials: ResourceMut<Assets<ColorMaterial>>) {
+    let mut builder = command_buffer.build();
     builder.add_entity(Camera2dEntity::default());
 
-    let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
     let mut prev = Vec2::default();
     let count = 1000;
     for i in 0..count {

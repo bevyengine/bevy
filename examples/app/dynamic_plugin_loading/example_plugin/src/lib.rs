@@ -5,22 +5,22 @@ pub struct ExamplePlugin;
 
 impl AppPlugin for ExamplePlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(setup);
+        app.add_startup_system(setup.system());
     }
 }
 
-pub fn setup(world: &mut World, resources: &mut Resources) {
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
 
-    world
+    command_buffer
         .build()
         // cube
         .add_entity(MeshEntity {

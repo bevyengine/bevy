@@ -71,7 +71,7 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn add_children(&mut self, build_children: impl Fn(&mut Self)) -> &mut Self {
+    pub fn add_children(&mut self, build_children: impl Fn(&mut Self) -> &mut Self) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 

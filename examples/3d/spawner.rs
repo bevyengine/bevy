@@ -9,12 +9,12 @@ fn main() {
         .add_default_plugins()
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(PrintDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_system(move_system.system())
+        .add_startup_system(setup.system())
+        .add_system(move_cubes.system())
         .run();
 }
 
-fn move_system(
+fn move_cubes(
     time: Resource<Time>,
     mut materials: ResourceMut<Assets<StandardMaterial>>,
     mut translation: RefMut<Translation>,
@@ -25,11 +25,11 @@ fn move_system(
     material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
@@ -41,7 +41,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
         ..Default::default()
     });
 
-    let mut builder = world.build();
+    let mut builder = command_buffer.build();
     builder
         // plane
         .add_entity(MeshEntity {

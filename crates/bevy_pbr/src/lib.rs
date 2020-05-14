@@ -21,7 +21,7 @@ impl AppPlugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>().add_system_to_stage(
             stage::POST_UPDATE,
-            shader::asset_handle_shader_def_system::<StandardMaterial>.system(),
+            shader::asset_shader_def_system::<StandardMaterial>.system(),
         );
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

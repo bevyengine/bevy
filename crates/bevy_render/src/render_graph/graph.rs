@@ -1,5 +1,5 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use legion::prelude::{Executor, Resources, Schedulable};
+use legion::prelude::{Executor, Schedulable};
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 #[derive(Default)]
@@ -33,11 +33,11 @@ impl RenderGraph {
         id
     }
 
-    pub fn add_system_node<T>(&mut self, node: T, resources: &mut Resources) -> NodeId
+    pub fn add_system_node<T>(&mut self, node: T) -> NodeId
     where
         T: SystemNode + 'static,
     {
-        self.new_node_systems.push(node.get_system(resources));
+        self.new_node_systems.push(node.get_system());
         self.add_node(node)
     }
 
@@ -45,12 +45,11 @@ impl RenderGraph {
         &mut self,
         name: impl Into<Cow<'static, str>>,
         node: T,
-        resources: &Resources,
     ) -> NodeId
     where
         T: SystemNode + 'static,
     {
-        self.new_node_systems.push(node.get_system(resources));
+        self.new_node_systems.push(node.get_system());
         self.add_node_named(name, node)
     }
 

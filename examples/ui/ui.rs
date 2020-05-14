@@ -3,11 +3,15 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut textures: ResourceMut<Assets<Texture>>,
+    mut materials: ResourceMut<Assets<ColorMaterial>>,
+) {
     // TODO: "background" 3D temporarily disabled until depth mismatch is fixed
     // let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();
     // let mut material_storage = resources
@@ -19,7 +23,6 @@ fn setup(world: &mut World, resources: &mut Resources) {
     //     ..Default::default()
     // });
 
-    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
     let texture_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/branding/bevy_logo_dark_big.png"
@@ -28,10 +31,9 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let aspect = texture.aspect();
     let texture_handle = textures.add(texture);
 
-    let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
-    let blue_material_handle = color_materials.add(Color::rgb(0.6, 0.6, 1.0).into());
+    let blue_material_handle = materials.add(Color::rgb(0.6, 0.6, 1.0).into());
 
-    world
+    command_buffer
         .build()
         // // cube
         // .add_entity(MeshEntity {
@@ -63,7 +65,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::LEFT_FULL,
                 Margins::new(10.0, 200.0, 10.0, 10.0),
             ),
-            material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+            material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
         })
         // right vertical fill
@@ -73,7 +75,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::RIGHT_FULL,
                 Margins::new(10.0, 100.0, 100.0, 100.0),
             ),
-            material: color_materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+            material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
         })
         // render order test: reddest in the back, whitest in the front
@@ -83,7 +85,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            material: color_materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -92,7 +94,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            material: color_materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+            material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -101,7 +103,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            material: color_materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
             ..Default::default()
         })
         .add_entity(UiEntity {
@@ -110,7 +112,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            material: color_materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
+            material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
             ..Default::default()
         })
         // parenting
@@ -120,7 +122,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::BOTTOM_LEFT,
                 Margins::new(0.0, 200.0, 10.0, 210.0),
             ),
-            material: color_materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
+            material: materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
             ..Default::default()
         })
         .add_children(|builder| {
@@ -132,7 +134,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 ),
                 material: blue_material_handle,
                 ..Default::default()
-            });
+            })
         })
         // alpha test
         .add_entity(UiEntity {
@@ -141,7 +143,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
             ),
-            material: color_materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+            material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
             ..Default::default()
         })
         // texture
@@ -151,7 +153,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 Anchors::CENTER_TOP,
                 Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),
             ),
-            material: color_materials.add(ColorMaterial::texture(texture_handle)),
+            material: materials.add(ColorMaterial::texture(texture_handle)),
             ..Default::default()
         });
 }

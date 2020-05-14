@@ -33,7 +33,7 @@ where
     }
 }
 
-pub fn asset_handle_shader_def_system<T>(
+pub fn asset_shader_def_system<T>(
     assets: Resource<Assets<T>>,
     asset_handle: Ref<Handle<T>>,
     mut renderable: RefMut<Renderable>,

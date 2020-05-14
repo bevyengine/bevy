@@ -3,14 +3,18 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .run();
 }
 
 /// sets up a scene with textured entities
-fn setup(world: &mut World, resources: &mut Resources) {
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut textures: ResourceMut<Assets<Texture>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     // load a texture
-    let mut textures = resources.get_mut::<Assets<Texture>>().unwrap();
     let texture_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/assets/branding/bevy_logo_dark_big.png"
@@ -20,16 +24,10 @@ fn setup(world: &mut World, resources: &mut Resources) {
     let texture_handle = textures.add(texture);
 
     // create a new quad mesh. this is what we will apply the texture to
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
     let quad_width = 8.0;
     let quad_handle = meshes.add(Mesh::from(shape::Quad {
         size: Vec2::new(quad_width, quad_width * aspect),
     }));
-
-    // create materials that use our new texture
-    let mut materials = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
@@ -45,7 +43,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
     });
 
     // add entities to the world
-    world
+    command_buffer
         .build()
         // textured quad - normal
         .add_entity(MeshEntity {

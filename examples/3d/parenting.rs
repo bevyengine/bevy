@@ -5,7 +5,7 @@ struct Rotator;
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(setup)
+        .add_startup_system(setup.system())
         .add_system(rotator_system.system())
         .run();
 }
@@ -16,19 +16,18 @@ fn rotator_system(time: Resource<Time>, _rotator: RefMut<Rotator>, mut rotation:
 }
 
 /// set up a simple scene with a "parent" cube and a "child" cube
-fn setup(world: &mut World, resources: &mut Resources) {
-    let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-    let mut material_storage = resources
-        .get_mut::<Assets<StandardMaterial>>()
-        .unwrap();
-
+fn setup(
+    command_buffer: &mut CommandBuffer,
+    mut meshes: ResourceMut<Assets<Mesh>>,
+    mut materials: ResourceMut<Assets<StandardMaterial>>,
+) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube));
-    let cube_material_handle = material_storage.add(StandardMaterial {
+    let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
 
-    world
+    command_buffer
         .build()
         // parent cube
         .add_entity(MeshEntity {
@@ -45,7 +44,7 @@ fn setup(world: &mut World, resources: &mut Resources) {
                 material: cube_material_handle,
                 translation: Translation::new(0.0, 0.0, 3.0),
                 ..Default::default()
-            });
+            })
         })
         // light
         .add_entity(LightEntity {

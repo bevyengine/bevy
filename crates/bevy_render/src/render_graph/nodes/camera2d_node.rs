@@ -1,10 +1,12 @@
-use bevy_app::{Events, GetEventReader};
+use bevy_app::Events;
 use bevy_window::WindowResized;
 
 use crate::{
     camera::{ActiveCamera2d, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{resource_name, BufferInfo, BufferUsage, RenderResourceAssignments, RenderResourceAssignment},
+    render_resource::{
+        resource_name, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+    },
     renderer::{RenderContext, RenderResources},
 };
 
@@ -30,9 +32,9 @@ impl Node for Camera2dNode {
 }
 
 impl SystemNode for Camera2dNode {
-    fn get_system(&self, resources: &Resources) -> Box<dyn Schedulable> {
+    fn get_system(&self) -> Box<dyn Schedulable> {
         let mut camera_buffer = None;
-        let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
+        let mut window_resized_event_reader = None;
         let mut command_queue = self.command_queue.clone();
 
         SystemBuilder::new("camera_2d_resource_provider")
@@ -69,7 +71,12 @@ impl SystemNode for Camera2dNode {
                         camera_buffer = Some(buffer);
                     }
 
+                    if window_resized_event_reader.is_none() {
+                        window_resized_event_reader = Some(window_resized_events.get_reader());
+                    }
                     let primary_window_resized_event = window_resized_event_reader
+                        .as_mut()
+                        .unwrap()
                         .find_latest(&window_resized_events, |event| event.is_primary);
                     if let Some(_) = primary_window_resized_event {
                         let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();

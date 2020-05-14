@@ -70,11 +70,10 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_system_node_named(
             "color_material",
             AssetUniformNode::<ColorMaterial>::new(false),
-            resources,
         );
         self.add_node_edge("color_material", base_render_graph::node::MAIN_PASS)
             .unwrap();
-        self.add_system_node_named("rect", UniformNode::<Rect>::new(false), resources);
+        self.add_system_node_named("rect", UniformNode::<Rect>::new(false));
         self.add_node_edge("rect", base_render_graph::node::MAIN_PASS)
             .unwrap();
         let mut pipelines = resources
