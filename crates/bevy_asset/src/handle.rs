@@ -63,6 +63,41 @@ impl<T> Handle<T> {
     }
 }
 
+impl<T> From<HandleId> for Handle<T> {
+    fn from(value: HandleId) -> Self {
+        Handle::from_id(value)
+    }
+}
+
+impl<T> From<u128> for Handle<T> {
+    fn from(value: u128) -> Self {
+        Handle::from_u128(value)
+    }
+}
+
+impl<T> From<[u8; 16]> for Handle<T> {
+    fn from(value: [u8; 16]) -> Self {
+        Handle::from_bytes(value)
+    }
+}
+
+impl<T> From<HandleUntyped> for Handle<T>
+where
+    T: 'static,
+{
+    fn from(handle: HandleUntyped) -> Self {
+        if TypeId::of::<T>() == handle.type_id {
+            Handle {
+                id: handle.id,
+                marker: PhantomData::default(),
+            }
+        } else {
+            panic!("attempted to convert untyped handle to incorrect typed handle")
+        }
+    }
+}
+
+
 impl<T> Hash for Handle<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
@@ -124,15 +159,5 @@ where
             id: handle.id,
             type_id: TypeId::of::<T>(),
         }
-    }
-}
-
-impl<T> From<HandleUntyped> for Handle<T>
-where
-    T: 'static,
-{
-    fn from(handle: HandleUntyped) -> Self {
-        Handle::from_untyped(handle)
-            .expect("attempted to convert untyped handle to incorrect typed handle")
     }
 }

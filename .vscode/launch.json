@@ -860,6 +860,25 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug unit tests in library 'bevy_text'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=bevy_text"
+                ],
+                "filter": {
+                    "name": "bevy_text",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in library 'bevy_ui'",
             "cargo": {
                 "args": [
@@ -1380,6 +1399,44 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug example 'load_asset_folder'",
+            "env": { "CARGO_MANIFEST_DIR": "${workspaceFolder}" },
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=load_asset_folder",
+                    "--package=bevy"
+                ],
+                "filter": {
+                    "name": "load_asset_folder",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'load_asset_folder'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=load_asset_folder",
+                    "--package=bevy"
+                ],
+                "filter": {
+                    "name": "load_asset_folder",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug example 'custom_diagnostic'",
             "cargo": {
                 "args": [
@@ -1741,6 +1798,43 @@
                 ],
                 "filter": {
                     "name": "shader_defs",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'text'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=text",
+                    "--package=bevy"
+                ],
+                "filter": {
+                    "name": "text",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'text'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=text",
+                    "--package=bevy"
+                ],
+                "filter": {
+                    "name": "text",
                     "kind": "example"
                 }
             },

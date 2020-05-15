@@ -18,6 +18,9 @@ impl AddDefaultPlugins for AppBuilder {
         #[cfg(feature = "window")]
         self.add_plugin(bevy_window::WindowPlugin::default());
 
+        #[cfg(feature = "asset")]
+        self.add_plugin(bevy_asset::AssetPlugin::default());
+
         #[cfg(feature = "render")]
         self.add_plugin(bevy_render::RenderPlugin::default());
 
@@ -26,6 +29,9 @@ impl AddDefaultPlugins for AppBuilder {
 
         #[cfg(feature = "ui")]
         self.add_plugin(bevy_ui::UiPlugin::default());
+
+        #[cfg(feature = "gltf")]
+        self.add_plugin(bevy_gltf::GltfPlugin::default());
 
         #[cfg(feature = "winit")]
         self.add_plugin(bevy_winit::WinitPlugin::default());

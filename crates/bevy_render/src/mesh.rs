@@ -319,11 +319,12 @@ pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
         )
         .build(|_, world, meshes, query| {
             for (mesh_handle, mut renderable) in query.iter_mut(world) {
-                let mesh = meshes.get(&mesh_handle).unwrap();
-                renderable
-                    .render_resource_assignments
-                    .pipeline_specialization
-                    .primitive_topology = mesh.primitive_topology;
+                if let Some(mesh) = meshes.get(&mesh_handle) {
+                    renderable
+                        .render_resource_assignments
+                        .pipeline_specialization
+                        .primitive_topology = mesh.primitive_topology;
+                }
             }
         })
 }

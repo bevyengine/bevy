@@ -10,3 +10,6 @@ bevy_core = { path = "../bevy_core" }
 legion = { path = "../bevy_legion" }
 
 uuid = { version = "0.8", features = ["v4", "serde"] }
+crossbeam-channel = "0.4.2"
+anyhow = "1.0"
+thiserror = "1.0"
