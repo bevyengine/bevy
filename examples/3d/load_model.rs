@@ -11,12 +11,11 @@ fn main() {
 fn setup(
     command_buffer: &mut CommandBuffer,
     asset_server: ResMut<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load the mesh
     let mesh_handle = asset_server
-        .load_sync(&mut meshes, "assets/models/monkey/Monkey.gltf")
+        .load("assets/models/monkey/Monkey.gltf")
         .unwrap();
 
     // create a material for the mesh

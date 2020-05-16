@@ -346,30 +346,34 @@ fn setup_mesh_resource(
             render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX),
         )
     } else {
-        let mesh_asset = meshes.get(&handle).unwrap();
-        let vertex_bytes = mesh_asset
-            .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
-            .unwrap();
-        // TODO: use a staging buffer here
-        let vertex_buffer = render_resources.create_buffer_with_data(
-            BufferInfo {
-                buffer_usage: BufferUsage::VERTEX,
-                ..Default::default()
-            },
-            &vertex_bytes,
-        );
-        let index_bytes = mesh_asset.get_index_buffer_bytes(index_format).unwrap();
-        let index_buffer = render_resources.create_buffer_with_data(
-            BufferInfo {
-                buffer_usage: BufferUsage::INDEX,
-                ..Default::default()
-            },
-            &index_bytes,
-        );
+        if let Some(mesh_asset) = meshes.get(&handle) {
+            let vertex_bytes = mesh_asset
+                .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                .unwrap();
+            // TODO: use a staging buffer here
+            let vertex_buffer = render_resources.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::VERTEX,
+                    ..Default::default()
+                },
+                &vertex_bytes,
+            );
+            let index_bytes = mesh_asset.get_index_buffer_bytes(index_format).unwrap();
+            let index_buffer = render_resources.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::INDEX,
+                    ..Default::default()
+                },
+                &index_bytes,
+            );
 
-        render_resources.set_asset_resource(handle, vertex_buffer, VERTEX_BUFFER_ASSET_INDEX);
-        render_resources.set_asset_resource(handle, index_buffer, INDEX_BUFFER_ASSET_INDEX);
-        (vertex_buffer, Some(index_buffer))
+            render_resources.set_asset_resource(handle, vertex_buffer, VERTEX_BUFFER_ASSET_INDEX);
+            render_resources.set_asset_resource(handle, index_buffer, INDEX_BUFFER_ASSET_INDEX);
+            (vertex_buffer, Some(index_buffer))
+        } else {
+            // mesh doesn't exist. it probably hasn't loaded yet
+            return;
+        }
     };
 
     render_resource_assignments.set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
