@@ -993,6 +993,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug example 'sprite'",
+            "env": { "CARGO_MANIFEST_DIR": "${workspaceFolder}" },
             "cargo": {
                 "args": [
                     "build",

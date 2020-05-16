@@ -25,10 +25,11 @@ pub fn sprite_system() -> Box<dyn Schedulable> {
             for (sprite, handle, mut rect) in query.iter_mut(world) {
                 let material = materials.get(&handle).unwrap();
                 if let Some(texture_handle) = material.texture {
-                    let texture = textures.get(&texture_handle).unwrap();
-                    let aspect = texture.aspect();
-                    *rect.size.x_mut() = texture.width as f32 * sprite.scale;
-                    *rect.size.y_mut() = rect.size.x() * aspect;
+                    if let Some(texture) = textures.get(&texture_handle) {
+                        let aspect = texture.aspect();
+                        *rect.size.x_mut() = texture.width as f32 * sprite.scale;
+                        *rect.size.y_mut() = rect.size.x() * aspect;
+                    }
                 }
             }
         })

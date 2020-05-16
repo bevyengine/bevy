@@ -13,7 +13,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Design Goals
 
-* Provide a first class user-experience for both 2D and 3D games.
+* Provide a first class developer experience for both 2D and 3D games.
 * Easy for newbies to pick up, but infinitely flexible for power users.
 * Fast iterative compile times. Ideally less than 1 second for small to medium sized projects.
 * Data-first game development using ECS (Entity Component System)

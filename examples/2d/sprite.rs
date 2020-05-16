@@ -9,12 +9,10 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut textures: ResMut<Assets<Texture>>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let texture = Texture::load(TextureType::Png("assets/branding/icon.png".to_string()));
-    let texture_handle = textures.add(texture);
-
+    let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
     command_buffer
         .build()
         .add_entity(Camera2dEntity::default())

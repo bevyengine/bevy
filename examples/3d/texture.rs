@@ -10,16 +10,15 @@ fn main() {
 /// sets up a scene with textured entities
 fn setup(
     command_buffer: &mut CommandBuffer,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load a texture
-    let texture = Texture::load(TextureType::Png(
-        "assets/branding/bevy_logo_dark_big.pn".to_string(),
-    ));
+    let texture_handle = asset_server.load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png").unwrap();
+    let texture = textures.get(&texture_handle).unwrap();
     let aspect = texture.aspect();
-    let texture_handle = textures.add(texture);
 
     // create a new quad mesh. this is what we will apply the texture to
     let quad_width = 8.0;

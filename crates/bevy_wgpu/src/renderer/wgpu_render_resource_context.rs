@@ -557,7 +557,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 return Some(render_resource_set.id);
             }
         }
-
         None
     }
 }

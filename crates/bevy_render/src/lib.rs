@@ -44,6 +44,9 @@ use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
+use texture::PngTextureLoader;
+use render_resource::EntitiesWaitingForAssets;
+use legion::prelude::IntoSystem;
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -75,16 +78,19 @@ impl AppPlugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
+            .add_asset_loader(PngTextureLoader::default())
             .add_resource(render_graph)
             .init_resource::<PipelineAssignments>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceAssignments>()
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<EntityRenderResourceAssignments>()
+            .init_resource::<EntitiesWaitingForAssets>()
             // core systems
             .add_system(entity_render_resource_assignments_system())
             .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_specializer_system())
+            .add_system_to_stage(stage::PRE_UPDATE, EntitiesWaitingForAssets::clear_system.system())
             // render resource provider systems
             .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
     }

@@ -2,8 +2,8 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferInfo, BufferUsage, RenderResource, RenderResourceAssignment,
-        RenderResourceAssignments, RenderResourceAssignmentsId,
+        BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResource,
+        RenderResourceAssignment, RenderResourceAssignments, RenderResourceAssignmentsId,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
     shader::{AsUniforms, FieldBindType},
@@ -400,13 +400,14 @@ where
         ))
         .read_resource::<Assets<Texture>>()
         .read_resource::<RenderResources>()
+        .read_resource::<EntitiesWaitingForAssets>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
         .with_query(<(Read<T>, Read<Renderable>)>::query())
         .with_query(<(Read<T>, Write<Renderable>)>::query())
         .build(
             move |_,
                   world,
-                  (textures, render_resources),
+                  (textures, render_resources, entities_waiting_for_assets),
                   (read_uniform_query, write_uniform_query)| {
                 let render_resource_context = &*render_resources.context;
 
@@ -428,7 +429,9 @@ where
                     .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
                 let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
 
-                for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
+                for (entity, (uniforms, mut renderable)) in
+                    write_uniform_query.iter_entities_mut(world)
+                {
                     if !renderable.is_visible {
                         return;
                     }
@@ -437,10 +440,12 @@ where
                         panic!("instancing not currently supported");
                     } else {
                         setup_uniform_texture_resources::<T>(
+                            entity,
                             &uniforms,
                             &mut command_queue,
                             textures,
                             render_resource_context,
+                            entities_waiting_for_assets,
                             &mut renderable.render_resource_assignments,
                         )
                     }
@@ -554,19 +559,20 @@ where
             .read_resource::<Assets<T>>()
             .read_resource::<Assets<Texture>>()
             .read_resource::<RenderResources>()
+            .read_resource::<EntitiesWaitingForAssets>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
             .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
             .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
             .build(
                 move |_,
                       world,
-                      (assets, textures, render_resources),
+                      (assets, textures, render_resources, entities_waiting_for_assets),
                       (read_handle_query, write_handle_query)| {
                     let render_resource_context = &*render_resources.context;
                     uniform_buffer_arrays.reset_new_item_counts();
 
                     // update uniform handles info
-                    for (handle, renderable) in read_handle_query.iter(world) {
+                    for (entity, (handle, renderable)) in read_handle_query.iter_entities(world) {
                         if !renderable.is_visible {
                             return;
                         }
@@ -574,11 +580,12 @@ where
                         if renderable.is_instanced {
                             panic!("instancing not currently supported");
                         } else {
-                            let uniforms = assets
-                                .get(&handle)
-                                .expect("Handle points to a non-existent resource");
-                            // TODO: only increment count if we haven't seen this uniform handle before
-                            uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+                            if let Some(uniforms) = assets.get(&handle) {
+                                // TODO: only increment count if we haven't seen this uniform handle before
+                                uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+                            } else {
+                                entities_waiting_for_assets.add(entity)
+                            }
                         }
                     }
 
@@ -586,7 +593,9 @@ where
                         .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
                     let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
 
-                    for (handle, mut renderable) in write_handle_query.iter_mut(world) {
+                    for (entity, (handle, mut renderable)) in
+                        write_handle_query.iter_entities_mut(world)
+                    {
                         if !renderable.is_visible {
                             return;
                         }
@@ -594,16 +603,17 @@ where
                         if renderable.is_instanced {
                             panic!("instancing not currently supported");
                         } else {
-                            let uniforms = assets
-                                .get(&handle)
-                                .expect("Handle points to a non-existent resource");
-                            setup_uniform_texture_resources::<T>(
-                                &uniforms,
-                                &mut command_queue,
-                                textures,
-                                render_resource_context,
-                                &mut renderable.render_resource_assignments,
-                            )
+                            if let Some(uniforms) = assets.get(&handle) {
+                                setup_uniform_texture_resources::<T>(
+                                    entity,
+                                    &uniforms,
+                                    &mut command_queue,
+                                    textures,
+                                    render_resource_context,
+                                    entities_waiting_for_assets,
+                                    &mut renderable.render_resource_assignments,
+                                )
+                            }
                         }
                     }
                     if staging_buffer_size == 0 {
@@ -615,17 +625,16 @@ where
                             if renderable.is_instanced {
                                 panic!("instancing not currently supported");
                             } else {
-                                let uniforms = assets
-                                    .get(&handle)
-                                    .expect("Handle points to a non-existent resource");
-                                // TODO: only setup buffer if we haven't seen this handle before
-                                uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                    &uniforms,
-                                    dynamic_uniforms,
-                                    render_resource_context,
-                                    &mut renderable.render_resource_assignments,
-                                    &mut staging_buffer,
-                                );
+                                if let Some(uniforms) = assets.get(&handle) {
+                                    // TODO: only setup buffer if we haven't seen this handle before
+                                    uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                        &uniforms,
+                                        dynamic_uniforms,
+                                        render_resource_context,
+                                        &mut renderable.render_resource_assignments,
+                                        &mut staging_buffer,
+                                    );
+                                }
                             }
                         }
                     } else {
@@ -643,17 +652,16 @@ where
                                     if renderable.is_instanced {
                                         panic!("instancing not currently supported");
                                     } else {
-                                        let uniforms = assets
-                                            .get(&handle)
-                                            .expect("Handle points to a non-existent resource");
-                                        // TODO: only setup buffer if we haven't seen this handle before
-                                        uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                            &uniforms,
-                                            dynamic_uniforms,
-                                            render_resource_context,
-                                            &mut renderable.render_resource_assignments,
-                                            &mut staging_buffer,
-                                        );
+                                        if let Some(uniforms) = assets.get(&handle) {
+                                            // TODO: only setup buffer if we haven't seen this handle before
+                                            uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                                &uniforms,
+                                                dynamic_uniforms,
+                                                render_resource_context,
+                                                &mut renderable.render_resource_assignments,
+                                                &mut staging_buffer,
+                                            );
+                                        }
                                     }
                                 }
                             },
@@ -684,10 +692,12 @@ where
 }
 
 fn setup_uniform_texture_resources<T>(
+    entity: Entity,
     uniforms: &T,
     command_queue: &mut CommandQueue,
     textures: &Assets<Texture>,
     render_resource_context: &dyn RenderResourceContext,
+    entities_waiting_for_assets: &EntitiesWaitingForAssets,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
     T: AsUniforms,
@@ -709,48 +719,49 @@ fn setup_uniform_texture_resources<T>(
                             .unwrap(),
                     ),
                     None => {
-                        let texture = textures.get(&texture_handle).unwrap();
+                        if let Some(texture) = textures.get(&texture_handle) {
+                            let texture_descriptor: TextureDescriptor = texture.into();
+                            let texture_resource =
+                                render_resource_context.create_texture(texture_descriptor);
+                            let texture_buffer = render_resource_context.create_buffer_with_data(
+                                BufferInfo {
+                                    buffer_usage: BufferUsage::COPY_SRC,
+                                    ..Default::default()
+                                },
+                                &texture.data,
+                            );
+                            // TODO: bytes_per_row could be incorrect for some texture formats
+                            command_queue.copy_buffer_to_texture(
+                                texture_buffer,
+                                0,
+                                (4 * texture.width) as u32,
+                                texture_resource,
+                                [0, 0, 0],
+                                0,
+                                0,
+                                texture_descriptor.size.clone(),
+                            );
+                            command_queue.free_buffer(texture_buffer);
 
-                        let texture_descriptor: TextureDescriptor = texture.into();
-                        let texture_resource =
-                            render_resource_context.create_texture(texture_descriptor);
-                        // TODO: queue texture copy
-                        // .create_texture_with_data(&texture_descriptor, &texture.data);
-                        let texture_buffer = render_resource_context.create_buffer_with_data(
-                            BufferInfo {
-                                buffer_usage: BufferUsage::COPY_SRC,
-                                ..Default::default()
-                            },
-                            &texture.data,
-                        );
-                        // TODO: bytes_per_row could be incorrect for some texture formats
-                        command_queue.copy_buffer_to_texture(
-                            texture_buffer,
-                            0,
-                            (4 * texture.width) as u32,
-                            texture_resource,
-                            [0, 0, 0],
-                            0,
-                            0,
-                            texture_descriptor.size.clone(),
-                        );
-                        command_queue.free_buffer(texture_buffer);
+                            let sampler_descriptor: SamplerDescriptor = texture.into();
+                            let sampler_resource =
+                                render_resource_context.create_sampler(&sampler_descriptor);
 
-                        let sampler_descriptor: SamplerDescriptor = texture.into();
-                        let sampler_resource =
-                            render_resource_context.create_sampler(&sampler_descriptor);
-
-                        render_resource_context.set_asset_resource(
-                            texture_handle,
-                            texture_resource,
-                            0,
-                        );
-                        render_resource_context.set_asset_resource(
-                            texture_handle,
-                            sampler_resource,
-                            1,
-                        );
-                        (texture_resource, sampler_resource)
+                            render_resource_context.set_asset_resource(
+                                texture_handle,
+                                texture_resource,
+                                0,
+                            );
+                            render_resource_context.set_asset_resource(
+                                texture_handle,
+                                sampler_resource,
+                                1,
+                            );
+                            (texture_resource, sampler_resource)
+                        } else {
+                            entities_waiting_for_assets.add(entity);
+                            continue;
+                        }
                     }
                 };
 

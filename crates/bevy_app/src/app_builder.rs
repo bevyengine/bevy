@@ -174,6 +174,7 @@ impl AppBuilder {
         self.add_startup_stage(stage::STARTUP)
             .add_stage(stage::FIRST)
             .add_stage(stage::EVENT_UPDATE)
+            .add_stage(stage::PRE_UPDATE)
             .add_stage(stage::UPDATE)
             .add_stage(stage::POST_UPDATE)
             .add_stage(stage::LAST)
