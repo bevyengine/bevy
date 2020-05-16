@@ -9,6 +9,9 @@ pub struct Font {
     pub metrics: Metrics,
 }
 
+unsafe impl Send for Font {}
+unsafe impl Sync for Font {}
+
 impl Font {
     pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, FontLoadingError> {
         let font = font_kit::font::Font::from_bytes(Arc::new(font_data), 0)?;

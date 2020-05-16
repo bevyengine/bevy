@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use std::{fs::File, io::Read};
 
 fn main() {
     App::build()
@@ -10,13 +9,13 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
+    asset_server: Res<AssetServer>,
+    mut fonts: ResMut<Assets<Font>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mut font_file = File::open("assets/fonts/FiraSans-Bold.ttf").unwrap();
-    let mut buffer = Vec::new();
-    font_file.read_to_end(&mut buffer).unwrap();
-    let font = Font::try_from_bytes(buffer).unwrap();
+    let font_handle = asset_server.load_sync(&mut fonts, "assets/fonts/FiraSans-Bold.ttf").unwrap();
+    let font = fonts.get(&font_handle).unwrap();
 
     let texture = font.render_text("Hello from Bevy!", Color::rgba(0.9, 0.9, 0.9, 1.0), 500, 60);
     let half_width = texture.width as f32 / 2.0;

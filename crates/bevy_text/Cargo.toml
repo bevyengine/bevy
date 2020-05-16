@@ -7,7 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy_app = { path = "../bevy_app" }
+bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
 skribo = "0.1.0"
 font-kit = "0.6"
 pathfinder_geometry = "0.5"
+anyhow = "1.0"

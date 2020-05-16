@@ -33,6 +33,9 @@ impl AddDefaultPlugins for AppBuilder {
         #[cfg(feature = "gltf")]
         self.add_plugin(bevy_gltf::GltfPlugin::default());
 
+        #[cfg(feature = "text")]
+        self.add_plugin(bevy_text::TextPlugin::default());
+
         #[cfg(feature = "winit")]
         self.add_plugin(bevy_winit::WinitPlugin::default());
         #[cfg(not(feature = "winit"))]
