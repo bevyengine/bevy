@@ -48,7 +48,7 @@ impl AppPlugin for UiPlugin {
         render_graph.add_ui_graph(resources);
 
         let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-        meshes.add_with_handle(
+        meshes.set(
             QUAD_HANDLE,
             Mesh::from(Quad {
                 size: Vec2::new(1.0, 1.0),

@@ -84,7 +84,7 @@ fn setup(
         always_red: true,
     });
 
-    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
     command_buffer
         .build()

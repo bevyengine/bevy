@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 pub enum AssetEvent<T> {
     Created { handle: Handle<T> },
+    Modified { handle: Handle<T> },
 }
 
 pub struct Assets<T> {
@@ -40,15 +41,26 @@ impl<T> Assets<T> {
         handle
     }
 
-    pub fn add_with_handle(&mut self, handle: Handle<T>, asset: T) {
+    pub fn set(&mut self, handle: Handle<T>, asset: T) {
+        let exists = self.assets.contains_key(&handle.id);
         self.assets.insert(handle.id, asset);
-        self.events.send(AssetEvent::Created { handle });
+
+        if exists {
+            self.events.send(AssetEvent::Modified { handle });
+        } else {
+            self.events.send(AssetEvent::Created { handle });
+        }
     }
 
     pub fn add_default(&mut self, asset: T) -> Handle<T> {
+        let exists = self.assets.contains_key(&DEFAULT_HANDLE_ID);
         self.assets.insert(DEFAULT_HANDLE_ID, asset);
         let handle = Handle::default();
-        self.events.send(AssetEvent::Created { handle });
+        if exists {
+            self.events.send(AssetEvent::Modified { handle });
+        } else {
+            self.events.send(AssetEvent::Created { handle });
+        }
         handle
     }
 
@@ -111,7 +123,7 @@ impl AddAsset for AppBuilder {
     {
         self.init_resource::<Assets<T>>()
             .add_system_to_stage(
-                stage::EVENT_UPDATE,
+                stage::POST_UPDATE,
                 Assets::<T>::asset_event_system.system(),
             )
             .add_event::<AssetEvent<T>>()

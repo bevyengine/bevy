@@ -68,7 +68,7 @@ fn setup(
     let material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
     });
-    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
     command_buffer
         .build()

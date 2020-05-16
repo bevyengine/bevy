@@ -30,7 +30,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let cube_handle = meshes.add(Mesh::from(shape::Cube));
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),

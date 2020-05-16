@@ -143,7 +143,7 @@ impl AssetServer {
                 let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
                 let asset = loader.load_from_file(&asset_path)?;
                 let handle = Handle::from(handle_id);
-                assets.add_with_handle(handle, asset);
+                assets.set(handle, asset);
                 assets.set_path(handle, &asset_path.path);
                 Ok(handle)
             } else {

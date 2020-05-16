@@ -73,7 +73,6 @@ impl AppPlugin for RenderPlugin {
 
         app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)
             .add_stage_after(RENDER_RESOURCE_STAGE, RENDER_STAGE)
-            // resources
             .add_asset::<Mesh>()
             .add_asset::<Texture>()
             .add_asset::<Shader>()
@@ -86,12 +85,9 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<EntityRenderResourceAssignments>()
             .init_resource::<EntitiesWaitingForAssets>()
-            // core systems
             .add_system(entity_render_resource_assignments_system())
             .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
-            .add_system_to_stage(stage::POST_UPDATE, mesh::mesh_specializer_system())
             .add_system_to_stage(stage::PRE_UPDATE, EntitiesWaitingForAssets::clear_system.system())
-            // render resource provider systems
             .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
     }
 }

@@ -3,15 +3,16 @@ use crate::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments, EntitiesWaitingForAssets},
+    render_resource::{BufferInfo, BufferUsage, EntitiesWaitingForAssets},
     renderer::{RenderResourceContext, RenderResources},
     shader::AsUniforms,
     Renderable, Vertex,
 };
-use bevy_asset::{Assets, Handle};
+use bevy_app::Events;
+use bevy_asset::{AssetEvent, Assets, Handle};
 use glam::*;
 use legion::prelude::*;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashSet};
 use thiserror::Error;
 use zerocopy::AsBytes;
 
@@ -170,41 +171,50 @@ pub mod shape {
     use crate::pipeline::state_descriptors::PrimitiveTopology;
     use glam::*;
 
-    pub struct Cube;
+    pub struct Cube {
+        pub size: f32,
+    }
+
+    impl Default for Cube {
+        fn default() -> Self {
+            Cube { size: 1.0 }
+        }
+    }
 
     impl From<Cube> for Mesh {
-        fn from(_: Cube) -> Self {
+        fn from(cube: Cube) -> Self {
+            let size = cube.size;
             let vertices = &[
-                // top (0., 0., 1.)
-                ([-1., -1., 1.], [0., 0., 1.], [0., 0.]),
-                ([1., -1., 1.], [0., 0., 1.], [1., 0.]),
-                ([1., 1., 1.], [0., 0., 1.], [1., 1.]),
-                ([-1., 1., 1.], [0., 0., 1.], [0., 1.]),
-                // bottom (0., 0., -1.)
-                ([-1., 1., -1.], [0., 0., -1.], [1., 0.]),
-                ([1., 1., -1.], [0., 0., -1.], [0., 0.]),
-                ([1., -1., -1.], [0., 0., -1.], [0., 1.]),
-                ([-1., -1., -1.], [0., 0., -1.], [1., 1.]),
-                // right (1., 0., 0.)
-                ([1., -1., -1.], [1., 0., 0.], [0., 0.]),
-                ([1., 1., -1.], [1., 0., 0.], [1., 0.]),
-                ([1., 1., 1.], [1., 0., 0.], [1., 1.]),
-                ([1., -1., 1.], [1., 0., 0.], [0., 1.]),
-                // left (-1., 0., 0.)
-                ([-1., -1., 1.], [-1., 0., 0.], [1., 0.]),
-                ([-1., 1., 1.], [-1., 0., 0.], [0., 0.]),
-                ([-1., 1., -1.], [-1., 0., 0.], [0., 1.]),
-                ([-1., -1., -1.], [-1., 0., 0.], [1., 1.]),
-                // front (0., 1., 0.)
-                ([1., 1., -1.], [0., 1., 0.], [1., 0.]),
-                ([-1., 1., -1.], [0., 1., 0.], [0., 0.]),
-                ([-1., 1., 1.], [0., 1., 0.], [0., 1.]),
-                ([1., 1., 1.], [0., 1., 0.], [1., 1.]),
-                // back (0., -1., 0.)
-                ([1., -1., 1.], [0., -1., 0.], [0., 0.]),
-                ([-1., -1., 1.], [0., -1., 0.], [1., 0.]),
-                ([-1., -1., -1.], [0., -1., 0.], [1., 1.]),
-                ([1., -1., -1.], [0., -1., 0.], [0., 1.]),
+                // top (0., 0., size)
+                ([-size, -size, size], [0., 0., size], [0., 0.]),
+                ([size, -size, size], [0., 0., size], [size, 0.]),
+                ([size, size, size], [0., 0., size], [size, size]),
+                ([-size, size, size], [0., 0., size], [0., size]),
+                // bottom (0., 0., -size)
+                ([-size, size, -size], [0., 0., -size], [size, 0.]),
+                ([size, size, -size], [0., 0., -size], [0., 0.]),
+                ([size, -size, -size], [0., 0., -size], [0., size]),
+                ([-size, -size, -size], [0., 0., -size], [size, size]),
+                // right (size, 0., 0.)
+                ([size, -size, -size], [size, 0., 0.], [0., 0.]),
+                ([size, size, -size], [size, 0., 0.], [size, 0.]),
+                ([size, size, size], [size, 0., 0.], [size, size]),
+                ([size, -size, size], [size, 0., 0.], [0., size]),
+                // left (-size, 0., 0.)
+                ([-size, -size, size], [-size, 0., 0.], [size, 0.]),
+                ([-size, size, size], [-size, 0., 0.], [0., 0.]),
+                ([-size, size, -size], [-size, 0., 0.], [0., size]),
+                ([-size, -size, -size], [-size, 0., 0.], [size, size]),
+                // front (0., size, 0.)
+                ([size, size, -size], [0., size, 0.], [size, 0.]),
+                ([-size, size, -size], [0., size, 0.], [0., 0.]),
+                ([-size, size, size], [0., size, 0.], [0., size]),
+                ([size, size, size], [0., size, 0.], [size, size]),
+                // back (0., -size, 0.)
+                ([size, -size, size], [0., -size, 0.], [0., 0.]),
+                ([-size, -size, size], [0., -size, 0.], [size, 0.]),
+                ([-size, -size, -size], [0., -size, 0.], [size, size]),
+                ([size, -size, -size], [0., -size, 0.], [0., size]),
             ];
 
             let mut positions = Vec::new();
@@ -310,45 +320,32 @@ pub mod shape {
     }
 }
 
-pub fn mesh_specializer_system() -> Box<dyn Schedulable> {
-    SystemBuilder::new("mesh_specializer")
-        .read_resource::<Assets<Mesh>>()
-        .with_query(
-            <(Read<Handle<Mesh>>, Write<Renderable>)>::query()
-                .filter(changed::<Handle<Mesh>>() | changed::<Renderable>()),
-        )
-        .build(|_, world, meshes, query| {
-            for (mesh_handle, mut renderable) in query.iter_mut(world) {
-                if let Some(mesh) = meshes.get(&mesh_handle) {
-                    renderable
-                        .render_resource_assignments
-                        .pipeline_specialization
-                        .primitive_topology = mesh.primitive_topology;
-                }
-            }
-        })
-}
-
 fn setup_mesh_resource(
     render_resources: &dyn RenderResourceContext,
-    render_resource_assignments: &mut RenderResourceAssignments,
+    renderable: &mut Renderable,
     vertex_buffer_descriptor: &VertexBufferDescriptor,
     entities_waiting_for_assets: &EntitiesWaitingForAssets,
     entity: Entity,
     handle: Handle<Mesh>,
     meshes: &Assets<Mesh>,
+    mesh_changed: bool,
 ) {
-    log::trace!("setup mesh for {:?}", render_resource_assignments.id);
+    log::trace!(
+        "setup mesh for {:?}",
+        renderable.render_resource_assignments.id
+    );
     let index_format = IndexFormat::Uint16;
-    let (vertex_buffer, index_buffer) = if let Some(vertex_buffer) =
-        render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+    let (vertex_buffer, index_buffer) = if mesh_changed
+        || render_resources
+            .get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+            .is_none()
     {
-        (
-            vertex_buffer,
-            render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX),
-        )
-    } else {
         if let Some(mesh_asset) = meshes.get(&handle) {
+            renderable
+                .render_resource_assignments
+                .pipeline_specialization
+                .primitive_topology = mesh_asset.primitive_topology;
+
             let vertex_bytes = mesh_asset
                 .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
                 .unwrap();
@@ -377,35 +374,108 @@ fn setup_mesh_resource(
             entities_waiting_for_assets.add(entity);
             return;
         }
+    } else if let Some(vertex_buffer) =
+        render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+    {
+        (
+            vertex_buffer,
+            render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX),
+        )
+    } else {
+        panic!("This should never be reached. The current 'if let' limitations make this case required.")
     };
 
-    render_resource_assignments.set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
+    renderable
+        .render_resource_assignments
+        .set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
 }
 
 pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
+    let mesh_events = resources.get::<Events<AssetEvent<Mesh>>>().unwrap();
+    let mut mesh_event_reader = mesh_events.get_reader();
     // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
     let vertex_buffer_descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     SystemBuilder::new("mesh_resource_provider")
         .read_resource::<RenderResources>()
         .read_resource::<Assets<Mesh>>()
-        .read_resource::<EntitiesWaitingForAssets>()
+        .read_resource::<Events<AssetEvent<Mesh>>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_, world, (render_resource_context, meshes, entities_waiting_for_assets), query| {
+            move |_,
+                  world,
+                  (render_resource_context, meshes, mesh_events),
+                  query| {
                 let render_resources = &*render_resource_context.context;
+                let changed_meshes = mesh_event_reader
+                    .iter(&mesh_events)
+                    .map(|e| match e {
+                        AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+                            Some(handle)
+                        }
+                    })
+                    .filter(|h| h.is_some())
+                    .map(|h| *h.unwrap())
+                    .collect::<HashSet<Handle<Mesh>>>();
+
+                for changed_mesh_handle in changed_meshes.iter() {
+                    if let Some(mesh) = meshes.get(changed_mesh_handle) {
+                        let vertex_bytes = mesh
+                            .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                            .unwrap();
+                        // TODO: use a staging buffer here
+                        let vertex_buffer = render_resources.create_buffer_with_data(
+                            BufferInfo {
+                                buffer_usage: BufferUsage::VERTEX,
+                                ..Default::default()
+                            },
+                            &vertex_bytes,
+                        );
+
+                        let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
+                        let index_buffer = render_resources.create_buffer_with_data(
+                            BufferInfo {
+                                buffer_usage: BufferUsage::INDEX,
+                                ..Default::default()
+                            },
+                            &index_bytes,
+                        );
+
+                        render_resources.set_asset_resource(
+                            *changed_mesh_handle,
+                            vertex_buffer,
+                            VERTEX_BUFFER_ASSET_INDEX,
+                        );
+                        render_resources.set_asset_resource(
+                            *changed_mesh_handle,
+                            index_buffer,
+                            INDEX_BUFFER_ASSET_INDEX,
+                        );
+                    }
+                }
+
                 // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
-                for (entity, (handle, mut renderable)) in query.iter_entities_mut(world) {
-                    setup_mesh_resource(
-                        render_resources,
-                        &mut renderable.render_resource_assignments,
-                        &vertex_buffer_descriptor,
-                        entities_waiting_for_assets,
-                        entity,
-                        *handle,
-                        &meshes,
-                    );
+                for (handle, mut renderable) in query.iter_mut(world) {
+                    if let Some(mesh) = meshes.get(&handle) {
+                        renderable
+                            .render_resource_assignments
+                            .pipeline_specialization
+                            .primitive_topology = mesh.primitive_topology;
+                    }
+
+                    if let Some(vertex_buffer) =
+                        render_resources.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+                    {
+                        let index_buffer =
+                            render_resources.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX);
+
+                        renderable.render_resource_assignments.set_vertex_buffer(
+                            "Vertex",
+                            vertex_buffer,
+                            index_buffer,
+                        );
+                    }
                 }
             },
         )

@@ -53,7 +53,7 @@ pub fn update_asset_storage_system<T>(
         match asset_channel.receiver.try_recv() {
             Ok(result) => {
                 let asset = result.result.unwrap();
-                assets.add_with_handle(result.handle, asset);
+                assets.set(result.handle, asset);
                 assets.set_path(result.handle, &result.path.path);
             }
             Err(TryRecvError::Empty) => {
