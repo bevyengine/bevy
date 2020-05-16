@@ -3,7 +3,7 @@ use crate::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments},
+    render_resource::{BufferInfo, BufferUsage, RenderResourceAssignments, EntitiesWaitingForAssets},
     renderer::{RenderResourceContext, RenderResources},
     shader::AsUniforms,
     Renderable, Vertex,
@@ -333,6 +333,8 @@ fn setup_mesh_resource(
     render_resources: &dyn RenderResourceContext,
     render_resource_assignments: &mut RenderResourceAssignments,
     vertex_buffer_descriptor: &VertexBufferDescriptor,
+    entities_waiting_for_assets: &EntitiesWaitingForAssets,
+    entity: Entity,
     handle: Handle<Mesh>,
     meshes: &Assets<Mesh>,
 ) {
@@ -372,6 +374,7 @@ fn setup_mesh_resource(
             (vertex_buffer, Some(index_buffer))
         } else {
             // mesh doesn't exist. it probably hasn't loaded yet
+            entities_waiting_for_assets.add(entity);
             return;
         }
     };
@@ -387,16 +390,19 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     SystemBuilder::new("mesh_resource_provider")
         .read_resource::<RenderResources>()
         .read_resource::<Assets<Mesh>>()
+        .read_resource::<EntitiesWaitingForAssets>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_, world, (render_resource_context, meshes /* asset_batchers*/), query| {
+            move |_, world, (render_resource_context, meshes, entities_waiting_for_assets), query| {
                 let render_resources = &*render_resource_context.context;
                 // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
-                for (handle, mut renderable) in query.iter_mut(world) {
+                for (entity, (handle, mut renderable)) in query.iter_entities_mut(world) {
                     setup_mesh_resource(
                         render_resources,
                         &mut renderable.render_resource_assignments,
                         &vertex_buffer_descriptor,
+                        entities_waiting_for_assets,
+                        entity,
                         *handle,
                         &meshes,
                     );
