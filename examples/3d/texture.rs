@@ -16,7 +16,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load a texture
-    let texture_handle = asset_server.load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png").unwrap();
+    let texture_handle = asset_server
+        .load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png")
+        .unwrap();
     let texture = textures.get(&texture_handle).unwrap();
     let aspect = texture.aspect();
 

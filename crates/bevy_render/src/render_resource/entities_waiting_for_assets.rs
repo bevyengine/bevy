@@ -1,5 +1,5 @@
 use legion::prelude::{Entity, Res};
-use std::{sync::RwLock, collections::HashSet};
+use std::{collections::HashSet, sync::RwLock};
 
 #[derive(Default)]
 pub struct EntitiesWaitingForAssets {
@@ -8,11 +8,17 @@ pub struct EntitiesWaitingForAssets {
 
 impl EntitiesWaitingForAssets {
     pub fn add(&self, entity: Entity) {
-        self.entities.write().expect("RwLock poisoned").insert(entity);
+        self.entities
+            .write()
+            .expect("RwLock poisoned")
+            .insert(entity);
     }
 
     pub fn contains(&self, entity: &Entity) -> bool {
-        self.entities.read().expect("RwLock poisoned").contains(entity)
+        self.entities
+            .read()
+            .expect("RwLock poisoned")
+            .contains(entity)
     }
 
     pub fn clear(&self) {

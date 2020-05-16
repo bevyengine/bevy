@@ -42,11 +42,11 @@ use self::{
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
+use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
-use texture::PngTextureLoader;
 use render_resource::EntitiesWaitingForAssets;
-use legion::prelude::IntoSystem;
+use texture::PngTextureLoader;
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -87,7 +87,10 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<EntitiesWaitingForAssets>()
             .add_system(entity_render_resource_assignments_system())
             .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
-            .add_system_to_stage(stage::PRE_UPDATE, EntitiesWaitingForAssets::clear_system.system())
+            .add_system_to_stage(
+                stage::PRE_UPDATE,
+                EntitiesWaitingForAssets::clear_system.system(),
+            )
             .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
     }
 }

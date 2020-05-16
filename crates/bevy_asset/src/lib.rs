@@ -1,16 +1,16 @@
+mod asset_path;
+mod asset_server;
 mod assets;
 mod handle;
-mod loader;
-mod asset_server;
 mod load_request;
-mod asset_path;
+mod loader;
 
+pub use asset_path::*;
+pub use asset_server::*;
 pub use assets::*;
 pub use handle::*;
-pub use loader::*;
-pub use asset_server::*;
 pub use load_request::*;
-pub use asset_path::*;
+pub use loader::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
 
@@ -23,6 +23,7 @@ pub struct AssetPlugin;
 
 impl AppPlugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_stage(stage::LOAD_ASSETS).init_resource::<AssetServer>();
+        app.add_stage(stage::LOAD_ASSETS)
+            .init_resource::<AssetServer>();
     }
 }

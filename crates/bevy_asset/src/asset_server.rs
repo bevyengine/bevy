@@ -1,4 +1,7 @@
-use crate::{Assets, Handle, HandleId, LoadRequest, AssetLoadError, AssetLoadRequestHandler, AssetLoader, AssetPath};
+use crate::{
+    AssetLoadError, AssetLoadRequestHandler, AssetLoader, AssetPath, Assets, Handle, HandleId,
+    LoadRequest,
+};
 use anyhow::Result;
 use legion::prelude::Resources;
 use std::{

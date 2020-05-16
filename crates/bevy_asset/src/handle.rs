@@ -97,7 +97,6 @@ where
     }
 }
 
-
 impl<T> Hash for Handle<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);

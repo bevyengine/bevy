@@ -1,6 +1,6 @@
-use bevy_asset::{AssetPath, AssetLoader};
 use super::Texture;
 use anyhow::Result;
+use bevy_asset::{AssetLoader, AssetPath};
 
 #[derive(Clone, Default)]
 pub struct PngTextureLoader;
@@ -18,9 +18,7 @@ impl AssetLoader<Texture> for PngTextureLoader {
         })
     }
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &[
-            "png"
-        ];
+        static EXTENSIONS: &[&str] = &["png"];
         EXTENSIONS
     }
 }

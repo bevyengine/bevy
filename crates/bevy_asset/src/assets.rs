@@ -122,10 +122,7 @@ impl AddAsset for AppBuilder {
         T: Send + Sync + 'static,
     {
         self.init_resource::<Assets<T>>()
-            .add_system_to_stage(
-                stage::POST_UPDATE,
-                Assets::<T>::asset_event_system.system(),
-            )
+            .add_system_to_stage(stage::POST_UPDATE, Assets::<T>::asset_event_system.system())
             .add_event::<AssetEvent<T>>()
     }
 

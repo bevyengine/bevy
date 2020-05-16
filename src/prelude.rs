@@ -1,5 +1,5 @@
 #[cfg(feature = "asset")]
-pub use crate::asset::{AddAsset, AssetEvent, Assets, Handle, AssetServer};
+pub use crate::asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 #[cfg(feature = "core")]
 pub use crate::core::{
     time::Time,

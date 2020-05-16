@@ -1,8 +1,8 @@
 mod loader;
 pub use loader::*;
 
-use bevy_app::{AppPlugin, AppBuilder};
-use bevy_asset::{AddAsset};
+use bevy_app::{AppBuilder, AppPlugin};
+use bevy_asset::AddAsset;
 
 #[derive(Default)]
 pub struct GltfPlugin;

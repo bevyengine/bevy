@@ -3,11 +3,11 @@ use bevy_render::{
     pipeline::state_descriptors::PrimitiveTopology,
 };
 
+use anyhow::Result;
 use bevy_asset::{AssetLoader, AssetPath};
 use gltf::{buffer::Source, iter, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
-use anyhow::Result;
 
 #[derive(Clone)]
 pub struct GltfLoader;
@@ -18,9 +18,7 @@ impl AssetLoader<Mesh> for GltfLoader {
         Ok(mesh)
     }
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &[
-            "gltf"
-        ];
+        static EXTENSIONS: &[&str] = &["gltf"];
         EXTENSIONS
     }
 }

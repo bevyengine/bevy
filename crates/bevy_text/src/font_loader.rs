@@ -1,6 +1,6 @@
 use crate::Font;
-use bevy_asset::{AssetLoader, AssetPath};
 use anyhow::Result;
+use bevy_asset::{AssetLoader, AssetPath};
 
 #[derive(Clone)]
 pub struct FontLoader;

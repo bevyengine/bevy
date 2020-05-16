@@ -403,10 +403,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         .read_resource::<Events<AssetEvent<Mesh>>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_,
-                  world,
-                  (render_resource_context, meshes, mesh_events),
-                  query| {
+            move |_, world, (render_resource_context, meshes, mesh_events), query| {
                 let render_resources = &*render_resource_context.context;
                 let changed_meshes = mesh_event_reader
                     .iter(&mesh_events)

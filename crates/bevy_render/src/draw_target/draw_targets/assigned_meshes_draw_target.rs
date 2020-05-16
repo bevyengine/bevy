@@ -7,7 +7,8 @@ use crate::{
     pass::RenderPass,
     pipeline::{PipelineAssignments, PipelineDescriptor},
     render_resource::{
-        resource_name, EntityRenderResourceAssignments, RenderResourceAssignments, ResourceInfo, EntitiesWaitingForAssets,
+        resource_name, EntitiesWaitingForAssets, EntityRenderResourceAssignments,
+        RenderResourceAssignments, ResourceInfo,
     },
     renderer::RenderContext,
     Renderable,
@@ -46,7 +47,10 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     .get(*assignment_id)
                     .unwrap();
                 let renderable = world.get_component::<Renderable>(*entity).unwrap();
-                if !renderable.is_visible || renderable.is_instanced || entities_waiting_for_assets.contains(entity) {
+                if !renderable.is_visible
+                    || renderable.is_instanced
+                    || entities_waiting_for_assets.contains(entity)
+                {
                     continue;
                 }
 
