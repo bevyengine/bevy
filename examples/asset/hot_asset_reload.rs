@@ -15,26 +15,27 @@ fn setup(
     mut asset_server: ResMut<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // load an asset folder
+    // Load an asset folder:
     asset_server.load_asset_folder("assets").unwrap();
 
-    // tell the asset server to watch for changes
+    // Tell the asset server to watch for asset changes on disk:
     asset_server.watch_for_changes().unwrap();
 
-    // load the mesh
+    // Get a handle for our mesh:
     let mesh_handle = asset_server
         .get_handle("assets/models/monkey/Monkey.gltf")
         .unwrap();
 
-    // now any changes to the mesh will be reloaded automatically!
+    // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
+    // You should see the changes immediately show up in your app.
 
-    // create a material for the mesh
+    // Create a material for the mesh:
     let material_handle = materials.add(StandardMaterial {
         albedo: Color::rgb(0.5, 0.4, 0.3),
         ..Default::default()
     });
 
-    // add entities to the world
+    // Add entities to the world:
     command_buffer
         .build()
         // mesh

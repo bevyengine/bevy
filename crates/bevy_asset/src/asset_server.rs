@@ -206,6 +206,7 @@ impl AssetServer {
         }
     }
 
+    // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
     pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
         self.load_untyped(path)
             .map(|handle_id| Handle::from(handle_id))
