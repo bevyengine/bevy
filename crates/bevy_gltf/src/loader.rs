@@ -4,7 +4,7 @@ use bevy_render::{
 };
 
 use anyhow::Result;
-use bevy_asset::{AssetLoader, AssetPath};
+use bevy_asset::AssetLoader;
 use gltf::{buffer::Source, iter, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
@@ -13,7 +13,7 @@ use thiserror::Error;
 pub struct GltfLoader;
 
 impl AssetLoader<Mesh> for GltfLoader {
-    fn from_bytes(&self, asset_path: &AssetPath, bytes: Vec<u8>) -> Result<Mesh> {
+    fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh> {
         let mesh = load_gltf(asset_path, bytes)?;
         Ok(mesh)
     }
@@ -46,7 +46,7 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
-pub fn load_gltf(asset_path: &AssetPath, bytes: Vec<u8>) -> Result<Mesh, GltfError> {
+pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh, GltfError> {
     let gltf = gltf::Gltf::from_slice(&bytes)?;
     let buffer_data = load_buffers(gltf.buffers(), asset_path)?;
     for scene in gltf.scenes() {
@@ -104,15 +104,14 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
     panic!("failed to find mesh")
 }
 
-fn load_buffers(buffers: iter::Buffers, asset_path: &AssetPath) -> Result<Vec<Vec<u8>>, GltfError> {
+fn load_buffers(buffers: iter::Buffers, asset_path: &Path) -> Result<Vec<Vec<u8>>, GltfError> {
     let mut buffer_data = Vec::new();
     for buffer in buffers {
         match buffer.source() {
             Source::Uri(uri) => {
                 if uri.starts_with("data:") {
                 } else {
-                    let path = Path::new(asset_path.path.as_ref());
-                    let buffer_path = path.parent().unwrap().join(uri);
+                    let buffer_path = asset_path.parent().unwrap().join(uri);
                     let buffer_bytes = fs::read(buffer_path)?;
                     buffer_data.push(buffer_bytes);
                 }

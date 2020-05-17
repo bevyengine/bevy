@@ -3,8 +3,8 @@ use crate::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{BufferInfo, BufferUsage, EntitiesWaitingForAssets},
-    renderer::{RenderResourceContext, RenderResources},
+    render_resource::{BufferInfo, BufferUsage},
+    renderer::RenderResources,
     shader::AsUniforms,
     Renderable, Vertex,
 };

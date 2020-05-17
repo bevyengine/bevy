@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
+[features]
+default = ["filesystem_watcher"]
+filesystem_watcher = ["notify"]
+
 [dependencies]
 bevy_app = { path = "../bevy_app" }
 bevy_core = { path = "../bevy_core" }
@@ -13,3 +17,4 @@ uuid = { version = "0.8", features = ["v4", "serde"] }
 crossbeam-channel = "0.4.2"
 anyhow = "1.0"
 thiserror = "1.0"
+notify = { version = "5.0.0-pre.2", optional = true }

@@ -1,10 +1,13 @@
-use crate::{AssetPath, Assets, Handle};
+use crate::{Assets, Handle};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use fs::File;
 use io::Read;
 use legion::prelude::{Res, ResMut};
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,10 +19,10 @@ pub enum AssetLoadError {
 }
 
 pub trait AssetLoader<T>: Send + Sync + 'static {
-    fn from_bytes(&self, asset_path: &AssetPath, bytes: Vec<u8>) -> Result<T, anyhow::Error>;
+    fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<T, anyhow::Error>;
     fn extensions(&self) -> &[&str];
-    fn load_from_file(&self, asset_path: &AssetPath) -> Result<T, AssetLoadError> {
-        let mut file = File::open(Path::new(asset_path.path.as_ref()))?;
+    fn load_from_file(&self, asset_path: &Path) -> Result<T, AssetLoadError> {
+        let mut file = File::open(asset_path)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         let asset = self.from_bytes(asset_path, bytes)?;
@@ -30,7 +33,7 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
 pub struct AssetResult<T> {
     pub result: Result<T, AssetLoadError>,
     pub handle: Handle<T>,
-    pub path: AssetPath,
+    pub path: PathBuf,
 }
 
 pub struct AssetChannel<T> {
@@ -54,7 +57,7 @@ pub fn update_asset_storage_system<T>(
             Ok(result) => {
                 let asset = result.result.unwrap();
                 assets.set(result.handle, asset);
-                assets.set_path(result.handle, &result.path.path);
+                assets.set_path(result.handle, &result.path);
             }
             Err(TryRecvError::Empty) => {
                 break;

@@ -1,13 +1,13 @@
-use crate::{AssetLoadError, AssetLoader, AssetPath, AssetResult, Handle, HandleId};
+use crate::{AssetLoadError, AssetLoader, AssetResult, Handle, HandleId};
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use fs::File;
 use io::Read;
-use std::{fs, io, path::Path};
+use std::{fs, io, path::PathBuf};
 
 #[derive(Debug)]
 pub struct LoadRequest {
-    pub path: AssetPath,
+    pub path: PathBuf,
     pub handle_id: HandleId,
     pub handler_index: usize,
 }
@@ -34,7 +34,7 @@ where
     }
 
     fn load_asset(&self, load_request: &LoadRequest) -> Result<TAsset, AssetLoadError> {
-        let mut file = File::open(Path::new(load_request.path.path.as_ref()))?;
+        let mut file = File::open(&load_request.path)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         let asset = self.loader.from_bytes(&load_request.path, bytes)?;

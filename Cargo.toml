@@ -112,6 +112,14 @@ name = "plugin"
 path = "examples/app/plugin.rs"
 
 [[example]]
+name = "hot_asset_reload"
+path = "examples/asset/hot_asset_reload.rs"
+
+[[example]]
+name = "asset_loading"
+path = "examples/asset/asset_loading.rs"
+
+[[example]]
 name = "custom_diagnostic"
 path = "examples/diagnostics/custom_diagnostic.rs"
 

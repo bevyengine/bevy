@@ -1,13 +1,14 @@
 use crate::{
-    AssetLoadError, AssetLoadRequestHandler, AssetLoader, AssetPath, Assets, Handle, HandleId,
-    LoadRequest,
+    filesystem_watcher::FilesystemWatcher, AssetLoadError, AssetLoadRequestHandler, AssetLoader,
+    Assets, Handle, HandleId, LoadRequest,
 };
 use anyhow::Result;
-use legion::prelude::Resources;
+use crossbeam_channel::TryRecvError;
+use legion::prelude::{Res, Resources};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env, fs, io,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
     thread,
 };
@@ -27,6 +28,8 @@ pub enum AssetServerError {
     AssetLoadError(#[from] AssetLoadError),
     #[error("Encountered an io error.")]
     Io(#[from] io::Error),
+    #[error("Failed to watch asset folder.")]
+    AssetFolderWatchError { path: PathBuf },
 }
 
 struct LoaderThread {
@@ -36,7 +39,7 @@ struct LoaderThread {
 }
 
 pub struct AssetServer {
-    asset_folders: Vec<String>,
+    asset_folders: Vec<PathBuf>,
     loader_threads: RwLock<Vec<LoaderThread>>,
     max_loader_threads: usize,
     asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
@@ -44,6 +47,9 @@ pub struct AssetServer {
     loaders: Vec<Resources>,
     extension_to_handler_index: HashMap<String, usize>,
     extension_to_loader_index: HashMap<String, usize>,
+    path_to_handle: RwLock<HashMap<PathBuf, HandleId>>,
+    #[cfg(feature = "filesystem_watcher")]
+    filesystem_watcher: Option<FilesystemWatcher>,
 }
 
 impl Default for AssetServer {
@@ -56,6 +62,9 @@ impl Default for AssetServer {
             loaders: Vec::new(),
             extension_to_handler_index: HashMap::new(),
             extension_to_loader_index: HashMap::new(),
+            path_to_handle: RwLock::new(HashMap::default()),
+            #[cfg(feature = "filesystem_watcher")]
+            filesystem_watcher: None,
         }
     }
 }
@@ -91,63 +100,139 @@ impl AssetServer {
         self.loaders.push(resources);
     }
 
-    pub fn add_asset_folder(&mut self, path: &str) {
-        self.asset_folders.push(path.to_string());
+    pub fn load_asset_folder<P: AsRef<Path>>(&mut self, path: P) -> Result<(), AssetServerError> {
+        let root_path = self.get_root_path()?;
+        let asset_folder = root_path.join(path);
+
+        #[cfg(feature = "filesystem_watcher")]
+        Self::watch_folder_for_changes(&mut self.filesystem_watcher, &asset_folder)?;
+
+        self.load_assets_in_folder_recursive(&asset_folder)?;
+        self.asset_folders.push(asset_folder);
+        Ok(())
     }
 
-    pub fn get_root_path(&self) -> Result<String, AssetServerError> {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-            Ok(manifest_dir)
-        } else {
-            match env::current_exe() {
-                Ok(exe_path) => exe_path
-                    .parent()
-                    .ok_or(AssetServerError::InvalidRootPath)
-                    .and_then(|exe_parent_path| {
-                        exe_parent_path
-                            .to_str()
-                            .map(|path| path.to_string())
-                            .ok_or(AssetServerError::InvalidRootPath)
-                    }),
-                Err(err) => Err(AssetServerError::Io(err)),
-            }
-        }
+    pub fn get_handle<T, P: AsRef<Path>>(&self, path: P) -> Option<Handle<T>> {
+        self.path_to_handle
+            .read()
+            .expect("RwLock poisoned")
+            .get(path.as_ref())
+            .map(|h| Handle::from(*h))
     }
 
-    pub fn load_assets(&self) -> Result<(), AssetServerError> {
-        let root_path_str = self.get_root_path()?;
-        let root_path = Path::new(&root_path_str);
-        for folder in self.asset_folders.iter() {
-            let asset_folder_path = root_path.join(folder);
-            self.load_assets_in_folder_recursive(&asset_folder_path)?;
+    #[cfg(feature = "filesystem_watcher")]
+    fn watch_folder_for_changes<P: AsRef<Path>>(
+        filesystem_watcher: &mut Option<FilesystemWatcher>,
+        path: P,
+    ) -> Result<(), AssetServerError> {
+        if let Some(watcher) = filesystem_watcher {
+            watcher.watch_folder(&path).map_err(|_error| {
+                AssetServerError::AssetFolderWatchError {
+                    path: path.as_ref().to_owned(),
+                }
+            })?;
         }
 
         Ok(())
     }
 
-    pub fn load<T>(&self, path: &str) -> Result<Handle<T>, AssetServerError> {
+    #[cfg(feature = "filesystem_watcher")]
+    pub fn watch_for_changes(&mut self) -> Result<(), AssetServerError> {
+        let _ = self
+            .filesystem_watcher
+            .get_or_insert_with(|| FilesystemWatcher::default());
+        for asset_folder in self.asset_folders.iter() {
+            Self::watch_folder_for_changes(&mut self.filesystem_watcher, asset_folder)?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "filesystem_watcher")]
+    pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+        use notify::event::{Event, EventKind, ModifyKind};
+        let mut changed = HashSet::new();
+        loop {
+            if let Some(ref filesystem_watcher) = asset_server.filesystem_watcher {
+                match filesystem_watcher.receiver.try_recv() {
+                    Ok(result) => {
+                        let event = result.unwrap();
+                        match event {
+                            Event {
+                                kind: EventKind::Modify(ModifyKind::Data(_)),
+                                paths,
+                                ..
+                            } => {
+                                for path in paths.iter() {
+                                    if !changed.contains(path) {
+                                        let root_path = asset_server.get_root_path().unwrap();
+                                        let relative_path = path.strip_prefix(root_path).unwrap();
+                                        match asset_server.load_untyped(relative_path) {
+                                            Ok(_) => {}
+                                            Err(AssetServerError::AssetLoadError(error)) => {
+                                                panic!("{:?}", error)
+                                            }
+                                            Err(_) => {}
+                                        }
+                                    }
+                                }
+                                changed.extend(paths);
+                            }
+                            _ => {}
+                        }
+                    }
+                    Err(TryRecvError::Empty) => {
+                        break;
+                    }
+                    Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn get_root_path(&self) -> Result<PathBuf, AssetServerError> {
+        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+            Ok(PathBuf::from(manifest_dir))
+        } else {
+            match env::current_exe() {
+                Ok(exe_path) => exe_path
+                    .parent()
+                    .ok_or(AssetServerError::InvalidRootPath)
+                    .map(|exe_parent_path| exe_parent_path.to_owned()),
+                Err(err) => Err(AssetServerError::Io(err)),
+            }
+        }
+    }
+
+    pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
         self.load_untyped(path)
             .map(|handle_id| Handle::from(handle_id))
     }
 
-    pub fn load_sync<T>(
+    pub fn load_sync<T, P: AsRef<Path>>(
         &self,
         assets: &mut Assets<T>,
-        path: &str,
+        path: P,
     ) -> Result<Handle<T>, AssetServerError>
     where
         T: 'static,
     {
-        let asset_path = AssetPath::from(path);
-        if let Some(ref extension) = asset_path.extension {
-            if let Some(index) = self.extension_to_loader_index.get(extension.as_ref()) {
+        let path = path.as_ref();
+        if let Some(ref extension) = path.extension() {
+            if let Some(index) = self.extension_to_loader_index.get(
+                extension
+                    .to_str()
+                    .expect("extension should be a valid string"),
+            ) {
                 let handle_id = HandleId::new();
                 let resources = &self.loaders[*index];
                 let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
-                let asset = loader.load_from_file(&asset_path)?;
+                let asset = loader.load_from_file(path)?;
                 let handle = Handle::from(handle_id);
                 assets.set(handle, asset);
-                assets.set_path(handle, &asset_path.path);
+                assets.set_path(handle, path);
                 Ok(handle)
             } else {
                 Err(AssetServerError::MissingAssetHandler)
@@ -157,14 +242,28 @@ impl AssetServer {
         }
     }
 
-    pub fn load_untyped(&self, path: &str) -> Result<HandleId, AssetServerError> {
-        let asset_path = AssetPath::from(path);
-        if let Some(ref extension) = asset_path.extension {
-            if let Some(index) = self.extension_to_handler_index.get(extension.as_ref()) {
-                let handle_id = HandleId::new();
+    pub fn load_untyped<P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
+        let path = path.as_ref();
+        if let Some(ref extension) = path.extension() {
+            if let Some(index) = self.extension_to_handler_index.get(
+                extension
+                    .to_str()
+                    .expect("Extension should be a valid string."),
+            ) {
+                let handle_id = {
+                    let mut path_to_handle = self.path_to_handle.write().expect("RwLock poisoned");
+                    if let Some(handle_id) = path_to_handle.get(path) {
+                        *handle_id
+                    } else {
+                        let handle_id = HandleId::new();
+                        path_to_handle.insert(path.to_owned(), handle_id.clone());
+                        handle_id
+                    }
+                };
+
                 self.send_request_to_loader_thread(LoadRequest {
                     handle_id,
-                    path: asset_path,
+                    path: path.to_owned(),
                     handler_index: *index,
                 });
                 Ok(handle_id)
@@ -232,12 +331,14 @@ impl AssetServer {
             ));
         }
 
-        for entry in fs::read_dir(&path)? {
+        let root_path = self.get_root_path()?;
+        for entry in fs::read_dir(path)? {
             let entry = entry?;
             let child_path = entry.path();
             if !child_path.is_dir() {
+                let relative_child_path = child_path.strip_prefix(&root_path).unwrap();
                 let _ =
-                    self.load_untyped(child_path.to_str().expect("Path should be a valid string"));
+                    self.load_untyped(relative_child_path.to_str().expect("Path should be a valid string"));
             } else {
                 self.load_assets_in_folder_recursive(&child_path)?;
             }

@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::{stage, AppBuilder, Events};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
-use std::collections::HashMap;
+use std::{path::{Path, PathBuf}, collections::HashMap};
 
 pub enum AssetEvent<T> {
     Created { handle: Handle<T> },
@@ -14,7 +14,7 @@ pub enum AssetEvent<T> {
 
 pub struct Assets<T> {
     assets: HashMap<HandleId, T>,
-    paths: HashMap<String, Handle<T>>,
+    paths: HashMap<PathBuf, Handle<T>>,
     events: Events<AssetEvent<T>>,
 }
 
@@ -29,8 +29,8 @@ impl<T> Default for Assets<T> {
 }
 
 impl<T> Assets<T> {
-    pub fn get_with_path(&mut self, path: &str) -> Option<Handle<T>> {
-        self.paths.get(path).map(|handle| *handle)
+    pub fn get_with_path<P: AsRef<Path>>(&mut self, path: P) -> Option<Handle<T>> {
+        self.paths.get(path.as_ref()).map(|handle| *handle)
     }
 
     pub fn add(&mut self, asset: T) -> Handle<T> {
@@ -64,8 +64,8 @@ impl<T> Assets<T> {
         handle
     }
 
-    pub fn set_path(&mut self, handle: Handle<T>, path: &str) {
-        self.paths.insert(path.to_string(), handle);
+    pub fn set_path<P: AsRef<Path>>(&mut self, handle: Handle<T>, path: P) {
+        self.paths.insert(path.as_ref().to_owned(), handle);
     }
 
     pub fn get_id(&self, id: HandleId) -> Option<&T> {
