@@ -4,7 +4,7 @@ use crate::{
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage},
-    renderer::RenderResources,
+    renderer::{RenderResourceContext, RenderResources},
     shader::AsUniforms,
     Renderable, Vertex,
 };
@@ -320,6 +320,20 @@ pub mod shape {
     }
 }
 
+fn remove_current_mesh_resources(
+    render_resources: &dyn RenderResourceContext,
+    handle: Handle<Mesh>,
+) {
+    if let Some(resource) = render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX) {
+        render_resources.remove_buffer(resource);
+        render_resources.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
+    }
+    if let Some(resource) = render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX) {
+        render_resources.remove_buffer(resource);
+        render_resources.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
+    }
+}
+
 pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
     let mesh_events = resources.get::<Events<AssetEvent<Mesh>>>().unwrap();
@@ -333,18 +347,26 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         .read_resource::<Events<AssetEvent<Mesh>>>()
         .with_query(<(Read<Handle<Mesh>>, Write<Renderable>)>::query())
         .build(
-            move |_, world, (render_resource_context, meshes, mesh_events), query| {
-                let render_resources = &*render_resource_context.context;
-                let changed_meshes = mesh_event_reader
-                    .iter(&mesh_events)
-                    .map(|e| match e {
-                        AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                            Some(handle)
+            move |_, world, (render_resources, meshes, mesh_events), query| {
+                let render_resources = &*render_resources.context;
+                let mut changed_meshes = HashSet::new();
+                for event in mesh_event_reader.iter(&mesh_events) {
+                    match event {
+                        AssetEvent::Created { handle } => {
+                            changed_meshes.insert(*handle);
                         }
-                    })
-                    .filter(|h| h.is_some())
-                    .map(|h| *h.unwrap())
-                    .collect::<HashSet<Handle<Mesh>>>();
+                        AssetEvent::Modified { handle } => {
+                            changed_meshes.insert(*handle);
+                            remove_current_mesh_resources(render_resources, *handle);
+                        }
+                        AssetEvent::Removed { handle } => {
+                            remove_current_mesh_resources(render_resources, *handle);
+                            // if mesh was modified and removed in the same update, ignore the modification
+                            // events are ordered so future modification events are ok
+                            changed_meshes.remove(handle);
+                        }
+                    }
+                }
 
                 for changed_mesh_handle in changed_meshes.iter() {
                     if let Some(mesh) = meshes.get(changed_mesh_handle) {

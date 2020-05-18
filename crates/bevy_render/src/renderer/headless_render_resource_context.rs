@@ -125,4 +125,13 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         }
     }
     fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
+    fn remove_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize) {
+        self.asset_resources
+            .write()
+            .unwrap()
+            .remove(&(handle, index));
+    }
 }

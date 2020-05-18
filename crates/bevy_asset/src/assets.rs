@@ -1,19 +1,23 @@
 use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
-    Handle, HandleId, DEFAULT_HANDLE_ID,
+    Handle, HandleId,
 };
 use bevy_app::{stage, AppBuilder, Events};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
-use std::{path::{Path, PathBuf}, collections::HashMap};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 pub enum AssetEvent<T> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
+    Removed { handle: Handle<T> },
 }
 
 pub struct Assets<T> {
-    assets: HashMap<HandleId, T>,
+    assets: HashMap<Handle<T>, T>,
     paths: HashMap<PathBuf, Handle<T>>,
     events: Events<AssetEvent<T>>,
 }
@@ -34,16 +38,15 @@ impl<T> Assets<T> {
     }
 
     pub fn add(&mut self, asset: T) -> Handle<T> {
-        let id = HandleId::new();
-        self.assets.insert(id, asset);
-        let handle = Handle::from_id(id);
+        let handle = Handle::new();
+        self.assets.insert(handle, asset);
         self.events.send(AssetEvent::Created { handle });
         handle
     }
 
     pub fn set(&mut self, handle: Handle<T>, asset: T) {
-        let exists = self.assets.contains_key(&handle.id);
-        self.assets.insert(handle.id, asset);
+        let exists = self.assets.contains_key(&handle);
+        self.assets.insert(handle, asset);
 
         if exists {
             self.events.send(AssetEvent::Modified { handle });
@@ -53,9 +56,9 @@ impl<T> Assets<T> {
     }
 
     pub fn add_default(&mut self, asset: T) -> Handle<T> {
-        let exists = self.assets.contains_key(&DEFAULT_HANDLE_ID);
-        self.assets.insert(DEFAULT_HANDLE_ID, asset);
         let handle = Handle::default();
+        let exists = self.assets.contains_key(&handle);
+        self.assets.insert(handle, asset);
         if exists {
             self.events.send(AssetEvent::Modified { handle });
         } else {
@@ -69,27 +72,44 @@ impl<T> Assets<T> {
     }
 
     pub fn get_id(&self, id: HandleId) -> Option<&T> {
-        self.assets.get(&id)
+        self.assets.get(&Handle::from_id(id))
     }
 
     pub fn get_id_mut(&mut self, id: HandleId) -> Option<&mut T> {
-        self.assets.get_mut(&id)
+        self.assets.get_mut(&Handle::from_id(id))
     }
 
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle.id)
+        self.assets.get(&handle)
     }
 
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        self.assets.get_mut(&handle.id)
+        self.assets.get_mut(&handle)
     }
 
-    pub fn get_or_insert_with(&mut self, handle: Handle<T>, insert_fn: impl FnOnce() -> T) -> &mut T {
-        self.assets.entry(handle.id).or_insert_with(insert_fn)
+    pub fn get_or_insert_with(
+        &mut self,
+        handle: Handle<T>,
+        insert_fn: impl FnOnce() -> T,
+    ) -> &mut T {
+        let mut event = None;
+        let borrowed = self.assets.entry(handle).or_insert_with(|| {
+            event = Some(AssetEvent::Created { handle });
+            insert_fn()
+        });
+
+        if let Some(event) = event {
+            self.events.send(event);
+        }
+        borrowed
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
-        self.assets.iter().map(|(k, v)| (Handle::from_id(*k), v))
+        self.assets.iter().map(|(k, v)| (*k, v))
+    }
+
+    pub fn remove(&mut self, handle: &Handle<T>) -> Option<T> {
+        self.assets.remove(&handle)
     }
 
     pub fn asset_event_system(

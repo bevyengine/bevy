@@ -61,6 +61,10 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         handle: HandleUntyped,
         index: usize,
     ) -> Option<RenderResource>;
+    fn remove_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize);
     fn create_render_pipeline(
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
@@ -100,6 +104,12 @@ impl dyn RenderResourceContext {
         T: 'static,
     {
         self.get_asset_resource_untyped(handle.into(), index)
+    }
+    pub fn remove_asset_resource<T>(&self, handle: Handle<T>, index: usize)
+    where
+        T: 'static,
+    {
+        self.remove_asset_resource_untyped(handle.into(), index);
     }
 }
 
