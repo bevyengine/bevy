@@ -19,8 +19,8 @@ impl FrameTimeDiagnosticsPlugin {
         DiagnosticId::from_u128(54021991829115352065418785002088010276);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 10));
-        diagnostics.add(Diagnostic::new(Self::FPS, "fps", 10));
+        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20));
+        diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
     }
 
     pub fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
