@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
     Handle, HandleId,
 };
-use bevy_app::{stage, AppBuilder, Events};
+use bevy_app::{AppBuilder, Events};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 use std::{
@@ -146,7 +146,10 @@ impl AddAsset for AppBuilder {
         T: Send + Sync + 'static,
     {
         self.init_resource::<Assets<T>>()
-            .add_system_to_stage(stage::POST_UPDATE, Assets::<T>::asset_event_system.system())
+            .add_system_to_stage(
+                super::stage::ASSET_EVENTS,
+                Assets::<T>::asset_event_system.system(),
+            )
             .add_event::<AssetEvent<T>>()
     }
 

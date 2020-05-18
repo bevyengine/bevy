@@ -1809,6 +1809,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug example 'text'",
+            "env": { "CARGO_MANIFEST_DIR": "${workspaceFolder}" },
             "cargo": {
                 "args": [
                     "build",

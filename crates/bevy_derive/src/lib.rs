@@ -15,7 +15,7 @@ struct EntityArchetypeAttributeArgs {
     pub tag: Option<bool>,
 }
 
-#[proc_macro_derive(Resource)]
+#[proc_macro_derive(Resource, attributes(module))]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match &ast.data {

@@ -23,7 +23,7 @@ impl Default for Label {
 }
 
 impl Label {
-    // PERF: this is horrendously inefficient. (1) new texture every frame (2) no atlas (3) new texture for every label
+    // PERF: this is horrendously inefficient. (1) new texture per label per frame (2) no atlas
     pub fn label_system(
         mut color_materials: ResMut<Assets<ColorMaterial>>,
         mut textures: ResMut<Assets<Texture>>,
@@ -41,11 +41,12 @@ impl Label {
             );
 
             let material = color_materials.get_or_insert_with(*color_material_handle, || ColorMaterial::from(Handle::<Texture>::new()));
-            if let Some(texture) = material.texture {
-                // TODO: remove texture
-            }
+            if let Some(texture_handle) = material.texture {
+                textures.set(texture_handle, texture);
 
-            material.texture = Some(textures.add(texture));
+            } else {
+                material.texture = Some(textures.add(texture));
+            }
         }
     }
 }

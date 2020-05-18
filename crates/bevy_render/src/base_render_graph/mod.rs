@@ -4,13 +4,19 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     render_graph::{
-        nodes::{Camera2dNode, CameraNode, PassNode, WindowSwapChainNode, WindowTextureNode},
+        nodes::{
+            Camera2dNode, CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode,
+            WindowTextureNode,
+        },
         RenderGraph,
     },
-    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
+    texture::{
+        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
+    },
     Color,
 };
 use bevy_app::GetEventReader;
+use bevy_asset::AssetEvent;
 use bevy_window::{WindowCreated, WindowReference, WindowResized};
 use legion::prelude::Resources;
 
@@ -27,6 +33,7 @@ pub mod node {
     pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
     pub const CAMERA: &str = "camera";
     pub const CAMERA2D: &str = "camera2d";
+    pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_PASS: &str = "main_pass";
 }
@@ -60,6 +67,10 @@ impl BaseRenderGraphBuilder for RenderGraph {
         resources: &Resources,
         config: &BaseRenderGraphConfig,
     ) -> &mut Self {
+        self.add_node(
+            node::TEXTURE_COPY,
+            TextureCopyNode::new(resources.get_event_reader::<AssetEvent<Texture>>()),
+        );
         if config.add_3d_camera {
             self.add_system_node(node::CAMERA, CameraNode::default());
         }
@@ -115,6 +126,8 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 }),
             );
 
+            self.add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
+                .unwrap();
             if config.add_3d_camera {
                 self.add_node_edge(node::CAMERA, node::MAIN_PASS).unwrap();
             }

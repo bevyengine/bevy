@@ -13,7 +13,6 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 use std::{collections::HashMap, marker::PhantomData};
-use texture::{SamplerDescriptor, Texture, TextureDescriptor};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
@@ -398,7 +397,6 @@ where
             "uniform_resource_provider::<{}>",
             std::any::type_name::<T>()
         ))
-        .read_resource::<Assets<Texture>>()
         .read_resource::<RenderResources>()
         .read_resource::<EntitiesWaitingForAssets>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
@@ -407,7 +405,7 @@ where
         .build(
             move |_,
                   world,
-                  (textures, render_resources, entities_waiting_for_assets),
+                  (render_resources, entities_waiting_for_assets),
                   (read_uniform_query, write_uniform_query)| {
                 let render_resource_context = &*render_resources.context;
 
@@ -442,8 +440,6 @@ where
                         setup_uniform_texture_resources::<T>(
                             entity,
                             &uniforms,
-                            &mut command_queue,
-                            textures,
                             render_resource_context,
                             entities_waiting_for_assets,
                             &mut renderable.render_resource_assignments,
@@ -557,7 +553,6 @@ where
         // TODO: maybe run "update" here
         SystemBuilder::new("uniform_resource_provider")
             .read_resource::<Assets<T>>()
-            .read_resource::<Assets<Texture>>()
             .read_resource::<RenderResources>()
             .read_resource::<EntitiesWaitingForAssets>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
@@ -566,7 +561,7 @@ where
             .build(
                 move |_,
                       world,
-                      (assets, textures, render_resources, entities_waiting_for_assets),
+                      (assets, render_resources, entities_waiting_for_assets),
                       (read_handle_query, write_handle_query)| {
                     let render_resource_context = &*render_resources.context;
                     uniform_buffer_arrays.reset_new_item_counts();
@@ -607,8 +602,6 @@ where
                                 setup_uniform_texture_resources::<T>(
                                     entity,
                                     &uniforms,
-                                    &mut command_queue,
-                                    textures,
                                     render_resource_context,
                                     entities_waiting_for_assets,
                                     &mut renderable.render_resource_assignments,
@@ -694,87 +687,37 @@ where
 fn setup_uniform_texture_resources<T>(
     entity: Entity,
     uniforms: &T,
-    command_queue: &mut CommandQueue,
-    textures: &Assets<Texture>,
     render_resource_context: &dyn RenderResourceContext,
     entities_waiting_for_assets: &EntitiesWaitingForAssets,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
-    T: AsUniforms,
+    T: AsUniforms, 
 {
     for field_info in T::get_field_infos().iter() {
         let bind_type = uniforms.get_field_bind_type(&field_info.name);
-        match bind_type {
-            Some(FieldBindType::Texture) => {
-                let texture_handle = uniforms
-                    .get_uniform_texture(&field_info.texture_name)
-                    .unwrap();
-                let (texture_resource, sampler_resource) = match render_resource_context
+        if let Some(FieldBindType::Texture) = bind_type {
+            if let Some(texture_handle) = uniforms.get_uniform_texture(&field_info.texture_name) {
+                if let Some(texture_resource) = render_resource_context
                     .get_asset_resource(texture_handle, texture::TEXTURE_ASSET_INDEX)
                 {
-                    Some(texture_resource) => (
-                        texture_resource,
-                        render_resource_context
-                            .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
-                            .unwrap(),
-                    ),
-                    None => {
-                        if let Some(texture) = textures.get(&texture_handle) {
-                            let texture_descriptor: TextureDescriptor = texture.into();
-                            let texture_resource =
-                                render_resource_context.create_texture(texture_descriptor);
-                            let texture_buffer = render_resource_context.create_buffer_with_data(
-                                BufferInfo {
-                                    buffer_usage: BufferUsage::COPY_SRC,
-                                    ..Default::default()
-                                },
-                                &texture.data,
-                            );
-                            // TODO: bytes_per_row could be incorrect for some texture formats
-                            command_queue.copy_buffer_to_texture(
-                                texture_buffer,
-                                0,
-                                (4 * texture.width) as u32,
-                                texture_resource,
-                                [0, 0, 0],
-                                0,
-                                0,
-                                texture_descriptor.size.clone(),
-                            );
-                            command_queue.free_buffer(texture_buffer);
-
-                            let sampler_descriptor: SamplerDescriptor = texture.into();
-                            let sampler_resource =
-                                render_resource_context.create_sampler(&sampler_descriptor);
-
-                            render_resource_context.set_asset_resource(
-                                texture_handle,
-                                texture_resource,
-                                0,
-                            );
-                            render_resource_context.set_asset_resource(
-                                texture_handle,
-                                sampler_resource,
-                                1,
-                            );
-                            (texture_resource, sampler_resource)
-                        } else {
-                            entities_waiting_for_assets.add(entity);
-                            continue;
-                        }
-                    }
-                };
-
-                render_resource_assignments.set(
-                    field_info.texture_name,
-                    RenderResourceAssignment::Texture(texture_resource),
-                );
-                render_resource_assignments.set(
-                    field_info.sampler_name,
-                    RenderResourceAssignment::Sampler(sampler_resource),
-                );
+                    let sampler_resource = render_resource_context
+                        .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
+                        .unwrap();
+                    render_resource_assignments.set(
+                        field_info.texture_name,
+                        RenderResourceAssignment::Texture(texture_resource),
+                    );
+                    render_resource_assignments.set(
+                        field_info.sampler_name,
+                        RenderResourceAssignment::Sampler(sampler_resource),
+                    );
+                    continue;
+                } else {
+                    entities_waiting_for_assets.add(entity);
+                }
+            } else {
+                entities_waiting_for_assets.add(entity);
             }
-            _ => {}
         }
     }
 }

@@ -46,7 +46,7 @@ use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
 use render_resource::EntitiesWaitingForAssets;
-use texture::PngTextureLoader;
+use texture::{PngTextureLoader, TextureResourceSystemState};
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -66,31 +66,37 @@ impl Default for RenderPlugin {
 
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let mut render_graph = RenderGraph::default();
-        if let Some(ref config) = self.base_render_graph_config {
-            render_graph.add_base_graph(app.resources(), config);
-        }
-
-        app.add_stage_after(stage::POST_UPDATE, RENDER_RESOURCE_STAGE)
+        app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, RENDER_RESOURCE_STAGE)
             .add_stage_after(RENDER_RESOURCE_STAGE, RENDER_STAGE)
             .add_asset::<Mesh>()
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
             .add_asset_loader(PngTextureLoader::default())
-            .add_resource(render_graph)
+            .init_resource::<RenderGraph>()
             .init_resource::<PipelineAssignments>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceAssignments>()
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<EntityRenderResourceAssignments>()
             .init_resource::<EntitiesWaitingForAssets>()
+            .init_resource::<TextureResourceSystemState>()
             .add_system(entity_render_resource_assignments_system())
             .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
             .add_system_to_stage(
                 stage::PRE_UPDATE,
                 EntitiesWaitingForAssets::clear_system.system(),
             )
-            .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system);
+            .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system)
+            .add_system_to_stage(
+                RENDER_RESOURCE_STAGE,
+                Texture::texture_resource_system.system(),
+            );
+
+        if let Some(ref config) = self.base_render_graph_config {
+            let resources = app.resources();
+            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
+            render_graph.add_base_graph(resources, config);
+        }
     }
 }
