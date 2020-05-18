@@ -21,6 +21,7 @@ Here are the changes made:
 * Add system_fn.rs containing "function only" system declarations
 * ResourceTypeId, ComponentTypeId, TagTypeId use static str (std::any::type_name) instead of TypeId (std::any::TypeId is not constant across rust binaries) 
 * Implement "DowncastTypeName" to allow downcasting based on type name
+* Upgraded derivative, smallvec, itertools to eliminate redundant dependencies
 
 ## Benchmarks
 

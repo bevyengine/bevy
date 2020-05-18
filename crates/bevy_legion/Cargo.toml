@@ -41,7 +41,7 @@ erased-serde = "0.3"
 serde = { version = "1", features = ["derive"]}
 uuid = { version = "0.8", features = ["v4", "serde"] }
 tracing = "0.1"
-itertools = "0.8"
+itertools = "0.9"
 rayon = "1.2"
 crossbeam-channel = "0.4.2"
 

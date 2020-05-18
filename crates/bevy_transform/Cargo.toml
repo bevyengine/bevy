@@ -12,7 +12,7 @@ glam = { path =  "../bevy_glam" }
 log = "0.4"
 rayon = "1.2"
 serde = { version = "1", features = ["derive"] }
-smallvec = "0.6"
+smallvec = "1.4"
 shrinkwraprs = "0.2"
 
 [dev-dependencies]

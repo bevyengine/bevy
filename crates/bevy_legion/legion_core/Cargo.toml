@@ -21,12 +21,12 @@ serialize = ["serde"]
 [dependencies]
 parking_lot = "0.10"
 downcast-rs = "1.0"
-itertools = "0.8"
+itertools = "0.9"
 rayon = { version = "1.2", optional = true }
 crossbeam-queue = { version = "0.2.0", optional = true }
 crossbeam-channel = "0.4.2"
-derivative = "1"
-smallvec = "1.2"
+derivative = "2.1"
+smallvec = "1.4"
 tracing = "0.1"
 metrics = { version = "0.12", optional = true }
 serde = { version = "1", optional = true }
@@ -41,5 +41,5 @@ erased-serde = "0.3"
 serde = { version = "1", features = ["derive"]}
 uuid = { version = "0.8", features = ["v4", "serde"] }
 tracing = "0.1"
-itertools = "0.8"
+itertools = "0.9"
 rayon = "1.2"
