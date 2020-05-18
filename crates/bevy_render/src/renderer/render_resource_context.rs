@@ -86,6 +86,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
             self.create_bind_group(bind_group, render_resource_assignments);
         }
     }
+    fn clear_bind_groups(&self);
 }
 
 impl dyn RenderResourceContext {

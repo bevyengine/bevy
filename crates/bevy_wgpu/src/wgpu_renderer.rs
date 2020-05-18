@@ -129,5 +129,8 @@ impl WgpuRenderer {
         render_resource_context
             .context
             .drop_all_swap_chain_textures();
+        render_resource_context
+            .context
+            .clear_bind_groups();
     }
 }

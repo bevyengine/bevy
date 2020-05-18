@@ -134,4 +134,6 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
             .unwrap()
             .remove(&(handle, index));
     }
+    fn clear_bind_groups(&self) {
+    }
 }

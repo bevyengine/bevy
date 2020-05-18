@@ -568,4 +568,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         }
         None
     }
+
+    fn clear_bind_groups(&self) {
+        self.resources.bind_groups.write().unwrap().clear();
+    }
 }
