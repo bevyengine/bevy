@@ -84,6 +84,10 @@ impl<T> Assets<T> {
         self.assets.get_mut(&handle.id)
     }
 
+    pub fn get_or_insert_with(&mut self, handle: Handle<T>, insert_fn: impl FnOnce() -> T) -> &mut T {
+        self.assets.entry(handle.id).or_insert_with(insert_fn)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
         self.assets.iter().map(|(k, v)| (Handle::from_id(*k), v))
     }

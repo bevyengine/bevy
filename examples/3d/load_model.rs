@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_asset::AssetServer;
 
 fn main() {
     App::build()
@@ -10,7 +9,7 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load the mesh

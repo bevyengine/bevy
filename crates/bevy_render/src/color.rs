@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign};
 use zerocopy::AsBytes;
 
 #[repr(C)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, AsBytes)]
+#[derive(Debug, Clone, Copy, PartialEq, AsBytes)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
@@ -28,6 +28,12 @@ impl Color {
 
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::WHITE
     }
 }
 

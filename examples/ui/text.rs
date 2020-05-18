@@ -1,40 +1,42 @@
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+};
 
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
+        .add_system(text_update_system.system())
         .run();
 }
 
-fn setup(
-    command_buffer: &mut CommandBuffer,
-    asset_server: Res<AssetServer>,
-    mut fonts: ResMut<Assets<Font>>,
-    mut textures: ResMut<Assets<Texture>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let font_handle = asset_server
-        .load_sync(&mut fonts, "assets/fonts/FiraSans-Bold.ttf")
-        .unwrap();
-    let font = fonts.get(&font_handle).unwrap();
+fn text_update_system(diagnostics: Res<Diagnostics>, mut label: ComMut<Label>) {
+    if let Some(fps) = diagnostics.get_measurement(FrameTimeDiagnosticsPlugin::FPS) {
+        label.text = format!("FPS: {}", fps.value.round());
+    }
+}
 
-    let texture = font.render_text("Hello from Bevy!", Color::rgba(0.9, 0.9, 0.9, 1.0), 500, 60);
-    let half_width = texture.width as f32 / 2.0;
-    let half_height = texture.height as f32 / 2.0;
-    let texture_handle = textures.add(texture);
+fn setup(command_buffer: &mut CommandBuffer, asset_server: Res<AssetServer>) {
+    let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     command_buffer
         .build()
         // 2d camera
         .add_entity(Camera2dEntity::default())
         // texture
-        .add_entity(UiEntity {
+        .add_entity(LabelEntity {
             node: Node::new(
                 math::vec2(0.0, 0.0),
-                Anchors::CENTER,
-                Margins::new(-half_width, half_width, -half_height, half_height),
+                Anchors::TOP_LEFT,
+                Margins::new(0.0, 250.0, 0.0, 60.0),
             ),
-            material: materials.add(ColorMaterial::texture(texture_handle)),
+            label: Label {
+                text: "FPS:".to_string(),
+                font: font_handle,
+                font_size: 60.0,
+                color: Color::WHITE,
+            },
             ..Default::default()
         });
 }

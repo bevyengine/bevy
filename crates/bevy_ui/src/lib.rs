@@ -1,6 +1,7 @@
 mod anchors;
 mod color_material;
 pub mod entity;
+pub mod widget;
 mod margins;
 mod node;
 mod rect;
@@ -27,6 +28,7 @@ use bevy_render::{
 use glam::Vec2;
 use legion::prelude::IntoSystem;
 use sprite::sprite_system;
+use widget::Label;
 
 #[derive(Default)]
 pub struct UiPlugin;
@@ -36,12 +38,13 @@ pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<ColorMaterial>()
+            .add_system_to_stage(stage::POST_UPDATE, sprite_system())
+            .add_system_to_stage(stage::POST_UPDATE, ui_update_system())
+            .add_system_to_stage(stage::POST_UPDATE, Label::label_system.system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 asset_shader_def_system::<ColorMaterial>.system(),
-            )
-            .add_system_to_stage(stage::POST_UPDATE, sprite_system())
-            .add_system_to_stage(stage::POST_UPDATE, ui_update_system());
+            );
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

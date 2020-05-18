@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_asset::AssetServer;
 
 fn main() {
     App::build()

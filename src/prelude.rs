@@ -34,7 +34,7 @@ pub use crate::text::Font;
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;
 #[cfg(feature = "ui")]
-pub use crate::ui::{entity::*, Anchors, ColorMaterial, Margins, Node, Rect, Sprite};
+pub use crate::ui::{entity::*, Anchors, ColorMaterial, Margins, Node, Rect, Sprite, widget::Label};
 #[cfg(feature = "window")]
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{

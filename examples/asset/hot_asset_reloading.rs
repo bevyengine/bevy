@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy_asset::AssetServer;
 
 /// Hot reloading allows you to modify assets on disk and they will be "live reloaded" while your game is running.
 /// This lets you immediately see the results of your changes without restarting the game.
