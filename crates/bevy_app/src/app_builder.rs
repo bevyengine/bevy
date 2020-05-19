@@ -4,7 +4,7 @@ use crate::{
     stage, App, AppExit, Events, FromResources, System,
 };
 
-use legion::prelude::{IntoSystem, Resources, Universe, World};
+use legion::prelude::{IntoSystem, Resources, World};
 
 static APP_MISSING_MESSAGE: &str = "This AppBuilder no longer has an App. Check to see if you already called run(). A call to app_builder.run() consumes the AppBuilder's App.";
 
@@ -51,14 +51,6 @@ impl AppBuilder {
 
     pub fn world_mut(&mut self) -> &mut World {
         &mut self.app_mut().world
-    }
-
-    pub fn universe(&self) -> &Universe {
-        &self.app().universe
-    }
-
-    pub fn universe_mut(&mut self) -> &mut Universe {
-        &mut self.app_mut().universe
     }
 
     pub fn resources(&self) -> &Resources {

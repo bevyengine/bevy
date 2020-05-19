@@ -2,7 +2,6 @@ use super::AppBuilder;
 use legion::prelude::*;
 
 pub struct App {
-    pub universe: Universe,
     pub world: World,
     pub resources: Resources,
     pub runner: Option<Box<dyn Fn(App)>>,
@@ -13,9 +12,9 @@ impl Default for App {
     fn default() -> Self {
         let universe = Universe::new();
         let world = universe.create_world();
-        let resources = Resources::default();
+        let mut resources = Resources::default();
+        resources.insert(universe);
         App {
-            universe,
             world,
             resources,
             runner: None,
