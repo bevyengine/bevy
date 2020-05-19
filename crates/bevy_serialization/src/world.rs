@@ -101,7 +101,7 @@ impl<'de, 'a, T: for<'b> Deserialize<'b> + 'static> Visitor<'de>
 #[derive(Clone)]
 pub struct TagRegistration {
     uuid: type_uuid::Bytes,
-    ty: String,
+    ty: &'static str,
     tag_serialize_fn: fn(&TagStorage, &mut dyn FnMut(&dyn erased_serde::Serialize)),
     tag_deserialize_fn: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
@@ -123,7 +123,7 @@ impl TagRegistration {
     >() -> Self {
         Self {
             uuid: T::UUID,
-            ty: type_name::<T>().to_string(),
+            ty: type_name::<T>(),
             tag_serialize_fn: |tag_storage, serialize_fn| {
                 // it's safe because we know this is the correct type due to lookup
                 let slice = unsafe { tag_storage.data_slice::<T>() };
@@ -150,7 +150,7 @@ impl TagRegistration {
 #[derive(Clone)]
 pub struct ComponentRegistration {
     uuid: type_uuid::Bytes,
-    ty: String,
+    ty: &'static str,
     comp_serialize_fn: fn(&ComponentResourceSet, &mut dyn FnMut(&dyn erased_serde::Serialize)),
     comp_deserialize_fn: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
@@ -164,7 +164,7 @@ impl ComponentRegistration {
     {
         Self {
             uuid: T::UUID,
-            ty: type_name::<T>().to_string(),
+            ty: type_name::<T>(),
             comp_serialize_fn: |comp_storage, serialize_fn| {
                 // it's safe because we know this is the correct type due to lookup
                 let slice = unsafe { comp_storage.data_slice::<T>() };
@@ -192,8 +192,8 @@ struct SerializedArchetypeDescription {
 }
 
 pub struct SerializeImpl {
-    pub tag_types: HashMap<String, TagRegistration>,
-    pub comp_types: HashMap<String, ComponentRegistration>,
+    pub tag_types: HashMap<&'static str, TagRegistration>,
+    pub comp_types: HashMap<&'static str, ComponentRegistration>,
     pub entity_map: RefCell<HashMap<Entity, uuid::Bytes>>,
 }
 
@@ -337,8 +337,8 @@ impl legion::serialize::ser::WorldSerializer for SerializeImpl {
 }
 
 pub struct DeserializeImpl {
-    pub tag_types: HashMap<String, TagRegistration>,
-    pub comp_types: HashMap<String, ComponentRegistration>,
+    pub tag_types: HashMap<&'static str, TagRegistration>,
+    pub comp_types: HashMap<&'static str, ComponentRegistration>,
     pub tag_types_by_uuid: HashMap<type_uuid::Bytes, TagRegistration>,
     pub comp_types_by_uuid: HashMap<type_uuid::Bytes, ComponentRegistration>,
     pub entity_map: RefCell<HashMap<uuid::Bytes, Entity>>,
@@ -346,8 +346,8 @@ pub struct DeserializeImpl {
 
 impl DeserializeImpl {
     pub fn new(
-        component_types: HashMap<String, ComponentRegistration>,
-        tag_types: HashMap<String, TagRegistration>,
+        component_types: HashMap<&'static str, ComponentRegistration>,
+        tag_types: HashMap<&'static str, TagRegistration>,
         entity_map: RefCell<HashMap<Entity, uuid::Bytes>>,
     ) -> Self {
         DeserializeImpl {
