@@ -1,7 +1,6 @@
 use bevy::{prelude::*, serialization::*};
 use serde::{Deserialize, Serialize};
 use ron::ser::{to_string_pretty, PrettyConfig};
-use type_uuid::TypeUuid;
 fn main() {
     App::build()
         .add_plugin(ScheduleRunnerPlugin::run_once())
@@ -9,8 +8,7 @@ fn main() {
         .run();
 }
 
-#[derive(Serialize, Deserialize, TypeUuid)]
-#[uuid = "14dec17f-ae14-40a3-8e44-e487fc423287"]
+#[derive(Serialize, Deserialize)]
 struct Test {
     pub x: f32,
     pub y: f32,
