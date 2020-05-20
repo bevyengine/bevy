@@ -28,6 +28,7 @@ crossbeam-channel = "0.4.2"
 derivative = "2.1"
 smallvec = "1.4"
 tracing = "0.1"
+rand = "0.7.2"
 metrics = { version = "0.12", optional = true }
 serde = { version = "1", optional = true }
 fxhash = "0.2"

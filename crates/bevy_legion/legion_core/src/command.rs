@@ -1,7 +1,7 @@
 use crate::{
     borrow::AtomicRefCell,
     cons::{ConsAppend, ConsFlatten},
-    entity::{Entity, EntityAllocator},
+    entity::{Entity, GuidEntityAllocator},
     filter::{ChunksetFilterData, Filter},
     storage::{Component, ComponentTypeId, Tag, TagTypeId},
     world::{
@@ -313,7 +313,7 @@ where
 pub struct CommandBuffer {
     world_id: WorldId,
     commands: AtomicRefCell<VecDeque<EntityCommand>>,
-    entity_allocator: Arc<EntityAllocator>,
+    entity_allocator: Arc<GuidEntityAllocator>,
     preallocated_capacity: usize,
     free_list: SmallVec<[Entity; 64]>,
     pending_insertion: SmallVec<[Entity; 64]>,

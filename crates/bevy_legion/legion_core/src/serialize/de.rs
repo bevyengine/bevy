@@ -1,5 +1,5 @@
 use crate::{
-    entity::{Entity, EntityAllocator},
+    entity::{Entity, GuidEntityAllocator},
     index::{ArchetypeIndex, ChunkIndex, SetIndex},
     storage::{
         ArchetypeData, ArchetypeDescription, Chunkset, ComponentMeta, ComponentTypeId, TagMeta,
@@ -78,7 +78,7 @@ pub trait WorldDeserializer {
     fn deserialize_entities<'de, D: Deserializer<'de>>(
         &self,
         deserializer: D,
-        entity_allocator: &EntityAllocator,
+        entity_allocator: &GuidEntityAllocator,
         entities: &mut Vec<Entity>,
     ) -> Result<(), <D as Deserializer<'de>>::Error>;
 }

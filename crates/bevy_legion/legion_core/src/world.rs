@@ -2,9 +2,8 @@ use crate::borrow::Ref;
 use crate::borrow::RefMut;
 use crate::entity::BlockAllocator;
 use crate::entity::Entity;
-use crate::entity::EntityAllocator;
 use crate::entity::EntityLocation;
-use crate::entity::Locations;
+use crate::entity::{GuidEntityAllocator, Locations};
 use crate::event::Event;
 use crate::filter::ArchetypeFilterData;
 use crate::filter::ChunksetFilterData;
@@ -75,7 +74,7 @@ impl Universe {
     /// unique `Entity` IDs, even across worlds. See also `World::new`.
     pub fn create_world(&self) -> World {
         let id = WorldId::next(self.id.0);
-        let world = World::new_in_universe(id, EntityAllocator::new(self.allocator.clone()));
+        let world = World::new_in_universe(id, GuidEntityAllocator::default());
 
         info!(universe = self.id.0, world = world.id().1, "Created world");
         world
@@ -99,7 +98,7 @@ impl WorldId {
 pub struct World {
     id: WorldId,
     storage: UnsafeCell<Storage>,
-    pub(crate) entity_allocator: Arc<EntityAllocator>,
+    pub(crate) entity_allocator: Arc<GuidEntityAllocator>,
     entity_locations: Locations,
     defrag_progress: usize,
     command_buffer_size: usize,
@@ -120,11 +119,11 @@ impl World {
     pub fn new() -> Self {
         Self::new_in_universe(
             WorldId::next(0),
-            EntityAllocator::new(Arc::new(Mutex::new(BlockAllocator::new()))),
+            GuidEntityAllocator::default(),
         )
     }
 
-    fn new_in_universe(id: WorldId, allocator: EntityAllocator) -> Self {
+    fn new_in_universe(id: WorldId, allocator: GuidEntityAllocator) -> Self {
         Self {
             id,
             storage: UnsafeCell::new(Storage::new(id)),
