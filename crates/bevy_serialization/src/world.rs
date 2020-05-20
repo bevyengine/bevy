@@ -1,7 +1,7 @@
 // adapted from https://github.com/TomGillen/legion/blob/master/examples/serde.rs
 
 use legion::{
-    entity::EntityAllocator,
+    entity::{EntityIndex, GuidEntityAllocator},
     prelude::*,
     storage::{
         ArchetypeDescription, ComponentMeta, ComponentResourceSet, ComponentTypeId, TagMeta,
@@ -13,7 +13,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    any::type_name, cell::RefCell, collections::HashMap, iter::FromIterator, marker::PhantomData,
+    cell::RefCell, collections::HashMap, iter::FromIterator, marker::PhantomData, num::Wrapping,
     ptr::NonNull,
 };
 
@@ -99,23 +99,30 @@ impl<'de, 'a, T: for<'b> Deserialize<'b> + 'static> Visitor<'de>
 
 #[derive(Clone)]
 pub struct ComponentRegistration {
-    ty: &'static str,
-    comp_serialize_fn: fn(&ComponentResourceSet, &mut dyn FnMut(&dyn erased_serde::Serialize)),
-    comp_deserialize_fn: fn(
+    pub ty: ComponentTypeId,
+    pub comp_serialize_fn: fn(&ComponentResourceSet, &mut dyn FnMut(&dyn erased_serde::Serialize)),
+    pub individual_comp_serialize_fn:
+        fn(&ComponentResourceSet, usize, &mut dyn FnMut(&dyn erased_serde::Serialize)),
+    pub comp_deserialize_fn: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
         get_next_storage_fn: &mut dyn FnMut() -> Option<(NonNull<u8>, usize)>,
     ) -> Result<(), erased_serde::Error>,
-    register_comp_fn: fn(&mut ArchetypeDescription),
+    pub register_comp_fn: fn(&mut ArchetypeDescription),
 }
 
 impl ComponentRegistration {
     pub fn of<T: Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>() -> Self {
         Self {
-            ty: type_name::<T>(),
+            ty: ComponentTypeId::of::<T>(),
             comp_serialize_fn: |comp_storage, serialize_fn| {
                 // it's safe because we know this is the correct type due to lookup
                 let slice = unsafe { comp_storage.data_slice::<T>() };
                 serialize_fn(&*slice);
+            },
+            individual_comp_serialize_fn: |comp_storage, index: usize, serialize_fn| {
+                // it's safe because we know this is the correct type due to lookup
+                let slice = unsafe { comp_storage.data_slice::<T>() };
+                serialize_fn(&slice[index]);
             },
             comp_deserialize_fn: |deserializer, get_next_storage_fn| {
                 let comp_seq_deser = ComponentSeqDeserializer::<T> {
@@ -140,36 +147,16 @@ struct SerializedArchetypeDescription {
 
 pub struct SerializeImpl {
     pub comp_types: HashMap<String, ComponentRegistration>,
-    pub entity_map: RefCell<HashMap<Entity, uuid::Bytes>>,
 }
 
 impl SerializeImpl {
-    pub fn new(
-        component_registrations: &[ComponentRegistration],
-    ) -> Self {
+    pub fn new(component_registrations: &[ComponentRegistration]) -> Self {
         SerializeImpl {
             comp_types: HashMap::from_iter(
                 component_registrations
                     .iter()
-                    .map(|reg| (reg.ty.to_string(), reg.clone())),
+                    .map(|reg| (reg.ty.0.to_string(), reg.clone())),
             ),
-            entity_map: RefCell::new(HashMap::new()),
-        }
-    }
-
-    pub fn new_with_map(
-        component_registrations: &[ComponentRegistration],
-        entity_map: HashMap<uuid::Bytes, Entity>,
-    ) -> Self {
-        SerializeImpl {
-            comp_types: HashMap::from_iter(
-                component_registrations
-                    .iter()
-                    .map(|reg| (reg.ty.to_string(), reg.clone())),
-            ),
-            entity_map: RefCell::new(HashMap::from_iter(
-                entity_map.into_iter().map(|(uuid, e)| (e, uuid)),
-            )),
         }
     }
 }
@@ -245,34 +232,18 @@ impl legion::serialize::ser::WorldSerializer for SerializeImpl {
         serializer: S,
         entities: &[Entity],
     ) -> Result<S::Ok, S::Error> {
-        let mut uuid_map = self.entity_map.borrow_mut();
-        serializer.collect_seq(entities.iter().map(|e| {
-            *uuid_map
-                .entry(*e)
-                .or_insert_with(|| *uuid::Uuid::new_v4().as_bytes())
-        }))
+        serializer.collect_seq(entities.iter().map(|e| e.index()))
     }
 }
 
 pub struct DeserializeImpl<'a> {
     pub comp_types: &'a HashMap<String, ComponentRegistration>,
-    pub entity_map: RefCell<HashMap<uuid::Bytes, Entity>>,
 }
 
 impl<'a> DeserializeImpl<'a> {
-    pub fn new(
-        component_types: &'a HashMap<String, ComponentRegistration>,
-        entity_map: RefCell<HashMap<Entity, uuid::Bytes>>,
-    ) -> Self {
+    pub fn new(component_types: &'a HashMap<String, ComponentRegistration>) -> Self {
         DeserializeImpl {
             comp_types: component_types,
-            // re-use the entity-uuid mapping
-            entity_map: RefCell::new(HashMap::from_iter(
-                entity_map
-                    .into_inner()
-                    .into_iter()
-                    .map(|(e, uuid)| (uuid, e)),
-            )),
         }
     }
 }
@@ -322,14 +293,13 @@ impl<'a> legion::serialize::de::WorldDeserializer for DeserializeImpl<'a> {
     fn deserialize_entities<'de, D: Deserializer<'de>>(
         &self,
         deserializer: D,
-        entity_allocator: &EntityAllocator,
+        entity_allocator: &GuidEntityAllocator,
         entities: &mut Vec<Entity>,
     ) -> Result<(), <D as Deserializer<'de>>::Error> {
-        let entity_uuids = <Vec<uuid::Bytes> as Deserialize>::deserialize(deserializer)?;
-        let mut entity_map = self.entity_map.borrow_mut();
-        for id in entity_uuids {
+        let entity_indices = <Vec<EntityIndex> as Deserialize>::deserialize(deserializer)?;
+        entity_allocator.push_next_ids(entity_indices.iter().map(|i| Entity::new(*i, Wrapping(0))));
+        for _index in entity_indices {
             let entity = entity_allocator.create_entity();
-            entity_map.insert(id, entity);
             entities.push(entity);
         }
         Ok(())
