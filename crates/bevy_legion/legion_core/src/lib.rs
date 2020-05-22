@@ -11,6 +11,8 @@ pub mod iterator;
 pub mod query;
 pub mod storage;
 pub mod world;
+pub mod downcast_typename;
+pub mod guid_entity_allocator;
 
 #[cfg(feature = "serialize")]
 pub mod serialize;

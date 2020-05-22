@@ -2,8 +2,9 @@ use crate::borrow::Ref;
 use crate::borrow::RefMut;
 use crate::entity::BlockAllocator;
 use crate::entity::Entity;
+use crate::guid_entity_allocator::GuidEntityAllocator;
 use crate::entity::EntityLocation;
-use crate::entity::{GuidEntityAllocator, Locations};
+use crate::entity::Locations;
 use crate::event::Event;
 use crate::filter::ArchetypeFilterData;
 use crate::filter::ChunksetFilterData;
@@ -27,6 +28,7 @@ use crate::storage::Tags;
 use crate::tuple::TupleEq;
 use parking_lot::Mutex;
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
 use std::iter::Enumerate;
 use std::iter::Fuse;
 use std::iter::FusedIterator;
@@ -292,18 +294,9 @@ impl World {
         }
 
         if self.entity_allocator.delete_entity(entity) {
-            // find entity's chunk
             let location = self.entity_locations.get(entity).unwrap();
-            let chunk = self.storage_mut().chunk_mut(location).unwrap();
-
-            // swap remove with last entity in chunk
-            if let Some(swapped) = chunk.swap_remove(location.component(), true) {
-                // record swapped entity's new location
-                self.entity_locations.set(swapped, location);
-            }
-
+            self.delete_location(location);
             trace!(world = self.id().0, ?entity, "Deleted entity");
-
             true
         } else {
             false
@@ -317,6 +310,17 @@ impl World {
         }
 
         self.entity_allocator.delete_all_entities();
+    }
+
+    fn delete_location(&mut self, location: EntityLocation) {
+        // find entity's chunk
+        let chunk = self.storage_mut().chunk_mut(location).unwrap();
+
+        // swap remove with last entity in chunk
+        if let Some(swapped) = chunk.swap_remove(location.component(), true) {
+            // record swapped entity's new location
+            self.entity_locations.set(swapped, location);
+        }
     }
 
     fn find_chunk_with_delta(
@@ -728,6 +732,33 @@ impl World {
     /// Determines if the given `Entity` is alive within this `World`.
     pub fn is_alive(&self, entity: Entity) -> bool { self.entity_allocator.is_alive(entity) }
 
+    /// Returns the entity's component types, if the entity exists.
+    pub fn entity_component_types(
+        &self,
+        entity: Entity,
+    ) -> Option<&[(ComponentTypeId, ComponentMeta)]> {
+        if !self.is_alive(entity) {
+            return None;
+        }
+        let location = self.entity_locations.get(entity);
+        let archetype = location
+            .map(|location| self.storage().archetype(location.archetype()))
+            .unwrap_or(None);
+        archetype.map(|archetype| archetype.description().components())
+    }
+
+    /// Returns the entity's tag types, if the entity exists.
+    pub fn entity_tag_types(&self, entity: Entity) -> Option<&[(TagTypeId, TagMeta)]> {
+        if !self.is_alive(entity) {
+            return None;
+        }
+        let location = self.entity_locations.get(entity);
+        let archetype = location
+            .map(|location| self.storage().archetype(location.archetype()))
+            .unwrap_or(None);
+        archetype.map(|archetype| archetype.description().tags())
+    }
+
     /// Iteratively defragments the world's internal memory.
     ///
     /// This compacts entities into fewer more continuous chunks.
@@ -765,9 +796,9 @@ impl World {
         }
     }
 
-    /// Merge this world with another, copying all appropriate archetypes, tags entities and components
-    /// into this world.
-    pub fn merge(&mut self, world: World) {
+    /// Move entities from a world to this world, copying all appropriate archetypes,
+    /// tags entities and components into this world.
+    pub fn move_from(&mut self, world: World) {
         let span =
             span!(Level::INFO, "Merging worlds", source = world.id().0, destination = ?self.id());
         let _guard = span.enter();
@@ -793,7 +824,7 @@ impl World {
                     self.storage_mut()
                         .archetype_mut(arch_index)
                         .unwrap()
-                        .merge(archetype);
+                        .move_from(archetype);
                     arch_index
                 } else {
                     // archetype does not already exist, append
@@ -807,6 +838,199 @@ impl World {
             for (entity, location) in archetype.iter_entity_locations(target_archetype) {
                 self.entity_locations.set(entity, location);
             }
+        }
+    }
+
+    /// This will *copy* the data from `src_world` into this world. The logic to do the copy is
+    /// delegated to the `clone_impl` provided by the user. In addition to simple copying, it's also
+    /// possible to transform from one type to another. This is useful for cases where you want to
+    /// read from serializable data (like a physics shape definition) and construct something that
+    /// isn't serializable (like a handle to a physics body)
+    ///
+    /// By default, all entities in the new world will be assigned a new Entity. `result_mappings`
+    /// (if not None) will be populated with the old/new Entities, which allows for mapping data
+    /// between the old and new world.
+    ///
+    /// If you want to replace existing entities (for example to hot-reload data from a file,)
+    /// populate `replace_mappings`. For every entry in this map, the key must exist in the source
+    /// world and the value must exist in the destination world. All entities in the destination
+    /// world referenced by this map will be deleted, and the entities copied over will be assigned
+    /// the same entity. If these constraints are not met, this function will panic.
+    pub fn clone_from<
+        's,
+        CloneImplT: CloneImpl,
+        CloneImplResultT: CloneImplResult,
+        EntityReplacePolicyT: EntityReplacePolicy<'s>,
+    >(
+        &mut self,
+        src_world: &World,
+        clone_impl: &CloneImplT,
+        clone_impl_result: &mut CloneImplResultT,
+        entity_replace_policy: &'s EntityReplacePolicyT,
+    ) {
+        let span = span!(Level::INFO, "CloneMerging worlds", source = src_world.id().0, destination = ?self.id());
+        let _guard = span.enter();
+
+        let src_storage = unsafe { &(*src_world.storage.get()) };
+        let dst_storage = unsafe { &mut (*self.storage.get()) };
+
+        // First check that all the src entities exist in the source world. We're assuming the
+        // source data will be available later to replace the data we're about to delete
+        for k in entity_replace_policy.src_entities() {
+            if !src_world.entity_allocator.is_alive(k) {
+                panic!("clone_from assumes all replace_mapping keys exist in the source world");
+            }
+        }
+
+        // Delete all the data associated with dst_entities. This leaves the
+        // associated entities in a dangling state, but we'll fix this later when we copy the
+        // data over
+        for entity_to_replace in entity_replace_policy.dst_entities() {
+            if self.entity_allocator.is_alive(entity_to_replace) {
+                let location = self
+                    .entity_locations
+                    .get(entity_to_replace)
+                    .expect("Failed to get location of live entity");
+                self.delete_location(location);
+            } else {
+                panic!(
+                    "clone_from assumes all replace_mapping values exist in the destination world"
+                );
+            }
+        }
+
+        // Iterate all archetypes in the src world
+        for src_archetype in src_storage.archetypes() {
+            let archetype_data = ArchetypeFilterData {
+                component_types: self.storage().component_types(),
+                tag_types: self.storage().tag_types(),
+            };
+
+            let dst_archetype_index = World::find_or_create_archetype_for_clone_move(
+                clone_impl,
+                src_archetype.description(),
+                archetype_data,
+                dst_storage,
+            );
+
+            // Do the clone_from for this archetype
+            dst_storage
+                .archetype_mut(dst_archetype_index)
+                .unwrap()
+                .clone_from(
+                    &src_world,
+                    src_archetype,
+                    dst_archetype_index,
+                    &self.entity_allocator,
+                    &mut self.entity_locations,
+                    clone_impl,
+                    clone_impl_result,
+                    entity_replace_policy,
+                );
+        }
+    }
+
+    /// This will *copy* the `src_entity` from `src_world` into this world. The logic to do the copy
+    /// is delegated to the `clone_impl` provided by the user. In addition to simple copying, it's
+    /// also possible to transform from one type to another. This is useful for cases where you want
+    /// to read from serializable data (like a physics shape definition) and construct something
+    /// that isn't serializable (like a handle to a physics body)
+    ///
+    /// By default, the entity in the new world will be assigned a new Entity. The return value
+    /// indicates the Entity in the new world, which allows for mapping data the old and new world.
+    ///
+    /// If you want to replace an existing entity (for example to hot-reload data from a file,)
+    /// populate `replace_mapping`. This entity must exist in the destination world. The entity in
+    /// the destination world will be deleted, and the entity copied over will be assigned
+    /// the same entity. If these constraints are not met, this function will panic.
+    pub fn clone_from_single<C: CloneImpl>(
+        &mut self,
+        src_world: &World,
+        src_entity: Entity,
+        clone_impl: &C,
+        replace_mapping: Option<Entity>,
+    ) -> Entity {
+        let span = span!(Level::INFO, "CloneMergingSingle worlds", source = src_world.id().0, destination = ?self.id());
+        let _guard = span.enter();
+
+        let src_storage = unsafe { &(*src_world.storage.get()) };
+        let dst_storage = unsafe { &mut (*self.storage.get()) };
+
+        if !src_world.entity_allocator.is_alive(src_entity) {
+            panic!("src_entity not alive");
+        }
+
+        // Erase all entities that are referred to by value. The code following will update the location
+        // of all these entities to point to new, valid locations
+        if let Some(replace_mapping) = replace_mapping {
+            if self.entity_allocator.is_alive(replace_mapping) {
+                let location = self
+                    .entity_locations
+                    .get(replace_mapping)
+                    .expect("Failed to get location of live entity");
+                self.delete_location(location);
+            } else {
+                panic!("clone_from_single assumes entity_mapping exists in the destination world");
+            }
+        }
+
+        let src_location = src_world.entity_locations.get(src_entity).unwrap();
+        let src_archetype = &src_storage.archetypes()[src_location.archetype()];
+
+        // Iterate all archetypes in the src world
+        let archetype_data = ArchetypeFilterData {
+            component_types: self.storage().component_types(),
+            tag_types: self.storage().tag_types(),
+        };
+
+        let dst_archetype_index = World::find_or_create_archetype_for_clone_move(
+            clone_impl,
+            src_archetype.description(),
+            archetype_data,
+            dst_storage,
+        );
+
+        // Do the clone_from for this archetype
+        dst_storage
+            .archetype_mut(dst_archetype_index)
+            .unwrap()
+            .clone_from_single(
+                &src_world,
+                src_archetype,
+                &src_location,
+                dst_archetype_index,
+                &self.entity_allocator,
+                &mut self.entity_locations,
+                clone_impl,
+                replace_mapping,
+            )
+    }
+
+    fn find_or_create_archetype_for_clone_move<C: CloneImpl>(
+        clone_impl: &C,
+        src_archetype_description: &ArchetypeDescription,
+        archetype_data: ArchetypeFilterData,
+        dst_storage: &mut Storage,
+    ) -> ArchetypeIndex {
+        // Build the archetype that we will write into. The caller of this function provides an
+        // impl to do the clone, optionally transforming components from one type to another
+        let mut dst_archetype = ArchetypeDescription::default();
+        for (from_type_id, _from_meta) in src_archetype_description.components() {
+            let (into_type_id, into_meta) = clone_impl.map_component_type(*from_type_id);
+            dst_archetype.register_component_raw(into_type_id, into_meta);
+        }
+
+        // Find or create the archetype in the destination world
+        let matches = dst_archetype
+            .matches(archetype_data)
+            .matching_indices()
+            .next();
+
+        // If it doesn't exist, allocate it
+        if let Some(arch_index) = matches {
+            ArchetypeIndex(arch_index)
+        } else {
+            dst_storage.alloc_archetype(dst_archetype).0
         }
     }
 
@@ -898,6 +1122,155 @@ impl World {
 
 impl Default for World {
     fn default() -> Self { Self::new() }
+}
+
+/// Describes how to handle a `clone_from`. Allows the user to transform components from one type
+/// to another and provide their own implementation for cloning/transforming
+pub trait CloneImpl {
+    /// When a component of the provided `component_type` is encountered, we will transfer data
+    /// from it into the returned component type. For a basic clone implementation, this function
+    /// should return the same type as was passed into it
+    fn map_component_type(
+        &self,
+        component_type_id: ComponentTypeId,
+    ) -> (ComponentTypeId, ComponentMeta);
+
+    /// When called, the implementation should copy the data from src_data to dst_data. The
+    /// src_world and src_entities are provided so that other components on the same Entity can
+    /// be looked up. The dst_resources are provided so that any required side effects to resources
+    /// (like registering a physics body into a physics engine) can be implemented.
+    #[allow(clippy::too_many_arguments)]
+    fn clone_components(
+        &self,
+        src_world: &World,
+        src_component_storage: &ComponentStorage,
+        src_component_storage_indexes: core::ops::Range<ComponentIndex>,
+        src_type: ComponentTypeId,
+        src_entities: &[Entity],
+        dst_entities: &[Entity],
+        src_data: *const u8,
+        dst_data: *mut u8,
+        num_components: usize,
+    );
+}
+
+/// Used along with `CloneImpl`, allows receiving results from a `clone_from` or `clone_from_single`
+/// call.
+pub trait CloneImplResult {
+    /// For every entity that is copied, this function will be called, passing the entity in the
+    /// source and destination worlds
+    fn add_result(&mut self, src_entity: Entity, dst_entity: Entity);
+}
+
+/// Used along with `CloneImpl`, allows specifying that certain entities in the receiving world should
+/// be replaced with entities from the source world.
+///
+/// A typical implementation of this trait would be to wrap a HashMap. `src_entities` would be
+/// implemented by returning keys(), `dst_entities` would be implemented by returning values(), and
+/// `get_dst_entity` would be implemented by returning the result of get(src_entity).
+///
+/// Default implementations provided in legion include:
+/// * `NoneEntityReplacePolicy` - No entity replacement will occur
+/// * `HashMapCloneImplResult` - Wraps the standard library's HashMap.
+pub trait EntityReplacePolicy<'s> {
+    /// Returns all entities in the source world that will replace data in the destination world
+    ///
+    /// # Safety
+    ///
+    /// * All entities returned via the iterator must exist in the source world
+    /// * All entities that will be copied from the source world must be included in the
+    ///   returned iterator.
+    fn src_entities<'a>(&'s self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a;
+
+    /// Returns all entities in the destination world that will be replaced
+    ///
+    /// # Safety
+    ///
+    /// * All entities returned via the iterator must exist in the destination world
+    /// * All entities that will be replaced in the destination world must be included in the
+    ///   returned iterator
+    fn dst_entities<'a>(&'s self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a;
+
+    /// Returns the entity in the destination world that will be replaced by the given entity in the
+    /// source world, otherwise None if the entity in the source world should not replace anything.
+    ///
+    /// # Safety
+    ///
+    /// * All entities passed into this function that result in a non-None return value must be
+    ///   included in the iterator returned by `src_entities`
+    /// * All entities returned by this function must be included in the iterator returned by
+    ///   `dst_entities`
+    fn get_dst_entity(&self, src_entity: Entity) -> Option<Entity>;
+}
+
+/// Used to opt-out of receiving results from a `clone_from` or `clone_from_single` call
+/// (See comments on `CloneImplResult`)
+pub struct NoneCloneImplResult;
+impl CloneImplResult for NoneCloneImplResult {
+    fn add_result(&mut self, _src_entity: Entity, _dst_entity: Entity) {
+        // do nothing
+    }
+}
+
+/// Used to opt-out of replacing entities during a `clone_from` or `clone_from_single` call.
+/// (See comments on `EntityReplacePolicy`)
+pub struct NoneEntityReplacePolicy;
+impl<'s> EntityReplacePolicy<'s> for NoneEntityReplacePolicy {
+    fn src_entities<'a>(&self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a,
+    {
+        Box::new(std::iter::Empty::default())
+    }
+
+    fn dst_entities<'a>(&self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a,
+    {
+        Box::new(std::iter::Empty::default())
+    }
+
+    fn get_dst_entity(&self, _src_entity: Entity) -> Option<Entity> { None }
+}
+
+/// Default implementation of `CloneImplResult` that uses a hash map. Keys are entities in the
+/// source world and values are entities in the destination world. (See comments on
+/// `CloneImplResult`)
+pub struct HashMapCloneImplResult<'m>(pub &'m mut HashMap<Entity, Entity>);
+
+impl<'m> CloneImplResult for HashMapCloneImplResult<'m> {
+    fn add_result(&mut self, src_entity: Entity, dst_entity: Entity) {
+        self.0.insert(src_entity, dst_entity);
+    }
+}
+
+/// Default implementation of `EntityReplacePolicy` that uses a hash map. Keys are entities in the
+/// source world and values are entities in the destination world. (See comments on
+/// `EntityReplacePolicy`)
+pub struct HashMapEntityReplacePolicy<'m>(pub &'m HashMap<Entity, Entity>);
+
+impl<'m, 's> EntityReplacePolicy<'s> for HashMapEntityReplacePolicy<'m> {
+    fn src_entities<'a>(&'s self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a,
+    {
+        Box::new(self.0.keys().cloned())
+    }
+
+    fn dst_entities<'a>(&'s self) -> Box<dyn Iterator<Item = Entity> + 'a>
+    where
+        's: 'a,
+    {
+        Box::new(self.0.values().cloned())
+    }
+
+    fn get_dst_entity(&self, src_entity: Entity) -> Option<Entity> {
+        self.0.get(&src_entity).copied()
+    }
 }
 
 #[derive(Error, Debug)]
@@ -1874,7 +2247,7 @@ mod tests {
     }
 
     #[test]
-    fn merge() {
+    fn move_from() {
         let universe = Universe::new();
         let mut a = universe.create_world();
         let mut b = universe.create_world();
@@ -1895,7 +2268,7 @@ mod tests {
             ],
         )[0];
 
-        b.merge(a);
+        b.move_from(a);
 
         assert_eq!(*b.get_component::<Pos>(entity_b).unwrap(), Pos(7., 8., 9.));
         assert_eq!(*b.get_component::<Pos>(entity_a).unwrap(), Pos(1., 2., 3.));

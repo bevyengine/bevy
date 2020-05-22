@@ -1,11 +1,11 @@
 use crate::{
-    entity::{Entity, GuidEntityAllocator},
+    entity::Entity,
     index::{ArchetypeIndex, ChunkIndex, SetIndex},
     storage::{
         ArchetypeData, ArchetypeDescription, Chunkset, ComponentMeta, ComponentTypeId, TagMeta,
         TagStorage, TagTypeId,
     },
-    world::World,
+    world::World, guid_entity_allocator::GuidEntityAllocator,
 };
 use serde::{
     self,

@@ -1,7 +1,6 @@
 //! Atomic runtime borrow checking module.
 //! These types implement something akin to `RefCell`, but are atomically handled allowing them to
 //! cross thread boundaries.
-use std::any::{type_name, Any};
 use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
@@ -11,13 +10,6 @@ use std::sync::atomic::AtomicIsize;
 #[cfg(not(debug_assertions))]
 use std::marker::PhantomData;
 
-pub trait DowncastTypename {
-    fn downcast_typename_mut<T: Any>(&mut self) -> Option<&mut T>;
-    fn downcast_typename_ref<T: Any>(&self) -> Option<&T>;
-    fn is_typename<T: Any>(&self) -> bool;
-}
-
-pub fn type_name_of_val<T: ?Sized>(_val: &T) -> &'static str { type_name::<T>() }
 /// A `RefCell` implementation which is thread safe. This type performs all the standard runtime
 /// borrow checking which would be familiar from using `RefCell`.
 ///
@@ -405,6 +397,11 @@ impl<'a, T: 'a> AsRef<T> for RefMut<'a, T> {
     fn as_ref(&self) -> &T { self.value }
 }
 
+impl<'a, T: 'a> AsMut<T> for RefMut<'a, T> {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut T { self.value }
+}
+
 impl<'a, T: 'a> std::borrow::Borrow<T> for RefMut<'a, T> {
     #[inline(always)]
     fn borrow(&self) -> &T { self.value }
@@ -527,6 +524,11 @@ impl<'a, T: 'a> DerefMut for RefMapMut<'a, T> {
 impl<'a, T: 'a> AsRef<T> for RefMapMut<'a, T> {
     #[inline(always)]
     fn as_ref(&self) -> &T { &self.value }
+}
+
+impl<'a, T: 'a> AsMut<T> for RefMapMut<'a, T> {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut T { &mut self.value }
 }
 
 impl<'a, T: 'a> std::borrow::Borrow<T> for RefMapMut<'a, T> {

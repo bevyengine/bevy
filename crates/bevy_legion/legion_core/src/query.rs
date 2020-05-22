@@ -940,7 +940,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -996,7 +998,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1050,7 +1054,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1104,7 +1110,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1140,7 +1148,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1177,7 +1187,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1246,7 +1258,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1298,7 +1312,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///
@@ -1350,7 +1366,9 @@ where
     ///
     /// # Safety
     ///
-    /// Incorrectly accessing components that are already borrowed elsewhere is undefined behavior.
+    /// The normal borrowing restrictions apply for the duration of the iteration:
+    /// * Components borrowed with `Read` access must not be borrowed mutably elsewhere.
+    /// * Components borrowed with `Write` access must not be borrowed elsewhere at all.
     ///
     /// # Panics
     ///

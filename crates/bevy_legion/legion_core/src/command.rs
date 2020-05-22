@@ -1,13 +1,13 @@
 use crate::{
     borrow::AtomicRefCell,
     cons::{ConsAppend, ConsFlatten},
-    entity::{Entity, GuidEntityAllocator},
+    entity::Entity,
     filter::{ChunksetFilterData, Filter},
     storage::{Component, ComponentTypeId, Tag, TagTypeId},
     world::{
         ComponentSource, ComponentTupleSet, IntoComponentSource, PreallocComponentSource,
         TagLayout, TagSet, World, WorldId,
-    },
+    }, guid_entity_allocator::GuidEntityAllocator,
 };
 use derivative::Derivative;
 use smallvec::SmallVec;

@@ -2,7 +2,8 @@
 
 use crate::ComponentRegistry;
 use legion::{
-    entity::{EntityIndex, GuidEntityAllocator},
+    entity::EntityIndex,
+    guid_entity_allocator::GuidEntityAllocator,
     prelude::*,
     storage::{
         ArchetypeDescription, ComponentMeta, ComponentResourceSet, ComponentTypeId, TagMeta,

@@ -7,6 +7,7 @@ fn main() {
         // Registering components informs Bevy that they exist. This allows them to be used when loading/saving scenes
         .register_component::<Test>()
         .register_component::<Foo>()
+        // .add_startup_system(setup)
         .add_startup_system(load_scene)
         .run();
 }
