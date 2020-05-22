@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
+bevy_props = { path = "../bevy_props" }
 legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"]}
 erased-serde = "0.3"

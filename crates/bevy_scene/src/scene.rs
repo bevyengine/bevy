@@ -2,12 +2,25 @@ use crate::{ComponentRegistry, ComponentRegistryContext, SceneDeserializer};
 use anyhow::Result;
 use bevy_app::FromResources;
 use bevy_asset::AssetLoader;
+use bevy_props::DynamicProperties;
 use legion::prelude::{Resources, World};
 use serde::de::DeserializeSeed;
+use serde::{Serialize, Deserialize};
 use std::{
     path::Path,
     sync::{Arc, RwLock},
 };
+
+pub struct DynamicScene {
+    pub entities: Vec<SceneEntity>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SceneEntity {
+    pub entity: u32,
+    pub components: Vec<DynamicProperties>,
+}
+
 
 #[derive(Default)]
 pub struct Scene {
