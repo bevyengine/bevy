@@ -72,7 +72,7 @@ impl AppPlugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
-            .add_asset_loader(PngTextureLoader::default())
+            .add_asset_loader::<Texture, PngTextureLoader>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineAssignments>()
             .init_resource::<PipelineCompiler>()

@@ -29,6 +29,8 @@ pub use crate::render::{
     texture::{Texture, TextureType},
     ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
 };
+#[cfg(feature = "scene")]
+pub use crate::scene::{Scene, RegisterComponent};
 #[cfg(feature = "text")]
 pub use crate::text::Font;
 #[cfg(feature = "transform")]

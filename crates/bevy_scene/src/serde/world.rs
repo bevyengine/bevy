@@ -1,5 +1,6 @@
 // adapted from https://github.com/TomGillen/legion/blob/master/examples/serde.rs
 
+use crate::ComponentRegistry;
 use legion::{
     entity::{EntityIndex, GuidEntityAllocator},
     prelude::*,
@@ -12,10 +13,7 @@ use serde::{
     de::{self, DeserializeSeed, IgnoredAny, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use std::{
-    cell::RefCell, collections::HashMap, iter::FromIterator, marker::PhantomData, num::Wrapping,
-    ptr::NonNull,
-};
+use std::{cell::RefCell, marker::PhantomData, num::Wrapping, ptr::NonNull};
 
 struct ComponentDeserializer<'de, T: Deserialize<'de>> {
     ptr: *mut T,
@@ -36,9 +34,9 @@ impl<'de, T: Deserialize<'de> + 'static> DeserializeSeed<'de> for ComponentDeser
     }
 }
 
-struct ComponentSeqDeserializer<'a, T> {
-    get_next_storage_fn: &'a mut dyn FnMut() -> Option<(NonNull<u8>, usize)>,
-    _marker: PhantomData<T>,
+pub(crate) struct ComponentSeqDeserializer<'a, T> {
+    pub get_next_storage_fn: &'a mut dyn FnMut() -> Option<(NonNull<u8>, usize)>,
+    pub _marker: PhantomData<T>,
 }
 
 impl<'de, 'a, T: for<'b> Deserialize<'b> + 'static> DeserializeSeed<'de>
@@ -97,76 +95,18 @@ impl<'de, 'a, T: for<'b> Deserialize<'b> + 'static> Visitor<'de>
     }
 }
 
-#[derive(Clone)]
-pub struct ComponentRegistration {
-    pub ty: ComponentTypeId,
-    pub comp_serialize_fn: fn(&ComponentResourceSet, &mut dyn FnMut(&dyn erased_serde::Serialize)),
-    pub individual_comp_serialize_fn:
-        fn(&ComponentResourceSet, usize, &mut dyn FnMut(&dyn erased_serde::Serialize)),
-    pub comp_deserialize_fn: fn(
-        deserializer: &mut dyn erased_serde::Deserializer,
-        get_next_storage_fn: &mut dyn FnMut() -> Option<(NonNull<u8>, usize)>,
-    ) -> Result<(), erased_serde::Error>,
-    pub register_comp_fn: fn(&mut ArchetypeDescription),
-}
-
-impl ComponentRegistration {
-    pub fn of<T: Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>() -> Self {
-        Self {
-            ty: ComponentTypeId::of::<T>(),
-            comp_serialize_fn: |comp_storage, serialize_fn| {
-                // it's safe because we know this is the correct type due to lookup
-                let slice = unsafe { comp_storage.data_slice::<T>() };
-                serialize_fn(&*slice);
-            },
-            individual_comp_serialize_fn: |comp_storage, index: usize, serialize_fn| {
-                // it's safe because we know this is the correct type due to lookup
-                let slice = unsafe { comp_storage.data_slice::<T>() };
-                serialize_fn(&slice[index]);
-            },
-            comp_deserialize_fn: |deserializer, get_next_storage_fn| {
-                let comp_seq_deser = ComponentSeqDeserializer::<T> {
-                    get_next_storage_fn,
-                    _marker: PhantomData,
-                };
-                comp_seq_deser.deserialize(deserializer)?;
-                Ok(())
-            },
-            register_comp_fn: |desc| {
-                desc.register_component::<T>();
-            },
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 struct SerializedArchetypeDescription {
     tag_types: Vec<String>,
     component_types: Vec<String>,
 }
 
-pub struct SerializeImpl {
-    pub comp_types: HashMap<String, ComponentRegistration>,
-}
-
-impl SerializeImpl {
-    pub fn new(component_registrations: &[ComponentRegistration]) -> Self {
-        SerializeImpl {
-            comp_types: HashMap::from_iter(
-                component_registrations
-                    .iter()
-                    .map(|reg| (reg.ty.0.to_string(), reg.clone())),
-            ),
-        }
-    }
-}
-
-impl legion::serialize::ser::WorldSerializer for SerializeImpl {
+impl legion::serialize::ser::WorldSerializer for ComponentRegistry {
     fn can_serialize_tag(&self, _ty: &TagTypeId, _meta: &TagMeta) -> bool {
         false
     }
     fn can_serialize_component(&self, ty: &ComponentTypeId, _meta: &ComponentMeta) -> bool {
-        self.comp_types.get(ty.0).is_some()
+        self.get(ty).is_some()
     }
     fn serialize_archetype_description<S: Serializer>(
         &self,
@@ -196,7 +136,7 @@ impl legion::serialize::ser::WorldSerializer for SerializeImpl {
         _component_meta: &ComponentMeta,
         components: &ComponentResourceSet,
     ) -> Result<S::Ok, S::Error> {
-        if let Some(reg) = self.comp_types.get(component_type.0) {
+        if let Some(reg) = self.get(component_type) {
             let result = RefCell::new(None);
             let serializer = RefCell::new(Some(serializer));
             {
@@ -236,19 +176,7 @@ impl legion::serialize::ser::WorldSerializer for SerializeImpl {
     }
 }
 
-pub struct DeserializeImpl<'a> {
-    pub comp_types: &'a HashMap<String, ComponentRegistration>,
-}
-
-impl<'a> DeserializeImpl<'a> {
-    pub fn new(component_types: &'a HashMap<String, ComponentRegistration>) -> Self {
-        DeserializeImpl {
-            comp_types: component_types,
-        }
-    }
-}
-
-impl<'a> legion::serialize::de::WorldDeserializer for DeserializeImpl<'a> {
+impl<'a> legion::serialize::de::WorldDeserializer for ComponentRegistry {
     fn deserialize_archetype_description<'de, D: Deserializer<'de>>(
         &self,
         deserializer: D,
@@ -258,7 +186,7 @@ impl<'a> legion::serialize::de::WorldDeserializer for DeserializeImpl<'a> {
         let mut desc = ArchetypeDescription::default();
 
         for comp in serialized_desc.component_types {
-            if let Some(reg) = self.comp_types.get(&comp) {
+            if let Some(reg) = self.get_with_full_name(&comp) {
                 (reg.register_comp_fn)(&mut desc);
             }
         }
@@ -271,7 +199,7 @@ impl<'a> legion::serialize::de::WorldDeserializer for DeserializeImpl<'a> {
         _component_meta: &ComponentMeta,
         get_next_storage_fn: &mut dyn FnMut() -> Option<(NonNull<u8>, usize)>,
     ) -> Result<(), <D as Deserializer<'de>>::Error> {
-        if let Some(reg) = self.comp_types.get(component_type.0) {
+        if let Some(reg) = self.get(component_type) {
             let mut erased = erased_serde::Deserializer::erase(deserializer);
             (reg.comp_deserialize_fn)(&mut erased, get_next_storage_fn)
                 .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)?;

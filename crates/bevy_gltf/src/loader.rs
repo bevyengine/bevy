@@ -9,7 +9,7 @@ use gltf::{buffer::Source, iter, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Default)]
 pub struct GltfLoader;
 
 impl AssetLoader<Mesh> for GltfLoader {

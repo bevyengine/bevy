@@ -61,10 +61,12 @@ pub use bevy_gltf as gltf;
 pub use bevy_input as input;
 #[cfg(feature = "pbr")]
 pub use bevy_pbr as pbr;
+#[cfg(feature = "props")]
+pub use bevy_props as props;
 #[cfg(feature = "render")]
 pub use bevy_render as render;
-#[cfg(feature = "serialization")]
-pub use bevy_serialization as serialization;
+#[cfg(feature = "scene")]
+pub use bevy_scene as scene;
 #[cfg(feature = "text")]
 pub use bevy_text as text;
 #[cfg(feature = "transform")]

@@ -1,37 +1,10 @@
-use crate::ComponentRegistration;
+use crate::{ComponentRegistry, Scene, ComponentRegistration};
 use legion::{
-    prelude::{Entity, World},
-    storage::{ComponentMeta, ComponentStorage, ComponentTypeId, ComponentResourceSet},
+    prelude::Entity,
+    storage::{ComponentMeta, ComponentResourceSet, ComponentStorage, ComponentTypeId},
 };
-use serde::{
-    ser::{Serialize, SerializeSeq, SerializeStruct},
-    Deserialize,
-};
-use std::{cell::RefCell, collections::HashMap};
-
-#[derive(Default)]
-pub struct Scene {
-    pub world: World,
-}
-
-#[derive(Default)]
-pub struct ComponentRegistry {
-    pub registrations: HashMap<ComponentTypeId, ComponentRegistration>,
-}
-
-impl ComponentRegistry {
-    pub fn register<T>(&mut self)
-    where
-        T: Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
-    {
-        let registration = ComponentRegistration::of::<T>();
-        self.registrations.insert(registration.ty, registration);
-    }
-
-    pub fn get(&self, type_id: ComponentTypeId) -> Option<&ComponentRegistration> {
-        self.registrations.get(&type_id)
-    }
-}
+use serde::ser::{Serialize, SerializeSeq, SerializeStruct};
+use std::cell::RefCell;
 
 pub struct SerializableScene<'a> {
     pub scene: &'a Scene,
@@ -68,13 +41,6 @@ impl<'a> Serialize for SerializableScene<'a> {
                 }
             }
         }
-        // for entity in self.scene.world.iter_entities() {
-        //     seq.serialize_element(&WorldEntity {
-        //         world: &self.scene.world,
-        //         component_registry: &self.component_registry,
-        //         entity,
-        //     })?;
-        // }
 
         seq.end()
     }
@@ -125,7 +91,7 @@ impl<'a> Serialize for EntityComponents<'a> {
             seq.serialize_element(&EntityComponent {
                 index: self.index,
                 component_resource_set: self.component_storage.components(*component_type).unwrap(),
-                component_registration: self.component_registry.get(*component_type).unwrap(),
+                component_registration: self.component_registry.get(component_type).unwrap(),
             })?;
         }
         seq.end()
@@ -139,6 +105,44 @@ struct EntityComponent<'a> {
 }
 
 impl<'a> Serialize for EntityComponent<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Component", 2)?;
+        state.serialize_field(
+            "type",
+            &ComponentName(self.component_registration.short_name),
+        )?;
+        state.serialize_field(
+            "data",
+            &ComponentData {
+                index: self.index,
+                component_registration: self.component_registration,
+                component_resource_set: self.component_resource_set,
+            },
+        )?;
+        state.end()
+    }
+}
+
+struct ComponentName(&'static str);
+
+impl<'a> Serialize for ComponentName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.0)
+    }
+}
+struct ComponentData<'a> {
+    index: usize,
+    component_resource_set: &'a ComponentResourceSet,
+    component_registration: &'a ComponentRegistration,
+}
+
+impl<'a> Serialize for ComponentData<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

@@ -2,10 +2,11 @@
 
 ## Adapted Code
 
+* legion
 * legion_transform
 * wgpu-rs examples
 
-## Insipration
+## Inspiration
 
 * amethyst
 * coffee

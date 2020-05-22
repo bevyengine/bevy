@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "render", "serialization", "text", "transform", "ui", "window"]
+headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "props", "render", "scene", "text", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 derive = ["bevy_derive"]
@@ -14,8 +14,9 @@ diagnostic = ["bevy_diagnostic"]
 gltf = ["bevy_gltf"]
 input = ["bevy_input"]
 pbr = ["bevy_pbr"]
+props = ["bevy_props"]
 render = ["bevy_render"]
-serialization = ["bevy_serialization"]
+scene = ["bevy_scene"]
 text = ["bevy_text"]
 transform = ["bevy_transform"]
 ui = ["bevy_ui"]
@@ -40,8 +41,9 @@ bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
 bevy_gltf = { path = "crates/bevy_gltf", optional = true }
 bevy_input = { path = "crates/bevy_input", optional = true }
 bevy_pbr = { path = "crates/bevy_pbr", optional = true }
+bevy_props = { path = "crates/bevy_props", optional = true }
 bevy_render = { path = "crates/bevy_render", optional = true }
-bevy_serialization = { path = "crates/bevy_serialization", optional = true }
+bevy_scene = { path = "crates/bevy_scene", optional = true }
 bevy_transform = { path = "crates/bevy_transform", optional = true }
 bevy_text = { path = "crates/bevy_text", optional = true }
 bevy_ui = { path = "crates/bevy_ui", optional = true }
@@ -80,8 +82,8 @@ name = "parenting"
 path = "examples/3d/parenting.rs"
 
 [[example]]
-name = "scene"
-path = "examples/3d/scene.rs"
+name = "3d_scene"
+path = "examples/3d/3d_scene.rs"
 
 [[example]]
 name = "spawner"
@@ -148,8 +150,8 @@ name = "input_keyboard"
 path = "examples/input/input_keyboard.rs"
 
 [[example]]
-name = "serializing"
-path = "examples/serializing/serializing.rs"
+name = "load_scene"
+path = "examples/scene/load_scene.rs"
 
 [[example]]
 name = "shader_custom_material"

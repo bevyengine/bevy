@@ -13,6 +13,7 @@ pub struct TextPlugin;
 
 impl AppPlugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_asset::<Font>().add_asset_loader(FontLoader);
+        app.add_asset::<Font>()
+            .add_asset_loader::<Font, FontLoader>();
     }
 }

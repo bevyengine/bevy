@@ -2,7 +2,7 @@ use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
     Handle, HandleId,
 };
-use bevy_app::{AppBuilder, Events};
+use bevy_app::{AppBuilder, Events, FromResources};
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 use std::{
@@ -134,9 +134,9 @@ pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Send + Sync + 'static;
-    fn add_asset_loader<TLoader, TAsset>(&mut self, loader: TLoader) -> &mut Self
+    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + Clone,
+        TLoader: AssetLoader<TAsset> + FromResources,
         TAsset: Send + Sync + 'static;
 }
 
@@ -153,9 +153,9 @@ impl AddAsset for AppBuilder {
             .add_event::<AssetEvent<T>>()
     }
 
-    fn add_asset_loader<TLoader, TAsset>(&mut self, loader: TLoader) -> &mut Self
+    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + Clone,
+        TLoader: AssetLoader<TAsset> + FromResources,
         TAsset: Send + Sync + 'static,
     {
         {
@@ -174,8 +174,8 @@ impl AddAsset for AppBuilder {
                 .resources()
                 .get_mut::<AssetServer>()
                 .expect("AssetServer does not exist. Consider adding it as a resource.");
-            asset_server.add_loader(loader.clone());
-            let handler = ChannelAssetHandler::new(loader, asset_channel.sender.clone());
+            asset_server.add_loader(TLoader::from_resources(self.resources()));
+            let handler = ChannelAssetHandler::new(TLoader::from_resources(self.resources()), asset_channel.sender.clone());
             asset_server.add_handler(handler);
         }
         self

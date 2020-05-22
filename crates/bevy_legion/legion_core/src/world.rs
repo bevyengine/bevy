@@ -98,7 +98,7 @@ impl WorldId {
 pub struct World {
     id: WorldId,
     storage: UnsafeCell<Storage>,
-    pub(crate) entity_allocator: Arc<GuidEntityAllocator>,
+    pub entity_allocator: Arc<GuidEntityAllocator>,
     entity_locations: Locations,
     defrag_progress: usize,
     command_buffer_size: usize,

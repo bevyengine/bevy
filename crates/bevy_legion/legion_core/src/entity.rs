@@ -264,11 +264,12 @@ impl GuidEntityAllocator {
 
     /// Allocates a new unused `Entity` ID.
     pub fn create_entity(&self) -> Entity {
-        if !self.next_ids.read().is_empty() {
-            return self.next_ids.write().pop().unwrap();
-        }
+        let entity = if !self.next_ids.read().is_empty() {
+            self.next_ids.write().pop().unwrap()
+        } else {
+            Entity::new(rand::random::<u32>(), Wrapping(1))
+        };
 
-        let entity = Entity::new(rand::random::<u32>(), Wrapping(1));
         self.entities.write().insert(entity);
         entity
     }

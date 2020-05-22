@@ -1,13 +1,15 @@
 [package]
-name = "bevy_serialization"
+name = "bevy_scene"
 version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+bevy_app = { path = "../bevy_app" }
+bevy_asset = { path = "../bevy_asset" }
 legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"]}
 erased-serde = "0.3"
-type-uuid = "0.1"
 ron = "0.5.1"
 uuid = { version = "0.8", features = ["v4", "serde"] }
+anyhow = "1.0"

@@ -1,0 +1,32 @@
+[
+    (
+        id: 2309003120,
+        components: [
+            (
+                type: "Test",
+                data: (
+                    x: 3,
+                    y: 4,
+                ),
+            ),
+            (
+                type: "Foo",
+                data: (
+                    value: "hi",
+                ),
+            ),
+        ],
+    ),
+    (
+        id: 4238063392,
+        components: [
+            (
+                type: "Test",
+                data: (
+                    x: 3,
+                    y: 4,
+                ),
+            ),
+        ],
+    ),
+]
