@@ -11,6 +11,8 @@ pub use crate::derive::*;
 pub use crate::diagnostic::DiagnosticsPlugin;
 #[cfg(feature = "pbr")]
 pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
+#[cfg(feature = "props")]
+pub use crate::props::{Prop, Props, PropVal, PropsVal, DynamicProperties};
 #[cfg(feature = "render")]
 pub use crate::render::{
     draw_target,

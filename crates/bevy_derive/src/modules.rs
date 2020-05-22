@@ -11,6 +11,8 @@ pub struct ModuleAttributeArgs {
     #[darling(default)]
     pub bevy_core: Option<String>,
     #[darling(default)]
+    pub bevy_props: Option<String>,
+    #[darling(default)]
     pub bevy_app: Option<String>,
     #[darling(default)]
     pub legion: Option<String>,
@@ -25,6 +27,7 @@ pub struct Modules {
     pub bevy_render: String,
     pub bevy_asset: String,
     pub bevy_core: String,
+    pub bevy_props: String,
     pub bevy_app: String,
     pub legion: String,
 }
@@ -35,6 +38,7 @@ impl Modules {
             bevy_asset: "bevy::asset".to_string(),
             bevy_render: "bevy::render".to_string(),
             bevy_core: "bevy::core".to_string(),
+            bevy_props: "bevy::props".to_string(),
             bevy_app: "bevy::app".to_string(),
             legion: "bevy".to_string(),
         }
@@ -45,6 +49,7 @@ impl Modules {
             bevy_asset: "bevy_asset".to_string(),
             bevy_render: "bevy_render".to_string(),
             bevy_core: "bevy_core".to_string(),
+            bevy_props: "bevy_props".to_string(),
             bevy_app: "bevy_app".to_string(),
             legion: "legion".to_string(),
         }
@@ -57,6 +62,7 @@ impl Default for ModuleAttributeArgs {
             bevy_asset: None,
             bevy_render: None,
             bevy_core: None,
+            bevy_props: None,
             bevy_app: None,
             legion: None,
             meta: true,

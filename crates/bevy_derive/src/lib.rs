@@ -50,6 +50,85 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     })
 }
 
+#[proc_macro_derive(Properties, attributes(prop, module))]
+pub fn derive_props(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let fields = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => &fields.named,
+        _ => panic!("expected a struct with named fields"),
+    };
+
+    let modules = get_modules(&ast);
+    let bevy_props_path = get_path(&modules.bevy_props);
+
+    let field_names = fields.iter().map(|field| field.ident
+        .as_ref()
+        .unwrap()
+        .to_string()).collect::<Vec<String>>();
+    let field_idents = fields.iter().map(|field| field.ident.as_ref().unwrap()).collect::<Vec<_>>();
+    let field_count = fields.len();
+    let field_indices = (0..field_count).collect::<Vec<usize>>();
+
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_props_path::Props for #struct_name#ty_generics {
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+            fn prop(&self, name: &str) -> Option<&dyn #bevy_props_path::Prop> {
+                match name {
+                    #(#field_names => Some(&self.#field_idents),)*
+                    _ => None,
+                }
+            }
+        
+            fn prop_mut(&mut self, name: &str) -> Option<&mut dyn #bevy_props_path::Prop> {
+                match name {
+                    #(#field_names => Some(&mut self.#field_idents),)*
+                    _ => None,
+                }
+            }
+        
+            fn prop_with_index(&self, index: usize) -> Option<&dyn #bevy_props_path::Prop> {
+                match index {
+                    #(#field_indices => Some(&self.#field_idents),)*
+                    _ => None,
+                }
+            }
+        
+            fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_props_path::Prop> {
+                match index {
+                    #(#field_indices => Some(&mut self.#field_idents),)*
+                    _ => None,
+                }
+            }
+        
+            fn prop_name(&self, index: usize) -> Option<&str> {
+                match index {
+                    #(#field_indices => Some(#field_names),)*
+                    _ => None,
+                }
+            }
+        
+            fn prop_len(&self) -> usize {
+                #field_count
+            }
+        
+            fn iter_props(&self) -> #bevy_props_path::PropIter {
+                #bevy_props_path::PropIter::new(self)
+            }
+        }
+    })
+}
+
 #[proc_macro_derive(Uniform, attributes(uniform, module))]
 pub fn derive_uniform(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

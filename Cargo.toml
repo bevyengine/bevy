@@ -154,6 +154,10 @@ name = "load_scene"
 path = "examples/scene/load_scene.rs"
 
 [[example]]
+name = "props"
+path = "examples/scene/props.rs"
+
+[[example]]
 name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
