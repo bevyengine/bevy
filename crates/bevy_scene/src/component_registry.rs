@@ -22,7 +22,7 @@ pub struct ComponentRegistry {
 impl ComponentRegistry {
     pub fn register<T>(&mut self)
     where
-        T: Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
+        T: Clone + Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
     {
         let registration = ComponentRegistration::of::<T>();
         self.short_names
@@ -69,7 +69,7 @@ pub struct ComponentRegistration {
 }
 
 impl ComponentRegistration {
-    pub fn of<T: Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>() -> Self {
+    pub fn of<T: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static>() -> Self {
         let ty = ComponentTypeId::of::<T>();
         Self {
             ty,
@@ -107,13 +107,13 @@ impl ComponentRegistration {
 pub trait RegisterComponent {
     fn register_component<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>;
+        T: Clone + Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>;
 }
 
 impl RegisterComponent for AppBuilder {
     fn register_component<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
+        T: Clone + Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
     {
         {
             let registry_context = self.resources().get_mut::<ComponentRegistryContext>().unwrap();

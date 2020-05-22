@@ -5,6 +5,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         // Registering components informs Bevy that they exist. This allows them to be used when loading/saving scenes
+        // This step is only required if you want to load/save your components.
         .register_component::<Test>()
         .register_component::<Foo>()
         // .add_startup_system(setup)
@@ -12,13 +13,13 @@ fn main() {
         .run();
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Test {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Foo {
     pub value: String,
 }
