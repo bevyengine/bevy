@@ -62,7 +62,7 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
     };
 
     let modules = get_modules(&ast);
-    let bevy_props_path = get_path(&modules.bevy_props);
+    let bevy_property_path = get_path(&modules.bevy_property);
 
     let field_names = fields.iter().map(|field| field.ident
         .as_ref()
@@ -79,32 +79,32 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_props_path::Props for #struct_name#ty_generics {
+        impl #impl_generics #bevy_property_path::Properties for #struct_name#ty_generics {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
-            fn prop(&self, name: &str) -> Option<&dyn #bevy_props_path::Prop> {
+            fn prop(&self, name: &str) -> Option<&dyn #bevy_property_path::Property> {
                 match name {
                     #(#field_names => Some(&self.#field_idents),)*
                     _ => None,
                 }
             }
         
-            fn prop_mut(&mut self, name: &str) -> Option<&mut dyn #bevy_props_path::Prop> {
+            fn prop_mut(&mut self, name: &str) -> Option<&mut dyn #bevy_property_path::Property> {
                 match name {
                     #(#field_names => Some(&mut self.#field_idents),)*
                     _ => None,
                 }
             }
         
-            fn prop_with_index(&self, index: usize) -> Option<&dyn #bevy_props_path::Prop> {
+            fn prop_with_index(&self, index: usize) -> Option<&dyn #bevy_property_path::Property> {
                 match index {
                     #(#field_indices => Some(&self.#field_idents),)*
                     _ => None,
                 }
             }
         
-            fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_props_path::Prop> {
+            fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_property_path::Property> {
                 match index {
                     #(#field_indices => Some(&mut self.#field_idents),)*
                     _ => None,
@@ -122,8 +122,8 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
                 #field_count
             }
         
-            fn iter_props(&self) -> #bevy_props_path::PropIter {
-                #bevy_props_path::PropIter::new(self)
+            fn iter_props(&self) -> #bevy_property_path::PropertyIter {
+                #bevy_property_path::PropertyIter::new(self)
             }
         }
     })

@@ -1,23 +1,23 @@
-use crate::{DynamicProperties, Prop, PropVal};
+use crate::{DynamicProperties, Property, PropertyVal};
 use serde::{ser::SerializeMap, Serialize};
 
-pub trait Props {
+pub trait Properties {
     fn type_name(&self) -> &str;
-    fn prop(&self, name: &str) -> Option<&dyn Prop>;
-    fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Prop>;
-    fn prop_with_index(&self, index: usize) -> Option<&dyn Prop>;
-    fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn Prop>;
+    fn prop(&self, name: &str) -> Option<&dyn Property>;
+    fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Property>;
+    fn prop_with_index(&self, index: usize) -> Option<&dyn Property>;
+    fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn Property>;
     fn prop_name(&self, index: usize) -> Option<&str>;
     fn prop_len(&self) -> usize;
-    fn iter_props(&self) -> PropIter;
-    fn set_prop(&mut self, name: &str, value: &dyn Prop) {
+    fn iter_props(&self) -> PropertyIter;
+    fn set_prop(&mut self, name: &str, value: &dyn Property) {
         if let Some(prop) = self.prop_mut(name) {
             prop.set(value);
         } else {
             panic!("prop does not exist: {}", name);
         }
     }
-    fn apply(&mut self, props: &dyn Props) {
+    fn apply(&mut self, props: &dyn Properties) {
         for (name, prop) in props.iter_props() {
             self.set_prop(name, prop);
         }
@@ -36,19 +36,19 @@ pub trait Props {
     }
 }
 
-pub struct PropIter<'a> {
-    pub(crate) props: &'a dyn Props,
+pub struct PropertyIter<'a> {
+    pub(crate) props: &'a dyn Properties,
     pub(crate) index: usize,
 }
 
-impl<'a> PropIter<'a> {
-    pub fn new(props: &'a dyn Props) -> Self {
-        PropIter { props, index: 0 }
+impl<'a> PropertyIter<'a> {
+    pub fn new(props: &'a dyn Properties) -> Self {
+        PropertyIter { props, index: 0 }
     }
 }
 
-impl<'a> Iterator for PropIter<'a> {
-    type Item = (&'a str, &'a dyn Prop);
+impl<'a> Iterator for PropertyIter<'a> {
+    type Item = (&'a str, &'a dyn Property);
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.props.prop_len() {
             let prop = self.props.prop_with_index(self.index).unwrap();
@@ -61,14 +61,14 @@ impl<'a> Iterator for PropIter<'a> {
     }
 }
 
-pub trait PropsVal {
+pub trait PropertiesVal {
     fn prop_val<T: 'static>(&self, name: &str) -> Option<&T>;
     fn set_prop_val<T: 'static>(&mut self, name: &str, value: T);
 }
 
-impl<P> PropsVal for P
+impl<P> PropertiesVal for P
 where
-    P: Props,
+    P: Properties,
 {
     // #[inline]
     fn prop_val<T: 'static>(&self, name: &str) -> Option<&T> {
@@ -84,11 +84,11 @@ where
     }
 }
 
-pub struct SerializableProps<'a> {
-    pub props: &'a dyn Props,
+pub struct SerializableProperties<'a> {
+    pub props: &'a dyn Properties,
 }
 
-impl<'a> Serialize for SerializableProps<'a> {
+impl<'a> Serialize for SerializableProperties<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

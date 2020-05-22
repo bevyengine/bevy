@@ -2,7 +2,7 @@ use crate::{ComponentRegistry, ComponentRegistryContext, SceneDeserializer};
 use anyhow::Result;
 use bevy_app::FromResources;
 use bevy_asset::AssetLoader;
-use bevy_props::DynamicProperties;
+use bevy_property::DynamicProperties;
 use legion::prelude::{Resources, World};
 use serde::de::DeserializeSeed;
 use serde::{Serialize, Deserialize};

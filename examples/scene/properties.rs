@@ -1,6 +1,8 @@
-use bevy::prelude::*;
-use bevy_props::SerializableProps;
-use bevy_scene::{DynamicScene, SceneEntity};
+use bevy::{
+    prelude::*,
+    property::SerializableProperties,
+    scene::{DynamicScene, SceneEntity},
+};
 use serde::ser::Serialize;
 
 fn main() {
@@ -10,7 +12,7 @@ fn main() {
         .run();
 }
 
-#[derive(Properties)]
+#[derive(Properties, Default)]
 pub struct Test {
     a: usize,
     b: String,
@@ -41,20 +43,23 @@ fn setup() {
 
     assert_eq!(test.a, 3);
 
-    let ser = SerializableProps { props: &test };
+    let ser = SerializableProperties { props: &test };
 
     let mut serializer = ron::ser::Serializer::new(Some(ron::ser::PrettyConfig::default()), false);
     ser.serialize(&mut serializer).unwrap();
-    println!("{}", serializer.into_output_string());
+    let ron_string = serializer.into_output_string();
+    println!("{}", ron_string);
 
-    let dynamic_scene = DynamicScene {
-        entities: vec![SceneEntity {
-            entity: 12345,
-            components: vec![patch],
-        }],
-    };
+    // let dynamic_scene = DynamicScene {
+    //     entities: vec![SceneEntity {
+    //         entity: 12345,
+    //         components: vec![patch],
+    //     }],
+    // };
 
-    let mut serializer = ron::ser::Serializer::new(Some(ron::ser::PrettyConfig::default()), false);
-    dynamic_scene.entities.serialize(&mut serializer).unwrap();
-    println!("{}", serializer.into_output_string());
+    // let mut serializer = ron::ser::Serializer::new(Some(ron::ser::PrettyConfig::default()), false);
+    // dynamic_scene.entities.serialize(&mut serializer).unwrap();
+    // println!("{}", serializer.into_output_string());
+
+    let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
 }

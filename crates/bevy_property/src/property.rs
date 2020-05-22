@@ -1,21 +1,21 @@
 use serde::Serialize;
 use std::any::Any;
 
-pub trait Prop: erased_serde::Serialize + Send + Sync + Any + 'static {
+pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;
-    fn clone_prop(&self) -> Box<dyn Prop>;
-    fn set(&mut self, value: &dyn Prop);
+    fn clone_prop(&self) -> Box<dyn Property>;
+    fn set(&mut self, value: &dyn Property);
 }
 
-erased_serde::serialize_trait_object!(Prop);
+erased_serde::serialize_trait_object!(Property);
 
-pub trait PropVal {
+pub trait PropertyVal {
     fn val<T: 'static>(&self) -> Option<&T>;
     fn set_val<T: 'static>(&mut self, value: T);
 }
 
-impl PropVal for dyn Prop {
+impl PropertyVal for dyn Property {
     // #[inline]
     default fn val<T: 'static>(&self) -> Option<&T> {
         self.any().downcast_ref::<T>()
@@ -31,7 +31,7 @@ impl PropVal for dyn Prop {
     }
 }
 
-impl<T> Prop for T
+impl<T> Property for T
 where
     T: Clone + Serialize + Send + Sync + Any + 'static,
 {
@@ -44,11 +44,11 @@ where
         self
     }
     #[inline]
-    default fn clone_prop(&self) -> Box<dyn Prop> {
+    default fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.clone())
     }
     #[inline]
-    default fn set(&mut self, value: &dyn Prop) {
+    default fn set(&mut self, value: &dyn Property) {
         if let Some(prop) = value.any().downcast_ref::<T>() {
             *self = prop.clone();
         } else {
@@ -57,8 +57,8 @@ where
     }
 }
 
-impl Prop for usize {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for usize {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -86,8 +86,8 @@ impl Prop for usize {
     }
 }
 
-impl Prop for u64 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for u64 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -115,8 +115,8 @@ impl Prop for u64 {
     }
 }
 
-impl Prop for u32 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for u32 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -144,8 +144,8 @@ impl Prop for u32 {
     }
 }
 
-impl Prop for u16 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for u16 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -173,8 +173,8 @@ impl Prop for u16 {
     }
 }
 
-impl Prop for u8 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for u8 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -202,8 +202,8 @@ impl Prop for u8 {
     }
 }
 
-impl Prop for isize {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for isize {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -231,8 +231,8 @@ impl Prop for isize {
     }
 }
 
-impl Prop for i64 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for i64 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -260,8 +260,8 @@ impl Prop for i64 {
     }
 }
 
-impl Prop for i32 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for i32 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -289,8 +289,8 @@ impl Prop for i32 {
     }
 }
 
-impl Prop for i16 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for i16 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -318,8 +318,8 @@ impl Prop for i16 {
     }
 }
 
-impl Prop for i8 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for i8 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -348,8 +348,8 @@ impl Prop for i8 {
 }
 
 
-impl Prop for f32 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for f32 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
@@ -361,8 +361,8 @@ impl Prop for f32 {
     }
 }
 
-impl Prop for f64 {
-    fn set(&mut self, value: &dyn Prop) {
+impl Property for f64 {
+    fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;

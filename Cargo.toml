@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "props", "render", "scene", "text", "transform", "ui", "window"]
+headless = ["asset", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "text", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 derive = ["bevy_derive"]
@@ -14,7 +14,7 @@ diagnostic = ["bevy_diagnostic"]
 gltf = ["bevy_gltf"]
 input = ["bevy_input"]
 pbr = ["bevy_pbr"]
-props = ["bevy_props"]
+property = ["bevy_property"]
 render = ["bevy_render"]
 scene = ["bevy_scene"]
 text = ["bevy_text"]
@@ -41,7 +41,7 @@ bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
 bevy_gltf = { path = "crates/bevy_gltf", optional = true }
 bevy_input = { path = "crates/bevy_input", optional = true }
 bevy_pbr = { path = "crates/bevy_pbr", optional = true }
-bevy_props = { path = "crates/bevy_props", optional = true }
+bevy_property = { path = "crates/bevy_property", optional = true }
 bevy_render = { path = "crates/bevy_render", optional = true }
 bevy_scene = { path = "crates/bevy_scene", optional = true }
 bevy_transform = { path = "crates/bevy_transform", optional = true }
@@ -154,8 +154,8 @@ name = "load_scene"
 path = "examples/scene/load_scene.rs"
 
 [[example]]
-name = "props"
-path = "examples/scene/props.rs"
+name = "properties"
+path = "examples/scene/properties.rs"
 
 [[example]]
 name = "shader_custom_material"

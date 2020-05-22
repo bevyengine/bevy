@@ -1,9 +1,9 @@
 #![feature(min_specialization)]
 
-mod prop;
-mod props;
+mod property;
+mod properties;
 mod dynamic_properties;
 
-pub use prop::*;
-pub use props::*;
+pub use property::*;
+pub use properties::*;
 pub use dynamic_properties::*;

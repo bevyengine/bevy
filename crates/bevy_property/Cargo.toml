@@ -1,5 +1,5 @@
 [package]
-name = "bevy_props"
+name = "bevy_property"
 version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"

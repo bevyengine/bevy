@@ -61,8 +61,8 @@ pub use bevy_gltf as gltf;
 pub use bevy_input as input;
 #[cfg(feature = "pbr")]
 pub use bevy_pbr as pbr;
-#[cfg(feature = "props")]
-pub use bevy_props as props;
+#[cfg(feature = "property")]
+pub use bevy_property as property;
 #[cfg(feature = "render")]
 pub use bevy_render as render;
 #[cfg(feature = "scene")]

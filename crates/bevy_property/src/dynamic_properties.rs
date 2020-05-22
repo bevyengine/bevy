@@ -1,29 +1,29 @@
 use std::{collections::HashMap, borrow::Cow};
-use crate::{Props, Prop, PropIter};
+use crate::{Properties, Property, PropertyIter};
 use serde::{Deserialize, Serialize, ser::SerializeMap};
 
 #[derive(Default)]
 pub struct DynamicProperties {
     pub type_name: &'static str,
-    pub props: Vec<(Cow<'static, str>, Box<dyn Prop>)>,
+    pub props: Vec<(Cow<'static, str>, Box<dyn Property>)>,
     pub prop_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 
 impl DynamicProperties {
-    fn push(&mut self, name: &str, prop: Box<dyn Prop>) {
+    fn push(&mut self, name: &str, prop: Box<dyn Property>) {
         let name: Cow<'static, str> = Cow::Owned(name.to_string());
         self.props.push((name.clone(), prop));
         self.prop_indices.insert(name, self.props.len());
     }
-    pub fn set<T: Prop>(&mut self, name: &str, prop: T) {
+    pub fn set<T: Property>(&mut self, name: &str, prop: T) {
         if let Some(index) = self.prop_indices.get(name) {
             self.props[*index].1 = Box::new(prop);
         } else {
             self.push(name, Box::new(prop));
         }
     }
-    pub fn set_box(&mut self, name: &str, prop: Box<dyn Prop>) {
+    pub fn set_box(&mut self, name: &str, prop: Box<dyn Property>) {
         if let Some(index) = self.prop_indices.get(name) {
             self.props[*index].1 = prop;
         } else {
@@ -33,13 +33,13 @@ impl DynamicProperties {
 }
 
 
-impl Props for DynamicProperties {
+impl Properties for DynamicProperties {
     #[inline]
     fn type_name(&self) -> &str {
         self.type_name
     }
     #[inline]
-    fn prop(&self, name: &str) -> Option<&dyn Prop> {
+    fn prop(&self, name: &str) -> Option<&dyn Property> {
         if let Some(index) = self.prop_indices.get(name) {
             Some(&*self.props[*index].1)
         } else {
@@ -48,7 +48,7 @@ impl Props for DynamicProperties {
     }
 
     #[inline]
-    fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Prop> {
+    fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Property> {
         if let Some(index) = self.prop_indices.get(name) {
             Some(&mut *self.props[*index].1)
         } else {
@@ -57,12 +57,12 @@ impl Props for DynamicProperties {
     }
 
     #[inline]
-    fn prop_with_index(&self, index: usize) -> Option<&dyn Prop> {
+    fn prop_with_index(&self, index: usize) -> Option<&dyn Property> {
         self.props.get(index).map(|(_i, prop)| &**prop)
     }
 
     #[inline]
-    fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn Prop> {
+    fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn Property> {
         self.props.get_mut(index).map(|(_i, prop)| &mut **prop)
     }
 
@@ -76,8 +76,8 @@ impl Props for DynamicProperties {
         self.props.len()
     }
 
-    fn iter_props(&self) -> PropIter {
-        PropIter {
+    fn iter_props(&self) -> PropertyIter {
+        PropertyIter {
             props: self,
             index: 0,
         }
