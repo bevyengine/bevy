@@ -60,7 +60,7 @@ impl<'a> Serialize for WorldEntity<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_struct("Entity", 2)?;
-        state.serialize_field("id", &self.entity.index())?;
+        state.serialize_field("entity", &self.entity.index())?;
         state.serialize_field(
             "components",
             &EntityComponents {

@@ -56,7 +56,7 @@ struct EntityDeserializer<'a> {
 }
 
 
-pub const ENTITY_FIELD_ID: &str = "id";
+pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
 impl<'a, 'de> DeserializeSeed<'de> for EntityDeserializer<'a> {
@@ -67,7 +67,7 @@ impl<'a, 'de> DeserializeSeed<'de> for EntityDeserializer<'a> {
     {
         deserializer.deserialize_struct(
             "Entity",
-            &[ENTITY_FIELD_ID, ENTITY_FIELD_COMPONENTS],
+            &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
             EntityVisiter {
                 world: self.world,
                 component_registry: self.component_registry,
@@ -95,9 +95,9 @@ impl<'a, 'de> Visitor<'de> for EntityVisiter<'a> {
         let mut components = false;
         while let Some(key) = map.next_key()? {
             match key {
-                EntityField::Id => {
+                EntityField::Entity => {
                     if entity.is_some() {
-                        return Err(Error::duplicate_field(ENTITY_FIELD_ID));
+                        return Err(Error::duplicate_field(ENTITY_FIELD_ENTITY));
                     }
                     let id = map.next_value()?;
                     self.world
@@ -110,7 +110,7 @@ impl<'a, 'de> Visitor<'de> for EntityVisiter<'a> {
                         return Err(Error::duplicate_field(ENTITY_FIELD_COMPONENTS));
                     }
 
-                    let entity = entity.ok_or_else(|| Error::missing_field(ENTITY_FIELD_ID))?;
+                    let entity = entity.ok_or_else(|| Error::missing_field(ENTITY_FIELD_ENTITY))?;
                     // this is just a placeholder value to protect against duplicates
                     components = true;
                     map.next_value_seed(ComponentSeqDeserializer {
@@ -128,7 +128,7 @@ impl<'a, 'de> Visitor<'de> for EntityVisiter<'a> {
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
-    Id,
+    Entity,
     Components,
 }
 

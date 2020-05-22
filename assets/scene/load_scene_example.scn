@@ -1,6 +1,6 @@
 [
     (
-        id: 2309003120,
+        entity: 2309003120,
         components: [
             (
                 type: "Test",
@@ -18,7 +18,7 @@
         ],
     ),
     (
-        id: 4238063392,
+        entity: 4238063392,
         components: [
             (
                 type: "Test",
