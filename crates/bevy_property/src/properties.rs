@@ -31,7 +31,7 @@ pub trait Properties {
             dynamic_props.set_box(name, prop.clone_prop());
         }
 
-        dynamic_props.type_name = std::any::type_name::<Self>();
+        dynamic_props.type_name = std::any::type_name::<Self>().to_string();
         dynamic_props
     }
 }

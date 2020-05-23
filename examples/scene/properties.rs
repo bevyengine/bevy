@@ -17,13 +17,22 @@ pub struct Test {
     a: usize,
     b: String,
     c: f32,
+    // nest: Nested,
 }
+
+// #[derive(Properties, Default, Clone)]
+// pub struct Nested {
+//     d: usize,
+// }
 
 fn setup() {
     let mut test = Test {
         a: 1,
         b: "hi".to_string(),
         c: 1.0,
+        // nest: Nested {
+        //     d: 8,
+        // }
     };
 
     test.set_prop_val::<usize>("a", 2);
@@ -72,4 +81,5 @@ fn setup() {
     let round_tripped = String::from_utf8(buf).unwrap();
     println!();
     println!("{}", round_tripped);
+    assert_eq!(ron_string, round_tripped);
 }
