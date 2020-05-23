@@ -1,6 +1,10 @@
-use std::{collections::HashMap, borrow::Cow};
-use crate::{Properties, Property, PropertyIter};
-use serde::{Deserialize, Serialize, ser::SerializeMap, de::{self, MapAccess, Visitor}};
+use crate::{AsProperties, Properties, Property, PropertyIter, PropertyVal};
+use serde::{
+    de::{self, MapAccess, Visitor},
+    ser::SerializeMap,
+    Deserialize, Serialize,
+};
+use std::{any::Any, borrow::Cow, collections::HashMap};
 
 #[derive(Default)]
 pub struct DynamicProperties {
@@ -127,7 +131,7 @@ impl<'a, 'de> Visitor<'de> for PropMapVisiter<'a> {
         let mut type_name: Option<String> = None;
         while let Some(key) = map.next_key::<String>()? {
             if &key == "type" {
-                type_name = Some(map.next_value()?); 
+                type_name = Some(map.next_value()?);
             } else {
                 let prop = map.next_value()?;
                 self.dynamic_properties.set_box(&key, prop);
@@ -151,7 +155,6 @@ impl<'de> Deserialize<'de> for Box<dyn Property> {
 
 struct AnyPropVisiter;
 
-
 impl<'de> Visitor<'de> for AnyPropVisiter {
     type Value = Box<dyn Property>;
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -159,63 +162,87 @@ impl<'de> Visitor<'de> for AnyPropVisiter {
     }
 
     fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v)) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v))
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where E: de::Error {
-       Ok(Box::new(v.to_string())) 
+    where
+        E: de::Error,
+    {
+        Ok(Box::new(v.to_string()))
     }
 
     fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
@@ -223,11 +250,57 @@ impl<'de> Visitor<'de> for AnyPropVisiter {
         V: MapAccess<'de>,
     {
         let mut dynamic_properties = DynamicProperties::default();
-        // while let Some(key) = map.next_key()? {
-        //     let prop = map.next_value()?;
-        //     self.dynamic_properties.set_box(key, prop);
-        // }
-        panic!("aaah");
-        // Ok(Box::new(dynamic_properties))
+        while let Some(key) = map.next_key()? {
+            let prop = map.next_value::<Box<dyn Property>>()?;
+            if key == "type" {
+                dynamic_properties.type_name = prop
+                    .val::<String>()
+                    .map(|s| s.clone())
+                    .ok_or_else(|| de::Error::custom("type must be a string"))?;
+            } else {
+                dynamic_properties.set_box(key, prop);
+            }
+        }
+        Ok(Box::new(dynamic_properties))
+    }
+}
+
+impl Property for DynamicProperties {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.to_dynamic())
+    }
+    #[inline]
+    fn set(&mut self, value: &dyn Property) {
+        if let Some(properties) = value.as_properties() {
+            *self = properties.to_dynamic();
+        } else {
+            panic!("attempted to apply non-Properties type to Properties type");
+        }
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        if let Some(properties) = value.as_properties() {
+            for (name, prop) in properties.iter_props() {
+                self.prop_mut(name).map(|p| p.apply(prop));
+            }
+        } else {
+            panic!("attempted to apply non-Properties type to Properties type");
+        }
+    }
+}
+
+impl AsProperties for DynamicProperties {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        Some(self)
     }
 }

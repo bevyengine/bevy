@@ -126,6 +126,58 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
                 #bevy_property_path::PropertyIter::new(self)
             }
         }
+
+        impl #impl_generics #bevy_property_path::serde::ser::Serialize for #struct_name#ty_generics {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: #bevy_property_path::serde::ser::Serializer,
+            {
+                use #bevy_property_path::serde::ser::SerializeMap;
+                let mut state = serializer.serialize_map(Some(self.prop_len()))?;
+                state.serialize_entry("type", self.type_name())?;
+                for (name, prop) in self.iter_props() {
+                    state.serialize_entry(name, prop)?;
+                }
+                state.end()
+            }
+        }
+
+        impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics {
+            #[inline]
+            fn any(&self) -> &dyn std::any::Any {
+                self
+            }
+            #[inline]
+            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+            #[inline]
+            fn clone_prop(&self) -> Box<dyn #bevy_property_path::Property> {
+                Box::new(self.to_dynamic())
+            }
+            #[inline]
+            fn set(&mut self, value: &dyn #bevy_property_path::Property) {
+                // TODO: type check
+                self.apply(value);
+            }
+
+            #[inline]
+            fn apply(&mut self, value: &dyn #bevy_property_path::Property) {
+                if let Some(properties) = value.as_properties() {
+                    for (name, prop) in properties.iter_props() {
+                        self.prop_mut(name).map(|p| p.apply(prop));
+                    }
+                } else {
+                    panic!("attempted to apply non-Properties type to Properties type");
+                }
+            }
+        }
+
+        impl #impl_generics #bevy_property_path::AsProperties for #struct_name#ty_generics {
+            fn as_properties(&self) -> Option<&dyn #bevy_property_path::Properties> {
+                Some(self)
+            }
+        }
     })
 }
 

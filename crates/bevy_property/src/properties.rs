@@ -17,14 +17,7 @@ pub trait Properties {
             panic!("prop does not exist: {}", name);
         }
     }
-    fn apply(&mut self, props: &dyn Properties) {
-        for (name, prop) in props.iter_props() {
-            self.set_prop(name, prop);
-        }
-    }
     fn to_dynamic(&self) -> DynamicProperties
-    where
-        Self: 'static,
     {
         let mut dynamic_props = DynamicProperties::default();
         for (name, prop) in self.iter_props() {

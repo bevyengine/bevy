@@ -1,14 +1,20 @@
+use crate::Properties;
 use serde::Serialize;
 use std::any::Any;
 
-pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
+pub trait Property: erased_serde::Serialize + Send + Sync + Any + AsProperties + 'static {
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;
     fn clone_prop(&self) -> Box<dyn Property>;
     fn set(&mut self, value: &dyn Property);
+    fn apply(&mut self, value: &dyn Property);
 }
 
 erased_serde::serialize_trait_object!(Property);
+
+pub trait AsProperties {
+    fn as_properties(&self) -> Option<&dyn Properties>;
+}
 
 pub trait PropertyVal {
     fn val<T: 'static>(&self) -> Option<&T>;
@@ -16,12 +22,12 @@ pub trait PropertyVal {
 }
 
 impl PropertyVal for dyn Property {
-    // #[inline]
+    #[inline]
     default fn val<T: 'static>(&self) -> Option<&T> {
         self.any().downcast_ref::<T>()
     }
-    
-    // #[inline]
+
+    #[inline]
     default fn set_val<T: 'static>(&mut self, value: T) {
         if let Some(prop) = self.any_mut().downcast_mut::<T>() {
             *prop = value;
@@ -31,6 +37,17 @@ impl PropertyVal for dyn Property {
     }
 }
 
+// TODO: remove specialization
+impl<T> AsProperties for T
+where
+    T: Clone + Serialize + Send + Sync + Any + 'static,
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+
 impl<T> Property for T
 where
     T: Clone + Serialize + Send + Sync + Any + 'static,
@@ -39,14 +56,17 @@ where
     default fn any(&self) -> &dyn Any {
         self
     }
+
     #[inline]
     default fn any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
     #[inline]
     default fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.clone())
     }
+
     #[inline]
     default fn set(&mut self, value: &dyn Property) {
         if let Some(prop) = value.any().downcast_ref::<T>() {
@@ -54,6 +74,11 @@ where
         } else {
             panic!("prop value is not {}", std::any::type_name::<T>());
         }
+    }
+
+    #[inline]
+    default fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
     }
 }
 
@@ -346,7 +371,6 @@ impl Property for i8 {
         }
     }
 }
-
 
 impl Property for f32 {
     fn set(&mut self, value: &dyn Property) {
