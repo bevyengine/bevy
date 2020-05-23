@@ -9,6 +9,7 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
+    asset_server: Res<AssetServer>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -26,6 +27,8 @@ fn setup(
     let texture = Texture::load(TextureType::Png(
         "assets/branding/bevy_logo_dark_big.png".to_string(),
     ));
+
+    let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     let aspect = texture.aspect();
     let texture_handle = textures.add(texture);
 
@@ -65,6 +68,21 @@ fn setup(
             ),
             material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             ..Default::default()
+        })
+        .add_children(|builder| {
+            builder.add_entity(LabelEntity {
+                node: Node::new(
+                    math::vec2(0.0, 0.0),
+                    Anchors::TOP_LEFT,
+                    Margins::new(10.0, 200.0, 40.0, 10.0),
+                ),
+                label: Label {
+                    text: "Text Label".to_string(),
+                    font: font_handle,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
         })
         // right vertical fill
         .add_entity(UiEntity {

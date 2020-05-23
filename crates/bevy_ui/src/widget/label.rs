@@ -32,12 +32,16 @@ impl Label {
         rect: Com<Rect>,
         color_material_handle: Com<Handle<ColorMaterial>>,
     ) {
+        // ensure the texture is at least 1x1
+        let width = rect.size.x().max(1.0);
+        let height = rect.size.y().max(1.0);
+
         if let Some(font) = fonts.get(&label.font) {
             let texture = font.render_text(
                 &label.text,
                 label.color,
-                rect.size.x() as usize,
-                rect.size.y() as usize,
+                width as usize,
+                height as usize,
             );
 
             let material = color_materials.get_or_insert_with(*color_material_handle, || ColorMaterial::from(Handle::<Texture>::new()));
