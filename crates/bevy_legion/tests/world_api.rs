@@ -247,39 +247,39 @@ fn delete_first() {
 }
 
 #[test]
-fn merge() {
-    let _ = tracing_subscriber::fmt::try_init();
+// fn merge() {
+//     let _ = tracing_subscriber::fmt::try_init();
 
-    let universe = Universe::new();
-    let mut world_1 = universe.create_world();
-    let mut world_2 = universe.create_world();
+//     let universe = Universe::new();
+//     let mut world_1 = universe.create_world();
+//     let mut world_2 = universe.create_world();
 
-    let shared = (Static, Model(5));
-    let components = vec![
-        (Pos(1., 2., 3.), Rot(0.1, 0.2, 0.3)),
-        (Pos(4., 5., 6.), Rot(0.4, 0.5, 0.6)),
-    ];
+//     let shared = (Static, Model(5));
+//     let components = vec![
+//         (Pos(1., 2., 3.), Rot(0.1, 0.2, 0.3)),
+//         (Pos(4., 5., 6.), Rot(0.4, 0.5, 0.6)),
+//     ];
 
-    let mut world_1_entities: Vec<Entity> = Vec::new();
-    for e in world_1.insert(shared, components.clone()) {
-        world_1_entities.push(*e);
-    }
+//     let mut world_1_entities: Vec<Entity> = Vec::new();
+//     for e in world_1.insert(shared, components.clone()) {
+//         world_1_entities.push(*e);
+//     }
 
-    let mut world_2_entities: Vec<Entity> = Vec::new();
-    for e in world_2.insert(shared, components.clone()) {
-        world_2_entities.push(*e);
-    }
+//     let mut world_2_entities: Vec<Entity> = Vec::new();
+//     for e in world_2.insert(shared, components.clone()) {
+//         world_2_entities.push(*e);
+//     }
 
-    world_1.merge(world_2);
+//     world_1.merge(world_2);
 
-    for (i, e) in world_2_entities.iter().enumerate() {
-        assert!(world_1.is_alive(*e));
+//     for (i, e) in world_2_entities.iter().enumerate() {
+//         assert!(world_1.is_alive(*e));
 
-        let (pos, rot) = components.get(i).unwrap();
-        assert_eq!(pos, &world_1.get_component(*e).unwrap() as &Pos);
-        assert_eq!(rot, &world_1.get_component(*e).unwrap() as &Rot);
-    }
-}
+//         let (pos, rot) = components.get(i).unwrap();
+//         assert_eq!(pos, &world_1.get_component(*e).unwrap() as &Pos);
+//         assert_eq!(rot, &world_1.get_component(*e).unwrap() as &Rot);
+//     }
+// }
 
 #[test]
 fn mutate_add_component() {

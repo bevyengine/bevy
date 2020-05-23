@@ -3,7 +3,7 @@ use bevy::{
     property::SerializableProperties,
     scene::{DynamicScene, SceneEntity},
 };
-use serde::ser::Serialize;
+use serde::{de::Deserialize, ser::Serialize};
 
 fn main() {
     App::build()
@@ -44,10 +44,13 @@ fn setup() {
     assert_eq!(test.a, 3);
 
     let ser = SerializableProperties { props: &test };
+    let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
 
-    let mut serializer = ron::ser::Serializer::new(Some(ron::ser::PrettyConfig::default()), false);
+    let mut buf = Vec::new();
+    let mut serializer =
+        ron::ser::Serializer::new(&mut buf, Some(pretty_config.clone()), false).unwrap();
     ser.serialize(&mut serializer).unwrap();
-    let ron_string = serializer.into_output_string();
+    let ron_string = String::from_utf8(buf).unwrap();
     println!("{}", ron_string);
 
     // let dynamic_scene = DynamicScene {
@@ -62,4 +65,11 @@ fn setup() {
     // println!("{}", serializer.into_output_string());
 
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
+    let dynamic_properties = DynamicProperties::deserialize(&mut deserializer).unwrap();
+    let mut buf = Vec::new();
+    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false).unwrap();
+    dynamic_properties.serialize(&mut serializer).unwrap();
+    let round_tripped = String::from_utf8(buf).unwrap();
+    println!();
+    println!("{}", round_tripped);
 }
