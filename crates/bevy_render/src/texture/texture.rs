@@ -110,7 +110,6 @@ impl Texture {
 }
 
 #[derive(Resource)]
-#[module(meta = false)]
 pub struct TextureResourceSystemState {
     event_reader: EventReader<AssetEvent<Texture>>,
 }

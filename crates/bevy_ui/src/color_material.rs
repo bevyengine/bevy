@@ -3,7 +3,6 @@ use bevy_derive::Uniforms;
 use bevy_render::{texture::Texture, Color};
 
 #[derive(Uniforms)]
-#[module(meta = false)]
 pub struct ColorMaterial {
     pub color: Color,
     #[uniform(shader_def)]

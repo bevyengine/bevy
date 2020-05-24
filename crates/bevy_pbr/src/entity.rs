@@ -4,8 +4,8 @@ use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
 use bevy_transform::prelude::{LocalToWorld, Rotation, Scale, Translation};
 
+
 #[derive(EntityArchetype, Default)]
-#[module(meta = false)]
 pub struct MeshEntity {
     // #[tag]
     pub mesh: Handle<Mesh>,
@@ -19,7 +19,6 @@ pub struct MeshEntity {
 }
 
 #[derive(EntityArchetype, Default)]
-#[module(meta = false)]
 pub struct LightEntity {
     pub light: Light,
     pub local_to_world: LocalToWorld,

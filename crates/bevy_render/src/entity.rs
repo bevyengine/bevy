@@ -4,7 +4,6 @@ use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
 
 #[derive(EntityArchetype, Default)]
-#[module(meta = false)]
 pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<T>,
@@ -16,7 +15,6 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
 }
 
 #[derive(EntityArchetype, Default)]
-#[module(meta = false)]
 pub struct CameraEntity {
     pub camera: Camera,
     pub active_camera: ActiveCamera,
@@ -24,7 +22,6 @@ pub struct CameraEntity {
 }
 
 #[derive(EntityArchetype)]
-#[module(meta = false)]
 pub struct Camera2dEntity {
     pub camera: Camera,
     pub active_camera_2d: ActiveCamera2d,

@@ -4,7 +4,6 @@ use glam::Vec2;
 use zerocopy::AsBytes;
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, Uniform, AsBytes)]
-#[module(meta = "false")]
 pub struct Rect {
     pub position: Vec2,
     pub size: Vec2,

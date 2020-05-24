@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
-[features]
-default_bevy_meta = []
-
 [lib]
 proc-macro = true
 
@@ -15,3 +12,4 @@ syn = "1.0"
 proc-macro2 = "1.0"
 quote = "1.0"
 darling = "0.10.2"
+proc-macro-crate = "0.1.4"

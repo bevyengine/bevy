@@ -7,7 +7,6 @@ use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
 
 #[derive(EntityArchetype)]
-#[module(meta = false)]
 pub struct UiEntity {
     pub node: Node,
     pub rect: Rect,
@@ -32,7 +31,6 @@ impl Default for UiEntity {
 }
 
 #[derive(EntityArchetype)]
-#[module(meta = false)]
 pub struct LabelEntity {
     pub node: Node,
     pub rect: Rect,
@@ -60,7 +58,6 @@ impl Default for LabelEntity {
 }
 
 #[derive(EntityArchetype)]
-#[module(meta = false)]
 pub struct SpriteEntity {
     pub sprite: Sprite,
     pub rect: Rect,

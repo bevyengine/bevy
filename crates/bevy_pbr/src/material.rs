@@ -3,7 +3,6 @@ use bevy_derive::Uniforms;
 use bevy_render::{texture::Texture, Color};
 
 #[derive(Uniforms)]
-#[module(meta = false)]
 pub struct StandardMaterial {
     #[uniform(instance)]
     pub albedo: Color,
