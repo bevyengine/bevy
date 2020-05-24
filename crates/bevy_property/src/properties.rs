@@ -1,7 +1,7 @@
 use crate::{DynamicProperties, Property, PropertyVal};
 use serde::{ser::SerializeMap, Serialize};
 
-pub trait Properties {
+pub trait Properties: Property {
     fn type_name(&self) -> &str;
     fn prop(&self, name: &str) -> Option<&dyn Property>;
     fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Property>;
@@ -63,11 +63,11 @@ impl<P> PropertiesVal for P
 where
     P: Properties,
 {
-    // #[inline]
+    #[inline]
     fn prop_val<T: 'static>(&self, name: &str) -> Option<&T> {
         self.prop(name).and_then(|p| p.any().downcast_ref::<T>())
     }
-    // #[inline]
+    #[inline]
     fn set_prop_val<T: 'static>(&mut self, name: &str, value: T) {
         if let Some(prop) = self.prop_mut(name) {
             prop.set_val(value);

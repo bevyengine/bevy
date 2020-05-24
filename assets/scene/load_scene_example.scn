@@ -1,32 +1,26 @@
 [
     (
-        entity: 2309003120,
+        entity: 3072676124,
         components: [
-            (
-                type: "Test",
-                data: (
-                    x: 3,
-                    y: 4,
-                ),
-            ),
-            (
-                type: "Foo",
-                data: (
-                    value: "hi",
-                ),
-            ),
+            {
+                "type": "load_scene::Test",
+                "x": 3.0,
+                "y": 4.0,
+            },
         ],
     ),
     (
-        entity: 4238063392,
+        entity: 3949176536,
         components: [
-            (
-                type: "Test",
-                data: (
-                    x: 3,
-                    y: 4,
-                ),
-            ),
+            {
+                "type": "load_scene::Test",
+                "x": 1.0,
+                "y": 2.0,
+            },
+            {
+                "type": "load_scene::Foo",
+                "value": "hello",
+            },
         ],
     ),
 ]

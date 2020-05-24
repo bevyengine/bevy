@@ -1,9 +1,7 @@
 use bevy::{
     prelude::*,
     property::SerializableProperties,
-    scene::{DynamicScene, SceneEntity},
 };
-use serde::{de::Deserialize, ser::Serialize};
 
 fn main() {
     App::build()
@@ -15,71 +13,53 @@ fn main() {
 #[derive(Properties, Default)]
 pub struct Test {
     a: usize,
-    b: String,
-    c: f32,
-    nest: Nested,
+    nested: Nested,
 }
 
 #[derive(Properties, Default)]
 pub struct Nested {
-    d: usize,
+    b: usize,
 }
 
 fn setup() {
     let mut test = Test {
         a: 1,
-        b: "hi".to_string(),
-        c: 1.0,
-        nest: Nested {
-            d: 8,
+        nested: Nested {
+            b: 8,
         }
     };
 
+    // You can set a property value like this. The type must match exactly or this will fail.
     test.set_prop_val::<usize>("a", 2);
     assert_eq!(test.a, 2);
+
+    // You can also set properties dynamically. set_prop accepts any type that implements Property
     let x: u32 = 3;
     test.set_prop("a", &x);
     assert_eq!(test.a, 3);
 
-    test.set_prop_val::<f32>("c", 2.0);
-    let x: f64 = 3.0;
-    test.set_prop("c", &x);
-    assert_eq!(test.c, 3.0);
-
+    // DynamicProperties also implements the Properties trait.
     let mut patch = DynamicProperties::default();
-    patch.set::<usize>("a", 3);
+    patch.set::<usize>("a", 4);
+
+    // You can "apply" Properties on top of other Properties. This will only set properties with the same name and type.
+    // You can use this to "patch" your components with new values.
     test.apply(&patch);
+    assert_eq!(test.a, 4);
 
-    assert_eq!(test.a, 3);
-
+    // Properties implement the serde Serialize trait. You don't need to derive it yourself! 
     let ser = SerializableProperties { props: &test };
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
 
-    let mut buf = Vec::new();
-    let mut serializer =
-        ron::ser::Serializer::new(&mut buf, Some(pretty_config.clone()), false).unwrap();
-    ser.serialize(&mut serializer).unwrap();
-    let ron_string = String::from_utf8(buf).unwrap();
-    println!("{}", ron_string);
+    let ron_string = ron::ser::to_string_pretty(&ser, pretty_config.clone()).unwrap();
+    println!("{}\n", ron_string);
 
-    // let dynamic_scene = DynamicScene {
-    //     entities: vec![SceneEntity {
-    //         entity: 12345,
-    //         components: vec![patch],
-    //     }],
-    // };
-
-    // let mut serializer = ron::ser::Serializer::new(Some(ron::ser::PrettyConfig::default()), false);
-    // dynamic_scene.entities.serialize(&mut serializer).unwrap();
-    // println!("{}", serializer.into_output_string());
-
-    let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
-    let dynamic_properties = DynamicProperties::deserialize(&mut deserializer).unwrap();
-    let mut buf = Vec::new();
-    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false).unwrap();
-    dynamic_properties.serialize(&mut serializer).unwrap();
-    let round_tripped = String::from_utf8(buf).unwrap();
-    println!();
+    // Dynamic properties can be deserialized
+    let dynamic_properties = ron::from_str::<DynamicProperties>(&ron_string).unwrap();
+    let round_tripped = ron::ser::to_string_pretty(&dynamic_properties, pretty_config).unwrap();
     println!("{}", round_tripped);
     assert_eq!(ron_string, round_tripped);
+
+    // This means you can patch Properties with dynamic properties deserialized from a string
+    test.apply(&dynamic_properties);
 }

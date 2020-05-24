@@ -1,7 +1,5 @@
 mod component_registry;
 mod scene;
-mod serde;
-pub use crate::serde::*;
 pub use component_registry::*;
 pub use scene::*;
 
