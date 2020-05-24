@@ -1,5 +1,4 @@
 use crate::{DynamicProperties, Property, PropertyVal};
-use serde::{ser::SerializeMap, Serialize};
 
 pub trait Properties: Property {
     fn type_name(&self) -> &str;
@@ -74,23 +73,5 @@ where
         } else {
             panic!("prop does not exist or is incorrect type: {}", name);
         }
-    }
-}
-
-pub struct SerializableProperties<'a> {
-    pub props: &'a dyn Properties,
-}
-
-impl<'a> Serialize for SerializableProperties<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_map(Some(self.props.prop_len()))?;
-        state.serialize_entry("type", self.props.type_name())?;
-        for (name, prop) in self.props.iter_props() {
-            state.serialize_entry(name, prop)?;
-        }
-        state.end()
     }
 }

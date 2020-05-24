@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    property::SerializableProperties,
-};
+use bevy::prelude::*;
 
 fn main() {
     App::build()
@@ -24,9 +21,7 @@ pub struct Nested {
 fn setup() {
     let mut test = Test {
         a: 1,
-        nested: Nested {
-            b: 8,
-        }
+        nested: Nested { b: 8 },
     };
 
     // You can set a property value like this. The type must match exactly or this will fail.
@@ -47,11 +42,10 @@ fn setup() {
     test.apply(&patch);
     assert_eq!(test.a, 4);
 
-    // Properties implement the serde Serialize trait. You don't need to derive it yourself! 
-    let ser = SerializableProperties { props: &test };
+    // Properties implement the serde Serialize trait. You don't need to derive it yourself!
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
 
-    let ron_string = ron::ser::to_string_pretty(&ser, pretty_config.clone()).unwrap();
+    let ron_string = ron::ser::to_string_pretty(&test, pretty_config.clone()).unwrap();
     println!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
