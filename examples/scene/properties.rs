@@ -17,7 +17,7 @@ fn main() {
 #[derive(Properties, Default)]
 pub struct Test {
     a: usize,
-    hi: CustomProperty,
+    custom: CustomProperty,
     nested: Nested,
 }
 
@@ -63,7 +63,7 @@ impl AsProperties for CustomProperty {
 fn setup(property_type_registry: Res<PropertyTypeRegistryContext>) {
     let mut test = Test {
         a: 1,
-        hi: CustomProperty { a: 10 },
+        custom: CustomProperty { a: 10 },
         nested: Nested { b: 8 },
     };
 

@@ -6,7 +6,7 @@ use darling::FromMeta;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Member, Index};
 
 #[derive(FromMeta, Debug, Default)]
 struct PropAttributeArgs {
@@ -24,11 +24,16 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fields: Fields::Named(fields),
             ..
         }) => &fields.named,
+        Data::Struct(DataStruct {
+            fields: Fields::Unnamed(fields),
+            ..
+        }) => &fields.unnamed,
         _ => panic!("expected a struct with named fields"),
     };
     let fields_and_args = fields
         .iter()
-        .map(|f| {
+        .enumerate()
+        .map(|(i, f)| {
             (
                 f,
                 f.attrs
@@ -40,31 +45,32 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                         PropAttributeArgs::from_meta(&a.parse_meta().unwrap())
                             .unwrap_or_else(|_err| PropAttributeArgs::default())
                     }),
+                i
             )
         })
-        .collect::<Vec<(&Field, Option<PropAttributeArgs>)>>();
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
     let active_fields = fields_and_args
         .iter()
-        .filter(|(_field, attrs)| {
+        .filter(|(_field, attrs, i)| {
             attrs.is_none()
                 || match attrs.as_ref().unwrap().ignore {
                     Some(ignore) => !ignore,
                     None => true,
                 }
         })
-        .map(|(f, _attr)| *f)
-        .collect::<Vec<&Field>>();
+        .map(|(f, _attr, i)| (*f, *i))
+        .collect::<Vec<(&Field, usize)>>();
 
     let modules = get_modules(&ast);
     let bevy_property_path = get_path(&modules.bevy_property);
 
     let field_names = active_fields
         .iter()
-        .map(|field| field.ident.as_ref().unwrap().to_string())
+        .map(|(field, index)| field.ident.as_ref().map(|i| i.to_string()).unwrap_or_else(|| index.to_string()))
         .collect::<Vec<String>>();
     let field_idents = active_fields
         .iter()
-        .map(|field| field.ident.as_ref().unwrap())
+        .map(|(field, index)| field.ident.as_ref().map(|ident| Member::Named(ident.clone())).unwrap_or_else(|| Member::Unnamed(Index::from(*index))))
         .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
