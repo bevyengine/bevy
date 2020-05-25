@@ -11,7 +11,6 @@ bevy_component_registry = { path = "../bevy_component_registry" }
 bevy_property = { path = "../bevy_property" }
 legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"]}
-erased-serde = "0.3"
 ron = { path = "../ron" }
 anyhow = "1.0"
 thiserror = "1.0"
