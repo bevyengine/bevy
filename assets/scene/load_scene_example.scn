@@ -1,5 +1,4 @@
 [
-
     Entity(
         id: 1401014920,
         components: [
@@ -8,7 +7,8 @@
                 "type": "load_scene::Test",
                 "x": 3.0,
                 "y": 4.0,
-            },        ],
+            },
+        ],
     ),
     Entity(
         id: 99763910,
@@ -26,5 +26,7 @@
             {
                 "type": "load_scene::Foo",
                 "value": "hello",
-            },        ],
-    ),]
+            },
+        ],
+    ),
+]
