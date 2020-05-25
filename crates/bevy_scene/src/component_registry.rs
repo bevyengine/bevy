@@ -1,13 +1,19 @@
 use bevy_app::AppBuilder;
-use bevy_property::{Properties, Property};
+use bevy_property::{Properties, Property, PropertyTypeRegistry};
 use legion::{
     prelude::{Entity, World},
-    storage::{Component, ComponentTypeId, ComponentResourceSet},
+    storage::{Component, ComponentResourceSet, ComponentTypeId},
 };
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+
+#[derive(Clone, Default)]
+pub struct PropertyTypeRegistryContext {
+    pub value: Arc<RwLock<PropertyTypeRegistry>>,
+}
 
 #[derive(Default)]
 pub struct ComponentRegistryContext {
@@ -69,9 +75,10 @@ impl ComponentRegistration {
                 component.apply(property);
                 world.add_component(entity, component).unwrap();
             },
-            component_properties_fn: |component_resource_set: &ComponentResourceSet, index: usize| {
+            component_properties_fn: |component_resource_set: &ComponentResourceSet,
+                                      index: usize| {
                 // the type has been looked up by the caller, so this is safe
-               unsafe { &component_resource_set.data_slice::<T>()[index] }
+                unsafe { &component_resource_set.data_slice::<T>()[index] }
             },
             short_name: ty.0.split("::").last().unwrap(),
         }
@@ -82,6 +89,9 @@ pub trait RegisterComponent {
     fn register_component<T>(&mut self) -> &mut Self
     where
         T: Properties + Component + Default;
+    fn register_property_type<T>(&mut self) -> &mut Self
+    where
+        T: Property + for<'de> Deserialize<'de>;
 }
 
 impl RegisterComponent for AppBuilder {
@@ -93,6 +103,20 @@ impl RegisterComponent for AppBuilder {
             let registry_context = self
                 .resources()
                 .get_mut::<ComponentRegistryContext>()
+                .unwrap();
+            registry_context.value.write().unwrap().register::<T>();
+        }
+        self
+    }
+
+    fn register_property_type<T>(&mut self) -> &mut Self
+    where
+        T: Property + for<'de> Deserialize<'de>,
+    {
+        {
+            let registry_context = self
+                .resources()
+                .get_mut::<PropertyTypeRegistryContext>()
                 .unwrap();
             registry_context.value.write().unwrap().register::<T>();
         }

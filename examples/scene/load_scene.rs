@@ -69,5 +69,4 @@ fn serialize_scene(world: &mut World, resources: &mut Resources) {
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
     let ron_string = ron::ser::to_string_pretty(&scene, pretty_config).unwrap();
     println!("{}", ron_string);
-    
 }

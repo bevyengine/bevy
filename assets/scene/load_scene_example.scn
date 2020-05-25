@@ -1,6 +1,6 @@
 [
     (
-        entity: 3072676124,
+        entity: 1279729879,
         components: [
             {
                 "type": "load_scene::Test",
@@ -10,7 +10,7 @@
         ],
     ),
     (
-        entity: 3949176536,
+        entity: 1639302665,
         components: [
             {
                 "type": "load_scene::Test",

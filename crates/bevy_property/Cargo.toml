@@ -10,3 +10,4 @@ edition = "2018"
 serde = "1"
 erased-serde = "0.3"
 bevy_property_derive = { path = "bevy_property_derive" }
+ron = { path = "../ron" }

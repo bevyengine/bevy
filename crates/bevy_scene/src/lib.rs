@@ -11,7 +11,8 @@ pub struct ComponentRegistryPlugin;
 
 impl AppPlugin for ComponentRegistryPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_resource::<ComponentRegistryContext>();
+        app.init_resource::<ComponentRegistryContext>()
+            .init_resource::<PropertyTypeRegistryContext>();
     }
 }
 

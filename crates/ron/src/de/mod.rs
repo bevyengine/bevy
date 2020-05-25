@@ -23,6 +23,7 @@ mod value;
 /// you can use the `from_str` convenience function.
 pub struct Deserializer<'de> {
     bytes: Bytes<'de>,
+    type_callback: Option<&'de mut dyn FnMut(&Option<&[u8]>)>,
 }
 
 impl<'de> Deserializer<'de> {
@@ -35,11 +36,16 @@ impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Result<Self> {
         Ok(Deserializer {
             bytes: Bytes::new(input)?,
+            type_callback: None,
         })
     }
 
     pub fn remainder(&self) -> Cow<'_, str> {
         String::from_utf8_lossy(&self.bytes.bytes())
+    }
+
+    pub fn set_callback(&mut self, callback: &'de mut dyn FnMut(&Option<&[u8]>)) {
+        self.type_callback = Some(callback);
     }
 }
 
@@ -578,12 +584,20 @@ impl<'de, 'a> de::MapAccess<'de> for CommaSeparated<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         if self.has_element()? {
-            if self.terminator == b')' {
+            let result = if self.terminator == b')' {
                 seed.deserialize(&mut IdDeserializer::new(&mut *self.de))
                     .map(Some)
             } else {
                 seed.deserialize(&mut *self.de).map(Some)
+            };
+            if let Some(ref mut callback) = self.de.type_callback {
+                let mut fast_forward_bytes = self.de.bytes.clone();
+                fast_forward_bytes.skip_ws()?;
+                fast_forward_bytes.consume(":");
+                fast_forward_bytes.skip_ws()?;
+                callback(&fast_forward_bytes.identifier().ok());
             }
+            result
         } else {
             Ok(None)
         }

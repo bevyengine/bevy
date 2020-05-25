@@ -315,7 +315,7 @@ impl<'a> Bytes<'a> {
         self.test_for(ident) && !self.check_ident_char(ident.len())
     }
 
-    fn check_ident_char(&self, index: usize) -> bool {
+    pub fn check_ident_char(&self, index: usize) -> bool {
         self.bytes
             .get(index)
             .map_or(false, |b| IDENT_CHAR.contains(b))
