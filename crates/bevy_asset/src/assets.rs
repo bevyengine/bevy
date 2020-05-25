@@ -10,13 +10,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub enum AssetEvent<T> {
+pub enum AssetEvent<T: 'static> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
     Removed { handle: Handle<T> },
 }
 
-pub struct Assets<T> {
+pub struct Assets<T: 'static> {
     assets: HashMap<Handle<T>, T>,
     paths: HashMap<PathBuf, Handle<T>>,
     events: Events<AssetEvent<T>>,

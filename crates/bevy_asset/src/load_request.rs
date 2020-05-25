@@ -20,6 +20,7 @@ pub trait AssetLoadRequestHandler: Send + Sync + 'static {
 pub struct ChannelAssetHandler<TLoader, TAsset>
 where
     TLoader: AssetLoader<TAsset>,
+    TAsset: 'static,
 {
     sender: Sender<AssetResult<TAsset>>,
     loader: TLoader,

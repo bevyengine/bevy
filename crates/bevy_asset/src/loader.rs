@@ -30,13 +30,13 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
     }
 }
 
-pub struct AssetResult<T> {
+pub struct AssetResult<T: 'static> {
     pub result: Result<T, AssetLoadError>,
     pub handle: Handle<T>,
     pub path: PathBuf,
 }
 
-pub struct AssetChannel<T> {
+pub struct AssetChannel<T: 'static> {
     pub sender: Sender<AssetResult<T>>,
     pub receiver: Receiver<AssetResult<T>>,
 }

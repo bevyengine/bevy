@@ -1,5 +1,3 @@
-#![feature(min_specialization)]
-
 mod property;
 mod properties;
 mod dynamic_properties;

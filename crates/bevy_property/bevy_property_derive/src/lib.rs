@@ -2,10 +2,19 @@ extern crate proc_macro;
 
 mod modules;
 
+use darling::FromMeta;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields};
+
+#[derive(FromMeta, Debug, Default)]
+struct PropAttributeArgs {
+    #[darling(default)]
+    pub ignore: Option<bool>,
+}
+
+static PROP_ATTRIBUTE_NAME: &str = "prop";
 
 #[proc_macro_derive(Properties, attributes(prop, module))]
 pub fn derive_properties(input: TokenStream) -> TokenStream {
@@ -17,19 +26,47 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
         }) => &fields.named,
         _ => panic!("expected a struct with named fields"),
     };
+    let fields_and_args = fields
+        .iter()
+        .map(|f| {
+            (
+                f,
+                f.attrs
+                    .iter()
+                    .find(|a| {
+                        a.path.get_ident().as_ref().unwrap().to_string() == PROP_ATTRIBUTE_NAME
+                    })
+                    .map(|a| {
+                        PropAttributeArgs::from_meta(&a.parse_meta().unwrap())
+                            .unwrap_or_else(|_err| PropAttributeArgs::default())
+                    }),
+            )
+        })
+        .collect::<Vec<(&Field, Option<PropAttributeArgs>)>>();
+    let active_fields = fields_and_args
+        .iter()
+        .filter(|(_field, attrs)| {
+            attrs.is_none()
+                || match attrs.as_ref().unwrap().ignore {
+                    Some(ignore) => !ignore,
+                    None => true,
+                }
+        })
+        .map(|(f, _attr)| *f)
+        .collect::<Vec<&Field>>();
 
     let modules = get_modules(&ast);
     let bevy_property_path = get_path(&modules.bevy_property);
 
-    let field_names = fields
+    let field_names = active_fields
         .iter()
         .map(|field| field.ident.as_ref().unwrap().to_string())
         .collect::<Vec<String>>();
-    let field_idents = fields
+    let field_idents = active_fields
         .iter()
         .map(|field| field.ident.as_ref().unwrap())
         .collect::<Vec<_>>();
-    let field_count = fields.len();
+    let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
     let generics = ast.generics;

@@ -4,9 +4,11 @@ use std::{
 };
 
 use std::{any::TypeId, marker::PhantomData};
+use serde::{Serialize, Deserialize};
 use uuid::Uuid;
+use bevy_property::{Properties, Property, AsProperties};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct HandleId(pub Uuid);
 pub const DEFAULT_HANDLE_ID: HandleId =
     HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
@@ -17,8 +19,40 @@ impl HandleId {
     }
 }
 
-pub struct Handle<T> {
+impl Property for HandleId {
+    fn any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = *prop;
+        } else {
+            panic!("prop value is not {}", std::any::type_name::<Self>());
+        }
+    }
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+}
+
+impl AsProperties for HandleId {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+    
+}
+
+#[derive(Properties)]
+pub struct Handle<T> where T: 'static {
     pub id: HandleId,
+    #[prop(ignore)]
     marker: PhantomData<T>,
 }
 
@@ -136,6 +170,10 @@ impl<T> Clone for Handle<T> {
     }
 }
 impl<T> Copy for Handle<T> {}
+
+// SAFE: T is phantom data and Handle::id is an integer
+unsafe impl<T> Send for Handle<T> {}
+unsafe impl<T> Sync for Handle<T> {}
 
 #[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct HandleUntyped {

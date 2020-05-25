@@ -1,5 +1,4 @@
 use crate::Properties;
-use serde::Serialize;
 use std::any::Any;
 
 pub trait Property: erased_serde::Serialize + Send + Sync + Any + AsProperties + 'static {
@@ -23,12 +22,12 @@ pub trait PropertyVal {
 
 impl PropertyVal for dyn Property {
     #[inline]
-    default fn val<T: 'static>(&self) -> Option<&T> {
+    fn val<T: 'static>(&self) -> Option<&T> {
         self.any().downcast_ref::<T>()
     }
 
     #[inline]
-    default fn set_val<T: 'static>(&mut self, value: T) {
+    fn set_val<T: 'static>(&mut self, value: T) {
         if let Some(prop) = self.any_mut().downcast_mut::<T>() {
             *prop = value;
         } else {
@@ -37,81 +36,83 @@ impl PropertyVal for dyn Property {
     }
 }
 
-// TODO: remove specialization
-impl<T> AsProperties for T
-where
-    T: Clone + Serialize + Send + Sync + Any + 'static,
+impl Property for usize {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = *prop;
+        } else if let Some(prop) = value.downcast_ref::<u64>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<u32>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<u16>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<u8>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<isize>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<i64>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<i32>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<i16>() {
+            *self = *prop as Self;
+        } else if let Some(prop) = value.downcast_ref::<i8>() {
+            *self = *prop as Self;
+        } else {
+            panic!("prop value is not {}", std::any::type_name::<Self>());
+        }
+    }
+}
+
+impl AsProperties for usize
 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
 }
 
-
-impl<T> Property for T
-where
-    T: Clone + Serialize + Send + Sync + Any + 'static,
-{
+impl Property for u64 {
     #[inline]
-    default fn any(&self) -> &dyn Any {
+    fn any(&self) -> &dyn Any {
         self
     }
 
     #[inline]
-    default fn any_mut(&mut self) -> &mut dyn Any {
+    fn any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
     #[inline]
-    default fn clone_prop(&self) -> Box<dyn Property> {
+    fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.clone())
     }
 
     #[inline]
-    default fn set(&mut self, value: &dyn Property) {
-        if let Some(prop) = value.any().downcast_ref::<T>() {
-            *self = prop.clone();
-        } else {
-            panic!("prop value is not {}", std::any::type_name::<T>());
-        }
-    }
-
-    #[inline]
-    default fn apply(&mut self, value: &dyn Property) {
+    fn apply(&mut self, value: &dyn Property) {
         self.set(value);
     }
-}
 
-impl Property for usize {
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
-        if let Some(prop) = value.downcast_ref::<Self>() {
-            *self = *prop;
-        } else if let Some(prop) = value.downcast_ref::<u64>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<u32>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<u16>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<u8>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<isize>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<i64>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<i32>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<i16>() {
-            *self = *prop as Self;
-        } else if let Some(prop) = value.downcast_ref::<i8>() {
-            *self = *prop as Self;
-        } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
-        }
-    }
-}
-
-impl Property for u64 {
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -137,10 +138,37 @@ impl Property for u64 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for u64
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for u32 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -166,10 +194,37 @@ impl Property for u32 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for u32
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for u16 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -195,10 +250,37 @@ impl Property for u16 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for u16
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for u8 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -224,10 +306,37 @@ impl Property for u8 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for u8
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for isize {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -253,10 +362,37 @@ impl Property for isize {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for isize
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for i64 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -282,10 +418,37 @@ impl Property for i64 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for i64
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for i32 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -311,10 +474,37 @@ impl Property for i32 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for i32
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }
 
 impl Property for i16 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -343,7 +533,34 @@ impl Property for i16 {
     }
 }
 
+impl AsProperties for i16
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
 impl Property for i8 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -372,7 +589,34 @@ impl Property for i8 {
     }
 }
 
+impl AsProperties for i8
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
 impl Property for f32 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -385,7 +629,34 @@ impl Property for f32 {
     }
 }
 
+impl AsProperties for f32
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
 impl Property for f64 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
     fn set(&mut self, value: &dyn Property) {
         let value = value.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
@@ -395,5 +666,48 @@ impl Property for f64 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+}
+
+impl AsProperties for f64
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl Property for String {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl AsProperties for String
+{
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
     }
 }

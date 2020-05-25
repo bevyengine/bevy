@@ -1,26 +1,30 @@
 [
-    (
-        entity: 1279729879,
+
+    Entity(
+        id: 1401014920,
         components: [
+
             {
                 "type": "load_scene::Test",
                 "x": 3.0,
                 "y": 4.0,
-            },
-        ],
+            },        ],
     ),
-    (
-        entity: 1639302665,
+    Entity(
+        id: 99763910,
         components: [
+
             {
                 "type": "load_scene::Test",
                 "x": 1.0,
                 "y": 2.0,
             },
             {
+                "type": "bevy_asset::handle::Handle<bevy_render::mesh::Mesh>",
+                "id": HandleId("edcdd23f-5be5-4dbf-9a6e-9f46b2185570"),
+            },
+            {
                 "type": "load_scene::Foo",
                 "value": "hello",
-            },
-        ],
-    ),
-]
+            },        ],
+    ),]

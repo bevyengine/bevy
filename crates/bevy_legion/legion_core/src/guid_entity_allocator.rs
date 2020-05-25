@@ -1,11 +1,11 @@
 use crate::entity::Entity;
 use parking_lot::RwLock;
-use std::{collections::HashSet, num::Wrapping, sync::Arc};
+use std::{collections::{VecDeque, HashSet}, num::Wrapping, sync::Arc};
 
 #[derive(Default, Debug, Clone)]
 pub struct GuidEntityAllocator {
     entities: Arc<RwLock<HashSet<Entity>>>,
-    next_ids: Arc<RwLock<Vec<Entity>>>,
+    next_ids: Arc<RwLock<VecDeque<Entity>>>,
 }
 
 impl GuidEntityAllocator {
@@ -18,7 +18,7 @@ impl GuidEntityAllocator {
     /// Allocates a new unused `Entity` ID.
     pub fn create_entity(&self) -> Entity {
         let entity = if !self.next_ids.read().is_empty() {
-            self.next_ids.write().pop().unwrap()
+            self.next_ids.write().pop_front().unwrap()
         } else {
             Entity::new(rand::random::<u32>(), Wrapping(1))
         };

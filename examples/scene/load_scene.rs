@@ -1,14 +1,18 @@
 use bevy::prelude::*;
 use bevy_scene::ComponentRegistryContext;
 use serde::Serialize;
+use bevy_asset::HandleId;
 
 fn main() {
     App::build()
         .add_default_plugins()
         // Registering components informs Bevy that they exist. This allows them to be used when loading scenes
         // This step is only required if you want to load your components from scene files.
+        // In the future registered components will also be usable from the Bevy editor.
         .register_component::<Test>()
         .register_component::<Foo>()
+        .register_component::<Handle<Mesh>>()
+        .register_property_type::<HandleId>()
         .add_startup_system(load_scene)
         // .add_startup_system(serialize_scene)
         .run();
@@ -23,16 +27,6 @@ struct Test {
 #[derive(Properties, Default)]
 struct Foo {
     pub value: String,
-}
-
-#[derive(Serialize)]
-struct Ahh {
-    pub x: Vec<A>,
-}
-
-#[derive(Serialize)]
-struct A {
-    pub x: f32,
 }
 
 fn load_scene(world: &mut World, resources: &mut Resources) {
@@ -56,6 +50,7 @@ fn serialize_scene(world: &mut World, resources: &mut Resources) {
             x: 1.0,
             y: 2.0,
         })
+        .add(Handle::<Mesh>::new())
         .add(Foo {
             value: "hello".to_string()
         })
@@ -67,6 +62,9 @@ fn serialize_scene(world: &mut World, resources: &mut Resources) {
     
     let scene = Scene::from_world(world, &component_registry.value.read().unwrap());
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
-    let ron_string = ron::ser::to_string_pretty(&scene, pretty_config).unwrap();
+    let mut buf = Vec::new();
+    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true).unwrap();
+    scene.serialize(&mut serializer).unwrap();
+    let ron_string = String::from_utf8(buf).unwrap();
     println!("{}", ron_string);
 }

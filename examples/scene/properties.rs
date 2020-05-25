@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_property::ron::deserialize_dynamic_properties;
+use bevy_property::{AsProperties, ron::deserialize_dynamic_properties};
 use bevy_scene::PropertyTypeRegistryContext;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +27,35 @@ pub struct Nested {
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub struct CustomProperty {
     a: usize,
+}
+
+impl Property for CustomProperty {
+    fn any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        } else {
+            panic!("prop value is not {}", std::any::type_name::<Self>());
+        }
+    }
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+}
+
+impl AsProperties for CustomProperty {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
 }
 
 fn setup(property_type_registry: Res<PropertyTypeRegistryContext>) {
