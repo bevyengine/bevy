@@ -1,5 +1,10 @@
 use crate::Properties;
-use std::any::Any;
+use serde::Serialize;
+use std::{
+    any::Any,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    hash::Hash,
+};
 
 pub trait Property: erased_serde::Serialize + Send + Sync + Any + AsProperties + 'static {
     fn any(&self) -> &dyn Any;
@@ -85,8 +90,7 @@ impl Property for usize {
     }
 }
 
-impl AsProperties for usize
-{
+impl AsProperties for usize {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -141,8 +145,7 @@ impl Property for u64 {
     }
 }
 
-impl AsProperties for u64
-{
+impl AsProperties for u64 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -197,8 +200,7 @@ impl Property for u32 {
     }
 }
 
-impl AsProperties for u32
-{
+impl AsProperties for u32 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -253,8 +255,7 @@ impl Property for u16 {
     }
 }
 
-impl AsProperties for u16
-{
+impl AsProperties for u16 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -309,8 +310,7 @@ impl Property for u8 {
     }
 }
 
-impl AsProperties for u8
-{
+impl AsProperties for u8 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -365,8 +365,7 @@ impl Property for isize {
     }
 }
 
-impl AsProperties for isize
-{
+impl AsProperties for isize {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -421,8 +420,7 @@ impl Property for i64 {
     }
 }
 
-impl AsProperties for i64
-{
+impl AsProperties for i64 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -477,8 +475,7 @@ impl Property for i32 {
     }
 }
 
-impl AsProperties for i32
-{
+impl AsProperties for i32 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -533,8 +530,7 @@ impl Property for i16 {
     }
 }
 
-impl AsProperties for i16
-{
+impl AsProperties for i16 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -589,8 +585,7 @@ impl Property for i8 {
     }
 }
 
-impl AsProperties for i8
-{
+impl AsProperties for i8 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -629,8 +624,7 @@ impl Property for f32 {
     }
 }
 
-impl AsProperties for f32
-{
+impl AsProperties for f32 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -669,8 +663,7 @@ impl Property for f64 {
     }
 }
 
-impl AsProperties for f64
-{
+impl AsProperties for f64 {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
@@ -705,8 +698,234 @@ impl Property for String {
     }
 }
 
-impl AsProperties for String
+impl AsProperties for String {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl Property for bool {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl AsProperties for bool {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl<T> Property for Vec<T>
+where
+    T: Clone + Send + Sync + Serialize + 'static,
 {
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl<T> AsProperties for Vec<T> {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl<T> Property for VecDeque<T>
+where
+    T: Clone + Send + Sync + Serialize + 'static,
+{
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl<T> AsProperties for VecDeque<T> {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl<K> Property for HashSet<K>
+where
+    K: Clone + Eq + Send + Sync + Hash + Serialize + 'static,
+{
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl<K> AsProperties for HashSet<K> {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl<K, V> Property for HashMap<K, V>
+where
+    K: Clone + Eq + Send + Sync + Hash + Serialize + 'static,
+    V: Clone + Send + Sync + Serialize + 'static,
+{
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl<K, V> AsProperties for HashMap<K, V> {
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
+}
+
+impl<K, V> Property for BTreeMap<K, V>
+where
+    K: Clone + Ord + Send + Sync + Serialize + 'static,
+    V: Clone + Send + Sync + Serialize + 'static,
+{
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        }
+    }
+}
+
+impl<K, V> AsProperties for BTreeMap<K, V> {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
