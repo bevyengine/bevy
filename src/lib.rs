@@ -49,6 +49,8 @@ pub use legion;
 
 #[cfg(feature = "asset")]
 pub use bevy_asset as asset;
+#[cfg(feature = "component_registry")]
+pub use bevy_component_registry as component_registry;
 #[cfg(feature = "core")]
 pub use bevy_core as core;
 #[cfg(feature = "derive")]

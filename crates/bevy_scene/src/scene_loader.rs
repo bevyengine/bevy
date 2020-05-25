@@ -1,7 +1,8 @@
-use crate::{serde::SceneDeserializer, PropertyTypeRegistryContext, Scene};
+use crate::{serde::SceneDeserializer, Scene};
 use anyhow::Result;
 use bevy_app::FromResources;
 use bevy_asset::AssetLoader;
+use bevy_component_registry::PropertyTypeRegistryContext;
 use legion::prelude::Resources;
 use serde::de::DeserializeSeed;
 use std::{cell::RefCell, path::Path, rc::Rc};

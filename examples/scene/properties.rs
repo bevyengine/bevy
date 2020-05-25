@@ -1,6 +1,8 @@
-use bevy::prelude::*;
-use bevy_property::{AsProperties, ron::deserialize_dynamic_properties};
-use bevy_scene::PropertyTypeRegistryContext;
+use bevy::{
+    component_registry::PropertyTypeRegistryContext,
+    prelude::*,
+    property::{ron::deserialize_dynamic_properties, AsProperties},
+};
 use serde::{Deserialize, Serialize};
 
 fn main() {

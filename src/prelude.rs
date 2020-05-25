@@ -1,5 +1,7 @@
 #[cfg(feature = "asset")]
 pub use crate::asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+#[cfg(feature = "component_registry")]
+pub use crate::component_registry::RegisterComponent;
 #[cfg(feature = "core")]
 pub use crate::core::{
     time::Time,
@@ -12,7 +14,7 @@ pub use crate::diagnostic::DiagnosticsPlugin;
 #[cfg(feature = "pbr")]
 pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
 #[cfg(feature = "property")]
-pub use crate::property::{Property, Properties, PropertyVal, PropertiesVal, DynamicProperties};
+pub use crate::property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal};
 #[cfg(feature = "render")]
 pub use crate::render::{
     draw_target,
@@ -32,13 +34,15 @@ pub use crate::render::{
     ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
 };
 #[cfg(feature = "scene")]
-pub use crate::scene::{Scene, RegisterComponent};
+pub use crate::scene::Scene;
 #[cfg(feature = "text")]
 pub use crate::text::Font;
 #[cfg(feature = "transform")]
 pub use crate::transform::prelude::*;
 #[cfg(feature = "ui")]
-pub use crate::ui::{entity::*, Anchors, ColorMaterial, Margins, Node, Rect, Sprite, widget::Label};
+pub use crate::ui::{
+    entity::*, widget::Label, Anchors, ColorMaterial, Margins, Node, Rect, Sprite,
+};
 #[cfg(feature = "window")]
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{

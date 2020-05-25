@@ -1,5 +1,5 @@
-use crate::ComponentRegistry;
 use anyhow::Result;
+use bevy_component_registry::ComponentRegistry;
 use bevy_property::DynamicProperties;
 use legion::prelude::World;
 use serde::Serialize;

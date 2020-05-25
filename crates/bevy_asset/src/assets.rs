@@ -3,6 +3,7 @@ use crate::{
     Handle, HandleId,
 };
 use bevy_app::{AppBuilder, Events, FromResources};
+use bevy_component_registry::RegisterComponent;
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 use std::{
@@ -146,6 +147,7 @@ impl AddAsset for AppBuilder {
         T: Send + Sync + 'static,
     {
         self.init_resource::<Assets<T>>()
+            .register_component::<Handle<T>>()
             .add_system_to_stage(
                 super::stage::ASSET_EVENTS,
                 Assets::<T>::asset_event_system.system(),
@@ -175,7 +177,10 @@ impl AddAsset for AppBuilder {
                 .get_mut::<AssetServer>()
                 .expect("AssetServer does not exist. Consider adding it as a resource.");
             asset_server.add_loader(TLoader::from_resources(self.resources()));
-            let handler = ChannelAssetHandler::new(TLoader::from_resources(self.resources()), asset_channel.sender.clone());
+            let handler = ChannelAssetHandler::new(
+                TLoader::from_resources(self.resources()),
+                asset_channel.sender.clone(),
+            );
             asset_server.add_handler(handler);
         }
         self

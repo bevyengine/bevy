@@ -13,7 +13,7 @@ impl AddDefaultPlugins for AppBuilder {
         self.add_plugin(bevy_diagnostic::DiagnosticsPlugin::default());
 
         #[cfg(feature = "scene")]
-        self.add_plugin(bevy_scene::ComponentRegistryPlugin::default());
+        self.add_plugin(bevy_component_registry::ComponentRegistryPlugin::default());
 
         #[cfg(feature = "input")]
         self.add_plugin(bevy_input::InputPlugin::default());

@@ -1,7 +1,5 @@
-use bevy::prelude::*;
-use bevy_scene::ComponentRegistryContext;
+use bevy::{component_registry::ComponentRegistryContext, prelude::*};
 use serde::Serialize;
-use bevy_asset::HandleId;
 
 fn main() {
     App::build()
@@ -11,8 +9,6 @@ fn main() {
         // In the future registered components will also be usable from the Bevy editor.
         .register_component::<Test>()
         .register_component::<Foo>()
-        .register_component::<Handle<Mesh>>()
-        .register_property_type::<HandleId>()
         .add_startup_system(load_scene)
         // .add_startup_system(serialize_scene)
         .run();
@@ -37,29 +33,26 @@ fn load_scene(world: &mut World, resources: &mut Resources) {
     let scene_handle: Handle<Scene> = asset_server
         .load_sync(&mut scenes, "assets/scene/load_scene_example.scn")
         .unwrap();
-    let scene= scenes.get(&scene_handle).unwrap();
-    scene.add_to_world(world, &component_registry.value.read().unwrap()).unwrap();
+    let scene = scenes.get(&scene_handle).unwrap();
+    scene
+        .add_to_world(world, &component_registry.value.read().unwrap())
+        .unwrap();
 }
 
 #[allow(dead_code)]
 fn serialize_scene(world: &mut World, resources: &mut Resources) {
     let component_registry = resources.get::<ComponentRegistryContext>().unwrap();
-    world.build()
+    world
+        .build()
         .build_entity()
-        .add(Test {
-            x: 1.0,
-            y: 2.0,
-        })
+        .add(Test { x: 1.0, y: 2.0 })
         .add(Handle::<Mesh>::new())
         .add(Foo {
-            value: "hello".to_string()
+            value: "hello".to_string(),
         })
         .build_entity()
-        .add(Test {
-            x: 3.0,
-            y: 4.0,
-        });
-    
+        .add(Test { x: 3.0, y: 4.0 });
+
     let scene = Scene::from_world(world, &component_registry.value.read().unwrap());
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
     let mut buf = Vec::new();

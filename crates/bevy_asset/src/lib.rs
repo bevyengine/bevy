@@ -13,6 +13,7 @@ pub use load_request::*;
 pub use loader::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
+use bevy_component_registry::RegisterComponent;
 use legion::prelude::IntoSystem;
 
 pub mod stage {
@@ -27,7 +28,8 @@ impl AppPlugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
-            .init_resource::<AssetServer>();
+            .init_resource::<AssetServer>()
+            .register_property_type::<HandleId>();
         #[cfg(feature = "filesystem_watcher")]
         app.add_system_to_stage(
             stage::LOAD_ASSETS,
