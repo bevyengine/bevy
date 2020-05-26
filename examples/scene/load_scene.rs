@@ -1,5 +1,4 @@
 use bevy::{component_registry::ComponentRegistryContext, prelude::*};
-use serde::Serialize;
 
 fn main() {
     App::build()
@@ -44,9 +43,7 @@ fn serialize_scene(world: &mut World, resources: &mut Resources) {
     let component_registry = resources.get::<ComponentRegistryContext>().unwrap();
     world
         .build()
-        .build_entity()
         .add(Test { x: 1.0, y: 2.0 })
-        .add(Handle::<Mesh>::new())
         .add(Foo {
             value: "hello".to_string(),
         })
@@ -54,10 +51,5 @@ fn serialize_scene(world: &mut World, resources: &mut Resources) {
         .add(Test { x: 3.0, y: 4.0 });
 
     let scene = Scene::from_world(world, &component_registry.value.read().unwrap());
-    let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
-    let mut buf = Vec::new();
-    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true).unwrap();
-    scene.serialize(&mut serializer).unwrap();
-    let ron_string = String::from_utf8(buf).unwrap();
-    println!("{}", ron_string);
+    println!("{}", scene.serialize_ron().unwrap());
 }

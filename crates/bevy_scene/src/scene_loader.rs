@@ -10,6 +10,7 @@ use std::{cell::RefCell, path::Path, rc::Rc};
 pub struct SceneLoader {
     property_type_registry: PropertyTypeRegistryContext,
 }
+
 impl FromResources for SceneLoader {
     fn from_resources(resources: &Resources) -> Self {
         let property_type_registry = resources.get::<PropertyTypeRegistryContext>().unwrap();

@@ -8,6 +8,14 @@ use crate::{
 };
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 
+impl Serialize for Entity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer {
+            serializer.serialize_u32(self.index())
+    }
+}
+
 /// Implements `Serialize` and can be passed to a `serde::Serializer`.
 pub struct WorldSerializable<'a, 'b, CS: WorldSerializer> {
     world_serializer: &'b CS,

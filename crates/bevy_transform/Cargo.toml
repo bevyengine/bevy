@@ -9,10 +9,11 @@ license = "MIT"
 [dependencies]
 legion = { path = "../bevy_legion", features = ["serialize"]}
 glam = { path =  "../bevy_glam" }
+bevy_property = { path =  "../bevy_property" }
 log = "0.4"
 rayon = "1.2"
 serde = { version = "1", features = ["derive"] }
-smallvec = "1.4"
+smallvec = { version = "1.4", features = ["serde"] }
 shrinkwraprs = "0.2"
 
 [dev-dependencies]

@@ -1,12 +1,13 @@
 use crate::{pipeline::PipelineDescriptor, render_resource::RenderResourceAssignments};
 use bevy_asset::Handle;
+use bevy_property::Properties;
 
+#[derive(Properties)]
 pub struct Renderable {
     pub is_visible: bool,
     pub is_instanced: bool,
-
-    // TODO: make these hidden if possible
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
+    #[prop(ignore)]
     pub render_resource_assignments: RenderResourceAssignments,
 }
 

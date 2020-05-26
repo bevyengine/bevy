@@ -88,4 +88,15 @@ impl Scene {
 
         Ok(())
     }
+
+    // TODO: move to AssetSaver when it is implemented
+    pub fn serialize_ron(&self) -> Result<String, ron::Error> {
+        let pretty_config = ron::ser::PrettyConfig::default()
+            .with_decimal_floats(true)
+            .with_new_line("\n".to_string());
+        let mut buf = Vec::new();
+        let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true)?;
+        self.serialize(&mut serializer)?;
+        Ok(String::from_utf8(buf).unwrap())
+    }
 }
