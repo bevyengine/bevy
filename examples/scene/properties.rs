@@ -1,7 +1,7 @@
 use bevy::{
     component_registry::PropertyTypeRegistryContext,
     prelude::*,
-    property::{ron::deserialize_dynamic_properties, AsProperties},
+    property::{ron::deserialize_dynamic_properties},
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,12 +51,6 @@ impl Property for CustomProperty {
     }
     fn apply(&mut self, value: &dyn Property) {
         self.set(value);
-    }
-}
-
-impl AsProperties for CustomProperty {
-    fn as_properties(&self) -> Option<&dyn Properties> {
-        None
     }
 }
 

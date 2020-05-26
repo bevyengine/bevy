@@ -1,24 +1,18 @@
 use crate::Properties;
-use serde::Serialize;
-use std::{
-    any::Any,
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    hash::Hash,
-};
+use std::any::Any;
 
-pub trait Property: erased_serde::Serialize + Send + Sync + Any + AsProperties + 'static {
+pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;
     fn clone_prop(&self) -> Box<dyn Property>;
     fn set(&mut self, value: &dyn Property);
     fn apply(&mut self, value: &dyn Property);
+    fn as_properties(&self) -> Option<&dyn Properties> {
+        None
+    }
 }
 
 erased_serde::serialize_trait_object!(Property);
-
-pub trait AsProperties {
-    fn as_properties(&self) -> Option<&dyn Properties>;
-}
 
 pub trait PropertyVal {
     fn val<T: 'static>(&self) -> Option<&T>;
@@ -43,7 +37,11 @@ impl PropertyVal for dyn Property {
 
 // used by impl_property
 #[allow(unused_macros)]
-macro_rules! as_item { ($i:item) => {$i} }
+macro_rules! as_item {
+    ($i:item) => {
+        $i
+    };
+}
 
 #[macro_export]
 macro_rules! impl_property {
@@ -53,22 +51,22 @@ macro_rules! impl_property {
             fn any(&self) -> &dyn Any {
                 self
             }
-        
+
             #[inline]
             fn any_mut(&mut self) -> &mut dyn Any {
                 self
             }
-        
+
             #[inline]
             fn clone_prop(&self) -> Box<dyn Property> {
                 Box::new(self.clone())
             }
-        
+
             #[inline]
             fn apply(&mut self, value: &dyn Property) {
                 self.set(value);
             }
-        
+
             fn set(&mut self, value: &dyn Property) {
                 let value = value.any();
                 if let Some(prop) = value.downcast_ref::<Self>() {
@@ -77,13 +75,7 @@ macro_rules! impl_property {
                     panic!("prop value is not {}", std::any::type_name::<Self>());
                 }
             }
-        }
-        
-        impl AsProperties for $ty {
-            fn as_properties(&self) -> Option<&dyn Properties> {
-                None
-            }
-        }
+       }
     };
     (@$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
         impl_property! {
@@ -94,22 +86,22 @@ macro_rules! impl_property {
                 fn any(&self) -> &dyn Any {
                     self
                 }
-            
+
                 #[inline]
                 fn any_mut(&mut self) -> &mut dyn Any {
                     self
                 }
-            
+
                 #[inline]
                 fn clone_prop(&self) -> Box<dyn Property> {
                     Box::new(self.clone())
                 }
-            
+
                 #[inline]
                 fn apply(&mut self, value: &dyn Property) {
                     self.set(value);
                 }
-            
+
                 fn set(&mut self, value: &dyn Property) {
                     let value = value.any();
                     if let Some(prop) = value.downcast_ref::<Self>() {
@@ -118,7 +110,7 @@ macro_rules! impl_property {
                         panic!("prop value is not {}", std::any::type_name::<Self>());
                     }
                 }
-            }
+           }
         }
     };
     (@as_item $i:item) => { $i };

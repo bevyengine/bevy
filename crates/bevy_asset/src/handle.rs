@@ -3,10 +3,10 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use bevy_property::{Properties, Property};
+use serde::{Deserialize, Serialize};
 use std::{any::TypeId, marker::PhantomData};
-use serde::{Serialize, Deserialize};
 use uuid::Uuid;
-use bevy_property::{Properties, Property, AsProperties};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct HandleId(pub Uuid);
@@ -42,15 +42,11 @@ impl Property for HandleId {
     }
 }
 
-impl AsProperties for HandleId {
-    fn as_properties(&self) -> Option<&dyn Properties> {
-        None
-    }
-    
-}
-
 #[derive(Properties)]
-pub struct Handle<T> where T: 'static {
+pub struct Handle<T>
+where
+    T: 'static,
+{
     pub id: HandleId,
     #[prop(ignore)]
     marker: PhantomData<T>,

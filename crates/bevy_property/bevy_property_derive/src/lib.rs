@@ -51,7 +51,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
         .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
     let active_fields = fields_and_args
         .iter()
-        .filter(|(_field, attrs, i)| {
+        .filter(|(_field, attrs, _i)| {
             attrs.is_none()
                 || match attrs.as_ref().unwrap().ignore {
                     Some(ignore) => !ignore,
@@ -173,9 +173,8 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                     panic!("attempted to apply non-Properties type to Properties type");
                 }
             }
-        }
 
-        impl #impl_generics #bevy_property_path::AsProperties for #struct_name#ty_generics {
+            #[inline]
             fn as_properties(&self) -> Option<&dyn #bevy_property_path::Properties> {
                 Some(self)
             }

@@ -1,5 +1,5 @@
 use crate::{
-    AsProperties, Properties, Property, PropertyIter, PropertyTypeRegistration,
+    Properties, Property, PropertyIter, PropertyTypeRegistration,
     PropertyTypeRegistry, PropertyVal,
 };
 use serde::{
@@ -365,9 +365,7 @@ impl Property for DynamicProperties {
             panic!("attempted to apply non-Properties type to Properties type");
         }
     }
-}
 
-impl AsProperties for DynamicProperties {
     fn as_properties(&self) -> Option<&dyn Properties> {
         Some(self)
     }
