@@ -1,7 +1,9 @@
 use bevy_app::{Events, GetEventReader};
 use bevy_window::WindowResized;
+use bevy_property::{Properties, Property};
 use glam::Mat4;
 use legion::prelude::*;
+use serde::{Serialize, Deserialize};
 
 #[derive(Default)]
 pub struct ActiveCamera;
@@ -9,7 +11,7 @@ pub struct ActiveCamera;
 #[derive(Default)]
 pub struct ActiveCamera2d;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrthographicCamera {
     pub left: f32,
     pub right: f32,
@@ -46,7 +48,7 @@ impl Default for OrthographicCamera {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerspectiveCamera {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -72,7 +74,7 @@ impl Default for PerspectiveCamera {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Property)]
 pub enum CameraType {
     Perspective(PerspectiveCamera),
     Orthographic(OrthographicCamera),
@@ -94,7 +96,7 @@ impl Default for CameraType {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Properties)]
 pub struct Camera {
     pub view_matrix: Mat4,
     pub camera_type: CameraType,

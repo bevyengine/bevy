@@ -41,6 +41,7 @@ use self::{
 
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_component_registry::RegisterComponent;
 use bevy_asset::AddAsset;
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
@@ -73,6 +74,7 @@ impl AppPlugin for RenderPlugin {
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
             .add_asset_loader::<Texture, PngTextureLoader>()
+            .register_component::<Camera>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineAssignments>()
             .init_resource::<PipelineCompiler>()

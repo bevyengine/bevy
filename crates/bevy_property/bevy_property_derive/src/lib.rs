@@ -6,7 +6,7 @@ use darling::FromMeta;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Member, Index};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Index, Member};
 
 #[derive(FromMeta, Debug, Default)]
 struct PropAttributeArgs {
@@ -45,7 +45,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                         PropAttributeArgs::from_meta(&a.parse_meta().unwrap())
                             .unwrap_or_else(|_err| PropAttributeArgs::default())
                     }),
-                i
+                i,
             )
         })
         .collect::<Vec<(&Field, Option<PropAttributeArgs>, usize)>>();
@@ -66,11 +66,23 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
 
     let field_names = active_fields
         .iter()
-        .map(|(field, index)| field.ident.as_ref().map(|i| i.to_string()).unwrap_or_else(|| index.to_string()))
+        .map(|(field, index)| {
+            field
+                .ident
+                .as_ref()
+                .map(|i| i.to_string())
+                .unwrap_or_else(|| index.to_string())
+        })
         .collect::<Vec<String>>();
     let field_idents = active_fields
         .iter()
-        .map(|(field, index)| field.ident.as_ref().map(|ident| Member::Named(ident.clone())).unwrap_or_else(|| Member::Unnamed(Index::from(*index))))
+        .map(|(field, index)| {
+            field
+                .ident
+                .as_ref()
+                .map(|ident| Member::Named(ident.clone()))
+                .unwrap_or_else(|| Member::Unnamed(Index::from(*index)))
+        })
         .collect::<Vec<_>>();
     let field_count = active_fields.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
@@ -179,5 +191,51 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 Some(self)
             }
         }
+    })
+}
+
+#[proc_macro_derive(Property)]
+pub fn derive_property(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let modules = get_modules(&ast);
+    let bevy_property_path = get_path(&modules.bevy_property);
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics  {
+            #[inline]
+            fn any(&self) -> &dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn clone_prop(&self) -> Box<dyn #bevy_property_path::Property> {
+                Box::new(self.clone())
+            }
+
+            #[inline]
+            fn apply(&mut self, value: &dyn #bevy_property_path::Property) {
+                self.set(value);
+            }
+
+            #[inline]
+            fn set(&mut self, value: &dyn #bevy_property_path::Property) {
+                let value = value.any();
+                if let Some(prop) = value.downcast_ref::<Self>() {
+                    *self = prop.clone();
+                } else {
+                    panic!("prop value is not {}", std::any::type_name::<Self>());
+                }
+            }
+       }
     })
 }

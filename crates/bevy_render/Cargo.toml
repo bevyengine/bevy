@@ -9,6 +9,7 @@ edition = "2018"
 # bevy
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
+bevy_component_registry = { path = "../bevy_component_registry" }
 bevy_core = { path = "../bevy_core" }
 bevy_derive = { path = "../bevy_derive" }
 bevy_property = { path = "../bevy_property" }
@@ -26,6 +27,7 @@ png = "0.16.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 glam = { path =  "../bevy_glam" }
+serde = { version = "1", features = ["derive"] }
 zerocopy = "0.3"
 bitflags = "1.0"
 smallvec = "1.4.0"
