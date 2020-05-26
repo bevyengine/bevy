@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    hash::Hash,
+    hash::Hash, ops::Range,
 };
 
 impl_property!(String);
@@ -17,6 +17,7 @@ impl_property!(HashMap<K, V> where
 impl_property!(BTreeMap<K, V> where
     K: Clone + Ord + Send + Sync + Serialize + 'static,
     V: Clone + Send + Sync + Serialize + 'static);
+impl_property!(Range<T> where T: Clone + Send + Sync + Serialize + 'static);
 
 impl Property for usize {
     #[inline]

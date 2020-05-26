@@ -9,8 +9,10 @@ pub use forward_pbr_render_graph::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
+use bevy_component_registry::RegisterComponent;
 use bevy_render::{render_graph::RenderGraph, shader};
 use legion::prelude::IntoSystem;
+use light::Light;
 use material::StandardMaterial;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
@@ -19,10 +21,12 @@ pub struct PbrPlugin;
 
 impl AppPlugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_asset::<StandardMaterial>().add_system_to_stage(
-            stage::POST_UPDATE,
-            shader::asset_shader_def_system::<StandardMaterial>.system(),
-        );
+        app.add_asset::<StandardMaterial>()
+            .register_component::<Light>()
+            .add_system_to_stage(
+                stage::POST_UPDATE,
+                shader::asset_shader_def_system::<StandardMaterial>.system(),
+            );
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.add_pbr_graph(resources);

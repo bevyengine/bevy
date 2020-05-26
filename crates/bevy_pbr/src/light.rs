@@ -1,9 +1,11 @@
 use bevy_render::{Color, PerspectiveCamera};
 use bevy_transform::components::Translation;
+use bevy_property::Properties;
 use glam::Mat4;
 use std::ops::Range;
 use zerocopy::{AsBytes, FromBytes};
 
+#[derive(Properties)]
 pub struct Light {
     pub color: Color,
     pub fov: f32,

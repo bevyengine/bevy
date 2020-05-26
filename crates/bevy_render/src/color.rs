@@ -2,12 +2,14 @@ use super::texture::Texture;
 use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::Handle;
 use bevy_core::bytes::GetBytes;
+use serde::{Serialize, Deserialize};
+use bevy_property::Property;
 use glam::Vec4;
 use std::ops::{Add, AddAssign};
 use zerocopy::AsBytes;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, AsBytes)]
+#[derive(Debug, Clone, Copy, PartialEq, AsBytes, Serialize, Deserialize, Property)]
 pub struct Color {
     pub r: f32,
     pub g: f32,

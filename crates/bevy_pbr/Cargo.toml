@@ -7,9 +7,11 @@ edition = "2018"
 [dependencies]
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
+bevy_component_registry = { path = "../bevy_component_registry" }
 bevy_core = { path = "../bevy_core" }
 bevy_derive = { path = "../bevy_derive" }
 bevy_render = { path = "../bevy_render" }
+bevy_property = { path = "../bevy_property" }
 bevy_transform = { path = "../bevy_transform" }
 bevy_window = { path = "../bevy_window" }
 legion = { path = "../bevy_legion"}
