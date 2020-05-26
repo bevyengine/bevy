@@ -1,7 +1,8 @@
 use shrinkwraprs::Shrinkwrap;
 use std::fmt;
+use bevy_property::Properties;
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
+#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]
 pub struct Scale(pub f32);
 

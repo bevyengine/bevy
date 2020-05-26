@@ -6,14 +6,14 @@ pub trait AddDefaultPlugins {
 
 impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
+        #[cfg(feature = "component_registry")]
+        self.add_plugin(bevy_component_registry::ComponentRegistryPlugin::default());
+
         #[cfg(feature = "core")]
         self.add_plugin(bevy_core::CorePlugin::default());
 
         #[cfg(feature = "diagnostic")]
         self.add_plugin(bevy_diagnostic::DiagnosticsPlugin::default());
-
-        #[cfg(feature = "scene")]
-        self.add_plugin(bevy_component_registry::ComponentRegistryPlugin::default());
 
         #[cfg(feature = "input")]
         self.add_plugin(bevy_input::InputPlugin::default());

@@ -1,14 +1,21 @@
 use crate::math::Vec3;
 use shrinkwraprs::Shrinkwrap;
 use std::fmt;
+use bevy_property::Properties;
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
+#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]
 pub struct NonUniformScale(pub Vec3);
 
 impl NonUniformScale {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self(Vec3::new(x, y, z))
+    }
+}
+
+impl Default for NonUniformScale {
+    fn default() -> Self {
+        NonUniformScale(Vec3::new(1.0, 1.0, 1.0))
     }
 }
 

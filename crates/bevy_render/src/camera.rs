@@ -5,10 +5,10 @@ use glam::Mat4;
 use legion::prelude::*;
 use serde::{Serialize, Deserialize};
 
-#[derive(Default)]
+#[derive(Default, Properties)]
 pub struct ActiveCamera;
 
-#[derive(Default)]
+#[derive(Default, Properties)]
 pub struct ActiveCamera2d;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

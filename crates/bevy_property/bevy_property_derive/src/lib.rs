@@ -6,7 +6,7 @@ use darling::FromMeta;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Index, Member};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Index, Member, punctuated::Punctuated};
 
 #[derive(FromMeta, Debug, Default)]
 struct PropAttributeArgs {
@@ -19,6 +19,7 @@ static PROP_ATTRIBUTE_NAME: &str = "prop";
 #[proc_macro_derive(Properties, attributes(prop, module))]
 pub fn derive_properties(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+    let unit_struct_punctuated = Punctuated::new();
     let fields = match &ast.data {
         Data::Struct(DataStruct {
             fields: Fields::Named(fields),
@@ -28,6 +29,10 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fields: Fields::Unnamed(fields),
             ..
         }) => &fields.unnamed,
+        Data::Struct(DataStruct {
+            fields: Fields::Unit,
+            ..
+        }) => &unit_struct_punctuated,
         _ => panic!("expected a struct with named fields"),
     };
     let fields_and_args = fields

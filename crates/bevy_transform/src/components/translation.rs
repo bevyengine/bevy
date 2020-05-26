@@ -1,7 +1,8 @@
 use crate::math::Vec3;
 use shrinkwraprs::Shrinkwrap;
+use bevy_property::Properties;
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy)]
+#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]
 pub struct Translation(pub Vec3);
 
