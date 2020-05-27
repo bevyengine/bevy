@@ -34,7 +34,7 @@ fn load_scene(world: &mut World, resources: &mut Resources) {
         .unwrap();
     let scene = scenes.get(&scene_handle).unwrap();
     scene
-        .add_to_world(world, &component_registry.value.read().unwrap())
+        .add_to_world(world, resources, &component_registry.value.read().unwrap())
         .unwrap();
 }
 

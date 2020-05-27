@@ -1,12 +1,13 @@
 use bevy_property::{Properties, Property, PropertyTypeRegistry};
 use legion::{
-    prelude::{Entity, World},
+    prelude::{Entity, World, Resources},
     storage::{Component, ComponentResourceSet, ComponentTypeId},
 };
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+use bevy_app::FromResources;
 
 #[derive(Clone, Default)]
 pub struct PropertyTypeRegistryContext {
@@ -28,7 +29,7 @@ pub struct ComponentRegistry {
 impl ComponentRegistry {
     pub fn register<T>(&mut self)
     where
-        T: Properties + Component + Default,
+        T: Properties + Component + FromResources,
     {
         let registration = ComponentRegistration::of::<T>();
         self.short_names
@@ -58,18 +59,18 @@ impl ComponentRegistry {
 #[derive(Clone)]
 pub struct ComponentRegistration {
     pub ty: ComponentTypeId,
-    pub component_add_fn: fn(&mut World, Entity, &dyn Property),
+    pub component_add_fn: fn(&mut World, resources: &Resources, Entity, &dyn Property),
     pub component_properties_fn: fn(&ComponentResourceSet, usize) -> &dyn Properties,
     pub short_name: &'static str,
 }
 
 impl ComponentRegistration {
-    pub fn of<T: Properties + Component + Default>() -> Self {
+    pub fn of<T: Properties + Component + FromResources>() -> Self {
         let ty = ComponentTypeId::of::<T>();
         Self {
             ty,
-            component_add_fn: |world: &mut World, entity: Entity, property: &dyn Property| {
-                let mut component = T::default();
+            component_add_fn: |world: &mut World, resources: &Resources, entity: Entity, property: &dyn Property| {
+                let mut component = T::from_resources(resources);
                 component.apply(property);
                 world.add_component(entity, component).unwrap();
             },

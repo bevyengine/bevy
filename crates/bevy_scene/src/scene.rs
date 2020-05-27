@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bevy_component_registry::ComponentRegistry;
 use bevy_property::DynamicProperties;
-use legion::prelude::World;
+use legion::prelude::{Resources, World};
 use serde::Serialize;
 use std::num::Wrapping;
 use thiserror::Error;
@@ -66,6 +66,7 @@ impl Scene {
     pub fn add_to_world(
         &self,
         world: &mut World,
+        resources: &Resources,
         component_registry: &ComponentRegistry,
     ) -> Result<(), SceneAddError> {
         world.entity_allocator.push_next_ids(
@@ -82,7 +83,7 @@ impl Scene {
                     .ok_or_else(|| SceneAddError::UnregisteredComponent {
                         type_name: component.type_name.to_string(),
                     })?;
-                (component_registration.component_add_fn)(world, entity, component);
+                (component_registration.component_add_fn)(world, resources, entity, component);
             }
         }
 
