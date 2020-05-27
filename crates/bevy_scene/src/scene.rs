@@ -93,6 +93,7 @@ impl Scene {
     pub fn serialize_ron(&self) -> Result<String, ron::Error> {
         let pretty_config = ron::ser::PrettyConfig::default()
             .with_decimal_floats(true)
+            .with_indentor("  ".to_string())
             .with_new_line("\n".to_string());
         let mut buf = Vec::new();
         let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true)?;
