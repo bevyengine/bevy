@@ -1,7 +1,7 @@
 use crate::{Entity, Scene};
 use anyhow::Result;
 use bevy_property::{
-    property_serde::MapPropertyDeserializer, DynamicProperties, PropertyTypeRegistry,
+    property_serde::DynamicPropertiesDeserializer, DynamicProperties, PropertyTypeRegistry,
 };
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
@@ -173,7 +173,7 @@ impl<'a, 'de> Visitor<'de> for ComponentSeqVisiter<'a> {
     {
         let mut dynamic_properties = Vec::new();
         while let Some(entity) =
-            seq.next_element_seed(MapPropertyDeserializer::new(self.registry))?
+            seq.next_element_seed(DynamicPropertiesDeserializer::new(self.registry))?
         {
             dynamic_properties.push(entity);
         }

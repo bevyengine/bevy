@@ -161,6 +161,51 @@ impl<'a> Serialize for SeqValueSerializer<'a> {
     }
 }
 
+
+pub struct DynamicPropertiesDeserializer<'a> {
+    registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a> DynamicPropertiesDeserializer<'a> {
+    pub fn new(registry: &'a PropertyTypeRegistry) -> Self {
+        DynamicPropertiesDeserializer { registry }
+    }
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for DynamicPropertiesDeserializer<'a> {
+    type Value = DynamicProperties;
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(DynamicPropertiesVisiter {
+            registry: self.registry,
+        })
+    }
+}
+
+struct DynamicPropertiesVisiter<'a> {
+    registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisiter<'a> {
+    type Value = DynamicProperties;
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("dynamic property")
+    }
+
+    fn visit_map<V>(self, map: V) -> Result<Self::Value, V::Error>
+    where
+        V: MapAccess<'de>,
+    {
+        match visit_map(map, self.registry)? {
+            DynamicPropertiesOrProperty::DynamicProperties(value) => Ok(value),
+            _ => Err(de::Error::custom("Expected DynamicProperties"))
+        }
+    }
+}
+
+
 pub struct PropertyDeserializer<'a> {
     type_name: Option<&'a str>,
     registry: &'a PropertyTypeRegistry,
@@ -173,7 +218,7 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         if let Some(type_name) = self.type_name {
-            let registration = self.registry.get_short(type_name).ok_or_else(|| {
+            let registration = self.registry.get(type_name).ok_or_else(|| {
                 de::Error::custom(format!("TypeRegistration is missing for {}", type_name))
             })?;
             let mut erased = erased_serde::Deserializer::erase(deserializer);
@@ -233,9 +278,7 @@ pub struct MapPropertyDeserializer<'a> {
 
 impl<'a> MapPropertyDeserializer<'a> {
     pub fn new(registry: &'a PropertyTypeRegistry) -> Self {
-        MapPropertyDeserializer {
-            registry,
-        }
+        MapPropertyDeserializer { registry }
     }
 }
 
@@ -379,53 +422,71 @@ impl<'a, 'de> Visitor<'de> for AnyPropVisiter<'a> {
         Ok(Box::new(v.to_string()))
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+    fn visit_map<V>(self, map: V) -> Result<Self::Value, V::Error>
     where
         V: MapAccess<'de>,
     {
-        let mut type_name: Option<String> = None;
-        while let Some(key) = map.next_key::<String>()? {
-            match key.as_str() {
-                TYPE_FIELD => {
-                    type_name = Some(map.next_value()?);
-                }
-                MAP_FIELD => {
-                    let type_name = type_name
-                        .take()
-                        .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
-                    let mut dynamic_properties =
-                        map.next_value_seed(MapPropertyDeserializer { registry: self.registry })?;
-                    dynamic_properties.type_name = type_name.to_string();
-                    return Ok(Box::new(
-                        dynamic_properties,
-                    ));
-                }
-                SEQ_FIELD => {
-                    let type_name = type_name
-                        .take()
-                        .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
-                    let mut dynamic_properties =
-                        map.next_value_seed(SeqPropertyDeserializer { registry: self.registry })?;
-                    dynamic_properties.type_name = type_name;
-                    return Ok(Box::new(
-                        dynamic_properties,
-                    ));
-                }
-                VALUE_FIELD => {
-                    let type_name = type_name
-                        .take()
-                        .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
-                    return map.next_value_seed(
-                        PropertyDeserializer {
-                            registry: self.registry,
-                            type_name: Some(&type_name),
-                        },
-                    );
-                }
-                _ => return Err(de::Error::unknown_field(key.as_str(), &[])),
-            }
-        }
-
-        Err(de::Error::custom("Maps in this location must have the \'type\' field and one of the following fields: \'map\', \'seq\', \'value\'"))
+        Ok(match visit_map(map, self.registry)? {
+            DynamicPropertiesOrProperty::DynamicProperties(value) => Box::new(value),
+            DynamicPropertiesOrProperty::Property(value) => value,
+        })
     }
+}
+
+enum DynamicPropertiesOrProperty {
+    DynamicProperties(DynamicProperties),
+    Property(Box<dyn Property>),
+}
+
+fn visit_map<'de, V>(
+    mut map: V,
+    registry: &PropertyTypeRegistry,
+) -> Result<DynamicPropertiesOrProperty, V::Error>
+where
+    V: MapAccess<'de>,
+{
+    let mut type_name: Option<String> = None;
+    while let Some(key) = map.next_key::<String>()? {
+        match key.as_str() {
+            TYPE_FIELD => {
+                type_name = Some(map.next_value()?);
+            }
+            MAP_FIELD => {
+                let type_name = type_name
+                    .take()
+                    .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
+                let mut dynamic_properties =
+                    map.next_value_seed(MapPropertyDeserializer { registry })?;
+                dynamic_properties.type_name = type_name.to_string();
+                return Ok(DynamicPropertiesOrProperty::DynamicProperties(
+                    dynamic_properties,
+                ));
+            }
+            SEQ_FIELD => {
+                let type_name = type_name
+                    .take()
+                    .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
+                let mut dynamic_properties =
+                    map.next_value_seed(SeqPropertyDeserializer { registry })?;
+                dynamic_properties.type_name = type_name;
+                return Ok(DynamicPropertiesOrProperty::DynamicProperties(
+                    dynamic_properties,
+                ));
+            }
+            VALUE_FIELD => {
+                let type_name = type_name
+                    .take()
+                    .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
+                return Ok(DynamicPropertiesOrProperty::Property(map.next_value_seed(
+                    PropertyDeserializer {
+                        registry,
+                        type_name: Some(&type_name),
+                    },
+                )?));
+            }
+            _ => return Err(de::Error::unknown_field(key.as_str(), &[])),
+        }
+    }
+
+    Err(de::Error::custom("Maps in this location must have the \'type\' field and one of the following fields: \'map\', \'seq\', \'value\'"))
 }

@@ -1,4 +1,4 @@
-use crate::{impl_property, Properties, Property, PropertyIter, property_serde::{Serializable, SeqSerializer}};
+use crate::{impl_property, Properties, Property, PropertyIter, property_serde::{Serializable, SeqSerializer}, PropertyType};
 use serde::{Serialize, Deserialize};
 use std::{
     any::Any,
@@ -77,6 +77,10 @@ where
 
     fn serializable(&self) -> Serializable {
         Serializable::Owned(Box::new(SeqSerializer::new(self)))
+    }
+
+    fn property_type(&self) -> PropertyType {
+        PropertyType::Seq
     }
 }
 
