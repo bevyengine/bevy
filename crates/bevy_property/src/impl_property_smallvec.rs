@@ -9,6 +9,11 @@ where
     I: Send + Sync + Clone + Serialize + 'static,
 {
     #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
     fn any(&self) -> &dyn Any {
         self
     }

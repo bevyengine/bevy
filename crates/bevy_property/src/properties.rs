@@ -1,7 +1,12 @@
 use crate::{DynamicProperties, Property, PropertyVal};
 
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+pub enum PropertiesType {
+    Map,
+    Seq,
+}
+
 pub trait Properties: Property {
-    fn type_name(&self) -> &str;
     fn prop(&self, name: &str) -> Option<&dyn Property>;
     fn prop_mut(&mut self, name: &str) -> Option<&mut dyn Property>;
     fn prop_with_index(&self, index: usize) -> Option<&dyn Property>;
@@ -9,6 +14,7 @@ pub trait Properties: Property {
     fn prop_name(&self, index: usize) -> Option<&str>;
     fn prop_len(&self) -> usize;
     fn iter_props(&self) -> PropertyIter;
+    fn properties_type(&self) -> PropertiesType;
     fn set_prop(&mut self, name: &str, value: &dyn Property) {
         if let Some(prop) = self.prop_mut(name) {
             prop.set(value);
@@ -18,12 +24,25 @@ pub trait Properties: Property {
     }
     fn to_dynamic(&self) -> DynamicProperties
     {
-        let mut dynamic_props = DynamicProperties::default();
-        for (name, prop) in self.iter_props() {
-            dynamic_props.set_box(name, prop.clone_prop());
-        }
+        let mut dynamic_props = match self.properties_type() {
+            PropertiesType::Map => {
+                let mut dynamic_props = DynamicProperties::map();
+                for (i, prop) in self.iter_props().enumerate() {
+                    let name = self.prop_name(i).expect("All properties in maps should have a name");
+                    dynamic_props.set_box(name, prop.clone_prop());
+                }
+                dynamic_props
+            },
+            PropertiesType::Seq => {
+                let mut dynamic_props = DynamicProperties::seq();
+                for prop in self.iter_props() {
+                    dynamic_props.push(prop.clone_prop(), None);
+                }
+                dynamic_props
+            }
+        } ;
 
-        dynamic_props.type_name = std::any::type_name::<Self>().to_string();
+        dynamic_props.type_name = self.type_name().to_string();
         dynamic_props
     }
 }
@@ -40,13 +59,12 @@ impl<'a> PropertyIter<'a> {
 }
 
 impl<'a> Iterator for PropertyIter<'a> {
-    type Item = (&'a str, &'a dyn Property);
+    type Item = &'a dyn Property;
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.props.prop_len() {
             let prop = self.props.prop_with_index(self.index).unwrap();
-            let name = self.props.prop_name(self.index).unwrap();
             self.index += 1;
-            Some((name, prop))
+            Some(prop)
         } else {
             None
         }

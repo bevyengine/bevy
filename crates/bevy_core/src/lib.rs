@@ -4,7 +4,13 @@ pub mod transform;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_component_registry::RegisterComponent;
-use bevy_transform::{transform_system_bundle, components::{Children, LocalToParent, LocalToWorld, Translation, Rotation, Scale, NonUniformScale}};
+use bevy_transform::{
+    components::{
+        Children, LocalToParent, LocalToWorld, NonUniformScale, Rotation, Scale, Translation,
+    },
+    transform_system_bundle,
+};
+use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 use legion::prelude::IntoSystem;
 use time::{start_timer_system, stop_timer_system, Time};
 
@@ -25,6 +31,11 @@ impl AppPlugin for CorePlugin {
             .register_component::<Rotation>()
             .register_component::<Scale>()
             .register_component::<NonUniformScale>()
+            .register_property_type::<Vec2>()
+            .register_property_type::<Vec3>()
+            .register_property_type::<Mat3>()
+            .register_property_type::<Mat4>()
+            .register_property_type::<Quat>()
             .add_system_to_stage(stage::FIRST, start_timer_system.system())
             .add_system_to_stage(stage::LAST, stop_timer_system.system());
     }

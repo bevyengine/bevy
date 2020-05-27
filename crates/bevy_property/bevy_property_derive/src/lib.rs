@@ -99,9 +99,6 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_property_path::Properties for #struct_name#ty_generics {
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
             fn prop(&self, name: &str) -> Option<&dyn #bevy_property_path::Property> {
                 match name {
                     #(#field_names => Some(&self.#field_idents),)*
@@ -144,6 +141,10 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fn iter_props(&self) -> #bevy_property_path::PropertyIter {
                 #bevy_property_path::PropertyIter::new(self)
             }
+
+            fn properties_type(&self) -> #bevy_property_path::PropertiesType {
+                #bevy_property_path::PropertiesType::Map
+            }
         }
 
         impl #impl_generics #bevy_property_path::serde::ser::Serialize for #struct_name#ty_generics {
@@ -152,16 +153,17 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 S: #bevy_property_path::serde::ser::Serializer,
             {
                 use #bevy_property_path::serde::ser::SerializeMap;
-                let mut state = serializer.serialize_map(Some(self.prop_len()))?;
-                state.serialize_entry("type", self.type_name())?;
-                for (name, prop) in self.iter_props() {
-                    state.serialize_entry(name, prop)?;
-                }
-                state.end()
+                use #bevy_property_path::serde::Serialize;
+                #bevy_property_path::MapSerializer::new(self).serialize(serializer)
             }
         }
 
         impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics {
+            #[inline]
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+        
             #[inline]
             fn any(&self) -> &dyn std::any::Any {
                 self
@@ -183,7 +185,15 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_property_path::Property) {
                 if let Some(properties) = value.as_properties() {
-                    for (name, prop) in properties.iter_props() {
+                    if properties.properties_type() != self.properties_type() {
+                        panic!(
+                            "Properties type mismatch. This type is {:?} but the applied type is {:?}",
+                            self.properties_type(),
+                            properties.properties_type()
+                        );
+                    }
+                    for (i, prop) in properties.iter_props().enumerate() {
+                        let name = properties.prop_name(i).unwrap();
                         self.prop_mut(name).map(|p| p.apply(prop));
                     }
                 } else {
@@ -212,6 +222,11 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics  {
+            #[inline]
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+
             #[inline]
             fn any(&self) -> &dyn std::any::Any {
                 self

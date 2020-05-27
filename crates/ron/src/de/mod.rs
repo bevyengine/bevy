@@ -595,7 +595,14 @@ impl<'de, 'a> de::MapAccess<'de> for CommaSeparated<'a, 'de> {
                 fast_forward_bytes.skip_ws()?;
                 fast_forward_bytes.consume(":");
                 fast_forward_bytes.skip_ws()?;
-                callback(&fast_forward_bytes.identifier().ok());
+                let identifier = &fast_forward_bytes.identifier().ok();
+                fast_forward_bytes.skip_ws()?;
+                // only run callback from structs
+                if fast_forward_bytes.consume("(") {
+                    callback(identifier);
+                } else {
+                    callback(&None);
+                }
             }
             result
         } else {

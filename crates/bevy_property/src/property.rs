@@ -2,6 +2,7 @@ use crate::Properties;
 use std::any::Any;
 
 pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
+    fn type_name(&self) -> &str;
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;
     fn clone_prop(&self) -> Box<dyn Property>;
@@ -9,6 +10,9 @@ pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
     fn apply(&mut self, value: &dyn Property);
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
+    }
+    fn is_sequence(&self) -> bool {
+        false
     }
 }
 
@@ -48,12 +52,17 @@ macro_rules! impl_property {
     ($ty:ident) => {
         impl Property for $ty {
             #[inline]
-            fn any(&self) -> &dyn Any {
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn any(&self) -> &dyn std::any::Any {
                 self
             }
 
             #[inline]
-            fn any_mut(&mut self) -> &mut dyn Any {
+            fn any_mut(&mut self) -> &mut dyn std::any::Any {
                 self
             }
 
@@ -77,18 +86,68 @@ macro_rules! impl_property {
             }
        }
     };
+    (SEQUENCE, @$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
+        impl_property! {
+            @as_item
+            impl<$($args),*> Property for $trait_<$($args),*> where $($args: ::std::any::Any + 'static,)*
+            $($preds)* {
+                #[inline]
+                fn type_name(&self) -> &str {
+                    std::any::type_name::<Self>()
+                }
+
+                #[inline]
+                fn any(&self) -> &dyn std::any::Any {
+                    self
+                }
+
+                #[inline]
+                fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                    self
+                }
+
+                #[inline]
+                fn clone_prop(&self) -> Box<dyn Property> {
+                    Box::new(self.clone())
+                }
+
+                #[inline]
+                fn apply(&mut self, value: &dyn Property) {
+                    self.set(value);
+                }
+
+                fn set(&mut self, value: &dyn Property) {
+                    let value = value.any();
+                    if let Some(prop) = value.downcast_ref::<Self>() {
+                        *self = prop.clone();
+                    } else {
+                        panic!("prop value is not {}", std::any::type_name::<Self>());
+                    }
+                }
+
+                fn is_sequence(&self) -> bool {
+                    true
+                }
+           }
+        }
+    };
     (@$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
         impl_property! {
             @as_item
             impl<$($args),*> Property for $trait_<$($args),*> where $($args: ::std::any::Any + 'static,)*
             $($preds)* {
                 #[inline]
-                fn any(&self) -> &dyn Any {
+                fn type_name(&self) -> &str {
+                    std::any::type_name::<Self>()
+                }
+
+                #[inline]
+                fn any(&self) -> &dyn std::any::Any {
                     self
                 }
 
                 #[inline]
-                fn any_mut(&mut self) -> &mut dyn Any {
+                fn any_mut(&mut self) -> &mut dyn std::any::Any {
                     self
                 }
 
@@ -115,6 +174,12 @@ macro_rules! impl_property {
     };
     (@as_item $i:item) => { $i };
 
+    (
+        SEQUENCE, $trait_:ident < $($args:ident),* $(,)* >
+        where $($preds:tt)+
+    ) => {
+        impl_property! {SEQUENCE, @$trait_ [$($args,)*] where [$($preds)*] }
+    };
     (
         $trait_:ident < $($args:ident),* $(,)* >
         where $($preds:tt)+

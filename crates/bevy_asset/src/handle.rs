@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::{any::TypeId, marker::PhantomData};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, Property)]
 pub struct HandleId(pub Uuid);
 pub const DEFAULT_HANDLE_ID: HandleId =
     HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
@@ -16,29 +16,6 @@ pub const DEFAULT_HANDLE_ID: HandleId =
 impl HandleId {
     pub fn new() -> HandleId {
         HandleId(Uuid::new_v4())
-    }
-}
-
-impl Property for HandleId {
-    fn any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
-    fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
-    }
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
-        if let Some(prop) = value.downcast_ref::<Self>() {
-            *self = *prop;
-        } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
-        }
-    }
-    fn apply(&mut self, value: &dyn Property) {
-        self.set(value);
     }
 }
 

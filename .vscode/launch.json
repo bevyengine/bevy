@@ -1104,15 +1104,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'scene'",
+            "name": "Debug example '3d_scene'",
             "cargo": {
                 "args": [
                     "build",
-                    "--example=scene",
+                    "--example=3d_scene",
                     "--package=bevy"
                 ],
                 "filter": {
-                    "name": "scene",
+                    "name": "3d_scene",
                     "kind": "example"
                 }
             },
