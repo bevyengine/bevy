@@ -1,4 +1,4 @@
-use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter, SeqSerializer, Serializable};
+use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter, Serializable, property_serde::SeqSerializer};
 use serde::{Serialize, Deserialize};
 use std::{
     any::Any,

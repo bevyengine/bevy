@@ -1,9 +1,14 @@
+use crate::{
+    property_serde::DynamicPropertiesDeserializer, DynamicProperties, PropertyTypeRegistry,
+};
 use ron::de::Deserializer;
-use std::{cell::RefCell, rc::Rc};
-use crate::{DynamicPropertiesDeserializer, PropertyTypeRegistry, DynamicProperties};
 use serde::de::DeserializeSeed;
+use std::{cell::RefCell, rc::Rc};
 
-pub fn deserialize_dynamic_properties(ron_string: &str, property_type_registry: &PropertyTypeRegistry) -> Result<DynamicProperties, ron::Error> {
+pub fn deserialize_dynamic_properties(
+    ron_string: &str,
+    property_type_registry: &PropertyTypeRegistry,
+) -> Result<DynamicProperties, ron::Error> {
     let mut deserializer = Deserializer::from_str(&ron_string).unwrap();
     let last_type_name = Rc::new(RefCell::new(None));
     let mut callback = |ident: &Option<&[u8]>| {

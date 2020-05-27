@@ -7,6 +7,7 @@ mod impl_property_smallvec;
 mod impl_property_glam;
 mod impl_property_legion;
 pub mod ron;
+pub mod property_serde;
 
 pub use property::*;
 pub use properties::*;

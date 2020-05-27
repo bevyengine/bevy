@@ -1,6 +1,6 @@
 use crate::{Entity, Scene};
 use anyhow::Result;
-use bevy_property::{DynamicProperties, DynamicPropertiesDeserializer, PropertyTypeRegistry};
+use bevy_property::{DynamicProperties, PropertyTypeRegistry, property_serde::DynamicPropertiesDeserializer};
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
     Deserialize, Serialize,

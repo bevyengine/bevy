@@ -203,7 +203,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             }
 
             fn serializable(&self) -> #bevy_property_path::Serializable {
-                #bevy_property_path::Serializable::Owned(Box::new(#bevy_property_path::MapSerializer::new(self)))
+                #bevy_property_path::Serializable::Owned(Box::new(#bevy_property_path::property_serde::MapSerializer::new(self)))
             }
         }
     })
