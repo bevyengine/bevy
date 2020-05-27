@@ -65,7 +65,7 @@ serde_json = "1.0"
 env_logger = "0.7"
 
 [profile.dev]
-# opt-level = 3
+opt-level = 3
 
 [[example]]
 name = "hello_world"
