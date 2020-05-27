@@ -48,6 +48,7 @@ use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
 use render_resource::EntitiesWaitingForAssets;
 use texture::{PngTextureLoader, TextureResourceSystemState};
+use std::ops::Range;
 
 pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
 pub static RENDER_STAGE: &str = "render";
@@ -79,6 +80,8 @@ impl AppPlugin for RenderPlugin {
             .register_component::<ActiveCamera>()
             .register_component::<ActiveCamera2d>()
             .register_property_type::<Color>()
+            .register_property_type::<CameraType>()
+            .register_property_type::<Range<f32>>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineAssignments>()
             .init_resource::<PipelineCompiler>()

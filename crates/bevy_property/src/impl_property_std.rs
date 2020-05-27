@@ -1,5 +1,9 @@
-use crate::{impl_property, Properties, Property, PropertyIter, property_serde::{Serializable, SeqSerializer}, PropertyType};
-use serde::{Serialize, Deserialize};
+use crate::{
+    impl_property,
+    property_serde::{SeqSerializer, Serializable},
+    Properties, Property, PropertyIter, PropertyType,
+};
+use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap, HashSet},
@@ -47,7 +51,7 @@ where
     fn any_mut(&mut self) -> &mut dyn Any {
         self
     }
-    
+
     fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.clone())
     }
@@ -84,8 +88,6 @@ where
     }
 }
 
-impl_property!(String);
-impl_property!(bool);
 // impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
 impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static);
 impl_property!(HashMap<K, V> where
@@ -96,8 +98,86 @@ impl_property!(BTreeMap<K, V> where
     V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
 impl_property!(Range<T> where T: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
 
-
 // TODO: Implement lossless primitive types in RON and remove all of these primitive "cast checks"
+impl Property for String {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = prop.clone();
+        } else {
+            panic!("prop value is not {}", std::any::type_name::<Self>());
+        }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
+}
+
+impl Property for bool {
+    #[inline]
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    #[inline]
+    fn any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn clone_prop(&self) -> Box<dyn Property> {
+        Box::new(self.clone())
+    }
+
+    #[inline]
+    fn apply(&mut self, value: &dyn Property) {
+        self.set(value);
+    }
+
+    fn set(&mut self, value: &dyn Property) {
+        let value = value.any();
+        if let Some(prop) = value.downcast_ref::<Self>() {
+            *self = *prop;
+        } else {
+            panic!("prop value is not {}", std::any::type_name::<Self>());
+        }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
+}
 
 impl Property for usize {
     #[inline]
