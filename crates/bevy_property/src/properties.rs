@@ -1,10 +1,4 @@
-use crate::{DynamicProperties, Property, PropertyVal};
-
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
-pub enum PropertiesType {
-    Map,
-    Seq,
-}
+use crate::{DynamicProperties, Property, PropertyType, PropertyVal};
 
 pub trait Properties: Property {
     fn prop(&self, name: &str) -> Option<&dyn Property>;
@@ -14,7 +8,6 @@ pub trait Properties: Property {
     fn prop_name(&self, index: usize) -> Option<&str>;
     fn prop_len(&self) -> usize;
     fn iter_props(&self) -> PropertyIter;
-    fn properties_type(&self) -> PropertiesType;
     fn set_prop(&mut self, name: &str, value: &dyn Property) {
         if let Some(prop) = self.prop_mut(name) {
             prop.set(value);
@@ -22,25 +15,27 @@ pub trait Properties: Property {
             panic!("prop does not exist: {}", name);
         }
     }
-    fn to_dynamic(&self) -> DynamicProperties
-    {
-        let mut dynamic_props = match self.properties_type() {
-            PropertiesType::Map => {
+    fn to_dynamic(&self) -> DynamicProperties {
+        let mut dynamic_props = match self.property_type() {
+            PropertyType::Map => {
                 let mut dynamic_props = DynamicProperties::map();
                 for (i, prop) in self.iter_props().enumerate() {
-                    let name = self.prop_name(i).expect("All properties in maps should have a name");
+                    let name = self
+                        .prop_name(i)
+                        .expect("All properties in maps should have a name");
                     dynamic_props.set_box(name, prop.clone_prop());
                 }
                 dynamic_props
-            },
-            PropertiesType::Seq => {
+            }
+            PropertyType::Seq => {
                 let mut dynamic_props = DynamicProperties::seq();
                 for prop in self.iter_props() {
                     dynamic_props.push(prop.clone_prop(), None);
                 }
                 dynamic_props
             }
-        } ;
+            _ => panic!("Properties cannot be Value types"),
+        };
 
         dynamic_props.type_name = self.type_name().to_string();
         dynamic_props

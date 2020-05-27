@@ -1,4 +1,4 @@
-use crate::{Properties, PropertiesType, Property, PropertyIter, Serializable};
+use crate::{property_serde::Serializable, Properties, Property, PropertyIter, PropertyType};
 use std::{any::Any, borrow::Cow, collections::HashMap};
 
 pub struct DynamicProperties {
@@ -6,7 +6,7 @@ pub struct DynamicProperties {
     pub props: Vec<Box<dyn Property>>,
     pub prop_names: Vec<Cow<'static, str>>,
     pub prop_indices: HashMap<Cow<'static, str>, usize>,
-    pub properties_type: PropertiesType,
+    pub property_type: PropertyType,
 }
 
 impl DynamicProperties {
@@ -16,7 +16,7 @@ impl DynamicProperties {
             props: Default::default(),
             prop_names: Default::default(),
             prop_indices: Default::default(),
-            properties_type: PropertiesType::Map,
+            property_type: PropertyType::Map,
         }
     }
 
@@ -26,7 +26,7 @@ impl DynamicProperties {
             props: Default::default(),
             prop_names: Default::default(),
             prop_indices: Default::default(),
-            properties_type: PropertiesType::Seq,
+            property_type: PropertyType::Seq,
         }
     }
 
@@ -88,9 +88,10 @@ impl Properties for DynamicProperties {
 
     #[inline]
     fn prop_name(&self, index: usize) -> Option<&str> {
-        match self.properties_type {
-            PropertiesType::Seq => None,
-            PropertiesType::Map => self.prop_names.get(index).map(|name| name.as_ref()),
+        match self.property_type {
+            PropertyType::Seq => None,
+            PropertyType::Map => self.prop_names.get(index).map(|name| name.as_ref()),
+            _ => panic!("DynamicProperties cannot be Value types"),
         }
     }
 
@@ -104,11 +105,6 @@ impl Properties for DynamicProperties {
             props: self,
             index: 0,
         }
-    }
-
-    #[inline]
-    fn properties_type(&self) -> PropertiesType {
-        self.properties_type
     }
 }
 
@@ -142,25 +138,26 @@ impl Property for DynamicProperties {
     #[inline]
     fn apply(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {
-            if properties.properties_type() != self.properties_type {
+            if properties.property_type() != self.property_type {
                 panic!(
                     "Properties type mismatch. This type is {:?} but the applied type is {:?}",
-                    self.properties_type,
-                    properties.properties_type()
+                    self.property_type,
+                    properties.property_type()
                 );
             }
-            match self.properties_type {
-                PropertiesType::Map => {
+            match self.property_type {
+                PropertyType::Map => {
                     for (i, prop) in properties.iter_props().enumerate() {
                         let name = properties.prop_name(i).unwrap();
                         self.prop_mut(name).map(|p| p.apply(prop));
                     }
                 }
-                PropertiesType::Seq => {
+                PropertyType::Seq => {
                     for (i, prop) in properties.iter_props().enumerate() {
                         self.prop_with_index_mut(i).map(|p| p.apply(prop));
                     }
                 }
+                _ => panic!("DynamicProperties cannot be Value types"),
             }
         } else {
             panic!("attempted to apply non-Properties type to Properties type");
@@ -171,11 +168,11 @@ impl Property for DynamicProperties {
         Some(self)
     }
 
-    fn is_sequence(&self) -> bool {
-        self.properties_type == PropertiesType::Seq
-    }
-
     fn serializable(&self) -> Serializable {
         Serializable::Borrowed(self)
+    }
+
+    fn property_type(&self) -> PropertyType {
+        self.property_type
     }
 }

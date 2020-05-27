@@ -1,4 +1,4 @@
-use crate::{Serializable, Property};
+use crate::{Property, PropertyType, property_serde::Serializable};
 use serde::Serialize;
 use smallvec::{Array, SmallVec};
 use std::any::Any;
@@ -42,5 +42,9 @@ where
 
     fn serializable(&self) -> Serializable {
         Serializable::Borrowed(self)
+    }
+
+    fn property_type(&self) -> PropertyType {
+        PropertyType::Value
     }
 }

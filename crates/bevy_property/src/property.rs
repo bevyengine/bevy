@@ -1,20 +1,12 @@
-use crate::{PropertyTypeRegistry, Properties};
+use crate::{property_serde::Serializable, Properties, PropertyTypeRegistry};
+use erased_serde::Deserializer;
 use std::any::Any;
-use erased_serde::{Deserializer, Serialize};
 
-
-pub enum Serializable<'a> {
-    Owned(Box<dyn Serialize + 'a>),
-    Borrowed(&'a dyn Serialize),
-}
-
-impl<'a> Serializable<'a> {
-    pub fn borrow(&self) -> &dyn Serialize {
-        match self {
-            Serializable::Borrowed(serialize) => serialize,
-            Serializable::Owned(serialize) => serialize,
-        }
-    }
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+pub enum PropertyType {
+    Map,
+    Seq,
+    Value,
 }
 
 // TODO: consider removing send + sync requirements
@@ -25,18 +17,20 @@ pub trait Property: Send + Sync + Any + 'static {
     fn clone_prop(&self) -> Box<dyn Property>;
     fn set(&mut self, value: &dyn Property);
     fn apply(&mut self, value: &dyn Property);
+    fn property_type(&self) -> PropertyType {
+        PropertyType::Value
+    }
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
-    fn is_sequence(&self) -> bool {
-        false
-    }
-
     fn serializable(&self) -> Serializable;
 }
 
 pub trait DeserializeProperty {
-    fn deserialize(deserializer: &mut dyn Deserializer, property_type_registry: &PropertyTypeRegistry) -> Result<Box<dyn Property>, erased_serde::Error>;
+    fn deserialize(
+        deserializer: &mut dyn Deserializer,
+        property_type_registry: &PropertyTypeRegistry,
+    ) -> Result<Box<dyn Property>, erased_serde::Error>;
 }
 
 pub trait PropertyVal {

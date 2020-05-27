@@ -148,10 +148,6 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fn iter_props(&self) -> #bevy_property_path::PropertyIter {
                 #bevy_property_path::PropertyIter::new(self)
             }
-
-            fn properties_type(&self) -> #bevy_property_path::PropertiesType {
-                #bevy_property_path::PropertiesType::Map
-            }
         }
 
         impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics {
@@ -181,11 +177,11 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_property_path::Property) {
                 if let Some(properties) = value.as_properties() {
-                    if properties.properties_type() != self.properties_type() {
+                    if properties.property_type() != self.property_type() {
                         panic!(
                             "Properties type mismatch. This type is {:?} but the applied type is {:?}",
-                            self.properties_type(),
-                            properties.properties_type()
+                            self.property_type(),
+                            properties.property_type()
                         );
                     }
                     for (i, prop) in properties.iter_props().enumerate() {
@@ -202,8 +198,12 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 Some(self)
             }
 
-            fn serializable(&self) -> #bevy_property_path::Serializable {
-                #bevy_property_path::Serializable::Owned(Box::new(#bevy_property_path::property_serde::MapSerializer::new(self)))
+            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
+                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::MapSerializer::new(self)))
+            }
+
+            fn property_type(&self) -> #bevy_property_path::PropertyType {
+                #bevy_property_path::PropertyType::Map
             }
         }
     })
@@ -258,8 +258,14 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn serializable(&self) -> #bevy_property_path::Serializable {
-                #bevy_property_path::Serializable::Borrowed(self)
+            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
+                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer {
+                    property: self,
+                }))
+            }
+
+            fn property_type(&self) -> #bevy_property_path::PropertyType {
+                #bevy_property_path::PropertyType::Value
             }
         }
 
@@ -337,7 +343,9 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
         quote! { #serialize_fn(self) }
     } else {
         quote! {
-            #bevy_property_path::Serializable::Borrowed(self)
+            #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer {
+                property: self,
+            }))
         }
     };
     let deserialize_fn = if let Some(deserialize_fn) = property_def.deserialize_fn {
@@ -387,8 +395,12 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn serializable(&self) -> #bevy_property_path::Serializable {
+            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
                 #serialize_fn
+            }
+
+            fn property_type(&self) -> #bevy_property_path::PropertyType {
+                #bevy_property_path::PropertyType::Value
             }
         }
 

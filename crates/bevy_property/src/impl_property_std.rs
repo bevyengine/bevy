@@ -1,4 +1,4 @@
-use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter, Serializable, property_serde::SeqSerializer};
+use crate::{impl_property, Properties, Property, PropertyIter, property_serde::{Serializable, SeqSerializer}};
 use serde::{Serialize, Deserialize};
 use std::{
     any::Any,
@@ -32,9 +32,6 @@ where
     fn iter_props(&self) -> PropertyIter {
         PropertyIter::new(self)
     }
-    fn properties_type(&self) -> PropertiesType {
-        PropertiesType::Seq
-    }
 }
 
 impl<T> Property for Vec<T>
@@ -56,11 +53,11 @@ where
     }
     fn set(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {
-            if properties.properties_type() != self.properties_type() {
+            if properties.property_type() != self.property_type() {
                 panic!(
                     "Properties type mismatch. This type is {:?} but the applied type is {:?}",
-                    self.properties_type(),
-                    properties.properties_type()
+                    self.property_type(),
+                    properties.property_type()
                 );
             }
             for (i, prop) in properties.iter_props().enumerate() {
@@ -76,10 +73,6 @@ where
 
     fn as_properties(&self) -> Option<&dyn Properties> {
         Some(self)
-    }
-
-    fn is_sequence(&self) -> bool {
-        true
     }
 
     fn serializable(&self) -> Serializable {

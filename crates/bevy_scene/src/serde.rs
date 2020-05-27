@@ -1,11 +1,12 @@
 use crate::{Entity, Scene};
 use anyhow::Result;
-use bevy_property::{DynamicProperties, PropertyTypeRegistry, property_serde::DynamicPropertiesDeserializer};
+use bevy_property::{
+    property_serde::MapPropertyDeserializer, DynamicProperties, PropertyTypeRegistry,
+};
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
     Deserialize, Serialize,
 };
-use std::{cell::RefCell, rc::Rc};
 
 impl Serialize for Scene {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -18,7 +19,6 @@ impl Serialize for Scene {
 
 pub struct SceneDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
@@ -30,7 +30,6 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
         let mut scene = Scene::default();
         scene.entities = deserializer.deserialize_seq(SceneEntitySeqVisiter {
             property_type_registry: self.property_type_registry,
-            current_type_name: self.current_type_name,
         })?;
 
         Ok(scene)
@@ -39,7 +38,6 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
 
 struct SceneEntitySeqVisiter<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
@@ -55,7 +53,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
         let mut entities = Vec::new();
         while let Some(entity) = seq.next_element_seed(SceneEntityDeserializer {
             property_type_registry: self.property_type_registry,
-            current_type_name: self.current_type_name.clone(),
         })? {
             entities.push(entity);
         }
@@ -66,7 +63,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
 
 pub struct SceneEntityDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
@@ -79,8 +75,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
             "Entity",
             &["id", "components"],
             SceneEntityVisiter {
-                property_type_registry: self.property_type_registry,
-                current_type_name: self.current_type_name,
+                registry: self.property_type_registry,
             },
         )
     }
@@ -97,8 +92,7 @@ pub const ENTITY_FIELD_ID: &str = "id";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
 struct SceneEntityVisiter<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
@@ -127,8 +121,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
                     }
 
                     components = Some(map.next_value_seed(ComponentVecDeserializer {
-                        current_type_name: self.current_type_name.clone(),
-                        registry: self.property_type_registry,
+                        registry: self.registry,
                     })?);
                 }
             }
@@ -150,7 +143,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
 
 pub struct ComponentVecDeserializer<'a> {
     pub registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
@@ -161,14 +153,12 @@ impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
     {
         deserializer.deserialize_seq(ComponentSeqVisiter {
             registry: self.registry,
-            current_type_name: self.current_type_name,
         })
     }
 }
 
 struct ComponentSeqVisiter<'a> {
     pub registry: &'a PropertyTypeRegistry,
-    pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
 impl<'a, 'de> Visitor<'de> for ComponentSeqVisiter<'a> {
@@ -182,10 +172,9 @@ impl<'a, 'de> Visitor<'de> for ComponentSeqVisiter<'a> {
         A: SeqAccess<'de>,
     {
         let mut dynamic_properties = Vec::new();
-        while let Some(entity) = seq.next_element_seed(DynamicPropertiesDeserializer {
-            current_type_name: self.current_type_name.clone(),
-            registry: self.registry,
-        })? {
+        while let Some(entity) =
+            seq.next_element_seed(MapPropertyDeserializer::new(self.registry))?
+        {
             dynamic_properties.push(entity);
         }
 
