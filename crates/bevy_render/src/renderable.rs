@@ -7,7 +7,7 @@ pub struct Renderable {
     pub is_visible: bool,
     pub is_instanced: bool,
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
-    #[prop(ignore)]
+    #[property(ignore)]
     pub render_resource_assignments: RenderResourceAssignments,
 }
 

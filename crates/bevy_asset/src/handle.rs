@@ -25,7 +25,7 @@ where
     T: 'static,
 {
     pub id: HandleId,
-    #[prop(ignore)]
+    #[property(ignore)]
     marker: PhantomData<T>,
 }
 

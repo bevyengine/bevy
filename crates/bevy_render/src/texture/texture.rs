@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_derive::Resource;
+use bevy_derive::FromResources;
 use legion::prelude::*;
 use std::{collections::HashSet, fs::File};
 
@@ -109,7 +109,7 @@ impl Texture {
     }
 }
 
-#[derive(Resource)]
+#[derive(FromResources)]
 pub struct TextureResourceSystemState {
     event_reader: EventReader<AssetEvent<Texture>>,
 }

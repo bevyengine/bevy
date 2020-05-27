@@ -8,6 +8,7 @@
         "bools",
         "chunkset",
         "chunksets",
+        "deserialization",
         "eprintln",
         "hashset",
         "multizip",

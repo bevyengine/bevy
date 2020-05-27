@@ -21,9 +21,9 @@ struct PropAttributeArgs {
     pub ignore: Option<bool>,
 }
 
-static PROP_ATTRIBUTE_NAME: &str = "prop";
+static PROP_ATTRIBUTE_NAME: &str = "property";
 
-#[proc_macro_derive(Properties, attributes(prop, module))]
+#[proc_macro_derive(Properties, attributes(property, module))]
 pub fn derive_properties(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let unit_struct_punctuated = Punctuated::new();
