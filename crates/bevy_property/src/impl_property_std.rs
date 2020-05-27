@@ -1,4 +1,4 @@
-use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter};
+use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter, SeqSerializer, Serializable};
 use serde::Serialize;
 use std::{
     any::Any,
@@ -9,7 +9,7 @@ use std::{
 
 impl<T> Properties for Vec<T>
 where
-    T: Property + Clone + Serialize,
+    T: Property + Clone,
 {
     fn prop(&self, _name: &str) -> Option<&dyn Property> {
         None
@@ -39,7 +39,7 @@ where
 
 impl<T> Property for Vec<T>
 where
-    T: Property + Clone + Serialize,
+    T: Property + Clone,
 {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -80,6 +80,10 @@ where
 
     fn is_sequence(&self) -> bool {
         true
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Owned(Box::new(SeqSerializer::new(self)))
     }
 }
 
@@ -150,6 +154,10 @@ impl Property for usize {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for u64 {
@@ -203,6 +211,10 @@ impl Property for u64 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }
 
@@ -258,6 +270,10 @@ impl Property for u32 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for u16 {
@@ -311,6 +327,10 @@ impl Property for u16 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }
 
@@ -366,6 +386,10 @@ impl Property for u8 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for isize {
@@ -419,6 +443,10 @@ impl Property for isize {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }
 
@@ -474,6 +502,10 @@ impl Property for i64 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for i32 {
@@ -527,6 +559,10 @@ impl Property for i32 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }
 
@@ -582,6 +618,10 @@ impl Property for i16 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for i8 {
@@ -636,6 +676,10 @@ impl Property for i8 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for f32 {
@@ -674,6 +718,10 @@ impl Property for f32 {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Property for f64 {
@@ -711,5 +759,9 @@ impl Property for f64 {
         } else {
             panic!("prop value is not {}", std::any::type_name::<Self>());
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }

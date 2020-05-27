@@ -1,6 +1,6 @@
 use crate::{
     Properties, PropertiesType, Property, PropertyIter, PropertyTypeRegistration,
-    PropertyTypeRegistry,
+    PropertyTypeRegistry, Serializable,
 };
 use de::SeqAccess;
 use serde::{
@@ -183,6 +183,10 @@ impl Property for DynamicProperties {
     fn is_sequence(&self) -> bool {
         self.properties_type == PropertiesType::Seq
     }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
+    }
 }
 
 impl Serialize for DynamicProperties {
@@ -219,14 +223,13 @@ impl<'a> Serialize for MapSerializer<'a> {
             if property.is_sequence() {
                 state.serialize_entry(name, &SeqSerializer { property })?;
             } else {
-                state.serialize_entry(name, property)?;
+                state.serialize_entry(name, property.serializable().borrow())?;
             }
         }
         state.end()
     }
 }
 
-// TODO: maybe you can return this as a type erased serializer as Prop::get_serializer()? This would remove the need for explicit Serialize impls
 pub struct SeqSerializer<'a> {
     pub property: &'a dyn Property,
 }
@@ -248,7 +251,7 @@ impl<'a> Serialize for SeqSerializer<'a> {
             state.serialize_entry("data", &PropertiesSeqSerializer { properties })?;
         } else {
             state.serialize_entry("seq_value_type", self.property.type_name())?;
-            state.serialize_entry("data", self.property)?;
+            state.serialize_entry("data", self.property.serializable().borrow())?;
         }
         state.end()
     }
@@ -265,7 +268,7 @@ impl<'a> Serialize for PropertiesSeqSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.properties.prop_len()))?;
         for prop in self.properties.iter_props() {
-            state.serialize_element(prop)?;
+            state.serialize_element(prop.serializable().borrow())?;
         }
         state.end()
     }
@@ -537,7 +540,7 @@ where
                 ));
             }
             dynamic_properties = map.next_value_seed(PropSeqDeserializer {
-                property_type_registry: property_type_registry,
+                property_type_registry,
                 current_type_name: current_type_name.clone(),
             })?;
             break;

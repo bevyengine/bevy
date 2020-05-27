@@ -147,17 +147,6 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             }
         }
 
-        impl #impl_generics #bevy_property_path::serde::ser::Serialize for #struct_name#ty_generics {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: #bevy_property_path::serde::ser::Serializer,
-            {
-                use #bevy_property_path::serde::ser::SerializeMap;
-                use #bevy_property_path::serde::Serialize;
-                #bevy_property_path::MapSerializer::new(self).serialize(serializer)
-            }
-        }
-
         impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics {
             #[inline]
             fn type_name(&self) -> &str {
@@ -204,6 +193,10 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             #[inline]
             fn as_properties(&self) -> Option<&dyn #bevy_property_path::Properties> {
                 Some(self)
+            }
+
+            fn serializable(&self) -> #bevy_property_path::Serializable {
+                #bevy_property_path::Serializable::Owned(Box::new(#bevy_property_path::MapSerializer::new(self)))
             }
         }
     })
@@ -255,6 +248,11 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
                 } else {
                     panic!("prop value is not {}", std::any::type_name::<Self>());
                 }
+            }
+
+            #[inline]
+            fn serializable(&self) -> #bevy_property_path::Serializable {
+                #bevy_property_path::Serializable::Borrowed(self)
             }
        }
     })

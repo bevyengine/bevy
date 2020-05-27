@@ -1,4 +1,4 @@
-use crate::Property;
+use crate::{Serializable, Property};
 use serde::Serialize;
 use smallvec::{Array, SmallVec};
 use std::any::Any;
@@ -38,5 +38,9 @@ where
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = prop.clone();
         }
+    }
+
+    fn serializable(&self) -> Serializable {
+        Serializable::Borrowed(self)
     }
 }

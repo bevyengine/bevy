@@ -1,7 +1,23 @@
 use crate::Properties;
 use std::any::Any;
+use erased_serde::Serialize;
 
-pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
+
+pub enum Serializable<'a> {
+    Owned(Box<dyn Serialize + 'a>),
+    Borrowed(&'a dyn Serialize),
+}
+
+impl<'a> Serializable<'a> {
+    pub fn borrow(&self) -> &dyn Serialize {
+        match self {
+            Serializable::Borrowed(serialize) => serialize,
+            Serializable::Owned(serialize) => serialize,
+        }
+    }
+}
+
+pub trait Property: Send + Sync + Any + 'static {
     fn type_name(&self) -> &str;
     fn any(&self) -> &dyn Any;
     fn any_mut(&mut self) -> &mut dyn Any;
@@ -14,9 +30,9 @@ pub trait Property: erased_serde::Serialize + Send + Sync + Any + 'static {
     fn is_sequence(&self) -> bool {
         false
     }
-}
 
-erased_serde::serialize_trait_object!(Property);
+    fn serializable(&self) -> Serializable;
+}
 
 pub trait PropertyVal {
     fn val<T: 'static>(&self) -> Option<&T>;
@@ -84,6 +100,10 @@ macro_rules! impl_property {
                     panic!("prop value is not {}", std::any::type_name::<Self>());
                 }
             }
+
+            fn serializable(&self) -> Serializable {
+                Serializable::Borrowed(self)
+            }
        }
     };
     (SEQUENCE, @$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
@@ -128,6 +148,10 @@ macro_rules! impl_property {
                 fn is_sequence(&self) -> bool {
                     true
                 }
+
+                fn serializable(&self) -> Serializable {
+                    Serializable::Borrowed(self)
+                }
            }
         }
     };
@@ -168,6 +192,10 @@ macro_rules! impl_property {
                     } else {
                         panic!("prop value is not {}", std::any::type_name::<Self>());
                     }
+                }
+
+                fn serializable(&self) -> Serializable {
+                    Serializable::Borrowed(self)
                 }
            }
         }
