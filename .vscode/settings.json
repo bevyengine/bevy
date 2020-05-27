@@ -17,5 +17,4 @@
         "rustc",
         "spirv"
     ],
-    "rust-analyzer.checkOnSave.extraArgs": ["--target-dir", "target/rust-analyzer"],
 }
