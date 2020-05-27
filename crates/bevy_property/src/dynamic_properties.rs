@@ -1,5 +1,5 @@
 use crate::{
-    Properties, PropertiesType, Property, PropertyIter, PropertyTypeRegistration,
+    Properties, PropertiesType, Property, PropertyIter,
     PropertyTypeRegistry, Serializable,
 };
 use de::SeqAccess;
@@ -21,7 +21,7 @@ pub struct DynamicProperties {
 impl DynamicProperties {
     pub fn map() -> Self {
         DynamicProperties {
-            type_name: Default::default(),
+            type_name: std::any::type_name::<Self>().to_string(),
             props: Default::default(),
             prop_names: Default::default(),
             prop_indices: Default::default(),
@@ -31,7 +31,7 @@ impl DynamicProperties {
 
     pub fn seq() -> Self {
         DynamicProperties {
-            type_name: Default::default(),
+            type_name: std::any::type_name::<Self>().to_string(),
             props: Default::default(),
             prop_names: Default::default(),
             prop_indices: Default::default(),
@@ -275,7 +275,7 @@ impl<'a> Serialize for PropertiesSeqSerializer<'a> {
 }
 
 pub struct DynamicPropertiesDeserializer<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
+    pub registry: &'a PropertyTypeRegistry,
     pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -286,14 +286,14 @@ impl<'a, 'de> DeserializeSeed<'de> for DynamicPropertiesDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_map(DynamicPropertyMapVisiter {
-            property_type_registry: self.property_type_registry,
+            registry: self.registry,
             current_type_name: self.current_type_name,
         })
     }
 }
 
 pub struct DynamicPropertyMapVisiter<'a> {
-    property_type_registry: &'a PropertyTypeRegistry,
+    registry: &'a PropertyTypeRegistry,
     current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -307,11 +307,11 @@ impl<'a, 'de> Visitor<'de> for DynamicPropertyMapVisiter<'a> {
     where
         V: MapAccess<'de>,
     {
-        visit_map(map, self.property_type_registry, self.current_type_name)
+        visit_map(map, self.registry, self.current_type_name)
     }
 }
 pub struct PropertyDeserializer<'a> {
-    pub property_type_registry: &'a PropertyTypeRegistry,
+    pub registry: &'a PropertyTypeRegistry,
     pub current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -322,14 +322,14 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_any(AnyPropVisiter {
-            property_type_registry: self.property_type_registry,
+            property_type_registry: self.registry,
             current_type_name: self.current_type_name,
         })
     }
 }
 
 pub struct PropSeqDeserializer<'a> {
-    property_type_registry: &'a PropertyTypeRegistry,
+    registry: &'a PropertyTypeRegistry,
     current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -340,14 +340,14 @@ impl<'a, 'de> DeserializeSeed<'de> for PropSeqDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_seq(PropSeqVisiter {
-            property_type_registry: self.property_type_registry,
+            registry: self.registry,
             current_type_name: self.current_type_name.clone(),
         })
     }
 }
 
 pub struct PropSeqVisiter<'a> {
-    property_type_registry: &'a PropertyTypeRegistry,
+    registry: &'a PropertyTypeRegistry,
     current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -363,7 +363,7 @@ impl<'a, 'de> Visitor<'de> for PropSeqVisiter<'a> {
     {
         let mut dynamic_properties = DynamicProperties::seq();
         while let Some(prop) = seq.next_element_seed(PropertyDeserializer {
-            property_type_registry: self.property_type_registry,
+            registry: self.registry,
             current_type_name: self.current_type_name.clone(),
         })? {
             dynamic_properties.push(prop, None);
@@ -373,7 +373,7 @@ impl<'a, 'de> Visitor<'de> for PropSeqVisiter<'a> {
 }
 
 pub struct MapValueDeserializer<'a> {
-    property_type_registry: &'a PropertyTypeRegistry,
+    registry: &'a PropertyTypeRegistry,
     current_type_name: Rc<RefCell<Option<String>>>,
 }
 
@@ -387,18 +387,18 @@ impl<'a, 'de> DeserializeSeed<'de> for MapValueDeserializer<'a> {
             let registration = {
                 let current_type_name = self.current_type_name.borrow();
                 let type_name = current_type_name.as_ref().unwrap();
-                self.property_type_registry
+                self.registry
                     .get_short(type_name)
                     .ok_or_else(|| {
                         de::Error::custom(format!("TypeRegistration is missing for {}", type_name))
                     })?
             };
             let mut erased = erased_serde::Deserializer::erase(deserializer);
-            (registration.deserialize)(&mut erased)
+            (registration.deserialize)(&mut erased, self.registry)
                 .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
         } else {
             deserializer.deserialize_any(AnyPropVisiter {
-                property_type_registry: self.property_type_registry,
+                property_type_registry: self.registry,
                 current_type_name: self.current_type_name,
             })
         }
@@ -540,13 +540,13 @@ where
                 ));
             }
             dynamic_properties = map.next_value_seed(PropSeqDeserializer {
-                property_type_registry,
+                registry: property_type_registry,
                 current_type_name: current_type_name.clone(),
             })?;
             break;
         } else {
             let prop = map.next_value_seed(MapValueDeserializer {
-                property_type_registry: property_type_registry,
+                registry: property_type_registry,
                 current_type_name: current_type_name.clone(),
             })?;
             dynamic_properties.set_box(&key, prop);
@@ -556,20 +556,4 @@ where
     let type_name = type_name.ok_or_else(|| de::Error::missing_field("type"))?;
     dynamic_properties.type_name = type_name.to_string();
     Ok(dynamic_properties)
-}
-
-struct PropertyTypeDeserializer<'a> {
-    registration: &'a PropertyTypeRegistration,
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for PropertyTypeDeserializer<'a> {
-    type Value = Box<dyn Property>;
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut erased = erased_serde::Deserializer::erase(deserializer);
-        (self.registration.deserialize)(&mut erased)
-            .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
-    }
 }

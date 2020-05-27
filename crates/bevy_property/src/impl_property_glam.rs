@@ -1,4 +1,4 @@
-use crate::{impl_property, Property, Serializable};
+use crate::impl_property;
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 
 impl_property!(Vec2);

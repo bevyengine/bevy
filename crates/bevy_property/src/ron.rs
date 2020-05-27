@@ -13,7 +13,7 @@ pub fn deserialize_dynamic_properties(ron_string: &str, property_type_registry: 
     deserializer.set_callback(&mut callback);
     let dynamic_properties_deserializer = DynamicPropertiesDeserializer {
         current_type_name: last_type_name.clone(),
-        property_type_registry: &property_type_registry,
+        registry: &property_type_registry,
     };
     dynamic_properties_deserializer.deserialize(&mut deserializer)
 }

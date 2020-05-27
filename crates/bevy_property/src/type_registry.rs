@@ -1,5 +1,4 @@
-use crate::Property;
-use serde::Deserialize;
+use crate::{DeserializeProperty, Property};
 use std::{any::TypeId, collections::HashMap};
 
 #[derive(Default)]
@@ -11,7 +10,7 @@ pub struct PropertyTypeRegistry {
 impl PropertyTypeRegistry {
     pub fn register<T>(&mut self)
     where
-        T: Property + for<'de> Deserialize<'de>,
+        T: Property + DeserializeProperty,
     {
         let registration = PropertyTypeRegistration::of::<T>();
         self.short_names
@@ -36,19 +35,19 @@ pub struct PropertyTypeRegistration {
     pub ty: TypeId,
     pub deserialize: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
+        property_type_registry: &PropertyTypeRegistry,
     ) -> Result<Box<dyn Property>, erased_serde::Error>,
     pub short_name: &'static str,
     pub name: &'static str,
 }
 
 impl PropertyTypeRegistration {
-    pub fn of<T: Property + for<'de> Deserialize<'de>>() -> Self {
+    pub fn of<T: Property + DeserializeProperty>() -> Self {
         let ty = TypeId::of::<T>();
         Self {
             ty,
-            deserialize: |deserializer: &mut dyn erased_serde::Deserializer| {
-                let property = <T as Deserialize>::deserialize(deserializer)?;
-                Ok(Box::new(property))
+            deserialize: |deserializer: &mut dyn erased_serde::Deserializer, property_type_registry: &PropertyTypeRegistry| {
+                T::deserialize(deserializer, property_type_registry)
             },
             name: std::any::type_name::<T>(),
             short_name: std::any::type_name::<T>().split("::").last().unwrap(),

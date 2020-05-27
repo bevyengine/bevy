@@ -1,6 +1,6 @@
-use crate::Properties;
+use crate::{PropertyTypeRegistry, Properties};
 use std::any::Any;
-use erased_serde::Serialize;
+use erased_serde::{Deserializer, Serialize};
 
 
 pub enum Serializable<'a> {
@@ -17,6 +17,7 @@ impl<'a> Serializable<'a> {
     }
 }
 
+// TODO: consider removing send + sync requirements
 pub trait Property: Send + Sync + Any + 'static {
     fn type_name(&self) -> &str;
     fn any(&self) -> &dyn Any;
@@ -32,6 +33,10 @@ pub trait Property: Send + Sync + Any + 'static {
     }
 
     fn serializable(&self) -> Serializable;
+}
+
+pub trait DeserializeProperty {
+    fn deserialize(deserializer: &mut dyn Deserializer, property_type_registry: &PropertyTypeRegistry) -> Result<Box<dyn Property>, erased_serde::Error>;
 }
 
 pub trait PropertyVal {
@@ -53,165 +58,4 @@ impl PropertyVal for dyn Property {
             panic!("prop value is not {}", std::any::type_name::<T>());
         }
     }
-}
-
-// used by impl_property
-#[allow(unused_macros)]
-macro_rules! as_item {
-    ($i:item) => {
-        $i
-    };
-}
-
-#[macro_export]
-macro_rules! impl_property {
-    ($ty:ident) => {
-        impl Property for $ty {
-            #[inline]
-            fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
-            }
-
-            #[inline]
-            fn any(&self) -> &dyn std::any::Any {
-                self
-            }
-
-            #[inline]
-            fn any_mut(&mut self) -> &mut dyn std::any::Any {
-                self
-            }
-
-            #[inline]
-            fn clone_prop(&self) -> Box<dyn Property> {
-                Box::new(self.clone())
-            }
-
-            #[inline]
-            fn apply(&mut self, value: &dyn Property) {
-                self.set(value);
-            }
-
-            fn set(&mut self, value: &dyn Property) {
-                let value = value.any();
-                if let Some(prop) = value.downcast_ref::<Self>() {
-                    *self = prop.clone();
-                } else {
-                    panic!("prop value is not {}", std::any::type_name::<Self>());
-                }
-            }
-
-            fn serializable(&self) -> Serializable {
-                Serializable::Borrowed(self)
-            }
-       }
-    };
-    (SEQUENCE, @$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
-        impl_property! {
-            @as_item
-            impl<$($args),*> Property for $trait_<$($args),*> where $($args: ::std::any::Any + 'static,)*
-            $($preds)* {
-                #[inline]
-                fn type_name(&self) -> &str {
-                    std::any::type_name::<Self>()
-                }
-
-                #[inline]
-                fn any(&self) -> &dyn std::any::Any {
-                    self
-                }
-
-                #[inline]
-                fn any_mut(&mut self) -> &mut dyn std::any::Any {
-                    self
-                }
-
-                #[inline]
-                fn clone_prop(&self) -> Box<dyn Property> {
-                    Box::new(self.clone())
-                }
-
-                #[inline]
-                fn apply(&mut self, value: &dyn Property) {
-                    self.set(value);
-                }
-
-                fn set(&mut self, value: &dyn Property) {
-                    let value = value.any();
-                    if let Some(prop) = value.downcast_ref::<Self>() {
-                        *self = prop.clone();
-                    } else {
-                        panic!("prop value is not {}", std::any::type_name::<Self>());
-                    }
-                }
-
-                fn is_sequence(&self) -> bool {
-                    true
-                }
-
-                fn serializable(&self) -> Serializable {
-                    Serializable::Borrowed(self)
-                }
-           }
-        }
-    };
-    (@$trait_:ident [$($args:ident,)*] where [$($preds:tt)+]) => {
-        impl_property! {
-            @as_item
-            impl<$($args),*> Property for $trait_<$($args),*> where $($args: ::std::any::Any + 'static,)*
-            $($preds)* {
-                #[inline]
-                fn type_name(&self) -> &str {
-                    std::any::type_name::<Self>()
-                }
-
-                #[inline]
-                fn any(&self) -> &dyn std::any::Any {
-                    self
-                }
-
-                #[inline]
-                fn any_mut(&mut self) -> &mut dyn std::any::Any {
-                    self
-                }
-
-                #[inline]
-                fn clone_prop(&self) -> Box<dyn Property> {
-                    Box::new(self.clone())
-                }
-
-                #[inline]
-                fn apply(&mut self, value: &dyn Property) {
-                    self.set(value);
-                }
-
-                fn set(&mut self, value: &dyn Property) {
-                    let value = value.any();
-                    if let Some(prop) = value.downcast_ref::<Self>() {
-                        *self = prop.clone();
-                    } else {
-                        panic!("prop value is not {}", std::any::type_name::<Self>());
-                    }
-                }
-
-                fn serializable(&self) -> Serializable {
-                    Serializable::Borrowed(self)
-                }
-           }
-        }
-    };
-    (@as_item $i:item) => { $i };
-
-    (
-        SEQUENCE, $trait_:ident < $($args:ident),* $(,)* >
-        where $($preds:tt)+
-    ) => {
-        impl_property! {SEQUENCE, @$trait_ [$($args,)*] where [$($preds)*] }
-    };
-    (
-        $trait_:ident < $($args:ident),* $(,)* >
-        where $($preds:tt)+
-    ) => {
-        impl_property! { @$trait_ [$($args,)*] where [$($preds)*] }
-    };
 }

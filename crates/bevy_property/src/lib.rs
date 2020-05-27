@@ -19,3 +19,4 @@ pub use impl_property_legion::*;
 
 pub use bevy_property_derive::*; 
 pub use serde;
+pub use erased_serde;

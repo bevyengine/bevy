@@ -1,7 +1,6 @@
 
-use bevy_property::{Property, Properties};
+use bevy_property::{Property, Properties, DeserializeProperty};
 use legion::storage::Component;
-use serde::Deserialize;
 use crate::{PropertyTypeRegistryContext, ComponentRegistryContext};
 use bevy_app::{FromResources, AppBuilder};
 
@@ -11,7 +10,7 @@ pub trait RegisterComponent {
         T: Properties + Component + FromResources;
     fn register_property_type<T>(&mut self) -> &mut Self
     where
-        T: Property + for<'de> Deserialize<'de>;
+        T: Property + DeserializeProperty;
 }
 
 impl RegisterComponent for AppBuilder {
@@ -31,7 +30,7 @@ impl RegisterComponent for AppBuilder {
 
     fn register_property_type<T>(&mut self) -> &mut Self
     where
-        T: Property + for<'de> Deserialize<'de>,
+        T: Property + DeserializeProperty,
     {
         {
             let registry_context = self

@@ -1,8 +1,8 @@
 use crate::{impl_property, Properties, PropertiesType, Property, PropertyIter, SeqSerializer, Serializable};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::{
     any::Any,
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashMap, HashSet},
     hash::Hash,
     ops::Range,
 };
@@ -89,15 +89,15 @@ where
 
 impl_property!(String);
 impl_property!(bool);
-impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
-impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + 'static);
+// impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
+impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static);
 impl_property!(HashMap<K, V> where
-    K: Clone + Eq + Send + Sync + Hash + Serialize + 'static,
-    V: Clone + Send + Sync + Serialize + 'static,);
+    K: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static,
+    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,);
 impl_property!(BTreeMap<K, V> where
-    K: Clone + Ord + Send + Sync + Serialize + 'static,
-    V: Clone + Send + Sync + Serialize + 'static);
-impl_property!(Range<T> where T: Clone + Send + Sync + Serialize + 'static);
+    K: Clone + Ord + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,
+    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
+impl_property!(Range<T> where T: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
 
 
 // TODO: Implement lossless primitive types in RON and remove all of these primitive "cast checks"

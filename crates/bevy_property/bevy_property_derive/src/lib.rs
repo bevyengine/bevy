@@ -5,8 +5,15 @@ mod modules;
 use darling::FromMeta;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
+use proc_macro_crate::crate_name;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Index, Member, punctuated::Punctuated};
+use syn::{
+    parse::Parse,
+    parse_macro_input,
+    punctuated::Punctuated,
+    token::{Comma, Where},
+    Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Index, Member,
+};
 
 #[derive(FromMeta, Debug, Default)]
 struct PropAttributeArgs {
@@ -152,7 +159,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
-        
+
             #[inline]
             fn any(&self) -> &dyn std::any::Any {
                 self
@@ -253,6 +260,144 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
             #[inline]
             fn serializable(&self) -> #bevy_property_path::Serializable {
                 #bevy_property_path::Serializable::Borrowed(self)
+            }
+        }
+
+        impl #impl_generics #bevy_property_path::DeserializeProperty for #struct_name#ty_generics  {
+            fn deserialize(
+                deserializer: &mut dyn #bevy_property_path::erased_serde::Deserializer,
+                property_type_registry: &#bevy_property_path::PropertyTypeRegistry) ->
+                    Result<Box<dyn #bevy_property_path::Property>, #bevy_property_path::erased_serde::Error> {
+                    let property = <#struct_name#ty_generics as Deserialize>::deserialize(deserializer)?;
+                    Ok(Box::new(property))
+            }
+       }
+    })
+}
+
+#[derive(Debug)]
+struct PropertyDef {
+    type_name: Ident,
+    generics: Generics,
+    serialize_fn: Option<Ident>,
+    deserialize_fn: Option<Ident>,
+}
+
+impl Parse for PropertyDef {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let type_ident = input.parse::<Ident>()?;
+        let generics = input.parse::<Generics>()?;
+        let mut lookahead = input.lookahead1();
+        let mut where_clause = None;
+        if lookahead.peek(Where) {
+            where_clause = Some(input.parse()?);
+            lookahead = input.lookahead1();
+        }
+
+        let mut serialize_fn = None;
+        if lookahead.peek(Comma) {
+            input.parse::<Comma>()?;
+            serialize_fn = Some(input.parse::<Ident>()?);
+            lookahead = input.lookahead1();
+        }
+
+        let mut deserialize_fn = None;
+        if lookahead.peek(Comma) {
+            input.parse::<Comma>()?;
+            deserialize_fn = Some(input.parse::<Ident>()?);
+        }
+
+        Ok(PropertyDef {
+            type_name: type_ident,
+            generics: Generics {
+                where_clause,
+                ..generics
+            },
+            serialize_fn,
+            deserialize_fn,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn impl_property(input: TokenStream) -> TokenStream {
+    let property_def = parse_macro_input!(input as PropertyDef);
+
+    let bevy_property_path = get_path(if crate_name("bevy").is_ok() {
+        "bevy::property"
+    } else if crate_name("bevy_property").is_ok() {
+        "bevy_property"
+    } else {
+        "crate"
+    });
+
+    let (impl_generics, ty_generics, where_clause) = property_def.generics.split_for_impl();
+    let ty = &property_def.type_name;
+    let serialize_fn = if let Some(serialize_fn) = property_def.serialize_fn {
+        quote! { #serialize_fn(self) }
+    } else {
+        quote! {
+            #bevy_property_path::Serializable::Borrowed(self)
+        }
+    };
+    let deserialize_fn = if let Some(deserialize_fn) = property_def.deserialize_fn {
+        quote! { #deserialize_fn(deserializer, property_type_registry) }
+    } else {
+        quote! {
+            let property = <#ty#ty_generics as #bevy_property_path::serde::Deserialize>::deserialize(deserializer)?;
+            Ok(Box::new(property))
+        }
+    };
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_property_path::Property for #ty#ty_generics #where_clause  {
+            #[inline]
+            fn type_name(&self) -> &str {
+                std::any::type_name::<Self>()
+            }
+
+            #[inline]
+            fn any(&self) -> &dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+
+            #[inline]
+            fn clone_prop(&self) -> Box<dyn #bevy_property_path::Property> {
+                Box::new(self.clone())
+            }
+
+            #[inline]
+            fn apply(&mut self, value: &dyn #bevy_property_path::Property) {
+                self.set(value);
+            }
+
+            #[inline]
+            fn set(&mut self, value: &dyn #bevy_property_path::Property) {
+                let value = value.any();
+                if let Some(prop) = value.downcast_ref::<Self>() {
+                    *self = prop.clone();
+                } else {
+                    panic!("prop value is not {}", std::any::type_name::<Self>());
+                }
+            }
+
+            #[inline]
+            fn serializable(&self) -> #bevy_property_path::Serializable {
+                #serialize_fn
+            }
+        }
+
+        impl #impl_generics #bevy_property_path::DeserializeProperty for #ty#ty_generics #where_clause  {
+            fn deserialize(
+                deserializer: &mut dyn #bevy_property_path::erased_serde::Deserializer,
+                property_type_registry: &#bevy_property_path::PropertyTypeRegistry) ->
+                    Result<Box<dyn #bevy_property_path::Property>, #bevy_property_path::erased_serde::Error> {
+                    #deserialize_fn
             }
        }
     })
