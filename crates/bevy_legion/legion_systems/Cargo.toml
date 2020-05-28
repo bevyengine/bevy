@@ -20,6 +20,7 @@ more-system-fns = []
 
 [dependencies]
 legion-core = { path = "../legion_core", version = "0.2.1", default-features = false }
+legion_fn_system_macro = { path = "../legion_fn_system_macro" }
 
 downcast-rs = "1.0"
 itertools = "0.9"
