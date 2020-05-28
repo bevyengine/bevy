@@ -6,49 +6,42 @@ use quote::quote;
 use syn::Ident;
 
 
+fn tuple(idents: &[Ident]) -> proc_macro2::TokenStream {
+    if idents.len() == 0 {
+        quote!{ ()} 
+    } else if idents.len() == 1 {
+        quote!{ #(#idents),* } 
+    } else {
+        quote!{ (#(#idents),*) } 
+    }
+}
+
+fn get_idents(fmt_string: fn(usize)->String, count: usize) -> Vec<Ident> {
+    (0..=count)
+        .map(|i| Ident::new(&fmt_string(i), Span::call_site()))
+        .collect::<Vec<Ident>>()
+}
+
 #[proc_macro]
 pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
     let max_resources = 8;
     let max_views = 8;
-    let resources = (0..max_resources)
-        .map(|i| Ident::new(&format!("R{}", i), Span::call_site()))
-        .collect::<Vec<Ident>>();
-    let resource_vars = (0..max_resources)
-        .map(|i| Ident::new(&format!("r{}", i), Span::call_site()))
-        .collect::<Vec<Ident>>();
-    let views = (0..max_views)
-        .map(|i| Ident::new(&format!("V{}", i), Span::call_site()))
-        .collect::<Vec<Ident>>();
-    let view_vars = (0..max_views)
-        .map(|i| Ident::new(&format!("v{}", i), Span::call_site()))
-        .collect::<Vec<Ident>>();
-    let filter_idents = (0..max_views)
-        .map(|i| Ident::new(&format!("VF{}", i), Span::call_site()))
-        .collect::<Vec<Ident>>();
+    let resources = get_idents(|i| format!("R{}", i), max_resources);
+    let resource_vars = get_idents(|i| format!("r{}", i), max_resources);
+    let views = get_idents(|i| format!("V{}", i), max_views);
+    let view_vars = get_idents(|i| format!("v{}", i), max_views);
+    let filters = get_idents(|i| format!("VF{}", i), max_views);
 
     let mut tokens = TokenStream::new();
 
     let command_buffer = vec![Ident::new("CommandBuffer", Span::call_site())];
     let command_buffer_var = vec![Ident::new("_command_buffer", Span::call_site())];
-    for resource_count in 0..max_resources {
+    for resource_count in 0..=max_resources {
         let resource = &resources[0..resource_count];
         let resource_var = &resource_vars[0..resource_count];
 
-        let resource_tuple = if resource_count == 0 {
-            quote!{ ()} 
-        } else if resource_count == 1 {
-            quote!{ #(#resource),* } 
-        } else {
-            quote!{ (#(#resource),*) } 
-        };
-
-        let resource_var_tuple = if resource_count == 0 {
-            quote!{ ()} 
-        } else if resource_count == 1 {
-            quote!{ #(#resource_var),* } 
-        } else {
-            quote!{ (#(#resource_var),*) } 
-        };
+        let resource_tuple = tuple(resource);
+        let resource_var_tuple = tuple(resource_var);
 
         let resource_access = if resource_count == 0 {
             quote! { Access::default() }
@@ -65,18 +58,12 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
             }}
         };
 
-        for view_count in 0..max_views {
+        for view_count in 0..=max_views {
             let view = &views[0..view_count];
             let view_var = &view_vars[0..view_count];
-            let filter = &filter_idents[0..view_count];
+            let filter = &filters[0..view_count];
 
-            let view_tuple = if view_count == 0 {
-                quote!{ ()} 
-            } else if view_count == 1 {
-                quote!{ #(#view),* } 
-            } else {
-                quote!{ (#(#view),*) } 
-            };
+            let view_tuple = tuple(view);
 
             let component_access = if view_count == 0 {
                 quote! { Access::default() }
@@ -139,11 +126,11 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
 
                 tokens.extend(TokenStream::from(quote! {
                     impl<'a,
-                    Func,
-                    #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
-                    #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
-                    #filter: EntityFilter + Sync + 'static),*
-                > IntoSystem<'a, (#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
+                        Func,
+                        #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
+                        #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
+                        #filter: EntityFilter + Sync + 'static),*
+                    > IntoSystem<'a, (#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
                     where
                         Func: FnMut(#(&mut #command_buffer,)* #(#resource,)* #(#view),*) + Send + Sync + 'static,
                         #(<#view as View<'a>>::Iter: Iterator<Item = #view>),*
@@ -189,8 +176,6 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                     }
                 }));
             }
-
-
         }
     }
 
