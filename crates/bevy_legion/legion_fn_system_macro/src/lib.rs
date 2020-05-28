@@ -130,7 +130,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                         #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
                         #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
                         #filter: EntityFilter + Sync + 'static),*
-                    > IntoSystem<'a, (#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
+                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
                     where
                         Func: FnMut(#(&mut #command_buffer,)* #(#resource,)* #(#view),*) + Send + Sync + 'static,
                         #(<#view as View<'a>>::Iter: Iterator<Item = #view>),*

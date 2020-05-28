@@ -4,7 +4,6 @@ use crate::{
     system_fn_types::{FuncSystem, FuncSystemFnWrapper},
     Access, SystemAccess, SystemId, SystemQuery,
 };
-use legion_fn_system_macro::impl_fn_systems;
 use bit_set::BitSet;
 use fxhash::FxHashMap;
 use legion_core::{
@@ -14,12 +13,13 @@ use legion_core::{
     query::{DefaultFilter, IntoQuery, View, ViewElement},
     storage::ComponentTypeId,
 };
+use legion_fn_system_macro::impl_fn_systems;
 use std::marker::PhantomData;
 
 // TODO: add params for component access
 // TODO: add subworld to function parameters
 // TODO: somehow support filters
-pub trait IntoSystem<'a, CommandBuffer, Resources, Components> {
+pub trait IntoSystem<CommandBuffer, Resources, Components> {
     fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
     fn system_named(self, name: &'static str) -> Box<dyn Schedulable>;
     fn system(self) -> Box<dyn Schedulable>;
