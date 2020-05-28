@@ -1,21 +1,83 @@
 use crate::{Entity, Scene};
 use anyhow::Result;
 use bevy_property::{
-    property_serde::DynamicPropertiesDeserializer, DynamicProperties, PropertyTypeRegistry,
+    property_serde::{DynamicPropertiesSerializer, DynamicPropertiesDeserializer}, DynamicProperties, PropertyTypeRegistry,
 };
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
+    ser::{SerializeSeq, SerializeStruct},
     Deserialize, Serialize,
 };
 
-impl Serialize for Scene {
+pub struct SceneSerializer<'a> {
+    pub scene: &'a Scene,
+    pub registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a> SceneSerializer<'a> {
+    pub fn new(scene: &'a Scene, registry: &'a PropertyTypeRegistry) -> Self {
+        SceneSerializer {
+            scene,
+            registry,
+        }
+    }
+}
+
+impl<'a> Serialize for SceneSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        self.entities.serialize(serializer)
+        let mut state = serializer.serialize_seq(Some(self.scene.entities.len()))?;
+        for entity in self.scene.entities.iter() {
+            state.serialize_element(&EntitySerializer {
+                entity,
+                registry: self.registry,
+            })?;
+        }
+        state.end()
     }
 }
+
+pub struct EntitySerializer<'a> {
+    pub entity: &'a Entity,
+    pub registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a> Serialize for EntitySerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct(ENTITY_STRUCT, 2)?;
+        state.serialize_field(ENTITY_FIELD_ENTITY, &self.entity.entity)?;
+        state.serialize_field(ENTITY_FIELD_COMPONENTS, &ComponentsSerializer {
+            components: &self.entity.components,
+            registry: self.registry,
+        })?;
+        state.end()
+    }
+}
+
+
+pub struct ComponentsSerializer<'a> {
+    pub components: &'a [DynamicProperties],
+    pub registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a> Serialize for ComponentsSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.components.len()))?;
+        for dynamic_properties in self.components.iter() {
+            state.serialize_element(&DynamicPropertiesSerializer::new(dynamic_properties, self.registry))?;
+        }
+        state.end()
+    }
+}
+
 
 pub struct SceneDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
@@ -72,8 +134,8 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
         D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_struct(
-            "Entity",
-            &["id", "components"],
+            ENTITY_STRUCT,
+            &[ENTITY_FIELD_ENTITY, ENTITY_FIELD_COMPONENTS],
             SceneEntityVisiter {
                 registry: self.property_type_registry,
             },
@@ -84,11 +146,12 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
-    Id,
+    Entity,
     Components,
 }
 
-pub const ENTITY_FIELD_ID: &str = "id";
+pub const ENTITY_STRUCT: &str = "Entity";
+pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
 struct SceneEntityVisiter<'a> {
@@ -109,9 +172,9 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
         let mut components = None;
         while let Some(key) = map.next_key()? {
             match key {
-                EntityField::Id => {
+                EntityField::Entity => {
                     if id.is_some() {
-                        return Err(Error::duplicate_field(ENTITY_FIELD_ID));
+                        return Err(Error::duplicate_field(ENTITY_FIELD_ENTITY));
                     }
                     id = Some(map.next_value::<u32>()?);
                 }
@@ -129,13 +192,13 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
 
         let entity = id
             .as_ref()
-            .ok_or_else(|| Error::missing_field(ENTITY_FIELD_ID))?;
+            .ok_or_else(|| Error::missing_field(ENTITY_FIELD_ENTITY))?;
 
         let components = components
             .take()
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
         Ok(Entity {
-            id: *entity,
+            entity: *entity,
             components,
         })
     }

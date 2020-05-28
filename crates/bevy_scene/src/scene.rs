@@ -1,19 +1,19 @@
 use anyhow::Result;
-use bevy_component_registry::ComponentRegistry;
-use bevy_property::DynamicProperties;
+use bevy_type_registry::ComponentRegistry;
+use bevy_property::{PropertyTypeRegistry, DynamicProperties};
 use legion::prelude::{Resources, World};
 use serde::Serialize;
 use std::num::Wrapping;
 use thiserror::Error;
+use crate::serde::SceneSerializer;
 
 #[derive(Default)]
 pub struct Scene {
     pub entities: Vec<Entity>,
 }
 
-#[derive(Serialize)]
 pub struct Entity {
-    pub id: u32,
+    pub entity: u32,
     pub components: Vec<DynamicProperties>,
 }
 
@@ -40,12 +40,12 @@ impl Scene {
                             for (index, entity) in component_storage.entities().iter().enumerate() {
                                 if index == entities.len() {
                                     entities.push(Entity {
-                                        id: entity.index(),
+                                        entity: entity.index(),
                                         components: Vec::new(),
                                     })
                                 }
 
-                                let properties = (component_registration.component_properties_fn)(
+                                let properties = component_registration.get_component_properties(
                                     &component_resource_set,
                                     index,
                                 );
@@ -72,18 +72,18 @@ impl Scene {
         world.entity_allocator.push_next_ids(
             self.entities
                 .iter()
-                .map(|e| legion::prelude::Entity::new(e.id, Wrapping(1))),
+                .map(|e| legion::prelude::Entity::new(e.entity, Wrapping(1))),
         );
         for scene_entity in self.entities.iter() {
             // TODO: use EntityEntry when legion refactor is finished
             let entity = world.insert((), vec![()])[0];
             for component in scene_entity.components.iter() {
                 let component_registration = component_registry
-                    .get_with_full_name(&component.type_name)
+                    .get_with_name(&component.type_name)
                     .ok_or_else(|| SceneAddError::UnregisteredComponent {
                         type_name: component.type_name.to_string(),
                     })?;
-                (component_registration.component_add_fn)(world, resources, entity, component);
+                component_registration.add_component_to_entity(world, resources, entity, component);
             }
         }
 
@@ -91,14 +91,15 @@ impl Scene {
     }
 
     // TODO: move to AssetSaver when it is implemented
-    pub fn serialize_ron(&self) -> Result<String, ron::Error> {
+    pub fn serialize_ron(&self, registry: &PropertyTypeRegistry) -> Result<String, ron::Error> {
         let pretty_config = ron::ser::PrettyConfig::default()
             .with_decimal_floats(true)
             .with_indentor("  ".to_string())
             .with_new_line("\n".to_string());
         let mut buf = Vec::new();
-        let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true)?;
-        self.serialize(&mut serializer)?;
+        let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
+        let scene_serializer = SceneSerializer::new(self, registry);
+        scene_serializer.serialize(&mut serializer)?;
         Ok(String::from_utf8(buf).unwrap())
     }
 }

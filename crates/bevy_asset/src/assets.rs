@@ -3,7 +3,7 @@ use crate::{
     Handle, HandleId,
 };
 use bevy_app::{AppBuilder, Events, FromResources};
-use bevy_component_registry::RegisterComponent;
+use bevy_type_registry::RegisterType;
 use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 use std::{

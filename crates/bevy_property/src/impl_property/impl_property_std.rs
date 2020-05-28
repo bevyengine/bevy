@@ -1,7 +1,7 @@
 use crate::{
     impl_property,
     property_serde::{SeqSerializer, Serializable},
-    Properties, Property, PropertyIter, PropertyType,
+    Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -79,8 +79,8 @@ where
         Some(self)
     }
 
-    fn serializable(&self) -> Serializable {
-        Serializable::Owned(Box::new(SeqSerializer::new(self)))
+    fn serializable<'a>(&'a self, registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
+        Serializable::Owned(Box::new(SeqSerializer::new(self, registry)))
     }
 
     fn property_type(&self) -> PropertyType {
@@ -134,7 +134,7 @@ impl Property for String {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -174,7 +174,7 @@ impl Property for bool {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -232,7 +232,7 @@ impl Property for usize {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -290,7 +290,7 @@ impl Property for u64 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -348,7 +348,7 @@ impl Property for u32 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -406,7 +406,7 @@ impl Property for u16 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -464,7 +464,7 @@ impl Property for u8 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -522,7 +522,7 @@ impl Property for isize {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -580,7 +580,7 @@ impl Property for i64 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -638,7 +638,7 @@ impl Property for i32 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -696,7 +696,7 @@ impl Property for i16 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -754,7 +754,7 @@ impl Property for i8 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -796,7 +796,7 @@ impl Property for f32 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }
@@ -838,7 +838,7 @@ impl Property for f64 {
         }
     }
 
-    fn serializable(&self) -> Serializable {
+    fn serializable<'a>(&'a self, _registry: &'a PropertyTypeRegistry) -> Serializable<'a> {
         Serializable::Borrowed(self)
     }
 }

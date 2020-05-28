@@ -3,7 +3,7 @@ pub mod time;
 pub mod transform;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_component_registry::RegisterComponent;
+use bevy_type_registry::RegisterType;
 use bevy_transform::{
     components::{
         Children, LocalToParent, LocalToWorld, NonUniformScale, Rotation, Scale, Translation,

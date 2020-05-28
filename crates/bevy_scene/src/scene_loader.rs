@@ -2,27 +2,28 @@ use crate::{serde::SceneDeserializer, Scene};
 use anyhow::Result;
 use bevy_app::FromResources;
 use bevy_asset::AssetLoader;
-use bevy_component_registry::PropertyTypeRegistryContext;
+use bevy_property::PropertyTypeRegistry;
 use legion::prelude::Resources;
 use serde::de::DeserializeSeed;
-use std::path::Path;
+use std::{sync::{Arc, RwLock}, path::Path};
+use bevy_type_registry::TypeRegistry;
 
 pub struct SceneLoader {
-    property_type_registry: PropertyTypeRegistryContext,
+    property_type_registry: Arc<RwLock<PropertyTypeRegistry>>,
 }
 
 impl FromResources for SceneLoader {
     fn from_resources(resources: &Resources) -> Self {
-        let property_type_registry = resources.get::<PropertyTypeRegistryContext>().unwrap();
+        let type_registry = resources.get::<TypeRegistry>().unwrap();
         SceneLoader {
-            property_type_registry: property_type_registry.clone(),
+            property_type_registry: type_registry.property.clone(),
         }
     }
 }
 
 impl AssetLoader<Scene> for SceneLoader {
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Scene> {
-        let registry = self.property_type_registry.value.read().unwrap();
+        let registry = self.property_type_registry.read().unwrap();
         let mut deserializer = ron::de::Deserializer::from_bytes(&bytes).unwrap();
         let scene_deserializer = SceneDeserializer {
             property_type_registry: &registry,

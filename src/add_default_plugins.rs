@@ -6,8 +6,8 @@ pub trait AddDefaultPlugins {
 
 impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
-        #[cfg(feature = "component_registry")]
-        self.add_plugin(bevy_component_registry::ComponentRegistryPlugin::default());
+        #[cfg(feature = "type_registry")]
+        self.add_plugin(bevy_type_registry::TypeRegistryPlugin::default());
 
         #[cfg(feature = "core")]
         self.add_plugin(bevy_core::CorePlugin::default());

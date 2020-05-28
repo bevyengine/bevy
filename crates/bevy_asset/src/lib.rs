@@ -13,7 +13,7 @@ pub use load_request::*;
 pub use loader::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use bevy_component_registry::RegisterComponent;
+use bevy_type_registry::RegisterType;
 use legion::prelude::IntoSystem;
 
 pub mod stage {

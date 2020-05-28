@@ -29,14 +29,15 @@ where
     T: Property + Serialize,
 {
     pub property: &'a T,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a, T> PropertyValueSerializer<'a, T>
 where
     T: Property + Serialize,
 {
-    pub fn new(property: &'a T) -> Self {
-        PropertyValueSerializer { property }
+    pub fn new(property: &'a T, registry: &'a PropertyTypeRegistry) -> Self {
+        PropertyValueSerializer { property, registry }
     }
 }
 
@@ -49,20 +50,41 @@ where
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(TYPE_FIELD, self.property.type_name())?;
+        state.serialize_entry(TYPE_FIELD, format_type_name(self.registry, self.property.type_name()))?;
         state.serialize_entry(VALUE_FIELD, self.property)?;
         state.end()
     }
 }
 
-impl Serialize for DynamicProperties {
+pub struct DynamicPropertiesSerializer<'a> {
+    pub dynamic_properties: &'a DynamicProperties,
+    pub registry: &'a PropertyTypeRegistry,
+}
+
+impl<'a> DynamicPropertiesSerializer<'a> {
+    pub fn new(
+        dynamic_properties: &'a DynamicProperties,
+        registry: &'a PropertyTypeRegistry,
+    ) -> Self {
+        DynamicPropertiesSerializer {
+            dynamic_properties,
+            registry,
+        }
+    }
+}
+
+impl<'a> Serialize for DynamicPropertiesSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        match self.property_type {
-            PropertyType::Map => MapSerializer::new(self).serialize(serializer),
-            PropertyType::Seq => SeqSerializer::new(self).serialize(serializer),
+        match self.dynamic_properties.property_type {
+            PropertyType::Map => {
+                MapSerializer::new(self.dynamic_properties, self.registry).serialize(serializer)
+            }
+            PropertyType::Seq => {
+                SeqSerializer::new(self.dynamic_properties, self.registry).serialize(serializer)
+            }
             _ => {
                 return Err(serde::ser::Error::custom(
                     "DynamicProperties cannot be Value type",
@@ -74,12 +96,22 @@ impl Serialize for DynamicProperties {
 
 pub struct MapSerializer<'a> {
     pub properties: &'a dyn Properties,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> MapSerializer<'a> {
-    pub fn new(properties: &'a dyn Properties) -> Self {
-        MapSerializer { properties }
+    pub fn new(properties: &'a dyn Properties, registry: &'a PropertyTypeRegistry) -> Self {
+        MapSerializer {
+            properties,
+            registry,
+        }
     }
+}
+
+fn format_type_name<'a>(registry: &'a PropertyTypeRegistry, type_name: &'a str) -> &'a str {
+    registry
+        .format_type_name(type_name)
+        .unwrap_or_else(|| type_name)
 }
 
 impl<'a> Serialize for MapSerializer<'a> {
@@ -88,11 +120,16 @@ impl<'a> Serialize for MapSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(TYPE_FIELD, self.properties.type_name())?;
+
+        state.serialize_entry(
+            TYPE_FIELD,
+            format_type_name(self.registry, self.properties.type_name()),
+        )?;
         state.serialize_entry(
             MAP_FIELD,
             &MapValueSerializer {
                 properties: self.properties,
+                registry: self.registry,
             },
         )?;
         state.end()
@@ -101,6 +138,7 @@ impl<'a> Serialize for MapSerializer<'a> {
 
 pub struct MapValueSerializer<'a> {
     pub properties: &'a dyn Properties,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> Serialize for MapValueSerializer<'a> {
@@ -111,7 +149,7 @@ impl<'a> Serialize for MapValueSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.properties.prop_len()))?;
         for (index, property) in self.properties.iter_props().enumerate() {
             let name = self.properties.prop_name(index).unwrap();
-            state.serialize_entry(name, property.serializable().borrow())?;
+            state.serialize_entry(name, property.serializable(self.registry).borrow())?;
         }
         state.end()
     }
@@ -119,11 +157,15 @@ impl<'a> Serialize for MapValueSerializer<'a> {
 
 pub struct SeqSerializer<'a> {
     pub properties: &'a dyn Properties,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> SeqSerializer<'a> {
-    pub fn new(properties: &'a dyn Properties) -> Self {
-        SeqSerializer { properties }
+    pub fn new(properties: &'a dyn Properties, registry: &'a PropertyTypeRegistry) -> Self {
+        SeqSerializer {
+            properties,
+            registry,
+        }
     }
 }
 
@@ -133,11 +175,12 @@ impl<'a> Serialize for SeqSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(TYPE_FIELD, self.properties.type_name())?;
+        state.serialize_entry(TYPE_FIELD, format_type_name(self.registry, self.properties.type_name()))?;
         state.serialize_entry(
             SEQ_FIELD,
             &SeqValueSerializer {
                 properties: self.properties,
+                registry: self.registry,
             },
         )?;
         state.end()
@@ -146,6 +189,7 @@ impl<'a> Serialize for SeqSerializer<'a> {
 
 pub struct SeqValueSerializer<'a> {
     pub properties: &'a dyn Properties,
+    pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> Serialize for SeqValueSerializer<'a> {
@@ -155,12 +199,11 @@ impl<'a> Serialize for SeqValueSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.properties.prop_len()))?;
         for prop in self.properties.iter_props() {
-            state.serialize_element(prop.serializable().borrow())?;
+            state.serialize_element(prop.serializable(self.registry).borrow())?;
         }
         state.end()
     }
 }
-
 
 pub struct DynamicPropertiesDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
@@ -200,11 +243,10 @@ impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisiter<'a> {
     {
         match visit_map(map, self.registry)? {
             DynamicPropertiesOrProperty::DynamicProperties(value) => Ok(value),
-            _ => Err(de::Error::custom("Expected DynamicProperties"))
+            _ => Err(de::Error::custom("Expected DynamicProperties")),
         }
     }
 }
-
 
 pub struct PropertyDeserializer<'a> {
     type_name: Option<&'a str>,
@@ -221,9 +263,7 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
             let registration = self.registry.get(type_name).ok_or_else(|| {
                 de::Error::custom(format!("TypeRegistration is missing for {}", type_name))
             })?;
-            let mut erased = erased_serde::Deserializer::erase(deserializer);
-            (registration.deserialize)(&mut erased, self.registry)
-                .map_err(<<D as serde::Deserializer<'de>>::Error as serde::de::Error>::custom)
+            registration.deserialize(deserializer, self.registry)
         } else {
             deserializer.deserialize_any(AnyPropVisiter {
                 registry: self.registry,

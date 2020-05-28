@@ -1,43 +1,43 @@
 
 use bevy_property::{Property, Properties, DeserializeProperty};
 use legion::storage::Component;
-use crate::{PropertyTypeRegistryContext, ComponentRegistryContext};
 use bevy_app::{FromResources, AppBuilder};
+use crate::TypeRegistry;
 
-pub trait RegisterComponent {
+pub trait RegisterType {
     fn register_component<T>(&mut self) -> &mut Self
     where
-        T: Properties + Component + FromResources;
+        T: Properties + DeserializeProperty + Component + FromResources;
     fn register_property_type<T>(&mut self) -> &mut Self
     where
         T: Property + DeserializeProperty;
 }
 
-impl RegisterComponent for AppBuilder {
+impl RegisterType for AppBuilder {
     fn register_component<T>(&mut self) -> &mut Self
     where
-        T: Properties + Component + FromResources,
+        T: Properties + DeserializeProperty + Component + FromResources,
     {
         {
-            let registry_context = self
+            let type_registry = self
                 .resources()
-                .get_mut::<ComponentRegistryContext>()
+                .get_mut::<TypeRegistry>()
                 .unwrap();
-            registry_context.value.write().unwrap().register::<T>();
+            type_registry.component.write().unwrap().register::<T>();
+            type_registry.property.write().unwrap().register::<T>();
         }
         self
     }
 
     fn register_property_type<T>(&mut self) -> &mut Self
     where
-        T: Property + DeserializeProperty,
-    {
+        T: Property + DeserializeProperty {
         {
-            let registry_context = self
+            let type_registry = self
                 .resources()
-                .get_mut::<PropertyTypeRegistryContext>()
+                .get_mut::<TypeRegistry>()
                 .unwrap();
-            registry_context.value.write().unwrap().register::<T>();
+            type_registry.property.write().unwrap().register::<T>();
         }
         self
     }

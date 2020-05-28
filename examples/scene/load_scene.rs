@@ -1,7 +1,4 @@
-use bevy::{
-    component_registry::ComponentRegistryContext, input::keyboard::KeyboardInput, prelude::*,
-};
-use bevy_app::FromResources;
+use bevy::{input::keyboard::KeyboardInput, prelude::*, type_registry::TypeRegistry};
 
 fn main() {
     App::build()
@@ -64,11 +61,16 @@ fn save_scene_system(world: &mut World, resources: &mut Resources) {
         .add(ComponentA { x: 3.0, y: 4.0 });
 
     // The component registry resource contains information about all registered components. This is used to construct scenes.
-    let component_registry = resources.get::<ComponentRegistryContext>().unwrap();
-    let scene = Scene::from_world(world, &component_registry.value.read().unwrap());
+    let type_registry = resources.get::<TypeRegistry>().unwrap();
+    let scene = Scene::from_world(world, &type_registry.component.read().unwrap());
 
     // Scenes can be serialized like this:
-    println!("{}", scene.serialize_ron().unwrap());
+    println!(
+        "{}",
+        scene
+            .serialize_ron(&type_registry.property.read().unwrap())
+            .unwrap()
+    );
 
     // TODO: save scene
 }
@@ -76,16 +78,16 @@ fn save_scene_system(world: &mut World, resources: &mut Resources) {
 fn load_scene_system(world: &mut World, resources: &mut Resources) {
     let asset_server = resources.get::<AssetServer>().unwrap();
     let mut scenes = resources.get_mut::<Assets<Scene>>().unwrap();
-    
+
     // Scenes are loaded just like any other asset.
     let scene_handle: Handle<Scene> = asset_server
         .load_sync(&mut scenes, "assets/scene/load_scene_example.scn")
         .unwrap();
     let scene = scenes.get(&scene_handle).unwrap();
 
-    // Scenes can be added to any ECS World. Adding scenes also uses the component registry. 
-    let component_registry = resources.get::<ComponentRegistryContext>().unwrap();
+    // Scenes can be added to any ECS World. Adding scenes also uses the component registry.
+    let type_registry = resources.get::<TypeRegistry>().unwrap();
     scene
-        .add_to_world(world, resources, &component_registry.value.read().unwrap())
+        .add_to_world(world, resources, &type_registry.component.read().unwrap())
         .unwrap();
 }

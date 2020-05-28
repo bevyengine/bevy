@@ -1,7 +1,7 @@
 use bevy::{
-    component_registry::PropertyTypeRegistryContext,
     prelude::*,
-    property::{ron::deserialize_dynamic_properties},
+    property::{ron::deserialize_dynamic_properties, PropertyTypeRegistry},
+    type_registry::TypeRegistry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +9,8 @@ fn main() {
     App::build()
         .add_default_plugins()
         // If you need to deserialize custom property types, register them like this:
+        .register_property_type::<Test>()
+        .register_property_type::<Nested>()
         .register_property_type::<CustomProperty>()
         .add_startup_system(setup.system())
         .run();
@@ -31,7 +33,7 @@ pub struct CustomProperty {
     a: usize,
 }
 
-fn setup(property_type_registry: Res<PropertyTypeRegistryContext>) {
+fn setup(type_registry: Res<TypeRegistry>) {
     let mut test = Test {
         a: 1,
         custom: CustomProperty { a: 10 },
@@ -58,15 +60,14 @@ fn setup(property_type_registry: Res<PropertyTypeRegistryContext>) {
 
     // All properties can be serialized.
     // If you #[derive(Properties)] your type doesn't even need to directly implement the Serde trait!
-    let ron_string = serialize_ron(&test.serializable().borrow()).unwrap();
+    let registry = type_registry.property.read().unwrap();
+    let ron_string = serialize_ron(&test, &registry).unwrap();
     println!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
-    let dynamic_properties =
-        deserialize_dynamic_properties(&ron_string, &property_type_registry.value.read().unwrap())
-            .unwrap();
+    let dynamic_properties = deserialize_dynamic_properties(&ron_string, &registry).unwrap();
 
-    let round_tripped = serialize_ron(&dynamic_properties).unwrap();
+    let round_tripped = serialize_ron(&dynamic_properties, &registry).unwrap();
     println!("{}", round_tripped);
     assert_eq!(ron_string, round_tripped);
 
@@ -81,23 +82,24 @@ fn setup(property_type_registry: Res<PropertyTypeRegistryContext>) {
     seq.apply(&patch);
     assert_eq!(seq[0], 3);
 
-    let ron_string = serialize_ron(&patch.serializable().borrow()).unwrap();
+    let ron_string = serialize_ron(&patch, &registry).unwrap();
     println!("{}\n", ron_string);
-    let dynamic_properties =
-        deserialize_dynamic_properties(&ron_string, &property_type_registry.value.read().unwrap())
-            .unwrap();
-    let round_tripped = serialize_ron(&dynamic_properties).unwrap();
+    let dynamic_properties = deserialize_dynamic_properties(&ron_string, &registry).unwrap();
+    let round_tripped = serialize_ron(&dynamic_properties, &registry).unwrap();
     assert_eq!(ron_string, round_tripped);
 }
 
-fn serialize_ron<T>(properties: &T) -> Result<String, ron::Error>
+fn serialize_ron<T>(property: &T, registry: &PropertyTypeRegistry) -> Result<String, ron::Error>
 where
-    T: Serialize,
+    T: Property,
 {
     let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
     let mut buf = Vec::new();
-    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), true)?;
-    properties.serialize(&mut serializer)?;
+    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
+    property
+        .serializable(registry)
+        .borrow()
+        .serialize(&mut serializer)?;
     let ron_string = String::from_utf8(buf).unwrap();
     Ok(ron_string)
 }

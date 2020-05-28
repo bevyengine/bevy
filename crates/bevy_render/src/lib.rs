@@ -42,7 +42,7 @@ use self::{
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
-use bevy_component_registry::RegisterComponent;
+use bevy_type_registry::RegisterType;
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;

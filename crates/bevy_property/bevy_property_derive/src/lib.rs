@@ -150,6 +150,18 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             }
         }
 
+        impl #impl_generics #bevy_property_path::DeserializeProperty for #struct_name#ty_generics {
+            fn deserialize(
+                deserializer: &mut dyn #bevy_property_path::erased_serde::Deserializer,
+                property_type_registry: &#bevy_property_path::PropertyTypeRegistry) ->
+                    Result<Box<dyn #bevy_property_path::Property>, #bevy_property_path::erased_serde::Error> {
+                    use #bevy_property_path::serde::de::DeserializeSeed;
+                    let dynamic_properties_deserializer = #bevy_property_path::property_serde::DynamicPropertiesDeserializer::new(property_type_registry);
+                    let dynamic_properties: #bevy_property_path::DynamicProperties = dynamic_properties_deserializer.deserialize(deserializer)?;
+                    Ok(Box::new(dynamic_properties))
+            }
+        }
+
         impl #impl_generics #bevy_property_path::Property for #struct_name#ty_generics {
             #[inline]
             fn type_name(&self) -> &str {
@@ -198,8 +210,8 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 Some(self)
             }
 
-            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
-                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::MapSerializer::new(self)))
+            fn serializable<'a>(&'a self, registry: &'a #bevy_property_path::PropertyTypeRegistry) -> #bevy_property_path::property_serde::Serializable<'a> {
+                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::MapSerializer::new(self, registry)))
             }
 
             fn property_type(&self) -> #bevy_property_path::PropertyType {
@@ -258,10 +270,8 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
-                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer {
-                    property: self,
-                }))
+            fn serializable<'a>(&'a self, registry: &'a #bevy_property_path::PropertyTypeRegistry) -> #bevy_property_path::property_serde::Serializable<'a> {
+                #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer::new(self, registry)))
             }
 
             fn property_type(&self) -> #bevy_property_path::PropertyType {
@@ -274,7 +284,7 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
                 deserializer: &mut dyn #bevy_property_path::erased_serde::Deserializer,
                 property_type_registry: &#bevy_property_path::PropertyTypeRegistry) ->
                     Result<Box<dyn #bevy_property_path::Property>, #bevy_property_path::erased_serde::Error> {
-                    let property = <#struct_name#ty_generics as Deserialize>::deserialize(deserializer)?;
+                    let property = <#struct_name#ty_generics as #bevy_property_path::serde::Deserialize>::deserialize(deserializer)?;
                     Ok(Box::new(property))
             }
        }
@@ -343,9 +353,7 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
         quote! { #serialize_fn(self) }
     } else {
         quote! {
-            #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer {
-                property: self,
-            }))
+            #bevy_property_path::property_serde::Serializable::Owned(Box::new(#bevy_property_path::property_serde::PropertyValueSerializer::new(self, registry)))
         }
     };
     let deserialize_fn = if let Some(deserialize_fn) = property_def.deserialize_fn {
@@ -395,7 +403,7 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn serializable(&self) -> #bevy_property_path::property_serde::Serializable {
+            fn serializable<'a>(&'a self, registry: &'a #bevy_property_path::PropertyTypeRegistry) -> #bevy_property_path::property_serde::Serializable<'a> {
                 #serialize_fn
             }
 

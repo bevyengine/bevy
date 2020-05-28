@@ -23,7 +23,7 @@ pub trait Property: Send + Sync + Any + 'static {
     fn as_properties(&self) -> Option<&dyn Properties> {
         None
     }
-    fn serializable(&self) -> Serializable;
+    fn serializable<'a>(&'a self, registry: &'a PropertyTypeRegistry) -> Serializable<'a>;
 }
 
 pub trait DeserializeProperty {

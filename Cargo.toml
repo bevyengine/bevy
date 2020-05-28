@@ -6,10 +6,10 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "component_registry", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "text", "transform", "ui", "window"]
+headless = ["asset", "type_registry", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "text", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
-component_registry = ["bevy_component_registry"]
+type_registry = ["bevy_type_registry"]
 derive = ["bevy_derive"]
 diagnostic = ["bevy_diagnostic"]
 gltf = ["bevy_gltf"]
@@ -36,7 +36,7 @@ members = [
 # bevy
 bevy_app = { path = "crates/bevy_app" }
 bevy_asset = { path = "crates/bevy_asset", optional = true }
-bevy_component_registry = { path = "crates/bevy_component_registry", optional = true }
+bevy_type_registry = { path = "crates/bevy_type_registry", optional = true }
 bevy_core = { path = "crates/bevy_core", optional = true }
 bevy_derive = { path = "crates/bevy_derive", optional = true }
 bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
