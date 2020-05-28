@@ -93,8 +93,8 @@ impl PropertyTypeRegistration {
     pub fn get_short_name(full_name: &str) -> String {
         full_name
             .split("<")
-            .map(|p| p.split("::").last().unwrap().to_string())
-            .collect::<Vec<String>>()
+            .map(|p| p.split("::").last().unwrap())
+            .collect::<Vec<&str>>()
             .join("<")
     }
 
