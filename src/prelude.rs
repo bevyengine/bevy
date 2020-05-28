@@ -60,12 +60,12 @@ pub use legion::{
     entity::Entity,
     event::Event as LegionEvent,
     filter::filter_fns::*,
-    query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
+    query::{IntoQuery, Read, Tagged, TryRead, TryWrite, Write},
     systems::{
         bit_set::BitSet,
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        IntoSystem, Res, ResMut, SubWorld, SystemBuilder,
+        IntoSystem, Res, ResMut, SubWorld, SystemBuilder, Query
     },
     world::{Universe, World},
 };

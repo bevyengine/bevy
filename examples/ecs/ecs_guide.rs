@@ -114,6 +114,22 @@ fn score_check_system(
     }
 }
 
+// If you need more control over iteration or direct access to SubWorld, you can also use "query systems"
+// This is how you would represent the system above with a "query system"
+#[allow(dead_code)]
+fn query_score_check_system(
+    world: &mut SubWorld,
+    game_rules: Res<GameRules>,
+    mut game_state: ResMut<GameState>,
+    query: &mut Query<(Read<Player>, Read<Score>)>,
+) {
+    for (player, score) in query.iter(world) {
+        if score.value == game_rules.winning_score {
+            game_state.winning_player = Some(player.name.clone());
+        }
+    }
+}
+
 // This system ends the game if we meet the right conditions. This fires an AppExit event, which tells our
 // App to quit. Check out the "event.rs" example if you want to learn more about using events.
 fn game_over_system(
@@ -257,7 +273,9 @@ fn stateful_system(mut state: ComMut<State>, player: Com<Player>, score: ComMut<
 }
 
 // If you need more flexibility, you can define complex systems using "system builders".
-// SystemBuilder enables scenarios like "multiple queries" and "query filters"
+// The main features SystemBuilder currently provides over "function style systems" are:
+//     * "query filters": filter components in your queries based on some criteria (ex: changed components)
+//     * "additional components": Enables access to a component in your SubWorld, even if it isn't in your queries,
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
 fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
@@ -267,6 +285,7 @@ fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     SystemBuilder::new("complex_system")
         .read_resource::<GameState>()
         .write_resource::<GameRules>()
+        .read_component::<Renderable>()
         // this query is equivalent to the system we saw above: system(player: Com<Player>, mut score: ComMut<Score>)
         .with_query(<(Read<Player>, Write<Score>)>::query())
         // this query only returns entities with a Player component that has changed since the last update

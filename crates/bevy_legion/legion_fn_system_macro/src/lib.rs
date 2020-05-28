@@ -130,7 +130,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                         #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
                         #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
                         #filter: EntityFilter + Sync + 'static),*
-                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
+                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*), (), ()> for Func
                     where
                         Func: FnMut(#(&mut #command_buffer,)* #(#resource,)* #(#view),*) + Send + Sync + 'static,
                         #(<#view as View<'a>>::Iter: Iterator<Item = #view>),*
@@ -179,5 +179,137 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
         }
     }
 
+    tokens
+}
+
+#[proc_macro]
+pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
+    let max_resources = 8;
+    let max_queries = 4;
+
+    let resources = get_idents(|i| format!("R{}", i), max_resources);
+    let resource_vars = get_idents(|i| format!("r{}", i), max_resources);
+    let views = get_idents(|i| format!("V{}", i), max_queries);
+    let filters = get_idents(|i| format!("VF{}", i), max_queries);
+    let query_vars = get_idents(|i| format!("q{}", i), max_queries);
+
+    let mut tokens = TokenStream::new();
+
+    let command_buffer = vec![Ident::new("CommandBuffer", Span::call_site())];
+    let command_buffer_var = vec![Ident::new("_command_buffer", Span::call_site())];
+    for resource_count in 0..=max_resources {
+        let resource = &resources[0..resource_count];
+        let resource_var = &resource_vars[0..resource_count];
+
+        let resource_tuple = tuple(resource);
+        let resource_var_tuple = tuple(resource_var);
+
+        let resource_access = if resource_count == 0 {
+            quote! { Access::default() }
+        }else {
+            quote! {{
+                let mut resource_access: Access<ResourceTypeId> = Access::default();
+                resource_access
+                    .reads
+                    .extend(<#resource_tuple as ResourceSet>::read_types().iter());
+                resource_access
+                    .writes
+                    .extend(<#resource_tuple as ResourceSet>::write_types().iter());
+                resource_access
+            }}
+        };
+
+        for query_count in 1..=max_queries {
+            let view = &views[0..query_count];
+            let filter = &filters[0..query_count];
+            let query_var = &query_vars[0..query_count];
+
+            let view_tuple = tuple(view);
+            let query_var_tuple = tuple(query_var);
+
+            let component_access = if query_count == 0 {
+                quote! { Access::default() }
+            }else {
+                quote! {{
+                    let mut component_access: Access<ComponentTypeId> = Access::default();
+                    component_access
+                        .reads
+                        .extend(<#view_tuple as View>::read_types().iter());
+                    component_access
+                        .writes
+                        .extend(<#view_tuple as View>::write_types().iter());
+                    component_access
+                }}
+            };
+
+            for command_buffer_index in 0..2 {
+                let command_buffer = &command_buffer[0..command_buffer_index];
+                let command_buffer_var = &command_buffer_var[0..command_buffer_index];
+                
+                let view_tuple_avoid_type_collision = if query_count == 1 {
+                    quote!{(#(#view)*,)}
+                } else {
+                    quote!{(#(#view,)*)}
+                };
+
+                let filter_tuple_avoid_type_collision = if query_count == 1 {
+                    quote!{(#(#filter)*,)}
+                } else {
+                    quote!{(#(#filter,)*)}
+                };
+
+                tokens.extend(TokenStream::from(quote! {
+                    impl<Func,
+                        #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
+                        #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
+                        #filter: EntityFilter + Sync + 'static),*
+                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (), #view_tuple_avoid_type_collision, #filter_tuple_avoid_type_collision> for Func
+                    where
+                        Func: FnMut(#(&mut #command_buffer,)* &mut SubWorld, #(#resource,)* #(&mut SystemQuery<#view, #filter>),*) + Send + Sync + 'static,
+                    {
+                        fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
+                            let resource_access: Access<ResourceTypeId> = #resource_access;
+                            let component_access: Access<ComponentTypeId> = #component_access;
+        
+                            let run_fn = FuncSystemFnWrapper(
+                                move |_command_buffer,
+                                    _world,
+                                    _resources: #resource_tuple,
+                                    _queries: &mut (#(SystemQuery<#view, #filter>),*)
+                                | {
+                                    let #resource_var_tuple = _resources;
+                                    let #query_var_tuple = _queries;
+                                    self(#(#command_buffer_var,)*_world,#(#resource_var,)* #(#query_var),*)
+                                },
+                                PhantomData,
+                            );
+        
+                            Box::new(FuncSystem {
+                                name: id,
+                                queries: AtomicRefCell::new((#(<#view>::query()),*)),
+                                access: SystemAccess {
+                                    resources: resource_access,
+                                    components: component_access,
+                                    tags: Access::default(),
+                                },
+                                archetypes: ArchetypeAccess::Some(BitSet::default()),
+                                _resources: PhantomData::<#resource_tuple>,
+                                command_buffer: FxHashMap::default(),
+                                run_fn: AtomicRefCell::new(run_fn),
+                            })
+                        }
+        
+                        fn system_named(self, name: &'static str) -> Box<dyn Schedulable> {
+                            self.system_id(name.into())
+                        }
+        
+                        fn system(self) -> Box<dyn Schedulable> {
+                            self.system_id(std::any::type_name::<Self>().to_string().into())
+                        }
+                    }
+                }));
+            }
+        }
+    }
     tokens
 }

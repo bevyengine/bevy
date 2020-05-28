@@ -2,7 +2,7 @@ use crate::{
     resource::{ResourceSet, ResourceTypeId},
     schedule::{ArchetypeAccess, Schedulable},
     system_fn_types::{FuncSystem, FuncSystemFnWrapper},
-    Access, SystemAccess, SystemId, SystemQuery,
+    Access, SubWorld, SystemAccess, SystemId, SystemQuery,
 };
 use bit_set::BitSet;
 use fxhash::FxHashMap;
@@ -13,32 +13,38 @@ use legion_core::{
     query::{DefaultFilter, IntoQuery, View, ViewElement},
     storage::ComponentTypeId,
 };
-use legion_fn_system_macro::impl_fn_systems;
+use legion_fn_system_macro::{impl_fn_query_systems, impl_fn_systems};
 use std::marker::PhantomData;
 
-// TODO: add params for component access
-// TODO: add subworld to function parameters
-// TODO: somehow support filters
-pub trait IntoSystem<CommandBuffer, Resources, Components> {
+pub trait IntoSystem<CommandBuffer, Resources, Views, Queries, Filters> {
     fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
     fn system_named(self, name: &'static str) -> Box<dyn Schedulable>;
     fn system(self) -> Box<dyn Schedulable>;
 }
 
 impl_fn_systems!();
+impl_fn_query_systems!();
+
+#[allow(type_alias_bounds)]
+pub type Query<V>
+where
+    V: for<'a> View<'a> + DefaultFilter,
+= SystemQuery<V, <V as DefaultFilter>::Filter>;
 
 #[cfg(test)]
 mod tests {
     use crate::{
         resource::Resources,
         system_fn_types::{Res, ResMut},
-        IntoSystem,
+        IntoSystem, Query, SubWorld,
     };
     use legion_core::{
         borrow::{Ref, RefMut},
         command::CommandBuffer,
+        query::{Read, Write},
         world::World,
     };
+    use std::fmt::Debug;
 
     #[derive(Debug, Eq, PartialEq)]
     struct A(usize);
@@ -48,6 +54,38 @@ mod tests {
     struct Y(usize);
     #[derive(Debug, Eq, PartialEq)]
     struct X(usize);
+
+    #[test]
+    fn test_query_system() {
+        let mut world = World::new();
+        let mut resources = Resources::default();
+        resources.insert(A(0));
+        world.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
+
+        fn query_system(world: &mut SubWorld, query: &mut Query<(Read<X>, Write<Y>)>) {
+            for (x, mut y) in query.iter_mut(world) {
+                y.0 = 2;
+                println!("{:?}", x);
+            }
+        }
+
+        fn query_system2(world: &mut SubWorld, a: Res<A>, query: &mut Query<(Read<X>, Write<Y>)>, query2: &mut Query<Read<X>>) {
+            println!("{:?}", *a);
+            for (x, mut y) in query.iter_mut(world) {
+                y.0 = 2;
+                println!("{:?}", x);
+            }
+
+            for x in query2.iter(world) {
+                println!("{:?}", x);
+            }
+        }
+
+        let mut system = query_system.system();
+        let mut system2 = query_system2.system();
+        system.run(&mut world, &mut resources);
+        system2.run(&mut world, &mut resources);
+    }
 
     #[test]
     fn test_into_system() {
