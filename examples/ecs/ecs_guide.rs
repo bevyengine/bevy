@@ -81,7 +81,7 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 }
 
 // This system runs once for each entity with both the "Player" and "Score" component.
-// NOTE: Com<Player> is a read-only component Comerence, whereas ComMut<Score> can modify the component
+// NOTE: Com<Player> is a read-only component reference, whereas ComMut<Score> can modify the component
 fn score_system(player: Com<Player>, mut score: ComMut<Score>) {
     let scored_a_point = random::<bool>();
     if scored_a_point {
@@ -116,6 +116,7 @@ fn score_check_system(
 
 // If you need more control over iteration or direct access to SubWorld, you can also use "query systems"
 // This is how you would represent the system above with a "query system"
+// NOTE: You can add as many queries as you want, but they must come after all resources (Res/ResMut).
 #[allow(dead_code)]
 fn query_score_check_system(
     world: &mut SubWorld,
@@ -148,11 +149,12 @@ fn game_over_system(
     println!();
 }
 
-// This is a "startup" system that runs once when the app starts up. The only thing that distinguishes a
-// startup" system from a "normal" system is how it is registered:
+// This is a "startup" system that runs exactly once when the app starts up. Startup systems are generally used to create 
+// the initial "state" of our game. The only thing that distinguishes a "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
-// Startup systems are generally used to create the initial "state" of our game:
+// This startup system needs direct access to the ECS World and Resources, which makes it a "thread local system".
+// That being said, startup systems can use any of the system forms we've covered. We will cover thread local systems more in a bit.
 fn startup_system(world: &mut World, resources: &mut Resources) {
     // Create our game rules resource
     resources.insert(GameRules {
@@ -185,8 +187,9 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
     game_state.total_players = 2;
 }
 
-// This system uses a command buffer to (potentially) add a new player to our game on each iteration
-// Normal systems cannot safely access the World instance directly because they run in parallel
+// This system uses a command buffer to (potentially) add a new player to our game on each iteration.
+// Normal systems cannot safely access the World instance directly because they run in parallel.
+// Our World contains all of our components, so accessing it in parallel is not thread safe.
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
 // NOTE: Command buffers must always come before resources and components in system functions
 fn new_player_system(
@@ -216,7 +219,8 @@ fn new_player_system(
 // These run on the main app thread (hence the name "thread local")
 // WARNING: These will block all parallel execution of other systems until they finish, so they should generally be avoided if you
 // care about performance
-// NOTE: You may notice that this looks exactly like the "startup_system" above. Thats because they are both thread local!
+// NOTE: You may notice that this function signature looks exactly like the "startup_system" above.
+// Thats because they are both thread local!
 #[allow(dead_code)]
 fn thread_local_system(world: &mut World, resources: &mut Resources) {
     // this does the same thing as "new_player_system"
@@ -326,7 +330,7 @@ fn main() {
         .add_startup_system(startup_system)
         // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
-        // Systems that need a Comerence to Resources to be constructed can be added using "init_system":
+        // Systems that need a reference to Resources to be constructed can be added using "init_system":
         // .init_system(complex_system)
         //
         // SYSTEM EXECUTION ORDER
