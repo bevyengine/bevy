@@ -4,7 +4,6 @@ use bevy_property::{PropertyTypeRegistry, DynamicProperties};
 use legion::prelude::{Resources, World};
 use serde::Serialize;
 use std::num::Wrapping;
-use thiserror::Error;
 use crate::serde::SceneSerializer;
 
 #[derive(Default)]
@@ -15,12 +14,6 @@ pub struct Scene {
 pub struct Entity {
     pub entity: u32,
     pub components: Vec<DynamicProperties>,
-}
-
-#[derive(Error, Debug)]
-pub enum SceneAddError {
-    #[error("Scene contains an unregistered component.")]
-    UnregisteredComponent { type_name: String },
 }
 
 impl Scene {
@@ -61,33 +54,6 @@ impl Scene {
         }
 
         scene
-    }
-
-    pub fn add_to_world(
-        &self,
-        world: &mut World,
-        resources: &Resources,
-        component_registry: &ComponentRegistry,
-    ) -> Result<(), SceneAddError> {
-        world.entity_allocator.push_next_ids(
-            self.entities
-                .iter()
-                .map(|e| legion::prelude::Entity::new(e.entity, Wrapping(1))),
-        );
-        for scene_entity in self.entities.iter() {
-            // TODO: use EntityEntry when legion refactor is finished
-            let entity = world.insert((), vec![()])[0];
-            for component in scene_entity.components.iter() {
-                let component_registration = component_registry
-                    .get_with_name(&component.type_name)
-                    .ok_or_else(|| SceneAddError::UnregisteredComponent {
-                        type_name: component.type_name.to_string(),
-                    })?;
-                component_registration.add_component_to_entity(world, resources, entity, component);
-            }
-        }
-
-        Ok(())
     }
 
     // TODO: move to AssetSaver when it is implemented

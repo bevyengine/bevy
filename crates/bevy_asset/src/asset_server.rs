@@ -29,7 +29,7 @@ pub enum AssetServerError {
     #[error("Encountered an io error.")]
     Io(#[from] io::Error),
     #[error("Failed to watch asset folder.")]
-    AssetFolderWatchError { path: PathBuf },
+    AssetWatchError { path: PathBuf },
 }
 
 struct LoaderThread {
@@ -49,7 +49,7 @@ pub struct AssetServer {
     extension_to_loader_index: HashMap<String, usize>,
     path_to_handle: RwLock<HashMap<PathBuf, HandleId>>,
     #[cfg(feature = "filesystem_watcher")]
-    filesystem_watcher: Option<FilesystemWatcher>,
+    filesystem_watcher: Arc<RwLock<Option<FilesystemWatcher>>>,
 }
 
 impl Default for AssetServer {
@@ -64,7 +64,7 @@ impl Default for AssetServer {
             extension_to_loader_index: HashMap::new(),
             path_to_handle: RwLock::new(HashMap::default()),
             #[cfg(feature = "filesystem_watcher")]
-            filesystem_watcher: None,
+            filesystem_watcher: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -74,7 +74,7 @@ impl AssetServer {
     where
         T: AssetLoadRequestHandler,
     {
-        let mut asset_handlers = self.asset_handlers.write().expect("RwLock poisoned");
+        let mut asset_handlers = self.asset_handlers.write().unwrap();
         let handler_index = asset_handlers.len();
         for extension in asset_handler.extensions().iter() {
             self.extension_to_handler_index
@@ -103,10 +103,6 @@ impl AssetServer {
     pub fn load_asset_folder<P: AsRef<Path>>(&mut self, path: P) -> Result<(), AssetServerError> {
         let root_path = self.get_root_path()?;
         let asset_folder = root_path.join(path);
-
-        #[cfg(feature = "filesystem_watcher")]
-        Self::watch_folder_for_changes(&mut self.filesystem_watcher, &asset_folder)?;
-
         self.load_assets_in_folder_recursive(&asset_folder)?;
         self.asset_folders.push(asset_folder);
         Ok(())
@@ -115,34 +111,36 @@ impl AssetServer {
     pub fn get_handle<T, P: AsRef<Path>>(&self, path: P) -> Option<Handle<T>> {
         self.path_to_handle
             .read()
-            .expect("RwLock poisoned")
+            .unwrap()
             .get(path.as_ref())
             .map(|h| Handle::from(*h))
     }
 
     #[cfg(feature = "filesystem_watcher")]
-    fn watch_folder_for_changes<P: AsRef<Path>>(
+    fn watch_path_for_changes<P: AsRef<Path>>(
         filesystem_watcher: &mut Option<FilesystemWatcher>,
         path: P,
     ) -> Result<(), AssetServerError> {
         if let Some(watcher) = filesystem_watcher {
-            watcher.watch_folder(&path).map_err(|_error| {
-                AssetServerError::AssetFolderWatchError {
+            watcher
+                .watch(&path)
+                .map_err(|_error| AssetServerError::AssetWatchError {
                     path: path.as_ref().to_owned(),
-                }
-            })?;
+                })?;
         }
 
         Ok(())
     }
 
     #[cfg(feature = "filesystem_watcher")]
-    pub fn watch_for_changes(&mut self) -> Result<(), AssetServerError> {
-        let _ = self
-            .filesystem_watcher
-            .get_or_insert_with(|| FilesystemWatcher::default());
-        for asset_folder in self.asset_folders.iter() {
-            Self::watch_folder_for_changes(&mut self.filesystem_watcher, asset_folder)?;
+    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
+        let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
+
+        let _ = filesystem_watcher.get_or_insert_with(|| FilesystemWatcher::default());
+        // watch current files
+        let path_to_handle = self.path_to_handle.read().unwrap();
+        for asset_path in path_to_handle.keys() {
+            Self::watch_path_for_changes(&mut filesystem_watcher, asset_path)?;
         }
 
         Ok(())
@@ -153,34 +151,11 @@ impl AssetServer {
         use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::new();
         loop {
-            if let Some(ref filesystem_watcher) = asset_server.filesystem_watcher {
+            let result = if let Some(filesystem_watcher) =
+                asset_server.filesystem_watcher.read().unwrap().as_ref()
+            {
                 match filesystem_watcher.receiver.try_recv() {
-                    Ok(result) => {
-                        let event = result.unwrap();
-                        match event {
-                            Event {
-                                kind: EventKind::Modify(ModifyKind::Data(_)),
-                                paths,
-                                ..
-                            } => {
-                                for path in paths.iter() {
-                                    if !changed.contains(path) {
-                                        let root_path = asset_server.get_root_path().unwrap();
-                                        let relative_path = path.strip_prefix(root_path).unwrap();
-                                        match asset_server.load_untyped(relative_path) {
-                                            Ok(_) => {}
-                                            Err(AssetServerError::AssetLoadError(error)) => {
-                                                panic!("{:?}", error)
-                                            }
-                                            Err(_) => {}
-                                        }
-                                    }
-                                }
-                                changed.extend(paths);
-                            }
-                            _ => {}
-                        }
-                    }
+                    Ok(result) => result,
                     Err(TryRecvError::Empty) => {
                         break;
                     }
@@ -188,6 +163,31 @@ impl AssetServer {
                 }
             } else {
                 break;
+            };
+
+            let event = result.unwrap();
+            match event {
+                Event {
+                    kind: EventKind::Modify(ModifyKind::Data(_)),
+                    paths,
+                    ..
+                } => {
+                    for path in paths.iter() {
+                        if !changed.contains(path) {
+                            let root_path = asset_server.get_root_path().unwrap();
+                            let relative_path = path.strip_prefix(root_path).unwrap();
+                            match asset_server.load_untyped(relative_path) {
+                                Ok(_) => {}
+                                Err(AssetServerError::AssetLoadError(error)) => {
+                                    panic!("{:?}", error)
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                    changed.extend(paths);
+                }
+                _ => {}
             }
         }
     }
@@ -252,7 +252,7 @@ impl AssetServer {
                     .expect("Extension should be a valid string."),
             ) {
                 let handle_id = {
-                    let mut path_to_handle = self.path_to_handle.write().expect("RwLock poisoned");
+                    let mut path_to_handle = self.path_to_handle.write().unwrap();
                     if let Some(handle_id) = path_to_handle.get(path) {
                         *handle_id
                     } else {
@@ -267,6 +267,11 @@ impl AssetServer {
                     path: path.to_owned(),
                     handler_index: *index,
                 });
+
+                // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
+                // folders instead (when possible)
+                #[cfg(feature = "filesystem_watcher")]
+                Self::watch_path_for_changes(&mut self.filesystem_watcher.write().unwrap(), path)?;
                 Ok(handle_id)
             } else {
                 Err(AssetServerError::MissingAssetHandler)
@@ -277,7 +282,7 @@ impl AssetServer {
     }
 
     fn send_request_to_loader_thread(&self, load_request: LoadRequest) {
-        let mut loader_threads = self.loader_threads.write().expect("RwLock poisoned");
+        let mut loader_threads = self.loader_threads.write().unwrap();
         if loader_threads.len() < self.max_loader_threads {
             let loader_thread = LoaderThread {
                 requests: Arc::new(RwLock::new(vec![load_request])),
@@ -288,9 +293,9 @@ impl AssetServer {
         } else {
             let most_free_thread = loader_threads
                 .iter()
-                .min_by_key(|l| l.requests.read().expect("RwLock poisoned").len())
+                .min_by_key(|l| l.requests.read().unwrap().len())
                 .unwrap();
-            let mut requests = most_free_thread.requests.write().expect("RwLock poisoned");
+            let mut requests = most_free_thread.requests.write().unwrap();
             requests.push(load_request);
             // if most free thread only has one reference, the thread as spun down. if so, we need to spin it back up!
             if Arc::strong_count(&most_free_thread.requests) == 1 {
@@ -309,7 +314,7 @@ impl AssetServer {
         thread::spawn(move || {
             loop {
                 let request = {
-                    let mut current_requests = requests.write().expect("RwLock poisoned");
+                    let mut current_requests = requests.write().unwrap();
                     if current_requests.len() == 0 {
                         // if there are no requests, spin down the thread
                         break;
@@ -318,7 +323,7 @@ impl AssetServer {
                     current_requests.pop().unwrap()
                 };
 
-                let handlers = request_handlers.read().expect("RwLock poisoned");
+                let handlers = request_handlers.read().unwrap();
                 let request_handler = &handlers[request.handler_index];
                 request_handler.handle_request(&request);
             }
@@ -338,8 +343,11 @@ impl AssetServer {
             let child_path = entry.path();
             if !child_path.is_dir() {
                 let relative_child_path = child_path.strip_prefix(&root_path).unwrap();
-                let _ =
-                    self.load_untyped(relative_child_path.to_str().expect("Path should be a valid string"));
+                let _ = self.load_untyped(
+                    relative_child_path
+                        .to_str()
+                        .expect("Path should be a valid string"),
+                );
             } else {
                 self.load_assets_in_folder_recursive(&child_path)?;
             }

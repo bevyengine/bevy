@@ -1,32 +1,32 @@
 [
-
-  Entity(
-    id: 510837483,
+  (
+    entity: 328997855,
     components: [
-
       {
-        "type": "load_scene::ComponentA",
+        "type": "ComponentA",
         "map": {
           "x": 3.0,
           "y": 4.0,
         },
-      },    ],
+      },
+    ],
   ),
-  Entity(
-    id: 1069398672,
+  (
+    entity: 404566393,
     components: [
-
       {
-        "type": "load_scene::ComponentA",
+        "type": "ComponentA",
         "map": {
           "x": 1.0,
           "y": 2.0,
         },
       },
       {
-        "type": "load_scene::ComponentB",
+        "type": "ComponentB",
         "map": {
           "value": "hello",
         },
-      },    ],
-  ),]
+      },
+    ],
+  ),
+]

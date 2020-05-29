@@ -20,7 +20,7 @@ impl Default for FilesystemWatcher {
 }
 
 impl FilesystemWatcher {
-    pub fn watch_folder<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+    pub fn watch<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         self.watcher.watch(path, RecursiveMode::Recursive)
     }
 }

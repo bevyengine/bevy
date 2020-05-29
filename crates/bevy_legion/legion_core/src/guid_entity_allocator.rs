@@ -1,15 +1,15 @@
-use crate::entity::Entity;
+use crate::entity::{EntityIndex, Entity};
 use parking_lot::RwLock;
 use std::{collections::{VecDeque, HashSet}, num::Wrapping, sync::Arc};
 
 #[derive(Default, Debug, Clone)]
 pub struct GuidEntityAllocator {
-    entities: Arc<RwLock<HashSet<Entity>>>,
+    entities: Arc<RwLock<HashSet<EntityIndex>>>,
     next_ids: Arc<RwLock<VecDeque<Entity>>>,
 }
 
 impl GuidEntityAllocator {
-    pub fn is_alive(&self, entity: Entity) -> bool { self.entities.read().contains(&entity) }
+    pub fn is_alive(&self, entity: Entity) -> bool { self.entities.read().contains(&entity.index()) }
 
     pub fn push_next_ids(&self, ids: impl Iterator<Item = Entity>) {
         self.next_ids.write().extend(ids);
@@ -23,7 +23,7 @@ impl GuidEntityAllocator {
             Entity::new(rand::random::<u32>(), Wrapping(1))
         };
 
-        self.entities.write().insert(entity);
+        self.entities.write().insert(entity.index());
         entity
     }
 
@@ -33,7 +33,7 @@ impl GuidEntityAllocator {
     }
 
     pub(crate) fn delete_entity(&self, entity: Entity) -> bool {
-        self.entities.write().remove(&entity)
+        self.entities.write().remove(&entity.index())
     }
 
     pub(crate) fn delete_all_entities(&self) { self.entities.write().clear(); }
