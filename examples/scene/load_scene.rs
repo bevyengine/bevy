@@ -56,12 +56,14 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
 
     // SceneSpawner can "spawn" scenes. "spawning" a scene creates a new instance of the scene in the World with new entity ids.
     // This guarantees that it will not overwrite existing entities.
-    // scene_spawner.spawn(scene_handle);
+    scene_spawner.spawn(scene_handle);
 
     // SceneSpawner can also "load" scenes. "loading" a scene preserves the entity ids in the scene.
     // In general, you should "spawn" scenes when you are dynamically composing your World and "load" scenes for things like game saves.
-
     scene_spawner.load(scene_handle);
+
+    // we have now loaded `scene_handle` AND spawned it, which means our World now has one set of entities with the Scene's ids and
+    // one set of entities with new ids
 
     // This tells the AssetServer to watch for changes to assets.
     // It enables our scenes to automatically reload in game when we modify their files

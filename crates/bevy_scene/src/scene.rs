@@ -1,10 +1,9 @@
-use anyhow::Result;
-use bevy_type_registry::ComponentRegistry;
-use bevy_property::{PropertyTypeRegistry, DynamicProperties};
-use legion::prelude::{Resources, World};
-use serde::Serialize;
-use std::num::Wrapping;
 use crate::serde::SceneSerializer;
+use anyhow::Result;
+use bevy_property::{DynamicProperties, PropertyTypeRegistry};
+use bevy_type_registry::ComponentRegistry;
+use legion::{entity::EntityIndex, prelude::World};
+use serde::Serialize;
 
 #[derive(Default)]
 pub struct Scene {
@@ -12,7 +11,7 @@ pub struct Scene {
 }
 
 pub struct Entity {
-    pub entity: u32,
+    pub entity: EntityIndex,
     pub components: Vec<DynamicProperties>,
 }
 
@@ -38,10 +37,8 @@ impl Scene {
                                     })
                                 }
 
-                                let properties = component_registration.get_component_properties(
-                                    &component_resource_set,
-                                    index,
-                                );
+                                let properties = component_registration
+                                    .get_component_properties(&component_resource_set, index);
 
                                 entities[index].components.push(properties.to_dynamic());
                             }

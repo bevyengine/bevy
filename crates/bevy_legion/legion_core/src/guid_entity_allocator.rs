@@ -20,11 +20,15 @@ impl GuidEntityAllocator {
         let entity = if !self.next_ids.read().is_empty() {
             self.next_ids.write().pop_front().unwrap()
         } else {
-            Entity::new(rand::random::<u32>(), Wrapping(1))
+            Entity::new(Self::new_entity_id(), Wrapping(1))
         };
 
         self.entities.write().insert(entity.index());
         entity
+    }
+
+    pub fn new_entity_id() -> u32 {
+        rand::random::<u32>()
     }
 
     /// Creates an iterator which allocates new `Entity` IDs.
