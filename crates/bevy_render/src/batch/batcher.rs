@@ -252,11 +252,18 @@ mod tests {
             "a2_b2 batch should have e2 and e3"
         );
 
-        assert_eq!(
-            batcher
-                .iter()
-                .collect::<Vec<&Batch<HandleUntyped, Entity, Data>>>(),
-            vec![&a1_b1_batch, &a2_b2_batch]
-        )
+        let mut found_a1_b1 = false;
+        let mut found_a2_b2 = false;
+        for batch in batcher.iter() {
+            if batch == &a1_b1_batch {
+                found_a1_b1 = true;
+            } else if batch == &a2_b2_batch {
+                found_a2_b2 = true;
+            }
+        }
+
+        assert!(found_a1_b1 && found_a2_b2);
+        assert_eq!(batcher.iter().count(), 2);
+
     }
 }
