@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=c:\Users\Carter\.cargo\registry\src\github.com-1ecc6299db9ec823\glsl-to-spirv-0.1.7\target\debug\build\typenum-6017815b270ccaab\out\consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=c:\Users\Carter\.cargo\registry\src\github.com-1ecc6299db9ec823\glsl-to-spirv-0.1.7\target\debug\build\typenum-6017815b270ccaab\out\op.rs

@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-./glslangValidator -p > instDesc
-asciidoc --backend=html5 instDesc
