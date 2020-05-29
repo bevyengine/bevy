@@ -55,14 +55,20 @@ impl Scene {
 
     // TODO: move to AssetSaver when it is implemented
     pub fn serialize_ron(&self, registry: &PropertyTypeRegistry) -> Result<String, ron::Error> {
-        let pretty_config = ron::ser::PrettyConfig::default()
-            .with_decimal_floats(true)
-            .with_indentor("  ".to_string())
-            .with_new_line("\n".to_string());
-        let mut buf = Vec::new();
-        let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
-        let scene_serializer = SceneSerializer::new(self, registry);
-        scene_serializer.serialize(&mut serializer)?;
-        Ok(String::from_utf8(buf).unwrap())
+        serialize_ron(SceneSerializer::new(self, registry))
     }
+}
+
+pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
+where
+    S: Serialize,
+{
+    let pretty_config = ron::ser::PrettyConfig::default()
+        .with_decimal_floats(true)
+        .with_indentor("  ".to_string())
+        .with_new_line("\n".to_string());
+    let mut buf = Vec::new();
+    let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
+    serialize.serialize(&mut ron_serializer)?;
+    Ok(String::from_utf8(buf).unwrap())
 }

@@ -8,7 +8,7 @@ edition = "2018"
 serde = "1"
 erased-serde = "0.3"
 bevy_property_derive = { path = "bevy_property_derive" }
-ron = { git = "https://github.com/ron-rs/ron", rev = "b43c1074d517131fd0cfc1deb96e11f95d6f42d8" }
+ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14" }
 glam = { path = "../bevy_glam", features = ["serde"] }
 legion = { path = "../bevy_legion" }
 smallvec = { version = "1.4", features = ["serde"] }

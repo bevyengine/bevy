@@ -12,7 +12,7 @@ bevy_property = { path = "../bevy_property" }
 
 legion = { path = "../bevy_legion", features = ["serialize"] }
 serde = { version = "1.0", features = ["derive"]}
-ron = { git = "https://github.com/ron-rs/ron", rev = "b43c1074d517131fd0cfc1deb96e11f95d6f42d8" }
+ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14" }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 anyhow = "1.0"
 thiserror = "1.0"

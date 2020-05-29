@@ -1,6 +1,7 @@
 use bevy::{
     prelude::*,
     property::{ron::deserialize_dynamic_properties, PropertyTypeRegistry},
+    scene::serialize_ron,
     type_registry::TypeRegistry,
 };
 use serde::{Deserialize, Serialize};
@@ -61,13 +62,13 @@ fn setup(type_registry: Res<TypeRegistry>) {
     // All properties can be serialized.
     // If you #[derive(Properties)] your type doesn't even need to directly implement the Serde trait!
     let registry = type_registry.property.read().unwrap();
-    let ron_string = serialize_ron(&test, &registry).unwrap();
+    let ron_string = serialize_property(&test, &registry);
     println!("{}\n", ron_string);
 
     // Dynamic properties can be deserialized
     let dynamic_properties = deserialize_dynamic_properties(&ron_string, &registry).unwrap();
 
-    let round_tripped = serialize_ron(&dynamic_properties, &registry).unwrap();
+    let round_tripped = serialize_property(&dynamic_properties, &registry);
     println!("{}", round_tripped);
     assert_eq!(ron_string, round_tripped);
 
@@ -82,24 +83,16 @@ fn setup(type_registry: Res<TypeRegistry>) {
     seq.apply(&patch);
     assert_eq!(seq[0], 3);
 
-    let ron_string = serialize_ron(&patch, &registry).unwrap();
+    let ron_string = serialize_property(&patch, &registry);
     println!("{}\n", ron_string);
     let dynamic_properties = deserialize_dynamic_properties(&ron_string, &registry).unwrap();
-    let round_tripped = serialize_ron(&dynamic_properties, &registry).unwrap();
+    let round_tripped = serialize_property(&dynamic_properties, &registry);
     assert_eq!(ron_string, round_tripped);
 }
 
-fn serialize_ron<T>(property: &T, registry: &PropertyTypeRegistry) -> Result<String, ron::Error>
+fn serialize_property<T>(property: &T, registry: &PropertyTypeRegistry) -> String
 where
     T: Property,
 {
-    let pretty_config = ron::ser::PrettyConfig::default().with_decimal_floats(true);
-    let mut buf = Vec::new();
-    let mut serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
-    property
-        .serializable(registry)
-        .borrow()
-        .serialize(&mut serializer)?;
-    let ron_string = String::from_utf8(buf).unwrap();
-    Ok(ron_string)
+    serialize_ron(property.serializable(registry).borrow()).unwrap()
 }
