@@ -8,7 +8,7 @@
 //!
 //! ## Example
 //!Here is a simple "Hello World" Bevy app:
-//! ```
+//! ```no_run
 //!use bevy::prelude::*;
 //!
 //!fn main() {
