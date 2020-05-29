@@ -21,5 +21,7 @@ pub mod prelude {
         ResMut,
         System,
         SystemBuilder,
+        Query,
+        SubWorld
     };
 }

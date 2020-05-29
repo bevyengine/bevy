@@ -28,7 +28,7 @@ pub mod prelude {
         entity::Entity,
         event::Event,
         filter::filter_fns::*,
-        query::{IntoQuery, Query, Read, Tagged, TryRead, TryWrite, Write},
+        query::{IntoQuery, Query as FilteredQuery, Read, Tagged, TryRead, TryWrite, Write},
         world::{Universe, World},
     };
 }

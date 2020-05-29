@@ -270,7 +270,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
                             let resource_access: Access<ResourceTypeId> = #resource_access;
                             let component_access: Access<ComponentTypeId> = #component_access;
-        
+
                             let run_fn = FuncSystemFnWrapper(
                                 move |_command_buffer,
                                     _world,

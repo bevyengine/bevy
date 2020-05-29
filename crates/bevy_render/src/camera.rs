@@ -1,9 +1,9 @@
 use bevy_app::{Events, GetEventReader};
-use bevy_window::WindowResized;
 use bevy_property::{Properties, Property};
+use bevy_window::WindowResized;
 use glam::Mat4;
 use legion::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default, Properties)]
 pub struct ActiveCamera;
@@ -127,19 +127,19 @@ impl Camera {
 
 pub fn camera_update_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
-    SystemBuilder::new("camera_update")
-        .read_resource::<Events<WindowResized>>()
-        .with_query(<Write<Camera>>::query())
-        .build(move |_, world, window_resized_events, query| {
-            let primary_window_resized_event = window_resized_event_reader
-                .find_latest(&window_resized_events, |event| event.is_primary);
-            if let Some(primary_window_resized_event) = primary_window_resized_event {
-                for mut camera in query.iter_mut(world) {
-                    camera.update(
-                        primary_window_resized_event.width,
-                        primary_window_resized_event.height,
-                    );
-                }
+    (move |world: &mut SubWorld,
+           window_resized_events: Res<Events<WindowResized>>,
+           query: &mut Query<Write<Camera>>| {
+        let primary_window_resized_event = window_resized_event_reader
+            .find_latest(&window_resized_events, |event| event.is_primary);
+        if let Some(primary_window_resized_event) = primary_window_resized_event {
+            for mut camera in query.iter_mut(world) {
+                camera.update(
+                    primary_window_resized_event.width,
+                    primary_window_resized_event.height,
+                );
             }
-        })
+        }
+    })
+    .system()
 }
