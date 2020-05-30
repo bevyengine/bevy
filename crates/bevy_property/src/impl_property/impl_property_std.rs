@@ -89,6 +89,7 @@ where
 }
 
 // impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
+impl_property!(Option<T> where T: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
 impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static);
 impl_property!(HashMap<K, V> where
     K: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static,

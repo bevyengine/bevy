@@ -4,12 +4,6 @@ use bevy_window::WindowResized;
 use glam::Mat4;
 use legion::{prelude::*, storage::Component};
 
-#[derive(Default, Properties)]
-pub struct ActiveCamera;
-
-#[derive(Default, Properties)]
-pub struct ActiveCamera2d;
-
 #[derive(Debug, Clone, Properties)]
 pub struct OrthographicCamera {
     pub left: f32,
@@ -88,6 +82,7 @@ impl Default for PerspectiveCamera {
 #[derive(Default, Debug, Properties)]
 pub struct Camera {
     pub view_matrix: Mat4,
+    pub name: Option<String>,
 }
 
 pub fn camera_system<T: CameraProjection + Component>(resources: &mut Resources) -> Box<dyn Schedulable> {

@@ -38,7 +38,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .add_entity(CameraEntity {
+        .add_entity(PerspectiveCameraEntity {
             local_to_world: LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(2.0, -6.0, 2.0),
                 Vec3::new(0.0, 0.0, 0.0),

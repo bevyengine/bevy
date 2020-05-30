@@ -79,8 +79,6 @@ impl AppPlugin for RenderPlugin {
             .register_component::<OrthographicCamera>()
             .register_component::<PerspectiveCamera>()
             .register_component::<Renderable>()
-            .register_component::<ActiveCamera>()
-            .register_component::<ActiveCamera2d>()
             .register_property_type::<Color>()
             .register_property_type::<Range<f32>>()
             .init_resource::<RenderGraph>()

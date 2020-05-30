@@ -5,7 +5,7 @@ use crate::{
     },
     render_graph::{
         nodes::{
-            Camera2dNode, CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode,
+            CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode,
             WindowTextureNode,
         },
         RenderGraph,
@@ -13,7 +13,7 @@ use crate::{
     texture::{
         Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
     },
-    Color,
+    Color, render_resource::resource_name,
 };
 use bevy_app::GetEventReader;
 use bevy_asset::AssetEvent;
@@ -72,11 +72,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
             TextureCopyNode::new(resources.get_event_reader::<AssetEvent<Texture>>()),
         );
         if config.add_3d_camera {
-            self.add_system_node(node::CAMERA, CameraNode::default());
+            self.add_system_node(node::CAMERA, CameraNode::new(resource_name::uniform::CAMERA));
         }
 
         if config.add_2d_camera {
-            self.add_system_node(node::CAMERA2D, Camera2dNode::default());
+            self.add_system_node(node::CAMERA2D, CameraNode::new(resource_name::uniform::CAMERA2D));
         }
 
         if config.add_main_depth_texture {

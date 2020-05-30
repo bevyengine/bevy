@@ -11,19 +11,16 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Load an asset folder:
-    asset_server.load_asset_folder("assets").unwrap();
+    // Load our mesh:
+    let mesh_handle = asset_server
+        .load("assets/models/monkey/Monkey.gltf")
+        .unwrap();
 
     // Tell the asset server to watch for asset changes on disk:
     asset_server.watch_for_changes().unwrap();
-
-    // Get a handle for our mesh:
-    let mesh_handle = asset_server
-        .get_handle("assets/models/monkey/Monkey.gltf")
-        .unwrap();
 
     // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
     // You should see the changes immediately show up in your app.
@@ -49,7 +46,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .add_entity(CameraEntity {
+        .add_entity(PerspectiveCameraEntity {
             local_to_world: LocalToWorld(Mat4::look_at_rh(
                 Vec3::new(2.0, -6.0, 2.0),
                 Vec3::new(0.0, 0.0, 0.0),

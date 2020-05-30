@@ -22,7 +22,7 @@ pub use crate::render::{
     pipeline::PipelineDescriptor,
     render_graph::{
         nodes::{
-            AssetUniformNode, Camera2dNode, CameraNode, PassNode, UniformNode, WindowSwapChainNode,
+            AssetUniformNode, CameraNode, PassNode, UniformNode, WindowSwapChainNode,
             WindowTextureNode,
         },
         RenderGraph,
@@ -30,7 +30,7 @@ pub use crate::render::{
     render_resource::resource_name,
     shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
     texture::{Texture, TextureType},
-    ActiveCamera, ActiveCamera2d, Camera, OrthographicCamera, PerspectiveCamera, Color, ColorSource, Renderable,
+    Camera, OrthographicCamera, PerspectiveCamera, Color, ColorSource, Renderable,
 };
 #[cfg(feature = "scene")]
 pub use crate::scene::{Scene, SceneSpawner};

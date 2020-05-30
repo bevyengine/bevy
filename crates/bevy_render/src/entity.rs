@@ -1,4 +1,4 @@
-use crate::{mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera, Renderable, OrthographicCamera, PerspectiveCamera};
+use crate::{mesh::Mesh, Camera, Renderable, OrthographicCamera, PerspectiveCamera, render_resource::resource_name};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -14,17 +14,58 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub scale: Scale,
 }
 
-#[derive(EntityArchetype, Default)]
-pub struct CameraEntity {
+#[derive(EntityArchetype)]
+pub struct PerspectiveCameraEntity {
     pub camera: Camera,
     pub perspective_camera: PerspectiveCamera,
-    pub active_camera: ActiveCamera,
     pub local_to_world: LocalToWorld,
 }
 
-#[derive(EntityArchetype, Default)]
+impl Default for PerspectiveCameraEntity {
+    fn default() -> Self {
+        PerspectiveCameraEntity {
+            camera: Camera {
+                name: Some(resource_name::uniform::CAMERA.to_string()),
+                ..Default::default()
+            },
+            perspective_camera: Default::default(),
+            local_to_world: Default::default(),
+        }
+    }
+    
+}
+
+#[derive(EntityArchetype)]
 pub struct OrthographicCameraEntity {
     pub camera: Camera,
     pub orthographic_camera: OrthographicCamera,
-    pub active_camera_2d: ActiveCamera2d,
+    pub local_to_world: LocalToWorld,
+}
+
+impl OrthographicCameraEntity {
+    pub fn ui() -> Self {
+        OrthographicCameraEntity {
+            camera: Camera {
+                // TODO: ui should have its own uniform
+                name: Some(resource_name::uniform::CAMERA2D.to_string()),
+                ..Default::default()
+            },
+            orthographic_camera: Default::default(),
+            local_to_world: Default::default(),
+        }
+    }
+}
+
+impl Default for OrthographicCameraEntity {
+    fn default() -> Self {
+        OrthographicCameraEntity {
+            camera: Camera {
+                name: Some(resource_name::uniform::CAMERA2D.to_string()),
+                ..Default::default()
+            },
+            orthographic_camera: Default::default(),
+            local_to_world: Default::default(),
+        }
+    }
+    
 }
