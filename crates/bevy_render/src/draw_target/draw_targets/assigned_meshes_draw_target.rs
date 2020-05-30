@@ -7,7 +7,7 @@ use crate::{
     pass::RenderPass,
     pipeline::{PipelineAssignments, PipelineDescriptor},
     render_resource::{
-        resource_name, EntitiesWaitingForAssets, EntityRenderResourceAssignments,
+        EntitiesWaitingForAssets, EntityRenderResourceAssignments,
         RenderResourceAssignments, ResourceInfo,
     },
     renderer::RenderContext,
@@ -16,6 +16,10 @@ use crate::{
 
 #[derive(Default)]
 pub struct AssignedMeshesDrawTarget;
+
+impl AssignedMeshesDrawTarget {
+    pub const NAME: &'static str = "AssignedMeshes";
+}
 
 impl DrawTarget for AssignedMeshesDrawTarget {
     fn draw(
@@ -129,6 +133,6 @@ impl DrawTarget for AssignedMeshesDrawTarget {
     }
 
     fn get_name(&self) -> String {
-        resource_name::draw_target::ASSIGNED_MESHES.to_string()
+        AssignedMeshesDrawTarget::NAME.to_string()
     }
 }

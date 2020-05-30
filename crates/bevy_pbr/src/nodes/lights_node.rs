@@ -1,7 +1,8 @@
 use bevy_render::{
+    base_render_graph,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        resource_name, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+        BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
     },
     renderer::{RenderContext, RenderResources},
 };
@@ -55,10 +56,10 @@ impl SystemNode for LightsNode {
         let mut command_queue = self.command_queue.clone();
         let max_lights = self.max_lights;
         (move |world: &mut SubWorld,
-              render_resources: Res<RenderResources>,
-              // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-              mut render_resource_assignments: ResMut<RenderResourceAssignments>,
-              query: &mut Query<(Read<Light>, Read<LocalToWorld>, Read<Translation>)>| {
+               render_resources: Res<RenderResources>,
+               // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
+               mut render_resource_assignments: ResMut<RenderResourceAssignments>,
+               query: &mut Query<(Read<Light>, Read<LocalToWorld>, Read<Translation>)>| {
             if !lights_are_dirty {
                 return;
             }
@@ -76,7 +77,7 @@ impl SystemNode for LightsNode {
                     ..Default::default()
                 });
                 render_resource_assignments.set(
-                    resource_name::uniform::LIGHTS,
+                    base_render_graph::uniform::LIGHTS,
                     RenderResourceAssignment::Buffer {
                         resource: buffer,
                         range: 0..light_uniform_size as u64,
@@ -147,6 +148,7 @@ impl SystemNode for LightsNode {
                 light_count_size as u64,
                 total_size as u64,
             );
-        }).system()
+        })
+        .system()
     }
 }

@@ -57,8 +57,8 @@ fn setup(
         //     )),
         //     ..Default::default()
         // })
-        // 2d camera
-        .add_entity(OrthographicCameraEntity::default())
+        // ui camera
+        .add_entity(OrthographicCameraEntity::ui())
         // left vertical fill
         .add_entity(UiEntity {
             node: Node::new(

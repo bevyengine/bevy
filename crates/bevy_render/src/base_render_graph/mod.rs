@@ -13,7 +13,7 @@ use crate::{
     texture::{
         Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
     },
-    Color, render_resource::resource_name,
+    Color,
 };
 use bevy_app::GetEventReader;
 use bevy_asset::AssetEvent;
@@ -36,6 +36,12 @@ pub mod node {
     pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_PASS: &str = "main_pass";
+}
+
+pub mod uniform {
+    pub const CAMERA: &str = "Camera";
+    pub const CAMERA2D: &str = "Camera2d";
+    pub const LIGHTS: &str = "Lights";
 }
 
 impl Default for BaseRenderGraphConfig {
@@ -72,11 +78,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
             TextureCopyNode::new(resources.get_event_reader::<AssetEvent<Texture>>()),
         );
         if config.add_3d_camera {
-            self.add_system_node(node::CAMERA, CameraNode::new(resource_name::uniform::CAMERA));
+            self.add_system_node(node::CAMERA, CameraNode::new(uniform::CAMERA));
         }
 
         if config.add_2d_camera {
-            self.add_system_node(node::CAMERA2D, CameraNode::new(resource_name::uniform::CAMERA2D));
+            self.add_system_node(node::CAMERA2D, CameraNode::new(uniform::CAMERA2D));
         }
 
         if config.add_main_depth_texture {

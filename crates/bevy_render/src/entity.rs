@@ -1,4 +1,4 @@
-use crate::{mesh::Mesh, Camera, Renderable, OrthographicCamera, PerspectiveCamera, render_resource::resource_name};
+use crate::{mesh::Mesh, Camera, Renderable, OrthographicCamera, PerspectiveCamera, base_render_graph};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -25,7 +25,7 @@ impl Default for PerspectiveCameraEntity {
     fn default() -> Self {
         PerspectiveCameraEntity {
             camera: Camera {
-                name: Some(resource_name::uniform::CAMERA.to_string()),
+                name: Some(base_render_graph::uniform::CAMERA.to_string()),
                 ..Default::default()
             },
             perspective_camera: Default::default(),
@@ -46,8 +46,7 @@ impl OrthographicCameraEntity {
     pub fn ui() -> Self {
         OrthographicCameraEntity {
             camera: Camera {
-                // TODO: ui should have its own uniform
-                name: Some(resource_name::uniform::CAMERA2D.to_string()),
+                name: Some("UiCamera".to_string()),
                 ..Default::default()
             },
             orthographic_camera: Default::default(),
@@ -60,7 +59,7 @@ impl Default for OrthographicCameraEntity {
     fn default() -> Self {
         OrthographicCameraEntity {
             camera: Camera {
-                name: Some(resource_name::uniform::CAMERA2D.to_string()),
+                name: Some(base_render_graph::uniform::CAMERA2D.to_string()),
                 ..Default::default()
             },
             orthographic_camera: Default::default(),

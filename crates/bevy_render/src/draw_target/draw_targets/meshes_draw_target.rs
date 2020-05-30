@@ -3,7 +3,7 @@ use crate::{
     mesh::{self, Mesh},
     pass::RenderPass,
     pipeline::PipelineDescriptor,
-    render_resource::{resource_name, ResourceInfo},
+    render_resource::ResourceInfo,
     Renderable,
 };
 use bevy_asset::Handle;
@@ -11,6 +11,10 @@ use legion::prelude::*;
 
 #[derive(Default)]
 pub struct MeshesDrawTarget;
+
+impl MeshesDrawTarget {
+    pub const NAME: &'static str = "Meshes";
+}
 
 impl DrawTarget for MeshesDrawTarget {
     fn draw(
@@ -62,6 +66,6 @@ impl DrawTarget for MeshesDrawTarget {
     }
 
     fn get_name(&self) -> String {
-        resource_name::draw_target::MESHES.to_string()
+        MeshesDrawTarget::NAME.to_string()
     }
 }
