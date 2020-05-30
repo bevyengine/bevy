@@ -28,12 +28,12 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Docs
 
-* **[The Bevy Book](https://bevyengine.org/learn/book):** Bevy's official documentation. The best place to start learning Bevy. 
+* **[The Bevy Book](https://bevyengine.org/learn/book/introduction):** Bevy's official documentation. The best place to start learning Bevy. 
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
 
 ## Getting Started
 
-We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book) for a full tutorial. You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial. You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
 # Runs the "scene" example
