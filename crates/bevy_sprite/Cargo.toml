@@ -1,22 +1,18 @@
 [package]
-name = "bevy_ui"
+name = "bevy_sprite"
 version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
 bevy_app = { path = "../bevy_app" }
+bevy_core = { path = "../bevy_core" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_core = { path = "../bevy_core" }
 bevy_derive = { path = "../bevy_derive" }
-bevy_sprite = { path = "../bevy_sprite" }
-bevy_text = { path = "../bevy_text" }
-bevy_transform = { path = "../bevy_transform" }
 bevy_render = { path = "../bevy_render" }
-bevy_window = { path = "../bevy_window" }
-
-legion = { path = "../bevy_legion", features = ["serialize"] }
 glam = { path =  "../bevy_glam" }
-
+legion = { path = "../bevy_legion", features = ["serialize"] }
 zerocopy = "0.3.0"

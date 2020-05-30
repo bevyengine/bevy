@@ -6,7 +6,7 @@ edition = "2018"
 
 [features]
 default = ["headless", "wgpu", "winit"]
-headless = ["asset", "type_registry", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "text", "transform", "ui", "window"]
+headless = ["asset", "type_registry", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "sprite", "text", "transform", "ui", "window"]
 asset = ["bevy_asset"]
 core = ["bevy_core"]
 type_registry = ["bevy_type_registry"]
@@ -18,6 +18,7 @@ pbr = ["bevy_pbr"]
 property = ["bevy_property"]
 render = ["bevy_render"]
 scene = ["bevy_scene"]
+sprite = ["bevy_sprite"]
 text = ["bevy_text"]
 transform = ["bevy_transform"]
 ui = ["bevy_ui"]
@@ -50,6 +51,7 @@ bevy_pbr = { path = "crates/bevy_pbr", optional = true }
 bevy_property = { path = "crates/bevy_property", optional = true }
 bevy_render = { path = "crates/bevy_render", optional = true }
 bevy_scene = { path = "crates/bevy_scene", optional = true }
+bevy_sprite = { path = "crates/bevy_sprite", optional = true }
 bevy_transform = { path = "crates/bevy_transform", optional = true }
 bevy_text = { path = "crates/bevy_text", optional = true }
 bevy_ui = { path = "crates/bevy_ui", optional = true }

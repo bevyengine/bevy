@@ -19,6 +19,10 @@ pub mod node {
     pub const LIGHTS: &str = "lights";
 }
 
+pub mod uniform {
+    pub const LIGHTS: &str = "Lights";
+}
+
 pub trait ForwardPbrRenderGraphBuilder {
     fn add_pbr_graph(&mut self, resources: &Resources) -> &mut Self;
 }

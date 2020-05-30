@@ -1,5 +1,4 @@
 use bevy_render::{
-    base_render_graph,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
@@ -7,7 +6,10 @@ use bevy_render::{
     renderer::{RenderContext, RenderResources},
 };
 
-use crate::light::{Light, LightRaw};
+use crate::{
+    light::{Light, LightRaw},
+    uniform,
+};
 use bevy_transform::prelude::*;
 use legion::prelude::*;
 use zerocopy::AsBytes;
@@ -77,7 +79,7 @@ impl SystemNode for LightsNode {
                     ..Default::default()
                 });
                 render_resource_assignments.set(
-                    base_render_graph::uniform::LIGHTS,
+                    uniform::LIGHTS,
                     RenderResourceAssignment::Buffer {
                         resource: buffer,
                         range: 0..light_uniform_size as u64,

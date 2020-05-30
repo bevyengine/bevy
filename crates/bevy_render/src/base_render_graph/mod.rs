@@ -41,7 +41,6 @@ pub mod node {
 pub mod uniform {
     pub const CAMERA: &str = "Camera";
     pub const CAMERA2D: &str = "Camera2d";
-    pub const LIGHTS: &str = "Lights";
 }
 
 impl Default for BaseRenderGraphConfig {

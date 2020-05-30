@@ -69,6 +69,8 @@ pub use bevy_property as property;
 pub use bevy_render as render;
 #[cfg(feature = "scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "sprite")]
+pub use bevy_sprite as sprite;
 #[cfg(feature = "text")]
 pub use bevy_text as text;
 #[cfg(feature = "transform")]

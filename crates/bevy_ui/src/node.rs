@@ -1,5 +1,5 @@
 use super::{Anchors, Margins};
-use crate::Rect;
+use bevy_sprite::Rect;
 use glam::Vec2;
 
 #[derive(Debug, Clone)]

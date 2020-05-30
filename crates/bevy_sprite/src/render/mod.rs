@@ -1,10 +1,11 @@
+use crate::{ColorMaterial, Rect};
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
     draw_target::AssignedMeshesDrawTarget,
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{
-        nodes::{CameraNode, PassNode},
+        nodes::{AssetUniformNode, PassNode, UniformNode},
         RenderGraph,
     },
     shader::{Shader, ShaderStage, ShaderStages},
@@ -12,10 +13,10 @@ use bevy_render::{
 };
 use legion::prelude::Resources;
 
-pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(323432002226399387835192542539754486265);
+pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
+    Handle::from_u128(278534784033876544639935131272264723170);
 
-pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
+pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,
@@ -50,40 +51,48 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                include_str!("ui.vert"),
+                include_str!("sprite.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("ui.frag"),
+                include_str!("sprite.frag"),
             ))),
         })
     }
 }
 
 pub mod node {
-    pub const UI_CAMERA: &'static str = "ui_camera";
+    pub const COLOR_MATERIAL: &'static str = "color_material";
+    pub const RECT: &'static str = "rect";
 }
 
-pub mod uniform {
-    pub const UI_CAMERA: &'static str = "UiCamera";
+pub trait SpriteRenderGraphBuilder {
+    fn add_sprite_graph(&mut self, resources: &Resources) -> &mut Self;
 }
 
-pub trait UiRenderGraphBuilder {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self;
-}
-
-impl UiRenderGraphBuilder for RenderGraph {
-    fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(node::UI_CAMERA, CameraNode::new(uniform::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, base_render_graph::node::MAIN_PASS)
+impl SpriteRenderGraphBuilder for RenderGraph {
+    fn add_sprite_graph(&mut self, resources: &Resources) -> &mut Self {
+        self.add_system_node(
+            node::COLOR_MATERIAL,
+            AssetUniformNode::<ColorMaterial>::new(false),
+        );
+        self.add_node_edge(node::COLOR_MATERIAL, base_render_graph::node::MAIN_PASS)
             .unwrap();
+
+        self.add_system_node(node::RECT, UniformNode::<Rect>::new(false));
+        self.add_node_edge(node::RECT, base_render_graph::node::MAIN_PASS)
+            .unwrap();
+
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+        pipelines.set(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(&mut shaders));
         let main_pass: &mut PassNode = self
             .get_node_mut(base_render_graph::node::MAIN_PASS)
             .unwrap();
-        main_pass.add_pipeline(UI_PIPELINE_HANDLE, vec![Box::new(AssignedMeshesDrawTarget)]);
+        main_pass.add_pipeline(
+            SPRITE_PIPELINE_HANDLE,
+            vec![Box::new(AssignedMeshesDrawTarget)],
+        );
         self
     }
 }

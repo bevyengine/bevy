@@ -1,4 +1,4 @@
-use bevy_render::{Color, PerspectiveCamera, CameraProjection};
+use bevy_render::{Color, PerspectiveProjection, CameraProjection};
 use bevy_transform::components::Translation;
 use bevy_property::Properties;
 use glam::Mat4;
@@ -32,7 +32,7 @@ pub struct LightRaw {
 
 impl LightRaw {
     pub fn from(light: &Light, transform: &Mat4, translation: &Translation) -> LightRaw {
-        let perspective = PerspectiveCamera {
+        let perspective = PerspectiveProjection {
             fov: light.fov,
             aspect_ratio: 1.0,
             near: light.depth.start,

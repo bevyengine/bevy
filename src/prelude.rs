@@ -1,4 +1,3 @@
-pub use crate::app::FromResources;
 #[cfg(feature = "asset")]
 pub use crate::asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 #[cfg(feature = "core")]
@@ -29,10 +28,12 @@ pub use crate::render::{
     },
     shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
     texture::{Texture, TextureType},
-    Camera, OrthographicCamera, PerspectiveCamera, Color, ColorSource, Renderable,
+    Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
 };
 #[cfg(feature = "scene")]
 pub use crate::scene::{Scene, SceneSpawner};
+#[cfg(feature = "sprite")]
+pub use crate::sprite::{ColorMaterial, Rect, Sprite, entity::SpriteEntity};
 #[cfg(feature = "text")]
 pub use crate::text::Font;
 #[cfg(feature = "transform")]
@@ -40,15 +41,13 @@ pub use crate::transform::prelude::*;
 #[cfg(feature = "type_registry")]
 pub use crate::type_registry::RegisterType;
 #[cfg(feature = "ui")]
-pub use crate::ui::{
-    entity::*, widget::Label, Anchors, ColorMaterial, Margins, Node, Rect, Sprite,
-};
+pub use crate::ui::{entity::*, widget::Label, Anchors, Margins, Node};
 #[cfg(feature = "window")]
 pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
         schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
-        EventReader, Events, GetEventReader, System,
+        EventReader, Events, FromResources, GetEventReader, System,
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,
@@ -64,7 +63,7 @@ pub use legion::{
         bit_set::BitSet,
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
-        IntoSystem, Res, ResMut, SubWorld, SystemBuilder, Query
+        IntoSystem, Query, Res, ResMut, SubWorld, SystemBuilder,
     },
     world::{Universe, World},
 };

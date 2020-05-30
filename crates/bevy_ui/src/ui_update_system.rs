@@ -1,10 +1,10 @@
 use super::Node;
-use crate::Rect;
 use bevy_core::transform::run_on_hierarchy_subworld_mut;
 use bevy_transform::prelude::{Children, Parent};
 use bevy_window::Windows;
 use glam::Vec2;
 use legion::{prelude::*, systems::SubWorld};
+use bevy_sprite::Rect;
 
 pub const UI_Z_STEP: f32 = 0.0001;
 

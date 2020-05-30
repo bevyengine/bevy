@@ -1,4 +1,4 @@
-use crate::{mesh::Mesh, Camera, Renderable, OrthographicCamera, PerspectiveCamera, base_render_graph};
+use crate::{mesh::Mesh, Camera, Renderable, OrthographicProjection, PerspectiveProjection, base_render_graph};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -17,7 +17,7 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
 #[derive(EntityArchetype)]
 pub struct PerspectiveCameraEntity {
     pub camera: Camera,
-    pub perspective_camera: PerspectiveCamera,
+    pub perspective_projection: PerspectiveProjection,
     pub local_to_world: LocalToWorld,
 }
 
@@ -28,7 +28,7 @@ impl Default for PerspectiveCameraEntity {
                 name: Some(base_render_graph::uniform::CAMERA.to_string()),
                 ..Default::default()
             },
-            perspective_camera: Default::default(),
+            perspective_projection: Default::default(),
             local_to_world: Default::default(),
         }
     }
@@ -38,8 +38,10 @@ impl Default for PerspectiveCameraEntity {
 #[derive(EntityArchetype)]
 pub struct OrthographicCameraEntity {
     pub camera: Camera,
-    pub orthographic_camera: OrthographicCamera,
+    pub orthographic_projection: OrthographicProjection,
     pub local_to_world: LocalToWorld,
+    pub translation: Translation,
+    pub rotation: Rotation,
 }
 
 impl OrthographicCameraEntity {
@@ -49,8 +51,10 @@ impl OrthographicCameraEntity {
                 name: Some("UiCamera".to_string()),
                 ..Default::default()
             },
-            orthographic_camera: Default::default(),
+            orthographic_projection: Default::default(),
             local_to_world: Default::default(),
+            translation: Default::default(),
+            rotation: Default::default(),
         }
     }
 }
@@ -62,8 +66,10 @@ impl Default for OrthographicCameraEntity {
                 name: Some(base_render_graph::uniform::CAMERA2D.to_string()),
                 ..Default::default()
             },
-            orthographic_camera: Default::default(),
+            orthographic_projection: Default::default(),
             local_to_world: Default::default(),
+            translation: Default::default(),
+            rotation: Default::default(),
         }
     }
     

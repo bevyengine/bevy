@@ -1,10 +1,9 @@
 use super::Node;
-use crate::{
-    render::UI_PIPELINE_HANDLE, sprite::Sprite, widget::Label, ColorMaterial, Rect, QUAD_HANDLE,
-};
+use crate::{render::UI_PIPELINE_HANDLE, widget::Label};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
+use bevy_sprite::{ColorMaterial, Rect, QUAD_HANDLE};
 
 #[derive(EntityArchetype)]
 pub struct UiEntity {
@@ -53,30 +52,6 @@ impl Default for LabelEntity {
                 ..Default::default()
             },
             label: Label::default(),
-        }
-    }
-}
-
-#[derive(EntityArchetype)]
-pub struct SpriteEntity {
-    pub sprite: Sprite,
-    pub rect: Rect,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
-    pub renderable: Renderable,
-}
-
-impl Default for SpriteEntity {
-    fn default() -> Self {
-        SpriteEntity {
-            sprite: Default::default(),
-            rect: Default::default(),
-            mesh: QUAD_HANDLE,
-            material: Default::default(),
-            renderable: Renderable {
-                pipelines: vec![UI_PIPELINE_HANDLE],
-                ..Default::default()
-            },
         }
     }
 }

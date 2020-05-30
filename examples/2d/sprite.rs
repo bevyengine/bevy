@@ -15,10 +15,10 @@ fn setup(
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
     command_buffer
         .build()
-        .add_entity(OrthographicCameraEntity::ui())
+        .add_entity(OrthographicCameraEntity::default())
         .add_entity(SpriteEntity {
             rect: Rect {
-                position: Vec2::new(300.0, 300.0),
+                position: Vec2::new(0.0, 0.0),
                 z_index: 0.5,
                 ..Default::default()
             },
