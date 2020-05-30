@@ -1,4 +1,4 @@
-use crate::{mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera, CameraType, Renderable};
+use crate::{mesh::Mesh, ActiveCamera, ActiveCamera2d, Camera, Renderable, OrthographicCamera, PerspectiveCamera};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -17,21 +17,14 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
 #[derive(EntityArchetype, Default)]
 pub struct CameraEntity {
     pub camera: Camera,
+    pub perspective_camera: PerspectiveCamera,
     pub active_camera: ActiveCamera,
     pub local_to_world: LocalToWorld,
 }
 
-#[derive(EntityArchetype)]
-pub struct Camera2dEntity {
+#[derive(EntityArchetype, Default)]
+pub struct OrthographicCameraEntity {
     pub camera: Camera,
+    pub orthographic_camera: OrthographicCamera,
     pub active_camera_2d: ActiveCamera2d,
-}
-
-impl Default for Camera2dEntity {
-    fn default() -> Self {
-        Camera2dEntity {
-            camera: Camera::new(CameraType::default_orthographic()),
-            active_camera_2d: ActiveCamera2d,
-        }
-    }
 }

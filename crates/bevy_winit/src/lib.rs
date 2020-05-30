@@ -73,8 +73,8 @@ pub fn winit_runner(mut app: App) {
                 let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
                 resize_events.send(WindowResized {
                     id: window_id,
-                    height: window.height,
-                    width: window.width,
+                    height: window.height as usize,
+                    width: window.width as usize,
                     is_primary: windows.is_primary(window_id),
                 });
             }

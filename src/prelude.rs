@@ -30,7 +30,7 @@ pub use crate::render::{
     render_resource::resource_name,
     shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
     texture::{Texture, TextureType},
-    ActiveCamera, ActiveCamera2d, Camera, CameraType, Color, ColorSource, Renderable,
+    ActiveCamera, ActiveCamera2d, Camera, OrthographicCamera, PerspectiveCamera, Color, ColorSource, Renderable,
 };
 #[cfg(feature = "scene")]
 pub use crate::scene::{Scene, SceneSpawner};

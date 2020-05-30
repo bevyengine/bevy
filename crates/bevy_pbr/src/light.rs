@@ -1,4 +1,4 @@
-use bevy_render::{Color, PerspectiveCamera};
+use bevy_render::{Color, PerspectiveCamera, CameraProjection};
 use bevy_transform::components::Translation;
 use bevy_property::Properties;
 use glam::Mat4;

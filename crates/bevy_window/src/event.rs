@@ -4,8 +4,8 @@ use super::{WindowDescriptor, WindowId};
 #[derive(Debug, Clone)]
 pub struct WindowResized {
     pub id: WindowId,
-    pub width: u32,
-    pub height: u32,
+    pub width: usize,
+    pub height: usize,
     pub is_primary: bool,
 }
 

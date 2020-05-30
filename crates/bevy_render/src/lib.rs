@@ -76,11 +76,12 @@ impl AppPlugin for RenderPlugin {
             .add_asset::<PipelineDescriptor>()
             .add_asset_loader::<Texture, PngTextureLoader>()
             .register_component::<Camera>()
+            .register_component::<OrthographicCamera>()
+            .register_component::<PerspectiveCamera>()
             .register_component::<Renderable>()
             .register_component::<ActiveCamera>()
             .register_component::<ActiveCamera2d>()
             .register_property_type::<Color>()
-            .register_property_type::<CameraType>()
             .register_property_type::<Range<f32>>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineAssignments>()
@@ -91,7 +92,8 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<EntitiesWaitingForAssets>()
             .init_resource::<TextureResourceSystemState>()
             .add_system(entity_render_resource_assignments_system())
-            .init_system_to_stage(stage::POST_UPDATE, camera::camera_update_system)
+            .init_system_to_stage(stage::POST_UPDATE, camera::camera_system::<OrthographicCamera>)
+            .init_system_to_stage(stage::POST_UPDATE, camera::camera_system::<PerspectiveCamera>)
             .add_system_to_stage(
                 stage::PRE_UPDATE,
                 EntitiesWaitingForAssets::clear_system.system(),

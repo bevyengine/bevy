@@ -1,9 +1,8 @@
 use bevy_app::{Events, GetEventReader};
-use bevy_property::{Properties, Property};
+use bevy_property::Properties;
 use bevy_window::WindowResized;
 use glam::Mat4;
-use legion::prelude::*;
-use serde::{Deserialize, Serialize};
+use legion::{prelude::*, storage::Component};
 
 #[derive(Default, Properties)]
 pub struct ActiveCamera;
@@ -11,7 +10,7 @@ pub struct ActiveCamera;
 #[derive(Default, Properties)]
 pub struct ActiveCamera2d;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Properties)]
 pub struct OrthographicCamera {
     pub left: f32,
     pub right: f32,
@@ -21,7 +20,7 @@ pub struct OrthographicCamera {
     pub far: f32,
 }
 
-impl OrthographicCamera {
+impl CameraProjection for OrthographicCamera {
     fn get_view_matrix(&self) -> Mat4 {
         let projection = Mat4::orthographic_rh_gl(
             self.left,
@@ -32,6 +31,10 @@ impl OrthographicCamera {
             self.far,
         );
         projection
+    }
+    fn update(&mut self, width: usize, height: usize) {
+        self.right = width as f32;
+        self.top = height as f32;
     }
 }
 
@@ -48,7 +51,12 @@ impl Default for OrthographicCamera {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+pub trait CameraProjection {
+    fn get_view_matrix(&self) -> Mat4;
+    fn update(&mut self, width: usize, height: usize);
+}
+
+#[derive(Debug, Clone, Properties)]
 pub struct PerspectiveCamera {
     pub fov: f32,
     pub aspect_ratio: f32,
@@ -56,10 +64,13 @@ pub struct PerspectiveCamera {
     pub far: f32,
 }
 
-impl PerspectiveCamera {
-    pub fn get_view_matrix(&self) -> Mat4 {
+impl CameraProjection for PerspectiveCamera {
+    fn get_view_matrix(&self) -> Mat4 {
         let projection = Mat4::perspective_rh_gl(self.fov, self.aspect_ratio, self.near, self.far);
         projection
+    }
+    fn update(&mut self, width: usize, height: usize) {
+        self.aspect_ratio = width as f32 / height as f32;
     }
 }
 
@@ -74,70 +85,22 @@ impl Default for PerspectiveCamera {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Property)]
-pub enum CameraType {
-    Perspective(PerspectiveCamera),
-    Orthographic(OrthographicCamera),
-}
-
-impl CameraType {
-    pub fn default_perspective() -> CameraType {
-        CameraType::Perspective(PerspectiveCamera::default())
-    }
-
-    pub fn default_orthographic() -> CameraType {
-        CameraType::Orthographic(OrthographicCamera::default())
-    }
-}
-
-impl Default for CameraType {
-    fn default() -> Self {
-        CameraType::default_perspective()
-    }
-}
-
 #[derive(Default, Debug, Properties)]
 pub struct Camera {
     pub view_matrix: Mat4,
-    pub camera_type: CameraType,
 }
 
-impl Camera {
-    pub fn new(camera_type: CameraType) -> Self {
-        Camera {
-            view_matrix: Mat4::identity(),
-            camera_type,
-        }
-    }
-
-    pub fn update(&mut self, width: u32, height: u32) {
-        self.view_matrix = match &mut self.camera_type {
-            CameraType::Perspective(projection) => {
-                projection.aspect_ratio = width as f32 / height as f32;
-                projection.get_view_matrix()
-            }
-            CameraType::Orthographic(orthographic) => {
-                orthographic.right = width as f32;
-                orthographic.top = height as f32;
-                orthographic.get_view_matrix()
-            }
-        }
-    }
-}
-
-pub fn camera_update_system(resources: &mut Resources) -> Box<dyn Schedulable> {
+pub fn camera_system<T: CameraProjection + Component>(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut window_resized_event_reader = resources.get_event_reader::<WindowResized>();
     (move |world: &mut SubWorld,
            window_resized_events: Res<Events<WindowResized>>,
-           query: &mut Query<Write<Camera>>| {
+           query: &mut Query<(Write<Camera>, Write<T>)>| {
         let primary_window_resized_event = window_resized_event_reader
             .find_latest(&window_resized_events, |event| event.is_primary);
         if let Some(primary_window_resized_event) = primary_window_resized_event {
-            for mut camera in query.iter_mut(world) {
-                camera.update(
-                    primary_window_resized_event.width,
-                    primary_window_resized_event.height,
-                );
+            for (mut camera, mut camera_projection) in query.iter_mut(world) {
+                camera_projection.update(primary_window_resized_event.width, primary_window_resized_event.height);
+                camera.view_matrix = camera_projection.get_view_matrix();
             }
         }
     })
