@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 pub struct Time {
     pub delta: Duration,
-    pub instant: Instant,
+    pub instant: Option<Instant>,
     pub delta_seconds_f64: f64,
     pub delta_seconds: f32,
 }
@@ -12,7 +12,7 @@ impl Default for Time {
     fn default() -> Time {
         Time {
             delta: Duration::from_secs(0),
-            instant: Instant::now(),
+            instant: None,
             delta_seconds_f64: 0.0,
             delta_seconds: 0.0,
         }
@@ -20,22 +20,18 @@ impl Default for Time {
 }
 
 impl Time {
-    pub fn start(&mut self) {
-        self.instant = Instant::now();
-    }
-
-    pub fn stop(&mut self) {
-        self.delta = Instant::now() - self.instant;
-        self.delta_seconds_f64 =
-            self.delta.as_secs() as f64 + (self.delta.subsec_nanos() as f64 / 1.0e9);
-        self.delta_seconds = self.delta_seconds_f64 as f32;
+    pub fn update(&mut self) {
+        let now = Instant::now();
+        if let Some(instant) = self.instant {
+            self.delta = now - instant;
+            self.delta_seconds_f64 =
+                self.delta.as_secs() as f64 + (self.delta.subsec_nanos() as f64 / 1.0e9);
+            self.delta_seconds = self.delta_seconds_f64 as f32;
+        }
+        self.instant = Some(now);
     }
 }
 
-pub fn start_timer_system(mut time: ResMut<Time>) {
-    time.start();
-}
-
-pub fn stop_timer_system(mut time: ResMut<Time>) {
-    time.stop();
+pub fn timer_system(mut time: ResMut<Time>) {
+    time.update();
 }

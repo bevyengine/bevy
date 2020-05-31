@@ -12,7 +12,7 @@ use bevy_transform::{
 };
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 use legion::prelude::IntoSystem;
-use time::{start_timer_system, stop_timer_system, Time};
+use time::{timer_system, Time};
 
 #[derive(Default)]
 pub struct CorePlugin;
@@ -36,7 +36,6 @@ impl AppPlugin for CorePlugin {
             .register_property_type::<Mat3>()
             .register_property_type::<Mat4>()
             .register_property_type::<Quat>()
-            .add_system_to_stage(stage::FIRST, start_timer_system.system())
-            .add_system_to_stage(stage::LAST, stop_timer_system.system());
+            .add_system_to_stage(stage::FIRST, timer_system.system());
     }
 }
