@@ -1,4 +1,4 @@
-use crate::{mesh::Mesh, Camera, Renderable, OrthographicProjection, PerspectiveProjection, base_render_graph};
+use crate::{mesh::Mesh, Camera, Renderable, OrthographicProjection, PerspectiveProjection, base_render_graph, WindowOrigin};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -51,7 +51,10 @@ impl OrthographicCameraEntity {
                 name: Some("UiCamera".to_string()),
                 ..Default::default()
             },
-            orthographic_projection: Default::default(),
+            orthographic_projection: OrthographicProjection {
+                window_origin: WindowOrigin::BottomLeft,
+                ..Default::default()
+            },
             local_to_world: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
