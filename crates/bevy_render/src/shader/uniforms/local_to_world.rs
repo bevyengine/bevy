@@ -55,7 +55,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
 
     fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
         match name {
-            "Object" => Some(self.0.get_bytes()),
+            "Object" => Some(self.value.get_bytes()),
             _ => None,
         }
     }
@@ -65,7 +65,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
     }
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType> {
         match name {
-            "object" => self.0.get_bind_type(),
+            "object" => self.value.get_bind_type(),
             _ => None,
         }
     }
@@ -75,7 +75,7 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
 
     fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
         match name {
-            "Object" => self.0.get_bytes_ref(),
+            "Object" => self.value.get_bytes_ref(),
             _ => None,
         }
     }

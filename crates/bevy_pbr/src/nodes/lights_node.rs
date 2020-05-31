@@ -119,7 +119,7 @@ impl SystemNode for LightsNode {
                         query.iter(world).zip(data.chunks_exact_mut(size))
                     {
                         slot.copy_from_slice(
-                            LightRaw::from(&light, &local_to_world.0, &translation).as_bytes(),
+                            LightRaw::from(&light, &local_to_world.value, &translation).as_bytes(),
                         );
                     }
                 },

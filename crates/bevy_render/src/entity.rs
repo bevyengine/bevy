@@ -19,6 +19,8 @@ pub struct PerspectiveCameraEntity {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub local_to_world: LocalToWorld,
+    pub translation: Translation,
+    pub rotation: Rotation,
 }
 
 impl Default for PerspectiveCameraEntity {
@@ -30,6 +32,8 @@ impl Default for PerspectiveCameraEntity {
             },
             perspective_projection: Default::default(),
             local_to_world: Default::default(),
+            translation: Default::default(),
+            rotation: Default::default(),
         }
     }
     

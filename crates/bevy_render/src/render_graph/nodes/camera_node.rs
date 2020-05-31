@@ -77,7 +77,7 @@ impl SystemNode for CameraNode {
                 .find(|(camera, _)| camera.name.as_ref().map(|n| n.as_str()) == Some(&uniform_name))
             {
                 let camera_matrix: [[f32; 4]; 4] =
-                    (camera.view_matrix * local_to_world.0).to_cols_array_2d();
+                    (camera.view_matrix * local_to_world.value).to_cols_array_2d();
 
                 let tmp_buffer = render_resources.create_buffer_mapped(
                     BufferInfo {
