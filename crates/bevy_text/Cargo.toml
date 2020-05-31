@@ -10,7 +10,5 @@ edition = "2018"
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
-skribo = "0.1.0"
-font-kit = "0.6"
-pathfinder_geometry = "0.5"
+ab_glyph = "0.2.2"
 anyhow = "1.0"

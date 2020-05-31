@@ -15,7 +15,7 @@ fn main() {
 fn text_update_system(diagnostics: Res<Diagnostics>, mut label: ComMut<Label>) {
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            label.text = format!("FPS: {}", average.round());
+            label.text = format!("FPS: {}", average);
         }
     }
 }

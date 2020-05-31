@@ -1,6 +1,5 @@
 mod font;
 mod font_loader;
-mod render;
 
 pub use font::*;
 pub use font_loader::*;
