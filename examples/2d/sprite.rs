@@ -17,8 +17,7 @@ fn setup(
         .build()
         .add_entity(OrthographicCameraEntity::default())
         .add_entity(SpriteEntity {
-            rect: Rect {
-                position: Vec2::new(0.0, 0.0),
+            quad: Quad {
                 z_index: 0.5,
                 ..Default::default()
             },

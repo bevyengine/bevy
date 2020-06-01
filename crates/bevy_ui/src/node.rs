@@ -1,5 +1,5 @@
 use super::{Anchors, Margins};
-use bevy_sprite::Rect;
+use bevy_sprite::Quad;
 use glam::Vec2;
 
 #[derive(Debug, Clone)]
@@ -36,12 +36,12 @@ impl Node {
 
     pub fn update(
         &mut self,
-        rect: &mut Rect,
+        quad: &mut Quad,
         parent_size: Vec2,
         parent_position: Vec2,
         z_index: f32,
     ) {
-        let (rect_x, rect_width) = Self::compute_dimension_properties(
+        let (quad_x, quad_width) = Self::compute_dimension_properties(
             self.position.x(),
             self.margins.left,
             self.margins.right,
@@ -49,7 +49,7 @@ impl Node {
             self.anchors.right,
             parent_size.x(),
         );
-        let (rect_y, rect_height) = Self::compute_dimension_properties(
+        let (quad_y, quad_height) = Self::compute_dimension_properties(
             self.position.y(),
             self.margins.bottom,
             self.margins.top,
@@ -58,9 +58,9 @@ impl Node {
             parent_size.y(),
         );
 
-        rect.size = Vec2::new(rect_width, rect_height);
-        rect.position = Vec2::new(rect_x, rect_y) + parent_position;
-        rect.z_index = z_index;
+        quad.size = Vec2::new(quad_width, quad_height);
+        quad.position = Vec2::new(quad_x, quad_y) + parent_position;
+        quad.z_index = z_index;
     }
 
     fn compute_dimension_properties(
@@ -85,15 +85,15 @@ impl Node {
             MarginGrowDirection::Negative
         };
 
-        let p0 = Self::compute_rect_position(offset, margin0, anchor_p0, p0_grow_direction);
-        let p1 = Self::compute_rect_position(offset, margin1, anchor_p1, p1_grow_direction);
+        let p0 = Self::compute_quad_position(offset, margin0, anchor_p0, p0_grow_direction);
+        let p1 = Self::compute_quad_position(offset, margin1, anchor_p1, p1_grow_direction);
 
         let final_width = p1 - p0;
         let p = (p0 + p1) / 2.0;
         (p, final_width.abs())
     }
 
-    fn compute_rect_position(
+    fn compute_quad_position(
         position: f32,
         margin: f32,
         anchor_position: f32,

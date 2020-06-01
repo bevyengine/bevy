@@ -1,18 +1,20 @@
 mod color_material;
 pub mod entity;
-mod rect;
+mod quad;
 mod render;
 mod sprite;
+mod sprite_sheet;
 
 pub use color_material::*;
-pub use rect::*;
+pub use quad::*;
 pub use render::*;
 pub use sprite::*;
+pub use sprite_sheet::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_render::{
-    mesh::{shape::Quad, Mesh},
+    mesh::{shape, Mesh},
     render_graph::RenderGraph,
     shader::asset_shader_def_system,
 };
@@ -41,7 +43,7 @@ impl AppPlugin for SpritePlugin {
         let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
         meshes.set(
             QUAD_HANDLE,
-            Mesh::from(Quad {
+            Mesh::from(shape::Quad {
                 size: Vec2::new(1.0, 1.0),
             }),
         );

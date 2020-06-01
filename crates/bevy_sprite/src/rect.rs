@@ -1,20 +1,14 @@
-use bevy_core::bytes::GetBytes;
-use bevy_derive::Uniform;
-use glam::Vec2;
-use zerocopy::AsBytes;
-#[repr(C)]
-#[derive(Default, Clone, Copy, Debug, Uniform, AsBytes)]
 pub struct Rect {
-    pub position: Vec2,
-    pub size: Vec2,
-    pub z_index: f32,
+    pub min: Vec2,
+    pub max: Vec2,
 }
 
-impl GetBytes for Rect {
-    fn get_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
+impl Rect {
+    pub fn width(&self) -> f32 {
+        self.max.x - self.min.x
     }
-    fn get_bytes_ref(&self) -> Option<&[u8]> {
-        Some(self.as_bytes())
+
+    pub fn height(&self) -> f32 {
+        self.max.y - self.min.y
     }
 }

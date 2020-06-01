@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Rect};
+use crate::{ColorMaterial, Quad};
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
@@ -63,7 +63,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
 
 pub mod node {
     pub const COLOR_MATERIAL: &'static str = "color_material";
-    pub const RECT: &'static str = "rect";
+    pub const QUAD: &'static str = "quad";
 }
 
 pub trait SpriteRenderGraphBuilder {
@@ -79,8 +79,8 @@ impl SpriteRenderGraphBuilder for RenderGraph {
         self.add_node_edge(node::COLOR_MATERIAL, base_render_graph::node::MAIN_PASS)
             .unwrap();
 
-        self.add_system_node(node::RECT, UniformNode::<Rect>::new(false));
-        self.add_node_edge(node::RECT, base_render_graph::node::MAIN_PASS)
+        self.add_system_node(node::QUAD, UniformNode::<Quad>::new(false));
+        self.add_node_edge(node::QUAD, base_render_graph::node::MAIN_PASS)
             .unwrap();
 
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();

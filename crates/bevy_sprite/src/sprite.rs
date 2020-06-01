@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Rect};
+use crate::{ColorMaterial, Quad};
 use bevy_asset::{Assets, Handle};
 use bevy_render::texture::Texture;
 pub use legion::prelude::*;
@@ -17,8 +17,8 @@ pub fn sprite_system() -> Box<dyn Schedulable> {
         .read_resource::<Assets<ColorMaterial>>()
         .read_resource::<Assets<Texture>>()
         .with_query(
-            <(Read<Sprite>, Read<Handle<ColorMaterial>>, Write<Rect>)>::query().filter(
-                changed::<Sprite>() | changed::<Rect>() | changed::<Handle<ColorMaterial>>(),
+            <(Read<Sprite>, Read<Handle<ColorMaterial>>, Write<Quad>)>::query().filter(
+                changed::<Sprite>() | changed::<Quad>() | changed::<Handle<ColorMaterial>>(),
             ),
         )
         .build(|_, world, (materials, textures), query| {

@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_render::{texture::Texture, Color};
-use bevy_sprite::{ColorMaterial, Rect};
+use bevy_sprite::{ColorMaterial, Quad};
 use bevy_text::Font;
 use legion::prelude::{Com, Res, ResMut};
 
@@ -29,12 +29,12 @@ impl Label {
         mut textures: ResMut<Assets<Texture>>,
         fonts: Res<Assets<Font>>,
         label: Com<Label>,
-        rect: Com<Rect>,
+        quad: Com<Quad>,
         color_material_handle: Com<Handle<ColorMaterial>>,
     ) {
         // ensure the texture is at least 1x1
-        let width = rect.size.x().max(1.0);
-        let height = rect.size.y().max(1.0);
+        let width = quad.size.x().max(1.0);
+        let height = quad.size.y().max(1.0);
 
         if let Some(font) = fonts.get(&label.font) {
             let texture =
