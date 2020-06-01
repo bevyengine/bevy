@@ -191,6 +191,13 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
                 multisampled: false,
             },
         ),
+        ReflectDescriptorType::StorageBuffer => (
+            &binding.name,
+            BindType::Buffer {
+                dynamic: false,
+                readonly: true,
+            },
+        ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
         ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),

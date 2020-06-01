@@ -10,7 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
-use bevy_render::{renderer::RenderResources, RENDER_STAGE};
+use bevy_render::{renderer::RenderResources};
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 use renderer::WgpuRenderResourceContext;
@@ -21,7 +21,7 @@ pub struct WgpuPlugin;
 impl AppPlugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources_mut());
-        app.add_system_to_stage(RENDER_STAGE, render_system);
+        app.add_system_to_stage(bevy_render::stage::RENDER, render_system);
     }
 }
 

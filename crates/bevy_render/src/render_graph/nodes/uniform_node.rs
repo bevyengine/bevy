@@ -231,26 +231,15 @@ where
                     let staging_buffer_start = uniform_buffer_status.staging_buffer_offset
                         + (uniform_buffer_status.queued_buffer_writes.len()
                             * uniform_buffer_status.item_size);
-                    if let Some(uniform_bytes) =
-                        uniforms.get_uniform_bytes_ref(&field_info.uniform_name)
+                    let uniform_byte_len = uniforms.uniform_byte_len(&field_info.uniform_name);
+                    if uniform_byte_len > 0
                     {
-                        if size != uniform_bytes.len() {
-                            panic!("The number of bytes produced for {} do not match the expected count. Actual: {}. Expected: {}.", field_info.uniform_name, uniform_bytes.len(), size);
+                        if size != uniform_byte_len {
+                            panic!("The number of bytes produced for {} do not match the expected count. Actual: {}. Expected: {}.", field_info.uniform_name, uniform_byte_len, size);
                         }
 
-                        staging_buffer
-                            [staging_buffer_start..(staging_buffer_start + uniform_bytes.len())]
-                            .copy_from_slice(uniform_bytes);
-                    } else if let Some(uniform_bytes) =
-                        uniforms.get_uniform_bytes(field_info.uniform_name)
-                    {
-                        if size != uniform_bytes.len() {
-                            panic!("The number of bytes produced for {} do not match the expected count. Actual: {}. Expected: {}.", field_info.uniform_name, uniform_bytes.len(), size);
-                        }
-
-                        staging_buffer
-                            [staging_buffer_start..(staging_buffer_start + uniform_bytes.len())]
-                            .copy_from_slice(&uniform_bytes);
+                        uniforms.write_uniform_bytes(&field_info.uniform_name, &mut staging_buffer
+                            [staging_buffer_start..(staging_buffer_start + uniform_byte_len)]);
                     } else {
                         panic!(
                             "failed to get data from uniform: {}",

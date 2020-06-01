@@ -6,16 +6,16 @@ use crate::{
 };
 
 use bevy_asset::{Assets, Handle};
-use bevy_core::bytes::GetBytes;
+use bevy_core::bytes::Bytes;
 use legion::prelude::*;
 
 pub trait AsUniforms: Send + Sync + 'static {
     fn get_field_infos() -> &'static [FieldInfo];
-    fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>>;
+    fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]);
+    fn uniform_byte_len(&self, name: &str) -> usize;
     fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
-    fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]>;
     fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
 }
 
@@ -112,12 +112,12 @@ impl AsFieldBindType for Handle<Texture> {
 
 impl<T> AsFieldBindType for T
 where
-    T: GetBytes,
+    T: Bytes,
 {
     // TODO: this breaks if get_bytes_ref() isn't supported for a datatype
     default fn get_bind_type(&self) -> Option<FieldBindType> {
         Some(FieldBindType::Uniform {
-            size: self.get_bytes_ref().unwrap().len(),
+            size: self.byte_len(),
         })
     }
 }
@@ -130,7 +130,7 @@ pub trait GetTexture {
 
 impl<T> GetTexture for T
 where
-    T: GetBytes,
+    T: Bytes,
 {
     default fn get_texture(&self) -> Option<Handle<Texture>> {
         None

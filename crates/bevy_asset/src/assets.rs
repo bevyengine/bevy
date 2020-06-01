@@ -3,8 +3,8 @@ use crate::{
     Handle, HandleId,
 };
 use bevy_app::{AppBuilder, Events, FromResources};
+use bevy_core::bytes::Bytes;
 use bevy_type_registry::RegisterType;
-use bevy_core::bytes::GetBytes;
 use legion::prelude::*;
 use std::{
     collections::HashMap,
@@ -121,13 +121,10 @@ impl<T> Assets<T> {
     }
 }
 
-impl<T> GetBytes for Handle<T> {
-    fn get_bytes(&self) -> Vec<u8> {
-        Vec::new()
-    }
-
-    fn get_bytes_ref(&self) -> Option<&[u8]> {
-        None
+impl<T> Bytes for Handle<T> {
+    fn write_bytes(&self, _buffer: &mut [u8]) {}
+    fn byte_len(&self) -> usize {
+        0
     }
 }
 

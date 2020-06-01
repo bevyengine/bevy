@@ -50,6 +50,44 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     })
 }
 
+#[proc_macro_derive(Bytes, attributes(module))]
+pub fn derive_bytes(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let fields = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => &fields.named,
+        _ => panic!("expected a struct with named fields"),
+    };
+
+    let modules = get_modules(&ast);
+    let bevy_core_path = get_path(&modules.bevy_core);
+
+    let fields = fields.iter().map(|field| field.ident.as_ref().unwrap()).collect::<Vec<_>>();
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_core_path::bytes::Bytes for #struct_name#ty_generics {
+            fn write_bytes(&self, buffer: &mut [u8]) {
+                let mut offset: usize = 0;
+                #(let byte_len = self.#fields.byte_len();
+                self.#fields.write_bytes(&mut buffer[offset..(offset + byte_len)]);
+                offset += byte_len;)*
+            }
+            fn byte_len(&self) -> usize {
+                let mut byte_len: usize = 0;
+                #(byte_len += self.#fields.byte_len();)*
+                byte_len
+            }
+        }
+    })
+}
+
 #[proc_macro_derive(Uniform, attributes(uniform, module))]
 pub fn derive_uniform(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -88,19 +126,18 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
-                use #bevy_core_path::bytes::GetBytes;
+            fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
+                use #bevy_core_path::bytes::Bytes;
                 match name {
-                    #struct_name_string => Some(self.get_bytes()),
-                    _ => None,
+                    #struct_name_string => self.write_bytes(buffer),
+                    _ => {},
                 }
             }
-
-            fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
-                use #bevy_core_path::bytes::GetBytes;
+            fn uniform_byte_len(&self, name: &str) -> usize {
+                use #bevy_core_path::bytes::Bytes;
                 match name {
-                    #struct_name_string => self.get_bytes_ref(),
-                    _ => None,
+                    #struct_name_string => self.byte_len(),
+                    _ => 0,
                 }
             }
 
@@ -423,27 +460,26 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
-                use #bevy_core_path::bytes::GetBytes;
-                match name {
-                    #(#uniform_name_strings => Some(self.#active_uniform_field_names.get_bytes()),)*
-                    _ => None,
-                }
-            }
-
-            fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
-                use #bevy_core_path::bytes::GetBytes;
-                match name {
-                    #(#uniform_name_strings => self.#active_uniform_field_names.get_bytes_ref(),)*
-                    _ => None,
-                }
-            }
-
             fn get_uniform_texture(&self, name: &str) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
                 use #bevy_render_path::shader::GetTexture;
                 match name {
                     #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*
                     _ => None,
+                }
+            }
+
+            fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
+                use #bevy_core_path::bytes::Bytes;
+                match name {
+                    #(#uniform_name_strings => self.#active_uniform_field_names.write_bytes(buffer),)*
+                    _ => {},
+                }
+            }
+            fn uniform_byte_len(&self, name: &str) -> usize {
+                use #bevy_core_path::bytes::Bytes;
+                match name {
+                    #(#uniform_name_strings => self.#active_uniform_field_names.byte_len(),)*
+                    _ => 0,
                 }
             }
 

@@ -4,7 +4,7 @@ use crate::{
     texture::Texture,
 };
 use bevy_asset::Handle;
-use bevy_core::bytes::GetBytes;
+use bevy_core::bytes::Bytes;
 use once_cell::sync::Lazy;
 
 static LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
@@ -53,13 +53,6 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
         LOCAL_TO_WORLD_FIELD_INFOS
     }
 
-    fn get_uniform_bytes(&self, name: &str) -> Option<Vec<u8>> {
-        match name {
-            "Object" => Some(self.value.get_bytes()),
-            _ => None,
-        }
-    }
-
     fn get_shader_defs(&self) -> Option<Vec<String>> {
         None
     }
@@ -73,14 +66,19 @@ impl AsUniforms for bevy_transform::prelude::LocalToWorld {
         None
     }
 
-    fn get_uniform_bytes_ref(&self, name: &str) -> Option<&[u8]> {
-        match name {
-            "Object" => self.value.get_bytes_ref(),
-            _ => None,
-        }
-    }
-
     fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor> {
         Some(&VERTEX_BUFFER_DESCRIPTOR)
+    }
+    fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
+        match name {
+            "Object" => self.value.write_bytes(buffer),
+            _ => {}
+        }
+    }
+    fn uniform_byte_len(&self, name: &str) -> usize {
+        match name {
+            "Object" => self.value.byte_len(),
+            _ => 0,
+        }
     }
 }

@@ -1,9 +1,8 @@
-use zerocopy::{AsBytes, FromBytes};
-
+use zerocopy::AsBytes;
 use bevy_derive::Uniforms;
 
 #[repr(C)]
-#[derive(Clone, Copy, AsBytes, FromBytes, Uniforms)]
+#[derive(Clone, Copy, AsBytes, Uniforms)]
 #[module(bevy_render = "crate")]
 pub struct Vertex {
     #[uniform(vertex)]

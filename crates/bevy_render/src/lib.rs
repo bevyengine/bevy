@@ -40,7 +40,7 @@ use self::{
 };
 
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
-use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
 use legion::prelude::IntoSystem;
@@ -50,8 +50,10 @@ use render_resource::EntitiesWaitingForAssets;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 use std::ops::Range;
 
-pub static RENDER_RESOURCE_STAGE: &str = "render_resource";
-pub static RENDER_STAGE: &str = "render";
+pub mod stage {
+    pub static RENDER_RESOURCE: &str = "render_resource";
+    pub static RENDER: &str = "render";
+}
 
 pub struct RenderPlugin {
     /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  
@@ -68,8 +70,8 @@ impl Default for RenderPlugin {
 
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, RENDER_RESOURCE_STAGE)
-            .add_stage_after(RENDER_RESOURCE_STAGE, RENDER_STAGE)
+        app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
+            .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER)
             .add_asset::<Mesh>()
             .add_asset::<Texture>()
             .add_asset::<Shader>()
@@ -90,15 +92,15 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<EntitiesWaitingForAssets>()
             .init_resource::<TextureResourceSystemState>()
             .add_system(entity_render_resource_assignments_system())
-            .init_system_to_stage(stage::POST_UPDATE, camera::camera_system::<OrthographicProjection>)
-            .init_system_to_stage(stage::POST_UPDATE, camera::camera_system::<PerspectiveProjection>)
+            .init_system_to_stage(bevy_app::stage::POST_UPDATE, camera::camera_system::<OrthographicProjection>)
+            .init_system_to_stage(bevy_app::stage::POST_UPDATE, camera::camera_system::<PerspectiveProjection>)
             .add_system_to_stage(
-                stage::PRE_UPDATE,
+                bevy_app::stage::PRE_UPDATE,
                 EntitiesWaitingForAssets::clear_system.system(),
             )
-            .init_system_to_stage(RENDER_RESOURCE_STAGE, mesh_resource_provider_system)
+            .init_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system)
             .add_system_to_stage(
-                RENDER_RESOURCE_STAGE,
+                stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),
             );
 

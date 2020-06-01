@@ -1,10 +1,10 @@
 use super::texture::Texture;
 use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::Handle;
-use bevy_core::bytes::GetBytes;
-use serde::{Serialize, Deserialize};
+use bevy_core::bytes::Bytes;
 use bevy_property::Property;
 use glam::Vec4;
+use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 use zerocopy::AsBytes;
 
@@ -91,12 +91,27 @@ impl Into<[f32; 4]> for Color {
     }
 }
 
-impl GetBytes for Color {
-    fn get_bytes(&self) -> Vec<u8> {
-        self.as_bytes().iter().map(|v| *v).collect::<Vec<u8>>()
+impl Bytes for Color {
+    fn write_bytes(&self, buffer: &mut [u8]) {
+        buffer[0..self.byte_len()].copy_from_slice(self.as_bytes())
     }
-    fn get_bytes_ref(&self) -> Option<&[u8]> {
-        Some(self.as_bytes())
+    fn byte_len(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
+
+impl Bytes for ColorSource {
+    fn write_bytes(&self, buffer: &mut [u8]) {
+        match *self {
+            ColorSource::Color(ref color) => color.write_bytes(buffer),
+            ColorSource::Texture(_) => {}, // Texture is not a uniform
+        }
+    }
+    fn byte_len(&self) -> usize {
+        match *self {
+            ColorSource::Color(ref color) => color.byte_len(),
+            ColorSource::Texture(_) => 0, // Texture is not a uniform
+        }
     }
 }
 
@@ -128,21 +143,6 @@ impl ShaderDefSuffixProvider for ColorSource {
         match *self {
             ColorSource::Color(_) => Some("_COLOR"),
             ColorSource::Texture(_) => Some("_TEXTURE"),
-        }
-    }
-}
-
-impl GetBytes for ColorSource {
-    fn get_bytes(&self) -> Vec<u8> {
-        match *self {
-            ColorSource::Color(ref color) => color.get_bytes(),
-            ColorSource::Texture(_) => Vec::new(), // Texture is not a uniform
-        }
-    }
-    fn get_bytes_ref(&self) -> Option<&[u8]> {
-        match *self {
-            ColorSource::Color(ref color) => color.get_bytes_ref(),
-            ColorSource::Texture(ref texture) => texture.get_bytes_ref(), // Texture is not a uniform
         }
     }
 }
