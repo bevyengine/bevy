@@ -1,6 +1,0 @@
-/target
-*.swp
-**/*.rs.bk
-Cargo.lock
-Session.vim
-.cargo-ok

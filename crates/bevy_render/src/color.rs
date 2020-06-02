@@ -1,21 +1,22 @@
 use super::texture::Texture;
 use crate::shader::ShaderDefSuffixProvider;
 use bevy_asset::Handle;
-use bevy_core::bytes::Bytes;
+use bevy_core::bytes::{Byteable, Bytes};
 use bevy_property::Property;
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
-use zerocopy::AsBytes;
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, AsBytes, Serialize, Deserialize, Property)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,
     pub a: f32,
 }
+
+unsafe impl Byteable for Color {}
 
 impl Color {
     pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
@@ -88,15 +89,6 @@ impl From<Vec4> for Color {
 impl Into<[f32; 4]> for Color {
     fn into(self) -> [f32; 4] {
         [self.r, self.g, self.b, self.a]
-    }
-}
-
-impl Bytes for Color {
-    fn write_bytes(&self, buffer: &mut [u8]) {
-        buffer[0..self.byte_len()].copy_from_slice(self.as_bytes())
-    }
-    fn byte_len(&self) -> usize {
-        std::mem::size_of::<Self>()
     }
 }
 

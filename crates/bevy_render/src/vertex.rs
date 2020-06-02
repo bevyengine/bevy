@@ -1,8 +1,8 @@
-use zerocopy::AsBytes;
 use bevy_derive::Uniforms;
+use bevy_core::bytes::Byteable;
 
 #[repr(C)]
-#[derive(Clone, Copy, AsBytes, Uniforms)]
+#[derive(Clone, Copy, Uniforms)]
 #[module(bevy_render = "crate")]
 pub struct Vertex {
     #[uniform(vertex)]
@@ -12,3 +12,7 @@ pub struct Vertex {
     #[uniform(vertex)]
     pub uv: [f32; 2],
 }
+
+
+// SAFE: Vertex is repr(C) containing primitives
+unsafe impl Byteable for Vertex {} 

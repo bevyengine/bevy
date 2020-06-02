@@ -6,11 +6,11 @@ use crate::{
     renderer::{RenderContext, RenderResources},
     Camera,
 };
+use bevy_core::bytes::AsBytes;
 
 use bevy_transform::prelude::*;
 use legion::prelude::*;
 use std::borrow::Cow;
-use zerocopy::AsBytes;
 
 pub struct CameraNode {
     command_queue: CommandQueue,
@@ -76,8 +76,8 @@ impl SystemNode for CameraNode {
                 .iter(world)
                 .find(|(camera, _)| camera.name.as_ref().map(|n| n.as_str()) == Some(&uniform_name))
             {
-                let camera_matrix: [[f32; 4]; 4] =
-                    (camera.view_matrix * local_to_world.value).to_cols_array_2d();
+                let camera_matrix: [f32; 16] =
+                    (camera.view_matrix * local_to_world.value).to_cols_array();
 
                 let tmp_buffer = render_resources.create_buffer_mapped(
                     BufferInfo {

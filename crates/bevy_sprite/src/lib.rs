@@ -1,12 +1,14 @@
 mod color_material;
 pub mod entity;
 mod quad;
+mod rect;
 mod render;
 mod sprite;
 mod sprite_sheet;
 
 pub use color_material::*;
 pub use quad::*;
+pub use rect::*;
 pub use render::*;
 pub use sprite::*;
 pub use sprite_sheet::*;
@@ -30,10 +32,15 @@ pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013
 impl AppPlugin for SpritePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<ColorMaterial>()
+            .add_asset::<SpriteSheet>()
             .add_system_to_stage(stage::POST_UPDATE, sprite_system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 asset_shader_def_system::<ColorMaterial>.system(),
+            )
+            .init_system_to_stage(
+                bevy_render::stage::RENDER_RESOURCE,
+                sprite_sheet_resource_provider_system,
             );
 
         let resources = app.resources();

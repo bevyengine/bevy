@@ -1,82 +1,71 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use zerocopy::AsBytes;
-
-macro_rules! impl_bytes_zerocopy {
-    ($ty:tt) => {
-        impl Bytes for $ty {
-            fn write_bytes(&self, buffer: &mut [u8]) {
-                buffer[0..self.byte_len()].copy_from_slice(self.as_bytes())
-            }
-            fn byte_len(&self) -> usize {
-                std::mem::size_of::<Self>()
-            }
-        }
-        
-    };
-}
-
 pub trait Bytes {
     fn write_bytes(&self, buffer: &mut [u8]);
     fn byte_len(&self) -> usize;
 }
 
-impl_bytes_zerocopy!(u8);
-impl_bytes_zerocopy!(u16);
-impl_bytes_zerocopy!(u32);
-impl_bytes_zerocopy!(u64);
-impl_bytes_zerocopy!(usize);
-impl_bytes_zerocopy!(i8);
-impl_bytes_zerocopy!(i16);
-impl_bytes_zerocopy!(i32);
-impl_bytes_zerocopy!(i64);
-impl_bytes_zerocopy!(isize);
-impl_bytes_zerocopy!(f32);
-impl_bytes_zerocopy!(f64);
+pub unsafe trait Byteable where Self: Sized {}
 
-impl_bytes_zerocopy!([u8; 2]);
-impl_bytes_zerocopy!([u16; 2]);
-impl_bytes_zerocopy!([u32; 2]);
-impl_bytes_zerocopy!([u64; 2]);
-impl_bytes_zerocopy!([usize; 2]);
-impl_bytes_zerocopy!([i8; 2]);
-impl_bytes_zerocopy!([i16; 2]);
-impl_bytes_zerocopy!([i32; 2]);
-impl_bytes_zerocopy!([i64; 2]);
-impl_bytes_zerocopy!([isize; 2]);
-impl_bytes_zerocopy!([f32; 2]);
-impl_bytes_zerocopy!([f64; 2]);
+impl<T> Bytes for T
+where
+    T: Byteable,
+{
+    fn write_bytes(&self, buffer: &mut [u8]) {
+        let bytes = self.as_bytes();
+        buffer[0..self.byte_len()].copy_from_slice(bytes)
+    }
+    fn byte_len(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
+}
 
-impl_bytes_zerocopy!([u8; 3]);
-impl_bytes_zerocopy!([u16; 3]);
-impl_bytes_zerocopy!([u32; 3]);
-impl_bytes_zerocopy!([u64; 3]);
-impl_bytes_zerocopy!([usize; 3]);
-impl_bytes_zerocopy!([i8; 3]);
-impl_bytes_zerocopy!([i16; 3]);
-impl_bytes_zerocopy!([i32; 3]);
-impl_bytes_zerocopy!([i64; 3]);
-impl_bytes_zerocopy!([isize; 3]);
-impl_bytes_zerocopy!([f32; 3]);
-impl_bytes_zerocopy!([f64; 3]);
+pub trait AsBytes {
+    fn as_bytes(&self) -> &[u8];
+}
 
-impl_bytes_zerocopy!([u8; 4]);
-impl_bytes_zerocopy!([u16; 4]);
-impl_bytes_zerocopy!([u32; 4]);
-impl_bytes_zerocopy!([u64; 4]);
-impl_bytes_zerocopy!([usize; 4]);
-impl_bytes_zerocopy!([i8; 4]);
-impl_bytes_zerocopy!([i16; 4]);
-impl_bytes_zerocopy!([i32; 4]);
-impl_bytes_zerocopy!([i64; 4]);
-impl_bytes_zerocopy!([isize; 4]);
-impl_bytes_zerocopy!([f32; 4]);
-impl_bytes_zerocopy!([f64; 4]);
+impl<T> AsBytes for T
+where
+    T: Byteable,
+{
+    fn as_bytes(&self) -> &[u8] {
+        let len = std::mem::size_of_val(self);
+        unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, len) }
+    }
+}
 
+impl<'a, T> AsBytes for [T]
+where
+    T: Byteable,
+{
+    fn as_bytes(&self) -> &[u8] {
+        let len = std::mem::size_of_val(self);
+        unsafe { core::slice::from_raw_parts(self as *const Self as *const u8, len) }
+    }
+}
+
+unsafe impl<T> Byteable for [T] where Self: Sized {}
+unsafe impl<T> Byteable for [T; 2] where T: Byteable {}
+unsafe impl<T> Byteable for [T; 3] where T: Byteable {}
+unsafe impl<T> Byteable for [T; 4] where T: Byteable {}
+unsafe impl<T> Byteable for [T; 16] where T: Byteable {}
+
+unsafe impl Byteable for u8 {}
+unsafe impl Byteable for u16 {}
+unsafe impl Byteable for u32 {}
+unsafe impl Byteable for u64 {}
+unsafe impl Byteable for usize {}
+unsafe impl Byteable for i8 {}
+unsafe impl Byteable for i16 {}
+unsafe impl Byteable for i32 {}
+unsafe impl Byteable for i64 {}
+unsafe impl Byteable for isize {}
+unsafe impl Byteable for f32 {}
+unsafe impl Byteable for f64 {}
 
 impl Bytes for Vec2 {
     fn write_bytes(&self, buffer: &mut [u8]) {
         let array: [f32; 2] = (*self).into();
-        buffer[0..self.byte_len()].copy_from_slice(array.as_bytes())
+        array.write_bytes(buffer);
     }
     fn byte_len(&self) -> usize {
         std::mem::size_of::<Self>()
@@ -86,7 +75,7 @@ impl Bytes for Vec2 {
 impl Bytes for Vec3 {
     fn write_bytes(&self, buffer: &mut [u8]) {
         let array: [f32; 3] = (*self).into();
-        buffer[0..self.byte_len()].copy_from_slice(array.as_bytes())
+        array.write_bytes(buffer);
     }
     fn byte_len(&self) -> usize {
         std::mem::size_of::<Self>()
@@ -96,7 +85,7 @@ impl Bytes for Vec3 {
 impl Bytes for Vec4 {
     fn write_bytes(&self, buffer: &mut [u8]) {
         let array: [f32; 4] = (*self).into();
-        buffer[0..self.byte_len()].copy_from_slice(array.as_bytes())
+        array.write_bytes(buffer);
     }
     fn byte_len(&self) -> usize {
         std::mem::size_of::<Self>()
@@ -105,7 +94,8 @@ impl Bytes for Vec4 {
 
 impl Bytes for Mat4 {
     fn write_bytes(&self, buffer: &mut [u8]) {
-        buffer[0..self.byte_len()].copy_from_slice(self.to_cols_array().as_bytes())
+        let array = self.to_cols_array();
+        array.write_bytes(buffer);
     }
     fn byte_len(&self) -> usize {
         std::mem::size_of::<Self>()

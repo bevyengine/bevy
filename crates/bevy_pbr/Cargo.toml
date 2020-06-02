@@ -16,5 +16,4 @@ bevy_transform = { path = "../bevy_transform" }
 bevy_window = { path = "../bevy_window" }
 legion = { path = "../bevy_legion"}
 
-zerocopy = "0.3"
-glam = { path =  "../bevy_glam" }
+glam = "0.8.7"

@@ -3,7 +3,7 @@ use bevy_transform::components::Translation;
 use bevy_property::Properties;
 use glam::Mat4;
 use std::ops::Range;
-use zerocopy::{AsBytes, FromBytes};
+use bevy_core::bytes::Byteable;
 
 #[derive(Properties)]
 pub struct Light {
@@ -23,12 +23,14 @@ impl Default for Light {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, AsBytes, FromBytes)]
+#[derive(Clone, Copy)]
 pub struct LightRaw {
     pub proj: [[f32; 4]; 4],
     pub pos: [f32; 4],
     pub color: [f32; 4],
 }
+
+unsafe impl Byteable for LightRaw {}
 
 impl LightRaw {
     pub fn from(light: &Light, transform: &Mat4, translation: &Translation) -> LightRaw {

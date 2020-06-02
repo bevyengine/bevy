@@ -26,9 +26,8 @@ png = "0.16.0"
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
-glam = { path =  "../bevy_glam" }
+glam = "0.8.7"
 serde = { version = "1", features = ["derive"] }
-zerocopy = "0.3"
 bitflags = "1.0"
 smallvec = "1.4.0"
 # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788

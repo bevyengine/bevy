@@ -17,6 +17,4 @@ bevy_render = { path = "../bevy_render" }
 bevy_window = { path = "../bevy_window" }
 
 legion = { path = "../bevy_legion", features = ["serialize"] }
-glam = { path =  "../bevy_glam" }
-
-zerocopy = "0.3.0"
+glam = "0.8.7"

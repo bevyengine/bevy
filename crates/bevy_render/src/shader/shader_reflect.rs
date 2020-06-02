@@ -12,8 +12,8 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
+use bevy_core::bytes::AsBytes;
 use std::collections::HashSet;
-use zerocopy::AsBytes;
 // use rspirv::{binary::Parser, dr::Loader, lift::LiftContext};
 
 // TODO: use rspirv when structured representation is ready. this way we can remove spirv_reflect, which is a non-rust dependency

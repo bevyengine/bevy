@@ -59,7 +59,7 @@ bevy_window = { path = "crates/bevy_window", optional = true }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
 legion = { path = "crates/bevy_legion" }
-glam = { path = "crates/bevy_glam" }
+glam = "0.8.7"
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
 
@@ -78,6 +78,10 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
+
+[[example]]
+name = "sprite_sheet"
+path = "examples/2d/sprite_sheet.rs"
 
 [[example]]
 name = "load_model"

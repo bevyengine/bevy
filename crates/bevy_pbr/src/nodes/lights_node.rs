@@ -12,7 +12,7 @@ use crate::{
 };
 use bevy_transform::prelude::*;
 use legion::prelude::*;
-use zerocopy::AsBytes;
+use bevy_core::bytes::{Byteable, AsBytes};
 
 #[derive(Default)]
 pub struct LightsNode {
@@ -43,10 +43,12 @@ impl Node for LightsNode {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, AsBytes)]
+#[derive(Clone, Copy)]
 pub struct LightCount {
     pub num_lights: [u32; 4],
 }
+
+unsafe impl Byteable for LightCount {}
 
 impl SystemNode for LightsNode {
     fn get_system(&self) -> Box<dyn Schedulable> {

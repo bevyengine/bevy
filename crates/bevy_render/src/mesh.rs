@@ -12,9 +12,9 @@ use bevy_app::{GetEventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use glam::*;
 use legion::prelude::*;
+use bevy_core::bytes::{Byteable, AsBytes};
 use std::{borrow::Cow, collections::HashSet};
 use thiserror::Error;
-use zerocopy::AsBytes;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
 pub const INDEX_BUFFER_ASSET_INDEX: usize = 1;
@@ -37,12 +37,13 @@ impl VertexAttributeValues {
     }
 
     // TODO: add vertex format as parameter here and perform type conversions
-    pub fn get_bytes(&self) -> &[u8] {
-        match *self {
-            VertexAttributeValues::Float(ref values) => values.as_bytes(),
-            VertexAttributeValues::Float2(ref values) => values.as_bytes(),
-            VertexAttributeValues::Float3(ref values) => values.as_bytes(),
-            VertexAttributeValues::Float4(ref values) => values.as_bytes(),
+    // TODO: make this zero-copy if possible. how did zerocopy implement AsBytes for Vec<T>?
+    pub fn get_bytes(&self) -> Vec<u8> {
+        match self {
+            VertexAttributeValues::Float(values) => values.as_slice().as_bytes().to_vec(),
+            VertexAttributeValues::Float2(values) => values.as_slice().as_bytes().to_vec(),
+            VertexAttributeValues::Float3(values) => values.as_slice().as_bytes().to_vec(),
+            VertexAttributeValues::Float4(values) => values.as_slice().as_bytes().to_vec(),
         }
     }
 }
@@ -159,9 +160,10 @@ impl Mesh {
                 .iter()
                 .map(|i| *i as u16)
                 .collect::<Vec<u16>>()
+                .as_slice()
                 .as_bytes()
                 .to_vec(),
-            IndexFormat::Uint32 => indices.as_bytes().to_vec(),
+            IndexFormat::Uint32 => indices.as_slice().as_bytes().to_vec(),
         })
     }
 }
@@ -431,7 +433,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
 mod tests {
     use super::{Mesh, VertexAttribute};
     use crate::{pipeline::state_descriptors::PrimitiveTopology, shader::AsUniforms, Vertex};
-    use zerocopy::AsBytes;
+    use bevy_core::bytes::AsBytes;
 
     #[test]
     fn test_get_vertex_bytes() {
