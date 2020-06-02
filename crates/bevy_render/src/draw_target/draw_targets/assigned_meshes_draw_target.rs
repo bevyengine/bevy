@@ -3,12 +3,10 @@ use legion::prelude::*;
 
 use crate::{
     draw_target::DrawTarget,
-    mesh::{self, Mesh},
     pass::RenderPass,
     pipeline::{PipelineAssignments, PipelineDescriptor},
     render_resource::{
-        EntitiesWaitingForAssets, EntityRenderResourceAssignments,
-        RenderResourceAssignments, ResourceInfo,
+        EntitiesWaitingForAssets, EntityRenderResourceAssignments, RenderResourceAssignments,
     },
     renderer::RenderContext,
     Renderable,
@@ -34,8 +32,6 @@ impl DrawTarget for AssignedMeshesDrawTarget {
         let entity_render_resource_assignments =
             resources.get::<EntityRenderResourceAssignments>().unwrap();
         let entities_waiting_for_assets = resources.get::<EntitiesWaitingForAssets>().unwrap();
-        let mut current_mesh_handle = None;
-        let mut current_mesh_index_len = 0;
         let global_render_resource_assignments =
             resources.get::<RenderResourceAssignments>().unwrap();
         render_pass.set_render_resources(pipeline_descriptor, &global_render_resource_assignments);
@@ -58,40 +54,12 @@ impl DrawTarget for AssignedMeshesDrawTarget {
                     continue;
                 }
 
-                let mesh_handle = *world.get_component::<Handle<Mesh>>(*entity).unwrap();
-                let render_context = render_pass.get_render_context();
-                let render_resources = render_context.resources();
-                // TODO: this can be removed
-                if current_mesh_handle != Some(mesh_handle) {
-                    if let Some(vertex_buffer_resource) = render_resources
-                        .get_asset_resource(mesh_handle, mesh::VERTEX_BUFFER_ASSET_INDEX)
-                    {
-                        let index_buffer_resource = render_resources
-                            .get_asset_resource(mesh_handle, mesh::INDEX_BUFFER_ASSET_INDEX)
-                            .unwrap();
-                        render_resources.get_resource_info(
-                            index_buffer_resource,
-                            &mut |resource_info| match resource_info {
-                                Some(ResourceInfo::Buffer(buffer_info)) => {
-                                    current_mesh_index_len = (buffer_info.size / 2) as u32
-                                }
-                                _ => panic!("expected a buffer type"),
-                            },
-                        );
-                        render_pass.set_index_buffer(index_buffer_resource, 0);
-                        render_pass.set_vertex_buffer(0, vertex_buffer_resource, 0);
-                    }
-                    // TODO: Verify buffer format matches render pass
-                    current_mesh_handle = Some(mesh_handle);
-                }
-
-                // TODO: validate bind group properties against shader uniform properties at least once
-                render_pass.set_render_resources(
+                if let Some(indices) = render_pass.set_render_resources(
                     pipeline_descriptor,
                     &renderable.render_resource_assignments,
-                );
-
-                render_pass.draw_indexed(0..current_mesh_index_len, 0, 0..1);
+                ) {
+                    render_pass.draw_indexed(indices, 0, 0..1);
+                }
             }
         }
     }
