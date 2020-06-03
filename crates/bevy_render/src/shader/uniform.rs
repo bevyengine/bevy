@@ -71,6 +71,7 @@ impl ShaderDefSuffixProvider for bool {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FieldBindType {
     Uniform { size: usize },
+    Buffer,
     Texture,
 }
 
@@ -82,11 +83,11 @@ pub struct FieldInfo {
     pub is_instanceable: bool,
 }
 
-pub trait AsFieldBindType {
+pub trait GetFieldBindType {
     fn get_bind_type(&self) -> Option<FieldBindType>;
 }
 
-impl AsFieldBindType for ColorSource {
+impl GetFieldBindType for ColorSource {
     fn get_bind_type(&self) -> Option<FieldBindType> {
         match *self {
             ColorSource::Texture(_) => Some(FieldBindType::Texture),
@@ -95,7 +96,7 @@ impl AsFieldBindType for ColorSource {
     }
 }
 
-impl AsFieldBindType for Option<Handle<Texture>> {
+impl GetFieldBindType for Option<Handle<Texture>> {
     fn get_bind_type(&self) -> Option<FieldBindType> {
         match *self {
             Some(_) => Some(FieldBindType::Texture),
@@ -104,13 +105,13 @@ impl AsFieldBindType for Option<Handle<Texture>> {
     }
 }
 
-impl AsFieldBindType for Handle<Texture> {
+impl GetFieldBindType for Handle<Texture> {
     fn get_bind_type(&self) -> Option<FieldBindType> {
         Some(FieldBindType::Texture)
     }
 }
 
-impl<T> AsFieldBindType for T
+impl<T> GetFieldBindType for T
 where
     T: Bytes,
 {

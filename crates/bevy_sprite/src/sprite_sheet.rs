@@ -1,29 +1,30 @@
 use crate::Rect;
 use bevy_app::{Events, GetEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_derive::{Uniform, Bytes};
+use bevy_core::bytes::AsBytes;
+use bevy_derive::{Bytes, Uniform, Uniforms};
 use bevy_render::{
     render_resource::{BufferInfo, BufferUsage, RenderResourceAssignment, ResourceInfo},
     renderer::{RenderResourceContext, RenderResources},
     texture::Texture,
     Renderable,
 };
+use glam::{Vec3, Vec4};
 use legion::prelude::*;
 use std::collections::HashSet;
-use glam::{Vec4, Vec3};
 
+#[derive(Uniforms)]
 pub struct SpriteSheet {
     pub texture: Handle<Texture>,
     pub sprites: Vec<Rect>,
 }
 
-#[repr(C)]
-#[derive(Uniform, Bytes)]
+// NOTE: cannot do unsafe impl Byteable here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
+// Bytes for Byteable. https://github.com/bitshifter/glam-rs/issues/36
+#[derive(Uniform, Bytes, Default)]
 pub struct SpriteSheetSprite {
-    #[uniform(vertex)]
-    pub postition: Vec4,
-    #[uniform(vertex)]
-    pub index: u16,
+    pub position: Vec3,
+    pub index: u32,
 }
 
 pub const SPRITE_SHEET_BUFFER_ASSET_INDEX: usize = 0;
@@ -69,20 +70,20 @@ pub fn sprite_sheet_resource_provider_system(resources: &mut Resources) -> Box<d
 
         for changed_sprite_sheet_handle in changed_sprite_sheets.iter() {
             if let Some(sprite_sheet) = sprite_sheets.get(changed_sprite_sheet_handle) {
-                // let sprite_sheet_bytes = sprite_sheet.sprites.as_bytes();
-                // let sprite_sheet_buffer = render_resources.create_buffer_with_data(
-                //     BufferInfo {
-                //         buffer_usage: BufferUsage::STORAGE,
-                //         ..Default::default()
-                //     },
-                //     &sprite_sheet_bytes,
-                // );
+                let sprite_sheet_bytes = sprite_sheet.sprites.as_slice().as_bytes();
+                let sprite_sheet_buffer = render_resources.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::STORAGE,
+                        ..Default::default()
+                    },
+                    &sprite_sheet_bytes,
+                );
 
-                // render_resources.set_asset_resource(
-                //     *changed_sprite_sheet_handle,
-                //     sprite_sheet_buffer,
-                //     SPRITE_SHEET_BUFFER_ASSET_INDEX,
-                // );
+                render_resources.set_asset_resource(
+                    *changed_sprite_sheet_handle,
+                    sprite_sheet_buffer,
+                    SPRITE_SHEET_BUFFER_ASSET_INDEX,
+                );
             }
         }
 

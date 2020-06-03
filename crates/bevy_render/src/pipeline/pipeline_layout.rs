@@ -1,5 +1,5 @@
 use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
-use crate::shader::ShaderLayout;
+use crate::shader::{GL_VERTEX_INDEX, ShaderLayout};
 use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug, Default)]
@@ -65,6 +65,9 @@ impl PipelineLayout {
                 vertex_buffer_descriptors.get(&vertex_buffer_descriptor.name)
             {
                 vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
+            } else if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
+                // GL_VERTEX_INDEX is a special attribute set on our behalf
+                continue;
             } else {
                 panic!(
                     "Encountered unsupported Vertex Buffer: {}",
@@ -84,6 +87,7 @@ pub struct UniformProperty {
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum UniformPropertyType {
     // TODO: Use VertexFormat here
+    UInt,
     Int,
     IVec2,
     Float,
@@ -100,6 +104,7 @@ pub enum UniformPropertyType {
 impl UniformPropertyType {
     pub fn get_size(&self) -> u64 {
         match self {
+            UniformPropertyType::UInt => 4,
             UniformPropertyType::Int => 4,
             UniformPropertyType::IVec2 => 4 * 2,
             UniformPropertyType::Float => 4,

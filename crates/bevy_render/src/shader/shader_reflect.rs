@@ -5,6 +5,7 @@ use crate::{
     },
     texture::{TextureComponentType, TextureViewDimension},
 };
+use bevy_core::bytes::AsBytes;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
@@ -12,7 +13,6 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
-use bevy_core::bytes::AsBytes;
 use std::collections::HashSet;
 // use rspirv::{binary::Parser, dr::Loader, lift::LiftContext};
 
@@ -34,6 +34,8 @@ pub struct ShaderLayout {
     pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
     pub entry_point: String,
 }
+
+pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
@@ -63,21 +65,25 @@ impl ShaderLayout {
                     let mut instance = false;
                     let current_buffer_name = {
                         if bevy_conventions {
-                            let parts = vertex_attribute_descriptor
-                                .name
-                                .splitn(3, "_")
-                                .collect::<Vec<&str>>();
-                            if parts.len() == 3 {
-                                if parts[0] == "I" {
-                                    instance = true;
-                                    parts[1].to_string()
-                                } else {
-                                    parts[0].to_string()
-                                }
-                            } else if parts.len() == 2 {
-                                parts[0].to_string()
+                            if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                                GL_VERTEX_INDEX.to_string()
                             } else {
-                                panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
+                                let parts = vertex_attribute_descriptor
+                                    .name
+                                    .splitn(3, "_")
+                                    .collect::<Vec<&str>>();
+                                if parts.len() == 3 {
+                                    if parts[0] == "I" {
+                                        instance = true;
+                                        parts[1].to_string()
+                                    } else {
+                                        parts[0].to_string()
+                                    }
+                                } else if parts.len() == 2 {
+                                    parts[0].to_string()
+                                } else {
+                                    panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
+                                }
                             }
                         } else {
                             "DefaultVertex".to_string()
@@ -279,6 +285,7 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         }
     } else {
         match (number_type, traits.numeric.vector.component_count) {
+            (NumberType::UInt, 0) => UniformPropertyType::UInt,
             (NumberType::Int, 0) => UniformPropertyType::Int,
             (NumberType::Int, 2) => UniformPropertyType::IVec2,
             (NumberType::Float, 0) => UniformPropertyType::Float,

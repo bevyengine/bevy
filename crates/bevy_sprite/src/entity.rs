@@ -1,10 +1,9 @@
 use crate::{
-    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, QUAD_HANDLE, SpriteSheet, SPRITE_SHEET_PIPELINE_HANDLE,
+    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, QUAD_HANDLE, SpriteSheet, SPRITE_SHEET_PIPELINE_HANDLE, SpriteSheetSprite,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
-use bevy_transform::prelude::*;
 
 #[derive(EntityArchetype)]
 pub struct SpriteEntity {
@@ -32,13 +31,14 @@ impl Default for SpriteEntity {
 
 #[derive(EntityArchetype)]
 pub struct SpriteSheetEntity {
-    pub sprite: Sprite,
+    pub sprite: SpriteSheetSprite,
     pub sprite_sheet: Handle<SpriteSheet>,
     pub renderable: Renderable,
-    pub local_to_world: LocalToWorld,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
+    // pub local_to_world: LocalToWorld,
+    // pub translation: Translation,
+    // pub rotation: Rotation,
+    // pub scale: Scale,
 }
 
 impl Default for SpriteSheetEntity {
@@ -50,10 +50,11 @@ impl Default for SpriteSheetEntity {
                 pipelines: vec![SPRITE_SHEET_PIPELINE_HANDLE],
                 ..Default::default()
             },
-            local_to_world: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            mesh: QUAD_HANDLE,
+            // local_to_world: Default::default(),
+            // translation: Default::default(),
+            // rotation: Default::default(),
+            // scale: Default::default(),
         }
     }
 }

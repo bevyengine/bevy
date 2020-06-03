@@ -119,7 +119,7 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
-                use #bevy_render_path::shader::AsFieldBindType;
+                use #bevy_render_path::shader::GetFieldBindType;
                 match name {
                     #struct_name_string => self.get_bind_type(),
                     _ => None,
@@ -453,7 +453,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
-                use #bevy_render_path::shader::AsFieldBindType;
+                use #bevy_render_path::shader::GetFieldBindType;
                 match name {
                     #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_bind_type(),)*
                     _ => None,

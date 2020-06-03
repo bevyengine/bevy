@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat},
-    shader::{AsFieldBindType, AsUniforms, FieldBindType, FieldInfo},
+    shader::{GetFieldBindType, AsUniforms, FieldBindType, FieldInfo},
     texture::Texture,
 };
 use bevy_asset::Handle;

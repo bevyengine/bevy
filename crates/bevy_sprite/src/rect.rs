@@ -1,3 +1,4 @@
+use bevy_core::bytes::Byteable;
 use glam::Vec2;
 
 /// A rectangle defined by two points. There is no defined origin, so 0,0 could be anywhere (top-left, bottom-left, etc)
@@ -19,3 +20,5 @@ impl Rect {
         self.max.y() - self.min.y()
     }
 }
+
+unsafe impl Byteable for Rect {}
