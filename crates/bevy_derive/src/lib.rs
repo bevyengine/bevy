@@ -7,7 +7,7 @@ use inflector::Inflector;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Path, Type};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident, Path};
 
 #[derive(FromMeta, Debug, Default)]
 struct EntityArchetypeAttributeArgs {
@@ -64,7 +64,10 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
     let modules = get_modules(&ast);
     let bevy_core_path = get_path(&modules.bevy_core);
 
-    let fields = fields.iter().map(|field| field.ident.as_ref().unwrap()).collect::<Vec<_>>();
+    let fields = fields
+        .iter()
+        .map(|field| field.ident.as_ref().unwrap())
+        .collect::<Vec<_>>();
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
@@ -234,11 +237,28 @@ struct UniformAttributeArgs {
     #[darling(default)]
     pub vertex: Option<bool>,
     #[darling(default)]
-    pub bevy_render_path: Option<String>,
-    #[darling(default)]
-    pub bevy_asset_path: Option<String>,
-    #[darling(default)]
-    pub bevy_core_path: Option<String>,
+    pub buffer: Option<bool>,
+}
+
+#[derive(Default)]
+struct UniformAttributes {
+    pub ignore: bool,
+    pub shader_def: bool,
+    pub instance: bool,
+    pub vertex: bool,
+    pub buffer: bool,
+}
+
+impl From<UniformAttributeArgs> for UniformAttributes {
+    fn from(args: UniformAttributeArgs) -> Self {
+        UniformAttributes {
+            ignore: args.ignore.unwrap_or(false),
+            shader_def: args.shader_def.unwrap_or(false),
+            instance: args.instance.unwrap_or(false),
+            vertex: args.vertex.unwrap_or(false),
+            buffer: args.buffer.unwrap_or(false),
+        }
+    }
 }
 
 static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
@@ -259,7 +279,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
-    let uniform_fields = fields
+    let field_attributes = fields
         .iter()
         .map(|f| {
             (
@@ -270,116 +290,36 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                         a.path.get_ident().as_ref().unwrap().to_string() == UNIFORM_ATTRIBUTE_NAME
                     })
                     .map(|a| {
-                        UniformAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                            .unwrap_or_else(|_err| UniformAttributeArgs::default())
-                    }),
+                        UniformAttributes::from(
+                            UniformAttributeArgs::from_meta(&a.parse_meta().unwrap())
+                                .unwrap_or_else(|_err| UniformAttributeArgs::default()),
+                        )
+                    })
+                    .unwrap_or_else(|| UniformAttributes::default()),
             )
         })
-        .collect::<Vec<(&Field, Option<UniformAttributeArgs>)>>();
-
-    let active_uniform_fields = uniform_fields
-        .iter()
-        .filter(|(_field, attrs)| {
-            attrs.is_none()
-                || match attrs.as_ref().unwrap().ignore {
-                    Some(ignore) => !ignore,
-                    None => true,
-                }
-        })
-        .map(|(f, _attr)| *f)
-        .collect::<Vec<&Field>>();
-
-    let shader_def_fields = uniform_fields
-        .iter()
-        .filter(|(_field, attrs)| match attrs {
-            Some(attrs) => match attrs.shader_def {
-                Some(shader_def) => shader_def,
-                None => false,
-            },
-            None => false,
-        })
-        .map(|(f, _attr)| *f)
-        .collect::<Vec<&Field>>();
-
-    let shader_def_field_names = shader_def_fields.iter().map(|field| &field.ident);
-    let shader_def_field_names_screaming_snake = shader_def_fields.iter().map(|field| {
-        field
-            .ident
-            .as_ref()
-            .unwrap()
-            .to_string()
-            .to_screaming_snake_case()
-    });
+        .collect::<Vec<(&Field, UniformAttributes)>>();
 
     let struct_name = &ast.ident;
-    let struct_name_string = struct_name.to_string();
-    let struct_name_uppercase = struct_name.to_string().to_uppercase();
-    let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_uppercase);
-    let vertex_buffer_descriptor_ident =
-        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_uppercase);
 
-    let active_uniform_field_names = active_uniform_fields
-        .iter()
-        .map(|field| &field.ident)
-        .collect::<Vec<_>>();
-
-    let active_uniform_field_name_strings = active_uniform_fields
-        .iter()
-        .map(|field| field.ident.as_ref().unwrap().to_string())
-        .collect::<Vec<String>>();
-
-    let vertex_buffer_fields = uniform_fields
-        .iter()
-        .map(|(field, attrs)| {
-            (
-                field,
-                match attrs {
-                    Some(attrs) => (
-                        (match attrs.instance {
-                            Some(instance) => instance,
-                            None => false,
-                        }),
-                        (match attrs.vertex {
-                            Some(vertex) => vertex,
-                            None => false,
-                        }),
-                    ),
-                    None => (false, false),
-                },
-            )
-        })
-        .filter(|(_f, (instance, vertex))| *instance || *vertex);
-
-    let vertex_buffer_field_types = vertex_buffer_fields
-        .clone()
-        .map(|(f, _)| &f.ty)
-        .collect::<Vec<&Type>>();
-
-    let vertex_buffer_field_names_pascal = vertex_buffer_fields
-        .map(|(f, (instance, _vertex))| {
-            let pascal_field = f.ident.as_ref().unwrap().to_string().to_pascal_case();
-            if instance {
-                format!("I_{}_{}", struct_name, pascal_field)
-            } else {
-                format!("{}_{}", struct_name, pascal_field)
-            }
-        })
-        .collect::<Vec<String>>();
-
+    let mut active_uniform_field_names = Vec::new();
+    let mut active_uniform_field_name_strings = Vec::new();
     let mut uniform_name_strings = Vec::new();
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
-    let field_infos = uniform_fields
-        .iter()
-        .filter(|(_field, attrs)| {
-            attrs.is_none()
-                || match attrs.as_ref().unwrap().ignore {
-                    Some(ignore) => !ignore,
-                    None => true,
-                }
-        })
-        .map(|(f, attrs)| {
-            let field_name = f.ident.as_ref().unwrap().to_string();
+    let mut field_infos = Vec::new();
+
+    let mut vertex_buffer_field_names_pascal = Vec::new();
+    let mut vertex_buffer_field_types = Vec::new();
+
+    let mut shader_def_field_names = Vec::new();
+    let mut shader_def_field_names_screaming_snake = Vec::new();
+
+    for (f, attrs) in field_attributes.iter() {
+        let field_name = f.ident.as_ref().unwrap().to_string();
+        if !attrs.ignore {
+            active_uniform_field_names.push(&f.ident);
+            active_uniform_field_name_strings.push(field_name.clone());
             let uniform = format!("{}_{}", struct_name, field_name);
             let texture = format!("{}", uniform);
             let sampler = format!("{}_sampler", uniform);
@@ -388,21 +328,38 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             texture_and_sampler_name_strings.push(sampler.clone());
             texture_and_sampler_name_idents.push(f.ident.clone());
             texture_and_sampler_name_idents.push(f.ident.clone());
-            let is_instanceable = match attrs {
-                Some(attrs) => match attrs.instance {
-                    Some(instance) => instance,
-                    None => false,
-                },
-                None => false,
-            };
-            quote!(#bevy_render_path::shader::FieldInfo {
+            let is_instanceable = attrs.instance;
+            field_infos.push(quote!(#bevy_render_path::shader::FieldInfo {
                 name: #field_name,
                 uniform_name: #uniform,
                 texture_name: #texture,
                 sampler_name: #sampler,
                 is_instanceable: #is_instanceable,
-            })
-        });
+            }));
+
+        }
+
+        if attrs.shader_def {
+            shader_def_field_names.push(&f.ident);
+            shader_def_field_names_screaming_snake.push(field_name.to_screaming_snake_case())
+        }
+
+        if attrs.instance || attrs.vertex {
+            vertex_buffer_field_types.push(&f.ty);
+            let pascal_field = f.ident.as_ref().unwrap().to_string().to_pascal_case();
+            vertex_buffer_field_names_pascal.push(if attrs.instance {
+                format!("I_{}_{}", struct_name, pascal_field)
+            } else {
+                format!("{}_{}", struct_name, pascal_field)
+            });
+        }
+    }
+
+    let struct_name_string = struct_name.to_string();
+    let struct_name_uppercase = struct_name_string.to_uppercase();
+    let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_uppercase);
+    let vertex_buffer_descriptor_ident =
+        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_uppercase);
 
     TokenStream::from(quote! {
         static #field_infos_ident: &[#bevy_render_path::shader::FieldInfo] = &[
