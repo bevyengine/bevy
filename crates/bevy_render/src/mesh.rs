@@ -8,11 +8,11 @@ use crate::{
     shader::AsUniforms,
     Renderable, Vertex,
 };
-use bevy_app::{GetEventReader, Events};
+use bevy_app::{Events, GetEventReader};
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_core::bytes::AsBytes;
 use glam::*;
 use legion::prelude::*;
-use bevy_core::bytes::{Byteable, AsBytes};
 use std::{borrow::Cow, collections::HashSet};
 use thiserror::Error;
 
@@ -37,13 +37,12 @@ impl VertexAttributeValues {
     }
 
     // TODO: add vertex format as parameter here and perform type conversions
-    // TODO: make this zero-copy if possible. how did zerocopy implement AsBytes for Vec<T>?
-    pub fn get_bytes(&self) -> Vec<u8> {
+    pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float(values) => values.as_slice().as_bytes().to_vec(),
-            VertexAttributeValues::Float2(values) => values.as_slice().as_bytes().to_vec(),
-            VertexAttributeValues::Float3(values) => values.as_slice().as_bytes().to_vec(),
-            VertexAttributeValues::Float4(values) => values.as_slice().as_bytes().to_vec(),
+            VertexAttributeValues::Float(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Float2(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Float3(values) => values.as_slice().as_bytes(),
+            VertexAttributeValues::Float4(values) => values.as_slice().as_bytes(),
         }
     }
 }
