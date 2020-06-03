@@ -43,7 +43,7 @@ where
     }
 }
 
-unsafe impl<T> Byteable for [T] where Self: Sized {}
+unsafe impl<T> Byteable for [T] where Self: Sized, T: Byteable {}
 unsafe impl<T> Byteable for [T; 2] where T: Byteable {}
 unsafe impl<T> Byteable for [T; 3] where T: Byteable {}
 unsafe impl<T> Byteable for [T; 4] where T: Byteable {}
@@ -78,7 +78,8 @@ impl Bytes for Vec3 {
         array.write_bytes(buffer);
     }
     fn byte_len(&self) -> usize {
-        std::mem::size_of::<Self>()
+        // cant use self here because Vec3 is a simd type / technically a vec4
+        std::mem::size_of::<[f32;3]>()
     }
 }
 
@@ -113,5 +114,18 @@ where
     }
     fn byte_len(&self) -> usize {
         self.as_ref().map_or(0, |val| val.byte_len())
+    }
+}
+
+impl<T> Bytes for Vec<T>
+where
+    T: Sized + Byteable,
+{
+    fn write_bytes(&self, buffer: &mut [u8]) {
+        let bytes = self.as_slice().as_bytes();
+        buffer[0..self.byte_len()].copy_from_slice(bytes)
+    }
+    fn byte_len(&self) -> usize {
+        self.as_slice().as_bytes().len()
     }
 }
