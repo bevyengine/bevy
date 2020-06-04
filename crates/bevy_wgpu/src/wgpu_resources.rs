@@ -40,7 +40,7 @@ pub struct WgpuBindGroupInfo {
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::Buffer>>,
     pub textures: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::TextureView>>,
-    pub swap_chain_outputs: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::SwapChainOutput>>,
+    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<RenderResource, wgpu::SwapChainFrame>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -51,7 +51,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
         WgpuResourceRefs {
             buffers: &self.buffers,
             textures: &self.textures,
-            swap_chain_outputs: &self.swap_chain_outputs,
+            swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
             bind_groups: &self.bind_groups,
         }
@@ -62,7 +62,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<RenderResource, wgpu::Buffer>,
     pub textures: &'a HashMap<RenderResource, wgpu::TextureView>,
-    pub swap_chain_outputs: &'a HashMap<RenderResource, wgpu::SwapChainOutput>,
+    pub swap_chain_frames: &'a HashMap<RenderResource, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
 }
@@ -72,7 +72,7 @@ pub struct WgpuResources {
     pub resource_info: Arc<RwLock<HashMap<RenderResource, ResourceInfo>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
-    pub swap_chain_outputs: Arc<RwLock<HashMap<RenderResource, wgpu::SwapChainOutput>>>,
+    pub swap_chain_frames: Arc<RwLock<HashMap<RenderResource, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<RenderResource, wgpu::Buffer>>>,
     pub texture_views: Arc<RwLock<HashMap<RenderResource, wgpu::TextureView>>>,
     pub textures: Arc<RwLock<HashMap<RenderResource, wgpu::Texture>>>,
@@ -89,7 +89,7 @@ impl WgpuResources {
         WgpuResourcesReadLock {
             buffers: self.buffers.read().unwrap(),
             textures: self.texture_views.read().unwrap(),
-            swap_chain_outputs: self.swap_chain_outputs.read().unwrap(),
+            swap_chain_frames: self.swap_chain_frames.read().unwrap(),
             render_pipelines: self.render_pipelines.read().unwrap(),
             bind_groups: self.bind_groups.read().unwrap(),
         }

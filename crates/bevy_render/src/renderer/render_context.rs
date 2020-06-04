@@ -2,18 +2,12 @@ use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
     render_resource::{RenderResource, RenderResourceAssignments},
-    texture::{Extent3d, TextureDescriptor},
+    texture::{Extent3d},
 };
 
 pub trait RenderContext {
     fn resources(&self) -> &dyn RenderResourceContext;
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext;
-
-    fn create_texture_with_data(
-        &mut self,
-        texture_descriptor: TextureDescriptor,
-        bytes: &[u8],
-    ) -> RenderResource;
     fn copy_buffer_to_buffer(
         &mut self,
         source_buffer: RenderResource,
@@ -30,7 +24,6 @@ pub trait RenderContext {
         destination_texture: RenderResource,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
-        destination_array_layer: u32,
         size: Extent3d,
     );
     fn begin_pass(

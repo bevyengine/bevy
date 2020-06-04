@@ -8,7 +8,7 @@ use bevy_render::{
     },
     render_resource::{RenderResource, RenderResourceAssignment, RenderResourceAssignments},
     renderer::{RenderContext, RenderResourceContext},
-    texture::{Extent3d, TextureDescriptor},
+    texture::Extent3d,
 };
 
 use std::{collections::HashMap, sync::Arc};
@@ -71,17 +71,6 @@ impl WgpuRenderContext {
 }
 
 impl RenderContext for WgpuRenderContext {
-    fn create_texture_with_data(
-        &mut self,
-        texture_descriptor: TextureDescriptor,
-        bytes: &[u8],
-    ) -> RenderResource {
-        self.render_resources.create_texture_with_data(
-            self.command_encoder.get_or_create(&self.device),
-            texture_descriptor,
-            bytes,
-        )
-    }
     fn copy_buffer_to_buffer(
         &mut self,
         source_buffer: RenderResource,
@@ -108,7 +97,6 @@ impl RenderContext for WgpuRenderContext {
         destination_texture: RenderResource,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
-        destination_array_layer: u32,
         size: Extent3d,
     ) {
         self.render_resources.copy_buffer_to_texture(
@@ -119,7 +107,6 @@ impl RenderContext for WgpuRenderContext {
             destination_texture,
             destination_origin,
             destination_mip_level,
-            destination_array_layer,
             size,
         )
     }
@@ -200,7 +187,7 @@ fn get_texture_view<'a>(
                 panic!("Color attachment {} does not exist", name);
             }
         },
-        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_outputs.get(&render_resource).unwrap().view),
+        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
         TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
     }
 }
@@ -257,5 +244,7 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
         stencil_store_op: depth_stencil_attachment_descriptor
             .stencil_store_op
             .wgpu_into(),
+        depth_read_only: depth_stencil_attachment_descriptor.depth_read_only,
+        stencil_read_only: depth_stencil_attachment_descriptor.stencil_read_only,
     }
 }

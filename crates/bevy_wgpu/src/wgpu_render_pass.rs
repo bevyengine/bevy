@@ -25,7 +25,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
         let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass
-            .set_vertex_buffer(start_slot, &buffer, offset, 0);
+            .set_vertex_buffer(start_slot, buffer.slice(offset..));
     }
 
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
@@ -39,7 +39,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
 
     fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
         let buffer = self.render_resources.buffers.get(&resource).unwrap();
-        self.render_pass.set_index_buffer(&buffer, offset, 0);
+        self.render_pass.set_index_buffer(buffer.slice(offset..));
     }
 
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>) {

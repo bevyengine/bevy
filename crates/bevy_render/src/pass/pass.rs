@@ -44,6 +44,8 @@ pub struct RenderPassDepthStencilAttachmentDescriptor {
     pub clear_depth: f32,
     pub stencil_load_op: LoadOp,
     pub stencil_store_op: StoreOp,
+    pub depth_read_only: bool,
+    pub stencil_read_only: bool,
     pub clear_stencil: u32,
 }
 

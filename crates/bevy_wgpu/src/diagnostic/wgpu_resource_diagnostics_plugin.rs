@@ -125,7 +125,7 @@ impl WgpuResourceDiagnosticsPlugin {
             Self::SWAP_CHAIN_OUTPUTS,
             render_resource_context
                 .resources
-                .swap_chain_outputs
+                .swap_chain_frames
                 .read()
                 .unwrap()
                 .len() as f64,

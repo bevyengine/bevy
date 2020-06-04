@@ -14,6 +14,11 @@ pub struct TextureCopyNode {
     pub texture_event_reader: EventReader<AssetEvent<Texture>>,
 }
 
+pub const ALIGNMENT: usize = 256;
+fn get_aligned(data_size: f32) -> usize {
+    ALIGNMENT * ((data_size / ALIGNMENT as f32).ceil() as usize)
+}
+
 impl Node for TextureCopyNode {
     fn update(
         &mut self,
@@ -30,12 +35,20 @@ impl Node for TextureCopyNode {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(&handle) {
                         let texture_descriptor: TextureDescriptor = texture.into();
+                        let width = texture.size.x() as usize; 
+                        let aligned_width = get_aligned(texture.size.x());
+                        let format_size = 4; // TODO: this will be incorrect for some formats
+                        let mut aligned_data = vec![0; format_size * aligned_width * texture.size.y() as usize];
+                        texture.data.chunks_exact(format_size * width).enumerate().for_each(|(index, row)| {
+                           let offset = index * aligned_width * format_size;  
+                           aligned_data[offset..(offset + width * format_size)].copy_from_slice(row);
+                        });
                         let texture_buffer = render_context.resources().create_buffer_with_data(
                             BufferInfo {
                                 buffer_usage: BufferUsage::COPY_SRC,
                                 ..Default::default()
                             },
-                            &texture.data,
+                            &aligned_data,
                         );
 
                         let texture_resource = render_context
@@ -43,14 +56,12 @@ impl Node for TextureCopyNode {
                             .get_asset_resource(*handle, TEXTURE_ASSET_INDEX)
                             .unwrap();
 
-                        // TODO: bytes_per_row could be incorrect for some texture formats
                         render_context.copy_buffer_to_texture(
                             texture_buffer,
                             0,
-                            4 * texture.size.x() as u32,
+                            (format_size * aligned_width) as u32,
                             texture_resource,
                             [0, 0, 0],
-                            0,
                             0,
                             texture_descriptor.size.clone(),
                         );

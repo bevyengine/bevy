@@ -17,7 +17,6 @@ pub enum Command {
         destination_texture: RenderResource,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
-        destination_array_layer: u32,
         size: Extent3d,
     },
     // TODO: Frees probably don't need to be queued?
@@ -60,7 +59,6 @@ impl CommandQueue {
         destination_texture: RenderResource,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
-        destination_array_layer: u32,
         size: Extent3d,
     ) {
         self.push(Command::CopyBufferToTexture {
@@ -70,7 +68,6 @@ impl CommandQueue {
             destination_texture,
             destination_origin,
             destination_mip_level,
-            destination_array_layer,
             size,
         });
     }
@@ -102,7 +99,6 @@ impl CommandQueue {
                     destination_texture,
                     destination_origin,
                     destination_mip_level,
-                    destination_array_layer,
                     size,
                 } => render_context.copy_buffer_to_texture(
                     source_buffer,
@@ -111,7 +107,6 @@ impl CommandQueue {
                     destination_texture,
                     destination_origin,
                     destination_mip_level,
-                    destination_array_layer,
                     size,
                 ),
                 Command::FreeBuffer(buffer) => render_context.resources().remove_buffer(buffer),

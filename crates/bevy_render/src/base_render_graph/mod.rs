@@ -109,6 +109,8 @@ impl BaseRenderGraphBuilder for RenderGraph {
                         depth_store_op: StoreOp::Store,
                         stencil_load_op: LoadOp::Clear,
                         stencil_store_op: StoreOp::Store,
+                        stencil_read_only: false,
+                        depth_read_only: false,
                         clear_depth: 1.0,
                         clear_stencil: 0,
                     }),

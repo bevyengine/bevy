@@ -11,7 +11,8 @@ pub struct SamplerDescriptor {
     pub mipmap_filter: FilterMode,
     pub lod_min_clamp: f32,
     pub lod_max_clamp: f32,
-    pub compare_function: CompareFunction,
+    pub compare_function: Option<CompareFunction>,
+    pub anisotropy_clamp: Option<u8>,
 }
 
 impl Default for SamplerDescriptor {
@@ -25,7 +26,8 @@ impl Default for SamplerDescriptor {
             mipmap_filter: FilterMode::Nearest,
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
-            compare_function: CompareFunction::Always,
+            compare_function: Some(CompareFunction::Always),
+            anisotropy_clamp: None,
         }
     }
 }
@@ -41,7 +43,8 @@ impl From<&Texture> for SamplerDescriptor {
             mipmap_filter: FilterMode::Nearest,
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
-            compare_function: CompareFunction::Always,
+            compare_function: Some(CompareFunction::Always),
+            anisotropy_clamp: None,
         }
     }
 }

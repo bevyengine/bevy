@@ -36,46 +36,6 @@ impl WgpuRenderResourceContext {
         window_surfaces.insert(window_id, surface);
     }
 
-    pub fn create_texture_with_data(
-        &mut self,
-        command_encoder: &mut wgpu::CommandEncoder,
-        texture_descriptor: TextureDescriptor,
-        bytes: &[u8],
-    ) -> RenderResource {
-        let mut resource_info = self.resources.resource_info.write().unwrap();
-        let mut texture_views = self.resources.texture_views.write().unwrap();
-        let mut textures = self.resources.textures.write().unwrap();
-
-        let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
-        let texture = self.device.create_texture(&descriptor);
-        let texture_view = texture.create_default_view();
-        let temp_buf = self
-            .device
-            .create_buffer_with_data(bytes, wgpu::BufferUsage::COPY_SRC);
-        command_encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
-                buffer: &temp_buf,
-                offset: 0,
-                bytes_per_row: 4 * descriptor.size.width,
-                rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
-            },
-            wgpu::TextureCopyView {
-                texture: &texture,
-                mip_level: 0,
-                array_layer: 0,
-                origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-            },
-            descriptor.size,
-        );
-
-        let resource = RenderResource::new();
-        resource_info.insert(resource, ResourceInfo::Texture(texture_descriptor));
-        texture_views.insert(resource, texture_view);
-        textures.insert(resource, texture);
-
-        resource
-    }
-
     pub fn copy_buffer_to_buffer(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,
@@ -107,7 +67,6 @@ impl WgpuRenderResourceContext {
         destination_texture: RenderResource,
         destination_origin: [u32; 3], // TODO: replace with math type
         destination_mip_level: u32,
-        destination_array_layer: u32,
         size: Extent3d,
     ) {
         let buffers = self.resources.buffers.read().unwrap();
@@ -118,14 +77,15 @@ impl WgpuRenderResourceContext {
         command_encoder.copy_buffer_to_texture(
             wgpu::BufferCopyView {
                 buffer: source,
-                offset: source_offset,
-                bytes_per_row: source_bytes_per_row,
-                rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
+                layout: wgpu::TextureDataLayout {
+                    offset: source_offset,
+                    bytes_per_row: source_bytes_per_row,
+                    rows_per_image: 0, // NOTE: Example sets this to 0, but should it be height?
+                },
             },
             wgpu::TextureCopyView {
                 texture: destination,
                 mip_level: destination_mip_level,
-                array_layer: destination_array_layer,
                 origin: wgpu::Origin3d {
                     x: destination_origin[0],
                     y: destination_origin[1],
@@ -207,6 +167,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             label: None,
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
+            mapped_at_creation: false,
         });
 
         let resource = RenderResource::new();
@@ -220,14 +181,24 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) -> RenderResource {
-        let mut mapped = self.device.create_buffer_mapped(&wgpu::BufferDescriptor {
+        let usage: wgpu::BufferUsage = buffer_info.buffer_usage.wgpu_into();
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buffer_info.size as u64,
-            usage: buffer_info.buffer_usage.wgpu_into(),
+            usage: usage | wgpu::BufferUsage::MAP_WRITE,
             label: None,
+            mapped_at_creation: false,
         });
-        setup_data(&mut mapped.data(), self);
-        let buffer = mapped.finish();
 
+        let data = buffer.map_async(wgpu::MapMode::Write, 0, wgpu::BufferSize::WHOLE);
+        self.device.poll(wgpu::Maintain::Wait);
+        if let Ok(()) = pollster::block_on(data) {
+            let data = buffer.get_mapped_range_mut(0, wgpu::BufferSize::WHOLE);
+            setup_data(data, self);
+        } else {
+            panic!("failed to map buffer to host");
+        }
+
+        buffer.unmap();
         let resource = RenderResource::new();
         let mut resource_info = self.resources.resource_info.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
@@ -326,10 +297,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> RenderResource {
         let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
-        let mut swap_chain_outputs = self.resources.swap_chain_outputs.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
-        let next_texture = window_swap_chain.get_next_texture().unwrap();
+        let next_texture = window_swap_chain.get_next_frame().unwrap();
 
         // TODO: Add ResourceInfo
         let render_resource = RenderResource::new();
@@ -338,12 +309,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn drop_swap_chain_texture(&self, render_resource: RenderResource) {
-        let mut swap_chain_outputs = self.resources.swap_chain_outputs.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
         swap_chain_outputs.remove(&render_resource);
     }
 
     fn drop_all_swap_chain_textures(&self) {
-        let mut swap_chain_outputs = self.resources.swap_chain_outputs.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
         swap_chain_outputs.clear();
     }
 
@@ -521,10 +492,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                                 }
                                 RenderResourceAssignment::Buffer { resource, range , .. } => {
                                     let buffer = buffers.get(&resource).unwrap();
-                                    wgpu::BindingResource::Buffer {
-                                        buffer,
-                                        range: range.clone(),
-                                    }
+                                    wgpu::BindingResource::Buffer(buffer.slice(range.clone()))
                                 }
                             };
                             wgpu::Binding {
