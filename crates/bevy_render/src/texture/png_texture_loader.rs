@@ -2,6 +2,7 @@ use super::Texture;
 use anyhow::Result;
 use bevy_asset::AssetLoader;
 use std::path::Path;
+use glam::Vec2;
 
 #[derive(Clone, Default)]
 pub struct PngTextureLoader;
@@ -14,8 +15,7 @@ impl AssetLoader<Texture> for PngTextureLoader {
         reader.next_frame(&mut data)?;
         Ok(Texture {
             data,
-            width: info.width as usize,
-            height: info.height as usize,
+            size: Vec2::new(info.width as f32, info.height as f32),
         })
     }
     fn extensions(&self) -> &[&str] {

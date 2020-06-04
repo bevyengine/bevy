@@ -10,7 +10,7 @@ impl Default for BufferInfo {
     fn default() -> Self {
         BufferInfo {
             size: 0,
-            buffer_usage: BufferUsage::NONE,
+            buffer_usage: BufferUsage::empty(),
         }
     }
 }

@@ -70,8 +70,9 @@ impl ShaderDefSuffixProvider for bool {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FieldBindType {
+    // TODO: maybe change this to Buffer
     Uniform { size: usize },
-    Buffer,
+    Buffer { size: usize },
     Texture,
 }
 

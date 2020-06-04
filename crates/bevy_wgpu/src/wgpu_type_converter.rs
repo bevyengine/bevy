@@ -165,7 +165,7 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
                 dynamic,
                 properties: _,
             } => wgpu::BindingType::UniformBuffer { dynamic: *dynamic },
-            BindType::Buffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
+            BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
                 dynamic: *dynamic,
                 readonly: *readonly,
             },

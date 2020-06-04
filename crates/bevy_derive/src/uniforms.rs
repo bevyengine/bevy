@@ -1,11 +1,10 @@
+use crate::modules::{get_modules, get_path};
 use darling::FromMeta;
 use inflector::Inflector;
-use crate::modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path};
 
-// TODO: ensure shader_def and instance/vertex are mutually exclusive
 #[derive(FromMeta, Debug, Default)]
 struct UniformAttributeArgs {
     #[darling(default)]
@@ -88,6 +87,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let mut texture_and_sampler_name_strings = Vec::new();
     let mut texture_and_sampler_name_idents = Vec::new();
     let mut field_infos = Vec::new();
+    let mut get_field_bind_types = Vec::new();
 
     let mut vertex_buffer_field_names_pascal = Vec::new();
     let mut vertex_buffer_field_types = Vec::new();
@@ -98,6 +98,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     for (f, attrs) in field_attributes.iter() {
         let field_name = f.ident.as_ref().unwrap().to_string();
         if !attrs.ignore {
+            let active_uniform_field_name = &f.ident;
             active_uniform_field_names.push(&f.ident);
             active_uniform_field_name_strings.push(field_name.clone());
             let uniform = format!("{}_{}", struct_name, field_name);
@@ -117,6 +118,19 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 is_instanceable: #is_instanceable,
             }));
 
+            if attrs.buffer {
+                get_field_bind_types.push(quote!({
+                    let bind_type = self.#active_uniform_field_name.get_bind_type();
+                    let size = if let Some(#bevy_render_path::shader::FieldBindType::Uniform { size }) = bind_type {
+                        size
+                    } else {
+                        panic!("Uniform field was labeled as a 'buffer', but it does not have a compatible type.")
+                    };
+                    Some(#bevy_render_path::shader::FieldBindType::Buffer { size })
+                }))
+            } else {
+                get_field_bind_types.push(quote!(self.#active_uniform_field_name.get_bind_type()))
+            }
         }
 
         if attrs.shader_def {
@@ -192,7 +206,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
                 use #bevy_render_path::shader::GetFieldBindType;
                 match name {
-                    #(#active_uniform_field_name_strings => self.#active_uniform_field_names.get_bind_type(),)*
+                    #(#active_uniform_field_name_strings => #get_field_bind_types,)*
                     _ => None,
                 }
             }

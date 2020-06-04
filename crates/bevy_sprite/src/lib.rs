@@ -37,10 +37,6 @@ impl AppPlugin for SpritePlugin {
             .add_system_to_stage(
                 stage::POST_UPDATE,
                 asset_shader_def_system::<ColorMaterial>.system(),
-            )
-            .init_system_to_stage(
-                bevy_render::stage::RENDER_RESOURCE,
-                sprite_sheet_resource_provider_system,
             );
 
         let resources = app.resources();

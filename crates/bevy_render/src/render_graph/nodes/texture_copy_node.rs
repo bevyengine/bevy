@@ -54,7 +54,7 @@ impl Node for TextureCopyNode {
                         render_context.copy_buffer_to_texture(
                             texture_buffer,
                             0,
-                            (4 * texture.width) as u32,
+                            4 * texture.size.x() as u32,
                             texture_resource,
                             [0, 0, 0],
                             0,

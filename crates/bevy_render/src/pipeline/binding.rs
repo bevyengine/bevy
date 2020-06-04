@@ -15,7 +15,7 @@ pub enum BindType {
         dynamic: bool,
         properties: Vec<UniformProperty>,
     },
-    Buffer {
+    StorageBuffer {
         dynamic: bool,
         readonly: bool,
     },

@@ -135,7 +135,7 @@ impl SpriteRenderGraphBuilder for RenderGraph {
 
         self.add_system_node(
             node::SPRITE_SHEET,
-            AssetUniformNode::<SpriteSheet>::new(true),
+            AssetUniformNode::<SpriteSheet>::new(false),
         );
 
         self.add_system_node(

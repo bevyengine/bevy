@@ -8,6 +8,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::FromResources;
 use legion::prelude::*;
 use std::{collections::HashSet, fs::File};
+use glam::Vec2;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
@@ -18,13 +19,12 @@ pub enum TextureType {
 
 pub struct Texture {
     pub data: Vec<u8>,
-    pub width: usize,
-    pub height: usize,
+    pub size: Vec2,
 }
 
 impl Texture {
     pub fn aspect(&self) -> f32 {
-        self.height as f32 / self.width as f32
+        self.size.y() / self.size.x()
     }
 
     pub fn load(descriptor: TextureType) -> Self {
@@ -41,8 +41,7 @@ impl Texture {
 
         Texture {
             data,
-            width,
-            height,
+            size: Vec2::new(width as f32, height as f32)
         }
     }
 

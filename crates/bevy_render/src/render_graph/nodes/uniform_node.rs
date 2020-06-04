@@ -83,7 +83,7 @@ where
 
     fn increment_uniform_counts(&mut self, uniforms: &T) {
         for (i, field_info) in T::get_field_infos().iter().enumerate() {
-            if let Some(FieldBindType::Uniform { size }) =
+            if let Some(FieldBindType::Uniform { size }) | Some(FieldBindType::Buffer { size }) =
                 uniforms.get_field_bind_type(&field_info.name)
             {
                 if let Some((ref _name, ref mut buffer_array_status)) = self.uniform_arrays[i] {
@@ -186,8 +186,9 @@ where
         for (i, field_info) in T::get_field_infos().iter().enumerate() {
             let bind_type = uniforms.get_field_bind_type(&field_info.name);
             match bind_type {
-                Some(FieldBindType::Uniform { size }) => {
+                Some(FieldBindType::Uniform { size }) | Some(FieldBindType::Buffer { size }) => {
                     let (_name, uniform_buffer_status) = self.uniform_arrays[i].as_mut().unwrap();
+                    let range = 0..size as u64;
                     let (target_buffer, target_offset) = if dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
                         let index = uniform_buffer_status
@@ -199,31 +200,38 @@ where
                                 dynamic_index: Some(
                                     (index * uniform_buffer_status.aligned_size) as u32,
                                 ),
-                                range: 0..size as u64,
+                                range,
                             },
                         );
                         (buffer, index * uniform_buffer_status.aligned_size)
                     } else {
-                        let resource =
-                            match render_resource_assignments.get(field_info.uniform_name) {
-                                Some(assignment) => assignment.get_resource(),
-                                None => {
-                                    let resource = render_resources.create_buffer(BufferInfo {
-                                        size,
-                                        buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                                        ..Default::default()
-                                    });
-                                    render_resource_assignments.set(
-                                        &field_info.uniform_name,
-                                        RenderResourceAssignment::Buffer {
-                                            resource,
-                                            range: 0..size as u64,
-                                            dynamic_index: None,
-                                        },
-                                    );
-                                    resource
-                                }
-                            };
+                        let resource = match render_resource_assignments
+                            .get(field_info.uniform_name)
+                        {
+                            Some(assignment) => assignment.get_resource(),
+                            None => {
+                                let usage = if let Some(FieldBindType::Buffer { .. }) = bind_type {
+                                    BufferUsage::STORAGE
+                                } else {
+                                    BufferUsage::UNIFORM
+                                };
+                                let resource = render_resources.create_buffer(BufferInfo {
+                                    size,
+                                    buffer_usage: BufferUsage::COPY_DST | usage,
+                                    ..Default::default()
+                                });
+
+                                render_resource_assignments.set(
+                                    &field_info.uniform_name,
+                                    RenderResourceAssignment::Buffer {
+                                        resource,
+                                        range,
+                                        dynamic_index: None,
+                                    },
+                                );
+                                resource
+                            }
+                        };
 
                         (resource, 0)
                     };
@@ -232,14 +240,16 @@ where
                         + (uniform_buffer_status.queued_buffer_writes.len()
                             * uniform_buffer_status.item_size);
                     let uniform_byte_len = uniforms.uniform_byte_len(&field_info.uniform_name);
-                    if uniform_byte_len > 0
-                    {
+                    if uniform_byte_len > 0 {
                         if size != uniform_byte_len {
                             panic!("The number of bytes produced for {} do not match the expected count. Actual: {}. Expected: {}.", field_info.uniform_name, uniform_byte_len, size);
                         }
 
-                        uniforms.write_uniform_bytes(&field_info.uniform_name, &mut staging_buffer
-                            [staging_buffer_start..(staging_buffer_start + uniform_byte_len)]);
+                        uniforms.write_uniform_bytes(
+                            &field_info.uniform_name,
+                            &mut staging_buffer
+                                [staging_buffer_start..(staging_buffer_start + uniform_byte_len)],
+                        );
                     } else {
                         panic!(
                             "failed to get data from uniform: {}",
@@ -254,7 +264,8 @@ where
                             offset: target_offset,
                         });
                 }
-                _ => {}
+                Some(FieldBindType::Texture) => { /* ignore textures */ }
+                None => { /* ignore None */ }
             }
         }
     }
@@ -680,7 +691,7 @@ fn setup_uniform_texture_resources<T>(
     entities_waiting_for_assets: &EntitiesWaitingForAssets,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
-    T: AsUniforms, 
+    T: AsUniforms,
 {
     for field_info in T::get_field_infos().iter() {
         let bind_type = uniforms.get_field_bind_type(&field_info.name);

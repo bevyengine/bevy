@@ -14,8 +14,8 @@ impl From<&Texture> for TextureDescriptor {
     fn from(texture: &Texture) -> Self {
         TextureDescriptor {
             size: Extent3d {
-                height: texture.height as u32,
-                width: texture.width as u32,
+                width: texture.size.x() as u32,
+                height: texture.size.y() as u32,
                 depth: 1,
             },
             mip_level_count: 1,

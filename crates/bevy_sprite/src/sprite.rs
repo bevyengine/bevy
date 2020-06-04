@@ -27,7 +27,7 @@ pub fn sprite_system() -> Box<dyn Schedulable> {
                 if let Some(texture_handle) = material.texture {
                     if let Some(texture) = textures.get(&texture_handle) {
                         let aspect = texture.aspect();
-                        *rect.size.x_mut() = texture.width as f32 * sprite.scale;
+                        *rect.size.x_mut() = texture.size.x() * sprite.scale;
                         *rect.size.y_mut() = rect.size.x() * aspect;
                     }
                 }

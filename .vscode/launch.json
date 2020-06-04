@@ -1419,6 +1419,25 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug example 'sprite_sheet'",
+            "env": { "CARGO_MANIFEST_DIR": "${workspaceFolder}" },
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=sprite_sheet",
+                    "--package=bevy"
+                ],
+                "filter": {
+                    "name": "sprite_sheet",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in example 'load_asset_folder'",
             "cargo": {
                 "args": [

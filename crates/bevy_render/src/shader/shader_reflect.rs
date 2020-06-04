@@ -198,8 +198,8 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
             },
         ),
         ReflectDescriptorType::StorageBuffer => (
-            &binding.name,
-            BindType::Buffer {
+            &type_description.type_name,
+            BindType::StorageBuffer {
                 dynamic: false,
                 readonly: true,
             },
