@@ -2,7 +2,7 @@
 pub use crate::asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 #[cfg(feature = "core")]
 pub use crate::core::{
-    time::Time,
+    time::{Time, Timer},
     transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource},
 };
 #[cfg(feature = "derive")]
@@ -33,7 +33,7 @@ pub use crate::render::{
 #[cfg(feature = "scene")]
 pub use crate::scene::{Scene, SceneSpawner};
 #[cfg(feature = "sprite")]
-pub use crate::sprite::{ColorMaterial, Quad, Sprite, entity::{SpriteEntity, SpriteSheetEntity}};
+pub use crate::sprite::{ColorMaterial, Quad, Sprite, entity::{SpriteEntity, SpriteSheetEntity}, SpriteSheet, SpriteSheetSprite};
 #[cfg(feature = "text")]
 pub use crate::text::Font;
 #[cfg(feature = "transform")]

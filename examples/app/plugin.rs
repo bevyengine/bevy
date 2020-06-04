@@ -26,8 +26,7 @@ impl AppPlugin for PrintMessagePlugin {
     fn build(&self, app: &mut AppBuilder) {
         let state = PrintMessageState {
             message: self.message.clone(),
-            elapsed_time: 0.0,
-            duration: self.wait_duration,
+            timer: Timer::new(self.wait_duration),
         };
         app.add_resource(state)
             .add_system(print_message_system.system());
@@ -36,14 +35,13 @@ impl AppPlugin for PrintMessagePlugin {
 
 struct PrintMessageState {
     message: String,
-    duration: Duration,
-    elapsed_time: f32,
+    timer: Timer,
 }
 
-fn print_message_system(time: Res<Time>, mut state: ResMut<PrintMessageState>) {
-    state.elapsed_time += time.delta_seconds;
-    if state.elapsed_time > state.duration.as_secs_f32() {
+fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
+    state.timer.tick(time.delta_seconds);
+    if state.timer.finished {
         println!("{}", state.message);
-        state.elapsed_time = 0.0;
+        state.timer.reset();
     }
 }

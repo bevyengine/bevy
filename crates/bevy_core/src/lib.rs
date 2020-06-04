@@ -12,7 +12,7 @@ use bevy_transform::{
 };
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 use legion::prelude::IntoSystem;
-use time::{timer_system, Time};
+use time::{time_system, Time, Timer, timer_system};
 
 #[derive(Default)]
 pub struct CorePlugin;
@@ -31,11 +31,13 @@ impl AppPlugin for CorePlugin {
             .register_component::<Rotation>()
             .register_component::<Scale>()
             .register_component::<NonUniformScale>()
+            .register_component::<Timer>()
             .register_property_type::<Vec2>()
             .register_property_type::<Vec3>()
             .register_property_type::<Mat3>()
             .register_property_type::<Mat4>()
             .register_property_type::<Quat>()
+            .add_system_to_stage(stage::FIRST, time_system.system())
             .add_system_to_stage(stage::FIRST, timer_system.system());
     }
 }

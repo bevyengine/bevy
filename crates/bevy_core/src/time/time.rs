@@ -29,12 +29,12 @@ impl Time {
         if let Some(instant) = self.instant {
             self.delta = now - instant;
             self.delta_seconds_f64 =
-                self.delta.as_secs() as f64 + (self.delta.subsec_nanos() as f64 / 1.0e9);
-            self.delta_seconds = self.delta_seconds_f64 as f32;
+                self.delta.as_secs_f64();
+            self.delta_seconds = self.delta.as_secs_f32();
         }
 
         let duration_since_startup = now - self.startup;
-        self.seconds_since_startup = duration_since_startup.as_secs() as f64 + (duration_since_startup.subsec_nanos() as f64 / 1.0e9);
+        self.seconds_since_startup = duration_since_startup.as_secs_f64();
         self.instant = Some(now);
     }
 
@@ -43,6 +43,6 @@ impl Time {
     }
 }
 
-pub fn timer_system(mut time: ResMut<Time>) {
+pub fn time_system(mut time: ResMut<Time>) {
     time.update();
 }

@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::{stage, AppPlugin};
-use bevy_core::time::Time;
+use bevy_core::time::{Timer, Time};
 use legion::prelude::*;
 use std::time::Duration;
 
@@ -11,8 +11,7 @@ pub struct PrintDiagnosticsPlugin {
 }
 
 pub struct PrintDiagnosticsState {
-    elapsed: f64,
-    wait_seconds: f64,
+    timer: Timer,
     filter: Option<Vec<DiagnosticId>>,
 }
 
@@ -29,8 +28,7 @@ impl Default for PrintDiagnosticsPlugin {
 impl AppPlugin for PrintDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
         app.add_resource(PrintDiagnosticsState {
-            elapsed: 0.0,
-            wait_seconds: self.wait_duration.as_secs_f64(),
+            timer: Timer::new(self.wait_duration),
             filter: self.filter.clone(),
         });
 
@@ -69,9 +67,8 @@ impl PrintDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        state.elapsed += time.delta_seconds_f64;
-        if state.elapsed >= state.wait_seconds {
-            state.elapsed = 0.0;
+        state.timer.tick(time.delta_seconds);
+        if state.timer.finished {
             println!("Diagnostics:");
             println!("{}", "-".repeat(60));
             if let Some(ref filter) = state.filter {
@@ -83,6 +80,8 @@ impl PrintDiagnosticsPlugin {
                     Self::print_diagnostic(diagnostic);
                 }
             }
+
+            state.timer.reset();
         }
     }
 
@@ -91,9 +90,8 @@ impl PrintDiagnosticsPlugin {
         time: Res<Time>,
         diagnostics: Res<Diagnostics>,
     ) {
-        state.elapsed += time.delta_seconds_f64;
-        if state.elapsed >= state.wait_seconds {
-            state.elapsed = 0.0;
+        state.timer.tick(time.delta_seconds);
+        if state.timer.finished {
             println!("Diagnostics (Debug):");
             println!("{}", "-".repeat(60));
             if let Some(ref filter) = state.filter {
@@ -105,6 +103,8 @@ impl PrintDiagnosticsPlugin {
                     println!("{:#?}\n", diagnostic);
                 }
             }
+
+            state.timer.reset();
         }
     }
 }

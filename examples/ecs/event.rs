@@ -15,24 +15,31 @@ struct MyEvent {
     pub message: String,
 }
 
-#[derive(Default)]
 struct EventTriggerState {
-    elapsed: f32,
+    event_timer: Timer,
+}
+
+impl Default for EventTriggerState {
+    fn default() -> Self {
+        EventTriggerState {
+            event_timer: Timer::from_seconds(1.0)
+        }
+    }
 }
 
 // sends MyEvent every second
 fn event_trigger_system(
+    time: Res<Time>,
     mut state: ResMut<EventTriggerState>,
     mut my_events: ResMut<Events<MyEvent>>,
-    time: Res<Time>,
 ) {
-    state.elapsed += time.delta_seconds;
-    if state.elapsed > 1.0 {
+    state.event_timer.tick(time.delta_seconds);
+    if state.event_timer.finished {
         my_events.send(MyEvent {
             message: "MyEvent just happened!".to_string(),
         });
-
-        state.elapsed = 0.0;
+        
+        state.event_timer.reset();
     }
 }
 

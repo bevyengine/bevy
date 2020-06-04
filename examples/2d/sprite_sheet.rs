@@ -1,33 +1,23 @@
-use bevy::{input::system::exit_on_esc_system, prelude::*};
-use bevy_sprite::{SpriteSheet, SpriteSheetSprite};
+use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .init_resource::<State>()
         .add_default_plugins()
         .add_startup_system(setup.system())
-        .init_system(exit_on_esc_system)
         .add_system(animate_sprite_system.system())
         .run();
 }
 
-#[derive(Default)]
-struct State {
-    elapsed: f32,
-}
-
 fn animate_sprite_system(
-    mut state: ResMut<State>,
-    time: Res<Time>,
     sprite_sheets: Res<Assets<SpriteSheet>>,
+    mut timer: ComMut<Timer>,
     mut sprite: ComMut<SpriteSheetSprite>,
     sprite_sheet_handle: Com<Handle<SpriteSheet>>,
 ) {
-    state.elapsed += time.delta_seconds;
-    if state.elapsed > 0.1 {
-        state.elapsed = 0.0;
+    if timer.finished {
         let sprite_sheet = sprite_sheets.get(&sprite_sheet_handle).unwrap();
         sprite.index = ((sprite.index as usize + 1) % sprite_sheet.sprites.len()) as u32;
+        timer.reset();
     }
 }
 
@@ -55,5 +45,6 @@ fn setup(
                 position: Vec3::new(0.0, 0.0, -0.5),
             },
             ..Default::default()
-        });
+        })
+        .add(Timer::from_seconds(0.1));
 }
