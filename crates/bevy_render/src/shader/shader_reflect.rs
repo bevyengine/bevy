@@ -52,6 +52,9 @@ impl ShaderLayout {
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
                     let vertex_attribute_descriptor =
                         reflect_vertex_attribute_descriptor(&input_variable);
+                    if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                        continue;
+                    }
                     vertex_attribute_descriptors.push(vertex_attribute_descriptor);
                 }
 
