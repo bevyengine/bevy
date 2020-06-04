@@ -1,11 +1,13 @@
 use legion::prelude::{ResMut, Resources};
 use std::marker::PhantomData;
 
+#[derive(Debug)]
 struct EventInstance<T> {
     pub event_count: usize,
     pub event: T,
 }
 
+#[derive(Debug)]
 enum State {
     A,
     B,
@@ -53,6 +55,7 @@ enum State {
 ///
 /// An alternative call pattern would be to call [Events::update] manually across frames to control when events are cleared. However
 /// this complicates consumption
+#[derive(Debug)]
 pub struct Events<T> {
     events_a: Vec<EventInstance<T>>,
     events_b: Vec<EventInstance<T>>,

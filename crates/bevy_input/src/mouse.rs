@@ -1,4 +1,5 @@
 use super::keyboard::ElementState;
+use glam::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct MouseButtonInput {
@@ -16,5 +17,5 @@ pub enum MouseButton {
 
 #[derive(Debug, Clone)]
 pub struct MouseMotionInput {
-    pub delta: (f64, f64),
+    pub delta: Vec2,
 }

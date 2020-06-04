@@ -1,4 +1,5 @@
 use super::{WindowDescriptor, WindowId};
+use glam::Vec2;
 
 /// A window event that is sent whenever a window has been resized.
 #[derive(Debug, Clone)]
@@ -34,4 +35,10 @@ pub struct WindowCreated {
 pub struct WindowCloseRequested {
     pub id: WindowId,
     pub is_primary: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct CursorMoved {
+    pub id: WindowId,    
+    pub position: Vec2,
 }

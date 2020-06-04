@@ -9,8 +9,9 @@ use bevy_input::{
 
 use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events, GetEventReader};
 use bevy_window::{
-    CreateWindow, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
+use glam::Vec2;
 use legion::prelude::*;
 use winit::{
     event,
@@ -101,6 +102,16 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
                     keyboard_input_events.send(converters::convert_keyboard_input(input));
                 }
+                WindowEvent::CursorMoved { position, .. } => {
+                    let mut cursor_moved_events =
+                        app.resources.get_mut::<Events<CursorMoved>>().unwrap();
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    cursor_moved_events.send(CursorMoved {
+                        id: window_id,
+                        position: Vec2::new(position.x as f32, position.y as f32),
+                    });
+                }
                 WindowEvent::MouseInput { state, button, .. } => {
                     let mut mouse_button_input_events =
                         app.resources.get_mut::<Events<MouseButtonInput>>().unwrap();
@@ -115,7 +126,9 @@ pub fn winit_runner(mut app: App) {
                 DeviceEvent::MouseMotion { delta } => {
                     let mut mouse_motion_events =
                         app.resources.get_mut::<Events<MouseMotionInput>>().unwrap();
-                    mouse_motion_events.send(MouseMotionInput { delta: *delta });
+                    mouse_motion_events.send(MouseMotionInput {
+                        delta: Vec2::new(delta.0 as f32, delta.1 as f32),
+                    });
                 }
                 _ => {}
             },

@@ -10,5 +10,6 @@ bevy_input = { path = "../bevy_input" }
 bevy_window = { path = "../bevy_window" }
 legion = { path = "../bevy_legion" }
 
-winit = { version = "0.22.1" }
+winit = { version = "0.22.2" }
+glam = "0.8.7"
 log = { version = "0.4", features = ["release_max_level_info"] }
