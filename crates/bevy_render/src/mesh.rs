@@ -8,7 +8,7 @@ use crate::{
     shader::AsUniforms,
     Renderable, Vertex,
 };
-use bevy_app::{Events, GetEventReader};
+use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::bytes::AsBytes;
 use glam::*;
@@ -337,7 +337,7 @@ fn remove_current_mesh_resources(
 
 pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Schedulable> {
     let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
-    let mut mesh_event_reader = resources.get_event_reader::<AssetEvent<Mesh>>();
+    let mut mesh_event_reader = EventReader::<AssetEvent<Mesh>>::default();
     // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
     let vertex_buffer_descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());

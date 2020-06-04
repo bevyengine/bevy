@@ -1,5 +1,5 @@
 use crate::Scene;
-use bevy_app::{EventReader, Events, FromResources, GetEventReader};
+use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_type_registry::TypeRegistry;
 use legion::{
@@ -26,6 +26,8 @@ impl InstanceId {
         InstanceId(Uuid::new_v4())
     }
 }
+
+#[derive(Default)]
 pub struct SceneSpawner {
     loaded_scenes: HashSet<Handle<Scene>>,
     spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
@@ -33,19 +35,6 @@ pub struct SceneSpawner {
     scene_asset_event_reader: EventReader<AssetEvent<Scene>>,
     scenes_to_spawn: Vec<Handle<Scene>>,
     scenes_to_load: Vec<Handle<Scene>>,
-}
-
-impl FromResources for SceneSpawner {
-    fn from_resources(resources: &Resources) -> Self {
-        SceneSpawner {
-            scene_asset_event_reader: resources.get_event_reader::<AssetEvent<Scene>>(),
-            spawned_scenes: Default::default(),
-            spawned_instances: Default::default(),
-            loaded_scenes: Default::default(),
-            scenes_to_spawn: Default::default(),
-            scenes_to_load: Default::default(),
-        }
-    }
 }
 
 #[derive(Error, Debug)]

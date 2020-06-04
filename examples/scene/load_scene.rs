@@ -35,14 +35,14 @@ struct ComponentA {
 struct ComponentB {
     pub value: String,
     #[property(ignore)]
-    pub event_reader: EventReader<KeyboardInput>,
+    pub time_since_startup: std::time::Duration,
 }
 
 impl FromResources for ComponentB {
     fn from_resources(resources: &Resources) -> Self {
-        let event_reader = resources.get_event_reader::<KeyboardInput>();
+        let time = resources.get::<Time>().unwrap();
         ComponentB {
-            event_reader,
+            time_since_startup: time.time_since_startup(),
             value: "Default Value".to_string(),
         }
     }

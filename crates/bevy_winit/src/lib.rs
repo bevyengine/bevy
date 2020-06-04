@@ -7,7 +7,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotionInput},
 };
 
-use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events, GetEventReader};
+use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events};
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
@@ -35,8 +35,8 @@ impl AppPlugin for WinitPlugin {
 
 pub fn winit_runner(mut app: App) {
     let event_loop = EventLoop::new();
-    let mut create_window_event_reader = app.resources.get_event_reader::<CreateWindow>();
-    let mut app_exit_event_reader = app.resources.get_event_reader::<AppExit>();
+    let mut create_window_event_reader = EventReader::<CreateWindow>::default();
+    let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
     handle_create_window_events(
         &mut app.resources,

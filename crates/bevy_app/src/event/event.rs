@@ -1,4 +1,4 @@
-use legion::prelude::{ResMut, Resources};
+use legion::prelude::ResMut;
 use std::marker::PhantomData;
 
 #[derive(Debug)]
@@ -85,6 +85,15 @@ fn map_event_instance<T>(event_instance: &EventInstance<T>) -> &T {
 pub struct EventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,
+}
+
+impl<T> Default for EventReader<T> {
+    fn default() -> Self {
+        Self {
+            last_event_count: 0,
+            _marker: PhantomData::default(),
+        }
+    }
 }
 
 impl<T> EventReader<T> {
@@ -242,25 +251,6 @@ impl<T> Events<T> {
         for event in events {
             self.send(event);
         }
-    }
-}
-
-pub trait GetEventReader {
-    /// returns an [EventReader] of the given type
-    fn get_event_reader<T>(&self) -> EventReader<T>
-    where
-        T: Send + Sync + 'static;
-}
-
-impl GetEventReader for Resources {
-    fn get_event_reader<T>(&self) -> EventReader<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        let my_event = self
-            .get::<Events<T>>()
-            .unwrap_or_else(|| panic!("Event does not exist: {}", std::any::type_name::<T>()));
-        my_event.get_reader()
     }
 }
 

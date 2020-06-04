@@ -7,15 +7,10 @@ use crate::{
         nodes::{CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode},
         RenderGraph,
     },
-    texture::{
-        Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage,
-    },
+    texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_app::GetEventReader;
-use bevy_asset::AssetEvent;
-use bevy_window::{WindowCreated, WindowReference, WindowResized};
-use legion::prelude::Resources;
+use bevy_window::WindowReference;
 
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
@@ -58,7 +53,6 @@ impl Default for BaseRenderGraphConfig {
 pub trait BaseRenderGraphBuilder {
     fn add_base_graph(
         &mut self,
-        resources: &Resources,
         config: &BaseRenderGraphConfig,
     ) -> &mut Self;
 }
@@ -66,13 +60,9 @@ pub trait BaseRenderGraphBuilder {
 impl BaseRenderGraphBuilder for RenderGraph {
     fn add_base_graph(
         &mut self,
-        resources: &Resources,
         config: &BaseRenderGraphConfig,
     ) -> &mut Self {
-        self.add_node(
-            node::TEXTURE_COPY,
-            TextureCopyNode::new(resources.get_event_reader::<AssetEvent<Texture>>()),
-        );
+        self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
         if config.add_3d_camera {
             self.add_system_node(node::CAMERA, CameraNode::new(uniform::CAMERA));
         }
@@ -98,8 +88,6 @@ impl BaseRenderGraphBuilder for RenderGraph {
                         format: TextureFormat::Depth32Float, // PERF: vulkan docs recommend using 24 bit depth for better performance
                         usage: TextureUsage::OUTPUT_ATTACHMENT,
                     },
-                    resources.get_event_reader::<WindowCreated>(),
-                    resources.get_event_reader::<WindowResized>(),
                 ),
             );
         }
@@ -141,11 +129,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
 
         self.add_node(
             node::PRIMARY_SWAP_CHAIN,
-            WindowSwapChainNode::new(
-                WindowReference::Primary,
-                resources.get_event_reader::<WindowCreated>(),
-                resources.get_event_reader::<WindowResized>(),
-            ),
+            WindowSwapChainNode::new(WindowReference::Primary),
         );
 
         if config.connect_main_pass_to_swapchain {

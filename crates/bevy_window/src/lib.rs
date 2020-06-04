@@ -43,7 +43,7 @@ impl AppPlugin for WindowPlugin {
         }
 
         if self.exit_on_close {
-            let exit_on_close_system = exit_on_window_close_system(app.resources_mut(), None);
+            let exit_on_close_system = exit_on_window_close_system(None);
             app.add_system(exit_on_close_system);
         }
     }

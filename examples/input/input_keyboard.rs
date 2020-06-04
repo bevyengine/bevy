@@ -13,7 +13,7 @@ fn main() {
         .run();
 }
 
-#[derive(FromResources)]
+#[derive(Default)]
 struct State {
     event_reader: EventReader<KeyboardInput>,
     moving_right: bool,

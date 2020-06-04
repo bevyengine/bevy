@@ -50,7 +50,7 @@ pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
         schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
-        EventReader, Events, FromResources, GetEventReader, System,
+        EventReader, Events, FromResources, System,
     },
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     AddDefaultPlugins,

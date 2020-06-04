@@ -43,7 +43,7 @@ fn event_trigger_system(
     }
 }
 
-#[derive(FromResources)]
+#[derive(Default)]
 struct EventListenerState {
     my_event_reader: EventReader<MyEvent>,
 }

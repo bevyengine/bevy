@@ -113,7 +113,7 @@ impl AppPlugin for RenderPlugin {
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();
             let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            render_graph.add_base_graph(resources, config);
+            render_graph.add_base_graph(config);
         }
     }
 }

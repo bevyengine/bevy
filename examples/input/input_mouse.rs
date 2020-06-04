@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-#[derive(FromResources)]
+#[derive(Default)]
 struct State {
     mouse_button_event_reader: EventReader<MouseButtonInput>,
     mouse_motion_event_reader: EventReader<MouseMotionInput>,

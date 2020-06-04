@@ -1,13 +1,9 @@
 use crate::{WindowCloseRequested, WindowId};
-use bevy_app::{AppExit, Events, GetEventReader};
+use bevy_app::{AppExit, EventReader, Events};
 use legion::prelude::*;
 
-pub fn exit_on_window_close_system(
-    resources: &mut Resources,
-    window_id: Option<WindowId>,
-) -> Box<dyn Schedulable> {
-    let mut window_close_requested_event_reader =
-        resources.get_event_reader::<WindowCloseRequested>();
+pub fn exit_on_window_close_system(window_id: Option<WindowId>) -> Box<dyn Schedulable> {
+    let mut window_close_requested_event_reader = EventReader::<WindowCloseRequested>::default();
     SystemBuilder::new("exit_on_window_close")
         .read_resource::<Events<WindowCloseRequested>>()
         .write_resource::<Events<AppExit>>()

@@ -1,9 +1,9 @@
 use crate::keyboard::{ElementState, KeyboardInput, VirtualKeyCode};
-use bevy_app::{AppExit, Events, GetEventReader};
+use bevy_app::{AppExit, EventReader, Events};
 use legion::prelude::*;
 
-pub fn exit_on_esc_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let mut keyboard_input_event_reader = resources.get_event_reader::<KeyboardInput>();
+pub fn exit_on_esc_system(_resources: &mut Resources) -> Box<dyn Schedulable> {
+    let mut keyboard_input_event_reader = EventReader::<KeyboardInput>::default();
     (move |keyboard_input_events: Res<Events<KeyboardInput>>,
            mut app_exit_events: ResMut<Events<AppExit>>| {
         for event in keyboard_input_event_reader.iter(&keyboard_input_events) {

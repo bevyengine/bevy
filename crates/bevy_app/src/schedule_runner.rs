@@ -1,5 +1,5 @@
-use super::{App, AppBuilder, AppPlugin, GetEventReader};
-use crate::{AppExit, Events};
+use super::{App, AppBuilder, AppPlugin};
+use crate::{AppExit, Events, EventReader};
 use std::{thread, time::Duration};
 
 #[derive(Copy, Clone, Debug)]
@@ -39,7 +39,7 @@ impl AppPlugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
-            let mut app_exit_event_reader = app.resources.get_event_reader::<AppExit>();
+            let mut app_exit_event_reader = EventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
                     if let Some(ref mut schedule) = app.schedule {

@@ -21,14 +21,12 @@ impl WindowTextureNode {
     pub fn new(
         window_reference: WindowReference,
         descriptor: TextureDescriptor,
-        window_created_event_reader: EventReader<WindowCreated>,
-        window_resized_event_reader: EventReader<WindowResized>,
     ) -> Self {
         WindowTextureNode {
             window_reference,
             descriptor,
-            window_created_event_reader,
-            window_resized_event_reader,
+            window_created_event_reader: Default::default(),
+            window_resized_event_reader: Default::default(),
         }
     }
 }

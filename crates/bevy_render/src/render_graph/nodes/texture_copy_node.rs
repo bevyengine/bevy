@@ -9,16 +9,9 @@ use bevy_asset::{AssetEvent, Assets};
 
 use legion::prelude::*;
 
+#[derive(Default)]
 pub struct TextureCopyNode {
     pub texture_event_reader: EventReader<AssetEvent<Texture>>,
-}
-
-impl TextureCopyNode {
-    pub fn new(texture_event_reader: EventReader<AssetEvent<Texture>>) -> Self {
-        TextureCopyNode {
-            texture_event_reader,
-        }
-    }
 }
 
 impl Node for TextureCopyNode {

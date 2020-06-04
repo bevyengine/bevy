@@ -18,13 +18,11 @@ impl WindowSwapChainNode {
     pub const OUT_TEXTURE: &'static str = "texture";
     pub fn new(
         window_reference: WindowReference,
-        window_created_event_reader: EventReader<WindowCreated>,
-        window_resized_event_reader: EventReader<WindowResized>,
     ) -> Self {
         WindowSwapChainNode {
             window_reference,
-            window_created_event_reader,
-            window_resized_event_reader,
+            window_created_event_reader: Default::default(),
+            window_resized_event_reader: Default::default(),
         }
     }
 }
