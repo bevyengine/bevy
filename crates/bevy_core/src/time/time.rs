@@ -28,8 +28,7 @@ impl Time {
         let now = Instant::now();
         if let Some(instant) = self.instant {
             self.delta = now - instant;
-            self.delta_seconds_f64 =
-                self.delta.as_secs_f64();
+            self.delta_seconds_f64 = self.delta.as_secs_f64();
             self.delta_seconds = self.delta.as_secs_f32();
         }
 

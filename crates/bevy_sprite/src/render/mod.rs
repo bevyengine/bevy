@@ -146,7 +146,10 @@ impl SpriteRenderGraphBuilder for RenderGraph {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.set(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(&mut shaders));
-        pipelines.set(SPRITE_SHEET_PIPELINE_HANDLE, build_sprite_sheet_pipeline(&mut shaders));
+        pipelines.set(
+            SPRITE_SHEET_PIPELINE_HANDLE,
+            build_sprite_sheet_pipeline(&mut shaders),
+        );
         let main_pass: &mut PassNode = self
             .get_node_mut(base_render_graph::node::MAIN_PASS)
             .unwrap();

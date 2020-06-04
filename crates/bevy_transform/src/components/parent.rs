@@ -1,6 +1,6 @@
 use crate::ecs::prelude::*;
-use shrinkwraprs::Shrinkwrap;
 use bevy_property::Properties;
+use shrinkwraprs::Shrinkwrap;
 
 #[derive(Shrinkwrap, Debug, Copy, Clone, Eq, PartialEq, Properties)]
 #[shrinkwrap(mutable)]

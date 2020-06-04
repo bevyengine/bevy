@@ -264,6 +264,5 @@ mod tests {
 
         assert!(found_a1_b1 && found_a2_b2);
         assert_eq!(batcher.iter().count(), 2);
-
     }
 }

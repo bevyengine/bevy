@@ -1,5 +1,5 @@
-use bevy_derive::Uniforms;
 use bevy_core::bytes::Byteable;
+use bevy_derive::Uniforms;
 
 #[repr(C)]
 #[derive(Clone, Copy, Uniforms)]
@@ -13,6 +13,5 @@ pub struct Vertex {
     pub uv: [f32; 2],
 }
 
-
 // SAFE: Vertex is repr(C) containing primitives
-unsafe impl Byteable for Vertex {} 
+unsafe impl Byteable for Vertex {}

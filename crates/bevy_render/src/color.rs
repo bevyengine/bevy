@@ -96,7 +96,7 @@ impl Bytes for ColorSource {
     fn write_bytes(&self, buffer: &mut [u8]) {
         match *self {
             ColorSource::Color(ref color) => color.write_bytes(buffer),
-            ColorSource::Texture(_) => {}, // Texture is not a uniform
+            ColorSource::Texture(_) => {} // Texture is not a uniform
         }
     }
     fn byte_len(&self) -> usize {

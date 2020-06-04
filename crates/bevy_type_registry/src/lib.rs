@@ -1,8 +1,8 @@
-mod type_registry;
 mod register_type;
+mod type_registry;
 
-pub use type_registry::*;
 pub use register_type::*;
+pub use type_registry::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_property::DynamicProperties;

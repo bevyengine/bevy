@@ -1,4 +1,4 @@
-use crate::{Property, PropertyType, property_serde::Serializable, PropertyTypeRegistry};
+use crate::{property_serde::Serializable, Property, PropertyType, PropertyTypeRegistry};
 use serde::Serialize;
 use smallvec::{Array, SmallVec};
 use std::any::Any;

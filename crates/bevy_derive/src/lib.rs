@@ -1,11 +1,11 @@
 extern crate proc_macro;
 
+mod app_plugin;
+mod bytes;
 mod entity_archetype;
 mod modules;
-mod uniforms;
-mod bytes;
 mod resource;
-mod app_plugin;
+mod uniforms;
 
 use proc_macro::TokenStream;
 

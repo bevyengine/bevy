@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::{stage, AppPlugin};
-use bevy_core::time::{Timer, Time};
+use bevy_core::time::{Time, Timer};
 use legion::prelude::*;
 use std::time::Duration;
 

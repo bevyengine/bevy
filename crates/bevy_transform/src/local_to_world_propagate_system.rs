@@ -39,7 +39,10 @@ fn propagate_recursive(
         }
     };
 
-    let new_local_to_world = LocalToWorld { value: parent_local_to_world.value * local_to_parent.0, sync: true };
+    let new_local_to_world = LocalToWorld {
+        value: parent_local_to_world.value * local_to_parent.0,
+        sync: true,
+    };
     commands.add_component(entity, new_local_to_world);
 
     // Collect children

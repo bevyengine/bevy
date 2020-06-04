@@ -1,5 +1,5 @@
 use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
-use crate::shader::{GL_VERTEX_INDEX, ShaderLayout};
+use crate::shader::{ShaderLayout, GL_VERTEX_INDEX};
 use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug, Default)]

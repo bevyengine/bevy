@@ -1,5 +1,6 @@
 use crate::{
-    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, QUAD_HANDLE, SpriteSheet, SPRITE_SHEET_PIPELINE_HANDLE, SpriteSheetSprite,
+    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, SpriteSheet,
+    SpriteSheetSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
@@ -35,10 +36,10 @@ pub struct SpriteSheetEntity {
     pub sprite_sheet: Handle<SpriteSheet>,
     pub renderable: Renderable,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    // pub local_to_world: LocalToWorld,
-    // pub translation: Translation,
-    // pub rotation: Rotation,
-    // pub scale: Scale,
+                            // pub local_to_world: LocalToWorld,
+                            // pub translation: Translation,
+                            // pub rotation: Rotation,
+                            // pub scale: Scale,
 }
 
 impl Default for SpriteSheetEntity {

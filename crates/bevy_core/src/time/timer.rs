@@ -1,7 +1,7 @@
-use std::time::Duration;
-use bevy_property::Properties;
-use legion::prelude::{Res, ComMut};
 use crate::time::Time;
+use bevy_property::Properties;
+use legion::prelude::{ComMut, Res};
+use std::time::Duration;
 
 #[derive(Clone, Debug, Default, Properties)]
 pub struct Timer {

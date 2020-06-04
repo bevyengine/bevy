@@ -1,4 +1,4 @@
-use crate::{impl_property, Property, PropertyTypeRegistry, property_serde::Serializable};
+use crate::{impl_property, property_serde::Serializable, Property, PropertyTypeRegistry};
 use erased_serde::Deserializer;
 use legion::prelude::Entity;
 use serde::Deserialize;

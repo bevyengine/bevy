@@ -37,8 +37,7 @@ impl ComponentRegistry {
             self.short_names.remove(&short_name);
             self.ambigous_names.insert(short_name);
         } else {
-            self.short_names
-                .insert(short_name, registration.ty);
+            self.short_names.insert(short_name, registration.ty);
         }
         self.registrations.insert(registration.ty, registration);
     }

@@ -1,9 +1,9 @@
-use bevy_render::{Color, PerspectiveProjection, CameraProjection};
-use bevy_transform::components::Translation;
+use bevy_core::bytes::Byteable;
 use bevy_property::Properties;
+use bevy_render::{CameraProjection, Color, PerspectiveProjection};
+use bevy_transform::components::Translation;
 use glam::Mat4;
 use std::ops::Range;
-use bevy_core::bytes::Byteable;
 
 #[derive(Properties)]
 pub struct Light {

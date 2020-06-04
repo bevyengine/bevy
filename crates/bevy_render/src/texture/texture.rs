@@ -6,9 +6,9 @@ use crate::{
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::FromResources;
+use glam::Vec2;
 use legion::prelude::*;
 use std::{collections::HashSet, fs::File};
-use glam::Vec2;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
@@ -41,7 +41,7 @@ impl Texture {
 
         Texture {
             data,
-            size: Vec2::new(width as f32, height as f32)
+            size: Vec2::new(width as f32, height as f32),
         }
     }
 

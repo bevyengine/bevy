@@ -149,7 +149,7 @@ fn game_over_system(
     println!();
 }
 
-// This is a "startup" system that runs exactly once when the app starts up. Startup systems are generally used to create 
+// This is a "startup" system that runs exactly once when the app starts up. Startup systems are generally used to create
 // the initial "state" of our game. The only thing that distinguishes a "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)

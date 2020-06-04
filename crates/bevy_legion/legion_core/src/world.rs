@@ -2,7 +2,6 @@ use crate::borrow::Ref;
 use crate::borrow::RefMut;
 use crate::entity::BlockAllocator;
 use crate::entity::Entity;
-use crate::guid_entity_allocator::GuidEntityAllocator;
 use crate::entity::EntityLocation;
 use crate::entity::Locations;
 use crate::event::Event;
@@ -10,6 +9,7 @@ use crate::filter::ArchetypeFilterData;
 use crate::filter::ChunksetFilterData;
 use crate::filter::EntityFilter;
 use crate::filter::Filter;
+use crate::guid_entity_allocator::GuidEntityAllocator;
 use crate::index::ArchetypeIndex;
 use crate::index::ComponentIndex;
 use crate::index::SetIndex;
@@ -118,12 +118,7 @@ impl World {
     ///
     /// `Entity` IDs in such a world will only be unique within that world. See also
     /// `Universe::create_world`.
-    pub fn new() -> Self {
-        Self::new_in_universe(
-            WorldId::next(0),
-            GuidEntityAllocator::default(),
-        )
-    }
+    pub fn new() -> Self { Self::new_in_universe(WorldId::next(0), GuidEntityAllocator::default()) }
 
     fn new_in_universe(id: WorldId, allocator: GuidEntityAllocator) -> Self {
         Self {

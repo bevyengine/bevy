@@ -20,9 +20,7 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn new(index: EntityIndex, version: EntityVersion) -> Entity {
-        Entity { index, version }
-    }
+    pub fn new(index: EntityIndex, version: EntityVersion) -> Entity { Entity { index, version } }
 
     pub fn index(self) -> EntityIndex { self.index }
 }

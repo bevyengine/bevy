@@ -1,7 +1,7 @@
 use crate::ecs::prelude::*;
+use bevy_property::Properties;
 use shrinkwraprs::Shrinkwrap;
 use smallvec::SmallVec;
-use bevy_property::Properties;
 
 #[derive(Shrinkwrap, Default, Clone, Properties)]
 #[shrinkwrap(mutable)]

@@ -88,7 +88,10 @@ impl SceneSpawner {
         };
         Self::load_internal(world, resources, scene_handle, Some(&mut instance_info))?;
         self.spawned_instances.insert(instance_id, instance_info);
-        let spawned = self.spawned_scenes.entry(scene_handle).or_insert_with(|| Vec::new());
+        let spawned = self
+            .spawned_scenes
+            .entry(scene_handle)
+            .or_insert_with(|| Vec::new());
         spawned.push(instance_id);
         Ok(())
     }
@@ -137,7 +140,12 @@ impl SceneSpawner {
         Ok(())
     }
 
-    pub fn update_spawned_scenes(&mut self, world: &mut World, resources: &Resources, scene_handles: &[Handle<Scene>]) -> Result<(), SceneSpawnError> {
+    pub fn update_spawned_scenes(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+        scene_handles: &[Handle<Scene>],
+    ) -> Result<(), SceneSpawnError> {
         for scene_handle in scene_handles {
             if let Some(spawned_instances) = self.spawned_scenes.get(scene_handle) {
                 for instance_id in spawned_instances.iter() {
@@ -150,7 +158,11 @@ impl SceneSpawner {
         Ok(())
     }
 
-    pub fn load_queued_scenes(&mut self, world: &mut World, resources: &Resources) -> Result<(), SceneSpawnError> {
+    pub fn load_queued_scenes(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+    ) -> Result<(), SceneSpawnError> {
         let scenes_to_load = self.scenes_to_load.drain(..).collect::<Vec<_>>();
         let mut non_existent_scenes = Vec::new();
         for scene_handle in scenes_to_load {
@@ -167,7 +179,11 @@ impl SceneSpawner {
         Ok(())
     }
 
-    pub fn spawn_queued_scenes(&mut self, world: &mut World, resources: &Resources) -> Result<(), SceneSpawnError> {
+    pub fn spawn_queued_scenes(
+        &mut self,
+        world: &mut World,
+        resources: &Resources,
+    ) -> Result<(), SceneSpawnError> {
         let scenes_to_spawn = self.scenes_to_spawn.drain(..).collect::<Vec<_>>();
         let mut non_existent_scenes = Vec::new();
         for scene_handle in scenes_to_spawn {
@@ -199,12 +215,14 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
                 scene_spawner.load(*handle);
             }
             if scene_spawner.spawned_scenes.contains_key(handle) {
-                updated_spawned_scenes.push(*handle);      
+                updated_spawned_scenes.push(*handle);
             }
         }
     }
 
     scene_spawner.load_queued_scenes(world, resources).unwrap();
     scene_spawner.spawn_queued_scenes(world, resources).unwrap();
-    scene_spawner.update_spawned_scenes(world, resources, &updated_spawned_scenes).unwrap();
+    scene_spawner
+        .update_spawned_scenes(world, resources, &updated_spawned_scenes)
+        .unwrap();
 }

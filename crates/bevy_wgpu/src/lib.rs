@@ -10,7 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
-use bevy_render::{renderer::RenderResources};
+use bevy_render::renderer::RenderResources;
 use bevy_window::{WindowCreated, WindowResized};
 use legion::prelude::*;
 use renderer::WgpuRenderResourceContext;

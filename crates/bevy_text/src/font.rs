@@ -18,7 +18,14 @@ impl Font {
     }
 
     // adapted from ab_glyph example: https://github.com/alexheretic/ab-glyph/blob/master/dev/examples/image.rs
-    pub fn render_text(&self, text: &str, color: Color, font_size: f32, width: usize, height: usize) -> Texture {
+    pub fn render_text(
+        &self,
+        text: &str,
+        color: Color,
+        font_size: f32,
+        width: usize,
+        height: usize,
+    ) -> Texture {
         let scale = PxScale::from(font_size);
 
         let scaled_font = ab_glyph::Font::as_scaled(&self.font, scale);

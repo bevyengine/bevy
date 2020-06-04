@@ -50,7 +50,10 @@ where
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(TYPE_FIELD, format_type_name(self.registry, self.property.type_name()))?;
+        state.serialize_entry(
+            TYPE_FIELD,
+            format_type_name(self.registry, self.property.type_name()),
+        )?;
         state.serialize_entry(VALUE_FIELD, self.property)?;
         state.end()
     }
@@ -175,7 +178,10 @@ impl<'a> Serialize for SeqSerializer<'a> {
         S: serde::Serializer,
     {
         let mut state = serializer.serialize_map(Some(2))?;
-        state.serialize_entry(TYPE_FIELD, format_type_name(self.registry, self.properties.type_name()))?;
+        state.serialize_entry(
+            TYPE_FIELD,
+            format_type_name(self.registry, self.properties.type_name()),
+        )?;
         state.serialize_entry(
             SEQ_FIELD,
             &SeqValueSerializer {

@@ -69,7 +69,12 @@ mod tests {
             }
         }
 
-        fn query_system2(world: &mut SubWorld, a: Res<A>, query: &mut Query<(Read<X>, Write<Y>)>, query2: &mut Query<Read<X>>) {
+        fn query_system2(
+            world: &mut SubWorld,
+            a: Res<A>,
+            query: &mut Query<(Read<X>, Write<Y>)>,
+            query2: &mut Query<Read<X>>,
+        ) {
             println!("{:?}", *a);
             for (x, mut y) in query.iter_mut(world) {
                 y.0 = 2;

@@ -37,8 +37,13 @@ impl Label {
         let height = quad.size.y().max(1.0);
 
         if let Some(font) = fonts.get(&label.font) {
-            let texture =
-                font.render_text(&label.text, label.color, label.font_size, width as usize, height as usize);
+            let texture = font.render_text(
+                &label.text,
+                label.color,
+                label.font_size,
+                width as usize,
+                height as usize,
+            );
 
             let material = color_materials.get_or_insert_with(*color_material_handle, || {
                 ColorMaterial::from(Handle::<Texture>::new())

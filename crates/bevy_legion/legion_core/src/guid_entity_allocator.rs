@@ -1,6 +1,10 @@
-use crate::entity::{EntityIndex, Entity};
+use crate::entity::{Entity, EntityIndex};
 use parking_lot::RwLock;
-use std::{collections::{VecDeque, HashSet}, num::Wrapping, sync::Arc};
+use std::{
+    collections::{HashSet, VecDeque},
+    num::Wrapping,
+    sync::Arc,
+};
 
 #[derive(Default, Debug, Clone)]
 pub struct GuidEntityAllocator {
@@ -9,7 +13,9 @@ pub struct GuidEntityAllocator {
 }
 
 impl GuidEntityAllocator {
-    pub fn is_alive(&self, entity: Entity) -> bool { self.entities.read().contains(&entity.index()) }
+    pub fn is_alive(&self, entity: Entity) -> bool {
+        self.entities.read().contains(&entity.index())
+    }
 
     pub fn push_next_ids(&self, ids: impl Iterator<Item = Entity>) {
         self.next_ids.write().extend(ids);
@@ -27,9 +33,7 @@ impl GuidEntityAllocator {
         entity
     }
 
-    pub fn new_entity_id() -> u32 {
-        rand::random::<u32>()
-    }
+    pub fn new_entity_id() -> u32 { rand::random::<u32>() }
 
     /// Creates an iterator which allocates new `Entity` IDs.
     pub fn create_entities(&self) -> GuidCreateEntityIter {

@@ -280,7 +280,6 @@ fn delete_first() {
 //         assert_eq!(rot, &world_1.get_component(*e).unwrap() as &Rot);
 //     }
 // }
-
 #[test]
 fn mutate_add_component() {
     let _ = tracing_subscriber::fmt::try_init();

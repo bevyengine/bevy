@@ -1,7 +1,7 @@
 use crate::math::Vec3;
+use bevy_property::Properties;
 use shrinkwraprs::Shrinkwrap;
 use std::fmt;
-use bevy_property::Properties;
 
 #[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]

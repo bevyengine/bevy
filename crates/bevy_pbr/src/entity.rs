@@ -4,7 +4,6 @@ use bevy_derive::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
 use bevy_transform::prelude::{LocalToWorld, Rotation, Scale, Translation};
 
-
 #[derive(EntityArchetype, Default)]
 pub struct MeshEntity {
     // #[tag]

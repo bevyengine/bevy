@@ -4,10 +4,7 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     render_graph::{
-        nodes::{
-            CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode,
-            WindowTextureNode,
-        },
+        nodes::{CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode},
         RenderGraph,
     },
     texture::{

@@ -3,11 +3,12 @@ use crate::{
     cons::{ConsAppend, ConsFlatten},
     entity::Entity,
     filter::{ChunksetFilterData, Filter},
+    guid_entity_allocator::GuidEntityAllocator,
     storage::{Component, ComponentTypeId, Tag, TagTypeId},
     world::{
         ComponentSource, ComponentTupleSet, IntoComponentSource, PreallocComponentSource,
         TagLayout, TagSet, World, WorldId,
-    }, guid_entity_allocator::GuidEntityAllocator,
+    },
 };
 use derivative::Derivative;
 use smallvec::SmallVec;

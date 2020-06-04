@@ -49,8 +49,6 @@ pub use legion;
 
 #[cfg(feature = "asset")]
 pub use bevy_asset as asset;
-#[cfg(feature = "type_registry")]
-pub use bevy_type_registry as type_registry;
 #[cfg(feature = "core")]
 pub use bevy_core as core;
 #[cfg(feature = "derive")]
@@ -75,6 +73,8 @@ pub use bevy_sprite as sprite;
 pub use bevy_text as text;
 #[cfg(feature = "transform")]
 pub use bevy_transform as transform;
+#[cfg(feature = "type_registry")]
+pub use bevy_type_registry as type_registry;
 #[cfg(feature = "ui")]
 pub use bevy_ui as ui;
 #[cfg(feature = "wgpu")]

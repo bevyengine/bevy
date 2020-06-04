@@ -43,8 +43,6 @@ use legion::prelude::*;
 //     }
 // }
 
-
-
 pub fn render_resource_sets_system() -> Box<dyn Schedulable> {
     SystemBuilder::new("update_render_resource_sets")
         .read_resource::<Assets<PipelineDescriptor>>()

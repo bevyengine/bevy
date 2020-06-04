@@ -1,6 +1,6 @@
 use crate::math::Quat;
-use shrinkwraprs::Shrinkwrap;
 use bevy_property::Properties;
+use shrinkwraprs::Shrinkwrap;
 
 #[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]

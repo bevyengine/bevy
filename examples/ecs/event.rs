@@ -22,7 +22,7 @@ struct EventTriggerState {
 impl Default for EventTriggerState {
     fn default() -> Self {
         EventTriggerState {
-            event_timer: Timer::from_seconds(1.0)
+            event_timer: Timer::from_seconds(1.0),
         }
     }
 }
@@ -38,7 +38,7 @@ fn event_trigger_system(
         my_events.send(MyEvent {
             message: "MyEvent just happened!".to_string(),
         });
-        
+
         state.event_timer.reset();
     }
 }

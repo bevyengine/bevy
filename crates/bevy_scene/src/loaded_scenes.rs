@@ -3,10 +3,13 @@ use anyhow::Result;
 use bevy_app::FromResources;
 use bevy_asset::AssetLoader;
 use bevy_property::PropertyTypeRegistry;
+use bevy_type_registry::TypeRegistry;
 use legion::prelude::Resources;
 use serde::de::DeserializeSeed;
-use std::{sync::{Arc, RwLock}, path::Path};
-use bevy_type_registry::TypeRegistry;
+use std::{
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 pub struct SceneLoader {
     property_type_registry: Arc<RwLock<PropertyTypeRegistry>>,

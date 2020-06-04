@@ -17,11 +17,11 @@ pub mod prelude {
         resource::{ResourceSet, Resources},
         schedule::{Executor, Runnable, Schedulable, Schedule},
         IntoSystem,
+        Query,
         Res,
         ResMut,
+        SubWorld,
         System,
         SystemBuilder,
-        Query,
-        SubWorld
     };
 }

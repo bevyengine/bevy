@@ -4,7 +4,11 @@ pub trait Bytes {
     fn byte_len(&self) -> usize;
 }
 
-pub unsafe trait Byteable where Self: Sized {}
+pub unsafe trait Byteable
+where
+    Self: Sized,
+{
+}
 
 impl<T> Bytes for T
 where
@@ -43,7 +47,12 @@ where
     }
 }
 
-unsafe impl<T> Byteable for [T] where Self: Sized, T: Byteable {}
+unsafe impl<T> Byteable for [T]
+where
+    Self: Sized,
+    T: Byteable,
+{
+}
 unsafe impl<T> Byteable for [T; 2] where T: Byteable {}
 unsafe impl<T> Byteable for [T; 3] where T: Byteable {}
 unsafe impl<T> Byteable for [T; 4] where T: Byteable {}
@@ -79,7 +88,7 @@ impl Bytes for Vec3 {
     }
     fn byte_len(&self) -> usize {
         // cant use self here because Vec3 is a simd type / technically a vec4
-        std::mem::size_of::<[f32;3]>()
+        std::mem::size_of::<[f32; 3]>()
     }
 }
 

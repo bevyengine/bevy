@@ -5,18 +5,17 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::Ident;
 
-
 fn tuple(idents: &[Ident]) -> proc_macro2::TokenStream {
     if idents.len() == 0 {
-        quote!{ ()} 
+        quote! { ()}
     } else if idents.len() == 1 {
-        quote!{ #(#idents),* } 
+        quote! { #(#idents),* }
     } else {
-        quote!{ (#(#idents),*) } 
+        quote! { (#(#idents),*) }
     }
 }
 
-fn get_idents(fmt_string: fn(usize)->String, count: usize) -> Vec<Ident> {
+fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
     (0..=count)
         .map(|i| Ident::new(&fmt_string(i), Span::call_site()))
         .collect::<Vec<Ident>>()
@@ -45,7 +44,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
 
         let resource_access = if resource_count == 0 {
             quote! { Access::default() }
-        }else {
+        } else {
             quote! {{
                 let mut resource_access: Access<ResourceTypeId> = Access::default();
                 resource_access
@@ -67,7 +66,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
 
             let component_access = if view_count == 0 {
                 quote! { Access::default() }
-            }else {
+            } else {
                 quote! {{
                     let mut component_access: Access<ComponentTypeId> = Access::default();
                     component_access
@@ -105,9 +104,9 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
             };
 
             let query = if view_count == 0 {
-                quote!{()}
+                quote! {()}
             } else {
-                quote!{<#view_tuple>::query()}
+                quote! {<#view_tuple>::query()}
             };
 
             for command_buffer_index in 0..2 {
@@ -138,7 +137,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
                             let resource_access: Access<ResourceTypeId> = #resource_access;
                             let component_access: Access<ComponentTypeId> = #component_access;
-        
+
                             let run_fn = FuncSystemFnWrapper(
                                 move |_command_buffer,
                                     _world,
@@ -150,7 +149,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                                 },
                                 PhantomData,
                             );
-        
+
                             Box::new(FuncSystem {
                                 name: id,
                                 queries: AtomicRefCell::new(#query),
@@ -165,11 +164,11 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                                 run_fn: AtomicRefCell::new(run_fn),
                             })
                         }
-        
+
                         fn system_named(self, name: &'static str) -> Box<dyn Schedulable> {
                             self.system_id(name.into())
                         }
-        
+
                         fn system(self) -> Box<dyn Schedulable> {
                             self.system_id(std::any::type_name::<Self>().to_string().into())
                         }
@@ -206,7 +205,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
 
         let resource_access = if resource_count == 0 {
             quote! { Access::default() }
-        }else {
+        } else {
             quote! {{
                 let mut resource_access: Access<ResourceTypeId> = Access::default();
                 resource_access
@@ -229,7 +228,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
 
             let component_access = if query_count == 0 {
                 quote! { Access::default() }
-            }else {
+            } else {
                 quote! {{
                     let mut component_access: Access<ComponentTypeId> = Access::default();
                     component_access
@@ -245,17 +244,17 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
             for command_buffer_index in 0..2 {
                 let command_buffer = &command_buffer[0..command_buffer_index];
                 let command_buffer_var = &command_buffer_var[0..command_buffer_index];
-                
+
                 let view_tuple_avoid_type_collision = if query_count == 1 {
-                    quote!{(#(#view)*,)}
+                    quote! {(#(#view)*,)}
                 } else {
-                    quote!{(#(#view,)*)}
+                    quote! {(#(#view,)*)}
                 };
 
                 let filter_tuple_avoid_type_collision = if query_count == 1 {
-                    quote!{(#(#filter)*,)}
+                    quote! {(#(#filter)*,)}
                 } else {
-                    quote!{(#(#filter,)*)}
+                    quote! {(#(#filter,)*)}
                 };
 
                 tokens.extend(TokenStream::from(quote! {
@@ -283,7 +282,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                                 },
                                 PhantomData,
                             );
-        
+
                             Box::new(FuncSystem {
                                 name: id,
                                 queries: AtomicRefCell::new((#(<#view>::query()),*)),
@@ -298,11 +297,11 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                                 run_fn: AtomicRefCell::new(run_fn),
                             })
                         }
-        
+
                         fn system_named(self, name: &'static str) -> Box<dyn Schedulable> {
                             self.system_id(name.into())
                         }
-        
+
                         fn system(self) -> Box<dyn Schedulable> {
                             self.system_id(std::any::type_name::<Self>().to_string().into())
                         }

@@ -1,8 +1,8 @@
 use super::Texture;
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use std::path::Path;
 use glam::Vec2;
+use std::path::Path;
 
 #[derive(Clone, Default)]
 pub struct PngTextureLoader;

@@ -1,4 +1,7 @@
-use crate::{mesh::Mesh, Camera, Renderable, OrthographicProjection, PerspectiveProjection, base_render_graph, WindowOrigin};
+use crate::{
+    base_render_graph, mesh::Mesh, Camera, OrthographicProjection, PerspectiveProjection,
+    Renderable, WindowOrigin,
+};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
 use bevy_transform::components::{LocalToWorld, Rotation, Scale, Translation};
@@ -36,7 +39,6 @@ impl Default for PerspectiveCameraEntity {
             rotation: Default::default(),
         }
     }
-    
 }
 
 #[derive(EntityArchetype)]
@@ -79,5 +81,4 @@ impl Default for OrthographicCameraEntity {
             rotation: Default::default(),
         }
     }
-    
 }

@@ -1,7 +1,8 @@
 use crate::{Entity, Scene};
 use anyhow::Result;
 use bevy_property::{
-    property_serde::{DynamicPropertiesSerializer, DynamicPropertiesDeserializer}, DynamicProperties, PropertyTypeRegistry,
+    property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer},
+    DynamicProperties, PropertyTypeRegistry,
 };
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
@@ -16,10 +17,7 @@ pub struct SceneSerializer<'a> {
 
 impl<'a> SceneSerializer<'a> {
     pub fn new(scene: &'a Scene, registry: &'a PropertyTypeRegistry) -> Self {
-        SceneSerializer {
-            scene,
-            registry,
-        }
+        SceneSerializer { scene, registry }
     }
 }
 
@@ -51,14 +49,16 @@ impl<'a> Serialize for EntitySerializer<'a> {
     {
         let mut state = serializer.serialize_struct(ENTITY_STRUCT, 2)?;
         state.serialize_field(ENTITY_FIELD_ENTITY, &self.entity.entity)?;
-        state.serialize_field(ENTITY_FIELD_COMPONENTS, &ComponentsSerializer {
-            components: &self.entity.components,
-            registry: self.registry,
-        })?;
+        state.serialize_field(
+            ENTITY_FIELD_COMPONENTS,
+            &ComponentsSerializer {
+                components: &self.entity.components,
+                registry: self.registry,
+            },
+        )?;
         state.end()
     }
 }
-
 
 pub struct ComponentsSerializer<'a> {
     pub components: &'a [DynamicProperties],
@@ -72,12 +72,14 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
     {
         let mut state = serializer.serialize_seq(Some(self.components.len()))?;
         for dynamic_properties in self.components.iter() {
-            state.serialize_element(&DynamicPropertiesSerializer::new(dynamic_properties, self.registry))?;
+            state.serialize_element(&DynamicPropertiesSerializer::new(
+                dynamic_properties,
+                self.registry,
+            ))?;
         }
         state.end()
     }
 }
-
 
 pub struct SceneDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,

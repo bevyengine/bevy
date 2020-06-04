@@ -1,4 +1,4 @@
-use bevy_derive::{Uniform, Bytes};
+use bevy_derive::{Bytes, Uniform};
 use glam::Vec2;
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug, Uniform, Bytes)]

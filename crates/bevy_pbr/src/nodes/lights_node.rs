@@ -10,9 +10,9 @@ use crate::{
     light::{Light, LightRaw},
     uniform,
 };
+use bevy_core::bytes::{AsBytes, Byteable};
 use bevy_transform::prelude::*;
 use legion::prelude::*;
-use bevy_core::bytes::{Byteable, AsBytes};
 
 #[derive(Default)]
 pub struct LightsNode {

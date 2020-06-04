@@ -1,13 +1,13 @@
 use darling::FromMeta;
 use proc_macro::TokenStream;
-use syn::{DeriveInput, Path};
 use proc_macro_crate::crate_name;
+use syn::{DeriveInput, Path};
 
 #[derive(FromMeta, Debug, Default)]
 pub struct ModuleAttributeArgs {
     pub bevy_property: Option<String>,
     /// If true, it will use the meta "bevy" crate for dependencies by default (ex: bevy:app). If this is set to false, the individual bevy crates
-    /// will be used (ex: "bevy_app"). Defaults to "true" if the "bevy" crate is in your cargo.toml 
+    /// will be used (ex: "bevy_app"). Defaults to "true" if the "bevy" crate is in your cargo.toml
     #[darling(default)]
     pub meta: Option<bool>,
 }

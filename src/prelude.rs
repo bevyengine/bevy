@@ -33,7 +33,10 @@ pub use crate::render::{
 #[cfg(feature = "scene")]
 pub use crate::scene::{Scene, SceneSpawner};
 #[cfg(feature = "sprite")]
-pub use crate::sprite::{ColorMaterial, Quad, Sprite, entity::{SpriteEntity, SpriteSheetEntity}, SpriteSheet, SpriteSheetSprite};
+pub use crate::sprite::{
+    entity::{SpriteEntity, SpriteSheetEntity},
+    ColorMaterial, Quad, Sprite, SpriteSheet, SpriteSheetSprite,
+};
 #[cfg(feature = "text")]
 pub use crate::text::Font;
 #[cfg(feature = "transform")]

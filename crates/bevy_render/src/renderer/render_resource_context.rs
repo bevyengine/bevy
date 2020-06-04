@@ -61,10 +61,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         handle: HandleUntyped,
         index: usize,
     ) -> Option<RenderResource>;
-    fn remove_asset_resource_untyped(
-        &self,
-        handle: HandleUntyped,
-        index: usize);
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize);
     fn create_render_pipeline(
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,

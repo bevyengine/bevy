@@ -132,35 +132,47 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation
                     a.for_each_unchecked(world, |(mut ltw, translation)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_translation(translation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Rotation
                     b.for_each_unchecked(world, |(mut ltw, rotation)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_quat(rotation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Scale
                     c.for_each_unchecked(world, |(mut ltw, scale)| {
-                        if !ltw.sync { return; }
-                        *ltw = LocalToWorld::new(Mat4::from_scale(Vec3::new(scale.0, scale.0, scale.0)));
+                        if !ltw.sync {
+                            return;
+                        }
+                        *ltw = LocalToWorld::new(Mat4::from_scale(Vec3::new(
+                            scale.0, scale.0, scale.0,
+                        )));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // NonUniformScale
                     d.for_each_unchecked(world, |(mut ltw, non_uniform_scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale(non_uniform_scale.0));
                     });
                 });
                 s.spawn(|_| unsafe {
                     // Translation + Rotation
                     e.for_each_unchecked(world, |(mut ltw, translation, rotation)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_rotation_translation(
                             rotation.0,
                             translation.0,
@@ -170,7 +182,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation + Scale
                     f.for_each_unchecked(world, |(mut ltw, translation, scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             Quat::default(),
@@ -181,7 +195,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation + NonUniformScale
                     g.for_each_unchecked(world, |(mut ltw, translation, non_uniform_scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                             non_uniform_scale.0,
                             Quat::default(),
@@ -192,7 +208,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Rotation + Scale
                     h.for_each_unchecked(world, |(mut ltw, rotation, scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             rotation.0,
@@ -203,7 +221,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Rotation + NonUniformScale
                     i.for_each_unchecked(world, |(mut ltw, rotation, non_uniform_scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                             non_uniform_scale.0,
                             rotation.0,
@@ -214,7 +234,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 s.spawn(|_| unsafe {
                     // Translation + Rotation + Scale
                     j.for_each_unchecked(world, |(mut ltw, translation, rotation, scale)| {
-                        if !ltw.sync { return; }
+                        if !ltw.sync {
+                            return;
+                        }
                         *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             rotation.0,
@@ -227,7 +249,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                     k.for_each_unchecked(
                         world,
                         |(mut ltw, translation, rotation, non_uniform_scale)| {
-                            if !ltw.sync { return; }
+                            if !ltw.sync {
+                                return;
+                            }
                             *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
                                 non_uniform_scale.0,
                                 rotation.0,

@@ -3,16 +3,16 @@ pub mod time;
 pub mod transform;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_type_registry::RegisterType;
 use bevy_transform::{
     components::{
         Children, LocalToParent, LocalToWorld, NonUniformScale, Rotation, Scale, Translation,
     },
     transform_system_bundle,
 };
+use bevy_type_registry::RegisterType;
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 use legion::prelude::IntoSystem;
-use time::{time_system, Time, Timer, timer_system};
+use time::{time_system, timer_system, Time, Timer};
 
 #[derive(Default)]
 pub struct CorePlugin;

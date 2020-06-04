@@ -1,6 +1,9 @@
-use crate::{property_serde::{DynamicPropertiesSerializer, Serializable, DynamicPropertiesDeserializer}, Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry, DeserializeProperty};
-use std::{any::Any, borrow::Cow, collections::HashMap};
+use crate::{
+    property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer, Serializable},
+    DeserializeProperty, Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry,
+};
 use serde::de::DeserializeSeed;
+use std::{any::Any, borrow::Cow, collections::HashMap};
 
 pub struct DynamicProperties {
     pub type_name: String,
@@ -183,9 +186,10 @@ impl DeserializeProperty for DynamicProperties {
         deserializer: &mut dyn erased_serde::Deserializer,
         property_type_registry: &PropertyTypeRegistry,
     ) -> Result<Box<dyn Property>, erased_serde::Error> {
-        let dynamic_properties_deserializer = DynamicPropertiesDeserializer::new(property_type_registry);
-        let dynamic_properties: DynamicProperties = dynamic_properties_deserializer.deserialize(deserializer)?;
+        let dynamic_properties_deserializer =
+            DynamicPropertiesDeserializer::new(property_type_registry);
+        let dynamic_properties: DynamicProperties =
+            dynamic_properties_deserializer.deserialize(deserializer)?;
         Ok(Box::new(dynamic_properties))
     }
-    
 }

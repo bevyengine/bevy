@@ -84,7 +84,9 @@ fn load_scene_right_now_system(world: &mut World, resources: &mut Resources) {
             .unwrap()
     };
     let mut scene_spawner = resources.get_mut::<SceneSpawner>().unwrap();
-    scene_spawner.load_sync(world, resources, scene_handle).unwrap();
+    scene_spawner
+        .load_sync(world, resources, scene_handle)
+        .unwrap();
 }
 
 // This system prints all ComponentA components in our world. Try making a change to a ComponentA in load_scene_example.scn.

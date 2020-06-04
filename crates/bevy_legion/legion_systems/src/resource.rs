@@ -1,7 +1,7 @@
 use downcast_rs::{impl_downcast, Downcast};
 use fxhash::FxHashMap;
-use legion_core::downcast_typename::DowncastTypename;
 use legion_core::borrow::{AtomicRefCell, Ref, RefMut};
+use legion_core::downcast_typename::DowncastTypename;
 use legion_core::query::{Read, ReadOnly, Write};
 use std::{
     any::{type_name, Any},

@@ -47,8 +47,8 @@ use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
 use render_resource::EntitiesWaitingForAssets;
-use texture::{PngTextureLoader, TextureResourceSystemState};
 use std::ops::Range;
+use texture::{PngTextureLoader, TextureResourceSystemState};
 
 pub mod stage {
     pub static RENDER_RESOURCE: &str = "render_resource";
@@ -92,8 +92,14 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<EntitiesWaitingForAssets>()
             .init_resource::<TextureResourceSystemState>()
             .add_system(entity_render_resource_assignments_system())
-            .init_system_to_stage(bevy_app::stage::POST_UPDATE, camera::camera_system::<OrthographicProjection>)
-            .init_system_to_stage(bevy_app::stage::POST_UPDATE, camera::camera_system::<PerspectiveProjection>)
+            .init_system_to_stage(
+                bevy_app::stage::POST_UPDATE,
+                camera::camera_system::<OrthographicProjection>,
+            )
+            .init_system_to_stage(
+                bevy_app::stage::POST_UPDATE,
+                camera::camera_system::<PerspectiveProjection>,
+            )
             .add_system_to_stage(
                 bevy_app::stage::PRE_UPDATE,
                 EntitiesWaitingForAssets::clear_system.system(),
