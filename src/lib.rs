@@ -47,39 +47,23 @@ pub use bevy_app as app;
 pub use glam as math;
 pub use legion;
 
-#[cfg(feature = "asset")]
 pub use bevy_asset as asset;
-#[cfg(feature = "core")]
 pub use bevy_core as core;
-#[cfg(feature = "derive")]
 pub use bevy_derive as derive;
-#[cfg(feature = "diagnostic")]
 pub use bevy_diagnostic as diagnostic;
-#[cfg(feature = "gltf")]
 pub use bevy_gltf as gltf;
-#[cfg(feature = "input")]
 pub use bevy_input as input;
-#[cfg(feature = "pbr")]
 pub use bevy_pbr as pbr;
-#[cfg(feature = "property")]
 pub use bevy_property as property;
-#[cfg(feature = "render")]
 pub use bevy_render as render;
-#[cfg(feature = "scene")]
 pub use bevy_scene as scene;
-#[cfg(feature = "sprite")]
 pub use bevy_sprite as sprite;
-#[cfg(feature = "text")]
 pub use bevy_text as text;
-#[cfg(feature = "transform")]
 pub use bevy_transform as transform;
-#[cfg(feature = "type_registry")]
 pub use bevy_type_registry as type_registry;
-#[cfg(feature = "ui")]
 pub use bevy_ui as ui;
-#[cfg(feature = "wgpu")]
-pub use bevy_wgpu as wgpu;
-#[cfg(feature = "window")]
 pub use bevy_window as window;
-#[cfg(feature = "winit")]
+#[cfg(feature = "bevy_wgpu")]
+pub use bevy_wgpu as wgpu;
+#[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;

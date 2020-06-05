@@ -5,26 +5,7 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [features]
-default = ["headless", "wgpu", "winit"]
-headless = ["asset", "type_registry", "core", "derive", "diagnostic", "gltf", "input", "pbr", "property", "render", "scene", "sprite", "text", "transform", "ui", "window"]
-asset = ["bevy_asset"]
-core = ["bevy_core"]
-type_registry = ["bevy_type_registry"]
-derive = ["bevy_derive"]
-diagnostic = ["bevy_diagnostic"]
-gltf = ["bevy_gltf"]
-input = ["bevy_input"]
-pbr = ["bevy_pbr"]
-property = ["bevy_property"]
-render = ["bevy_render"]
-scene = ["bevy_scene"]
-sprite = ["bevy_sprite"]
-text = ["bevy_text"]
-transform = ["bevy_transform"]
-ui = ["bevy_ui"]
-window = ["bevy_window"]
-wgpu = ["bevy_wgpu"]
-winit = ["bevy_winit"]
+default = ["bevy_wgpu", "bevy_winit"]
 more-system-fns = ["legion/more-system-fns"]
 
 [workspace]
@@ -40,22 +21,22 @@ exclude = [
 [dependencies]
 # bevy
 bevy_app = { path = "crates/bevy_app" }
-bevy_asset = { path = "crates/bevy_asset", optional = true }
-bevy_type_registry = { path = "crates/bevy_type_registry", optional = true }
-bevy_core = { path = "crates/bevy_core", optional = true }
-bevy_derive = { path = "crates/bevy_derive", optional = true }
-bevy_diagnostic = { path = "crates/bevy_diagnostic", optional = true }
-bevy_gltf = { path = "crates/bevy_gltf", optional = true }
-bevy_input = { path = "crates/bevy_input", optional = true }
-bevy_pbr = { path = "crates/bevy_pbr", optional = true }
-bevy_property = { path = "crates/bevy_property", optional = true }
-bevy_render = { path = "crates/bevy_render", optional = true }
-bevy_scene = { path = "crates/bevy_scene", optional = true }
-bevy_sprite = { path = "crates/bevy_sprite", optional = true }
-bevy_transform = { path = "crates/bevy_transform", optional = true }
-bevy_text = { path = "crates/bevy_text", optional = true }
-bevy_ui = { path = "crates/bevy_ui", optional = true }
-bevy_window = { path = "crates/bevy_window", optional = true }
+bevy_asset = { path = "crates/bevy_asset" }
+bevy_type_registry = { path = "crates/bevy_type_registry" }
+bevy_core = { path = "crates/bevy_core" }
+bevy_derive = { path = "crates/bevy_derive" }
+bevy_diagnostic = { path = "crates/bevy_diagnostic" }
+bevy_gltf = { path = "crates/bevy_gltf" }
+bevy_input = { path = "crates/bevy_input" }
+bevy_pbr = { path = "crates/bevy_pbr" }
+bevy_property = { path = "crates/bevy_property" }
+bevy_render = { path = "crates/bevy_render" }
+bevy_scene = { path = "crates/bevy_scene" }
+bevy_sprite = { path = "crates/bevy_sprite" }
+bevy_transform = { path = "crates/bevy_transform" }
+bevy_text = { path = "crates/bevy_text" }
+bevy_ui = { path = "crates/bevy_ui" }
+bevy_window = { path = "crates/bevy_window" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
 legion = { path = "crates/bevy_legion" }

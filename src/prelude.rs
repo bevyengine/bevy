@@ -1,60 +1,45 @@
-#[cfg(feature = "asset")]
-pub use crate::asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
-#[cfg(feature = "core")]
-pub use crate::core::{
-    time::{Time, Timer},
-    transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource},
-};
-#[cfg(feature = "derive")]
-pub use crate::derive::*;
-#[cfg(feature = "diagnostic")]
-pub use crate::diagnostic::DiagnosticsPlugin;
-#[cfg(feature = "input")]
-pub use crate::input::{Input, mouse::MouseButton, keyboard::KeyCode};
-#[cfg(feature = "pbr")]
-pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
-#[cfg(feature = "property")]
-pub use crate::property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal};
-#[cfg(feature = "render")]
-pub use crate::render::{
-    draw_target,
-    entity::*,
-    mesh::{shape, Mesh},
-    pipeline::PipelineDescriptor,
-    render_graph::{
-        nodes::{
-            AssetUniformNode, CameraNode, PassNode, UniformNode, WindowSwapChainNode,
-            WindowTextureNode,
-        },
-        RenderGraph,
-    },
-    shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
-    texture::{Texture, TextureType},
-    Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
-};
-#[cfg(feature = "scene")]
-pub use crate::scene::{Scene, SceneSpawner};
-#[cfg(feature = "sprite")]
-pub use crate::sprite::{
-    entity::{SpriteEntity, SpriteSheetEntity},
-    ColorMaterial, Quad, Sprite, SpriteSheet, SpriteSheetSprite,
-};
-#[cfg(feature = "text")]
-pub use crate::text::Font;
-#[cfg(feature = "transform")]
-pub use crate::transform::prelude::*;
-#[cfg(feature = "type_registry")]
-pub use crate::type_registry::RegisterType;
-#[cfg(feature = "ui")]
-pub use crate::ui::{entity::*, widget::Label, Anchors, Margins, Node};
-#[cfg(feature = "window")]
-pub use crate::window::{Window, WindowDescriptor, WindowPlugin, Windows};
 pub use crate::{
     app::{
         schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
         EventReader, Events, FromResources, System,
     },
+    asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
+    core::{
+        time::{Time, Timer},
+        transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource},
+    },
+    derive::*,
+    diagnostic::DiagnosticsPlugin,
+    input::{keyboard::KeyCode, mouse::MouseButton, Input},
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
+    pbr::{entity::*, light::Light, material::StandardMaterial},
+    property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal},
+    render::{
+        draw_target,
+        entity::*,
+        mesh::{shape, Mesh},
+        pipeline::PipelineDescriptor,
+        render_graph::{
+            nodes::{
+                AssetUniformNode, CameraNode, PassNode, UniformNode, WindowSwapChainNode,
+                WindowTextureNode,
+            },
+            RenderGraph,
+        },
+        shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
+        texture::{Texture, TextureType},
+        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
+    },
+    scene::{Scene, SceneSpawner},
+    sprite::{
+        entity::{SpriteEntity, SpriteSheetEntity},
+        ColorMaterial, Quad, Sprite, SpriteSheet, SpriteSheetSprite,
+    },
+    text::Font,
+    transform::prelude::*,
+    type_registry::RegisterType,
+    ui::{entity::*, widget::Label, Anchors, Margins, Node},
+    window::{Window, WindowDescriptor, WindowPlugin, Windows},
     AddDefaultPlugins,
 };
 pub use legion::{
