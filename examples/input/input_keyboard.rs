@@ -13,17 +13,17 @@ fn main() {
 fn move_on_input(
     world: &mut SubWorld,
     time: Res<Time>,
-    input: Res<Input>,
+    keyboard_input: Res<Input<KeyCode>>,
     query: &mut Query<(Write<Translation>, Read<Handle<Mesh>>)>,
 ) {
-    let moving_left = input.key_pressed(KeyCode::Left);
-    let moving_right = input.key_pressed(KeyCode::Right);
+    let moving_left = keyboard_input.pressed(KeyCode::Left);
+    let moving_right = keyboard_input.pressed(KeyCode::Right);
 
-    if input.key_just_pressed(KeyCode::Left) {
+    if keyboard_input.just_pressed(KeyCode::Left) {
         println!("left just pressed");
     }
 
-    if input.key_just_released(KeyCode::Left) {
+    if keyboard_input.just_released(KeyCode::Left) {
         println!("left just released");
     }
 

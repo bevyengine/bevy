@@ -1,3 +1,7 @@
+use bevy_app::{Events, EventReader};
+use legion::prelude::{Res, ResMut};
+use crate::Input;
+
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {
     pub scan_code: u32,
@@ -16,6 +20,35 @@ impl ElementState {
         match self {
             ElementState::Pressed => true,
             _ => false,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct KeyboardInputState {
+    keyboard_input_event_reader: EventReader<KeyboardInput>,
+}
+
+pub fn keyboard_input_system(
+    mut state: ResMut<KeyboardInputState>,
+    mut keyboard_input: ResMut<Input<KeyCode>>,
+    keyboard_input_events: Res<Events<KeyboardInput>>,
+) {
+    keyboard_input.update();
+    for event in state
+        .keyboard_input_event_reader
+        .iter(&keyboard_input_events)
+    {
+        if let KeyboardInput {
+            key_code: Some(key_code),
+            state,
+            ..
+        } = event
+        {
+            match state {
+                ElementState::Pressed => keyboard_input.press(*key_code),
+                ElementState::Released => keyboard_input.release(*key_code),
+            }
         }
     }
 }

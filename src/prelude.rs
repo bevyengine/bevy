@@ -9,6 +9,8 @@ pub use crate::core::{
 pub use crate::derive::*;
 #[cfg(feature = "diagnostic")]
 pub use crate::diagnostic::DiagnosticsPlugin;
+#[cfg(feature = "input")]
+pub use crate::input::{Input, mouse::MouseButton, keyboard::KeyCode};
 #[cfg(feature = "pbr")]
 pub use crate::pbr::{entity::*, light::Light, material::StandardMaterial};
 #[cfg(feature = "property")]
