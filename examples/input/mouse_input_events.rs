@@ -8,19 +8,8 @@ fn main() {
     App::build()
         .add_default_plugins()
         .init_resource::<State>()
-        .add_system(mouse_click_system.system())
-        .add_system(mouse_input_event_system.system())
+        .add_system(print_mouse_events_system.system())
         .run();
-}
-
-fn mouse_click_system(mouse_button_input: Res<Input<MouseButton>>) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        println!("left mouse clicked");
-    }
-
-    if mouse_button_input.just_released(MouseButton::Left) {
-        println!("left mouse released");
-    }
 }
 
 #[derive(Default)]
@@ -30,8 +19,8 @@ struct State {
     cursor_moved_event_reader: EventReader<CursorMoved>,
 }
 
-/// prints out all mouse events as they come in
-fn mouse_input_event_system(
+/// This system prints out all mouse events as they come in
+fn print_mouse_events_system(
     mut state: ResMut<State>,
     mouse_button_input_events: Res<Events<MouseButtonInput>>,
     mouse_motion_events: Res<Events<MouseMotion>>,

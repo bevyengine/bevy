@@ -152,12 +152,20 @@ name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
-name = "input_mouse"
-path = "examples/input/input_mouse.rs"
+name = "mouse_input"
+path = "examples/input/mouse_input.rs"
 
 [[example]]
-name = "input_keyboard"
-path = "examples/input/input_keyboard.rs"
+name = "mouse_input_events"
+path = "examples/input/mouse_input_events.rs"
+
+[[example]]
+name = "keyboard_input"
+path = "examples/input/keyboard_input.rs"
+
+[[example]]
+name = "keyboard_input_events"
+path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
 name = "load_scene"

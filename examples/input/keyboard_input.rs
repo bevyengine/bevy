@@ -1,5 +1,7 @@
-use bevy::{input::keyboard::KeyCode, prelude::*};
-use bevy_input::Input;
+use bevy::{
+    input::{keyboard::KeyCode, Input},
+    prelude::*,
+};
 
 fn main() {
     App::build()
@@ -9,7 +11,7 @@ fn main() {
         .run();
 }
 
-/// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
+/// This system moves our cube left when the "left" key is pressed and moves it right when the "right" key is pressed
 fn move_on_input(
     world: &mut SubWorld,
     time: Res<Time>,
@@ -39,7 +41,7 @@ fn move_on_input(
     }
 }
 
-/// creates a simple scene
+/// Creates a simple scene containing the cube we will be controlling
 fn setup(
     command_buffer: &mut CommandBuffer,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -68,7 +70,7 @@ fn setup(
         // camera
         .add_entity(PerspectiveCameraEntity {
             local_to_world: LocalToWorld::new_sync_disabled(Mat4::look_at_rh(
-                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(0.0, 8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
             )),
