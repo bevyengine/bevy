@@ -27,14 +27,14 @@ fn move_on_input(
         println!("left just released");
     }
 
-    const SPEED: f32 = 3.0;
+    let speed = 3.0;
     for (mut translation, _) in query.iter_mut(world) {
         if moving_left {
-            translation.0 += math::vec3(SPEED, 0.0, 0.0) * time.delta_seconds;
+            translation.0 += math::vec3(speed, 0.0, 0.0) * time.delta_seconds;
         }
 
         if moving_right {
-            translation.0 += math::vec3(-SPEED, 0.0, 0.0) * time.delta_seconds;
+            translation.0 += math::vec3(-speed, 0.0, 0.0) * time.delta_seconds;
         }
     }
 }
