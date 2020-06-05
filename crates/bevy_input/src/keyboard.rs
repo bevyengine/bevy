@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {
     pub scan_code: u32,
-    pub virtual_key_code: Option<VirtualKeyCode>,
+    pub key_code: Option<KeyCode>,
     pub state: ElementState,
 }
 
@@ -22,7 +22,7 @@ impl ElementState {
 
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
-pub enum VirtualKeyCode {
+pub enum KeyCode {
     /// The '1' key over the letters.
     Key1,
     /// The '2' key over the letters.

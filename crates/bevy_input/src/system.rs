@@ -1,4 +1,4 @@
-use crate::keyboard::{ElementState, KeyboardInput, VirtualKeyCode};
+use crate::keyboard::{ElementState, KeyboardInput, KeyCode};
 use bevy_app::{AppExit, EventReader, Events};
 use legion::prelude::*;
 
@@ -7,9 +7,9 @@ pub fn exit_on_esc_system(_resources: &mut Resources) -> Box<dyn Schedulable> {
     (move |keyboard_input_events: Res<Events<KeyboardInput>>,
            mut app_exit_events: ResMut<Events<AppExit>>| {
         for event in keyboard_input_event_reader.iter(&keyboard_input_events) {
-            if let Some(virtual_key_code) = event.virtual_key_code {
+            if let Some(key_code) = event.key_code {
                 if event.state == ElementState::Pressed
-                    && virtual_key_code == VirtualKeyCode::Escape
+                    && key_code == KeyCode::Escape
                 {
                     app_exit_events.send(AppExit);
                 }

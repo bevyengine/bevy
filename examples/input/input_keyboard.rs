@@ -1,54 +1,40 @@
-use bevy::{
-    input::keyboard::{KeyboardInput, VirtualKeyCode},
-    prelude::*,
-};
+use bevy::{input::keyboard::KeyCode, prelude::*};
+use bevy_input::Input;
 
 fn main() {
     App::build()
         .add_default_plugins()
-        .init_resource::<State>()
         .add_startup_system(setup.system())
         .add_system(move_on_input.system())
         .run();
 }
 
-#[derive(Default)]
-struct State {
-    event_reader: EventReader<KeyboardInput>,
-}
-
 /// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
 fn move_on_input(
     world: &mut SubWorld,
-    mut state: ResMut<State>,
     time: Res<Time>,
-    keyboard_input_events: Res<Events<KeyboardInput>>,
+    input: Res<Input>,
     query: &mut Query<(Write<Translation>, Read<Handle<Mesh>>)>,
 ) {
-    let mut moving_left = false;
-    let mut moving_right = false;
-    for event in state.event_reader.iter(&keyboard_input_events) {
-        if let KeyboardInput {
-            virtual_key_code: Some(key_code),
-            state,
-            ..
-        } = event
-        {
-            if *key_code == VirtualKeyCode::Left {
-                moving_left = state.is_pressed();
-            } else if *key_code == VirtualKeyCode::Right {
-                moving_right = state.is_pressed();
-            }
-        }
+    let moving_left = input.key_pressed(KeyCode::Left);
+    let moving_right = input.key_pressed(KeyCode::Right);
+
+    if input.key_just_pressed(KeyCode::Left) {
+        println!("left just pressed");
     }
 
+    if input.key_just_released(KeyCode::Left) {
+        println!("left just released");
+    }
+
+    const SPEED: f32 = 3.0;
     for (mut translation, _) in query.iter_mut(world) {
         if moving_left {
-            translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+            translation.0 += math::vec3(SPEED, 0.0, 0.0) * time.delta_seconds;
         }
 
         if moving_right {
-            translation.0 += math::vec3(-1.0, 0.0, 0.0) * time.delta_seconds;
+            translation.0 += math::vec3(-SPEED, 0.0, 0.0) * time.delta_seconds;
         }
     }
 }
