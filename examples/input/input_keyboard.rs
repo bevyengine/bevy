@@ -8,7 +8,6 @@ fn main() {
         .add_default_plugins()
         .init_resource::<State>()
         .add_startup_system(setup.system())
-        .add_system(collect_input.system())
         .add_system(move_on_input.system())
         .run();
 }
@@ -16,46 +15,41 @@ fn main() {
 #[derive(Default)]
 struct State {
     event_reader: EventReader<KeyboardInput>,
-    moving_right: bool,
-    moving_left: bool,
-}
-
-/// adjusts move state based on keyboard input
-fn collect_input(mut state: ResMut<State>, keyboard_input_events: Res<Events<KeyboardInput>>) {
-    for event in state.event_reader.iter(&keyboard_input_events) {
-        match event {
-            KeyboardInput {
-                virtual_key_code: Some(VirtualKeyCode::Left),
-                state: element_state,
-                ..
-            } => {
-                state.moving_left = element_state.is_pressed();
-            }
-            KeyboardInput {
-                virtual_key_code: Some(VirtualKeyCode::Right),
-                state: element_state,
-                ..
-            } => {
-                state.moving_right = element_state.is_pressed();
-            }
-            _ => {}
-        }
-    }
 }
 
 /// moves our cube left when the "left" key is pressed. moves it right when the "right" key is pressed
 fn move_on_input(
-    state: Res<State>,
+    world: &mut SubWorld,
+    mut state: ResMut<State>,
     time: Res<Time>,
-    mut translation: ComMut<Translation>,
-    _: Com<Handle<Mesh>>,
+    keyboard_input_events: Res<Events<KeyboardInput>>,
+    query: &mut Query<(Write<Translation>, Read<Handle<Mesh>>)>,
 ) {
-    if state.moving_left {
-        translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+    let mut moving_left = false;
+    let mut moving_right = false;
+    for event in state.event_reader.iter(&keyboard_input_events) {
+        if let KeyboardInput {
+            virtual_key_code: Some(key_code),
+            state,
+            ..
+        } = event
+        {
+            if *key_code == VirtualKeyCode::Left {
+                moving_left = state.is_pressed();
+            } else if *key_code == VirtualKeyCode::Right {
+                moving_right = state.is_pressed();
+            }
+        }
     }
 
-    if state.moving_right {
-        translation.0 += math::vec3(-1.0, 0.0, 0.0) * time.delta_seconds;
+    for (mut translation, _) in query.iter_mut(world) {
+        if moving_left {
+            translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+        }
+
+        if moving_right {
+            translation.0 += math::vec3(-1.0, 0.0, 0.0) * time.delta_seconds;
+        }
     }
 }
 
