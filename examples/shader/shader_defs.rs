@@ -19,6 +19,35 @@ struct MyMaterial {
     pub always_red: bool,
 }
 
+const VERTEX_SHADER: &str = r#"
+#version 450
+layout(location = 0) in vec3 Vertex_Position;
+layout(set = 0, binding = 0) uniform Camera {
+    mat4 ViewProj;
+};
+layout(set = 1, binding = 0) uniform Object {
+    mat4 Model;
+};
+void main() {
+    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
+}
+"#;
+
+const FRAGMENT_SHADER: &str = r#"
+#version 450
+layout(location = 0) out vec4 o_Target;
+layout(set = 1, binding = 1) uniform MyMaterial_color {
+    vec4 color;
+};
+void main() {
+    o_Target = color;
+
+# ifdef MYMATERIAL_ALWAYS_RED
+    o_Target = vec4(0.8, 0.0, 0.0, 1.0);
+# endif
+}
+"#;
+
 fn setup(
     command_buffer: &mut CommandBuffer,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
@@ -30,39 +59,8 @@ fn setup(
     // create new shader pipeline and add to main pass in Render Graph
     let pipeline_handle = {
         let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-            vertex: shaders.add(Shader::from_glsl(
-                ShaderStage::Vertex,
-                r#"
-                #version 450
-                layout(location = 0) in vec3 Vertex_Position;
-                layout(set = 0, binding = 0) uniform Camera {
-                    mat4 ViewProj;
-                };
-                layout(set = 1, binding = 0) uniform Object {
-                    mat4 Model;
-                };
-                void main() {
-                    gl_Position = ViewProj * Model * vec4(Vertex_Position, 1.0);
-                }
-                "#,
-            )),
-            fragment: Some(shaders.add(Shader::from_glsl(
-                ShaderStage::Fragment,
-                r#"
-                #version 450
-                layout(location = 0) out vec4 o_Target;
-                layout(set = 1, binding = 1) uniform MyMaterial_color {
-                    vec4 color;
-                };
-                void main() {
-                    o_Target = color;
-
-                # ifdef MYMATERIAL_ALWAYS_RED
-                    o_Target = vec4(0.8, 0.0, 0.0, 1.0);
-                # endif
-                }
-                "#,
-            ))),
+            vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
+            fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
         }));
         render_graph.add_system_node("my_material", AssetUniformNode::<MyMaterial>::new(true));
         let main_pass: &mut PassNode = render_graph.get_node_mut("main_pass").unwrap();
