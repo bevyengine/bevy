@@ -17,10 +17,6 @@ fn setup(
         .build()
         .add_entity(OrthographicCameraEntity::default())
         .add_entity(SpriteEntity {
-            quad: Quad {
-                z_index: 0.5,
-                ..Default::default()
-            },
             material: materials.add(texture_handle.into()),
             ..Default::default()
         });

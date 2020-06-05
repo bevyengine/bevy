@@ -20,7 +20,7 @@ pub fn ui_update_system() -> Box<dyn Schedulable> {
                 let mut window_quad = Quad {
                     size: Vec2::new(window.width as f32, window.height as f32),
                     position: Vec2::new(0.0, 0.0),
-                    z_index: 0.9999,
+                    z_index: 0.0,
                 };
                 for entity in node_query
                     .iter_entities(world)
@@ -57,7 +57,7 @@ fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_quad: Quad) -
                 return Some(Quad {
                     size: quad.size,
                     position: quad.position - quad.size / 2.0,
-                    z_index: quad.z_index - UI_Z_STEP,
+                    z_index: quad.z_index + UI_Z_STEP,
                 });
             }
         }
@@ -69,6 +69,6 @@ fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_quad: Quad) -
 fn process_child_result(_parent_result: Quad, child_result: Quad) -> Quad {
     // "earlier" children are sorted behind "later" children
     let mut result = child_result.clone();
-    result.z_index -= UI_Z_STEP;
+    result.z_index += UI_Z_STEP;
     result
 }

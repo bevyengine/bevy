@@ -42,7 +42,7 @@ fn setup(
             sprite: SpriteSheetSprite {
                 index: 0,
                 scale: 6.0,
-                position: Vec3::new(0.0, 0.0, -0.5),
+                position: Vec3::new(0.0, 0.0, 0.0),
             },
             ..Default::default()
         })

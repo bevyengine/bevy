@@ -19,6 +19,6 @@ layout(set = 1, binding = 0) uniform Quad {
 void main() {
     v_Uv = Vertex_Uv;
     vec3 position = Vertex_Position * vec3(Quad_Size, 0.0);
-    position = position + vec3(Quad_Position, -Quad_ZIndex);
+    position = position + vec3(Quad_Position, Quad_ZIndex);
     gl_Position = ViewProj * vec4(position, 1.0);
 }

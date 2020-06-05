@@ -55,7 +55,7 @@ pub struct OrthographicProjection {
 
 impl CameraProjection for OrthographicProjection {
     fn get_view_matrix(&self) -> Mat4 {
-        let projection = Mat4::orthographic_rh_gl(
+        let projection = Mat4::orthographic_rh(
             self.left,
             self.right,
             self.bottom,
@@ -92,8 +92,8 @@ impl Default for OrthographicProjection {
             right: 0.0,
             bottom: 0.0,
             top: 0.0,
-            near: 0.0,
-            far: 1.0,
+            near: -1.0,
+            far: 0.1,
             window_origin: WindowOrigin::Center,
         }
     }
