@@ -12,18 +12,37 @@ use std::collections::HashSet;
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
 
+#[derive(Default)]
 pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,
 }
+
+const FORMAT_SIZE: usize = 4; // TODO: get this from an actual format type
 
 impl Texture {
     pub fn new(data: Vec<u8>, size: Vec2) -> Self {
         Self { data, size }
     }
 
+    pub fn new_fill(size: Vec2, pixel: &[u8]) -> Self {
+        let mut value = Self::default();
+        value.resize(size);
+        for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
+            current_pixel.copy_from_slice(&pixel);
+        }
+        value
+    }
+
     pub fn aspect(&self) -> f32 {
         self.size.y() / self.size.x()
+    }
+
+    pub fn resize(&mut self, size: Vec2) {
+        self.size = size;
+        let width = size.x() as usize;
+        let height = size.y() as usize;
+        self.data.resize(width * height * FORMAT_SIZE, 0);
     }
 
     pub fn texture_resource_system(
