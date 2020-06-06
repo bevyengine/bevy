@@ -24,13 +24,13 @@ fn setup(
     //     ..Default::default()
     // });
 
-    let texture = Texture::load(TextureType::Png(
-        "assets/branding/bevy_logo_dark_big.png".to_string(),
-    ));
+    let texture_handle = asset_server
+        .load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png")
+        .unwrap();
 
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
+    let texture = textures.get(&texture_handle).unwrap();
     let aspect = texture.aspect();
-    let texture_handle = textures.add(texture);
 
     let blue_material_handle = materials.add(Color::rgb(0.6, 0.6, 1.0).into());
 

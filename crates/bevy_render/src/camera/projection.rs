@@ -36,6 +36,7 @@ impl Default for PerspectiveProjection {
     }
 }
 
+// TODO: make this a component instead of a property
 #[derive(Debug, Clone, Property, Serialize, Deserialize)]
 pub enum WindowOrigin {
     Center,

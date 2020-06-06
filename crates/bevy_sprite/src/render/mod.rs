@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Quad, SpriteSheet, SpriteSheetSprite};
+use crate::{ColorMaterial, Quad, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
@@ -135,12 +135,12 @@ impl SpriteRenderGraphBuilder for RenderGraph {
 
         self.add_system_node(
             node::SPRITE_SHEET,
-            AssetUniformNode::<SpriteSheet>::new(false),
+            AssetUniformNode::<TextureAtlas>::new(false),
         );
 
         self.add_system_node(
             node::SPRITE_SHEET_SPRITE,
-            UniformNode::<SpriteSheetSprite>::new(true),
+            UniformNode::<TextureAtlasSprite>::new(true),
         );
 
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();

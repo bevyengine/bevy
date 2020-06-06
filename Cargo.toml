@@ -65,6 +65,10 @@ name = "sprite_sheet"
 path = "examples/2d/sprite_sheet.rs"
 
 [[example]]
+name = "texture_atlas"
+path = "examples/2d/texture_atlas.rs"
+
+[[example]]
 name = "load_model"
 path = "examples/3d/load_model.rs"
 

@@ -46,6 +46,7 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
+// TODO: this should return a scene
 pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh, GltfError> {
     let gltf = gltf::Gltf::from_slice(&bytes)?;
     let buffer_data = load_buffers(gltf.buffers(), asset_path)?;

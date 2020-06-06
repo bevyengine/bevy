@@ -91,7 +91,10 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<EntityRenderResourceAssignments>()
             .init_resource::<EntitiesWaitingForAssets>()
             .init_resource::<TextureResourceSystemState>()
-            .add_system(entity_render_resource_assignments_system())
+            .add_system_to_stage(
+                bevy_app::stage::POST_UPDATE,
+                entity_render_resource_assignments_system(),
+            )
             .init_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::camera_system::<OrthographicProjection>,

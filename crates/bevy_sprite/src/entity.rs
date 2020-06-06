@@ -1,6 +1,6 @@
 use crate::{
-    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, SpriteSheet,
-    SpriteSheetSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
+    render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, TextureAtlas,
+    TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
@@ -32,8 +32,8 @@ impl Default for SpriteEntity {
 
 #[derive(EntityArchetype)]
 pub struct SpriteSheetEntity {
-    pub sprite: SpriteSheetSprite,
-    pub sprite_sheet: Handle<SpriteSheet>,
+    pub sprite: TextureAtlasSprite,
+    pub texture_atlas: Handle<TextureAtlas>,
     pub renderable: Renderable,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
                             // pub local_to_world: LocalToWorld,
@@ -46,7 +46,7 @@ impl Default for SpriteSheetEntity {
     fn default() -> Self {
         Self {
             sprite: Default::default(),
-            sprite_sheet: Default::default(),
+            texture_atlas: Default::default(),
             renderable: Renderable {
                 pipelines: vec![SPRITE_SHEET_PIPELINE_HANDLE],
                 ..Default::default()

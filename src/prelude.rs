@@ -33,7 +33,7 @@ pub use crate::{
     scene::{Scene, SceneSpawner},
     sprite::{
         entity::{SpriteEntity, SpriteSheetEntity},
-        ColorMaterial, Quad, Sprite, SpriteSheet, SpriteSheetSprite,
+        ColorMaterial, Quad, Sprite, TextureAtlas, TextureAtlasSprite,
     },
     text::Font,
     transform::prelude::*,
