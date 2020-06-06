@@ -14,6 +14,7 @@ use std::{
 };
 use thiserror::Error;
 
+pub type AssetVersion = usize;
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     #[error("Asset folder path is not a directory.")]
@@ -38,8 +39,32 @@ struct LoaderThread {
     requests: Arc<RwLock<Vec<LoadRequest>>>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AssetInfo {
+    handle_id: HandleId,
+    path: PathBuf,
+    load_state: LoadState,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LoadState {
+    Loading(AssetVersion),
+    Loaded(AssetVersion),
+    Failed(AssetVersion),
+}
+
+impl LoadState {
+    pub fn get_version(&self) -> AssetVersion {
+        match *self {
+            LoadState::Loaded(version) => version,
+            LoadState::Loading(version) => version,
+            LoadState::Failed(version) => version,
+        }
+    }
+}
+
 pub struct AssetServer {
-    asset_folders: Vec<PathBuf>,
+    asset_folders: RwLock<Vec<PathBuf>>,
     loader_threads: RwLock<Vec<LoaderThread>>,
     max_loader_threads: usize,
     asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
@@ -47,7 +72,8 @@ pub struct AssetServer {
     loaders: Vec<Resources>,
     extension_to_handler_index: HashMap<String, usize>,
     extension_to_loader_index: HashMap<String, usize>,
-    path_to_handle: RwLock<HashMap<PathBuf, HandleId>>,
+    asset_info: RwLock<HashMap<HandleId, AssetInfo>>,
+    asset_info_paths: RwLock<HashMap<PathBuf, HandleId>>,
     #[cfg(feature = "filesystem_watcher")]
     filesystem_watcher: Arc<RwLock<Option<FilesystemWatcher>>>,
 }
@@ -55,16 +81,17 @@ pub struct AssetServer {
 impl Default for AssetServer {
     fn default() -> Self {
         AssetServer {
-            max_loader_threads: 4,
-            asset_folders: Vec::new(),
-            loader_threads: RwLock::new(Vec::new()),
-            asset_handlers: Arc::new(RwLock::new(Vec::new())),
-            loaders: Vec::new(),
-            extension_to_handler_index: HashMap::new(),
-            extension_to_loader_index: HashMap::new(),
-            path_to_handle: RwLock::new(HashMap::default()),
             #[cfg(feature = "filesystem_watcher")]
             filesystem_watcher: Arc::new(RwLock::new(None)),
+            max_loader_threads: 4,
+            asset_folders: Default::default(),
+            loader_threads: Default::default(),
+            asset_handlers: Default::default(),
+            loaders: Default::default(),
+            extension_to_handler_index: Default::default(),
+            extension_to_loader_index: Default::default(),
+            asset_info_paths: Default::default(),
+            asset_info: Default::default(),
         }
     }
 }
@@ -100,20 +127,20 @@ impl AssetServer {
         self.loaders.push(resources);
     }
 
-    pub fn load_asset_folder<P: AsRef<Path>>(&mut self, path: P) -> Result<(), AssetServerError> {
+    pub fn load_asset_folder<P: AsRef<Path>>(&self, path: P) -> Result<Vec<HandleId>, AssetServerError> {
         let root_path = self.get_root_path()?;
         let asset_folder = root_path.join(path);
-        self.load_assets_in_folder_recursive(&asset_folder)?;
-        self.asset_folders.push(asset_folder);
-        Ok(())
+        let handle_ids = self.load_assets_in_folder_recursive(&asset_folder)?;
+        self.asset_folders.write().unwrap().push(asset_folder);
+        Ok(handle_ids)
     }
 
     pub fn get_handle<T, P: AsRef<Path>>(&self, path: P) -> Option<Handle<T>> {
-        self.path_to_handle
+        self.asset_info_paths
             .read()
             .unwrap()
             .get(path.as_ref())
-            .map(|h| Handle::from(*h))
+            .map(|handle_id| Handle::from(*handle_id))
     }
 
     #[cfg(feature = "filesystem_watcher")]
@@ -138,8 +165,8 @@ impl AssetServer {
 
         let _ = filesystem_watcher.get_or_insert_with(|| FilesystemWatcher::default());
         // watch current files
-        let path_to_handle = self.path_to_handle.read().unwrap();
-        for asset_path in path_to_handle.keys() {
+        let asset_info_paths = self.asset_info_paths.read().unwrap();
+        for asset_path in asset_info_paths.keys() {
             Self::watch_path_for_changes(&mut filesystem_watcher, asset_path)?;
         }
 
@@ -233,7 +260,6 @@ impl AssetServer {
                 let asset = loader.load_from_file(path)?;
                 let handle = Handle::from(handle_id);
                 assets.set(handle, asset);
-                assets.set_path(handle, path);
                 Ok(handle)
             } else {
                 Err(AssetServerError::MissingAssetHandler)
@@ -251,13 +277,27 @@ impl AssetServer {
                     .to_str()
                     .expect("Extension should be a valid string."),
             ) {
+                let mut new_version = 0;
                 let handle_id = {
-                    let mut path_to_handle = self.path_to_handle.write().unwrap();
-                    if let Some(handle_id) = path_to_handle.get(path) {
-                        *handle_id
+                    let mut asset_info = self.asset_info.write().unwrap();
+                    let mut asset_info_paths = self.asset_info_paths.write().unwrap();
+                    if let Some(asset_info) = asset_info_paths
+                        .get(path)
+                        .and_then(|handle_id| asset_info.get_mut(&handle_id))
+                    {
+                        asset_info.load_state = if let LoadState::Loaded(_version) = asset_info.load_state { new_version += 1; LoadState::Loading(new_version) } else { LoadState::Loading(new_version) };
+                        asset_info.handle_id
                     } else {
                         let handle_id = HandleId::new();
-                        path_to_handle.insert(path.to_owned(), handle_id.clone());
+                        asset_info.insert(
+                            handle_id,
+                            AssetInfo {
+                                handle_id,
+                                path: path.to_owned(),
+                                load_state: LoadState::Loading(new_version),
+                            },
+                        );
+                        asset_info_paths.insert(path.to_owned(), handle_id);
                         handle_id
                     }
                 };
@@ -266,6 +306,7 @@ impl AssetServer {
                     handle_id,
                     path: path.to_owned(),
                     handler_index: *index,
+                    version: new_version,
                 });
 
                 // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
@@ -281,7 +322,42 @@ impl AssetServer {
         }
     }
 
+    pub fn set_load_state(&self, handle_id: HandleId, load_state: LoadState) {
+        self.asset_info
+            .write()
+            .unwrap()
+            .get_mut(&handle_id)
+            .map(|asset_info| {
+                if load_state.get_version() >= asset_info.load_state.get_version() {
+                    asset_info.load_state = load_state;
+                }
+            });
+    }
+    
+    pub fn get_load_state_untyped(&self, handle_id: HandleId) -> Option<LoadState> {
+        self.asset_info.read().unwrap().get(&handle_id).map(|asset_info| asset_info.load_state.clone())
+    }
+
+    pub fn get_load_state<T>(&self, handle: Handle<T>) -> Option<LoadState> {
+        self.get_load_state_untyped(handle.id)
+    }
+
+    pub fn get_group_load_state(&self, handle_ids: &[HandleId]) -> Option<LoadState> {
+        let mut load_state = LoadState::Loaded(0);
+        for handle_id in handle_ids.iter() {
+            match self.get_load_state_untyped(*handle_id) {
+                Some(LoadState::Loaded(_)) => continue,
+                Some(LoadState::Loading(_)) => {load_state = LoadState::Loading(0);},
+                Some(LoadState::Failed(_)) => return Some(LoadState::Failed(0)),
+                None => return None,
+            }
+        }
+
+        Some(load_state)
+    }
+
     fn send_request_to_loader_thread(&self, load_request: LoadRequest) {
+        // NOTE: This lock makes the call to Arc::strong_count safe. Removing (or reordering) it could result in undefined behavior
         let mut loader_threads = self.loader_threads.write().unwrap();
         if loader_threads.len() < self.max_loader_threads {
             let loader_thread = LoaderThread {
@@ -330,7 +406,7 @@ impl AssetServer {
         });
     }
 
-    fn load_assets_in_folder_recursive(&self, path: &Path) -> Result<(), AssetServerError> {
+    fn load_assets_in_folder_recursive(&self, path: &Path) -> Result<Vec<HandleId>, AssetServerError> {
         if !path.is_dir() {
             return Err(AssetServerError::AssetFolderNotADirectory(
                 path.to_str().unwrap().to_string(),
@@ -338,21 +414,24 @@ impl AssetServer {
         }
 
         let root_path = self.get_root_path()?;
+        let mut handle_ids = Vec::new();
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let child_path = entry.path();
             if !child_path.is_dir() {
                 let relative_child_path = child_path.strip_prefix(&root_path).unwrap();
-                let _ = self.load_untyped(
+                let handle = self.load_untyped(
                     relative_child_path
                         .to_str()
                         .expect("Path should be a valid string"),
-                );
+                )?;
+
+                handle_ids.push(handle);
             } else {
-                self.load_assets_in_folder_recursive(&child_path)?;
+                handle_ids.extend(self.load_assets_in_folder_recursive(&child_path)?);
             }
         }
 
-        Ok(())
+        Ok(handle_ids)
     }
 }

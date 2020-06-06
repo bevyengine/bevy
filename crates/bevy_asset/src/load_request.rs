@@ -1,4 +1,4 @@
-use crate::{AssetLoadError, AssetLoader, AssetResult, Handle, HandleId};
+use crate::{AssetLoadError, AssetLoader, AssetResult, AssetVersion, Handle, HandleId};
 use anyhow::Result;
 use crossbeam_channel::Sender;
 use fs::File;
@@ -10,6 +10,7 @@ pub struct LoadRequest {
     pub path: PathBuf,
     pub handle_id: HandleId,
     pub handler_index: usize,
+    pub version: AssetVersion,
 }
 
 pub trait AssetLoadRequestHandler: Send + Sync + 'static {
@@ -54,6 +55,7 @@ where
             handle: Handle::from(load_request.handle_id),
             result,
             path: load_request.path.clone(),
+            version: load_request.version,
         };
         self.sender
             .send(asset_result)

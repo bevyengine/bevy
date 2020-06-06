@@ -6,10 +6,7 @@ use bevy_app::{AppBuilder, Events, FromResources};
 use bevy_core::bytes::Bytes;
 use bevy_type_registry::RegisterType;
 use legion::prelude::*;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 pub enum AssetEvent<T: 'static> {
     Created { handle: Handle<T> },
@@ -19,7 +16,6 @@ pub enum AssetEvent<T: 'static> {
 
 pub struct Assets<T: 'static> {
     assets: HashMap<Handle<T>, T>,
-    paths: HashMap<PathBuf, Handle<T>>,
     events: Events<AssetEvent<T>>,
 }
 
@@ -27,17 +23,12 @@ impl<T> Default for Assets<T> {
     fn default() -> Self {
         Assets {
             assets: HashMap::default(),
-            paths: HashMap::default(),
             events: Events::default(),
         }
     }
 }
 
 impl<T> Assets<T> {
-    pub fn get_with_path<P: AsRef<Path>>(&mut self, path: P) -> Option<Handle<T>> {
-        self.paths.get(path.as_ref()).map(|handle| *handle)
-    }
-
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let handle = Handle::new();
         self.assets.insert(handle, asset);
@@ -68,11 +59,7 @@ impl<T> Assets<T> {
         handle
     }
 
-    pub fn set_path<P: AsRef<Path>>(&mut self, handle: Handle<T>, path: P) {
-        self.paths.insert(path.as_ref().to_owned(), handle);
-    }
-
-    pub fn get_id(&self, id: HandleId) -> Option<&T> {
+    pub fn get_with_id(&self, id: HandleId) -> Option<&T> {
         self.assets.get(&Handle::from_id(id))
     }
 

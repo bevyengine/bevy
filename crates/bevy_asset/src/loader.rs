@@ -1,4 +1,4 @@
-use crate::{Assets, Handle};
+use crate::{AssetServer, Assets, Handle, AssetVersion, LoadState};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use fs::File;
@@ -34,6 +34,7 @@ pub struct AssetResult<T: 'static> {
     pub result: Result<T, AssetLoadError>,
     pub handle: Handle<T>,
     pub path: PathBuf,
+    pub version: AssetVersion,
 }
 
 pub struct AssetChannel<T: 'static> {
@@ -50,14 +51,22 @@ impl<T> AssetChannel<T> {
 
 pub fn update_asset_storage_system<T>(
     asset_channel: Res<AssetChannel<T>>,
+    asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<T>>,
 ) {
     loop {
         match asset_channel.receiver.try_recv() {
             Ok(result) => {
-                let asset = result.result.unwrap();
-                assets.set(result.handle, asset);
-                assets.set_path(result.handle, &result.path);
+                match result.result {
+                    Ok(asset) => {
+                        assets.set(result.handle, asset);
+                        asset_server.set_load_state(result.handle.id, LoadState::Loaded(result.version));
+                    },
+                    Err(err) => {
+                        asset_server.set_load_state(result.handle.id, LoadState::Failed(result.version));
+                        log::error!("Failed to load asset: {:?}", err);
+                    }
+                }
             }
             Err(TryRecvError::Empty) => {
                 break;

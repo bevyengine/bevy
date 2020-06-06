@@ -27,11 +27,11 @@ impl FromResources for SceneLoader {
 impl AssetLoader<Scene> for SceneLoader {
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Scene> {
         let registry = self.property_type_registry.read().unwrap();
-        let mut deserializer = ron::de::Deserializer::from_bytes(&bytes).unwrap();
+        let mut deserializer = ron::de::Deserializer::from_bytes(&bytes)?;
         let scene_deserializer = SceneDeserializer {
             property_type_registry: &registry,
         };
-        let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
+        let scene = scene_deserializer.deserialize(&mut deserializer)?;
         Ok(scene)
     }
     fn extensions(&self) -> &[&str] {
