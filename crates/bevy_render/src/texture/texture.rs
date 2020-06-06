@@ -7,14 +7,10 @@ use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use glam::Vec2;
 use legion::prelude::*;
-use std::{collections::HashSet, fs::File};
+use std::collections::HashSet;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
-pub enum TextureType {
-    Data(Vec<u8>, usize, usize),
-    Png(String), // TODO: please rethink this
-}
 
 pub struct Texture {
     pub data: Vec<u8>,
@@ -22,26 +18,12 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn aspect(&self) -> f32 {
-        self.size.y() / self.size.x()
+    pub fn new(data: Vec<u8>, size: Vec2) -> Self {
+        Self { data, size }
     }
 
-    pub fn load(descriptor: TextureType) -> Self {
-        let (data, width, height) = match descriptor {
-            TextureType::Data(data, width, height) => (data.clone(), width, height),
-            TextureType::Png(path) => {
-                let decoder = png::Decoder::new(File::open(&path).unwrap());
-                let (info, mut reader) = decoder.read_info().unwrap();
-                let mut buf = vec![0; info.buffer_size()];
-                reader.next_frame(&mut buf).unwrap();
-                (buf, info.width as usize, info.height as usize)
-            }
-        };
-
-        Texture {
-            data,
-            size: Vec2::new(width as f32, height as f32),
-        }
+    pub fn aspect(&self) -> f32 {
+        self.size.y() / self.size.x()
     }
 
     pub fn texture_resource_system(

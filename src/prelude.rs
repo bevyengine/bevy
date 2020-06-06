@@ -27,7 +27,7 @@ pub use crate::{
             RenderGraph,
         },
         shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
-        texture::{Texture, TextureType},
+        texture::Texture,
         Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
     },
     scene::{Scene, SceneSpawner},
