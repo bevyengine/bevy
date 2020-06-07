@@ -9,7 +9,7 @@ fn main() {
 
 fn setup(
     command_buffer: &mut CommandBuffer,
-    mut asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

@@ -127,7 +127,10 @@ impl AssetServer {
         self.loaders.push(resources);
     }
 
-    pub fn load_asset_folder<P: AsRef<Path>>(&self, path: P) -> Result<Vec<HandleId>, AssetServerError> {
+    pub fn load_asset_folder<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<Vec<HandleId>, AssetServerError> {
         let root_path = self.get_root_path()?;
         let asset_folder = root_path.join(path);
         let handle_ids = self.load_assets_in_folder_recursive(&asset_folder)?;
@@ -285,7 +288,13 @@ impl AssetServer {
                         .get(path)
                         .and_then(|handle_id| asset_info.get_mut(&handle_id))
                     {
-                        asset_info.load_state = if let LoadState::Loaded(_version) = asset_info.load_state { new_version += 1; LoadState::Loading(new_version) } else { LoadState::Loading(new_version) };
+                        asset_info.load_state =
+                            if let LoadState::Loaded(_version) = asset_info.load_state {
+                                new_version += 1;
+                                LoadState::Loading(new_version)
+                            } else {
+                                LoadState::Loading(new_version)
+                            };
                         asset_info.handle_id
                     } else {
                         let handle_id = HandleId::new();
@@ -333,9 +342,13 @@ impl AssetServer {
                 }
             });
     }
-    
+
     pub fn get_load_state_untyped(&self, handle_id: HandleId) -> Option<LoadState> {
-        self.asset_info.read().unwrap().get(&handle_id).map(|asset_info| asset_info.load_state.clone())
+        self.asset_info
+            .read()
+            .unwrap()
+            .get(&handle_id)
+            .map(|asset_info| asset_info.load_state.clone())
     }
 
     pub fn get_load_state<T>(&self, handle: Handle<T>) -> Option<LoadState> {
@@ -347,7 +360,9 @@ impl AssetServer {
         for handle_id in handle_ids.iter() {
             match self.get_load_state_untyped(*handle_id) {
                 Some(LoadState::Loaded(_)) => continue,
-                Some(LoadState::Loading(_)) => {load_state = LoadState::Loading(0);},
+                Some(LoadState::Loading(_)) => {
+                    load_state = LoadState::Loading(0);
+                }
                 Some(LoadState::Failed(_)) => return Some(LoadState::Failed(0)),
                 None => return None,
             }
@@ -406,7 +421,10 @@ impl AssetServer {
         });
     }
 
-    fn load_assets_in_folder_recursive(&self, path: &Path) -> Result<Vec<HandleId>, AssetServerError> {
+    fn load_assets_in_folder_recursive(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<HandleId>, AssetServerError> {
         if !path.is_dir() {
             return Err(AssetServerError::AssetFolderNotADirectory(
                 path.to_str().unwrap().to_string(),
@@ -418,17 +436,21 @@ impl AssetServer {
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let child_path = entry.path();
-            if !child_path.is_dir() {
+            if child_path.is_dir() {
+                handle_ids.extend(self.load_assets_in_folder_recursive(&child_path)?);
+            } else {
                 let relative_child_path = child_path.strip_prefix(&root_path).unwrap();
-                let handle = self.load_untyped(
+                let handle = match self.load_untyped(
                     relative_child_path
                         .to_str()
                         .expect("Path should be a valid string"),
-                )?;
+                ) {
+                    Ok(handle) => handle,
+                    Err(AssetServerError::MissingAssetHandler) => continue,
+                    Err(err) => Err(err)?,
+                };
 
                 handle_ids.push(handle);
-            } else {
-                handle_ids.extend(self.load_assets_in_folder_recursive(&child_path)?);
             }
         }
 
