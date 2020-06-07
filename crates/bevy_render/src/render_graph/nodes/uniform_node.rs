@@ -1,5 +1,4 @@
 use crate::{
-    pipeline::VertexBufferDescriptors,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResourceId,
@@ -668,19 +667,6 @@ where
                     }
                 },
             )
-    }
-}
-
-#[allow(dead_code)]
-fn initialize_vertex_buffer_descriptor<T>(vertex_buffer_descriptors: &mut VertexBufferDescriptors)
-where
-    T: Uniforms,
-{
-    let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
-    if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
-        if let None = vertex_buffer_descriptors.get(&vertex_buffer_descriptor.name) {
-            vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-        }
     }
 }
 

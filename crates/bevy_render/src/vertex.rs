@@ -1,15 +1,12 @@
 use bevy_core::bytes::Byteable;
-use bevy_derive::Uniforms;
+use crate::pipeline::AsVertexBufferDescriptor;
 
 #[repr(C)]
-#[derive(Clone, Copy, Uniforms)]
+#[derive(Clone, Copy, AsVertexBufferDescriptor)]
 #[module(bevy_render = "crate")]
 pub struct Vertex {
-    #[uniform(vertex)]
     pub position: [f32; 3],
-    #[uniform(vertex)]
     pub normal: [f32; 3],
-    #[uniform(vertex)]
     pub uv: [f32; 2],
 }
 

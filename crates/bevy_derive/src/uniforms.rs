@@ -12,10 +12,6 @@ struct UniformAttributeArgs {
     #[darling(default)]
     pub shader_def: Option<bool>,
     #[darling(default)]
-    pub instance: Option<bool>,
-    #[darling(default)]
-    pub vertex: Option<bool>,
-    #[darling(default)]
     pub buffer: Option<bool>,
 }
 
@@ -23,8 +19,6 @@ struct UniformAttributeArgs {
 struct UniformAttributes {
     pub ignore: bool,
     pub shader_def: bool,
-    pub instance: bool,
-    pub vertex: bool,
     pub buffer: bool,
 }
 
@@ -33,8 +27,6 @@ impl From<UniformAttributeArgs> for UniformAttributes {
         UniformAttributes {
             ignore: args.ignore.unwrap_or(false),
             shader_def: args.shader_def.unwrap_or(false),
-            instance: args.instance.unwrap_or(false),
-            vertex: args.vertex.unwrap_or(false),
             buffer: args.buffer.unwrap_or(false),
         }
     }
@@ -89,9 +81,6 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let mut field_infos = Vec::new();
     let mut get_field_bind_types = Vec::new();
 
-    let mut vertex_buffer_field_names_pascal = Vec::new();
-    let mut vertex_buffer_field_types = Vec::new();
-
     let mut shader_def_field_names = Vec::new();
     let mut shader_def_field_names_screaming_snake = Vec::new();
 
@@ -109,13 +98,11 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             texture_and_sampler_name_strings.push(sampler.clone());
             texture_and_sampler_name_idents.push(f.ident.clone());
             texture_and_sampler_name_idents.push(f.ident.clone());
-            let is_instanceable = attrs.instance;
             field_infos.push(quote!(#bevy_render_path::shader::FieldInfo {
                 name: #field_name,
                 uniform_name: #uniform,
                 texture_name: #texture,
                 sampler_name: #sampler,
-                is_instanceable: #is_instanceable,
             }));
 
             if attrs.buffer {
@@ -137,66 +124,16 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             shader_def_field_names.push(&f.ident);
             shader_def_field_names_screaming_snake.push(field_name.to_screaming_snake_case())
         }
-
-        if attrs.instance || attrs.vertex {
-            vertex_buffer_field_types.push(&f.ty);
-            let pascal_field = f.ident.as_ref().unwrap().to_string().to_pascal_case();
-            vertex_buffer_field_names_pascal.push(if attrs.instance {
-                format!("I_{}_{}", struct_name, pascal_field)
-            } else {
-                format!("{}_{}", struct_name, pascal_field)
-            });
-        }
     }
 
     let struct_name_string = struct_name.to_string();
     let struct_name_uppercase = struct_name_string.to_uppercase();
     let field_infos_ident = format_ident!("{}_FIELD_INFO", struct_name_uppercase);
-    let vertex_buffer_descriptor_ident =
-        format_ident!("{}_VERTEX_BUFFER_DESCRIPTOR", struct_name_uppercase);
 
     TokenStream::from(quote! {
         static #field_infos_ident: &[#bevy_render_path::shader::FieldInfo] = &[
             #(#field_infos,)*
         ];
-
-        static #vertex_buffer_descriptor_ident: #bevy_render_path::once_cell::sync::Lazy<#bevy_render_path::pipeline::VertexBufferDescriptor> =
-            #bevy_render_path::once_cell::sync::Lazy::new(|| {
-                use #bevy_render_path::pipeline::{VertexFormat, AsVertexFormats, VertexAttributeDescriptor};
-
-                let mut vertex_formats: Vec<(&str,&[VertexFormat])>  = vec![
-                    #((#vertex_buffer_field_names_pascal, <#vertex_buffer_field_types>::as_vertex_formats()),)*
-                ];
-
-                let mut shader_location = 0;
-                let mut offset = 0;
-                let vertex_attribute_descriptors = vertex_formats.drain(..).map(|(name, formats)| {
-                    formats.iter().enumerate().map(|(i, format)| {
-                        let size = format.get_size();
-                        let formatted_name = if formats.len() > 1 {
-                            format!("{}_{}", name, i)
-                        } else {
-                            format!("{}", name)
-                        };
-                        let descriptor = VertexAttributeDescriptor {
-                            name: formatted_name.into(),
-                            offset,
-                            format: *format,
-                            shader_location,
-                        };
-                        offset += size;
-                        shader_location += 1;
-                        descriptor
-                    }).collect::<Vec<VertexAttributeDescriptor>>()
-                }).flatten().collect::<Vec<VertexAttributeDescriptor>>();
-
-                #bevy_render_path::pipeline::VertexBufferDescriptor {
-                    attributes: vertex_attribute_descriptors,
-                    name: #struct_name_string.into(),
-                    step_mode: #bevy_render_path::pipeline::InputStepMode::Instance,
-                    stride: offset,
-                }
-            });
 
         impl #bevy_render_path::shader::Uniforms for #struct_name {
             fn get_field_infos() -> &'static [#bevy_render_path::shader::FieldInfo] {
@@ -248,14 +185,6 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                     .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_uppercase, f, shader_def.unwrap()))
                     .collect::<Vec<String>>())
             }
-
-            fn get_vertex_buffer_descriptor() -> Option<&'static #bevy_render_path::pipeline::VertexBufferDescriptor> {
-                if #vertex_buffer_descriptor_ident.attributes.len() == 0 {
-                    None
-                } else {
-                    Some(&#vertex_buffer_descriptor_ident)
-                }
-            }
         }
     })
 }
@@ -283,7 +212,6 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
                        uniform_name: #struct_name_string,
                        texture_name: #struct_name_string,
                        sampler_name: #struct_name_string,
-                       is_instanceable: false,
                    }
                 ];
                 &FIELD_INFOS
@@ -320,10 +248,6 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
             // TODO: this will be very allocation heavy. find a way to either make this allocation free
             // or alternatively only run it when the shader_defs have changed
             fn get_shader_defs(&self) -> Option<Vec<String>> {
-                None
-            }
-
-            fn get_vertex_buffer_descriptor() -> Option<&'static #bevy_render_path::pipeline::VertexBufferDescriptor> {
                 None
             }
         }

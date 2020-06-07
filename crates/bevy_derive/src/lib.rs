@@ -6,6 +6,7 @@ mod entity_archetype;
 mod modules;
 mod resource;
 mod uniforms;
+mod as_vertex_buffer_descriptor;
 
 use proc_macro::TokenStream;
 
@@ -24,15 +25,21 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
     uniforms::derive_uniform(input)
 }
 
+#[proc_macro_derive(Uniforms, attributes(uniform, module))]
+pub fn derive_uniforms(input: TokenStream) -> TokenStream {
+    uniforms::derive_uniforms(input)
+}
+
+#[proc_macro_derive(AsVertexBufferDescriptor, attributes(vertex, module))]
+pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
+    as_vertex_buffer_descriptor::derive_as_vertex_buffer_descriptor(input)
+}
+
 #[proc_macro_derive(EntityArchetype, attributes(tag, module))]
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     entity_archetype::derive_entity_archetype(input)
 }
 
-#[proc_macro_derive(Uniforms, attributes(uniform, module))]
-pub fn derive_uniforms(input: TokenStream) -> TokenStream {
-    uniforms::derive_uniforms(input)
-}
 
 #[proc_macro_derive(DynamicAppPlugin)]
 pub fn derive_app_plugin(input: TokenStream) -> TokenStream {

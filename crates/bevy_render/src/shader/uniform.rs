@@ -1,13 +1,10 @@
-use crate::{
-    color::ColorSource,
-    pipeline::{BindType, VertexBufferDescriptor},
-    texture::Texture,
-    Renderable,
-};
+use crate::{color::ColorSource, pipeline::BindType, texture::Texture, Renderable};
 
 use bevy_asset::{Assets, Handle};
 use bevy_core::bytes::Bytes;
 use legion::prelude::*;
+
+pub use bevy_derive::{Uniform, Uniforms};
 
 pub trait Uniforms: Send + Sync + 'static {
     fn get_field_infos() -> &'static [FieldInfo];
@@ -16,7 +13,6 @@ pub trait Uniforms: Send + Sync + 'static {
     fn get_uniform_texture(&self, name: &str) -> Option<Handle<Texture>>;
     fn get_shader_defs(&self) -> Option<Vec<String>>;
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType>;
-    fn get_vertex_buffer_descriptor() -> Option<&'static VertexBufferDescriptor>;
 }
 
 pub fn shader_def_system<T>(uniforms: Com<T>, mut renderable: ComMut<Renderable>)
@@ -70,7 +66,6 @@ impl ShaderDefSuffixProvider for bool {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FieldBindType {
-    // TODO: maybe change this to Buffer
     Uniform { size: usize },
     Buffer { size: usize },
     Texture,
@@ -81,7 +76,6 @@ pub struct FieldInfo {
     pub uniform_name: &'static str,
     pub texture_name: &'static str,
     pub sampler_name: &'static str,
-    pub is_instanceable: bool,
 }
 
 pub trait GetFieldBindType {

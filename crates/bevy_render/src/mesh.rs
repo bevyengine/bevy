@@ -2,10 +2,10 @@ use crate::{
     pipeline::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
+        AsVertexBufferDescriptor,
     },
     render_resource::{BufferInfo, BufferUsage},
     renderer::{RenderResourceContext, RenderResources},
-    shader::Uniforms,
     Renderable, Vertex,
 };
 use bevy_app::{EventReader, Events};
@@ -339,7 +339,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
     let mut mesh_event_reader = EventReader::<AssetEvent<Mesh>>::default();
     // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
-    let vertex_buffer_descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
+    let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     (move |world: &mut SubWorld,
            render_resources: Res<RenderResources>,
@@ -479,7 +479,7 @@ mod tests {
             },
         ];
 
-        let descriptor = Vertex::get_vertex_buffer_descriptor().unwrap();
+        let descriptor = Vertex::as_vertex_buffer_descriptor();
         assert_eq!(
             mesh.get_vertex_buffer_bytes(descriptor).unwrap(),
             expected_vertices.as_bytes(),

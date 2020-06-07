@@ -28,7 +28,6 @@ pub use crate::{
         shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
         texture::Texture,
         Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
-        Uniforms, Uniform,
     },
     scene::{Scene, SceneSpawner},
     sprite::{

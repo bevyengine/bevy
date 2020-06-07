@@ -1,6 +1,8 @@
 use super::VertexFormat;
 use std::{borrow::Cow, collections::HashMap};
 
+pub use bevy_derive::AsVertexBufferDescriptor;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
@@ -59,4 +61,8 @@ impl VertexBufferDescriptors {
     pub fn get(&self, name: &str) -> Option<&VertexBufferDescriptor> {
         self.descriptors.get(name)
     }
+}
+
+pub trait AsVertexBufferDescriptor {
+    fn as_vertex_buffer_descriptor() -> &'static VertexBufferDescriptor;
 }
