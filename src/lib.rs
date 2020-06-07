@@ -49,7 +49,6 @@ pub use legion;
 
 pub use bevy_asset as asset;
 pub use bevy_core as core;
-pub use bevy_derive as derive;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_gltf as gltf;
 pub use bevy_input as input;

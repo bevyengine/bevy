@@ -5,7 +5,7 @@ use crate::{
     },
     render_resource::{BufferInfo, BufferUsage},
     renderer::{RenderResourceContext, RenderResources},
-    shader::AsUniforms,
+    shader::Uniforms,
     Renderable, Vertex,
 };
 use bevy_app::{EventReader, Events};
@@ -431,7 +431,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
 #[cfg(test)]
 mod tests {
     use super::{Mesh, VertexAttribute};
-    use crate::{pipeline::state_descriptors::PrimitiveTopology, shader::AsUniforms, Vertex};
+    use crate::{pipeline::state_descriptors::PrimitiveTopology, shader::Uniforms, Vertex};
     use bevy_core::bytes::AsBytes;
 
     #[test]

@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 
-pub fn derive_resource(input: TokenStream) -> TokenStream {
+pub fn derive_from_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match &ast.data {
         Data::Struct(DataStruct {

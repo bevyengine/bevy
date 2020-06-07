@@ -2,6 +2,8 @@ pub mod bytes;
 pub mod time;
 pub mod transform;
 
+pub use bevy_derive::Bytes;
+
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::{
     components::{

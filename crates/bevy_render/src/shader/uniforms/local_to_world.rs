@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat},
-    shader::{AsUniforms, FieldBindType, FieldInfo, GetFieldBindType},
+    shader::{Uniforms, FieldBindType, FieldInfo, GetFieldBindType},
     texture::Texture,
 };
 use bevy_asset::Handle;
@@ -48,7 +48,7 @@ static VERTEX_BUFFER_DESCRIPTOR: Lazy<VertexBufferDescriptor> =
         stride: 64,
     });
 
-impl AsUniforms for bevy_transform::prelude::LocalToWorld {
+impl Uniforms for bevy_transform::prelude::LocalToWorld {
     fn get_field_infos() -> &'static [FieldInfo] {
         LOCAL_TO_WORLD_FIELD_INFOS
     }

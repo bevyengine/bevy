@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
+bevy_derive = { path = "../bevy_derive" }
 bevy_property = { path = "../bevy_property" }
 bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_transform = { path = "../bevy_transform" }

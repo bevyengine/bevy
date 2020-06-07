@@ -6,7 +6,7 @@ use crate::{
         RenderResourceAssignment, RenderResourceAssignments, RenderResourceAssignmentsId,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
-    shader::{AsUniforms, FieldBindType},
+    shader::{Uniforms, FieldBindType},
     texture, Renderable,
 };
 
@@ -54,7 +54,7 @@ impl BufferArrayStatus {
 
 struct UniformBufferArrays<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     uniform_arrays: Vec<Option<(String, BufferArrayStatus)>>,
     _marker: PhantomData<T>,
@@ -62,7 +62,7 @@ where
 
 impl<T> UniformBufferArrays<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     fn new() -> Self {
         let mut uniform_arrays = Vec::new();
@@ -348,7 +348,7 @@ where
 #[derive(Default)]
 pub struct UniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -357,7 +357,7 @@ where
 
 impl<T> UniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         UniformNode {
@@ -370,7 +370,7 @@ where
 
 impl<T> Node for UniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     fn update(
         &mut self,
@@ -386,7 +386,7 @@ where
 
 impl<T> SystemNode for UniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
@@ -506,7 +506,7 @@ where
 #[derive(Default)]
 pub struct AssetUniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -515,7 +515,7 @@ where
 
 impl<T> AssetUniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         AssetUniformNode {
@@ -528,7 +528,7 @@ where
 
 impl<T> Node for AssetUniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     fn update(
         &mut self,
@@ -544,7 +544,7 @@ where
 
 impl<T> SystemNode for AssetUniformNode<T>
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
@@ -674,7 +674,7 @@ where
 #[allow(dead_code)]
 fn initialize_vertex_buffer_descriptor<T>(vertex_buffer_descriptors: &mut VertexBufferDescriptors)
 where
-    T: AsUniforms,
+    T: Uniforms,
 {
     let vertex_buffer_descriptor = T::get_vertex_buffer_descriptor();
     if let Some(vertex_buffer_descriptor) = vertex_buffer_descriptor {
@@ -691,7 +691,7 @@ fn setup_uniform_texture_resources<T>(
     entities_waiting_for_assets: &EntitiesWaitingForAssets,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
-    T: AsUniforms,
+    T: Uniforms,
 {
     for field_info in T::get_field_infos().iter() {
         let bind_type = uniforms.get_field_bind_type(&field_info.name);

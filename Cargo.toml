@@ -24,7 +24,6 @@ bevy_app = { path = "crates/bevy_app" }
 bevy_asset = { path = "crates/bevy_asset" }
 bevy_type_registry = { path = "crates/bevy_type_registry" }
 bevy_core = { path = "crates/bevy_core" }
-bevy_derive = { path = "crates/bevy_derive" }
 bevy_diagnostic = { path = "crates/bevy_diagnostic" }
 bevy_gltf = { path = "crates/bevy_gltf" }
 bevy_input = { path = "crates/bevy_input" }

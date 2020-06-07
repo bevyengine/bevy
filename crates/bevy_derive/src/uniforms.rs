@@ -198,7 +198,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
                 }
             });
 
-        impl #bevy_render_path::shader::AsUniforms for #struct_name {
+        impl #bevy_render_path::shader::Uniforms for #struct_name {
             fn get_field_infos() -> &'static [#bevy_render_path::shader::FieldInfo] {
                 #field_infos_ident
             }
@@ -275,7 +275,7 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
     let struct_name_string = struct_name.to_string();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_render_path::shader::AsUniforms for #struct_name#ty_generics {
+        impl #impl_generics #bevy_render_path::shader::Uniforms for #struct_name#ty_generics {
             fn get_field_infos() -> &'static [#bevy_render_path::shader::FieldInfo] {
                 static FIELD_INFOS: &[#bevy_render_path::shader::FieldInfo] = &[
                     #bevy_render_path::shader::FieldInfo {

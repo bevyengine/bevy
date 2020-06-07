@@ -9,7 +9,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_core::bytes::Bytes;
 use legion::prelude::*;
 
-pub trait AsUniforms: Send + Sync + 'static {
+pub trait Uniforms: Send + Sync + 'static {
     fn get_field_infos() -> &'static [FieldInfo];
     fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]);
     fn uniform_byte_len(&self, name: &str) -> usize;
@@ -21,7 +21,7 @@ pub trait AsUniforms: Send + Sync + 'static {
 
 pub fn shader_def_system<T>(uniforms: Com<T>, mut renderable: ComMut<Renderable>)
 where
-    T: AsUniforms + Send + Sync + 'static,
+    T: Uniforms + Send + Sync + 'static,
 {
     if let Some(shader_defs) = uniforms.get_shader_defs() {
         renderable
@@ -38,7 +38,7 @@ pub fn asset_shader_def_system<T>(
     asset_handle: Com<Handle<T>>,
     mut renderable: ComMut<Renderable>,
 ) where
-    T: AsUniforms + Send + Sync + 'static,
+    T: Uniforms + Send + Sync + 'static,
 {
     if !renderable.is_visible || renderable.is_instanced {
         return;

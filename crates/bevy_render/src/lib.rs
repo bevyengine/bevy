@@ -25,6 +25,7 @@ mod renderable;
 pub mod texture;
 
 pub use once_cell;
+pub use bevy_derive::{Uniform, Uniforms};
 
 use self::{
     mesh::Mesh,

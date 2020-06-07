@@ -17,3 +17,4 @@ pub use event::*;
 pub use plugin::*;
 pub use resources::*;
 pub use system::*;
+pub use bevy_derive::{DynamicAppPlugin, EntityArchetype, FromResources};

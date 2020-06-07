@@ -1,14 +1,13 @@
 pub use crate::{
     app::{
         schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
-        EventReader, Events, FromResources, System,
+        EventReader, Events, FromResources, System, DynamicAppPlugin
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
         time::{Time, Timer},
         transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource},
     },
-    derive::*,
     diagnostic::DiagnosticsPlugin,
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
@@ -29,6 +28,7 @@ pub use crate::{
         shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages},
         texture::Texture,
         Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
+        Uniforms, Uniform,
     },
     scene::{Scene, SceneSpawner},
     sprite::{

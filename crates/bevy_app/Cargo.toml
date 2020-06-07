@@ -5,6 +5,7 @@ authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+bevy_derive = { path = "../bevy_derive" }
 legion = { path = "../bevy_legion", features = ["serialize"] }
 libloading = "0.5.2"
 log = { version = "0.4", features = ["release_max_level_info"] }

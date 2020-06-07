@@ -10,8 +10,8 @@ mod uniforms;
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(FromResources, attributes(module))]
-pub fn derive_resource(input: TokenStream) -> TokenStream {
-    resource::derive_resource(input)
+pub fn derive_from_resources(input: TokenStream) -> TokenStream {
+    resource::derive_from_resources(input)
 }
 
 #[proc_macro_derive(Bytes, attributes(module))]
@@ -36,5 +36,5 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(DynamicAppPlugin)]
 pub fn derive_app_plugin(input: TokenStream) -> TokenStream {
-    app_plugin::derive_app_plugin(input)
+    app_plugin::derive_dynamic_app_plugin(input)
 }
