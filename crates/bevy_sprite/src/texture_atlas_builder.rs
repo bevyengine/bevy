@@ -2,14 +2,17 @@ use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_render::texture::Texture;
 use glam::Vec2;
-use guillotiere::{size2, AllocId, Allocation, AtlasAllocator};
+use rectangle_pack::{
+    contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
+    RectToInsert, TargetBin,
+};
 use std::collections::HashMap;
+use thiserror::Error;
 
 pub struct TextureAtlasBuilder {
-    pub texture_allocations: HashMap<Handle<Texture>, Allocation>,
-    pub allocation_textures: HashMap<AllocId, Handle<Texture>>,
-    pub atlas_allocator: AtlasAllocator,
-    pub atlas_texture: Texture,
+    pub textures: Vec<Handle<Texture>>,
+    pub rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
+    pub initial_size: Vec2,
     pub max_size: Vec2,
 }
 
@@ -19,122 +22,116 @@ impl Default for TextureAtlasBuilder {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum RectanglePackError {
+    #[error("Could not pack textures into an atlas within the given bounds")]
+    NotEnoughSpace,
+}
+
 const FORMAT_SIZE: usize = 4; // TODO: get this from an actual format type
 impl TextureAtlasBuilder {
     pub fn new(initial_size: Vec2, max_size: Vec2) -> Self {
         Self {
-            texture_allocations: Default::default(),
-            allocation_textures: Default::default(),
-            atlas_allocator: AtlasAllocator::new(to_size2(initial_size)),
-            atlas_texture: Texture::new_fill(initial_size, &[0,0,0,0]),
+            textures: Default::default(),
+            rects_to_place: GroupedRectsToPlace::new(),
+            initial_size,
             max_size,
         }
     }
 
-    pub fn add_texture(&mut self, texture_handle: Handle<Texture>, textures: &Assets<Texture>) {
-        let texture = textures.get(&texture_handle).unwrap();
-        let mut queued_textures= vec![texture_handle];
-        loop {
-            let mut failed_textures = Vec::new();
-            while let Some(texture_handle) = queued_textures.pop() {
-                let allocation = self
-                    .atlas_allocator
-                    .allocate(size2(texture.size.x() as i32, texture.size.y() as i32));
-                if let Some(allocation) = allocation {
-                    self.place_texture(allocation, texture_handle, texture);
-                } else {
-                    failed_textures.push(texture_handle);
-                }
-            }
-
-            if failed_textures.len() == 0 {
-                break;
-            }
-
-            queued_textures = failed_textures;
-
-            // if allocation failed, resize the atlas
-            let new_size = self.atlas_texture.size * 2.0;
-            if new_size > self.max_size {
-                panic!(
-                    "Ran out of space in Atlas. This atlas cannot be larger than: {:?}",
-                    self.max_size
-                );
-            }
-
-            let new_size2 = to_size2(new_size);
-            self.atlas_texture = Texture::new_fill(new_size, &[0,0,0,0]);
-            let change_list = self.atlas_allocator.resize_and_rearrange(new_size2);
-
-            for change in change_list.changes {
-                if let Some(changed_texture_handle) = self.allocation_textures.remove(&change.old.id) {
-                    self.texture_allocations.remove(&changed_texture_handle);
-                    let changed_texture = textures.get(&changed_texture_handle).unwrap();
-                    self.place_texture(change.new, changed_texture_handle, changed_texture);
-                }
-            }
-
-            for failure in change_list.failures {
-                let failed_texture = self.allocation_textures.remove(&failure.id).unwrap();
-                queued_textures.push(failed_texture);
-            }
-        }
+    pub fn add_texture(&mut self, texture_handle: Handle<Texture>, texture: &Texture) {
+        self.rects_to_place.push_rect(
+            texture_handle,
+            None,
+            RectToInsert::new(texture.size.x() as u32, texture.size.y() as u32, 1),
+        )
     }
 
-    fn place_texture(&mut self, allocation: Allocation, texture_handle: Handle<Texture>, texture: &Texture) {
-        let rect = allocation.rectangle;
-        let atlas_width = self.atlas_texture.size.x() as usize;
-        let rect_width = rect.width() as usize;
+    fn place_texture(
+        &mut self,
+        atlas_texture: &mut Texture,
+        texture: &Texture,
+        packed_location: &PackedLocation,
+    ) {
+        let rect_width = packed_location.width() as usize;
+        let rect_height = packed_location.height() as usize;
+        let rect_x = packed_location.x() as usize;
+        let rect_y = packed_location.y() as usize;
+        let atlas_width = atlas_texture.size.x() as usize;
 
-        for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
-            let begin = (bound_y * atlas_width + rect.min.x as usize) * FORMAT_SIZE;
+        for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
+            let begin = (bound_y * atlas_width + rect_x) * FORMAT_SIZE;
             let end = begin + rect_width * FORMAT_SIZE;
             let texture_begin = texture_y * rect_width * FORMAT_SIZE;
             let texture_end = texture_begin + rect_width * FORMAT_SIZE;
-            self.atlas_texture.data[begin..end]
+            atlas_texture.data[begin..end]
                 .copy_from_slice(&texture.data[texture_begin..texture_end]);
         }
-
-        self.allocation_textures.insert(allocation.id, texture_handle);
-        self.texture_allocations.insert(texture_handle, allocation);
     }
 
-    pub fn remove_texture(&mut self, texture_handle: Handle<Texture>) {
-        if let Some(allocation) = self.texture_allocations.remove(&texture_handle) {
-            self.allocation_textures.remove(&allocation.id);
-            self.atlas_allocator.deallocate(allocation.id);
-        }
-    }
+    pub fn finish(
+        mut self,
+        textures: &mut Assets<Texture>,
+    ) -> Result<TextureAtlas, RectanglePackError> {
+        let initial_width = self.initial_size.x() as u32;
+        let initial_height = self.initial_size.y() as u32;
+        let max_width = self.max_size.x() as u32;
+        let max_height = self.max_size.y() as u32;
 
-    pub fn finish(self, textures: &mut Assets<Texture>) -> TextureAtlas {
-        let mut texture_rects = Vec::with_capacity(self.texture_allocations.len());
-        let mut texture_handles = HashMap::with_capacity(self.texture_allocations.len());
-        for (index, (handle, allocation)) in self.texture_allocations.iter().enumerate() {
-            texture_rects.push(allocation.rectangle.into());
-            texture_handles.insert(*handle, index);
+        let mut current_width = initial_width;
+        let mut current_height = initial_height;
+        let mut rect_placements = None;
+        let mut atlas_texture = Texture::default();
+
+        while rect_placements.is_none() {
+            if current_width > max_width || current_height > max_height {
+                rect_placements = None;
+                break;
+            }
+            let mut target_bins = HashMap::new();
+            target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
+            atlas_texture = Texture::new_fill(
+                Vec2::new(current_width as f32, current_height as f32),
+                &[0, 0, 0, 0],
+            );
+            rect_placements = match pack_rects(
+                &self.rects_to_place,
+                target_bins,
+                &volume_heuristic,
+                &contains_smallest_box,
+            ) {
+                Ok(rect_placements) => Some(rect_placements),
+                Err(rectangle_pack::RectanglePackError::NotEnoughBinSpace) => {
+                    current_width *= 2;
+                    current_height *= 2;
+                    None
+                },
+            }
         }
-        TextureAtlas {
-            dimensions: to_vec2(self.atlas_allocator.size()),
-            texture: textures.add(self.atlas_texture),
+
+        let rect_placements = rect_placements.ok_or_else(|| RectanglePackError::NotEnoughSpace)?;
+
+        let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
+        let mut texture_handles = HashMap::new();
+        for (texture_handle, (_, packed_location)) in
+            rect_placements.packed_locations().iter()
+        {
+            let texture = textures.get(texture_handle).unwrap();
+            let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
+            let max = min
+                + Vec2::new(
+                    packed_location.width() as f32,
+                    packed_location.height() as f32,
+                );
+            texture_handles.insert(*texture_handle, texture_rects.len());
+            texture_rects.push(Rect { min, max });
+            self.place_texture(&mut atlas_texture, texture, packed_location);
+        }
+        Ok(TextureAtlas {
+            dimensions: atlas_texture.size,
+            texture: textures.add(atlas_texture),
             textures: texture_rects,
             texture_handles: Some(texture_handles),
-        }
+        })
     }
-}
-
-impl From<guillotiere::Rectangle> for Rect {
-    fn from(rectangle: guillotiere::Rectangle) -> Self {
-        Rect {
-            min: Vec2::new(rectangle.min.x as f32, rectangle.min.y as f32),
-            max: Vec2::new(rectangle.max.x as f32, rectangle.max.y as f32),
-        }
-    }
-}
-
-fn to_vec2(size: guillotiere::Size) -> Vec2 {
-    Vec2::new(size.width as f32, size.height as f32)
-}
-
-fn to_size2(vec2: Vec2) -> guillotiere::Size {
-    guillotiere::Size::new(vec2.x() as i32, vec2.y() as i32)
 }

@@ -52,14 +52,14 @@ fn load_atlas(
     if let Some(LoadState::Loaded(_)) =
         asset_server.get_group_load_state(&rpg_sprite_handles.handles)
     {
-        // TODO: sort by size (within atlas builder)
         for texture_id in rpg_sprite_handles.handles.iter() {
             let handle = Handle::from_id(*texture_id);
-            texture_atlas_builder.add_texture(handle, &textures);
+            let texture = textures.get(&handle).unwrap();
+            texture_atlas_builder.add_texture(handle, &texture);
         }
 
-        let texture_atlas = texture_atlas_builder.finish(&mut textures);
-        let texture_atlas_texture= texture_atlas.texture;
+        let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
+        let texture_atlas_texture = texture_atlas.texture;
         let vendor_handle = asset_server
             .get_handle("assets/textures/rpg/chars/vendor/generic-rpg-vendor.png")
             .unwrap();
@@ -85,7 +85,7 @@ fn load_atlas(
                     position: Vec2::new(-300.0, 0.),
                     ..Default::default()
                 },
-                sprite: Sprite { scale: 0.65 },
+                sprite: Sprite { scale: 1.0 },
                 ..Default::default()
             });
 

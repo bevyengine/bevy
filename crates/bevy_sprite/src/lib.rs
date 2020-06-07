@@ -6,6 +6,7 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
+mod dynamic_texture_atlas_builder;
 
 pub use color_material::*;
 pub use quad::*;
@@ -14,6 +15,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use dynamic_texture_atlas_builder::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AddAsset, Assets, Handle};

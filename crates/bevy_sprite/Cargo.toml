@@ -17,4 +17,6 @@ bevy_transform = { path = "../bevy_transform" }
 
 legion = { path = "../bevy_legion", features = ["serialize"] }
 glam = "0.8.7"
+rectangle-pack = "0.1"
+thiserror = "1.0"
 guillotiere = "0.5.2"
