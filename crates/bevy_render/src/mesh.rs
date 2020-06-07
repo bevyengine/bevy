@@ -430,7 +430,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
 
 #[cfg(test)]
 mod tests {
-    use super::{Mesh, VertexAttribute};
+    use super::{Mesh, VertexAttribute, AsVertexBufferDescriptor};
     use crate::{pipeline::state_descriptors::PrimitiveTopology, shader::Uniforms, Vertex};
     use bevy_core::bytes::AsBytes;
 

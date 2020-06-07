@@ -3,15 +3,15 @@
 // extern crate test;
 
 // use legion::prelude::*;
-// use bevy_transform::{local_to_world_system, prelude::*};
+// use bevy_transform::{transform_system, prelude::*};
 // use test::Bencher;
 
 // #[bench]
-// fn local_to_world_update_without_change(b: &mut Bencher) {
+// fn transform_update_without_change(b: &mut Bencher) {
 //     let _ = env_logger::builder().is_test(true).try_init();
 
 //     let mut world = Universe::new().create_world();
-//     let system = local_to_world_system::build(&mut world);
+//     let system = transform_system::build(&mut world);
 
 //     let ltw = LocalToWorld::identity();
 //     let t = Translation::new(1.0, 2.0, 3.0);

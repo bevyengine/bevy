@@ -36,7 +36,7 @@ pub struct SpriteSheetEntity {
     pub texture_atlas: Handle<TextureAtlas>,
     pub renderable: Renderable,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-                            // pub local_to_world: LocalToWorld,
+                            // pub transform: Transform,
                             // pub translation: Translation,
                             // pub rotation: Rotation,
                             // pub scale: Scale,
@@ -52,7 +52,7 @@ impl Default for SpriteSheetEntity {
                 ..Default::default()
             },
             mesh: QUAD_HANDLE,
-            // local_to_world: Default::default(),
+            // transform: Default::default(),
             // translation: Default::default(),
             // rotation: Default::default(),
             // scale: Default::default(),

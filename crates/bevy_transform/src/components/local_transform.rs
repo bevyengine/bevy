@@ -5,21 +5,21 @@ use std::fmt;
 
 #[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
 #[shrinkwrap(mutable)]
-pub struct LocalToParent(pub Mat4);
+pub struct LocalTransform(pub Mat4);
 
-impl LocalToParent {
+impl LocalTransform {
     pub fn identity() -> Self {
         Self(Mat4::identity())
     }
 }
 
-impl Default for LocalToParent {
+impl Default for LocalTransform {
     fn default() -> Self {
         Self::identity()
     }
 }
 
-impl fmt::Display for LocalToParent {
+impl fmt::Display for LocalTransform {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }

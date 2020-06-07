@@ -19,7 +19,7 @@ layout(location = 0) in vec3 Vertex_Position;
 layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
-layout(set = 1, binding = 0) uniform Object {
+layout(set = 1, binding = 0) uniform Transform {
     mat4 Model;
 };
 void main() {
@@ -83,7 +83,7 @@ fn setup(
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
-            local_to_world: LocalToWorld::new_sync_disabled(Mat4::look_at_rh(
+            transform: Transform::new_sync_disabled(Mat4::look_at_rh(
                 Vec3::new(3.0, 8.0, 5.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),

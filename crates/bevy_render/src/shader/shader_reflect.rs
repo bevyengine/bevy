@@ -14,19 +14,6 @@ use spirv_reflect::{
     ShaderModule,
 };
 use std::collections::HashSet;
-// use rspirv::{binary::Parser, dr::Loader, lift::LiftContext};
-
-// TODO: use rspirv when structured representation is ready. this way we can remove spirv_reflect, which is a non-rust dependency
-// pub fn get_shader_layout(spirv_data: &[u32]) {
-//     let mut loader = Loader::new();  // You can use your own consumer here.
-//     {
-//         let p = Parser::new(spirv_data.as_bytes(), &mut loader);
-//         p.parse().unwrap();
-//     }
-//     let module = loader.module();
-//     let structured = LiftContext::convert(&module).unwrap();
-//     println!("{:?}", structured.types);
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderLayout {

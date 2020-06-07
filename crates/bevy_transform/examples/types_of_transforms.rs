@@ -85,10 +85,10 @@ fn main() {}
 //     // At this point all `LocalToWorld` components have correct values in them. Running the system
 //     // again will result in a short-circuit as only changed components are considered for update.
 //     let mut query = <Read<LocalToWorld>>::query();
-//     for (entity, local_to_world) in query.iter_entities(&mut world) {
+//     for (entity, transform) in query.iter_entities(&mut world) {
 //         println!(
 //             "Entity {} and a LocalToWorld matrix: {}",
-//             entity, *local_to_world
+//             entity, *transform
 //         );
 //     }
 // }

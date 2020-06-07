@@ -10,11 +10,11 @@ use bevy_render::{
     },
     shader::Shader,
 };
-use bevy_transform::prelude::LocalToWorld;
+use bevy_transform::prelude::Transform;
 use legion::prelude::Resources;
 
 pub mod node {
-    pub const LOCAL_TO_WORLD: &str = "local_to_world";
+    pub const TRANSFORM: &str = "transform";
     pub const STANDARD_MATERIAL: &str = "standard_material";
     pub const LIGHTS: &str = "lights";
 }
@@ -29,7 +29,7 @@ pub trait ForwardPbrRenderGraphBuilder {
 
 impl ForwardPbrRenderGraphBuilder for RenderGraph {
     fn add_pbr_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(node::LOCAL_TO_WORLD, UniformNode::<LocalToWorld>::new(true));
+        self.add_system_node(node::TRANSFORM, UniformNode::<Transform>::new(true));
         self.add_system_node(
             node::STANDARD_MATERIAL,
             AssetUniformNode::<StandardMaterial>::new(true),
@@ -50,7 +50,7 @@ impl ForwardPbrRenderGraphBuilder for RenderGraph {
         // TODO: replace these with "autowire" groups
         self.add_node_edge(node::STANDARD_MATERIAL, base_render_graph::node::MAIN_PASS)
             .unwrap();
-        self.add_node_edge(node::LOCAL_TO_WORLD, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::TRANSFORM, base_render_graph::node::MAIN_PASS)
             .unwrap();
         self.add_node_edge(node::LIGHTS, base_render_graph::node::MAIN_PASS)
             .unwrap();

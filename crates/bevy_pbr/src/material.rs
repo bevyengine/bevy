@@ -4,7 +4,6 @@ use bevy_render::{texture::Texture, Color};
 
 #[derive(Uniforms)]
 pub struct StandardMaterial {
-    #[uniform(instance)]
     pub albedo: Color,
     #[uniform(shader_def)]
     pub albedo_texture: Option<Handle<Texture>>,

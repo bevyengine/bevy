@@ -7,7 +7,7 @@ pub use bevy_derive::Bytes;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::{
     components::{
-        Children, LocalToParent, LocalToWorld, NonUniformScale, Rotation, Scale, Translation,
+        Children, LocalTransform, Transform, NonUniformScale, Rotation, Scale, Translation,
     },
     transform_system_bundle,
 };
@@ -27,8 +27,8 @@ impl AppPlugin for CorePlugin {
 
         app.init_resource::<Time>()
             .register_component::<Children>()
-            .register_component::<LocalToParent>()
-            .register_component::<LocalToWorld>()
+            .register_component::<LocalTransform>()
+            .register_component::<Transform>()
             .register_component::<Translation>()
             .register_component::<Rotation>()
             .register_component::<Scale>()

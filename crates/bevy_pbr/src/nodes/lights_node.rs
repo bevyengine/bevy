@@ -63,7 +63,7 @@ impl SystemNode for LightsNode {
                render_resources: Res<RenderResources>,
                // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
                mut render_resource_assignments: ResMut<RenderResourceAssignments>,
-               query: &mut Query<(Read<Light>, Read<LocalToWorld>, Read<Translation>)>| {
+               query: &mut Query<(Read<Light>, Read<Transform>, Read<Translation>)>| {
             if !lights_are_dirty {
                 return;
             }
@@ -117,11 +117,11 @@ impl SystemNode for LightsNode {
                     ..Default::default()
                 },
                 &mut |data, _renderer| {
-                    for ((light, local_to_world, translation), slot) in
+                    for ((light, transform, translation), slot) in
                         query.iter(world).zip(data.chunks_exact_mut(size))
                     {
                         slot.copy_from_slice(
-                            LightRaw::from(&light, &local_to_world.value, &translation).as_bytes(),
+                            LightRaw::from(&light, &transform.value, &translation).as_bytes(),
                         );
                     }
                 },

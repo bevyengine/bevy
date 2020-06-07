@@ -8,9 +8,9 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldPropagateSystem")
         // Entities with a `Children` and `LocalToWorld` but NOT a `Parent` (ie those that are
         // roots of a hierarchy).
-        .with_query(<(Read<Children>, Read<LocalToWorld>)>::query().filter(!component::<Parent>()))
+        .with_query(<(Read<Children>, Read<Transform>)>::query().filter(!component::<Parent>()))
         .read_component::<Children>()
-        .read_component::<LocalToParent>()
+        .read_component::<LocalTransform>()
         .build(move |commands, world, _resource, query| {
             for (children, local_to_world) in query.iter(world) {
                 for child in children.0.iter() {
@@ -21,14 +21,14 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
 }
 
 fn propagate_recursive(
-    parent_local_to_world: LocalToWorld,
+    parent_local_to_world: Transform,
     world: &mut SubWorld,
     entity: Entity,
     commands: &mut CommandBuffer,
 ) {
     log::trace!("Updating LocalToWorld for {}", entity);
     let local_to_parent = {
-        if let Some(local_to_parent) = world.get_component::<LocalToParent>(entity) {
+        if let Some(local_to_parent) = world.get_component::<LocalTransform>(entity) {
             *local_to_parent
         } else {
             log::warn!(
@@ -39,7 +39,7 @@ fn propagate_recursive(
         }
     };
 
-    let new_local_to_world = LocalToWorld {
+    let new_local_to_world = Transform {
         value: parent_local_to_world.value * local_to_parent.0,
         sync: true,
     };

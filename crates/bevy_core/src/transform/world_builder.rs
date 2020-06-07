@@ -1,5 +1,5 @@
 use bevy_app::EntityArchetype;
-use bevy_transform::components::{LocalToParent, Parent};
+use bevy_transform::components::{LocalTransform, Parent};
 use legion::{
     filter::{ChunksetFilterData, Filter},
     prelude::*,
@@ -90,7 +90,7 @@ impl<'a> WorldBuilder<'a> {
                 .add_component(current_entity, Parent(parent_entity));
             let _ = self
                 .world
-                .add_component(current_entity, LocalToParent::identity());
+                .add_component(current_entity, LocalTransform::identity());
         }
     }
 }
@@ -179,7 +179,7 @@ impl<'a> CommandBufferBuilder<'a> {
                 .add_component(current_entity, Parent(parent_entity));
             let _ = self
                 .command_buffer
-                .add_component(current_entity, LocalToParent::identity());
+                .add_component(current_entity, LocalTransform::identity());
         }
     }
 }

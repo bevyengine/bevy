@@ -52,7 +52,7 @@ impl SystemNode for CameraNode {
                // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
                // with other systems that do the same
                mut render_resource_assignments: ResMut<RenderResourceAssignments>,
-               query: &mut Query<(Read<Camera>, Read<LocalToWorld>)>| {
+               query: &mut Query<(Read<Camera>, Read<Transform>)>| {
             let render_resources = &render_resources.context;
             if camera_buffer.is_none() {
                 let size = std::mem::size_of::<[[f32; 4]; 4]>();
@@ -72,12 +72,12 @@ impl SystemNode for CameraNode {
                 camera_buffer = Some(buffer);
             }
             let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-            if let Some((camera, local_to_world)) = query
+            if let Some((camera, transform)) = query
                 .iter(world)
                 .find(|(camera, _)| camera.name.as_ref().map(|n| n.as_str()) == Some(&uniform_name))
             {
                 let camera_matrix: [f32; 16] =
-                    (camera.view_matrix * local_to_world.value).to_cols_array();
+                    (camera.view_matrix * transform.value).to_cols_array();
 
                 let tmp_buffer = render_resources.create_buffer_mapped(
                     BufferInfo {

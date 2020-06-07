@@ -8,7 +8,7 @@ use crate::{
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToWorldUpdateSystem")
         // Translation
-        .with_query(<(Write<LocalToWorld>, Read<Translation>)>::query().filter(
+        .with_query(<(Write<Transform>, Read<Translation>)>::query().filter(
             !component::<Parent>()
                 & !component::<Rotation>()
                 & !component::<Scale>()
@@ -16,7 +16,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 & (changed::<Translation>()),
         ))
         // Rotation
-        .with_query(<(Write<LocalToWorld>, Read<Rotation>)>::query().filter(
+        .with_query(<(Write<Transform>, Read<Rotation>)>::query().filter(
             !component::<Parent>()
                 & !component::<Translation>()
                 & !component::<Scale>()
@@ -24,7 +24,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 & (changed::<Rotation>()),
         ))
         // Scale
-        .with_query(<(Write<LocalToWorld>, Read<Scale>)>::query().filter(
+        .with_query(<(Write<Transform>, Read<Scale>)>::query().filter(
             !component::<Parent>()
                 & !component::<Translation>()
                 & !component::<Rotation>()
@@ -33,7 +33,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         ))
         // NonUniformScale
         .with_query(
-            <(Write<LocalToWorld>, Read<NonUniformScale>)>::query().filter(
+            <(Write<Transform>, Read<NonUniformScale>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Translation>()
                     & !component::<Rotation>()
@@ -43,7 +43,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Translation + Rotation
         .with_query(
-            <(Write<LocalToWorld>, Read<Translation>, Read<Rotation>)>::query().filter(
+            <(Write<Transform>, Read<Translation>, Read<Rotation>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Scale>()
                     & !component::<NonUniformScale>()
@@ -52,7 +52,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Translation + Scale
         .with_query(
-            <(Write<LocalToWorld>, Read<Translation>, Read<Scale>)>::query().filter(
+            <(Write<Transform>, Read<Translation>, Read<Scale>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Rotation>()
                     & !component::<NonUniformScale>()
@@ -62,7 +62,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         // Translation + NonUniformScale
         .with_query(
             <(
-                Write<LocalToWorld>,
+                Write<Transform>,
                 Read<Translation>,
                 Read<NonUniformScale>,
             )>::query()
@@ -75,7 +75,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Rotation + Scale
         .with_query(
-            <(Write<LocalToWorld>, Read<Rotation>, Read<Scale>)>::query().filter(
+            <(Write<Transform>, Read<Rotation>, Read<Scale>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Translation>()
                     & !component::<NonUniformScale>()
@@ -84,7 +84,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Rotation + NonUniformScale
         .with_query(
-            <(Write<LocalToWorld>, Read<Rotation>, Read<NonUniformScale>)>::query().filter(
+            <(Write<Transform>, Read<Rotation>, Read<NonUniformScale>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Translation>()
                     & !component::<Scale>()
@@ -94,7 +94,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         // Translation + Rotation + Scale
         .with_query(
             <(
-                Write<LocalToWorld>,
+                Write<Transform>,
                 Read<Translation>,
                 Read<Rotation>,
                 Read<Scale>,
@@ -108,7 +108,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         // Translation + Rotation + NonUniformScale
         .with_query(
             <(
-                Write<LocalToWorld>,
+                Write<Transform>,
                 Read<Translation>,
                 Read<Rotation>,
                 Read<NonUniformScale>,
@@ -123,7 +123,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Just to issue warnings: Scale + NonUniformScale
         .with_query(
-            <(Read<LocalToWorld>, Read<Scale>, Read<NonUniformScale>)>::query()
+            <(Read<Transform>, Read<Scale>, Read<NonUniformScale>)>::query()
                 .filter(!component::<Parent>()),
         )
         .build(move |_commands, world, _, queries| {
@@ -135,7 +135,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_translation(translation.0));
+                        *ltw = Transform::new(Mat4::from_translation(translation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -144,7 +144,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_quat(rotation.0));
+                        *ltw = Transform::new(Mat4::from_quat(rotation.0));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -153,7 +153,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale(Vec3::new(
+                        *ltw = Transform::new(Mat4::from_scale(Vec3::new(
                             scale.0, scale.0, scale.0,
                         )));
                     });
@@ -164,7 +164,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale(non_uniform_scale.0));
+                        *ltw = Transform::new(Mat4::from_scale(non_uniform_scale.0));
                     });
                 });
                 s.spawn(|_| unsafe {
@@ -173,7 +173,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_rotation_translation(
                             rotation.0,
                             translation.0,
                         ));
@@ -185,7 +185,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             Quat::default(),
                             translation.0,
@@ -198,7 +198,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                             non_uniform_scale.0,
                             Quat::default(),
                             translation.0,
@@ -211,7 +211,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             rotation.0,
                             Vec3::default(),
@@ -224,7 +224,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                             non_uniform_scale.0,
                             rotation.0,
                             Vec3::default(),
@@ -237,7 +237,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                        *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                             Vec3::new(scale.0, scale.0, scale.0),
                             rotation.0,
                             translation.0,
@@ -252,7 +252,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                             if !ltw.sync {
                                 return;
                             }
-                            *ltw = LocalToWorld::new(Mat4::from_scale_rotation_translation(
+                            *ltw = Transform::new(Mat4::from_scale_rotation_translation(
                                 non_uniform_scale.0,
                                 rotation.0,
                                 translation.0,

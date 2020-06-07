@@ -5,16 +5,16 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_core::bytes::Bytes;
 
-static LOCAL_TO_WORLD_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
-    name: "object",
-    uniform_name: "Object",
+static TRANSFORM_FIELD_INFOS: &[FieldInfo] = &[FieldInfo {
+    name: "transform",
+    uniform_name: "Transform",
     texture_name: "",
     sampler_name: "",
 }];
 
-impl Uniforms for bevy_transform::prelude::LocalToWorld {
+impl Uniforms for bevy_transform::prelude::Transform {
     fn get_field_infos() -> &'static [FieldInfo] {
-        LOCAL_TO_WORLD_FIELD_INFOS
+        TRANSFORM_FIELD_INFOS
     }
 
     fn get_shader_defs(&self) -> Option<Vec<String>> {
@@ -22,7 +22,7 @@ impl Uniforms for bevy_transform::prelude::LocalToWorld {
     }
     fn get_field_bind_type(&self, name: &str) -> Option<FieldBindType> {
         match name {
-            "object" => self.value.get_bind_type(),
+            "transform" => self.value.get_bind_type(),
             _ => None,
         }
     }
@@ -32,13 +32,13 @@ impl Uniforms for bevy_transform::prelude::LocalToWorld {
 
     fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
         match name {
-            "Object" => self.value.write_bytes(buffer),
+            "Transform" => self.value.write_bytes(buffer),
             _ => {}
         }
     }
     fn uniform_byte_len(&self, name: &str) -> usize {
         match name {
-            "Object" => self.value.byte_len(),
+            "Transform" => self.value.byte_len(),
             _ => 0,
         }
     }
