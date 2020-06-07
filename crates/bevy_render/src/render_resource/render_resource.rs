@@ -2,10 +2,10 @@ use uuid::Uuid;
 
 // TODO: Rename to RenderResourceId
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct RenderResource(Uuid);
+pub struct RenderResourceId(Uuid);
 
-impl RenderResource {
+impl RenderResourceId {
     pub fn new() -> Self {
-        RenderResource(Uuid::new_v4())
+        RenderResourceId(Uuid::new_v4())
     }
 }

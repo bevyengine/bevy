@@ -1,10 +1,10 @@
 use super::RenderGraphError;
-use crate::{render_resource::RenderResource, shader::FieldBindType};
+use crate::{render_resource::RenderResourceId, shader::FieldBindType};
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
 pub struct ResourceSlot {
-    pub resource: Option<RenderResource>,
+    pub resource: Option<RenderResourceId>,
     pub info: ResourceSlotInfo,
 }
 
@@ -44,12 +44,12 @@ impl From<usize> for SlotLabel {
 }
 
 impl ResourceSlots {
-    pub fn set(&mut self, label: impl Into<SlotLabel>, resource: RenderResource) {
+    pub fn set(&mut self, label: impl Into<SlotLabel>, resource: RenderResourceId) {
         let mut slot = self.get_slot_mut(label).unwrap();
         slot.resource = Some(resource);
     }
 
-    pub fn get(&self, label: impl Into<SlotLabel>) -> Option<RenderResource> {
+    pub fn get(&self, label: impl Into<SlotLabel>) -> Option<RenderResourceId> {
         let slot = self.get_slot(label).unwrap();
         slot.resource.clone()
     }

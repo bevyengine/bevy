@@ -2,7 +2,7 @@ use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptor, PipelineDescriptor},
     render_resource::{
-        BufferInfo, RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+        BufferInfo, RenderResourceId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -16,12 +16,12 @@ use std::{
 
 #[derive(Default)]
 pub struct HeadlessRenderResourceContext {
-    resource_info: Arc<RwLock<HashMap<RenderResource, ResourceInfo>>>,
-    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResource>>>,
+    resource_info: Arc<RwLock<HashMap<RenderResourceId, ResourceInfo>>>,
+    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,
 }
 
 impl HeadlessRenderResourceContext {
-    pub fn add_resource_info(&self, resource: RenderResource, resource_info: ResourceInfo) {
+    pub fn add_resource_info(&self, resource: RenderResourceId, resource_info: ResourceInfo) {
         self.resource_info
             .write()
             .unwrap()
@@ -31,23 +31,23 @@ impl HeadlessRenderResourceContext {
 
 impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_swap_chain(&self, _window: &Window) {}
-    fn next_swap_chain_texture(&self, _window_id: WindowId) -> RenderResource {
-        RenderResource::new()
+    fn next_swap_chain_texture(&self, _window_id: WindowId) -> RenderResourceId {
+        RenderResourceId::new()
     }
-    fn drop_swap_chain_texture(&self, _render_resource: RenderResource) {}
+    fn drop_swap_chain_texture(&self, _render_resource: RenderResourceId) {}
     fn drop_all_swap_chain_textures(&self) {}
-    fn create_sampler(&self, _sampler_descriptor: &SamplerDescriptor) -> RenderResource {
-        let resource = RenderResource::new();
+    fn create_sampler(&self, _sampler_descriptor: &SamplerDescriptor) -> RenderResourceId {
+        let resource = RenderResourceId::new();
         self.add_resource_info(resource, ResourceInfo::Sampler);
         resource
     }
-    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResource {
-        let resource = RenderResource::new();
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResourceId {
+        let resource = RenderResourceId::new();
         self.add_resource_info(resource, ResourceInfo::Texture(texture_descriptor));
         resource
     }
-    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResource {
-        let resource = RenderResource::new();
+    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResourceId {
+        let resource = RenderResourceId::new();
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
         resource
     }
@@ -55,29 +55,29 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         &self,
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> RenderResource {
+    ) -> RenderResourceId {
         let mut buffer = vec![0; buffer_info.size];
         setup_data(&mut buffer, self);
-        RenderResource::new()
+        RenderResourceId::new()
     }
-    fn create_buffer_with_data(&self, buffer_info: BufferInfo, _data: &[u8]) -> RenderResource {
-        let resource = RenderResource::new();
+    fn create_buffer_with_data(&self, buffer_info: BufferInfo, _data: &[u8]) -> RenderResourceId {
+        let resource = RenderResourceId::new();
         self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
         resource
     }
     fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}
-    fn remove_buffer(&self, resource: RenderResource) {
+    fn remove_buffer(&self, resource: RenderResourceId) {
         self.resource_info.write().unwrap().remove(&resource);
     }
-    fn remove_texture(&self, resource: RenderResource) {
+    fn remove_texture(&self, resource: RenderResourceId) {
         self.resource_info.write().unwrap().remove(&resource);
     }
-    fn remove_sampler(&self, resource: RenderResource) {
+    fn remove_sampler(&self, resource: RenderResourceId) {
         self.resource_info.write().unwrap().remove(&resource);
     }
     fn get_resource_info(
         &self,
-        resource: RenderResource,
+        resource: RenderResourceId,
         handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
     ) {
         handle_info(self.resource_info.read().unwrap().get(&resource));
@@ -85,7 +85,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn set_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        render_resource: RenderResource,
+        render_resource: RenderResourceId,
         index: usize,
     ) {
         self.asset_resources
@@ -97,7 +97,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         &self,
         handle: HandleUntyped,
         index: usize,
-    ) -> Option<RenderResource> {
+    ) -> Option<RenderResourceId> {
         self.asset_resources
             .write()
             .unwrap()

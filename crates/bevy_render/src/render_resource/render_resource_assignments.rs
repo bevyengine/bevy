@@ -1,4 +1,4 @@
-use super::RenderResource;
+use super::RenderResourceId;
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap, HashSet},
@@ -10,16 +10,16 @@ use uuid::Uuid;
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RenderResourceAssignment {
     Buffer {
-        resource: RenderResource,
+        resource: RenderResourceId,
         range: Range<u64>,
         dynamic_index: Option<u32>,
     },
-    Texture(RenderResource),
-    Sampler(RenderResource),
+    Texture(RenderResourceId),
+    Sampler(RenderResourceId),
 }
 
 impl RenderResourceAssignment {
-    pub fn get_resource(&self) -> RenderResource {
+    pub fn get_resource(&self) -> RenderResourceId {
         match self {
             RenderResourceAssignment::Buffer { resource, .. } => *resource,
             RenderResourceAssignment::Texture(resource) => *resource,
@@ -39,7 +39,7 @@ pub struct RenderResourceSet {
 pub struct RenderResourceAssignments {
     pub id: RenderResourceAssignmentsId,
     render_resources: HashMap<String, RenderResourceAssignment>,
-    vertex_buffers: HashMap<String, (RenderResource, Option<RenderResource>)>,
+    vertex_buffers: HashMap<String, (RenderResourceId, Option<RenderResourceId>)>,
     bind_group_resource_sets: HashMap<BindGroupDescriptorId, RenderResourceSet>,
     dirty_bind_groups: HashSet<BindGroupDescriptorId>,
     pub pipeline_specialization: PipelineSpecialization,
@@ -69,15 +69,15 @@ impl RenderResourceAssignments {
     pub fn get_vertex_buffer(
         &self,
         name: &str,
-    ) -> Option<(RenderResource, Option<RenderResource>)> {
+    ) -> Option<(RenderResourceId, Option<RenderResourceId>)> {
         self.vertex_buffers.get(name).cloned()
     }
 
     pub fn set_vertex_buffer(
         &mut self,
         name: &str,
-        vertices_resource: RenderResource,
-        indices_resource: Option<RenderResource>,
+        vertices_resource: RenderResourceId,
+        indices_resource: Option<RenderResourceId>,
     ) {
         self.vertex_buffers
             .insert(name.to_string(), (vertices_resource, indices_resource));
@@ -198,10 +198,10 @@ mod tests {
             ],
         );
 
-        let resource1 = RenderResourceAssignment::Texture(RenderResource::new());
-        let resource2 = RenderResourceAssignment::Texture(RenderResource::new());
-        let resource3 = RenderResourceAssignment::Texture(RenderResource::new());
-        let resource4 = RenderResourceAssignment::Texture(RenderResource::new());
+        let resource1 = RenderResourceAssignment::Texture(RenderResourceId::new());
+        let resource2 = RenderResourceAssignment::Texture(RenderResourceId::new());
+        let resource3 = RenderResourceAssignment::Texture(RenderResourceId::new());
+        let resource4 = RenderResourceAssignment::Texture(RenderResourceId::new());
 
         let mut assignments = RenderResourceAssignments::default();
         assignments.set("a", resource1.clone());

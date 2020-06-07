@@ -1,15 +1,15 @@
 use super::{LoadOp, StoreOp};
-use crate::{render_resource::RenderResource, Color};
+use crate::{render_resource::RenderResourceId, Color};
 
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {
-    RenderResource(RenderResource),
+    RenderResource(RenderResourceId),
     Name(String),
     Input(String),
 }
 
 impl TextureAttachment {
-    pub fn get_resource(&self) -> Option<RenderResource> {
+    pub fn get_resource(&self) -> Option<RenderResourceId> {
         if let TextureAttachment::RenderResource(render_resource) = self {
             Some(*render_resource)
         } else {

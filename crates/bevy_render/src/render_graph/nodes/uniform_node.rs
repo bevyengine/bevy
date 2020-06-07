@@ -2,7 +2,7 @@ use crate::{
     pipeline::VertexBufferDescriptors,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResource,
+        BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResourceId,
         RenderResourceAssignment, RenderResourceAssignments, RenderResourceAssignmentsId,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
@@ -17,7 +17,7 @@ use std::{collections::HashMap, marker::PhantomData};
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
 struct QueuedBufferWrite {
-    buffer: RenderResource,
+    buffer: RenderResourceId,
     offset: usize,
 }
 
@@ -27,7 +27,7 @@ struct BufferArrayStatus {
     item_size: usize,
     aligned_size: usize,
     staging_buffer_offset: usize,
-    buffer: Option<RenderResource>,
+    buffer: Option<RenderResourceId>,
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     current_item_count: usize,
     current_item_capacity: usize,
@@ -273,7 +273,7 @@ where
     fn copy_staging_buffer_to_final_buffers(
         &mut self,
         command_queue: &mut CommandQueue,
-        staging_buffer: RenderResource,
+        staging_buffer: RenderResourceId,
     ) {
         for uniform_buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_array_status)) = uniform_buffer_status {

@@ -1,6 +1,6 @@
 use crate::{
     pipeline::PipelineDescriptor,
-    render_resource::{RenderResource, RenderResourceAssignments},
+    render_resource::{RenderResourceId, RenderResourceAssignments},
     renderer::RenderContext,
 };
 use bevy_asset::Handle;
@@ -8,8 +8,8 @@ use std::ops::Range;
 
 pub trait RenderPass {
     fn get_render_context(&self) -> &dyn RenderContext;
-    fn set_index_buffer(&mut self, resource: RenderResource, offset: u64);
-    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64);
+    fn set_index_buffer(&mut self, resource: RenderResourceId, offset: u64);
+    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResourceId, offset: u64);
     fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>);
     fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32);
     fn set_stencil_reference(&mut self, reference: u32);

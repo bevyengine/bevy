@@ -4,7 +4,7 @@ use bevy_render::{
     pass::RenderPass,
     pipeline::PipelineDescriptor,
     render_resource::{
-        RenderResource, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
+        RenderResourceId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
     },
     renderer::RenderContext,
 };
@@ -22,7 +22,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         self.render_context
     }
 
-    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResource, offset: u64) {
+    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResourceId, offset: u64) {
         let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, buffer.slice(offset..));
@@ -37,7 +37,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         self.render_pass.set_stencil_reference(reference);
     }
 
-    fn set_index_buffer(&mut self, resource: RenderResource, offset: u64) {
+    fn set_index_buffer(&mut self, resource: RenderResourceId, offset: u64) {
         let buffer = self.render_resources.buffers.get(&resource).unwrap();
         self.render_pass.set_index_buffer(buffer.slice(offset..));
     }

@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
-    render_resource::{RenderResource, RenderResourceAssignments},
+    render_resource::{RenderResourceId, RenderResourceAssignments},
     texture::{Extent3d},
 };
 
@@ -10,18 +10,18 @@ pub trait RenderContext {
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext;
     fn copy_buffer_to_buffer(
         &mut self,
-        source_buffer: RenderResource,
+        source_buffer: RenderResourceId,
         source_offset: u64,
-        destination_buffer: RenderResource,
+        destination_buffer: RenderResourceId,
         destination_offset: u64,
         size: u64,
     );
     fn copy_buffer_to_texture(
         &mut self,
-        source_buffer: RenderResource,
+        source_buffer: RenderResourceId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResource,
+        destination_texture: RenderResourceId,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
         size: Extent3d,

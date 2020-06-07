@@ -6,7 +6,7 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{RenderResource, RenderResourceAssignment, RenderResourceAssignments},
+    render_resource::{RenderResourceId, RenderResourceAssignment, RenderResourceAssignments},
     renderer::{RenderContext, RenderResourceContext},
     texture::Extent3d,
 };
@@ -73,9 +73,9 @@ impl WgpuRenderContext {
 impl RenderContext for WgpuRenderContext {
     fn copy_buffer_to_buffer(
         &mut self,
-        source_buffer: RenderResource,
+        source_buffer: RenderResourceId,
         source_offset: u64,
-        destination_buffer: RenderResource,
+        destination_buffer: RenderResourceId,
         destination_offset: u64,
         size: u64,
     ) {
@@ -91,10 +91,10 @@ impl RenderContext for WgpuRenderContext {
 
     fn copy_buffer_to_texture(
         &mut self,
-        source_buffer: RenderResource,
+        source_buffer: RenderResourceId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResource,
+        destination_texture: RenderResourceId,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
         size: Extent3d,
