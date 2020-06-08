@@ -58,7 +58,6 @@ Bevy is only possible because of the hard work put into these foundational techn
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross platform window creation and management in Rust
 * [legion_transform](https://github.com/AThilenius/legion_transform): A hierarchical space transform system, implemented using Legion ECS
-* [shaderc](https://github.com/google/shaderc-rs): compiles GLSL and HLSL shaders to SPIR-V binaries
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
 
 
