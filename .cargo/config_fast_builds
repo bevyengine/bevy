@@ -8,7 +8,6 @@ linker = "/usr/bin/clang"
 rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 
 [target.x86_64-apple-darwin]
-linker = "/usr/bin/clang"
 rustflags = ["-Zshare-generics=y"]
 
 # NOTE: you must manually install lld on windows. you can easily do this with the "scoop" package manager:
