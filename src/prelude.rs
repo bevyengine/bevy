@@ -14,7 +14,6 @@ pub use crate::{
     pbr::{entity::*, light::Light, material::StandardMaterial},
     property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal},
     render::{
-        draw_target,
         entity::*,
         mesh::{shape, Mesh},
         pipeline::PipelineDescriptor,

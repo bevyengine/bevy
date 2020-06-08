@@ -1,6 +1,6 @@
 use crate::{
-    pipeline::PipelineDescriptor,
-    render_resource::{RenderResourceId, RenderResourceAssignments},
+    pipeline::{BindGroupDescriptor, PipelineDescriptor},
+    render_resource::{RenderResourceId, RenderResourceSet},
     renderer::RenderContext,
 };
 use bevy_asset::Handle;
@@ -15,10 +15,9 @@ pub trait RenderPass {
     fn set_stencil_reference(&mut self, reference: u32);
     fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>);
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
-    // TODO: try to somehow take into account the "set" pipeline instead of passing it in here
-    fn set_render_resources(
+    fn set_bind_group(
         &mut self,
-        pipeline_descriptor: &PipelineDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<Range<u32>>;
+        bind_group_descriptor: &BindGroupDescriptor,
+        render_resource_set: &RenderResourceSet,
+    );
 }

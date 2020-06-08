@@ -2,7 +2,6 @@ use crate::{material::StandardMaterial, nodes::LightsNode, pipelines::build_forw
 use bevy_asset::Assets;
 use bevy_render::{
     base_render_graph,
-    draw_target::AssignedMeshesDrawTarget,
     pipeline::PipelineDescriptor,
     render_graph::{
         nodes::{AssetUniformNode, PassNode, UniformNode},
@@ -41,10 +40,7 @@ impl ForwardPbrRenderGraphBuilder for RenderGraph {
             let main_pass: &mut PassNode = self
                 .get_node_mut(base_render_graph::node::MAIN_PASS)
                 .unwrap();
-            main_pass.add_pipeline(
-                pipelines.add_default(build_forward_pipeline(&mut shaders)),
-                vec![Box::new(AssignedMeshesDrawTarget)],
-            );
+            main_pass.add_pipeline(pipelines.add_default(build_forward_pipeline(&mut shaders)));
         }
 
         // TODO: replace these with "autowire" groups

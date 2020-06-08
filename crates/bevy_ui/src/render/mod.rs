@@ -1,7 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
-    draw_target::AssignedMeshesDrawTarget,
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{
         nodes::{CameraNode, PassNode},
@@ -83,7 +82,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         let main_pass: &mut PassNode = self
             .get_node_mut(base_render_graph::node::MAIN_PASS)
             .unwrap();
-        main_pass.add_pipeline(UI_PIPELINE_HANDLE, vec![Box::new(AssignedMeshesDrawTarget)]);
+        main_pass.add_pipeline(UI_PIPELINE_HANDLE);
         self
     }
 }

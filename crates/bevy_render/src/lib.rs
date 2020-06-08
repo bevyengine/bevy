@@ -1,5 +1,6 @@
 pub mod batch;
 mod camera;
+pub mod draw;
 pub mod entity;
 pub mod mesh;
 pub mod render_graph;
@@ -16,7 +17,6 @@ pub use renderable::*;
 pub use vertex::Vertex;
 
 pub mod base_render_graph;
-pub mod draw_target;
 pub mod pass;
 pub mod pipeline;
 pub mod render_resource;

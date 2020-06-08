@@ -6,12 +6,12 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{RenderResourceId, RenderResourceAssignment, RenderResourceAssignments},
+    render_resource::{RenderResourceAssignment, RenderResourceAssignments, RenderResourceId},
     renderer::{RenderContext, RenderResourceContext},
     texture::Extent3d,
 };
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct LazyCommandEncoder {
@@ -138,10 +138,10 @@ impl RenderContext for WgpuRenderContext {
                 &mut encoder,
             );
             let mut wgpu_render_pass = WgpuRenderPass {
-                render_context: self,
                 render_pass,
+                render_context: self,
                 render_resources: refs,
-                bound_bind_groups: HashMap::default(),
+                pipeline_descriptor: None,
             };
 
             run_pass(&mut wgpu_render_pass);

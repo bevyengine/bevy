@@ -2,7 +2,6 @@ use crate::{ColorMaterial, Quad, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
-    draw_target::AssignedMeshesDrawTarget,
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{
         nodes::{AssetUniformNode, PassNode, UniformNode},
@@ -153,14 +152,8 @@ impl SpriteRenderGraphBuilder for RenderGraph {
         let main_pass: &mut PassNode = self
             .get_node_mut(base_render_graph::node::MAIN_PASS)
             .unwrap();
-        main_pass.add_pipeline(
-            SPRITE_PIPELINE_HANDLE,
-            vec![Box::new(AssignedMeshesDrawTarget)],
-        );
-        main_pass.add_pipeline(
-            SPRITE_SHEET_PIPELINE_HANDLE,
-            vec![Box::new(AssignedMeshesDrawTarget)],
-        );
+        main_pass.add_pipeline(SPRITE_PIPELINE_HANDLE);
+        main_pass.add_pipeline(SPRITE_SHEET_PIPELINE_HANDLE);
         self
     }
 }
