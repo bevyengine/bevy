@@ -1,8 +1,7 @@
 use bevy_asset::{self, Handle};
-use bevy_derive::Uniforms;
-use bevy_render::{texture::Texture, Color};
+use bevy_render::{render_resource::RenderResources, shader::Uniforms, texture::Texture, Color};
 
-#[derive(Uniforms)]
+#[derive(Uniforms, RenderResources)]
 pub struct StandardMaterial {
     pub albedo: Color,
     #[uniform(shader_def)]

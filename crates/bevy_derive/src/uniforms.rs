@@ -1,9 +1,12 @@
-use crate::modules::{get_modules, get_path};
+use crate::{
+    attributes::get_field_attributes,
+    modules::{get_modules, get_path},
+};
 use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path};
+use syn::{parse_macro_input, DeriveInput, Path};
 
 #[derive(FromMeta, Debug, Default)]
 struct UniformAttributeArgs {
@@ -42,34 +45,10 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     let bevy_core_path: Path = get_path(&modules.bevy_core);
     let bevy_asset_path: Path = get_path(&modules.bevy_asset);
 
-    let fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
-    };
-
-    let field_attributes = fields
-        .iter()
-        .map(|f| {
-            (
-                f,
-                f.attrs
-                    .iter()
-                    .find(|a| {
-                        a.path.get_ident().as_ref().unwrap().to_string() == UNIFORM_ATTRIBUTE_NAME
-                    })
-                    .map(|a| {
-                        UniformAttributes::from(
-                            UniformAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                                .unwrap_or_else(|_err| UniformAttributeArgs::default()),
-                        )
-                    })
-                    .unwrap_or_else(|| UniformAttributes::default()),
-            )
-        })
-        .collect::<Vec<(&Field, UniformAttributes)>>();
+    let field_attributes = get_field_attributes::<UniformAttributes, UniformAttributeArgs>(
+        UNIFORM_ATTRIBUTE_NAME,
+        &ast.data,
+    );
 
     let struct_name = &ast.ident;
 
@@ -141,34 +120,18 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
-                use #bevy_render_path::shader::GetFieldBindType;
-                match name {
-                    #(#active_uniform_field_name_strings => #get_field_bind_types,)*
-                    _ => None,
-                }
+                None
             }
 
             fn get_uniform_texture(&self, name: &str) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
-                use #bevy_render_path::shader::GetTexture;
-                match name {
-                    #(#texture_and_sampler_name_strings => self.#texture_and_sampler_name_idents.get_texture(),)*
-                    _ => None,
-                }
+                None
             }
 
             fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
                 use #bevy_core_path::bytes::Bytes;
-                match name {
-                    #(#uniform_name_strings => self.#active_uniform_field_names.write_bytes(buffer),)*
-                    _ => {},
-                }
             }
             fn uniform_byte_len(&self, name: &str) -> usize {
-                use #bevy_core_path::bytes::Bytes;
-                match name {
-                    #(#uniform_name_strings => self.#active_uniform_field_names.byte_len(),)*
-                    _ => 0,
-                }
+                0
             }
 
             // TODO: move this to field_info and add has_shader_def(&self, &str) -> bool
@@ -194,7 +157,6 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
 
     let modules = get_modules(&ast);
     let bevy_asset_path = get_path(&modules.bevy_asset);
-    let bevy_core_path = get_path(&modules.bevy_core);
     let bevy_render_path = get_path(&modules.bevy_render);
 
     let generics = ast.generics;
@@ -218,26 +180,13 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
             }
 
             fn get_field_bind_type(&self, name: &str) -> Option<#bevy_render_path::shader::FieldBindType> {
-                use #bevy_render_path::shader::GetFieldBindType;
-                match name {
-                    #struct_name_string => self.get_bind_type(),
-                    _ => None,
-                }
+                None
             }
 
             fn write_uniform_bytes(&self, name: &str, buffer: &mut [u8]) {
-                use #bevy_core_path::bytes::Bytes;
-                match name {
-                    #struct_name_string => self.write_bytes(buffer),
-                    _ => {},
-                }
             }
             fn uniform_byte_len(&self, name: &str) -> usize {
-                use #bevy_core_path::bytes::Bytes;
-                match name {
-                    #struct_name_string => self.byte_len(),
-                    _ => 0,
-                }
+                0
             }
 
             fn get_uniform_texture(&self, name: &str) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {

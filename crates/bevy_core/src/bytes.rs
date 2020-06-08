@@ -1,4 +1,7 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
+
+pub use bevy_derive::Bytes;
+
 pub trait Bytes {
     fn write_bytes(&self, buffer: &mut [u8]);
     fn byte_len(&self) -> usize;

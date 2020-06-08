@@ -43,12 +43,12 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResourceId {
         let resource = RenderResourceId::new();
-        self.add_resource_info(resource, ResourceInfo::Texture(texture_descriptor));
+        self.add_resource_info(resource, ResourceInfo::Texture(Some(texture_descriptor)));
         resource
     }
     fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResourceId {
         let resource = RenderResourceId::new();
-        self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
+        self.add_resource_info(resource, ResourceInfo::Buffer(Some(buffer_info)));
         resource
     }
     fn create_buffer_mapped(
@@ -62,7 +62,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, _data: &[u8]) -> RenderResourceId {
         let resource = RenderResourceId::new();
-        self.add_resource_info(resource, ResourceInfo::Buffer(buffer_info));
+        self.add_resource_info(resource, ResourceInfo::Buffer(Some(buffer_info)));
         resource
     }
     fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}

@@ -1,9 +1,12 @@
-use crate::modules::{get_modules, get_path};
+use crate::{
+    attributes::get_field_attributes,
+    modules::{get_modules, get_path},
+};
 use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path};
+use syn::{parse_macro_input, DeriveInput, Path};
 
 #[derive(FromMeta, Debug, Default)]
 struct VertexAttributeArgs {
@@ -28,7 +31,7 @@ impl From<VertexAttributeArgs> for VertexAttributes {
     }
 }
 
-static UNIFORM_ATTRIBUTE_NAME: &'static str = "uniform";
+static VERTEX_ATTRIBUTE_NAME: &'static str = "vertex";
 
 pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -36,34 +39,10 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
 
-    let fields = match &ast.data {
-        Data::Struct(DataStruct {
-            fields: Fields::Named(fields),
-            ..
-        }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
-    };
-
-    let field_attributes = fields
-        .iter()
-        .map(|f| {
-            (
-                f,
-                f.attrs
-                    .iter()
-                    .find(|a| {
-                        a.path.get_ident().as_ref().unwrap().to_string() == UNIFORM_ATTRIBUTE_NAME
-                    })
-                    .map(|a| {
-                        VertexAttributes::from(
-                            VertexAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                                .unwrap_or_else(|_err| VertexAttributeArgs::default()),
-                        )
-                    })
-                    .unwrap_or_else(|| VertexAttributes::default()),
-            )
-        })
-        .collect::<Vec<(&Field, VertexAttributes)>>();
+    let field_attributes = get_field_attributes::<VertexAttributes, VertexAttributeArgs>(
+        VERTEX_ATTRIBUTE_NAME,
+        &ast.data,
+    );
 
     let struct_name = &ast.ident;
 

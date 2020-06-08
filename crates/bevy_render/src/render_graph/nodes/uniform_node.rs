@@ -1,16 +1,16 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResourceId,
-        RenderResourceAssignment, RenderResourceAssignments, RenderResourceAssignmentsId,
+        self, BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResourceAssignment,
+        RenderResourceAssignments, RenderResourceAssignmentsId, RenderResourceId, RenderResourceHints,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
-    shader::{Uniforms, FieldBindType},
     texture, Renderable,
 };
 
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
+use render_resource::ResourceInfo;
 use std::{collections::HashMap, marker::PhantomData};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
@@ -53,25 +53,28 @@ impl BufferArrayStatus {
 
 struct UniformBufferArrays<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     uniform_arrays: Vec<Option<(String, BufferArrayStatus)>>,
     _marker: PhantomData<T>,
 }
 
-impl<T> UniformBufferArrays<T>
+impl<T> Default for UniformBufferArrays<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
-    fn new() -> Self {
-        let mut uniform_arrays = Vec::new();
-        let field_infos = T::get_field_infos();
-        uniform_arrays.resize_with(field_infos.len(), || None);
-        UniformBufferArrays {
-            uniform_arrays,
-            _marker: PhantomData::default(),
+    fn default() -> Self {
+        Self {
+            uniform_arrays: Default::default(),
+            _marker: Default::default(),
         }
     }
+}
+
+impl<T> UniformBufferArrays<T>
+where
+    T: render_resource::RenderResources,
+{
     fn reset_new_item_counts(&mut self) {
         for buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_status)) = buffer_status {
@@ -81,15 +84,19 @@ where
     }
 
     fn increment_uniform_counts(&mut self, uniforms: &T) {
-        for (i, field_info) in T::get_field_infos().iter().enumerate() {
-            if let Some(FieldBindType::Uniform { size }) | Some(FieldBindType::Buffer { size }) =
-                uniforms.get_field_bind_type(&field_info.name)
-            {
+        if self.uniform_arrays.len() != uniforms.render_resources_len() {
+            self.uniform_arrays
+                .resize_with(uniforms.render_resources_len(), || None);
+        }
+        for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
+            if let Some(ResourceInfo::Buffer(_)) = render_resource.resource_info() {
+                let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
+                let size = render_resource.buffer_byte_len().unwrap();
                 if let Some((ref _name, ref mut buffer_array_status)) = self.uniform_arrays[i] {
                     buffer_array_status.new_item_count += 1;
                 } else {
                     self.uniform_arrays[i] = Some((
-                        field_info.uniform_name.to_string(),
+                        render_resource_name.to_string(),
                         BufferArrayStatus {
                             new_item_count: 1,
                             queued_buffer_writes: Vec::new(),
@@ -182,10 +189,11 @@ where
         render_resource_assignments: &mut RenderResourceAssignments,
         staging_buffer: &mut [u8],
     ) {
-        for (i, field_info) in T::get_field_infos().iter().enumerate() {
-            let bind_type = uniforms.get_field_bind_type(&field_info.name);
-            match bind_type {
-                Some(FieldBindType::Uniform { size }) | Some(FieldBindType::Buffer { size }) => {
+        for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
+            match render_resource.resource_info() {
+                Some(ResourceInfo::Buffer(_)) => {
+                    let size = render_resource.buffer_byte_len().unwrap();
+                    let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
                     let (_name, uniform_buffer_status) = self.uniform_arrays[i].as_mut().unwrap();
                     let range = 0..size as u64;
                     let (target_buffer, target_offset) = if dynamic_uniforms {
@@ -193,7 +201,7 @@ where
                         let index = uniform_buffer_status
                             .get_or_assign_index(render_resource_assignments.id);
                         render_resource_assignments.set(
-                            &field_info.uniform_name,
+                            render_resource_name,
                             RenderResourceAssignment::Buffer {
                                 resource: buffer,
                                 dynamic_index: Some(
@@ -204,16 +212,18 @@ where
                         );
                         (buffer, index * uniform_buffer_status.aligned_size)
                     } else {
-                        let resource = match render_resource_assignments
-                            .get(field_info.uniform_name)
-                        {
+                        let resource = match render_resource_assignments.get(render_resource_name) {
                             Some(assignment) => assignment.get_resource(),
                             None => {
-                                let usage = if let Some(FieldBindType::Buffer { .. }) = bind_type {
-                                    BufferUsage::STORAGE
-                                } else {
-                                    BufferUsage::UNIFORM
-                                };
+                                // TODO: RE-ADD support for BufferUsage::STORAGE type
+                                let mut usage = BufferUsage::UNIFORM;
+                                
+                                if let Some(render_resource_hints) = uniforms.get_render_resource_hints(i) {
+                                    if render_resource_hints.contains(RenderResourceHints::BUFFER) {
+                                        usage = BufferUsage::STORAGE
+                                    }
+                                } 
+
                                 let resource = render_resources.create_buffer(BufferInfo {
                                     size,
                                     buffer_usage: BufferUsage::COPY_DST | usage,
@@ -221,7 +231,7 @@ where
                                 });
 
                                 render_resource_assignments.set(
-                                    &field_info.uniform_name,
+                                    render_resource_name,
                                     RenderResourceAssignment::Buffer {
                                         resource,
                                         range,
@@ -238,23 +248,9 @@ where
                     let staging_buffer_start = uniform_buffer_status.staging_buffer_offset
                         + (uniform_buffer_status.queued_buffer_writes.len()
                             * uniform_buffer_status.item_size);
-                    let uniform_byte_len = uniforms.uniform_byte_len(&field_info.uniform_name);
-                    if uniform_byte_len > 0 {
-                        if size != uniform_byte_len {
-                            panic!("The number of bytes produced for {} do not match the expected count. Actual: {}. Expected: {}.", field_info.uniform_name, uniform_byte_len, size);
-                        }
-
-                        uniforms.write_uniform_bytes(
-                            &field_info.uniform_name,
-                            &mut staging_buffer
-                                [staging_buffer_start..(staging_buffer_start + uniform_byte_len)],
-                        );
-                    } else {
-                        panic!(
-                            "failed to get data from uniform: {}",
-                            field_info.uniform_name
-                        );
-                    };
+                    render_resource.write_buffer_bytes(
+                        &mut staging_buffer[staging_buffer_start..(staging_buffer_start + size)],
+                    );
 
                     uniform_buffer_status
                         .queued_buffer_writes
@@ -263,7 +259,8 @@ where
                             offset: target_offset,
                         });
                 }
-                Some(FieldBindType::Texture) => { /* ignore textures */ }
+                Some(ResourceInfo::Texture(_)) => { /* ignore textures */ }
+                Some(ResourceInfo::Sampler) => { /* ignore samplers */ }
                 None => { /* ignore None */ }
             }
         }
@@ -347,7 +344,7 @@ where
 #[derive(Default)]
 pub struct UniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -356,7 +353,7 @@ where
 
 impl<T> UniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         UniformNode {
@@ -369,7 +366,7 @@ where
 
 impl<T> Node for UniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     fn update(
         &mut self,
@@ -385,11 +382,11 @@ where
 
 impl<T> SystemNode for UniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
-        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
+        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         // TODO: maybe run "update" here
         SystemBuilder::new(format!(
@@ -505,7 +502,7 @@ where
 #[derive(Default)]
 pub struct AssetUniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -514,7 +511,7 @@ where
 
 impl<T> AssetUniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         AssetUniformNode {
@@ -527,7 +524,7 @@ where
 
 impl<T> Node for AssetUniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     fn update(
         &mut self,
@@ -543,11 +540,11 @@ where
 
 impl<T> SystemNode for AssetUniformNode<T>
 where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
     fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
-        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::new();
+        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         // TODO: maybe run "update" here
         SystemBuilder::new("uniform_resource_provider")
@@ -677,12 +674,13 @@ fn setup_uniform_texture_resources<T>(
     entities_waiting_for_assets: &EntitiesWaitingForAssets,
     render_resource_assignments: &mut RenderResourceAssignments,
 ) where
-    T: Uniforms,
+    T: render_resource::RenderResources,
 {
-    for field_info in T::get_field_infos().iter() {
-        let bind_type = uniforms.get_field_bind_type(&field_info.name);
-        if let Some(FieldBindType::Texture) = bind_type {
-            if let Some(texture_handle) = uniforms.get_uniform_texture(&field_info.texture_name) {
+    for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
+        if let Some(ResourceInfo::Texture(_)) = render_resource.resource_info() {
+            let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
+            let sampler_name = format!("{}_sampler", render_resource_name);
+            if let Some(texture_handle) = render_resource.texture() {
                 if let Some(texture_resource) = render_resource_context
                     .get_asset_resource(texture_handle, texture::TEXTURE_ASSET_INDEX)
                 {
@@ -690,11 +688,11 @@ fn setup_uniform_texture_resources<T>(
                         .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
                         .unwrap();
                     render_resource_assignments.set(
-                        field_info.texture_name,
+                        render_resource_name,
                         RenderResourceAssignment::Texture(texture_resource),
                     );
                     render_resource_assignments.set(
-                        field_info.sampler_name,
+                        &sampler_name,
                         RenderResourceAssignment::Sampler(sampler_resource),
                     );
                     continue;

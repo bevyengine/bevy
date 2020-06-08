@@ -1,11 +1,115 @@
+use super::ResourceInfo;
+use crate::texture::Texture;
+use bevy_asset::Handle;
 use uuid::Uuid;
 
-// TODO: Rename to RenderResourceId
+use bevy_core::bytes::{Byteable, Bytes};
+pub use bevy_derive::{RenderResource, RenderResources};
+use glam::{Mat4, Vec2, Vec3, Vec4};
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RenderResourceId(Uuid);
 
 impl RenderResourceId {
     pub fn new() -> Self {
         RenderResourceId(Uuid::new_v4())
+    }
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct RenderResourceHints: u32 {
+        const BUFFER = 1;
+    }
+}
+
+pub trait RenderResource {
+    fn resource_info(&self) -> Option<ResourceInfo>;
+    fn write_buffer_bytes(&self, buffer: &mut [u8]);
+    fn buffer_byte_len(&self) -> Option<usize>;
+    // TODO: consider making these panic by default, but return non-options
+    fn texture(&self) -> Option<Handle<Texture>>;
+}
+
+pub trait RenderResources: Send + Sync + 'static {
+    fn render_resources_len(&self) -> usize;
+    fn get_render_resource(&self, index: usize) -> Option<&dyn RenderResource>;
+    fn get_render_resource_name(&self, index: usize) -> Option<&str>;
+    fn get_render_resource_hints(&self, _index: usize) -> Option<RenderResourceHints> {
+        None
+    }
+    fn iter_render_resources(&self) -> RenderResourceIterator;
+}
+
+pub struct RenderResourceIterator<'a> {
+    render_resources: &'a dyn RenderResources,
+    index: usize,
+}
+
+impl<'a> RenderResourceIterator<'a> {
+    pub fn new(render_resources: &'a dyn RenderResources) -> Self {
+        Self {
+            render_resources,
+            index: 0,
+        }
+    }
+}
+impl<'a> Iterator for RenderResourceIterator<'a> {
+    type Item = &'a dyn RenderResource;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.render_resources.render_resources_len() {
+            None
+        } else {
+            let render_resource = self
+                .render_resources
+                .get_render_resource(self.index)
+                .unwrap();
+            self.index += 1;
+            Some(render_resource)
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! impl_render_resource_bytes {
+    ($ty:ident) => {
+        impl RenderResource for $ty {
+            fn resource_info(&self) -> Option<ResourceInfo> {
+                Some(ResourceInfo::Buffer(None))
+            }
+            fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+                self.write_bytes(buffer);
+            }
+            fn buffer_byte_len(&self) -> Option<usize> {
+                Some(self.byte_len())
+            }
+            fn texture(&self) -> Option<Handle<Texture>> {
+                None
+            }
+        }
+    };
+}
+
+// TODO: when specialization lands, replace these with impl<T> RenderResource for T where T: Bytes
+impl_render_resource_bytes!(Vec2);
+impl_render_resource_bytes!(Vec3);
+impl_render_resource_bytes!(Vec4);
+impl_render_resource_bytes!(Mat4);
+
+impl<T> RenderResource for Vec<T>
+where
+    T: Sized + Byteable,
+{
+    fn resource_info(&self) -> Option<ResourceInfo> {
+        Some(ResourceInfo::Buffer(None))
+    }
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        self.write_bytes(buffer);
+    }
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(self.byte_len())
+    }
+    fn texture(&self) -> Option<Handle<Texture>> {
+        None
     }
 }

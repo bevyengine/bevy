@@ -83,7 +83,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     self.render_context.resources().get_resource_info(
                         index_buffer,
                         &mut |resource_info| match resource_info {
-                            Some(ResourceInfo::Buffer(buffer_info)) => {
+                            Some(ResourceInfo::Buffer(Some(buffer_info))) => {
                                 indices = Some(0..(buffer_info.size / 2) as u32)
                             }
                             _ => panic!("expected a buffer type"),

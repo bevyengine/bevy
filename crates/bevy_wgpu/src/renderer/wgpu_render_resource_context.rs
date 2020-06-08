@@ -152,7 +152,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let texture_view = texture.create_default_view();
 
         let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Texture(texture_descriptor));
+        resource_info.insert(resource, ResourceInfo::Texture(Some(texture_descriptor)));
         texture_views.insert(resource, texture_view);
         textures.insert(resource, texture);
         resource
@@ -171,7 +171,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         });
 
         let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Buffer(buffer_info));
+        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
         buffers.insert(resource, buffer);
         resource
     }
@@ -202,7 +202,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let resource = RenderResourceId::new();
         let mut resource_info = self.resources.resource_info.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
-        resource_info.insert(resource, ResourceInfo::Buffer(buffer_info));
+        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
         buffers.insert(resource, buffer);
         resource
     }
@@ -218,7 +218,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .create_buffer_with_data(data, buffer_info.buffer_usage.wgpu_into());
 
         let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Buffer(buffer_info));
+        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
         buffers.insert(resource, buffer);
         resource
     }

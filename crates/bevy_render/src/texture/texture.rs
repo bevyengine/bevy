@@ -1,7 +1,7 @@
 use super::{SamplerDescriptor, TextureDescriptor};
 use crate::{
     renderer::{RenderResourceContext, RenderResources},
-    shader::ShaderDefSuffixProvider,
+    shader::ShaderDefSuffixProvider, render_resource::{ResourceInfo, RenderResource},
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -119,5 +119,33 @@ impl ShaderDefSuffixProvider for Option<Handle<Texture>> {
             Some(_) => Some(""),
             None => None,
         }
+    }
+}
+
+impl RenderResource for Option<Handle<Texture>> {
+    fn resource_info(&self) -> Option<ResourceInfo> {
+        self.map(|_texture| ResourceInfo::Texture(None))
+    }
+    fn write_buffer_bytes(&self, _buffer: &mut [u8]) {
+    }
+    fn buffer_byte_len(&self) -> Option<usize> {
+        None
+    }
+    fn texture(&self) -> Option<Handle<Texture>> {
+        self.clone()
+    }
+}
+
+impl RenderResource for Handle<Texture> {
+    fn resource_info(&self) -> Option<ResourceInfo> {
+        Some(ResourceInfo::Texture(None))
+    }
+    fn write_buffer_bytes(&self, _buffer: &mut [u8]) {
+    }
+    fn buffer_byte_len(&self) -> Option<usize> {
+        None
+    }
+    fn texture(&self) -> Option<Handle<Texture>> {
+        Some(self.clone())
     }
 }

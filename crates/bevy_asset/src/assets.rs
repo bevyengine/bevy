@@ -3,7 +3,6 @@ use crate::{
     Handle, HandleId,
 };
 use bevy_app::{AppBuilder, Events, FromResources};
-use bevy_core::bytes::Bytes;
 use bevy_type_registry::RegisterType;
 use legion::prelude::*;
 use std::collections::HashMap;
@@ -105,13 +104,6 @@ impl<T> Assets<T> {
         mut assets: ResMut<Assets<T>>,
     ) {
         events.extend(assets.events.drain())
-    }
-}
-
-impl<T> Bytes for Handle<T> {
-    fn write_bytes(&self, _buffer: &mut [u8]) {}
-    fn byte_len(&self) -> usize {
-        0
     }
 }
 

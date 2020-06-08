@@ -3,7 +3,7 @@ use crate::{
     TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_derive::EntityArchetype;
+use bevy_app::EntityArchetype;
 use bevy_render::{mesh::Mesh, Renderable};
 
 #[derive(EntityArchetype)]

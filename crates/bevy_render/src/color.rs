@@ -1,5 +1,5 @@
 use super::texture::Texture;
-use crate::shader::ShaderDefSuffixProvider;
+use crate::{render_resource::{ResourceInfo, RenderResource}, shader::ShaderDefSuffixProvider, impl_render_resource_bytes};
 use bevy_asset::Handle;
 use bevy_core::bytes::{Byteable, Bytes};
 use bevy_property::Property;
@@ -138,3 +138,5 @@ impl ShaderDefSuffixProvider for ColorSource {
         }
     }
 }
+
+impl_render_resource_bytes!(Color);

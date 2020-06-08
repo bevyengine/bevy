@@ -11,7 +11,6 @@ bevy_app = { path = "../bevy_app" }
 bevy_core = { path = "../bevy_core" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_derive = { path = "../bevy_derive" }
 bevy_render = { path = "../bevy_render" }
 bevy_transform = { path = "../bevy_transform" }
 

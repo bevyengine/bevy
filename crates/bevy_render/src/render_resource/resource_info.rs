@@ -17,7 +17,7 @@ impl Default for BufferInfo {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ResourceInfo {
-    Buffer(BufferInfo),
-    Texture(TextureDescriptor),
+    Buffer(Option<BufferInfo>),
+    Texture(Option<TextureDescriptor>),
     Sampler,
 }

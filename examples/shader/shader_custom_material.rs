@@ -8,7 +8,7 @@ fn main() {
         .run();
 }
 
-#[derive(Uniforms, Default)]
+#[derive(Uniforms, RenderResources, Default)]
 struct MyMaterial {
     pub color: Color,
 }

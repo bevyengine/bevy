@@ -1,9 +1,12 @@
 extern crate proc_macro;
 
 mod app_plugin;
+mod attributes;
 mod bytes;
 mod entity_archetype;
 mod modules;
+mod render_resources;
+mod render_resource;
 mod resource;
 mod uniforms;
 mod as_vertex_buffer_descriptor;
@@ -28,6 +31,16 @@ pub fn derive_uniform(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Uniforms, attributes(uniform, module))]
 pub fn derive_uniforms(input: TokenStream) -> TokenStream {
     uniforms::derive_uniforms(input)
+}
+
+#[proc_macro_derive(RenderResources, attributes(render_resources, module))]
+pub fn derive_render_resources(input: TokenStream) -> TokenStream {
+    render_resources::derive_render_resources(input)
+}
+
+#[proc_macro_derive(RenderResource, attributes(module))]
+pub fn derive_render_resource(input: TokenStream) -> TokenStream {
+    render_resource::derive_render_resource(input)
 }
 
 #[proc_macro_derive(AsVertexBufferDescriptor, attributes(vertex, module))]

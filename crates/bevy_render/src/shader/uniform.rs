@@ -1,7 +1,5 @@
-use crate::{color::ColorSource, pipeline::BindType, texture::Texture, Renderable};
-
+use crate::{pipeline::BindType, texture::Texture, Renderable};
 use bevy_asset::{Assets, Handle};
-use bevy_core::bytes::Bytes;
 use legion::prelude::*;
 
 pub use bevy_derive::{Uniform, Uniforms};
@@ -76,82 +74,6 @@ pub struct FieldInfo {
     pub uniform_name: &'static str,
     pub texture_name: &'static str,
     pub sampler_name: &'static str,
-}
-
-pub trait GetFieldBindType {
-    fn get_bind_type(&self) -> Option<FieldBindType>;
-}
-
-impl GetFieldBindType for ColorSource {
-    fn get_bind_type(&self) -> Option<FieldBindType> {
-        match *self {
-            ColorSource::Texture(_) => Some(FieldBindType::Texture),
-            ColorSource::Color(color) => color.get_bind_type(),
-        }
-    }
-}
-
-impl GetFieldBindType for Option<Handle<Texture>> {
-    fn get_bind_type(&self) -> Option<FieldBindType> {
-        match *self {
-            Some(_) => Some(FieldBindType::Texture),
-            None => None,
-        }
-    }
-}
-
-impl GetFieldBindType for Handle<Texture> {
-    fn get_bind_type(&self) -> Option<FieldBindType> {
-        Some(FieldBindType::Texture)
-    }
-}
-
-impl<T> GetFieldBindType for T
-where
-    T: Bytes,
-{
-    // TODO: this breaks if get_bytes_ref() isn't supported for a datatype
-    default fn get_bind_type(&self) -> Option<FieldBindType> {
-        Some(FieldBindType::Uniform {
-            size: self.byte_len(),
-        })
-    }
-}
-
-pub trait GetTexture {
-    fn get_texture(&self) -> Option<Handle<Texture>> {
-        None
-    }
-}
-
-impl<T> GetTexture for T
-where
-    T: Bytes,
-{
-    default fn get_texture(&self) -> Option<Handle<Texture>> {
-        None
-    }
-}
-
-impl GetTexture for Handle<Texture> {
-    fn get_texture(&self) -> Option<Handle<Texture>> {
-        Some(self.clone())
-    }
-}
-
-impl GetTexture for Option<Handle<Texture>> {
-    fn get_texture(&self) -> Option<Handle<Texture>> {
-        *self
-    }
-}
-
-impl GetTexture for ColorSource {
-    fn get_texture(&self) -> Option<Handle<Texture>> {
-        match self {
-            ColorSource::Color(_) => None,
-            ColorSource::Texture(texture) => Some(texture.clone()),
-        }
-    }
 }
 
 pub struct UniformInfo<'a> {

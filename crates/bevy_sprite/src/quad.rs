@@ -1,7 +1,9 @@
-use bevy_derive::{Bytes, Uniform};
 use glam::Vec2;
+use bevy_render::{shader::Uniform, render_resource::{RenderResources, RenderResource}};
+use bevy_core::bytes::Bytes;
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug, Uniform, Bytes)]
+#[derive(Default, Clone, Copy, Debug, Uniform, RenderResources, RenderResource, Bytes)]
+#[render_resources(from_self)]
 pub struct Quad {
     pub position: Vec2,
     pub size: Vec2,

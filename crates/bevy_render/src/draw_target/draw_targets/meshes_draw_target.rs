@@ -45,7 +45,7 @@ impl DrawTarget for MeshesDrawTarget {
                     render_resources.get_resource_info(
                         index_buffer_resource,
                         &mut |resource_info| match resource_info {
-                            Some(ResourceInfo::Buffer(buffer_info)) => {
+                            Some(ResourceInfo::Buffer(Some(buffer_info))) => {
                                 current_mesh_index_len = (buffer_info.size / 2) as u32
                             }
                             _ => panic!("expected a buffer type"),
