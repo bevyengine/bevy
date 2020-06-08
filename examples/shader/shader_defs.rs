@@ -12,11 +12,11 @@ fn main() {
         .run();
 }
 
-#[derive(Uniforms, RenderResources, Default)]
+#[derive(RenderResources, ShaderDefs, Default)]
 struct MyMaterial {
     pub color: Color,
-    #[uniform(ignore, shader_def)]
     #[render_resources(ignore)]
+    #[shader_def]
     pub always_red: bool,
 }
 

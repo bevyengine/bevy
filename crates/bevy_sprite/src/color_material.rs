@@ -1,10 +1,10 @@
 use bevy_asset::{self, Handle};
-use bevy_render::{texture::Texture, Color, render_resource::RenderResources, shader::Uniforms};
+use bevy_render::{render_resource::RenderResources, shader::ShaderDefs, texture::Texture, Color};
 
-#[derive(Uniforms, RenderResources)]
+#[derive(RenderResources, ShaderDefs)]
 pub struct ColorMaterial {
     pub color: Color,
-    #[uniform(shader_def)]
+    #[shader_def]
     pub texture: Option<Handle<Texture>>,
 }
 

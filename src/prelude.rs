@@ -1,7 +1,7 @@
 pub use crate::{
     app::{
-        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, EntityArchetype,
-        EventReader, Events, FromResources, System, DynamicAppPlugin
+        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, DynamicAppPlugin,
+        EntityArchetype, EventReader, Events, FromResources, System,
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
@@ -25,8 +25,10 @@ pub use crate::{
             },
             RenderGraph,
         },
-        shader::{Shader, ShaderDefSuffixProvider, ShaderStage, ShaderStages, Uniforms},
         render_resource::RenderResources,
+        shader::{
+            Shader, ShaderDefSuffixProvider, ShaderDefs, ShaderStage, ShaderStages, Uniforms,
+        },
         texture::Texture,
         Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
     },

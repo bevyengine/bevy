@@ -138,15 +138,7 @@ pub fn derive_uniforms(input: TokenStream) -> TokenStream {
             // TODO: this will be very allocation heavy. find a way to either make this allocation free
             // or alternatively only run it when the shader_defs have changed
             fn get_shader_defs(&self) -> Option<Vec<String>> {
-                use #bevy_render_path::shader::ShaderDefSuffixProvider;
-                let mut potential_shader_defs: Vec<(&'static str, Option<&'static str>)> = vec![
-                    #((#shader_def_field_names_screaming_snake, self.#shader_def_field_names.get_shader_def()),)*
-                ];
-
-                Some(potential_shader_defs.drain(..)
-                    .filter(|(f, shader_def)| shader_def.is_some())
-                    .map(|(f, shader_def)| format!("{}_{}{}", #struct_name_uppercase, f, shader_def.unwrap()))
-                    .collect::<Vec<String>>())
+                None
             }
         }
     })

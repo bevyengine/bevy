@@ -1,26 +1,27 @@
 use crate::Rect;
 use bevy_asset::Handle;
-use bevy_render::{texture::Texture, render_resource::{RenderResources, RenderResource}, shader::{Uniforms, Uniform}};
 use bevy_core::bytes::Bytes;
+use bevy_render::{
+    render_resource::{RenderResource, RenderResources},
+    texture::Texture,
+};
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
 
-#[derive(Uniforms, RenderResources)]
+#[derive(RenderResources)]
 pub struct TextureAtlas {
     pub texture: Handle<Texture>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub dimensions: Vec2,
-    #[uniform(buffer)]
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
-    #[uniform(ignore)]
     #[render_resources(ignore)]
     pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
 // NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
 // Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
-#[derive(Uniform, Bytes, RenderResources, RenderResource, Default)]
+#[derive(Bytes, RenderResources, RenderResource, Default)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub position: Vec3,

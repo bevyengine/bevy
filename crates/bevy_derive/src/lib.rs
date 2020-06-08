@@ -8,6 +8,7 @@ mod modules;
 mod render_resources;
 mod render_resource;
 mod resource;
+mod shader_defs;
 mod uniforms;
 mod as_vertex_buffer_descriptor;
 
@@ -41,6 +42,11 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(RenderResource, attributes(module))]
 pub fn derive_render_resource(input: TokenStream) -> TokenStream {
     render_resource::derive_render_resource(input)
+}
+
+#[proc_macro_derive(ShaderDefs, attributes(shader_def, module))]
+pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
+    shader_defs::derive_shader_defs(input)
 }
 
 #[proc_macro_derive(AsVertexBufferDescriptor, attributes(vertex, module))]
