@@ -21,10 +21,11 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            .cargo_home
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Configure cargo data directory
+        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
       - name: Build
         run: cargo check
       - name: Run tests
