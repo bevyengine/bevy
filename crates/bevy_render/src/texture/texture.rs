@@ -1,7 +1,7 @@
 use super::{SamplerDescriptor, TextureDescriptor};
 use crate::{
     renderer::{RenderResourceContext, RenderResources},
-    shader::ShaderDefSuffixProvider, render_resource::{ResourceInfo, RenderResource},
+    render_resource::{ResourceInfo, RenderResource},
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -111,15 +111,6 @@ impl Texture {
 #[derive(Default)]
 pub struct TextureResourceSystemState {
     event_reader: EventReader<AssetEvent<Texture>>,
-}
-
-impl ShaderDefSuffixProvider for Option<Handle<Texture>> {
-    fn get_shader_def(&self) -> Option<&'static str> {
-        match *self {
-            Some(_) => Some(""),
-            None => None,
-        }
-    }
 }
 
 impl RenderResource for Option<Handle<Texture>> {

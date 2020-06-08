@@ -9,7 +9,6 @@ mod render_resources;
 mod render_resource;
 mod resource;
 mod shader_defs;
-mod uniforms;
 mod as_vertex_buffer_descriptor;
 
 use proc_macro::TokenStream;
@@ -22,16 +21,6 @@ pub fn derive_from_resources(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Bytes, attributes(module))]
 pub fn derive_bytes(input: TokenStream) -> TokenStream {
     bytes::derive_bytes(input)
-}
-
-#[proc_macro_derive(Uniform, attributes(uniform, module))]
-pub fn derive_uniform(input: TokenStream) -> TokenStream {
-    uniforms::derive_uniform(input)
-}
-
-#[proc_macro_derive(Uniforms, attributes(uniform, module))]
-pub fn derive_uniforms(input: TokenStream) -> TokenStream {
-    uniforms::derive_uniforms(input)
 }
 
 #[proc_macro_derive(RenderResources, attributes(render_resources, module))]

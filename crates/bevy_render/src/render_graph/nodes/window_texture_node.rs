@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
+    render_resource::ResourceInfo,
     renderer::RenderContext,
-    shader::FieldBindType,
     texture::TextureDescriptor,
 };
 use bevy_app::{EventReader, Events};
@@ -18,10 +18,7 @@ pub struct WindowTextureNode {
 
 impl WindowTextureNode {
     pub const OUT_TEXTURE: &'static str = "texture";
-    pub fn new(
-        window_reference: WindowReference,
-        descriptor: TextureDescriptor,
-    ) -> Self {
+    pub fn new(window_reference: WindowReference, descriptor: TextureDescriptor) -> Self {
         WindowTextureNode {
             window_reference,
             descriptor,
@@ -35,7 +32,7 @@ impl Node for WindowTextureNode {
     fn output(&self) -> &[ResourceSlotInfo] {
         static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
             name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
-            resource_type: FieldBindType::Texture,
+            resource_info: ResourceInfo::Texture(None),
         }];
         OUTPUT
     }
