@@ -1,4 +1,3 @@
-#![feature(min_specialization)]
 mod app;
 mod app_builder;
 mod entity_archetype;

@@ -40,10 +40,14 @@ We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/intr
 cargo run --example scene
 ```
 
-### Nightly Compiler
+### Fast Compiles
 
-Bevy requires nightly rust right now. It currently uses [specialization](https://github.com/rust-lang/rfcs/blob/master/text/1210-impl-specialization.md) features, which are unstable. If specialization goes stable soon then we can go back to a stable compiler. [There is actually good forward progress happening here](https://github.com/rust-lang/rust/pull/68970). In the meantime, we will try our best to remove specialization usage so we can go back to stable.
-
+Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should use nightly Rust and rename [.cargo/config_fast_builds](.cargo/config_fast_builds) to `.cargo/config`. This enables the following:
+* Shared Generics: This feature shares generic monomorphization between crates, which significantly reduces the amount of redundant code generated (which gives a nice speed boost).
+* LLD linker: Rust spends a lot of time linking, and LLD is _much_ faster. This config swaps in LLD as the linker on Windows and Linux (sorry MacOS users ... LLD currently does not support MacOS). You must have lld installed, which is part of llvm distributions:
+    * Ubuntu: `sudo apt-get install lld`
+    * Arch: `sudo pacman -S lld`
+    * Windows (using scoop package manager): `scoop install llvm`
 
 ## Libraries Used
 

@@ -1,4 +1,3 @@
-#![feature(min_specialization)]
 pub mod batch;
 mod camera;
 pub mod entity;

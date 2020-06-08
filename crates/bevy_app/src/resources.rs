@@ -8,7 +8,7 @@ impl<T> FromResources for T
 where
     T: Default,
 {
-    default fn from_resources(_resources: &Resources) -> Self {
+    fn from_resources(_resources: &Resources) -> Self {
         Self::default()
     }
 }
