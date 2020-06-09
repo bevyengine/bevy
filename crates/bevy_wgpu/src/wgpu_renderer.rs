@@ -31,6 +31,7 @@ impl WgpuRenderer {
                     power_preference: wgpu::PowerPreference::Default,
                     compatible_surface: None,
                 },
+                wgpu::UnsafeExtensions::disallow(),
                 wgpu::BackendBit::PRIMARY,
             )
             .await
@@ -41,6 +42,7 @@ impl WgpuRenderer {
                 &wgpu::DeviceDescriptor {
                     extensions: wgpu::Extensions::empty(),
                     limits: wgpu::Limits::default(),
+                    shader_validation: true,
                 },
                 None,
             )
