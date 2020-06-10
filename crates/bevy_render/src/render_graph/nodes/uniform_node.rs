@@ -10,7 +10,8 @@ use crate::{
     texture,
 };
 
-use bevy_asset::{Assets, Handle};
+use bevy_app::EventReader;
+use bevy_asset::{AssetEvent, Assets, Handle};
 use legion::prelude::*;
 use render_resource::ResourceInfo;
 use std::{collections::HashMap, marker::PhantomData};
@@ -296,55 +297,6 @@ where
     }
 }
 
-// TODO: use something like this to remove redundancy between AssetUniformNode and UniformNode
-// fn update_uniforms<T>(
-//     render_resource_context: &dyn RenderResourceContext,
-//     staging_buffer_resource: &mut Option<RenderResource>,
-//     uniform_buffer_arrays: &mut UniformBufferArrays<T>,
-//     command_queue: &mut CommandQueue,
-//     dynamic_uniforms: bool,
-//     increment_uniform_counts: impl Fn(),
-//     update_textures: impl Fn(),
-//     update_uniform_buffers: impl Fn(&mut [u8]),
-// ) where
-//     T: AsUniforms,
-// {
-//     if let Some(staging_buffer_resource) = staging_buffer_resource {
-//         render_resource_context.remove_buffer(*staging_buffer_resource);
-//     }
-//     *staging_buffer_resource = None;
-
-//     uniform_buffer_arrays.reset_new_item_counts();
-
-//     increment_uniform_counts();
-
-//     uniform_buffer_arrays.setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-//     let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
-
-//     update_textures();
-
-//     if staging_buffer_size == 0 {
-//         let mut staging_buffer: [u8; 0] = [];
-//         update_uniform_buffers(&mut staging_buffer);
-//     } else {
-//         let staging_buffer = render_resource_context.create_buffer_mapped(
-//             BufferInfo {
-//                 buffer_usage: BufferUsage::COPY_SRC,
-//                 size: staging_buffer_size,
-//                 ..Default::default()
-//             },
-//             &mut |staging_buffer, _render_resources| {
-//                 update_uniform_buffers(staging_buffer);
-//             },
-//         );
-
-//         uniform_buffer_arrays
-//             .copy_staging_buffer_to_final_buffers(command_queue, staging_buffer);
-
-//         *staging_buffer_resource = Some(staging_buffer);
-//     }
-// }
-
 #[derive(Default)]
 pub struct UniformNode<T>
 where
@@ -393,101 +345,88 @@ where
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         // TODO: maybe run "update" here
-        SystemBuilder::new(format!(
-            "uniform_resource_provider::<{}>",
-            std::any::type_name::<T>()
-        ))
-        .read_resource::<RenderResources>()
-        .read_resource::<EntitiesWaitingForAssets>()
-        // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-        .with_query(<(Read<T>, Read<Draw>, Read<RenderPipelines>)>::query())
-        .with_query(<(Read<T>, Read<Draw>, Write<RenderPipelines>)>::query())
-        .build(
-            move |_,
-                  world,
-                  (render_resources, entities_waiting_for_assets),
-                  (read_uniform_query, write_uniform_query)| {
-                let render_resource_context = &*render_resources.context;
+        (move |world: &mut SubWorld,
+               render_resources: Res<RenderResources>,
+               entities_waiting_for_assets: Res<EntitiesWaitingForAssets>,
+               query: &mut Query<(Read<T>, Read<Draw>, Write<RenderPipelines>)>| {
+            let render_resource_context = &*render_resources.context;
 
-                uniform_buffer_arrays.reset_new_item_counts();
-                // update uniforms info
-                for (uniforms, draw, _render_pipelines) in read_uniform_query.iter(world) {
+            uniform_buffer_arrays.reset_new_item_counts();
+            // update uniforms info
+            for (uniforms, draw, _render_pipelines) in query.iter_mut(world) {
+                if !draw.is_visible {
+                    return;
+                }
+
+                uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+            }
+
+            uniform_buffer_arrays.setup_buffer_arrays(render_resource_context, dynamic_uniforms);
+            let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
+
+            for (entity, (uniforms, draw, mut render_pipelines)) in
+                query.iter_entities_mut(world)
+            {
+                if !draw.is_visible {
+                    return;
+                }
+
+                setup_uniform_texture_resources::<T>(
+                    entity,
+                    &uniforms,
+                    render_resource_context,
+                    &entities_waiting_for_assets,
+                    &mut render_pipelines.render_resource_assignments,
+                )
+            }
+
+            if staging_buffer_size == 0 {
+                let mut staging_buffer: [u8; 0] = [];
+                for (uniforms, draw, mut render_pipelines) in query.iter_mut(world) {
                     if !draw.is_visible {
                         return;
                     }
 
-                    uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+                    uniform_buffer_arrays.setup_uniform_buffer_resources(
+                        &uniforms,
+                        dynamic_uniforms,
+                        render_resource_context,
+                        &mut render_pipelines.render_resource_assignments,
+                        &mut staging_buffer,
+                    );
                 }
+            } else {
+                let staging_buffer = render_resource_context.create_buffer_mapped(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::COPY_SRC,
+                        size: staging_buffer_size,
+                        ..Default::default()
+                    },
+                    &mut |mut staging_buffer, _render_resources| {
+                        for (uniforms, draw, mut render_pipelines) in
+                            query.iter_mut(world)
+                        {
+                            if !draw.is_visible {
+                                return;
+                            }
+
+                            uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                &uniforms,
+                                dynamic_uniforms,
+                                render_resource_context,
+                                &mut render_pipelines.render_resource_assignments,
+                                &mut staging_buffer,
+                            );
+                        }
+                    },
+                );
 
                 uniform_buffer_arrays
-                    .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-                let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
-
-                for (entity, (uniforms, draw, mut render_pipelines)) in
-                    write_uniform_query.iter_entities_mut(world)
-                {
-                    if !draw.is_visible {
-                        return;
-                    }
-
-                    setup_uniform_texture_resources::<T>(
-                        entity,
-                        &uniforms,
-                        render_resource_context,
-                        entities_waiting_for_assets,
-                        &mut render_pipelines.render_resource_assignments,
-                    )
-                }
-
-                if staging_buffer_size == 0 {
-                    let mut staging_buffer: [u8; 0] = [];
-                    for (uniforms, draw, mut render_pipelines) in
-                        write_uniform_query.iter_mut(world)
-                    {
-                        if !draw.is_visible {
-                            return;
-                        }
-
-                        uniform_buffer_arrays.setup_uniform_buffer_resources(
-                            &uniforms,
-                            dynamic_uniforms,
-                            render_resource_context,
-                            &mut render_pipelines.render_resource_assignments,
-                            &mut staging_buffer,
-                        );
-                    }
-                } else {
-                    let staging_buffer = render_resource_context.create_buffer_mapped(
-                        BufferInfo {
-                            buffer_usage: BufferUsage::COPY_SRC,
-                            size: staging_buffer_size,
-                            ..Default::default()
-                        },
-                        &mut |mut staging_buffer, _render_resources| {
-                            for (uniforms, draw, mut render_pipelines) in
-                                write_uniform_query.iter_mut(world)
-                            {
-                                if !draw.is_visible {
-                                    return;
-                                }
-
-                                uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                    &uniforms,
-                                    dynamic_uniforms,
-                                    render_resource_context,
-                                    &mut render_pipelines.render_resource_assignments,
-                                    &mut staging_buffer,
-                                );
-                            }
-                        },
-                    );
-
-                    uniform_buffer_arrays
-                        .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
-                    command_queue.free_buffer(staging_buffer);
-                }
-            },
-        )
+                    .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
+                command_queue.free_buffer(staging_buffer);
+            }
+        })
+        .system()
     }
 }
 
@@ -507,9 +446,9 @@ where
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         AssetUniformNode {
-            command_queue: CommandQueue::default(),
             dynamic_uniforms,
-            _marker: PhantomData::default(),
+            command_queue: Default::default(),
+            _marker: Default::default(),
         }
     }
 }
@@ -538,64 +477,74 @@ where
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
-        // TODO: maybe run "update" here
-        SystemBuilder::new("uniform_resource_provider")
-            .read_resource::<Assets<T>>()
-            .read_resource::<RenderResources>()
-            .read_resource::<EntitiesWaitingForAssets>()
-            // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-            .with_query(<(Read<Handle<T>>, Read<Draw>, Read<RenderPipelines>)>::query())
-            .with_query(<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>::query())
-            .build(
-                move |_,
-                      world,
-                      (assets, render_resources, entities_waiting_for_assets),
-                      (read_handle_query, write_handle_query)| {
-                    let render_resource_context = &*render_resources.context;
-                    uniform_buffer_arrays.reset_new_item_counts();
+        (move |world: &mut SubWorld,
+          assets: Res<Assets<T>>,
+          render_resources: Res<RenderResources>,
+          entities_waiting_for_assets: Res<EntitiesWaitingForAssets>,
+          query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
+            let render_resource_context = &*render_resources.context;
+            uniform_buffer_arrays.reset_new_item_counts();
 
-                    // update uniform handles info
-                    for (entity, (handle, draw, _render_pipelines)) in
-                        read_handle_query.iter_entities(world)
-                    {
-                        if !draw.is_visible {
-                            return;
-                        }
+            // update uniform handles info
+            for (entity, (handle, draw, _render_pipelines)) in query.iter_entities_mut(world) {
+                if !draw.is_visible {
+                    return;
+                }
 
-                        if let Some(uniforms) = assets.get(&handle) {
-                            // TODO: only increment count if we haven't seen this uniform handle before
-                            uniform_buffer_arrays.increment_uniform_counts(&uniforms);
-                        } else {
-                            entities_waiting_for_assets.add(entity)
-                        }
+                if let Some(uniforms) = assets.get(&handle) {
+                    // TODO: only increment count if we haven't seen this uniform handle before
+                    uniform_buffer_arrays.increment_uniform_counts(&uniforms);
+                } else {
+                    entities_waiting_for_assets.add(entity)
+                }
+            }
+
+            uniform_buffer_arrays.setup_buffer_arrays(render_resource_context, dynamic_uniforms);
+            let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
+
+            for (entity, (handle, draw, mut render_pipelines)) in
+                query.iter_entities_mut(world)
+            {
+                if !draw.is_visible {
+                    return;
+                }
+
+                if let Some(uniforms) = assets.get(&handle) {
+                    setup_uniform_texture_resources::<T>(
+                        entity,
+                        &uniforms,
+                        render_resource_context,
+                        &entities_waiting_for_assets,
+                        &mut render_pipelines.render_resource_assignments,
+                    )
+                }
+            }
+            if staging_buffer_size == 0 {
+                let mut staging_buffer: [u8; 0] = [];
+                for (handle, draw, mut render_pipelines) in query.iter_mut(world) {
+                    if !draw.is_visible {
+                        return;
                     }
-
-                    uniform_buffer_arrays
-                        .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-                    let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
-
-                    for (entity, (handle, draw, mut render_pipelines)) in
-                        write_handle_query.iter_entities_mut(world)
-                    {
-                        if !draw.is_visible {
-                            return;
-                        }
-
-                        if let Some(uniforms) = assets.get(&handle) {
-                            setup_uniform_texture_resources::<T>(
-                                entity,
-                                &uniforms,
-                                render_resource_context,
-                                entities_waiting_for_assets,
-                                &mut render_pipelines.render_resource_assignments,
-                            )
-                        }
+                    if let Some(uniforms) = assets.get(&handle) {
+                        // TODO: only setup buffer if we haven't seen this handle before
+                        uniform_buffer_arrays.setup_uniform_buffer_resources(
+                            &uniforms,
+                            dynamic_uniforms,
+                            render_resource_context,
+                            &mut render_pipelines.render_resource_assignments,
+                            &mut staging_buffer,
+                        );
                     }
-                    if staging_buffer_size == 0 {
-                        let mut staging_buffer: [u8; 0] = [];
-                        for (handle, draw, mut render_pipelines) in
-                            write_handle_query.iter_mut(world)
-                        {
+                }
+            } else {
+                let staging_buffer = render_resource_context.create_buffer_mapped(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::COPY_SRC,
+                        size: staging_buffer_size,
+                        ..Default::default()
+                    },
+                    &mut |mut staging_buffer, _render_resources| {
+                        for (handle, draw, mut render_pipelines) in query.iter_mut(world) {
                             if !draw.is_visible {
                                 return;
                             }
@@ -610,42 +559,15 @@ where
                                 );
                             }
                         }
-                    } else {
-                        let staging_buffer = render_resource_context.create_buffer_mapped(
-                            BufferInfo {
-                                buffer_usage: BufferUsage::COPY_SRC,
-                                size: staging_buffer_size,
-                                ..Default::default()
-                            },
-                            &mut |mut staging_buffer, _render_resources| {
-                                for (handle, draw, mut render_pipelines) in
-                                    write_handle_query.iter_mut(world)
-                                {
-                                    if !draw.is_visible {
-                                        return;
-                                    }
-                                    if let Some(uniforms) = assets.get(&handle) {
-                                        // TODO: only setup buffer if we haven't seen this handle before
-                                        uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                            &uniforms,
-                                            dynamic_uniforms,
-                                            render_resource_context,
-                                            &mut render_pipelines.render_resource_assignments,
-                                            &mut staging_buffer,
-                                        );
-                                    }
-                                }
-                            },
-                        );
+                    },
+                );
 
-                        uniform_buffer_arrays.copy_staging_buffer_to_final_buffers(
-                            &mut command_queue,
-                            staging_buffer,
-                        );
-                        command_queue.free_buffer(staging_buffer);
-                    }
-                },
-            )
+                uniform_buffer_arrays
+                    .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
+                command_queue.free_buffer(staging_buffer);
+            }
+        })
+        .system()
     }
 }
 
