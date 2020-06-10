@@ -1,8 +1,8 @@
 use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
 use crate::{
-    render_resource::{RenderResourceAssignments, RenderResourceAssignmentsId},
+    draw::RenderPipelines,
+    renderer::{RenderResourceContext, RenderResources},
     shader::{Shader, ShaderSource},
-    Renderable,
 };
 use bevy_asset::{Assets, Handle};
 use std::collections::{HashMap, HashSet};
@@ -78,14 +78,15 @@ impl PipelineCompiler {
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shaders: &mut Assets<Shader>,
         pipeline_descriptor: &PipelineDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
+        render_pipelines: &RenderPipelines,
     ) -> PipelineDescriptor {
         let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
 
         compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
             shaders,
             &pipeline_descriptor.shader_stages.vertex,
-            &render_resource_assignments
+            &render_pipelines
+                .render_resource_assignments
                 .pipeline_specialization
                 .shader_specialization,
         );
@@ -97,7 +98,8 @@ impl PipelineCompiler {
                 self.compile_shader(
                     shaders,
                     fragment,
-                    &render_resource_assignments
+                    &render_pipelines
+                        .render_resource_assignments
                         .pipeline_specialization
                         .shader_specialization,
                 )
@@ -107,72 +109,78 @@ impl PipelineCompiler {
             shaders,
             true,
             Some(vertex_buffer_descriptors),
-            Some(render_resource_assignments),
+            Some(&render_pipelines.render_resource_assignments),
         );
 
-        compiled_pipeline_descriptor.primitive_topology = render_resource_assignments
+        compiled_pipeline_descriptor.primitive_topology = render_pipelines
+            .render_resource_assignments
             .pipeline_specialization
             .primitive_topology;
         compiled_pipeline_descriptor
     }
 
-    fn update_shader_assignments(
+    fn compile_pipelines(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
-        shader_pipeline_assignments: &mut PipelineAssignments,
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-        pipeline_handles: &[Handle<PipelineDescriptor>],
-        render_resource_assignments: &RenderResourceAssignments,
+        render_pipelines: &mut RenderPipelines,
+        render_resource_context: &dyn RenderResourceContext,
     ) {
-        for pipeline_handle in pipeline_handles.iter() {
+        for (i, pipeline_handle) in render_pipelines.pipelines.iter().enumerate() {
             if let None = self.pipeline_source_to_compiled.get(pipeline_handle) {
                 self.pipeline_source_to_compiled
                     .insert(*pipeline_handle, Vec::new());
             }
 
-            let final_handle = if let Some((_shader_defs, macroed_pipeline_handle)) = self
-                .pipeline_source_to_compiled
-                .get_mut(pipeline_handle)
-                .unwrap()
-                .iter()
-                .find(|(pipeline_specialization, _macroed_pipeline_handle)| {
-                    *pipeline_specialization == render_resource_assignments.pipeline_specialization
-                }) {
-                *macroed_pipeline_handle
+            let compiled_pipeline_handle = if let Some((_shader_defs, compiled_pipeline_handle)) =
+                self.pipeline_source_to_compiled
+                    .get_mut(pipeline_handle)
+                    .unwrap()
+                    .iter()
+                    .find(|(pipeline_specialization, _compiled_pipeline_handle)| {
+                        *pipeline_specialization
+                            == render_pipelines
+                                .render_resource_assignments
+                                .pipeline_specialization
+                    }) {
+                *compiled_pipeline_handle
             } else {
                 let pipeline_descriptor = pipelines.get(pipeline_handle).unwrap();
-                let compiled_pipeline = self.compile_pipeline(
+                let compiled_pipeline_descriptor = self.compile_pipeline(
                     vertex_buffer_descriptors,
                     shaders,
                     pipeline_descriptor,
-                    render_resource_assignments,
+                    render_pipelines,
                 );
-                let compiled_pipeline_handle = pipelines.add(compiled_pipeline);
+                let compiled_pipeline_handle = pipelines.add(compiled_pipeline_descriptor);
+                render_resource_context.create_render_pipeline(
+                    compiled_pipeline_handle,
+                    pipelines.get(&compiled_pipeline_handle).unwrap(),
+                    &shaders,
+                );
 
-                let macro_pipelines = self
+                let compiled_pipelines = self
                     .pipeline_source_to_compiled
                     .get_mut(pipeline_handle)
                     .unwrap();
-                macro_pipelines.push((
-                    render_resource_assignments.pipeline_specialization.clone(),
+                compiled_pipelines.push((
+                    render_pipelines
+                        .render_resource_assignments
+                        .pipeline_specialization
+                        .clone(),
                     compiled_pipeline_handle,
                 ));
                 compiled_pipeline_handle
             };
 
-            // TODO: this will break down if pipeline layout changes. fix this with "auto-layout"
-            if let None = shader_pipeline_assignments.assignments.get(&final_handle) {
-                shader_pipeline_assignments
-                    .assignments
-                    .insert(final_handle, Vec::new());
+            if i == render_pipelines.compiled_pipelines.len() {
+                render_pipelines
+                    .compiled_pipelines
+                    .push(compiled_pipeline_handle);
+            } else {
+                render_pipelines.compiled_pipelines[i] = compiled_pipeline_handle;
             }
-
-            let assignments = shader_pipeline_assignments
-                .assignments
-                .get_mut(&final_handle)
-                .unwrap();
-            assignments.push(render_resource_assignments.id);
         }
     }
 
@@ -199,49 +207,34 @@ impl PipelineCompiler {
     }
 }
 
-#[derive(Default)]
-pub struct PipelineAssignments {
-    pub assignments: HashMap<Handle<PipelineDescriptor>, Vec<RenderResourceAssignmentsId>>,
-}
-
 // TODO: make this a system
-pub fn update_shader_assignments(world: &mut World, resources: &Resources) {
-    // PERF: this seems like a lot of work for things that don't change that often.
-    // lots of string + hashset allocations. sees uniform_resource_provider for more context
-    {
-        let mut shader_pipeline_assignments = resources.get_mut::<PipelineAssignments>().unwrap();
-        let mut pipeline_compiler = resources.get_mut::<PipelineCompiler>().unwrap();
-        let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        let vertex_buffer_descriptors = resources.get::<VertexBufferDescriptors>().unwrap();
-        let mut pipeline_descriptor_storage =
-            resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
+pub fn compile_pipelines_system(
+    world: &mut SubWorld,
+    mut pipeline_compiler: ResMut<PipelineCompiler>,
+    mut shaders: ResMut<Assets<Shader>>,
+    mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    vertex_buffer_descriptors: Res<VertexBufferDescriptors>,
+    render_resources: Res<RenderResources>,
+    query: &mut Query<Write<RenderPipelines>>,
+) {
+    let render_resource_context = &*render_resources.context;
 
-        // reset assignments so they are updated every frame
-        shader_pipeline_assignments.assignments = HashMap::new();
+    // TODO: only update when RenderPipelines is changed
+    for mut render_pipelines in query.iter_mut(world) {
+        pipeline_compiler.compile_pipelines(
+            &vertex_buffer_descriptors,
+            &mut pipelines,
+            &mut shaders,
+            &mut render_pipelines,
+            render_resource_context,
+        );
 
-        // TODO: only update when renderable is changed
-        for mut renderable in <Write<Renderable>>::query().iter_mut(world) {
-            // skip instanced entities. their batched RenderResourceAssignments will handle shader assignments
-            if renderable.is_instanced {
-                continue;
-            }
-
-            pipeline_compiler.update_shader_assignments(
-                &vertex_buffer_descriptors,
-                &mut shader_pipeline_assignments,
-                &mut pipeline_descriptor_storage,
-                &mut shaders,
-                &renderable.pipelines,
-                &renderable.render_resource_assignments,
-            );
-
-            // reset shader_defs so they can be changed next frame
-            renderable
-                .render_resource_assignments
-                .pipeline_specialization
-                .shader_specialization
-                .shader_defs
-                .clear();
-        }
+        // reset shader_defs so they can be changed next frame
+        render_pipelines
+            .render_resource_assignments
+            .pipeline_specialization
+            .shader_specialization
+            .shader_defs
+            .clear();
     }
 }

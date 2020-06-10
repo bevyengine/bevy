@@ -2,7 +2,7 @@ use super::Node;
 use crate::{render::UI_PIPELINE_HANDLE, widget::Label};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
-use bevy_render::{mesh::Mesh, Renderable};
+use bevy_render::{draw::{Draw, RenderPipelines}, mesh::Mesh};
 use bevy_sprite::{ColorMaterial, Quad, QUAD_HANDLE};
 
 #[derive(EntityArchetype)]
@@ -11,7 +11,8 @@ pub struct UiEntity {
     pub quad: Quad,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
-    pub renderable: Renderable,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
 }
 
 impl Default for UiEntity {
@@ -21,7 +22,8 @@ impl Default for UiEntity {
             quad: Default::default(),
             mesh: QUAD_HANDLE,
             material: Default::default(),
-            renderable: Renderable {
+            draw: Default::default(),
+            render_pipelines: RenderPipelines {
                 pipelines: vec![UI_PIPELINE_HANDLE],
                 ..Default::default()
             },
@@ -35,7 +37,8 @@ pub struct LabelEntity {
     pub quad: Quad,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
-    pub renderable: Renderable,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
     pub label: Label,
 }
 
@@ -47,7 +50,8 @@ impl Default for LabelEntity {
             mesh: QUAD_HANDLE,
             // NOTE: labels each get their own material.
             material: Handle::new(), // TODO: maybe abstract this out
-            renderable: Renderable {
+            draw: Default::default(),
+            render_pipelines: RenderPipelines {
                 pipelines: vec![UI_PIPELINE_HANDLE],
                 ..Default::default()
             },

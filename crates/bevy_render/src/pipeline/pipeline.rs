@@ -13,23 +13,10 @@ use crate::{
 };
 use bevy_asset::Assets;
 
-// TODO: consider removing this in favor of Option<Layout>
-#[derive(Clone, Debug)]
-pub enum PipelineLayoutType {
-    Manual(PipelineLayout),
-    Reflected(Option<PipelineLayout>),
-}
-
-#[derive(Clone, Debug)]
-pub enum DescriptorType<T> {
-    Manual(T),
-    Reflected(Option<T>),
-}
-
 #[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
     pub name: Option<String>,
-    pub layout: PipelineLayoutType,
+    pub layout: Option<PipelineLayout>,
     pub shader_stages: ShaderStages,
     pub rasterization_state: Option<RasterizationStateDescriptor>,
 
@@ -63,7 +50,7 @@ impl PipelineDescriptor {
     pub fn new(shader_stages: ShaderStages) -> Self {
         PipelineDescriptor {
             name: None,
-            layout: PipelineLayoutType::Reflected(None),
+            layout: None,
             color_states: Vec::new(),
             depth_stencil_state: None,
             shader_stages,
@@ -80,7 +67,7 @@ impl PipelineDescriptor {
         PipelineDescriptor {
             name: None,
             primitive_topology: PrimitiveTopology::TriangleList,
-            layout: PipelineLayoutType::Reflected(None),
+            layout: None,
             index_format: IndexFormat::Uint16,
             sample_count: 1,
             sample_mask: !0,
@@ -120,17 +107,11 @@ impl PipelineDescriptor {
     }
 
     pub fn get_layout(&self) -> Option<&PipelineLayout> {
-        match self.layout {
-            PipelineLayoutType::Reflected(ref layout) => layout.as_ref(),
-            PipelineLayoutType::Manual(ref layout) => Some(layout),
-        }
+        self.layout.as_ref()
     }
 
     pub fn get_layout_mut(&mut self) -> Option<&mut PipelineLayout> {
-        match self.layout {
-            PipelineLayoutType::Reflected(ref mut layout) => layout.as_mut(),
-            PipelineLayoutType::Manual(ref mut layout) => Some(layout),
-        }
+        self.layout.as_mut()
     }
 
     /// Reflects the pipeline layout from its shaders.
@@ -190,6 +171,6 @@ impl PipelineDescriptor {
             }
         }
 
-        self.layout = PipelineLayoutType::Reflected(Some(layout));
+        self.layout = Some(layout);
     }
 }

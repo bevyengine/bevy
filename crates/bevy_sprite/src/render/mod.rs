@@ -4,7 +4,7 @@ use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{
-        nodes::{AssetUniformNode, PassNode, UniformNode},
+        nodes::{AssetUniformNode, UniformNode},
         RenderGraph,
     },
     shader::{Shader, ShaderStage, ShaderStages},
@@ -149,11 +149,6 @@ impl SpriteRenderGraphBuilder for RenderGraph {
             SPRITE_SHEET_PIPELINE_HANDLE,
             build_sprite_sheet_pipeline(&mut shaders),
         );
-        let main_pass: &mut PassNode = self
-            .get_node_mut(base_render_graph::node::MAIN_PASS)
-            .unwrap();
-        main_pass.add_pipeline(SPRITE_PIPELINE_HANDLE);
-        main_pass.add_pipeline(SPRITE_SHEET_PIPELINE_HANDLE);
         self
     }
 }

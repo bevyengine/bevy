@@ -1,7 +1,6 @@
-
+use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
-use crate::{Renderable, texture::Texture};
-use legion::prelude::{Res, Com, ComMut};
+use legion::prelude::{Com, ComMut, Res};
 
 pub use bevy_derive::ShaderDefs;
 
@@ -14,7 +13,6 @@ pub trait ShaderDefs {
     fn get_shader_def(&self, index: usize) -> Option<&str>;
     fn iter_shader_defs(&self) -> ShaderDefIterator;
 }
-
 
 pub struct ShaderDefIterator<'a> {
     shader_defs: &'a dyn ShaderDefs,
@@ -35,13 +33,11 @@ impl<'a> Iterator for ShaderDefIterator<'a> {
         loop {
             if self.index == self.shader_defs.shader_defs_len() {
                 return None;
-            } 
-            let shader_def = self
-                .shader_defs
-                .get_shader_def(self.index);
+            }
+            let shader_def = self.shader_defs.get_shader_def(self.index);
             self.index += 1;
             if shader_def.is_some() {
-               return shader_def; 
+                return shader_def;
             }
         }
     }
@@ -59,12 +55,12 @@ impl ShaderDef for Option<Handle<Texture>> {
     }
 }
 
-pub fn shader_def_system<T>(shader_defs: Com<T>, mut renderable: ComMut<Renderable>)
+pub fn shader_def_system<T>(shader_defs: Com<T>, mut render_pipelines: ComMut<RenderPipelines>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
     for shader_def in shader_defs.iter_shader_defs() {
-        renderable
+        render_pipelines
             .render_resource_assignments
             .pipeline_specialization
             .shader_specialization
@@ -76,13 +72,13 @@ where
 pub fn asset_shader_def_system<T>(
     assets: Res<Assets<T>>,
     asset_handle: Com<Handle<T>>,
-    mut renderable: ComMut<Renderable>,
+    mut render_pipelines: ComMut<RenderPipelines>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
     let shader_defs = assets.get(&asset_handle).unwrap();
     for shader_def in shader_defs.iter_shader_defs() {
-        renderable
+        render_pipelines
             .render_resource_assignments
             .pipeline_specialization
             .shader_specialization

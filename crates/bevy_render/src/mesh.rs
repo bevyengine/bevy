@@ -1,12 +1,11 @@
 use crate::{
     pipeline::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
-        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
-        AsVertexBufferDescriptor,
+        AsVertexBufferDescriptor, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage},
     renderer::{RenderResourceContext, RenderResources},
-    Renderable, Vertex,
+    RenderPipelines, Vertex,
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -345,7 +344,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
            render_resources: Res<RenderResources>,
            meshes: Res<Assets<Mesh>>,
            mesh_events: Res<Events<AssetEvent<Mesh>>>,
-           query: &mut Query<(Read<Handle<Mesh>>, Write<Renderable>)>| {
+           query: &mut Query<(Read<Handle<Mesh>>, Write<RenderPipelines>)>| {
         let render_resources = &*render_resources.context;
         let mut changed_meshes = HashSet::new();
         for event in mesh_event_reader.iter(&mesh_events) {
@@ -403,9 +402,9 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         }
 
         // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
-        for (handle, mut renderable) in query.iter_mut(world) {
+        for (handle, mut render_pipelines) in query.iter_mut(world) {
             if let Some(mesh) = meshes.get(&handle) {
-                renderable
+                render_pipelines
                     .render_resource_assignments
                     .pipeline_specialization
                     .primitive_topology = mesh.primitive_topology;
@@ -417,11 +416,9 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                 let index_buffer =
                     render_resources.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX);
 
-                renderable.render_resource_assignments.set_vertex_buffer(
-                    "Vertex",
-                    vertex_buffer,
-                    index_buffer,
-                );
+                render_pipelines
+                    .render_resource_assignments
+                    .set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
             }
         }
     })
@@ -430,7 +427,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
 
 #[cfg(test)]
 mod tests {
-    use super::{Mesh, VertexAttribute, AsVertexBufferDescriptor};
+    use super::{AsVertexBufferDescriptor, Mesh, VertexAttribute};
     use crate::{pipeline::state_descriptors::PrimitiveTopology, Vertex};
     use bevy_core::bytes::AsBytes;
 

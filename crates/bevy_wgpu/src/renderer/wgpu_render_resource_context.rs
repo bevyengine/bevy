@@ -5,10 +5,9 @@ use crate::{
 
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferInfo, RenderResourceId, RenderResourceAssignment, RenderResourceAssignments,
-        RenderResourceSetId, ResourceInfo,
+        BufferInfo, RenderResourceAssignment, RenderResourceId, RenderResourceSet, ResourceInfo,
     },
     renderer::RenderResourceContext,
     shader::Shader,
@@ -207,7 +206,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         resource
     }
 
-    fn create_buffer_with_data(&self, mut buffer_info: BufferInfo, data: &[u8]) -> RenderResourceId {
+    fn create_buffer_with_data(
+        &self,
+        mut buffer_info: BufferInfo,
+        data: &[u8],
+    ) -> RenderResourceId {
         // TODO: consider moving this below "create" for efficiency
         let mut resource_info = self.resources.resource_info.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
@@ -450,87 +453,69 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_bind_group(
         &self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<RenderResourceSetId> {
-        if let Some(render_resource_set) =
-            render_resource_assignments.get_render_resource_set(bind_group_descriptor.id)
+        bind_group_descriptor_id: BindGroupDescriptorId,
+        render_resource_set: &RenderResourceSet,
+    ) {
+        if !self
+            .resources
+            .has_bind_group(bind_group_descriptor_id, render_resource_set.id)
         {
-            if !self
-                .resources
-                .has_bind_group(bind_group_descriptor.id, render_resource_set.id)
-            {
-                log::trace!(
-                    "start creating bind group for RenderResourceSet {:?}",
-                    render_resource_set.id
-                );
-                let texture_views = self.resources.texture_views.read().unwrap();
-                let samplers = self.resources.samplers.read().unwrap();
-                let buffers = self.resources.buffers.read().unwrap();
-                let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
-                let mut bind_groups = self.resources.bind_groups.write().unwrap();
+            log::trace!(
+                "start creating bind group for RenderResourceSet {:?}",
+                render_resource_set.id
+            );
+            let texture_views = self.resources.texture_views.read().unwrap();
+            let samplers = self.resources.samplers.read().unwrap();
+            let buffers = self.resources.buffers.read().unwrap();
+            let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
+            let mut bind_groups = self.resources.bind_groups.write().unwrap();
 
-                let bindings = bind_group_descriptor
-                    .bindings
-                    .iter()
-                    .map(|binding| {
-                        if let Some(assignment) = render_resource_assignments.get(&binding.name) {
-                            log::trace!(
-                                "found binding {} ({}) assignment: {:?}",
-                                binding.index,
-                                binding.name,
-                                assignment,
-                            );
-                            let wgpu_resource = match assignment {
-                                RenderResourceAssignment::Texture(resource) => {
-                                    let texture = texture_views.get(&resource).unwrap();
-                                    wgpu::BindingResource::TextureView(texture)
-                                }
-                                RenderResourceAssignment::Sampler(resource) => {
-                                    let sampler = samplers.get(&resource).unwrap();
-                                    wgpu::BindingResource::Sampler(sampler)
-                                }
-                                RenderResourceAssignment::Buffer { resource, range , .. } => {
-                                    let buffer = buffers.get(&resource).unwrap();
-                                    wgpu::BindingResource::Buffer(buffer.slice(range.clone()))
-                                }
-                            };
-                            wgpu::Binding {
-                                binding: binding.index,
-                                resource: wgpu_resource,
-                            }
-                        } else {
-                            panic!(
-                                "No resource assigned to uniform \"{}\" for RenderResourceAssignments {:?}",
-                                binding.name,
-                                render_resource_assignments.id
-                            );
+            let bindings = render_resource_set
+                .indexed_assignments
+                .iter()
+                .map(|indexed_assignment| {
+                    let wgpu_resource = match &indexed_assignment.assignment {
+                        RenderResourceAssignment::Texture(resource) => {
+                            let texture = texture_views.get(&resource).unwrap();
+                            wgpu::BindingResource::TextureView(texture)
                         }
-                    })
-                    .collect::<Vec<wgpu::Binding>>();
+                        RenderResourceAssignment::Sampler(resource) => {
+                            let sampler = samplers.get(&resource).unwrap();
+                            wgpu::BindingResource::Sampler(sampler)
+                        }
+                        RenderResourceAssignment::Buffer {
+                            resource, range, ..
+                        } => {
+                            let buffer = buffers.get(&resource).unwrap();
+                            wgpu::BindingResource::Buffer(buffer.slice(range.clone()))
+                        }
+                    };
+                    wgpu::Binding {
+                        binding: indexed_assignment.index,
+                        resource: wgpu_resource,
+                    }
+                })
+                .collect::<Vec<wgpu::Binding>>();
 
-                let bind_group_layout = bind_group_layouts.get(&bind_group_descriptor.id).unwrap();
-                let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
-                    label: None,
-                    layout: bind_group_layout,
-                    bindings: bindings.as_slice(),
-                };
-                let wgpu_bind_group = self.device.create_bind_group(&wgpu_bind_group_descriptor);
+            let bind_group_layout = bind_group_layouts.get(&bind_group_descriptor_id).unwrap();
+            let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
+                label: None,
+                layout: bind_group_layout,
+                bindings: bindings.as_slice(),
+            };
+            let wgpu_bind_group = self.device.create_bind_group(&wgpu_bind_group_descriptor);
 
-                let bind_group_info = bind_groups
-                    .entry(bind_group_descriptor.id)
-                    .or_insert_with(|| WgpuBindGroupInfo::default());
-                bind_group_info
-                    .bind_groups
-                    .insert(render_resource_set.id, wgpu_bind_group);
-                log::trace!(
-                    "created bind group for RenderResourceSet {:?}",
-                    render_resource_set.id
-                );
-                return Some(render_resource_set.id);
-            }
+            let bind_group_info = bind_groups
+                .entry(bind_group_descriptor_id)
+                .or_insert_with(|| WgpuBindGroupInfo::default());
+            bind_group_info
+                .bind_groups
+                .insert(render_resource_set.id, wgpu_bind_group);
+            log::trace!(
+                "created bind group for RenderResourceSet {:?}",
+                render_resource_set.id
+            );
         }
-        None
     }
 
     fn clear_bind_groups(&self) {

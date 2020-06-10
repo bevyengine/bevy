@@ -1,6 +1,6 @@
 use crate::{
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
-    render_resource::{RenderResourceId, RenderResourceSet},
+    pipeline::{PipelineDescriptor, BindGroupDescriptorId},
+    render_resource::{RenderResourceId, RenderResourceSetId},
     renderer::RenderContext,
 };
 use bevy_asset::Handle;
@@ -17,7 +17,9 @@ pub trait RenderPass {
     fn draw_indexed(&mut self, indices: Range<u32>, base_vertex: i32, instances: Range<u32>);
     fn set_bind_group(
         &mut self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_set: &RenderResourceSet,
+        index: u32,
+        bind_group_descriptor: BindGroupDescriptorId,
+        render_resource_set: RenderResourceSetId,
+        dynamic_uniform_indices: Option<&[u32]>,
     );
 }

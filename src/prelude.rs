@@ -19,7 +19,7 @@ pub use crate::{
         pipeline::PipelineDescriptor,
         render_graph::{
             nodes::{
-                AssetUniformNode, CameraNode, PassNode, UniformNode, WindowSwapChainNode,
+                AssetUniformNode, CameraNode, MainPassNode, UniformNode, WindowSwapChainNode,
                 WindowTextureNode,
             },
             RenderGraph,
@@ -27,7 +27,8 @@ pub use crate::{
         render_resource::RenderResources,
         shader::{Shader, ShaderDefs, ShaderStage, ShaderStages},
         texture::Texture,
-        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, Renderable,
+        draw::{Draw, RenderPipelines},
+        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection,
     },
     scene::{Scene, SceneSpawner},
     sprite::{

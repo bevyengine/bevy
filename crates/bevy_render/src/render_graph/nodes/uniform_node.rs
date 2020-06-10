@@ -1,11 +1,13 @@
 use crate::{
+    draw::{Draw, RenderPipelines},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         self, BufferInfo, BufferUsage, EntitiesWaitingForAssets, RenderResourceAssignment,
-        RenderResourceAssignments, RenderResourceAssignmentsId, RenderResourceId, RenderResourceHints,
+        RenderResourceAssignments, RenderResourceAssignmentsId, RenderResourceHints,
+        RenderResourceId,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
-    texture, Renderable,
+    texture,
 };
 
 use bevy_asset::{Assets, Handle};
@@ -217,12 +219,14 @@ where
                             None => {
                                 // TODO: RE-ADD support for BufferUsage::STORAGE type
                                 let mut usage = BufferUsage::UNIFORM;
-                                
-                                if let Some(render_resource_hints) = uniforms.get_render_resource_hints(i) {
+
+                                if let Some(render_resource_hints) =
+                                    uniforms.get_render_resource_hints(i)
+                                {
                                     if render_resource_hints.contains(RenderResourceHints::BUFFER) {
                                         usage = BufferUsage::STORAGE
                                     }
-                                } 
+                                }
 
                                 let resource = render_resources.create_buffer(BufferInfo {
                                     size,
@@ -396,8 +400,8 @@ where
         .read_resource::<RenderResources>()
         .read_resource::<EntitiesWaitingForAssets>()
         // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-        .with_query(<(Read<T>, Read<Renderable>)>::query())
-        .with_query(<(Read<T>, Write<Renderable>)>::query())
+        .with_query(<(Read<T>, Read<Draw>, Read<RenderPipelines>)>::query())
+        .with_query(<(Read<T>, Read<Draw>, Write<RenderPipelines>)>::query())
         .build(
             move |_,
                   world,
@@ -407,60 +411,50 @@ where
 
                 uniform_buffer_arrays.reset_new_item_counts();
                 // update uniforms info
-                for (uniforms, renderable) in read_uniform_query.iter(world) {
-                    if !renderable.is_visible {
+                for (uniforms, draw, _render_pipelines) in read_uniform_query.iter(world) {
+                    if !draw.is_visible {
                         return;
                     }
 
-                    if renderable.is_instanced {
-                        panic!("instancing not currently supported");
-                    } else {
-                        uniform_buffer_arrays.increment_uniform_counts(&uniforms);
-                    }
+                    uniform_buffer_arrays.increment_uniform_counts(&uniforms);
                 }
 
                 uniform_buffer_arrays
                     .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
                 let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
 
-                for (entity, (uniforms, mut renderable)) in
+                for (entity, (uniforms, draw, mut render_pipelines)) in
                     write_uniform_query.iter_entities_mut(world)
                 {
-                    if !renderable.is_visible {
+                    if !draw.is_visible {
                         return;
                     }
 
-                    if renderable.is_instanced {
-                        panic!("instancing not currently supported");
-                    } else {
-                        setup_uniform_texture_resources::<T>(
-                            entity,
-                            &uniforms,
-                            render_resource_context,
-                            entities_waiting_for_assets,
-                            &mut renderable.render_resource_assignments,
-                        )
-                    }
+                    setup_uniform_texture_resources::<T>(
+                        entity,
+                        &uniforms,
+                        render_resource_context,
+                        entities_waiting_for_assets,
+                        &mut render_pipelines.render_resource_assignments,
+                    )
                 }
 
                 if staging_buffer_size == 0 {
                     let mut staging_buffer: [u8; 0] = [];
-                    for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
-                        if !renderable.is_visible {
+                    for (uniforms, draw, mut render_pipelines) in
+                        write_uniform_query.iter_mut(world)
+                    {
+                        if !draw.is_visible {
                             return;
                         }
 
-                        if renderable.is_instanced {
-                            panic!("instancing not currently supported");
-                        } else {
-                            uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                &uniforms,
-                                dynamic_uniforms,
-                                render_resource_context,
-                                &mut renderable.render_resource_assignments,
-                                &mut staging_buffer,
-                            );
-                        }
+                        uniform_buffer_arrays.setup_uniform_buffer_resources(
+                            &uniforms,
+                            dynamic_uniforms,
+                            render_resource_context,
+                            &mut render_pipelines.render_resource_assignments,
+                            &mut staging_buffer,
+                        );
                     }
                 } else {
                     let staging_buffer = render_resource_context.create_buffer_mapped(
@@ -470,22 +464,20 @@ where
                             ..Default::default()
                         },
                         &mut |mut staging_buffer, _render_resources| {
-                            for (uniforms, mut renderable) in write_uniform_query.iter_mut(world) {
-                                if !renderable.is_visible {
+                            for (uniforms, draw, mut render_pipelines) in
+                                write_uniform_query.iter_mut(world)
+                            {
+                                if !draw.is_visible {
                                     return;
                                 }
 
-                                if renderable.is_instanced {
-                                    panic!("instancing not currently supported");
-                                } else {
-                                    uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                        &uniforms,
-                                        dynamic_uniforms,
-                                        render_resource_context,
-                                        &mut renderable.render_resource_assignments,
-                                        &mut staging_buffer,
-                                    );
-                                }
+                                uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                    &uniforms,
+                                    dynamic_uniforms,
+                                    render_resource_context,
+                                    &mut render_pipelines.render_resource_assignments,
+                                    &mut staging_buffer,
+                                );
                             }
                         },
                     );
@@ -552,8 +544,8 @@ where
             .read_resource::<RenderResources>()
             .read_resource::<EntitiesWaitingForAssets>()
             // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-            .with_query(<(Read<Handle<T>>, Read<Renderable>)>::query())
-            .with_query(<(Read<Handle<T>>, Write<Renderable>)>::query())
+            .with_query(<(Read<Handle<T>>, Read<Draw>, Read<RenderPipelines>)>::query())
+            .with_query(<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>::query())
             .build(
                 move |_,
                       world,
@@ -563,20 +555,18 @@ where
                     uniform_buffer_arrays.reset_new_item_counts();
 
                     // update uniform handles info
-                    for (entity, (handle, renderable)) in read_handle_query.iter_entities(world) {
-                        if !renderable.is_visible {
+                    for (entity, (handle, draw, _render_pipelines)) in
+                        read_handle_query.iter_entities(world)
+                    {
+                        if !draw.is_visible {
                             return;
                         }
 
-                        if renderable.is_instanced {
-                            panic!("instancing not currently supported");
+                        if let Some(uniforms) = assets.get(&handle) {
+                            // TODO: only increment count if we haven't seen this uniform handle before
+                            uniform_buffer_arrays.increment_uniform_counts(&uniforms);
                         } else {
-                            if let Some(uniforms) = assets.get(&handle) {
-                                // TODO: only increment count if we haven't seen this uniform handle before
-                                uniform_buffer_arrays.increment_uniform_counts(&uniforms);
-                            } else {
-                                entities_waiting_for_assets.add(entity)
-                            }
+                            entities_waiting_for_assets.add(entity)
                         }
                     }
 
@@ -584,46 +574,40 @@ where
                         .setup_buffer_arrays(render_resource_context, dynamic_uniforms);
                     let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
 
-                    for (entity, (handle, mut renderable)) in
+                    for (entity, (handle, draw, mut render_pipelines)) in
                         write_handle_query.iter_entities_mut(world)
                     {
-                        if !renderable.is_visible {
+                        if !draw.is_visible {
                             return;
                         }
 
-                        if renderable.is_instanced {
-                            panic!("instancing not currently supported");
-                        } else {
-                            if let Some(uniforms) = assets.get(&handle) {
-                                setup_uniform_texture_resources::<T>(
-                                    entity,
-                                    &uniforms,
-                                    render_resource_context,
-                                    entities_waiting_for_assets,
-                                    &mut renderable.render_resource_assignments,
-                                )
-                            }
+                        if let Some(uniforms) = assets.get(&handle) {
+                            setup_uniform_texture_resources::<T>(
+                                entity,
+                                &uniforms,
+                                render_resource_context,
+                                entities_waiting_for_assets,
+                                &mut render_pipelines.render_resource_assignments,
+                            )
                         }
                     }
                     if staging_buffer_size == 0 {
                         let mut staging_buffer: [u8; 0] = [];
-                        for (handle, mut renderable) in write_handle_query.iter_mut(world) {
-                            if !renderable.is_visible {
+                        for (handle, draw, mut render_pipelines) in
+                            write_handle_query.iter_mut(world)
+                        {
+                            if !draw.is_visible {
                                 return;
                             }
-                            if renderable.is_instanced {
-                                panic!("instancing not currently supported");
-                            } else {
-                                if let Some(uniforms) = assets.get(&handle) {
-                                    // TODO: only setup buffer if we haven't seen this handle before
-                                    uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                        &uniforms,
-                                        dynamic_uniforms,
-                                        render_resource_context,
-                                        &mut renderable.render_resource_assignments,
-                                        &mut staging_buffer,
-                                    );
-                                }
+                            if let Some(uniforms) = assets.get(&handle) {
+                                // TODO: only setup buffer if we haven't seen this handle before
+                                uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                    &uniforms,
+                                    dynamic_uniforms,
+                                    render_resource_context,
+                                    &mut render_pipelines.render_resource_assignments,
+                                    &mut staging_buffer,
+                                );
                             }
                         }
                     } else {
@@ -634,23 +618,21 @@ where
                                 ..Default::default()
                             },
                             &mut |mut staging_buffer, _render_resources| {
-                                for (handle, mut renderable) in write_handle_query.iter_mut(world) {
-                                    if !renderable.is_visible {
+                                for (handle, draw, mut render_pipelines) in
+                                    write_handle_query.iter_mut(world)
+                                {
+                                    if !draw.is_visible {
                                         return;
                                     }
-                                    if renderable.is_instanced {
-                                        panic!("instancing not currently supported");
-                                    } else {
-                                        if let Some(uniforms) = assets.get(&handle) {
-                                            // TODO: only setup buffer if we haven't seen this handle before
-                                            uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                                &uniforms,
-                                                dynamic_uniforms,
-                                                render_resource_context,
-                                                &mut renderable.render_resource_assignments,
-                                                &mut staging_buffer,
-                                            );
-                                        }
+                                    if let Some(uniforms) = assets.get(&handle) {
+                                        // TODO: only setup buffer if we haven't seen this handle before
+                                        uniform_buffer_arrays.setup_uniform_buffer_resources(
+                                            &uniforms,
+                                            dynamic_uniforms,
+                                            render_resource_context,
+                                            &mut render_pipelines.render_resource_assignments,
+                                            &mut staging_buffer,
+                                        );
                                     }
                                 }
                             },

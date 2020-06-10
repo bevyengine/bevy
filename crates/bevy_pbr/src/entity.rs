@@ -1,7 +1,7 @@
 use crate::{light::Light, material::StandardMaterial};
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
-use bevy_render::{mesh::Mesh, Renderable};
+use bevy_render::{mesh::Mesh, draw::{RenderPipelines, Draw}};
 use bevy_transform::prelude::{Transform, Rotation, Scale, Translation};
 
 #[derive(EntityArchetype, Default)]
@@ -10,7 +10,8 @@ pub struct MeshEntity {
     pub mesh: Handle<Mesh>,
     // #[tag]
     pub material: Handle<StandardMaterial>,
-    pub renderable: Renderable,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,

@@ -1,8 +1,6 @@
 use crate::{
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
-    render_resource::{
-        BufferInfo, RenderResourceId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
-    },
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    render_resource::{BufferInfo, RenderResourceId, RenderResourceSet, ResourceInfo},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -70,29 +68,15 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     );
     fn create_bind_group(
         &self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<RenderResourceSetId>;
-    fn setup_bind_groups(
-        &self,
-        pipeline_descriptor: &PipelineDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) {
-        let pipeline_layout = pipeline_descriptor.get_layout().unwrap();
-        for bind_group in pipeline_layout.bind_groups.iter() {
-            self.create_bind_group(bind_group, render_resource_assignments);
-        }
-    }
+        bind_group_descriptor_id: BindGroupDescriptorId,
+        render_resource_set: &RenderResourceSet,
+    );
     fn clear_bind_groups(&self);
 }
 
 impl dyn RenderResourceContext {
-    pub fn set_asset_resource<T>(
-        &self,
-        handle: Handle<T>,
-        resource: RenderResourceId,
-        index: usize,
-    ) where
+    pub fn set_asset_resource<T>(&self, handle: Handle<T>, resource: RenderResourceId, index: usize)
+    where
         T: 'static,
     {
         self.set_asset_resource_untyped(handle.into(), resource, index);

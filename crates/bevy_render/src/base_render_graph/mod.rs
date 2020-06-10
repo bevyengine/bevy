@@ -4,7 +4,7 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     render_graph::{
-        nodes::{CameraNode, PassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode},
+        nodes::{CameraNode, MainPassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode},
         RenderGraph,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
@@ -95,7 +95,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
         if config.add_main_pass {
             self.add_node(
                 node::MAIN_PASS,
-                PassNode::new(PassDescriptor {
+                MainPassNode::new(PassDescriptor {
                     color_attachments: vec![RenderPassColorAttachmentDescriptor {
                         attachment: TextureAttachment::Input("color".to_string()),
                         resolve_target: None,

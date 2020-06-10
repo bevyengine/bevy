@@ -283,13 +283,12 @@ fn stateful_system(mut state: ComMut<State>, player: Com<Player>, score: ComMut<
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
 fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let mut counter = 0;
     let game_state = resources.get::<GameState>().unwrap();
     let initial_player_count = game_state.total_players;
     SystemBuilder::new("complex_system")
         .read_resource::<GameState>()
         .write_resource::<GameRules>()
-        .read_component::<Renderable>()
+        .read_component::<Draw>()
         // this query is equivalent to the system we saw above: system(player: Com<Player>, mut score: ComMut<Score>)
         .with_query(<(Read<Player>, Write<Score>)>::query())
         // this query only returns entities with a Player component that has changed since the last update
@@ -303,7 +302,6 @@ fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
 
                 for (player, score) in player_score_query.iter_mut(world) {
                     println!("processed : {} {}", player.name, score.value);
-                    counter += 1;
                 }
 
                 for player in player_changed_query.iter(world) {

@@ -2,10 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{
-        nodes::{CameraNode, PassNode},
-        RenderGraph,
-    },
+    render_graph::{nodes::CameraNode, RenderGraph},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
@@ -79,10 +76,6 @@ impl UiRenderGraphBuilder for RenderGraph {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
-        let main_pass: &mut PassNode = self
-            .get_node_mut(base_render_graph::node::MAIN_PASS)
-            .unwrap();
-        main_pass.add_pipeline(UI_PIPELINE_HANDLE);
         self
     }
 }

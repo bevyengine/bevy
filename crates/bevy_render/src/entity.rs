@@ -1,6 +1,6 @@
 use crate::{
     base_render_graph, mesh::Mesh, Camera, OrthographicProjection, PerspectiveProjection,
-    Renderable, WindowOrigin,
+    RenderPipelines, WindowOrigin, draw::Draw,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
@@ -10,7 +10,8 @@ use bevy_transform::components::{Transform, Rotation, Scale, Translation};
 pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<T>,
-    pub renderable: Renderable,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,

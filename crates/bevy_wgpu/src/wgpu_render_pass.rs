@@ -2,8 +2,8 @@ use crate::{renderer::WgpuRenderContext, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
-    render_resource::{RenderResourceId, RenderResourceSet},
+    pipeline::{PipelineDescriptor, BindGroupDescriptorId},
+    render_resource::{RenderResourceId, RenderResourceSetId},
     renderer::RenderContext,
 };
 use std::ops::Range;
@@ -51,33 +51,35 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
 
     fn set_bind_group(
         &mut self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_set: &RenderResourceSet,
+        index: u32,
+        bind_group_descriptor: BindGroupDescriptorId,
+        render_resource_set: RenderResourceSetId,
+        dynamic_uniform_indices: Option<&[u32]>,
     ) {
         if let Some(bind_group_info) = self
             .render_resources
             .bind_groups
-            .get(&bind_group_descriptor.id)
+            .get(&bind_group_descriptor)
         {
-            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&render_resource_set.id)
+            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&render_resource_set)
             {
                 const EMPTY: &'static [u32] = &[];
-                let dynamic_uniform_indices = if let Some(ref dynamic_uniform_indices) =
-                    render_resource_set.dynamic_uniform_indices
+                let dynamic_uniform_indices = if let Some(dynamic_uniform_indices) =
+                    dynamic_uniform_indices
                 {
-                    dynamic_uniform_indices.as_slice()
+                    dynamic_uniform_indices
                 } else {
                     EMPTY
                 };
 
                 log::trace!(
                     "set bind group {:?} {:?}: {:?}",
-                    bind_group_descriptor.id,
+                    bind_group_descriptor,
                     dynamic_uniform_indices,
-                    render_resource_set.id
+                    render_resource_set
                 );
                 self.render_pass.set_bind_group(
-                    bind_group_descriptor.index,
+                    index,
                     wgpu_bind_group,
                     dynamic_uniform_indices,
                 );

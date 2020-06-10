@@ -1,9 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
-    pipeline::{BindGroupDescriptor, PipelineDescriptor},
-    render_resource::{
-        BufferInfo, RenderResourceId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo,
-    },
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    render_resource::{BufferInfo, RenderResourceId, RenderResourceSet, ResourceInfo},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -113,16 +111,9 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
     fn create_bind_group(
         &self,
-        bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
-    ) -> Option<RenderResourceSetId> {
-        if let Some(resource_set) =
-            render_resource_assignments.get_render_resource_set(bind_group_descriptor.id)
-        {
-            Some(resource_set.id)
-        } else {
-            None
-        }
+        _bind_group_descriptor_id: BindGroupDescriptorId,
+        _render_resource_set: &RenderResourceSet,
+    ) {
     }
     fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {

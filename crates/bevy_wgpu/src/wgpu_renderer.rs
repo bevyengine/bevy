@@ -1,10 +1,10 @@
-use crate::renderer::{
-    render_resource_sets_system, WgpuRenderGraphExecutor, WgpuRenderResourceContext,
-};
+use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
 use bevy_app::{EventReader, Events};
 use bevy_render::{
-    pipeline::update_shader_assignments,
+    draw::{draw_system, RenderPipelines},
+    pipeline::compile_pipelines_system,
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
+    render_resource::render_resource_sets_system,
     renderer::RenderResources,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
@@ -20,10 +20,7 @@ pub struct WgpuRenderer {
 }
 
 impl WgpuRenderer {
-    pub async fn new(
-        window_resized_event_reader: EventReader<WindowResized>,
-        window_created_event_reader: EventReader<WindowCreated>,
-    ) -> Self {
+    pub async fn new() -> Self {
         let instance = wgpu::Instance::new();
         let adapter = instance
             .request_adapter(
@@ -53,8 +50,8 @@ impl WgpuRenderer {
             instance,
             device,
             queue,
-            window_resized_event_reader,
-            window_created_event_reader,
+            window_resized_event_reader: Default::default(),
+            window_created_event_reader: Default::default(),
             intialized: false,
         }
     }
@@ -85,6 +82,7 @@ impl WgpuRenderer {
     }
 
     pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
+        // TODO: move this to a thread-local system
         // run systems
         let mut system_executor = {
             let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
@@ -95,8 +93,12 @@ impl WgpuRenderer {
             executor.execute(world, resources);
         }
 
-        update_shader_assignments(world, resources);
-        render_resource_sets_system().run(world, resources);
+        // TODO: move these to a scheduler
+        compile_pipelines_system.system().run(world, resources);
+        render_resource_sets_system.system().run(world, resources);
+        draw_system::<RenderPipelines>
+            .system()
+            .run(world, resources);
 
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         if let Some(executor) = system_executor.take() {
