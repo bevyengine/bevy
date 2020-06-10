@@ -2,7 +2,6 @@ use crate::System;
 use legion::prelude::Schedule;
 use std::{
     borrow::Cow,
-    cmp::Ordering,
     collections::{HashMap, HashSet},
 };
 
@@ -106,33 +105,3 @@ impl SchedulePlan {
         self
     }
 }
-
-// working around the famous "rust float ordering" problem
-#[derive(PartialOrd)]
-struct FloatOrd(f32);
-
-impl Ord for FloatOrd {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap_or_else(|| {
-            if self.0.is_nan() && !other.0.is_nan() {
-                Ordering::Less
-            } else if !self.0.is_nan() && other.0.is_nan() {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        })
-    }
-}
-
-impl PartialEq for FloatOrd {
-    fn eq(&self, other: &Self) -> bool {
-        if self.0.is_nan() && other.0.is_nan() {
-            true
-        } else {
-            self.0 == other.0
-        }
-    }
-}
-
-impl Eq for FloatOrd {}

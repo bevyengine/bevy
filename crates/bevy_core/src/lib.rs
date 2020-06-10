@@ -1,6 +1,7 @@
 pub mod bytes;
 pub mod time;
 pub mod transform;
+pub mod float_ord;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::{
