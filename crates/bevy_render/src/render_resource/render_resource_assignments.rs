@@ -1,10 +1,9 @@
-use super::RenderResourceId;
+use super::{RenderResourceId, RenderResourceSet, RenderResourceSetId};
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     ops::Range,
-    sync::Arc,
 };
 use uuid::Uuid;
 
@@ -27,20 +26,6 @@ impl RenderResourceAssignment {
             RenderResourceAssignment::Sampler(resource) => *resource,
         }
     }
-}
-
-#[derive(Eq, PartialEq, Debug)]
-pub struct IndexedRenderResourceAssignment {
-    pub index: u32,
-    pub assignment: RenderResourceAssignment,
-}
-
-// TODO: consider renaming this to BindGroup for parity with renderer terminology
-#[derive(Eq, PartialEq, Debug)]
-pub struct RenderResourceSet {
-    pub id: RenderResourceSetId,
-    pub indexed_assignments: Vec<IndexedRenderResourceAssignment>,
-    pub dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -103,7 +88,7 @@ impl RenderResourceAssignments {
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
     ) -> RenderResourceSetStatus {
-        let resource_set = self.generate_render_resource_set(bind_group_descriptor);
+        let resource_set = self.build_render_resource_set(bind_group_descriptor);
         if let Some(resource_set) = resource_set {
             let id = resource_set.id;
             self.render_resource_sets.insert(id, resource_set);
@@ -149,42 +134,21 @@ impl RenderResourceAssignments {
             })
     }
 
-    fn generate_render_resource_set(
+    fn build_render_resource_set(
         &self,
         bind_group_descriptor: &BindGroupDescriptor,
     ) -> Option<RenderResourceSet> {
-        let mut hasher = DefaultHasher::new();
-        let mut indices = Vec::new();
-        let mut indexed_assignments = Vec::new();
+        let mut render_resource_set_builder = RenderResourceSet::build();
         for binding_descriptor in bind_group_descriptor.bindings.iter() {
             if let Some(assignment) = self.get(&binding_descriptor.name) {
-                indexed_assignments.push(IndexedRenderResourceAssignment {
-                    assignment: assignment.clone(),
-                    index: binding_descriptor.index,
-                });
-                let resource = assignment.get_resource();
-                resource.hash(&mut hasher);
-                if let RenderResourceAssignment::Buffer {
-                    dynamic_index: Some(index),
-                    ..
-                } = assignment
-                {
-                    indices.push(*index);
-                }
+                render_resource_set_builder = render_resource_set_builder
+                    .add_assignment(binding_descriptor.index, assignment.clone());
             } else {
                 return None;
             }
         }
 
-        Some(RenderResourceSet {
-            id: RenderResourceSetId(hasher.finish()),
-            indexed_assignments,
-            dynamic_uniform_indices: if indices.is_empty() {
-                None
-            } else {
-                Some(Arc::new(indices))
-            },
-        })
+        Some(render_resource_set_builder.finish())
     }
 }
 
@@ -196,9 +160,6 @@ impl Default for RenderResourceAssignmentsId {
         RenderResourceAssignmentsId(Uuid::new_v4())
     }
 }
-
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
-pub struct RenderResourceSetId(u64);
 
 #[cfg(test)]
 mod tests {

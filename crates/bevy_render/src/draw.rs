@@ -9,7 +9,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_property::Properties;
 use legion::{
-    prelude::{Com, ComMut, Res},
+    prelude::{ComMut, Res},
     storage::Component,
 };
 use std::{ops::Range, sync::Arc};
@@ -146,17 +146,17 @@ impl<'a> DrawContext<'a> {
         self.draw.render_commands.push(render_command);
     }
 
-    pub fn draw<T: Drawable>(&mut self, drawable: &T) {
+    pub fn draw<T: Drawable>(&mut self, drawable: &mut T) {
         drawable.draw(self);
     }
 }
 
 pub trait Drawable {
-    fn draw(&self, draw: &mut DrawContext);
+    fn draw(&mut self, draw: &mut DrawContext);
 }
 
 impl Drawable for RenderPipelines {
-    fn draw(&self, draw: &mut DrawContext) {
+    fn draw(&mut self, draw: &mut DrawContext) {
         for pipeline_handle in self.compiled_pipelines.iter() {
             let pipeline = draw.pipelines.get(pipeline_handle).unwrap();
             let layout = pipeline.get_layout().unwrap();
@@ -209,11 +209,11 @@ pub fn draw_system<T: Drawable + Component>(
     render_resource_assignments: Res<RenderResourceAssignments>,
     render_resources: Res<RenderResources>,
     mut draw: ComMut<Draw>,
-    drawable: Com<T>,
+    mut drawable: ComMut<T>,
 ) {
     let context = &*render_resources.context;
     let mut draw_context = draw.get_context(&pipelines, context, &render_resource_assignments);
-    draw_context.draw(drawable.as_ref());
+    draw_context.draw(drawable.as_mut());
 }
 
 pub fn clear_draw_system(mut draw: ComMut<Draw>) {
