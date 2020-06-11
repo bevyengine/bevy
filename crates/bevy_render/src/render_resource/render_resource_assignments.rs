@@ -28,6 +28,27 @@ impl RenderResourceAssignment {
     }
 }
 
+impl Hash for RenderResourceAssignment {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            RenderResourceAssignment::Buffer {
+                resource,
+                range,
+                dynamic_index: _, // dynamic_index is not a part of the binding
+            } => {
+                resource.hash(state);
+                range.hash(state);
+            }
+            RenderResourceAssignment::Texture(resource) => {
+                resource.hash(state);
+            }
+            RenderResourceAssignment::Sampler(resource) => {
+                resource.hash(state);
+            }
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, Debug)]
 pub enum RenderResourceSetStatus {
     Changed(RenderResourceSetId),

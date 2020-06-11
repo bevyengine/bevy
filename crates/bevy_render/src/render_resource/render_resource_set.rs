@@ -46,8 +46,7 @@ impl RenderResourceSetBuilder {
             self.dynamic_uniform_indices.push(dynamic_index);
         }
 
-        let resource = assignment.get_resource();
-        resource.hash(&mut self.hasher);
+        assignment.hash(&mut self.hasher);
         self.indexed_assignments
             .push(IndexedRenderResourceAssignment { index, assignment });
         self
