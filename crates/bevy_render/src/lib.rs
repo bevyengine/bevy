@@ -39,7 +39,6 @@ use draw::{clear_draw_system, Draw, RenderPipelines};
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use render_graph::RenderGraph;
-use render_resource::EntitiesWaitingForAssets;
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -83,7 +82,6 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceAssignments>()
             .init_resource::<VertexBufferDescriptors>()
-            .init_resource::<EntitiesWaitingForAssets>()
             .init_resource::<TextureResourceSystemState>()
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
             .init_system_to_stage(
@@ -93,10 +91,6 @@ impl AppPlugin for RenderPlugin {
             .init_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::camera_system::<PerspectiveProjection>,
-            )
-            .add_system_to_stage(
-                bevy_app::stage::PRE_UPDATE,
-                EntitiesWaitingForAssets::clear_system.system(),
             )
             .init_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system)
             .add_system_to_stage(

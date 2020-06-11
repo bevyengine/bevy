@@ -4,7 +4,7 @@ use bevy_render::{
     base_render_graph,
     pipeline::PipelineDescriptor,
     render_graph::{
-        nodes::{AssetUniformNode, UniformNode},
+        nodes::{AssetRenderResourcesNode, RenderResourcesNode},
         RenderGraph,
     },
     shader::Shader,
@@ -28,10 +28,10 @@ pub trait ForwardPbrRenderGraphBuilder {
 
 impl ForwardPbrRenderGraphBuilder for RenderGraph {
     fn add_pbr_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(node::TRANSFORM, UniformNode::<Transform>::new(true));
+        self.add_system_node(node::TRANSFORM, RenderResourcesNode::<Transform>::new(true));
         self.add_system_node(
             node::STANDARD_MATERIAL,
-            AssetUniformNode::<StandardMaterial>::new(true),
+            AssetRenderResourcesNode::<StandardMaterial>::new(true),
         );
         self.add_system_node(node::LIGHTS, LightsNode::new(10));
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();

@@ -71,6 +71,7 @@ impl<T> Assets<T> {
     }
 
     pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
+        self.events.send(AssetEvent::Modified { handle: *handle });
         self.assets.get_mut(&handle)
     }
 

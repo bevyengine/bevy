@@ -19,7 +19,7 @@ pub use crate::{
         pipeline::PipelineDescriptor,
         render_graph::{
             nodes::{
-                AssetUniformNode, CameraNode, MainPassNode, UniformNode, WindowSwapChainNode,
+                AssetRenderResourcesNode, CameraNode, MainPassNode, RenderResourcesNode, WindowSwapChainNode,
                 WindowTextureNode,
             },
             RenderGraph,

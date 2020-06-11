@@ -53,7 +53,7 @@ fn setup(
             fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
         }));
 
-        render_graph.add_system_node("my_material", AssetUniformNode::<MyMaterial>::new(true));
+        render_graph.add_system_node("my_material", AssetRenderResourcesNode::<MyMaterial>::new(true));
         pipeline_handle
     };
 

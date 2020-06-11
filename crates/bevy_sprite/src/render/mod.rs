@@ -4,7 +4,7 @@ use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{
-        nodes::{AssetUniformNode, UniformNode},
+        nodes::{AssetRenderResourcesNode, RenderResourcesNode},
         RenderGraph,
     },
     shader::{Shader, ShaderStage, ShaderStages},
@@ -123,23 +123,23 @@ impl SpriteRenderGraphBuilder for RenderGraph {
     fn add_sprite_graph(&mut self, resources: &Resources) -> &mut Self {
         self.add_system_node(
             node::COLOR_MATERIAL,
-            AssetUniformNode::<ColorMaterial>::new(false),
+            AssetRenderResourcesNode::<ColorMaterial>::new(false),
         );
         self.add_node_edge(node::COLOR_MATERIAL, base_render_graph::node::MAIN_PASS)
             .unwrap();
 
-        self.add_system_node(node::QUAD, UniformNode::<Quad>::new(false));
+        self.add_system_node(node::QUAD, RenderResourcesNode::<Quad>::new(false));
         self.add_node_edge(node::QUAD, base_render_graph::node::MAIN_PASS)
             .unwrap();
 
         self.add_system_node(
             node::SPRITE_SHEET,
-            AssetUniformNode::<TextureAtlas>::new(false),
+            AssetRenderResourcesNode::<TextureAtlas>::new(false),
         );
 
         self.add_system_node(
             node::SPRITE_SHEET_SPRITE,
-            UniformNode::<TextureAtlasSprite>::new(true),
+            RenderResourcesNode::<TextureAtlasSprite>::new(true),
         );
 
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();

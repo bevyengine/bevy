@@ -2,7 +2,7 @@ use super::{RenderResourceId, RenderResourceSet, RenderResourceSetId};
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{HashMap, HashSet},
-    hash::{Hash, Hasher},
+    hash::Hash,
     ops::Range,
 };
 use uuid::Uuid;
@@ -60,10 +60,23 @@ impl RenderResourceAssignments {
     fn try_set_dirty(&mut self, name: &str, assignment: &RenderResourceAssignment) {
         if let Some(current_assignment) = self.render_resources.get(name) {
             if current_assignment != assignment {
+                // TODO: this is crude. we shouldn't need to invalidate all render resource sets
                 for id in self.render_resource_sets.keys() {
                     self.dirty_render_resource_sets.insert(*id);
                 }
             }
+        }
+    }
+
+    pub fn extend(&mut self, render_resource_assignments: &RenderResourceAssignments) {
+        for (name, assignment) in render_resource_assignments.render_resources.iter() {
+            self.set(name, assignment.clone());
+        }
+
+        for (name, (vertex_buffer, index_buffer)) in
+            render_resource_assignments.vertex_buffers.iter()
+        {
+            self.set_vertex_buffer(name, *vertex_buffer, index_buffer.clone());
         }
     }
 

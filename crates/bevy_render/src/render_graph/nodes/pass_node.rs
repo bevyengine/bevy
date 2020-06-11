@@ -1,10 +1,14 @@
 use crate::{
     draw::{Draw, RenderCommand},
     pass::{PassDescriptor, TextureAttachment},
+    pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{EntitiesWaitingForAssets, RenderResourceAssignments, ResourceInfo},
+    render_resource::{
+        RenderResourceAssignments, RenderResourceId, RenderResourceSetId, ResourceInfo,
+    },
     renderer::RenderContext,
 };
+use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 
 pub struct MainPassNode {
@@ -63,8 +67,8 @@ impl Node for MainPassNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let entities_waiting_for_assets = resources.get::<EntitiesWaitingForAssets>().unwrap();
         let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
+        let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
@@ -85,8 +89,9 @@ impl Node for MainPassNode {
             &self.descriptor,
             &render_resource_assignments,
             &mut |render_pass| {
-                for (entity, draw) in <Read<Draw>>::query().iter_entities(&world) {
-                    if !draw.is_visible || entities_waiting_for_assets.contains(&entity) {
+                let mut draw_state = DrawState::default();
+                for draw in <Read<Draw>>::query().iter(&world) {
+                    if !draw.is_visible {
                         continue;
                     }
 
@@ -95,17 +100,23 @@ impl Node for MainPassNode {
                             RenderCommand::SetPipeline { pipeline } => {
                                 // TODO: Filter pipelines
                                 render_pass.set_pipeline(*pipeline);
+                                let descriptor = pipelines.get(pipeline).unwrap();
+                                draw_state.set_pipeline(*pipeline, descriptor);
                             }
                             RenderCommand::DrawIndexed {
                                 base_vertex,
                                 indices,
                                 instances,
                             } => {
-                                render_pass.draw_indexed(
-                                    indices.clone(),
-                                    *base_vertex,
-                                    instances.clone(),
-                                );
+                                if draw_state.can_draw_indexed() {
+                                    render_pass.draw_indexed(
+                                        indices.clone(),
+                                        *base_vertex,
+                                        instances.clone(),
+                                    );
+                                } else {
+                                    log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                }
                             }
                             RenderCommand::SetVertexBuffer {
                                 buffer,
@@ -113,9 +124,11 @@ impl Node for MainPassNode {
                                 slot,
                             } => {
                                 render_pass.set_vertex_buffer(*slot, *buffer, *offset);
+                                draw_state.set_vertex_buffer(*slot, *buffer);
                             }
                             RenderCommand::SetIndexBuffer { buffer, offset } => {
                                 render_pass.set_index_buffer(*buffer, *offset);
+                                draw_state.set_index_buffer(*buffer)
                             }
                             RenderCommand::SetBindGroup {
                                 index,
@@ -131,11 +144,57 @@ impl Node for MainPassNode {
                                         .as_ref()
                                         .map(|indices| indices.as_slice()),
                                 );
+                                draw_state.set_bind_group(*index, *render_resource_set);
                             }
                         }
                     }
                 }
             },
         );
+    }
+}
+
+/// Tracks the current pipeline state to ensure draw calls are valid.
+#[derive(Default)]
+struct DrawState {
+    pipeline: Option<Handle<PipelineDescriptor>>,
+    bind_groups: Vec<Option<RenderResourceSetId>>,
+    vertex_buffers: Vec<Option<RenderResourceId>>,
+    index_buffer: Option<RenderResourceId>,
+}
+
+impl DrawState {
+    pub fn set_bind_group(&mut self, index: u32, render_resource_set: RenderResourceSetId) {
+        self.bind_groups[index as usize] = Some(render_resource_set);
+    }
+
+    pub fn set_vertex_buffer(&mut self, index: u32, buffer: RenderResourceId) {
+        self.vertex_buffers[index as usize] = Some(buffer);
+    }
+
+    pub fn set_index_buffer(&mut self, buffer: RenderResourceId) {
+        self.index_buffer = Some(buffer);
+    }
+
+    pub fn can_draw_indexed(&self) -> bool {
+        self.bind_groups.iter().all(|b| b.is_some())
+            && self.vertex_buffers.iter().all(|v| v.is_some())
+            && self.index_buffer.is_some()
+    }
+
+    pub fn set_pipeline(
+        &mut self,
+        handle: Handle<PipelineDescriptor>,
+        descriptor: &PipelineDescriptor,
+    ) {
+        self.bind_groups.clear();
+        self.vertex_buffers.clear();
+        self.index_buffer = None;
+
+        self.pipeline = Some(handle);
+        let layout = descriptor.get_layout().unwrap();
+        self.bind_groups.resize(layout.bind_groups.len(), None);
+        self.vertex_buffers
+            .resize(layout.vertex_buffer_descriptors.len(), None);
     }
 }

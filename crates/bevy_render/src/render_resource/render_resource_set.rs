@@ -16,10 +16,10 @@ pub struct IndexedRenderResourceAssignment {
 }
 
 // TODO: consider renaming this to BindGroup for parity with renderer terminology
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct RenderResourceSet {
     pub id: RenderResourceSetId,
-    pub indexed_assignments: Vec<IndexedRenderResourceAssignment>,
+    pub indexed_assignments: Arc<Vec<IndexedRenderResourceAssignment>>,
     pub dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
 }
 
@@ -99,7 +99,7 @@ impl RenderResourceSetBuilder {
         self.indexed_assignments.sort_by_key(|i| i.index);
         RenderResourceSet {
             id: RenderResourceSetId(self.hasher.finish()),
-            indexed_assignments: self.indexed_assignments,
+            indexed_assignments: Arc::new(self.indexed_assignments),
             dynamic_uniform_indices: if self.dynamic_uniform_indices.is_empty() {
                 None
             } else {
