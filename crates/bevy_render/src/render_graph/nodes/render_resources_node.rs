@@ -11,7 +11,7 @@ use crate::{
 
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
-use render_resource::{BufferId, ResourceType};
+use render_resource::{BufferId, RenderResourceType};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
@@ -97,7 +97,7 @@ where
                 .resize_with(uniforms.render_resources_len(), || None);
         }
         for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
-            if let Some(ResourceType::Buffer) = render_resource.resource_type() {
+            if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
                 let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
                 let size = render_resource.buffer_byte_len().unwrap();
                 if let Some((ref _name, ref mut buffer_array_status)) = self.uniform_arrays[i] {
@@ -202,7 +202,7 @@ where
     ) {
         for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
             match render_resource.resource_type() {
-                Some(ResourceType::Buffer) => {
+                Some(RenderResourceType::Buffer) => {
                     let size = render_resource.buffer_byte_len().unwrap();
                     let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
                     let (_name, uniform_buffer_status) = self.uniform_arrays[i].as_mut().unwrap();
@@ -293,8 +293,8 @@ where
                         });
                     uniform_buffer_status.current_offset += size;
                 }
-                Some(ResourceType::Texture) => { /* ignore textures */ }
-                Some(ResourceType::Sampler) => { /* ignore samplers */ }
+                Some(RenderResourceType::Texture) => { /* ignore textures */ }
+                Some(RenderResourceType::Sampler) => { /* ignore samplers */ }
                 None => { /* ignore None */ }
             }
         }
@@ -616,7 +616,7 @@ fn setup_uniform_texture_resources<T>(
     T: render_resource::RenderResources,
 {
     for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
-        if let Some(ResourceType::Texture) = render_resource.resource_type() {
+        if let Some(RenderResourceType::Texture) = render_resource.resource_type() {
             let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
             let sampler_name = format!("{}_sampler", render_resource_name);
             if let Some(texture_handle) = render_resource.texture() {

@@ -14,8 +14,8 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #bevy_render_path::render_resource::RenderResource for #struct_name {
-            fn resource_type(&self) -> Option<#bevy_render_path::render_resource::ResourceType> {
-                Some(#bevy_render_path::render_resource::ResourceType::Buffer)
+            fn resource_type(&self) -> Option<#bevy_render_path::render_resource::RenderResourceType> {
+                Some(#bevy_render_path::render_resource::RenderResourceType::Buffer)
             }
             fn write_buffer_bytes(&self, buffer: &mut [u8]) {
                 use #bevy_core_path::bytes::Bytes;

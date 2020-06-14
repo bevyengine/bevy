@@ -8,7 +8,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ResourceType {
+pub enum RenderResourceType {
     Buffer,
     Texture,
     Sampler,
@@ -73,7 +73,7 @@ bitflags::bitflags! {
 }
 
 pub trait RenderResource {
-    fn resource_type(&self) -> Option<ResourceType>;
+    fn resource_type(&self) -> Option<RenderResourceType>;
     fn write_buffer_bytes(&self, buffer: &mut [u8]);
     fn buffer_byte_len(&self) -> Option<usize>;
     // TODO: consider making these panic by default, but return non-options
@@ -123,8 +123,8 @@ impl<'a> Iterator for RenderResourceIterator<'a> {
 macro_rules! impl_render_resource_bytes {
     ($ty:ident) => {
         impl RenderResource for $ty {
-            fn resource_type(&self) -> Option<ResourceType> {
-                Some(ResourceType::Buffer)
+            fn resource_type(&self) -> Option<RenderResourceType> {
+                Some(RenderResourceType::Buffer)
             }
             fn write_buffer_bytes(&self, buffer: &mut [u8]) {
                 self.write_bytes(buffer);
@@ -159,8 +159,8 @@ impl<T> RenderResource for Vec<T>
 where
     T: Sized + Byteable,
 {
-    fn resource_type(&self) -> Option<ResourceType> {
-        Some(ResourceType::Buffer)
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
     }
     fn write_buffer_bytes(&self, buffer: &mut [u8]) {
         self.write_bytes(buffer);

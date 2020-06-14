@@ -309,7 +309,7 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, render_resource::ResourceType,
+        renderer::RenderContext, render_resource::RenderResourceType,
     };
     use legion::prelude::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};
@@ -326,13 +326,13 @@ mod tests {
                 inputs: (0..inputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("in_{}", i).into(),
-                        resource_type: ResourceType::Texture,
+                        resource_type: RenderResourceType::Texture,
                     })
                     .collect(),
                 outputs: (0..outputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("out_{}", i).into(),
-                        resource_type: ResourceType::Texture,
+                        resource_type: RenderResourceType::Texture,
                     })
                     .collect(),
             }

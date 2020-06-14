@@ -264,7 +264,7 @@ mod tests {
     use super::{DependentNodeStager, OrderedJob, RenderGraphStager, Stage};
     use crate::{
         render_graph::{Node, NodeId, RenderGraph, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, render_resource::ResourceType,
+        renderer::RenderContext, render_resource::RenderResourceType,
     };
     use legion::prelude::{Resources, World};
 
@@ -279,13 +279,13 @@ mod tests {
                 inputs: (0..inputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("in_{}", i).into(),
-                        resource_type: ResourceType::Texture,
+                        resource_type: RenderResourceType::Texture,
                     })
                     .collect(),
                 outputs: (0..outputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("out_{}", i).into(),
-                        resource_type: ResourceType::Texture,
+                        resource_type: RenderResourceType::Texture,
                     })
                     .collect(),
             }

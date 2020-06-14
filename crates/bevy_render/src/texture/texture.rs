@@ -1,6 +1,6 @@
 use super::{SamplerDescriptor, TextureDescriptor};
 use crate::{
-    render_resource::{RenderResource, RenderResourceId, ResourceType},
+    render_resource::{RenderResource, RenderResourceId, RenderResourceType},
     renderer::RenderResourceContext,
 };
 use bevy_app::{EventReader, Events};
@@ -118,8 +118,8 @@ pub struct TextureResourceSystemState {
 }
 
 impl RenderResource for Option<Handle<Texture>> {
-    fn resource_type(&self) -> Option<ResourceType> {
-        self.map(|_texture| ResourceType::Texture)
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        self.map(|_texture| RenderResourceType::Texture)
     }
     fn write_buffer_bytes(&self, _buffer: &mut [u8]) {}
     fn buffer_byte_len(&self) -> Option<usize> {
@@ -131,8 +131,8 @@ impl RenderResource for Option<Handle<Texture>> {
 }
 
 impl RenderResource for Handle<Texture> {
-    fn resource_type(&self) -> Option<ResourceType> {
-        Some(ResourceType::Texture)
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Texture)
     }
     fn write_buffer_bytes(&self, _buffer: &mut [u8]) {}
     fn buffer_byte_len(&self) -> Option<usize> {

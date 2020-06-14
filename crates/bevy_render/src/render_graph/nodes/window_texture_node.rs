@@ -1,6 +1,6 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{RenderResourceId, ResourceType},
+    render_resource::{RenderResourceId, RenderResourceType},
     renderer::RenderContext,
     texture::TextureDescriptor,
 };
@@ -32,7 +32,7 @@ impl Node for WindowTextureNode {
     fn output(&self) -> &[ResourceSlotInfo] {
         static OUTPUT: &[ResourceSlotInfo] = &[ResourceSlotInfo {
             name: Cow::Borrowed(WindowTextureNode::OUT_TEXTURE),
-            resource_type: ResourceType::Texture,
+            resource_type: RenderResourceType::Texture,
         }];
         OUTPUT
     }

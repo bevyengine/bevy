@@ -1,5 +1,5 @@
 use super::texture::Texture;
-use crate::{render_resource::{ResourceType, RenderResource}, impl_render_resource_bytes};
+use crate::{render_resource::{RenderResourceType, RenderResource}, impl_render_resource_bytes};
 use bevy_asset::Handle;
 use bevy_core::bytes::{Byteable, Bytes};
 use bevy_property::Property;
