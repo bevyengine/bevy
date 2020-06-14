@@ -7,7 +7,8 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferInfo, RenderResourceAssignment, RenderResourceId, RenderResourceSet, ResourceInfo,
+        BufferId, BufferInfo, RenderResourceId, RenderResourceAssignment, RenderResourceSet, SamplerId,
+        TextureId,
     },
     renderer::RenderResourceContext,
     shader::Shader,
@@ -38,9 +39,9 @@ impl WgpuRenderResourceContext {
     pub fn copy_buffer_to_buffer(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
-        destination_buffer: RenderResourceId,
+        destination_buffer: BufferId,
         destination_offset: u64,
         size: u64,
     ) {
@@ -60,10 +61,10 @@ impl WgpuRenderResourceContext {
     pub fn copy_buffer_to_texture(
         &self,
         command_encoder: &mut wgpu::CommandEncoder,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResourceId,
+        destination_texture: TextureId,
         destination_origin: [u32; 3], // TODO: replace with math type
         destination_mip_level: u32,
         size: Extent3d,
@@ -128,38 +129,36 @@ impl WgpuRenderResourceContext {
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
-    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResourceId {
+    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId {
         let mut samplers = self.resources.samplers.write().unwrap();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
 
         let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).wgpu_into();
         let sampler = self.device.create_sampler(&descriptor);
 
-        let resource = RenderResourceId::new();
-        samplers.insert(resource, sampler);
-        resource_info.insert(resource, ResourceInfo::Sampler);
-        resource
+        let id = SamplerId::new();
+        samplers.insert(id, sampler);
+        id
     }
 
-    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResourceId {
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
         let mut textures = self.resources.textures.write().unwrap();
         let mut texture_views = self.resources.texture_views.write().unwrap();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let mut texture_descriptors = self.resources.texture_descriptors.write().unwrap();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
         let texture_view = texture.create_default_view();
 
-        let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Texture(Some(texture_descriptor)));
-        texture_views.insert(resource, texture_view);
-        textures.insert(resource, texture);
-        resource
+        let id = TextureId::new();
+        texture_descriptors.insert(id, texture_descriptor);
+        texture_views.insert(id, texture_view);
+        textures.insert(id, texture);
+        id
     }
 
-    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResourceId {
+    fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId {
         // TODO: consider moving this below "create" for efficiency
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
 
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -169,17 +168,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             mapped_at_creation: false,
         });
 
-        let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
-        buffers.insert(resource, buffer);
-        resource
+        let id = BufferId::new();
+        buffer_infos.insert(id, buffer_info);
+        buffers.insert(id, buffer);
+        id
     }
 
     fn create_buffer_mapped(
         &self,
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> RenderResourceId {
+    ) -> BufferId {
         let usage: wgpu::BufferUsage = buffer_info.buffer_usage.wgpu_into();
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             size: buffer_info.size as u64,
@@ -198,21 +197,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         }
 
         buffer.unmap();
-        let resource = RenderResourceId::new();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let id = BufferId::new();
+        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
-        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
-        buffers.insert(resource, buffer);
-        resource
+        buffer_infos.insert(id, buffer_info);
+        buffers.insert(id, buffer);
+        id
     }
 
-    fn create_buffer_with_data(
-        &self,
-        mut buffer_info: BufferInfo,
-        data: &[u8],
-    ) -> RenderResourceId {
+    fn create_buffer_with_data(&self, mut buffer_info: BufferInfo, data: &[u8]) -> BufferId {
         // TODO: consider moving this below "create" for efficiency
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
         let mut buffers = self.resources.buffers.write().unwrap();
 
         buffer_info.size = data.len();
@@ -220,46 +215,33 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .device
             .create_buffer_with_data(data, buffer_info.buffer_usage.wgpu_into());
 
-        let resource = RenderResourceId::new();
-        resource_info.insert(resource, ResourceInfo::Buffer(Some(buffer_info)));
-        buffers.insert(resource, buffer);
-        resource
+        let id = BufferId::new();
+        buffer_infos.insert(id, buffer_info);
+        buffers.insert(id, buffer);
+        id
     }
 
-    fn remove_buffer(&self, resource: RenderResourceId) {
+    fn remove_buffer(&self, buffer: BufferId) {
         let mut buffers = self.resources.buffers.write().unwrap();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
 
-        buffers.remove(&resource);
-        resource_info.remove(&resource);
+        buffers.remove(&buffer);
+        buffer_infos.remove(&buffer);
     }
 
-    fn remove_texture(&self, resource: RenderResourceId) {
+    fn remove_texture(&self, texture: TextureId) {
         let mut textures = self.resources.textures.write().unwrap();
         let mut texture_views = self.resources.texture_views.write().unwrap();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
+        let mut texture_descriptors = self.resources.texture_descriptors.write().unwrap();
 
-        textures.remove(&resource);
-        texture_views.remove(&resource);
-        resource_info.remove(&resource);
+        textures.remove(&texture);
+        texture_views.remove(&texture);
+        texture_descriptors.remove(&texture);
     }
 
-    fn remove_sampler(&self, resource: RenderResourceId) {
+    fn remove_sampler(&self, sampler: SamplerId) {
         let mut samplers = self.resources.samplers.write().unwrap();
-        let mut resource_info = self.resources.resource_info.write().unwrap();
-
-        samplers.remove(&resource);
-        resource_info.remove(&resource);
-    }
-
-    fn get_resource_info(
-        &self,
-        resource: RenderResourceId,
-        handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
-    ) {
-        let resource_info = self.resources.resource_info.read().unwrap();
-        let info = resource_info.get(&resource);
-        handle_info(info);
+        samplers.remove(&sampler);
     }
 
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
@@ -298,7 +280,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         window_swap_chains.insert(window.id, swap_chain);
     }
 
-    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> RenderResourceId {
+    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> TextureId {
         let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
 
@@ -306,14 +288,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let next_texture = window_swap_chain.get_next_frame().unwrap();
 
         // TODO: Add ResourceInfo
-        let render_resource = RenderResourceId::new();
-        swap_chain_outputs.insert(render_resource, next_texture);
-        render_resource
+        let id = TextureId::new();
+        swap_chain_outputs.insert(id, next_texture);
+        id
     }
 
-    fn drop_swap_chain_texture(&self, render_resource: RenderResourceId) {
+    fn drop_swap_chain_texture(&self, texture: TextureId) {
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
-        swap_chain_outputs.remove(&render_resource);
+        swap_chain_outputs.remove(&texture);
     }
 
     fn drop_all_swap_chain_textures(&self) {
@@ -331,11 +313,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         asset_resources.insert((handle, index), render_resource);
     }
 
-    fn get_asset_resource_untyped(
-        &self,
-        handle: HandleUntyped,
-        index: usize,
-    ) -> Option<RenderResourceId> {
+    fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResourceId> {
         let asset_resources = self.resources.asset_resources.read().unwrap();
         asset_resources.get(&(handle, index)).cloned()
     }
@@ -476,18 +454,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .map(|indexed_assignment| {
                     let wgpu_resource = match &indexed_assignment.assignment {
                         RenderResourceAssignment::Texture(resource) => {
-                            let texture_view = texture_views.get(&resource).expect(&format!("{:?}", resource));
+                            let texture_view = texture_views
+                                .get(&resource)
+                                .expect(&format!("{:?}", resource));
                             wgpu::BindingResource::TextureView(texture_view)
                         }
                         RenderResourceAssignment::Sampler(resource) => {
                             let sampler = samplers.get(&resource).unwrap();
                             wgpu::BindingResource::Sampler(sampler)
                         }
-                        RenderResourceAssignment::Buffer {
-                            resource, range, ..
-                        } => {
-                            let buffer = buffers.get(&resource).unwrap();
-                            wgpu::BindingResource::Buffer(buffer.slice(range.clone()))
+                        RenderResourceAssignment::Buffer { buffer, range, .. } => {
+                            let wgpu_buffer = buffers.get(&buffer).unwrap();
+                            wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
                         }
                     };
                     wgpu::Binding {
@@ -520,5 +498,13 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn clear_bind_groups(&self) {
         self.resources.bind_groups.write().unwrap().clear();
+    }
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
+        self.resources
+            .buffer_infos
+            .read()
+            .unwrap()
+            .get(&buffer)
+            .cloned()
     }
 }

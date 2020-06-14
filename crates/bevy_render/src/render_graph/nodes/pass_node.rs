@@ -3,9 +3,7 @@ use crate::{
     pass::{PassDescriptor, TextureAttachment},
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{
-        RenderResourceAssignments, RenderResourceId, RenderResourceSetId, ResourceInfo,
-    },
+    render_resource::{BufferId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo},
     renderer::RenderContext,
 };
 use bevy_asset::{Assets, Handle};
@@ -73,7 +71,7 @@ impl Node for MainPassNode {
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
                 color_attachment.attachment =
-                    TextureAttachment::RenderResource(input.get(input_index).unwrap());
+                    TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
             }
         }
 
@@ -82,7 +80,8 @@ impl Node for MainPassNode {
                 .depth_stencil_attachment
                 .as_mut()
                 .unwrap()
-                .attachment = TextureAttachment::RenderResource(input.get(input_index).unwrap());
+                .attachment =
+                TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
 
         render_context.begin_pass(
@@ -159,8 +158,8 @@ impl Node for MainPassNode {
 struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
     bind_groups: Vec<Option<RenderResourceSetId>>,
-    vertex_buffers: Vec<Option<RenderResourceId>>,
-    index_buffer: Option<RenderResourceId>,
+    vertex_buffers: Vec<Option<BufferId>>,
+    index_buffer: Option<BufferId>,
 }
 
 impl DrawState {
@@ -168,11 +167,11 @@ impl DrawState {
         self.bind_groups[index as usize] = Some(render_resource_set);
     }
 
-    pub fn set_vertex_buffer(&mut self, index: u32, buffer: RenderResourceId) {
+    pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId) {
         self.vertex_buffers[index as usize] = Some(buffer);
     }
 
-    pub fn set_index_buffer(&mut self, buffer: RenderResourceId) {
+    pub fn set_index_buffer(&mut self, buffer: BufferId) {
         self.index_buffer = Some(buffer);
     }
 

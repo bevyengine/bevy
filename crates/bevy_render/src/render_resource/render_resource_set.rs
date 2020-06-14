@@ -1,4 +1,4 @@
-use super::{RenderResourceAssignment, RenderResourceId};
+use super::{BufferId, RenderResourceAssignment, SamplerId, TextureId};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -52,24 +52,19 @@ impl RenderResourceSetBuilder {
         self
     }
 
-    pub fn add_texture(self, index: u32, render_resource: RenderResourceId) -> Self {
-        self.add_assignment(index, RenderResourceAssignment::Texture(render_resource))
+    pub fn add_texture(self, index: u32, texture: TextureId) -> Self {
+        self.add_assignment(index, RenderResourceAssignment::Texture(texture))
     }
 
-    pub fn add_sampler(self, index: u32, render_resource: RenderResourceId) -> Self {
-        self.add_assignment(index, RenderResourceAssignment::Sampler(render_resource))
+    pub fn add_sampler(self, index: u32, sampler: SamplerId) -> Self {
+        self.add_assignment(index, RenderResourceAssignment::Sampler(sampler))
     }
 
-    pub fn add_buffer(
-        self,
-        index: u32,
-        render_resource: RenderResourceId,
-        range: Range<u64>,
-    ) -> Self {
+    pub fn add_buffer(self, index: u32, buffer: BufferId, range: Range<u64>) -> Self {
         self.add_assignment(
             index,
             RenderResourceAssignment::Buffer {
-                resource: render_resource,
+                buffer,
                 range,
                 dynamic_index: None,
             },
@@ -79,14 +74,14 @@ impl RenderResourceSetBuilder {
     pub fn add_dynamic_buffer(
         self,
         index: u32,
-        render_resource: RenderResourceId,
+        buffer: BufferId,
         range: Range<u64>,
         dynamic_index: u32,
     ) -> Self {
         self.add_assignment(
             index,
             RenderResourceAssignment::Buffer {
-                resource: render_resource,
+                buffer,
                 range,
                 dynamic_index: Some(dynamic_index),
             },

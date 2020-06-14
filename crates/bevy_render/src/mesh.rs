@@ -3,7 +3,7 @@ use crate::{
         state_descriptors::{IndexFormat, PrimitiveTopology},
         AsVertexBufferDescriptor, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{BufferInfo, BufferUsage},
+    render_resource::{BufferInfo, BufferUsage, RenderResourceId},
     renderer::{RenderResourceContext, RenderResources},
     RenderPipelines, Vertex,
 };
@@ -324,12 +324,16 @@ fn remove_current_mesh_resources(
     render_resources: &dyn RenderResourceContext,
     handle: Handle<Mesh>,
 ) {
-    if let Some(resource) = render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX) {
-        render_resources.remove_buffer(resource);
+    if let Some(RenderResourceId::Buffer(buffer)) =
+        render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+    {
+        render_resources.remove_buffer(buffer);
         render_resources.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
     }
-    if let Some(resource) = render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX) {
-        render_resources.remove_buffer(resource);
+    if let Some(RenderResourceId::Buffer(buffer)) =
+        render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+    {
+        render_resources.remove_buffer(buffer);
         render_resources.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
     }
 }
@@ -390,12 +394,12 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
 
                 render_resources.set_asset_resource(
                     *changed_mesh_handle,
-                    vertex_buffer,
+                    RenderResourceId::Buffer(vertex_buffer),
                     VERTEX_BUFFER_ASSET_INDEX,
                 );
                 render_resources.set_asset_resource(
                     *changed_mesh_handle,
-                    index_buffer,
+                    RenderResourceId::Buffer(index_buffer),
                     INDEX_BUFFER_ASSET_INDEX,
                 );
             }
@@ -410,15 +414,24 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                     .primitive_topology = mesh.primitive_topology;
             }
 
-            if let Some(vertex_buffer) =
+            if let Some(RenderResourceId::Buffer(vertex_buffer)) =
                 render_resources.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
             {
-                let index_buffer =
-                    render_resources.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX);
-
                 render_pipelines
                     .render_resource_assignments
-                    .set_vertex_buffer("Vertex", vertex_buffer, index_buffer);
+                    .set_vertex_buffer(
+                        "Vertex",
+                        vertex_buffer,
+                        render_resources
+                            .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                            .and_then(|r| {
+                                if let RenderResourceId::Buffer(buffer) = r {
+                                    Some(buffer)
+                                } else {
+                                    None
+                                }
+                            }),
+                    );
             }
         }
     })

@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferInfo, RenderResourceId, RenderResourceSet, ResourceInfo},
+    render_resource::{BufferId, BufferInfo, RenderResourceId, RenderResourceSet, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -25,40 +25,28 @@ impl RenderResources {
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&self, window: &Window);
-    fn next_swap_chain_texture(&self, window_id: WindowId) -> RenderResourceId;
-    fn drop_swap_chain_texture(&self, resource: RenderResourceId);
+    fn next_swap_chain_texture(&self, window_id: WindowId) -> TextureId;
+    fn drop_swap_chain_texture(&self, resource: TextureId);
     fn drop_all_swap_chain_textures(&self);
-    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> RenderResourceId;
-    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> RenderResourceId;
-    fn create_buffer(&self, buffer_info: BufferInfo) -> RenderResourceId;
+    fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId;
+    fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId;
+    fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId;
     // TODO: remove RenderResourceContext here
     fn create_buffer_mapped(
         &self,
         buffer_info: BufferInfo,
         setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> RenderResourceId;
-    fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> RenderResourceId;
+    ) -> BufferId;
+    fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
     fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>);
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader);
-    fn remove_buffer(&self, resource: RenderResourceId);
-    fn remove_texture(&self, resource: RenderResourceId);
-    fn remove_sampler(&self, resource: RenderResourceId);
-    fn get_resource_info(
-        &self,
-        resource: RenderResourceId,
-        handle_info: &mut dyn FnMut(Option<&ResourceInfo>),
-    );
-    fn set_asset_resource_untyped(
-        &self,
-        handle: HandleUntyped,
-        resource: RenderResourceId,
-        index: usize,
-    );
-    fn get_asset_resource_untyped(
-        &self,
-        handle: HandleUntyped,
-        index: usize,
-    ) -> Option<RenderResourceId>;
+    fn remove_buffer(&self, buffer: BufferId);
+    fn remove_texture(&self, texture: TextureId);
+    fn remove_sampler(&self, sampler: SamplerId);
+    fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo>;
+
+    fn set_asset_resource_untyped(&self, handle: HandleUntyped, resource: RenderResourceId, index: usize);
+    fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResourceId>;
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize);
     fn create_render_pipeline(
         &self,

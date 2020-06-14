@@ -1,3 +1,15 @@
+use uuid::Uuid;
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct BufferId(Uuid);
+
+impl BufferId {
+    pub fn new() -> Self {
+        BufferId(Uuid::new_v4())
+    }
+}
+
+
 bitflags::bitflags! {
     #[repr(transparent)]
     #[cfg_attr(feature = "trace", derive(Serialize))]

@@ -1,18 +1,59 @@
-use super::ResourceInfo;
+use super::{BufferId, ResourceInfo, SamplerId, TextureId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
-use uuid::Uuid;
 
 use bevy_core::bytes::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct RenderResourceId(Uuid);
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub enum RenderResourceId {
+    Buffer(BufferId),
+    Texture(TextureId),
+    Sampler(SamplerId),
+}
+
+impl From<BufferId> for RenderResourceId {
+    fn from(value: BufferId) -> Self {
+        RenderResourceId::Buffer(value)
+    }
+}
+
+impl From<TextureId> for RenderResourceId {
+    fn from(value: TextureId) -> Self {
+        RenderResourceId::Texture(value)
+    }
+}
+
+impl From<SamplerId> for RenderResourceId {
+    fn from(value: SamplerId) -> Self {
+        RenderResourceId::Sampler(value)
+    }
+}
 
 impl RenderResourceId {
-    pub fn new() -> Self {
-        RenderResourceId(Uuid::new_v4())
+    pub fn get_texture(&self) -> Option<TextureId> {
+        if let RenderResourceId::Texture(id) = self{
+           Some(*id) 
+        } else {
+            None
+        }
+    }
+
+    pub fn get_buffer(&self) -> Option<BufferId> {
+        if let RenderResourceId::Buffer(id) = self{
+           Some(*id) 
+        } else {
+            None
+        }
+    }
+
+    pub fn get_sampler(&self) -> Option<SamplerId> {
+        if let RenderResourceId::Sampler(id) = self{
+           Some(*id) 
+        } else {
+            None
+        }
     }
 }
 

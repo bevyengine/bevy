@@ -1,8 +1,9 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{RenderResourceId, RenderResourceSetId, ResourceInfo},
+    render_resource::{BufferId, BufferInfo, RenderResourceId, RenderResourceSetId, SamplerId, TextureId},
     shader::Shader,
+    texture::TextureDescriptor,
 };
 use bevy_window::WindowId;
 use std::{
@@ -38,9 +39,9 @@ pub struct WgpuBindGroupInfo {
 /// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
 pub struct WgpuResourcesReadLock<'a> {
-    pub buffers: RwLockReadGuard<'a, HashMap<RenderResourceId, wgpu::Buffer>>,
-    pub textures: RwLockReadGuard<'a, HashMap<RenderResourceId, wgpu::TextureView>>,
-    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<RenderResourceId, wgpu::SwapChainFrame>>,
+    pub buffers: RwLockReadGuard<'a, HashMap<BufferId, wgpu::Buffer>>,
+    pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
+    pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
@@ -60,23 +61,24 @@ impl<'a> WgpuResourcesReadLock<'a> {
 
 /// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
 pub struct WgpuResourceRefs<'a> {
-    pub buffers: &'a HashMap<RenderResourceId, wgpu::Buffer>,
-    pub textures: &'a HashMap<RenderResourceId, wgpu::TextureView>,
-    pub swap_chain_frames: &'a HashMap<RenderResourceId, wgpu::SwapChainFrame>,
+    pub buffers: &'a HashMap<BufferId, wgpu::Buffer>,
+    pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
+    pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
 }
 
 #[derive(Default, Clone)]
 pub struct WgpuResources {
-    pub resource_info: Arc<RwLock<HashMap<RenderResourceId, ResourceInfo>>>,
+    pub buffer_infos: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
+    pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
-    pub swap_chain_frames: Arc<RwLock<HashMap<RenderResourceId, wgpu::SwapChainFrame>>>,
-    pub buffers: Arc<RwLock<HashMap<RenderResourceId, wgpu::Buffer>>>,
-    pub texture_views: Arc<RwLock<HashMap<RenderResourceId, wgpu::TextureView>>>,
-    pub textures: Arc<RwLock<HashMap<RenderResourceId, wgpu::Texture>>>,
-    pub samplers: Arc<RwLock<HashMap<RenderResourceId, wgpu::Sampler>>>,
+    pub swap_chain_frames: Arc<RwLock<HashMap<TextureId, wgpu::SwapChainFrame>>>,
+    pub buffers: Arc<RwLock<HashMap<BufferId, wgpu::Buffer>>>,
+    pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
+    pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
+    pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,

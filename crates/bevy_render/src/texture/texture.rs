@@ -1,7 +1,7 @@
 use super::{SamplerDescriptor, TextureDescriptor};
 use crate::{
     renderer::{RenderResourceContext, RenderResources},
-    render_resource::{ResourceInfo, RenderResource},
+    render_resource::{ResourceInfo, RenderResource, RenderResourceId},
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -81,12 +81,12 @@ impl Texture {
 
                 render_resources.set_asset_resource(
                     *texture_handle,
-                    texture_resource,
+                    RenderResourceId::Texture(texture_resource),
                     TEXTURE_ASSET_INDEX,
                 );
                 render_resources.set_asset_resource(
                     *texture_handle,
-                    sampler_resource,
+                    RenderResourceId::Sampler(sampler_resource),
                     SAMPLER_ASSET_INDEX,
                 );
             }
@@ -97,11 +97,11 @@ impl Texture {
         render_resources: &dyn RenderResourceContext,
         handle: Handle<Texture>,
     ) {
-        if let Some(resource) = render_resources.get_asset_resource(handle, TEXTURE_ASSET_INDEX) {
+        if let Some(RenderResourceId::Texture(resource)) = render_resources.get_asset_resource(handle, TEXTURE_ASSET_INDEX) {
             render_resources.remove_texture(resource);
             render_resources.remove_asset_resource(handle, TEXTURE_ASSET_INDEX);
         }
-        if let Some(resource) = render_resources.get_asset_resource(handle, SAMPLER_ASSET_INDEX) {
+        if let Some(RenderResourceId::Sampler(resource)) = render_resources.get_asset_resource(handle, SAMPLER_ASSET_INDEX) {
             render_resources.remove_sampler(resource);
             render_resources.remove_asset_resource(handle, SAMPLER_ASSET_INDEX);
         }

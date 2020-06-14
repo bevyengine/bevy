@@ -2,8 +2,8 @@ use crate::{renderer::WgpuRenderContext, WgpuResourceRefs};
 use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
-    pipeline::{PipelineDescriptor, BindGroupDescriptorId},
-    render_resource::{RenderResourceId, RenderResourceSetId},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    render_resource::{BufferId, RenderResourceSetId},
     renderer::RenderContext,
 };
 use std::ops::Range;
@@ -20,8 +20,8 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         self.render_context
     }
 
-    fn set_vertex_buffer(&mut self, start_slot: u32, resource: RenderResourceId, offset: u64) {
-        let buffer = self.render_resources.buffers.get(&resource).unwrap();
+    fn set_vertex_buffer(&mut self, start_slot: u32, buffer_id: BufferId, offset: u64) {
+        let buffer = self.render_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, buffer.slice(offset..));
     }
@@ -35,8 +35,8 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         self.render_pass.set_stencil_reference(reference);
     }
 
-    fn set_index_buffer(&mut self, resource: RenderResourceId, offset: u64) {
-        let buffer = self.render_resources.buffers.get(&resource).unwrap();
+    fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64) {
+        let buffer = self.render_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass.set_index_buffer(buffer.slice(offset..));
     }
 
@@ -61,16 +61,14 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .bind_groups
             .get(&bind_group_descriptor)
         {
-            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&render_resource_set)
-            {
+            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&render_resource_set) {
                 const EMPTY: &'static [u32] = &[];
-                let dynamic_uniform_indices = if let Some(dynamic_uniform_indices) =
-                    dynamic_uniform_indices
-                {
-                    dynamic_uniform_indices
-                } else {
-                    EMPTY
-                };
+                let dynamic_uniform_indices =
+                    if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
+                        dynamic_uniform_indices
+                    } else {
+                        EMPTY
+                    };
 
                 log::trace!(
                     "set bind group {:?} {:?}: {:?}",
@@ -78,11 +76,8 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     dynamic_uniform_indices,
                     render_resource_set
                 );
-                self.render_pass.set_bind_group(
-                    index,
-                    wgpu_bind_group,
-                    dynamic_uniform_indices,
-                );
+                self.render_pass
+                    .set_bind_group(index, wgpu_bind_group, dynamic_uniform_indices);
             }
         }
     }

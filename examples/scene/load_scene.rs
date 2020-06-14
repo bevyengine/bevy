@@ -1,4 +1,4 @@
-use bevy::{input::keyboard::KeyboardInput, prelude::*, type_registry::TypeRegistry};
+use bevy::{prelude::*, type_registry::TypeRegistry};
 
 fn main() {
     App::build()

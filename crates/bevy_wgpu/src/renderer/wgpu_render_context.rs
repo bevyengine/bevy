@@ -6,7 +6,7 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{RenderResourceAssignment, RenderResourceAssignments, RenderResourceId},
+    render_resource::{BufferId, RenderResourceAssignment, RenderResourceAssignments, TextureId},
     renderer::{RenderContext, RenderResourceContext},
     texture::Extent3d,
 };
@@ -73,9 +73,9 @@ impl WgpuRenderContext {
 impl RenderContext for WgpuRenderContext {
     fn copy_buffer_to_buffer(
         &mut self,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
-        destination_buffer: RenderResourceId,
+        destination_buffer: BufferId,
         destination_offset: u64,
         size: u64,
     ) {
@@ -91,10 +91,10 @@ impl RenderContext for WgpuRenderContext {
 
     fn copy_buffer_to_texture(
         &mut self,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResourceId,
+        destination_texture: TextureId,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
         size: Extent3d,
@@ -187,7 +187,7 @@ fn get_texture_view<'a>(
                 panic!("Color attachment {} does not exist", name);
             }
         },
-        TextureAttachment::RenderResource(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
+        TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
         TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
     }
 }

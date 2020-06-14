@@ -1,4 +1,4 @@
-use super::{RenderResourceId, RenderResourceSet, RenderResourceSetId};
+use super::{BufferId, RenderResourceId, RenderResourceSet, RenderResourceSetId, SamplerId, TextureId};
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineSpecialization};
 use std::{
     collections::{HashMap, HashSet},
@@ -10,20 +10,36 @@ use uuid::Uuid;
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RenderResourceAssignment {
     Buffer {
-        resource: RenderResourceId,
+        buffer: BufferId,
         range: Range<u64>,
         dynamic_index: Option<u32>,
     },
-    Texture(RenderResourceId),
-    Sampler(RenderResourceId),
+    Texture(TextureId),
+    Sampler(SamplerId),
 }
 
 impl RenderResourceAssignment {
-    pub fn get_resource(&self) -> RenderResourceId {
-        match self {
-            RenderResourceAssignment::Buffer { resource, .. } => *resource,
-            RenderResourceAssignment::Texture(resource) => *resource,
-            RenderResourceAssignment::Sampler(resource) => *resource,
+    pub fn get_texture(&self) -> Option<TextureId> {
+        if let RenderResourceAssignment::Texture(texture) = self{
+           Some(*texture) 
+        } else {
+            None
+        }
+    }
+
+    pub fn get_buffer(&self) -> Option<BufferId> {
+        if let RenderResourceAssignment::Buffer{ buffer, ..} = self{
+           Some(*buffer) 
+        } else {
+            None
+        }
+    }
+
+    pub fn get_sampler(&self) -> Option<SamplerId> {
+        if let RenderResourceAssignment::Sampler(sampler) = self{
+           Some(*sampler) 
+        } else {
+            None
         }
     }
 }
@@ -32,18 +48,18 @@ impl Hash for RenderResourceAssignment {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             RenderResourceAssignment::Buffer {
-                resource,
+                buffer,
                 range,
                 dynamic_index: _, // dynamic_index is not a part of the binding
             } => {
-                resource.hash(state);
+                RenderResourceId::from(*buffer).hash(state);
                 range.hash(state);
             }
-            RenderResourceAssignment::Texture(resource) => {
-                resource.hash(state);
+            RenderResourceAssignment::Texture(texture) => {
+                RenderResourceId::from(*texture).hash(state);
             }
-            RenderResourceAssignment::Sampler(resource) => {
-                resource.hash(state);
+            RenderResourceAssignment::Sampler(sampler) => {
+                RenderResourceId::from(*sampler).hash(state);
             }
         }
     }
@@ -62,7 +78,7 @@ pub struct RenderResourceAssignments {
     // TODO: remove this. it shouldn't be needed anymore
     pub id: RenderResourceAssignmentsId,
     render_resources: HashMap<String, RenderResourceAssignment>,
-    vertex_buffers: HashMap<String, (RenderResourceId, Option<RenderResourceId>)>,
+    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
     render_resource_sets: HashMap<RenderResourceSetId, RenderResourceSet>,
     bind_group_render_resource_sets: HashMap<BindGroupDescriptorId, RenderResourceSetId>,
     dirty_render_resource_sets: HashSet<RenderResourceSetId>,
@@ -102,21 +118,18 @@ impl RenderResourceAssignments {
         }
     }
 
-    pub fn get_vertex_buffer(
-        &self,
-        name: &str,
-    ) -> Option<(RenderResourceId, Option<RenderResourceId>)> {
+    pub fn get_vertex_buffer(&self, name: &str) -> Option<(BufferId, Option<BufferId>)> {
         self.vertex_buffers.get(name).cloned()
     }
 
     pub fn set_vertex_buffer(
         &mut self,
         name: &str,
-        vertices_resource: RenderResourceId,
-        indices_resource: Option<RenderResourceId>,
+        vertex_buffer: BufferId,
+        index_buffer: Option<BufferId>,
     ) {
         self.vertex_buffers
-            .insert(name.to_string(), (vertices_resource, indices_resource));
+            .insert(name.to_string(), (vertex_buffer, index_buffer));
     }
 
     fn create_render_resource_set(
@@ -234,10 +247,10 @@ mod tests {
             ],
         );
 
-        let resource1 = RenderResourceAssignment::Texture(RenderResourceId::new());
-        let resource2 = RenderResourceAssignment::Texture(RenderResourceId::new());
-        let resource3 = RenderResourceAssignment::Texture(RenderResourceId::new());
-        let resource4 = RenderResourceAssignment::Texture(RenderResourceId::new());
+        let resource1 = RenderResourceAssignment::Texture(TextureId::new());
+        let resource2 = RenderResourceAssignment::Texture(TextureId::new());
+        let resource3 = RenderResourceAssignment::Texture(TextureId::new());
+        let resource4 = RenderResourceAssignment::Texture(TextureId::new());
 
         let mut assignments = RenderResourceAssignments::default();
         assignments.set("a", resource1.clone());

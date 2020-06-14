@@ -1,4 +1,5 @@
 mod buffer;
+mod texture;
 mod shared_buffer;
 mod render_resource;
 mod render_resource_set;
@@ -7,6 +8,7 @@ mod resource_info;
 mod systems;
 
 pub use buffer::*;
+pub use texture::*;
 pub use shared_buffer::*;
 pub use render_resource::*;
 pub use render_resource_set::*;

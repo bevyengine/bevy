@@ -1,6 +1,6 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::ResourceInfo,
+    render_resource::{RenderResourceId, ResourceInfo},
     renderer::RenderContext,
 };
 use bevy_app::{EventReader, Events};
@@ -70,6 +70,6 @@ impl Node for WindowSwapChainNode {
         }
 
         let swap_chain_texture = render_resources.next_swap_chain_texture(window.id);
-        output.set(WINDOW_TEXTURE, swap_chain_texture);
+        output.set(WINDOW_TEXTURE, RenderResourceId::Texture(swap_chain_texture));
     }
 }

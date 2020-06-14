@@ -3,7 +3,7 @@ use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         self, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
-        RenderResourceAssignmentsId, RenderResourceHints, RenderResourceId,
+        RenderResourceAssignmentsId, RenderResourceHints,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
     texture,
@@ -11,13 +11,13 @@ use crate::{
 
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
-use render_resource::ResourceInfo;
+use render_resource::{BufferId, ResourceInfo};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
 struct QueuedBufferWrite {
-    buffer: RenderResourceId,
+    buffer: BufferId,
     target_offset: usize,
     source_offset: usize,
     size: usize,
@@ -29,7 +29,7 @@ struct BufferArrayStatus {
     item_size: usize,
     aligned_size: usize,
     staging_buffer_offset: usize,
-    buffer: Option<RenderResourceId>,
+    buffer: Option<BufferId>,
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     current_item_count: usize,
     current_item_capacity: usize,
@@ -214,7 +214,7 @@ where
                         render_resource_assignments.set(
                             render_resource_name,
                             RenderResourceAssignment::Buffer {
-                                resource: buffer,
+                                buffer,
                                 dynamic_index: Some(
                                     (index * uniform_buffer_status.aligned_size) as u32,
                                 ),
@@ -228,21 +228,18 @@ where
                         if let Some(assignment) =
                             render_resource_assignments.get(render_resource_name)
                         {
-                            let resource = assignment.get_resource();
-                            render_resources.get_resource_info(resource, &mut |info| {
-                                if let Some(ResourceInfo::Buffer(Some(BufferInfo {
-                                    size: current_size,
-                                    ..
-                                }))) = info
-                                {
-                                    if size == *current_size {
-                                        matching_buffer = Some(resource);
-                                    } else {
-                                        // TODO: if get_resource_info returns a type instead of taking a closure, move buffer free here
-                                        buffer_to_remove = Some(resource);
-                                    }
+                            let buffer_id = assignment.get_buffer().unwrap();
+                            if let Some(BufferInfo {
+                                size: current_size, ..
+                            }) = render_resources.get_buffer_info(buffer_id)
+                            {
+                                if size == current_size {
+                                    matching_buffer = Some(buffer_id);
+                                } else {
+                                    // TODO: if get_resource_info returns a type instead of taking a closure, move buffer free here
+                                    buffer_to_remove = Some(buffer_id);
                                 }
-                            })
+                            }
                         }
 
                         if let Some(buffer) = buffer_to_remove {
@@ -261,7 +258,7 @@ where
                                 }
                             }
 
-                            let resource = render_resources.create_buffer(BufferInfo {
+                            let buffer = render_resources.create_buffer(BufferInfo {
                                 size,
                                 buffer_usage: BufferUsage::COPY_DST | usage,
                                 ..Default::default()
@@ -270,12 +267,12 @@ where
                             render_resource_assignments.set(
                                 render_resource_name,
                                 RenderResourceAssignment::Buffer {
-                                    resource,
+                                    buffer,
                                     range,
                                     dynamic_index: None,
                                 },
                             );
-                            resource
+                            buffer
                         };
 
                         (resource, 0)
@@ -308,7 +305,7 @@ where
     fn copy_staging_buffer_to_final_buffers(
         &mut self,
         command_queue: &mut CommandQueue,
-        staging_buffer: RenderResourceId,
+        staging_buffer: BufferId,
     ) {
         for uniform_buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_array_status)) = uniform_buffer_status {
@@ -636,11 +633,11 @@ fn setup_uniform_texture_resources<T>(
 
                     render_resource_assignments.set(
                         render_resource_name,
-                        RenderResourceAssignment::Texture(texture_resource),
+                        RenderResourceAssignment::Texture(texture_resource.get_texture().unwrap()),
                     );
                     render_resource_assignments.set(
                         &sampler_name,
-                        RenderResourceAssignment::Sampler(sampler_resource),
+                        RenderResourceAssignment::Sampler(sampler_resource.get_sampler().unwrap()),
                     );
                     continue;
                 }

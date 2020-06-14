@@ -1,6 +1,6 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::ResourceInfo,
+    render_resource::{RenderResourceId, ResourceInfo},
     renderer::RenderContext,
     texture::TextureDescriptor,
 };
@@ -67,14 +67,14 @@ impl Node for WindowTextureNode {
                 .is_some()
         {
             let render_resources = render_context.resources_mut();
-            if let Some(old_texture) = output.get(WINDOW_TEXTURE) {
+            if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
                 render_resources.remove_texture(old_texture);
             }
 
             self.descriptor.size.width = window.width;
             self.descriptor.size.height = window.height;
             let texture_resource = render_resources.create_texture(self.descriptor);
-            output.set(WINDOW_TEXTURE, texture_resource);
+            output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
         }
     }
 }

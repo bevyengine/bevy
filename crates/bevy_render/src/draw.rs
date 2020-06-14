@@ -1,8 +1,8 @@
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferUsage, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
-        RenderResourceId, RenderResourceSet, RenderResourceSetId, ResourceInfo, SharedBuffers,
+        BufferId, BufferUsage, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
+        RenderResourceSet, RenderResourceSetId, SharedBuffers,
     },
     renderer::{RenderResourceContext, RenderResources},
 };
@@ -22,11 +22,11 @@ pub enum RenderCommand {
     },
     SetVertexBuffer {
         slot: u32,
-        buffer: RenderResourceId,
+        buffer: BufferId,
         offset: u64,
     },
     SetIndexBuffer {
-        buffer: RenderResourceId,
+        buffer: BufferId,
         offset: u64,
     },
     SetBindGroup {
@@ -154,7 +154,7 @@ impl<'a> DrawContext<'a> {
         Ok(())
     }
 
-    pub fn set_vertex_buffer(&mut self, slot: u32, buffer: RenderResourceId, offset: u64) {
+    pub fn set_vertex_buffer(&mut self, slot: u32, buffer: BufferId, offset: u64) {
         self.render_command(RenderCommand::SetVertexBuffer {
             slot,
             buffer,
@@ -162,7 +162,7 @@ impl<'a> DrawContext<'a> {
         });
     }
 
-    pub fn set_index_buffer(&mut self, buffer: RenderResourceId, offset: u64) {
+    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64) {
         self.render_command(RenderCommand::SetIndexBuffer { buffer, offset });
     }
 
@@ -230,15 +230,13 @@ impl Drawable for RenderPipelines {
                 {
                     draw.set_vertex_buffer(slot as u32, vertex_buffer, 0);
                     if let Some(index_buffer) = index_buffer {
-                        draw.render_resource_context.get_resource_info(
-                            index_buffer,
-                            &mut |resource_info| match resource_info {
-                                Some(ResourceInfo::Buffer(Some(buffer_info))) => {
-                                    indices = 0..(buffer_info.size / 2) as u32;
-                                }
-                                _ => panic!("expected a buffer type"),
-                            },
-                        );
+                        if let Some(buffer_info) =
+                            draw.render_resource_context.get_buffer_info(index_buffer)
+                        {
+                            indices = 0..(buffer_info.size / 2) as u32;
+                        } else {
+                            panic!("expected buffer type");
+                        }
                         draw.set_index_buffer(index_buffer, 0);
                     }
                 }

@@ -1,4 +1,4 @@
-use super::{BufferInfo, RenderResource, RenderResourceAssignment, RenderResourceId};
+use super::{BufferId, BufferInfo, RenderResource, RenderResourceAssignment};
 use crate::{render_resource::BufferUsage, renderer::RenderResourceContext};
 use legion::systems::Res;
 use std::sync::{Arc, RwLock};
@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 // buffer mapping yet.
 pub struct SharedBuffers {
     render_resource_context: Box<dyn RenderResourceContext>,
-    buffers: Arc<RwLock<Vec<RenderResourceId>>>,
+    buffers: Arc<RwLock<Vec<BufferId>>>,
 }
 
 impl SharedBuffers {
@@ -27,14 +27,17 @@ impl SharedBuffers {
         if let Some(size) = render_resource.buffer_byte_len() {
             // PERF: this buffer will be slow
             let buffer = self.render_resource_context.create_buffer_mapped(
-                BufferInfo { size, buffer_usage: buffer_usage | BufferUsage::COPY_SRC | BufferUsage::COPY_DST },
+                BufferInfo {
+                    size,
+                    buffer_usage: buffer_usage | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+                },
                 &mut |data, _renderer| {
                     render_resource.write_buffer_bytes(data);
                 },
             );
             self.buffers.write().unwrap().push(buffer);
             Some(RenderResourceAssignment::Buffer {
-                resource: buffer,
+                buffer,
                 range: 0..size as u64,
                 dynamic_index: None,
             })

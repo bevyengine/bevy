@@ -1,26 +1,26 @@
-use crate::{render_resource::RenderResourceId, renderer::RenderContext, texture::Extent3d};
+use crate::{render_resource::{BufferId, TextureId}, renderer::RenderContext, texture::Extent3d};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]
 pub enum Command {
     CopyBufferToBuffer {
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
-        destination_buffer: RenderResourceId,
+        destination_buffer: BufferId,
         destination_offset: u64,
         size: u64,
     },
     CopyBufferToTexture {
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResourceId,
+        destination_texture: TextureId,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
         size: Extent3d,
     },
     // TODO: Frees probably don't need to be queued?
-    FreeBuffer(RenderResourceId),
+    FreeBuffer(BufferId),
 }
 
 #[derive(Default, Clone)]
@@ -36,9 +36,9 @@ impl CommandQueue {
 
     pub fn copy_buffer_to_buffer(
         &mut self,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
-        destination_buffer: RenderResourceId,
+        destination_buffer: BufferId,
         destination_offset: u64,
         size: u64,
     ) {
@@ -53,10 +53,10 @@ impl CommandQueue {
 
     pub fn copy_buffer_to_texture(
         &mut self,
-        source_buffer: RenderResourceId,
+        source_buffer: BufferId,
         source_offset: u64,
         source_bytes_per_row: u32,
-        destination_texture: RenderResourceId,
+        destination_texture: TextureId,
         destination_origin: [u32; 3],
         destination_mip_level: u32,
         size: Extent3d,
@@ -72,7 +72,7 @@ impl CommandQueue {
         });
     }
 
-    pub fn free_buffer(&mut self, buffer: RenderResourceId) {
+    pub fn free_buffer(&mut self, buffer: BufferId) {
         self.push(Command::FreeBuffer(buffer));
     }
 

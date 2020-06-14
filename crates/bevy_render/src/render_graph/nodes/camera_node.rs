@@ -64,7 +64,7 @@ impl SystemNode for CameraNode {
                 render_resource_assignments.set(
                     &uniform_name,
                     RenderResourceAssignment::Buffer {
-                        resource: buffer,
+                        buffer,
                         range: 0..size as u64,
                         dynamic_index: None,
                     },
