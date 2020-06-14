@@ -95,6 +95,16 @@ impl_render_resource_bytes!(Vec2);
 impl_render_resource_bytes!(Vec3);
 impl_render_resource_bytes!(Vec4);
 impl_render_resource_bytes!(Mat4);
+impl_render_resource_bytes!(u8);
+impl_render_resource_bytes!(u16);
+impl_render_resource_bytes!(u32);
+impl_render_resource_bytes!(u64);
+impl_render_resource_bytes!(i8);
+impl_render_resource_bytes!(i16);
+impl_render_resource_bytes!(i32);
+impl_render_resource_bytes!(i64);
+impl_render_resource_bytes!(f32);
+impl_render_resource_bytes!(f64);
 
 impl<T> RenderResource for Vec<T>
 where

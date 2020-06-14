@@ -12,7 +12,7 @@ use std::collections::HashSet;
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,

@@ -1,8 +1,8 @@
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        RenderResourceAssignments, RenderResourceId, RenderResourceSet, RenderResourceSetId,
-        ResourceInfo,
+        BufferUsage, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
+        RenderResourceId, RenderResourceSet, RenderResourceSetId, ResourceInfo, SharedBuffers,
     },
     renderer::{RenderResourceContext, RenderResources},
 };
@@ -13,6 +13,7 @@ use legion::{
     storage::Component,
 };
 use std::{ops::Range, sync::Arc};
+use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderCommand {
@@ -83,12 +84,15 @@ impl Draw {
         pipelines: &'a Assets<PipelineDescriptor>,
         render_resource_context: &'a dyn RenderResourceContext,
         render_resource_assignments: &'a RenderResourceAssignments,
+        shared_buffers: &'a SharedBuffers,
     ) -> DrawContext {
         DrawContext {
             draw: self,
             pipelines,
             render_resource_context,
             render_resource_assignments,
+            shared_buffers,
+            current_pipeline: None,
         }
     }
 
@@ -97,17 +101,59 @@ impl Draw {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum DrawError {
+    #[error("Pipeline does not exist.")]
+    NonExistentPipeline,
+    #[error("No pipeline set")]
+    NoPipelineSet,
+    #[error("Pipeline has no layout")]
+    PipelineHasNoLayout,
+    #[error("Failed to get a buffer for the given RenderResource.")]
+    BufferAllocationFailure,
+}
+
 pub struct DrawContext<'a> {
     pub draw: &'a mut Draw,
     pub pipelines: &'a Assets<PipelineDescriptor>,
     pub render_resource_context: &'a dyn RenderResourceContext,
     pub render_resource_assignments: &'a RenderResourceAssignments,
+    pub shared_buffers: &'a SharedBuffers,
+    pub current_pipeline: Option<&'a PipelineDescriptor>,
 }
 
 impl<'a> DrawContext<'a> {
-    pub fn set_pipeline(&mut self, pipeline: Handle<PipelineDescriptor>) {
-        self.render_command(RenderCommand::SetPipeline { pipeline });
+    pub fn get_uniform_buffer<T: RenderResource>(
+        &self,
+        render_resource: &T,
+    ) -> Result<RenderResourceAssignment, DrawError> {
+        self.get_buffer(render_resource, BufferUsage::UNIFORM)
     }
+    pub fn get_buffer<T: RenderResource>(
+        &self,
+        render_resource: &T,
+        buffer_usage: BufferUsage,
+    ) -> Result<RenderResourceAssignment, DrawError> {
+        self.shared_buffers
+            .get_buffer(render_resource, buffer_usage)
+            .ok_or_else(|| DrawError::BufferAllocationFailure)
+    }
+
+    pub fn set_pipeline(
+        &mut self,
+        pipeline_handle: Handle<PipelineDescriptor>,
+    ) -> Result<(), DrawError> {
+        let pipeline = self
+            .pipelines
+            .get(&pipeline_handle)
+            .ok_or_else(|| DrawError::NonExistentPipeline)?;
+        self.current_pipeline = Some(pipeline);
+        self.render_command(RenderCommand::SetPipeline {
+            pipeline: pipeline_handle,
+        });
+        Ok(())
+    }
+
     pub fn set_vertex_buffer(&mut self, slot: u32, buffer: RenderResourceId, offset: u64) {
         self.render_command(RenderCommand::SetVertexBuffer {
             slot,
@@ -146,21 +192,21 @@ impl<'a> DrawContext<'a> {
         self.draw.render_commands.push(render_command);
     }
 
-    pub fn draw<T: Drawable>(&mut self, drawable: &mut T) {
-        drawable.draw(self);
+    pub fn draw<T: Drawable>(&mut self, drawable: &mut T) -> Result<(), DrawError> {
+        drawable.draw(self)
     }
 }
 
 pub trait Drawable {
-    fn draw(&mut self, draw: &mut DrawContext);
+    fn draw(&mut self, draw: &mut DrawContext) -> Result<(), DrawError>;
 }
 
 impl Drawable for RenderPipelines {
-    fn draw(&mut self, draw: &mut DrawContext) {
+    fn draw(&mut self, draw: &mut DrawContext) -> Result<(), DrawError> {
         for pipeline_handle in self.compiled_pipelines.iter() {
             let pipeline = draw.pipelines.get(pipeline_handle).unwrap();
             let layout = pipeline.get_layout().unwrap();
-            draw.set_pipeline(*pipeline_handle);
+            draw.set_pipeline(*pipeline_handle)?;
             for bind_group in layout.bind_groups.iter() {
                 if let Some(local_render_resource_set) = self
                     .render_resource_assignments
@@ -174,7 +220,6 @@ impl Drawable for RenderPipelines {
                     draw.set_bind_group(bind_group, global_render_resource_set);
                 }
             }
-
             let mut indices = 0..0;
             for (slot, vertex_buffer_descriptor) in
                 layout.vertex_buffer_descriptors.iter().enumerate()
@@ -201,6 +246,8 @@ impl Drawable for RenderPipelines {
 
             draw.draw_indexed(indices, 0, 0..1);
         }
+
+        Ok(())
     }
 }
 
@@ -208,12 +255,18 @@ pub fn draw_system<T: Drawable + Component>(
     pipelines: Res<Assets<PipelineDescriptor>>,
     render_resource_assignments: Res<RenderResourceAssignments>,
     render_resources: Res<RenderResources>,
+    shared_buffers: Res<SharedBuffers>,
     mut draw: ComMut<Draw>,
     mut drawable: ComMut<T>,
 ) {
     let context = &*render_resources.context;
-    let mut draw_context = draw.get_context(&pipelines, context, &render_resource_assignments);
-    draw_context.draw(drawable.as_mut());
+    let mut draw_context = draw.get_context(
+        &pipelines,
+        context,
+        &render_resource_assignments,
+        &shared_buffers,
+    );
+    draw_context.draw(drawable.as_mut()).unwrap();
 }
 
 pub fn clear_draw_system(mut draw: ComMut<Draw>) {

@@ -59,6 +59,7 @@ pub enum RenderResourceSetStatus {
 // PERF: if the assignments are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default)]
 pub struct RenderResourceAssignments {
+    // TODO: remove this. it shouldn't be needed anymore
     pub id: RenderResourceAssignmentsId,
     render_resources: HashMap<String, RenderResourceAssignment>,
     vertex_buffers: HashMap<String, (RenderResourceId, Option<RenderResourceId>)>,
