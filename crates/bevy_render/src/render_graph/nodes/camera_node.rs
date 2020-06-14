@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+        BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
     },
     renderer::{RenderContext, RenderResources},
     Camera,
@@ -51,7 +51,7 @@ impl SystemNode for CameraNode {
                render_resources: Res<RenderResources>,
                // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
                // with other systems that do the same
-               mut render_resource_assignments: ResMut<RenderResourceAssignments>,
+               mut render_resource_bindings: ResMut<RenderResourceBindings>,
                query: &mut Query<(Read<Camera>, Read<Transform>)>| {
             let render_resources = &render_resources.context;
             if camera_buffer.is_none() {
@@ -61,9 +61,9 @@ impl SystemNode for CameraNode {
                     buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                     ..Default::default()
                 });
-                render_resource_assignments.set(
+                render_resource_bindings.set(
                     &uniform_name,
-                    RenderResourceAssignment::Buffer {
+                    RenderResourceBinding::Buffer {
                         buffer,
                         range: 0..size as u64,
                         dynamic_index: None,

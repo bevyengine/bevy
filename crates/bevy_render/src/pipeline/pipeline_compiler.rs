@@ -86,7 +86,7 @@ impl PipelineCompiler {
             shaders,
             &pipeline_descriptor.shader_stages.vertex,
             &render_pipelines
-                .render_resource_assignments
+                .render_resource_bindings
                 .pipeline_specialization
                 .shader_specialization,
         );
@@ -99,7 +99,7 @@ impl PipelineCompiler {
                     shaders,
                     fragment,
                     &render_pipelines
-                        .render_resource_assignments
+                        .render_resource_bindings
                         .pipeline_specialization
                         .shader_specialization,
                 )
@@ -109,11 +109,11 @@ impl PipelineCompiler {
             shaders,
             true,
             Some(vertex_buffer_descriptors),
-            Some(&render_pipelines.render_resource_assignments),
+            Some(&render_pipelines.render_resource_bindings),
         );
 
         compiled_pipeline_descriptor.primitive_topology = render_pipelines
-            .render_resource_assignments
+            .render_resource_bindings
             .pipeline_specialization
             .primitive_topology;
         compiled_pipeline_descriptor
@@ -141,7 +141,7 @@ impl PipelineCompiler {
                     .find(|(pipeline_specialization, _compiled_pipeline_handle)| {
                         *pipeline_specialization
                             == render_pipelines
-                                .render_resource_assignments
+                                .render_resource_bindings
                                 .pipeline_specialization
                     }) {
                 *compiled_pipeline_handle
@@ -166,7 +166,7 @@ impl PipelineCompiler {
                     .unwrap();
                 compiled_pipelines.push((
                     render_pipelines
-                        .render_resource_assignments
+                        .render_resource_bindings
                         .pipeline_specialization
                         .clone(),
                     compiled_pipeline_handle,
@@ -231,7 +231,7 @@ pub fn compile_pipelines_system(
 
         // reset shader_defs so they can be changed next frame
         render_pipelines
-            .render_resource_assignments
+            .render_resource_bindings
             .pipeline_specialization
             .shader_specialization
             .shader_defs

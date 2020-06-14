@@ -1,4 +1,4 @@
-use super::{BufferId, BufferInfo, RenderResource, RenderResourceAssignment};
+use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
 use crate::{render_resource::BufferUsage, renderer::RenderResourceContext};
 use legion::systems::Res;
 use std::sync::{Arc, RwLock};
@@ -23,7 +23,7 @@ impl SharedBuffers {
         &self,
         render_resource: &T,
         buffer_usage: BufferUsage,
-    ) -> Option<RenderResourceAssignment> {
+    ) -> Option<RenderResourceBinding> {
         if let Some(size) = render_resource.buffer_byte_len() {
             // PERF: this buffer will be slow
             let buffer = self.render_resource_context.create_buffer_mapped(
@@ -36,7 +36,7 @@ impl SharedBuffers {
                 },
             );
             self.buffers.write().unwrap().push(buffer);
-            Some(RenderResourceAssignment::Buffer {
+            Some(RenderResourceBinding::Buffer {
                 buffer,
                 range: 0..size as u64,
                 dynamic_index: None,

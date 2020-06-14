@@ -1,4 +1,4 @@
-use super::{BufferId, RenderResourceAssignment, SamplerId, TextureId};
+use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -7,63 +7,62 @@ use std::{
 };
 
 #[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
-pub struct RenderResourceSetId(pub u64);
+pub struct BindGroupId(pub u64);
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct IndexedRenderResourceAssignment {
+pub struct IndexedBinding {
     pub index: u32,
-    pub assignment: RenderResourceAssignment,
+    pub binding: RenderResourceBinding,
 }
 
-// TODO: consider renaming this to BindGroup for parity with renderer terminology
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct RenderResourceSet {
-    pub id: RenderResourceSetId,
-    pub indexed_assignments: Arc<Vec<IndexedRenderResourceAssignment>>,
+pub struct BindGroup {
+    pub id: BindGroupId,
+    pub indexed_bindings: Arc<Vec<IndexedBinding>>,
     pub dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
 }
 
-impl RenderResourceSet {
-    pub fn build() -> RenderResourceSetBuilder {
-        RenderResourceSetBuilder::default()
+impl BindGroup {
+    pub fn build() -> BindGroupBuilder {
+        BindGroupBuilder::default()
     }
 }
 
 #[derive(Default)]
-pub struct RenderResourceSetBuilder {
-    pub indexed_assignments: Vec<IndexedRenderResourceAssignment>,
+pub struct BindGroupBuilder {
+    pub indexed_bindings: Vec<IndexedBinding>,
     pub dynamic_uniform_indices: Vec<u32>,
     pub hasher: DefaultHasher,
 }
 
-impl RenderResourceSetBuilder {
-    pub fn add_assignment(mut self, index: u32, assignment: RenderResourceAssignment) -> Self {
-        if let RenderResourceAssignment::Buffer {
+impl BindGroupBuilder {
+    pub fn add_binding(mut self, index: u32, binding: RenderResourceBinding) -> Self {
+        if let RenderResourceBinding::Buffer {
             dynamic_index: Some(dynamic_index),
             ..
-        } = assignment
+        } = binding
         {
             self.dynamic_uniform_indices.push(dynamic_index);
         }
 
-        assignment.hash(&mut self.hasher);
-        self.indexed_assignments
-            .push(IndexedRenderResourceAssignment { index, assignment });
+        binding.hash(&mut self.hasher);
+        self.indexed_bindings
+            .push(IndexedBinding { index, binding });
         self
     }
 
     pub fn add_texture(self, index: u32, texture: TextureId) -> Self {
-        self.add_assignment(index, RenderResourceAssignment::Texture(texture))
+        self.add_binding(index, RenderResourceBinding::Texture(texture))
     }
 
     pub fn add_sampler(self, index: u32, sampler: SamplerId) -> Self {
-        self.add_assignment(index, RenderResourceAssignment::Sampler(sampler))
+        self.add_binding(index, RenderResourceBinding::Sampler(sampler))
     }
 
     pub fn add_buffer(self, index: u32, buffer: BufferId, range: Range<u64>) -> Self {
-        self.add_assignment(
+        self.add_binding(
             index,
-            RenderResourceAssignment::Buffer {
+            RenderResourceBinding::Buffer {
                 buffer,
                 range,
                 dynamic_index: None,
@@ -78,9 +77,9 @@ impl RenderResourceSetBuilder {
         range: Range<u64>,
         dynamic_index: u32,
     ) -> Self {
-        self.add_assignment(
+        self.add_binding(
             index,
-            RenderResourceAssignment::Buffer {
+            RenderResourceBinding::Buffer {
                 buffer,
                 range,
                 dynamic_index: Some(dynamic_index),
@@ -88,12 +87,12 @@ impl RenderResourceSetBuilder {
         )
     }
 
-    pub fn finish(mut self) -> RenderResourceSet {
+    pub fn finish(mut self) -> BindGroup {
         // this sort ensures that RenderResourceSets are insertion-order independent
-        self.indexed_assignments.sort_by_key(|i| i.index);
-        RenderResourceSet {
-            id: RenderResourceSetId(self.hasher.finish()),
-            indexed_assignments: Arc::new(self.indexed_assignments),
+        self.indexed_bindings.sort_by_key(|i| i.index);
+        BindGroup {
+            id: BindGroupId(self.hasher.finish()),
+            indexed_bindings: Arc::new(self.indexed_bindings),
             dynamic_uniform_indices: if self.dynamic_uniform_indices.is_empty() {
                 None
             } else {

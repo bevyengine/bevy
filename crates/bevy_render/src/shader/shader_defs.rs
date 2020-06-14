@@ -61,7 +61,7 @@ where
 {
     for shader_def in shader_defs.iter_shader_defs() {
         render_pipelines
-            .render_resource_assignments
+            .render_resource_bindings
             .pipeline_specialization
             .shader_specialization
             .shader_defs
@@ -79,7 +79,7 @@ pub fn asset_shader_def_system<T>(
     let shader_defs = assets.get(&asset_handle).unwrap();
     for shader_def in shader_defs.iter_shader_defs() {
         render_pipelines
-            .render_resource_assignments
+            .render_resource_bindings
             .pipeline_specialization
             .shader_specialization
             .shader_defs

@@ -3,7 +3,7 @@ use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, RenderResourceSetId},
+    render_resource::{BufferId, BindGroupId},
     renderer::RenderContext,
 };
 use std::ops::Range;
@@ -53,7 +53,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         &mut self,
         index: u32,
         bind_group_descriptor: BindGroupDescriptorId,
-        render_resource_set: RenderResourceSetId,
+        bind_group: BindGroupId,
         dynamic_uniform_indices: Option<&[u32]>,
     ) {
         if let Some(bind_group_info) = self
@@ -61,7 +61,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .bind_groups
             .get(&bind_group_descriptor)
         {
-            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&render_resource_set) {
+            if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&bind_group) {
                 const EMPTY: &'static [u32] = &[];
                 let dynamic_uniform_indices =
                     if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
@@ -74,7 +74,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
                     "set bind group {:?} {:?}: {:?}",
                     bind_group_descriptor,
                     dynamic_uniform_indices,
-                    render_resource_set
+                    bind_group
                 );
                 self.render_pass
                     .set_bind_group(index, wgpu_bind_group, dynamic_uniform_indices);

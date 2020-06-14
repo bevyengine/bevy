@@ -409,7 +409,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         for (handle, mut render_pipelines) in query.iter_mut(world) {
             if let Some(mesh) = meshes.get(&handle) {
                 render_pipelines
-                    .render_resource_assignments
+                    .render_resource_bindings
                     .pipeline_specialization
                     .primitive_topology = mesh.primitive_topology;
             }
@@ -418,7 +418,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                 render_resources.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
             {
                 render_pipelines
-                    .render_resource_assignments
+                    .render_resource_bindings
                     .set_vertex_buffer(
                         "Vertex",
                         vertex_buffer,

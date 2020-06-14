@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, RenderResourceSet, SamplerId, TextureId},
+    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroup, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -102,7 +102,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_bind_group(
         &self,
         _bind_group_descriptor_id: BindGroupDescriptorId,
-        _render_resource_set: &RenderResourceSet,
+        _bind_group: &BindGroup,
     ) {
     }
     fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}

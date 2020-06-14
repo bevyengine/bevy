@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, RenderResourceSet, SamplerId, TextureId},
+    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroup, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -57,7 +57,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set: &RenderResourceSet,
+        bind_group: &BindGroup,
     );
     fn clear_bind_groups(&self);
 }

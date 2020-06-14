@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_render::{
     draw::Draw,
     pipeline::PipelineDescriptor,
-    render_resource::{RenderResourceAssignments, SharedBuffers},
+    render_resource::{RenderResourceBindings, SharedBuffers},
     renderer::RenderResources,
     texture::Texture,
     Color,
@@ -79,7 +79,7 @@ impl Label {
 
     pub fn draw_label_system(
         _pipelines: Res<Assets<PipelineDescriptor>>,
-        _render_resource_assignments: Res<RenderResourceAssignments>,
+        _render_resource_bindings: Res<RenderResourceBindings>,
         _render_resources: Res<RenderResources>,
         _shared_buffers: Res<SharedBuffers>,
         _fonts: Res<Assets<Font>>,
@@ -93,7 +93,7 @@ impl Label {
         // let mut draw_context = draw.get_context(
         //     &pipelines,
         //     context,
-        //     &render_resource_assignments,
+        //     &render_resource_bindings,
         //     &shared_buffers,
         // );
 

@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
-    render_resource::{BufferId, RenderResourceAssignments, TextureId},
+    render_resource::{BufferId, RenderResourceBindings, TextureId},
     texture::Extent3d,
 };
 
@@ -29,7 +29,7 @@ pub trait RenderContext {
     fn begin_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
+        render_resource_bindings: &RenderResourceBindings,
         run_pass: &mut dyn Fn(&mut dyn RenderPass),
     );
 }

@@ -7,7 +7,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferId, BufferInfo, RenderResourceId, RenderResourceAssignment, RenderResourceSet, SamplerId,
+        BufferId, BufferInfo, RenderResourceId, RenderResourceBinding, BindGroup, SamplerId,
         TextureId,
     },
     renderer::RenderResourceContext,
@@ -432,15 +432,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     fn create_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set: &RenderResourceSet,
+        bind_group: &BindGroup,
     ) {
         if !self
             .resources
-            .has_bind_group(bind_group_descriptor_id, render_resource_set.id)
+            .has_bind_group(bind_group_descriptor_id, bind_group.id)
         {
             log::trace!(
                 "start creating bind group for RenderResourceSet {:?}",
-                render_resource_set.id
+                bind_group.id
             );
             let texture_views = self.resources.texture_views.read().unwrap();
             let samplers = self.resources.samplers.read().unwrap();
@@ -448,28 +448,28 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
             let mut bind_groups = self.resources.bind_groups.write().unwrap();
 
-            let bindings = render_resource_set
-                .indexed_assignments
+            let bindings = bind_group
+                .indexed_bindings
                 .iter()
-                .map(|indexed_assignment| {
-                    let wgpu_resource = match &indexed_assignment.assignment {
-                        RenderResourceAssignment::Texture(resource) => {
+                .map(|indexed_binding| {
+                    let wgpu_resource = match &indexed_binding.binding {
+                        RenderResourceBinding::Texture(resource) => {
                             let texture_view = texture_views
                                 .get(&resource)
                                 .expect(&format!("{:?}", resource));
                             wgpu::BindingResource::TextureView(texture_view)
                         }
-                        RenderResourceAssignment::Sampler(resource) => {
+                        RenderResourceBinding::Sampler(resource) => {
                             let sampler = samplers.get(&resource).unwrap();
                             wgpu::BindingResource::Sampler(sampler)
                         }
-                        RenderResourceAssignment::Buffer { buffer, range, .. } => {
+                        RenderResourceBinding::Buffer { buffer, range, .. } => {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();
                             wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
                         }
                     };
                     wgpu::Binding {
-                        binding: indexed_assignment.index,
+                        binding: indexed_binding.index,
                         resource: wgpu_resource,
                     }
                 })
@@ -488,10 +488,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .or_insert_with(|| WgpuBindGroupInfo::default());
             bind_group_info
                 .bind_groups
-                .insert(render_resource_set.id, wgpu_bind_group);
+                .insert(bind_group.id, wgpu_bind_group);
             log::trace!(
                 "created bind group for RenderResourceSet {:?}",
-                render_resource_set.id
+                bind_group.id
             );
         }
     }

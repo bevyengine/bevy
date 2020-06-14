@@ -1,7 +1,7 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, RenderResourceSetId, SamplerId, TextureId},
+    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroupId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
 };
@@ -13,7 +13,7 @@ use std::{
 
 #[derive(Default)]
 pub struct WgpuBindGroupInfo {
-    pub bind_groups: HashMap<RenderResourceSetId, wgpu::BindGroup>,
+    pub bind_groups: HashMap<BindGroupId, wgpu::BindGroup>,
 }
 
 /// Grabs a read lock on all wgpu resources. When paired with WgpuResourceRefs, this allows
@@ -100,7 +100,7 @@ impl WgpuResources {
     pub fn has_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
-        render_resource_set_id: RenderResourceSetId,
+        bind_group_id: BindGroupId,
     ) -> bool {
         if let Some(bind_group_info) = self
             .bind_groups
@@ -110,7 +110,7 @@ impl WgpuResources {
         {
             bind_group_info
                 .bind_groups
-                .get(&render_resource_set_id)
+                .get(&bind_group_id)
                 .is_some()
         } else {
             false

@@ -1,7 +1,7 @@
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
+        BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
     },
     renderer::{RenderContext, RenderResources},
 };
@@ -62,7 +62,7 @@ impl SystemNode for LightsNode {
         (move |world: &mut SubWorld,
                render_resources: Res<RenderResources>,
                // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
-               mut render_resource_assignments: ResMut<RenderResourceAssignments>,
+               mut render_resource_bindings: ResMut<RenderResourceBindings>,
                query: &mut Query<(Read<Light>, Read<Transform>, Read<Translation>)>| {
             if !lights_are_dirty {
                 return;
@@ -80,9 +80,9 @@ impl SystemNode for LightsNode {
                         | BufferUsage::COPY_DST,
                     ..Default::default()
                 });
-                render_resource_assignments.set(
+                render_resource_bindings.set(
                     uniform::LIGHTS,
-                    RenderResourceAssignment::Buffer {
+                    RenderResourceBinding::Buffer {
                         buffer,
                         range: 0..light_uniform_size as u64,
                         dynamic_index: None,

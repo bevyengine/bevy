@@ -7,7 +7,7 @@ use super::{
     BindType, PipelineLayout, VertexBufferDescriptors,
 };
 use crate::{
-    render_resource::{RenderResourceAssignment, RenderResourceAssignments},
+    render_resource::{RenderResourceBinding, RenderResourceBindings},
     shader::{Shader, ShaderStages},
     texture::TextureFormat,
 };
@@ -122,14 +122,14 @@ impl PipelineDescriptor {
     /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
     /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
     ///
-    /// If `render_resource_assignments` is set, shader uniforms will be set to "dynamic" if there is a matching "dynamic uniform"
+    /// If `render_resource_bindings` is set, shader uniforms will be set to "dynamic" if there is a matching "dynamic uniform"
     /// render resource.
     pub fn reflect_layout(
         &mut self,
         shaders: &Assets<Shader>,
         bevy_conventions: bool,
         vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
-        render_resource_assignments: Option<&RenderResourceAssignments>,
+        render_resource_bindings: Option<&RenderResourceBindings>,
     ) {
         let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
         let fragment_spirv = self
@@ -148,17 +148,17 @@ impl PipelineDescriptor {
             layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
         }
 
-        if let Some(render_resource_assignments) = render_resource_assignments {
-            // set binding uniforms to dynamic if render resource assignments use dynamic
-            // TODO: this breaks down if different assignments have different "dynamic" status or if the dynamic status changes.
+        if let Some(render_resource_bindings) = render_resource_bindings {
+            // set binding uniforms to dynamic if render resource bindings use dynamic
+            // TODO: this breaks down if different bindings have different "dynamic" status or if the dynamic status changes.
             // the fix would be to add "dynamic bindings" to the existing shader_def sets. this would ensure new pipelines are generated
             // for all permutations of dynamic/non-dynamic
             for bind_group in layout.bind_groups.iter_mut() {
                 for binding in bind_group.bindings.iter_mut() {
-                    if let Some(RenderResourceAssignment::Buffer {
+                    if let Some(RenderResourceBinding::Buffer {
                         dynamic_index: Some(_),
                         ..
-                    }) = render_resource_assignments.get(&binding.name)
+                    }) = render_resource_bindings.get(&binding.name)
                     {
                         if let BindType::Uniform {
                             ref mut dynamic, ..

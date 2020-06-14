@@ -26,7 +26,7 @@ pub use once_cell;
 use self::{
     mesh::Mesh,
     pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors},
-    render_resource::RenderResourceAssignments,
+    render_resource::RenderResourceBindings,
     shader::Shader,
     texture::Texture,
 };
@@ -40,7 +40,7 @@ use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use pipeline::compile_pipelines_system;
 use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
-use render_resource::render_resource_sets_system;
+use render_resource::bind_groups_system;
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -89,7 +89,7 @@ impl AppPlugin for RenderPlugin {
             .register_property_type::<Range<f32>>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
-            .init_resource::<RenderResourceAssignments>()
+            .init_resource::<RenderResourceBindings>()
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<TextureResourceSystemState>()
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
@@ -117,7 +117,7 @@ impl AppPlugin for RenderPlugin {
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
-                render_resource_sets_system.system(),
+                bind_groups_system.system(),
             )
             .add_system_to_stage(stage::DRAW, draw_system::<RenderPipelines>.system());
 

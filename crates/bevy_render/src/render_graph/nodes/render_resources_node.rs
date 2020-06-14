@@ -2,8 +2,8 @@ use crate::{
     draw::{Draw, RenderPipelines},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
-        self, BufferInfo, BufferUsage, RenderResourceAssignment, RenderResourceAssignments,
-        RenderResourceAssignmentsId, RenderResourceHints,
+        self, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
+        RenderResourceBindingsId, RenderResourceHints,
     },
     renderer::{RenderContext, RenderResourceContext, RenderResources},
     texture,
@@ -33,7 +33,7 @@ struct BufferArrayStatus {
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     current_item_count: usize,
     current_item_capacity: usize,
-    indices: HashMap<RenderResourceAssignmentsId, usize>,
+    indices: HashMap<RenderResourceBindingsId, usize>,
     current_index: usize,
     // TODO: this is a hack to workaround RenderResources without a fixed length
     changed_size: usize,
@@ -41,7 +41,7 @@ struct BufferArrayStatus {
 }
 
 impl BufferArrayStatus {
-    pub fn get_or_assign_index(&mut self, id: RenderResourceAssignmentsId) -> usize {
+    pub fn get_or_assign_index(&mut self, id: RenderResourceBindingsId) -> usize {
         if let Some(offset) = self.indices.get(&id) {
             *offset
         } else {
@@ -197,7 +197,7 @@ where
         uniforms: &T,
         dynamic_uniforms: bool,
         render_resources: &dyn RenderResourceContext,
-        render_resource_assignments: &mut RenderResourceAssignments,
+        render_resource_bindings: &mut RenderResourceBindings,
         staging_buffer: &mut [u8],
     ) {
         for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
@@ -210,10 +210,10 @@ where
                     let (target_buffer, target_offset) = if dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
                         let index = uniform_buffer_status
-                            .get_or_assign_index(render_resource_assignments.id);
-                        render_resource_assignments.set(
+                            .get_or_assign_index(render_resource_bindings.id);
+                        render_resource_bindings.set(
                             render_resource_name,
-                            RenderResourceAssignment::Buffer {
+                            RenderResourceBinding::Buffer {
                                 buffer,
                                 dynamic_index: Some(
                                     (index * uniform_buffer_status.aligned_size) as u32,
@@ -225,10 +225,10 @@ where
                     } else {
                         let mut matching_buffer = None;
                         let mut buffer_to_remove = None;
-                        if let Some(assignment) =
-                            render_resource_assignments.get(render_resource_name)
+                        if let Some(binding) =
+                            render_resource_bindings.get(render_resource_name)
                         {
-                            let buffer_id = assignment.get_buffer().unwrap();
+                            let buffer_id = binding.get_buffer().unwrap();
                             if let Some(BufferInfo {
                                 size: current_size, ..
                             }) = render_resources.get_buffer_info(buffer_id)
@@ -264,9 +264,9 @@ where
                                 ..Default::default()
                             });
 
-                            render_resource_assignments.set(
+                            render_resource_bindings.set(
                                 render_resource_name,
-                                RenderResourceAssignment::Buffer {
+                                RenderResourceBinding::Buffer {
                                     buffer,
                                     range,
                                     dynamic_index: None,
@@ -398,7 +398,7 @@ where
                 setup_uniform_texture_resources::<T>(
                     &uniforms,
                     render_resource_context,
-                    &mut render_pipelines.render_resource_assignments,
+                    &mut render_pipelines.render_resource_bindings,
                 )
             }
 
@@ -413,7 +413,7 @@ where
                         &uniforms,
                         dynamic_uniforms,
                         render_resource_context,
-                        &mut render_pipelines.render_resource_assignments,
+                        &mut render_pipelines.render_resource_bindings,
                         &mut staging_buffer,
                     );
                 }
@@ -434,7 +434,7 @@ where
                                 &uniforms,
                                 dynamic_uniforms,
                                 render_resource_context,
-                                &mut render_pipelines.render_resource_assignments,
+                                &mut render_pipelines.render_resource_bindings,
                                 &mut staging_buffer,
                             );
                         }
@@ -499,8 +499,8 @@ where
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         // let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
-        let mut asset_render_resource_assignments =
-            HashMap::<Handle<T>, RenderResourceAssignments>::default();
+        let mut asset_render_resource_bindings =
+            HashMap::<Handle<T>, RenderResourceBindings>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         (move |world: &mut SubWorld,
                assets: Res<Assets<T>>,
@@ -542,13 +542,13 @@ where
 
             for asset_handle in modified_assets.iter() {
                 let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                let mut render_resource_assignments = asset_render_resource_assignments
+                let mut render_resource_bindings = asset_render_resource_bindings
                     .entry(*asset_handle)
-                    .or_insert_with(|| RenderResourceAssignments::default());
+                    .or_insert_with(|| RenderResourceBindings::default());
                 setup_uniform_texture_resources::<T>(
                     &asset,
                     render_resource_context,
-                    &mut render_resource_assignments,
+                    &mut render_resource_bindings,
                 );
             }
 
@@ -556,15 +556,15 @@ where
                 let mut staging_buffer: [u8; 0] = [];
                 for asset_handle in modified_assets.iter() {
                     let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                    let mut render_resource_assignments = asset_render_resource_assignments
+                    let mut render_resource_bindings = asset_render_resource_bindings
                         .entry(*asset_handle)
-                        .or_insert_with(|| RenderResourceAssignments::default());
+                        .or_insert_with(|| RenderResourceBindings::default());
                     // TODO: only setup buffer if we haven't seen this handle before
                     uniform_buffer_arrays.setup_uniform_buffer_resources(
                         &asset,
                         dynamic_uniforms,
                         render_resource_context,
-                        &mut render_resource_assignments,
+                        &mut render_resource_bindings,
                         &mut staging_buffer,
                     );
                 }
@@ -578,15 +578,15 @@ where
                     &mut |mut staging_buffer, _render_resources| {
                         for asset_handle in modified_assets.iter() {
                             let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                            let mut render_resource_assignments = asset_render_resource_assignments
+                            let mut render_resource_bindings = asset_render_resource_bindings
                                 .entry(*asset_handle)
-                                .or_insert_with(|| RenderResourceAssignments::default());
+                                .or_insert_with(|| RenderResourceBindings::default());
                             // TODO: only setup buffer if we haven't seen this handle before
                             uniform_buffer_arrays.setup_uniform_buffer_resources(
                                 &asset,
                                 dynamic_uniforms,
                                 render_resource_context,
-                                &mut render_resource_assignments,
+                                &mut render_resource_bindings,
                                 &mut staging_buffer,
                             );
                         }
@@ -599,12 +599,12 @@ where
             }
 
             for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
-                if let Some(asset_assignments) =
-                    asset_render_resource_assignments.get(&asset_handle)
+                if let Some(asset_bindings) =
+                    asset_render_resource_bindings.get(&asset_handle)
                 {
                     render_pipelines
-                        .render_resource_assignments
-                        .extend(asset_assignments);
+                        .render_resource_bindings
+                        .extend(asset_bindings);
                 }
             }
         })
@@ -615,7 +615,7 @@ where
 fn setup_uniform_texture_resources<T>(
     uniforms: &T,
     render_resource_context: &dyn RenderResourceContext,
-    render_resource_assignments: &mut RenderResourceAssignments,
+    render_resource_bindings: &mut RenderResourceBindings,
 ) where
     T: render_resource::RenderResources,
 {
@@ -631,13 +631,13 @@ fn setup_uniform_texture_resources<T>(
                         .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
                         .unwrap();
 
-                    render_resource_assignments.set(
+                    render_resource_bindings.set(
                         render_resource_name,
-                        RenderResourceAssignment::Texture(texture_resource.get_texture().unwrap()),
+                        RenderResourceBinding::Texture(texture_resource.get_texture().unwrap()),
                     );
-                    render_resource_assignments.set(
+                    render_resource_bindings.set(
                         &sampler_name,
-                        RenderResourceAssignment::Sampler(sampler_resource.get_sampler().unwrap()),
+                        RenderResourceBinding::Sampler(sampler_resource.get_sampler().unwrap()),
                     );
                     continue;
                 }

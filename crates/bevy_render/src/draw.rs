@@ -1,8 +1,8 @@
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferId, BufferUsage, RenderResource, RenderResourceAssignment, RenderResourceAssignments,
-        RenderResourceSet, RenderResourceSetId, SharedBuffers,
+        BufferId, BufferUsage, RenderResource, RenderResourceBinding, RenderResourceBindings,
+        BindGroup, BindGroupId, SharedBuffers,
     },
     renderer::{RenderResourceContext, RenderResources},
 };
@@ -32,7 +32,7 @@ pub enum RenderCommand {
     SetBindGroup {
         index: u32,
         bind_group_descriptor: BindGroupDescriptorId,
-        render_resource_set: RenderResourceSetId,
+        bind_group: BindGroupId,
         dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
     },
     DrawIndexed {
@@ -63,7 +63,7 @@ pub struct RenderPipelines {
     pub pipelines: Vec<Handle<PipelineDescriptor>>,
     // TODO: make these pipeline specific
     #[property(ignore)]
-    pub render_resource_assignments: RenderResourceAssignments,
+    pub render_resource_bindings: RenderResourceBindings,
     #[property(ignore)]
     pub compiled_pipelines: Vec<Handle<PipelineDescriptor>>,
 }
@@ -71,7 +71,7 @@ pub struct RenderPipelines {
 impl Default for RenderPipelines {
     fn default() -> Self {
         Self {
-            render_resource_assignments: Default::default(),
+            render_resource_bindings: Default::default(),
             compiled_pipelines: Default::default(),
             pipelines: vec![Handle::default()],
         }
@@ -83,14 +83,14 @@ impl Draw {
         &'a mut self,
         pipelines: &'a Assets<PipelineDescriptor>,
         render_resource_context: &'a dyn RenderResourceContext,
-        render_resource_assignments: &'a RenderResourceAssignments,
+        render_resource_bindings: &'a RenderResourceBindings,
         shared_buffers: &'a SharedBuffers,
     ) -> DrawContext {
         DrawContext {
             draw: self,
             pipelines,
             render_resource_context,
-            render_resource_assignments,
+            render_resource_bindings: render_resource_bindings,
             shared_buffers,
             current_pipeline: None,
         }
@@ -117,7 +117,7 @@ pub struct DrawContext<'a> {
     pub draw: &'a mut Draw,
     pub pipelines: &'a Assets<PipelineDescriptor>,
     pub render_resource_context: &'a dyn RenderResourceContext,
-    pub render_resource_assignments: &'a RenderResourceAssignments,
+    pub render_resource_bindings: &'a RenderResourceBindings,
     pub shared_buffers: &'a SharedBuffers,
     pub current_pipeline: Option<&'a PipelineDescriptor>,
 }
@@ -126,14 +126,14 @@ impl<'a> DrawContext<'a> {
     pub fn get_uniform_buffer<T: RenderResource>(
         &self,
         render_resource: &T,
-    ) -> Result<RenderResourceAssignment, DrawError> {
+    ) -> Result<RenderResourceBinding, DrawError> {
         self.get_buffer(render_resource, BufferUsage::UNIFORM)
     }
     pub fn get_buffer<T: RenderResource>(
         &self,
         render_resource: &T,
         buffer_usage: BufferUsage,
-    ) -> Result<RenderResourceAssignment, DrawError> {
+    ) -> Result<RenderResourceBinding, DrawError> {
         self.shared_buffers
             .get_buffer(render_resource, buffer_usage)
             .ok_or_else(|| DrawError::BufferAllocationFailure)
@@ -169,13 +169,13 @@ impl<'a> DrawContext<'a> {
     pub fn set_bind_group(
         &mut self,
         bind_group_descriptor: &BindGroupDescriptor,
-        render_resource_set: &RenderResourceSet,
+        bind_group: &BindGroup,
     ) {
         self.render_command(RenderCommand::SetBindGroup {
             index: bind_group_descriptor.index,
             bind_group_descriptor: bind_group_descriptor.id,
-            render_resource_set: render_resource_set.id,
-            dynamic_uniform_indices: render_resource_set.dynamic_uniform_indices.clone(),
+            bind_group: bind_group.id,
+            dynamic_uniform_indices: bind_group.dynamic_uniform_indices.clone(),
         });
     }
 
@@ -207,17 +207,17 @@ impl Drawable for RenderPipelines {
             let pipeline = draw.pipelines.get(pipeline_handle).unwrap();
             let layout = pipeline.get_layout().unwrap();
             draw.set_pipeline(*pipeline_handle)?;
-            for bind_group in layout.bind_groups.iter() {
-                if let Some(local_render_resource_set) = self
-                    .render_resource_assignments
-                    .get_bind_group_render_resource_set(bind_group.id)
+            for bind_group_descriptor in layout.bind_groups.iter() {
+                if let Some(local_bind_group) = self
+                    .render_resource_bindings
+                    .get_descriptor_bind_group(bind_group_descriptor.id)
                 {
-                    draw.set_bind_group(bind_group, local_render_resource_set);
-                } else if let Some(global_render_resource_set) = draw
-                    .render_resource_assignments
-                    .get_bind_group_render_resource_set(bind_group.id)
+                    draw.set_bind_group(bind_group_descriptor, local_bind_group);
+                } else if let Some(global_bind_group) = draw
+                    .render_resource_bindings
+                    .get_descriptor_bind_group(bind_group_descriptor.id)
                 {
-                    draw.set_bind_group(bind_group, global_render_resource_set);
+                    draw.set_bind_group(bind_group_descriptor, global_bind_group);
                 }
             }
             let mut indices = 0..0;
@@ -225,7 +225,7 @@ impl Drawable for RenderPipelines {
                 layout.vertex_buffer_descriptors.iter().enumerate()
             {
                 if let Some((vertex_buffer, index_buffer)) = self
-                    .render_resource_assignments
+                    .render_resource_bindings
                     .get_vertex_buffer(&vertex_buffer_descriptor.name)
                 {
                     draw.set_vertex_buffer(slot as u32, vertex_buffer, 0);
@@ -251,7 +251,7 @@ impl Drawable for RenderPipelines {
 
 pub fn draw_system<T: Drawable + Component>(
     pipelines: Res<Assets<PipelineDescriptor>>,
-    render_resource_assignments: Res<RenderResourceAssignments>,
+    render_resource_bindings: Res<RenderResourceBindings>,
     render_resources: Res<RenderResources>,
     shared_buffers: Res<SharedBuffers>,
     mut draw: ComMut<Draw>,
@@ -261,7 +261,7 @@ pub fn draw_system<T: Drawable + Component>(
     let mut draw_context = draw.get_context(
         &pipelines,
         context,
-        &render_resource_assignments,
+        &render_resource_bindings,
         &shared_buffers,
     );
     draw_context.draw(drawable.as_mut()).unwrap();

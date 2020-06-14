@@ -6,7 +6,7 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{BufferId, RenderResourceAssignment, RenderResourceAssignments, TextureId},
+    render_resource::{BufferId, RenderResourceBinding, RenderResourceBindings, TextureId},
     renderer::{RenderContext, RenderResourceContext},
     texture::Extent3d,
 };
@@ -121,7 +121,7 @@ impl RenderContext for WgpuRenderContext {
     fn begin_pass(
         &mut self,
         pass_descriptor: &PassDescriptor,
-        render_resource_assignments: &RenderResourceAssignments,
+        render_resource_bindings: &RenderResourceBindings,
         run_pass: &mut dyn Fn(&mut dyn RenderPass),
     ) {
         if !self.command_encoder.is_some() {
@@ -133,7 +133,7 @@ impl RenderContext for WgpuRenderContext {
         {
             let render_pass = create_render_pass(
                 pass_descriptor,
-                render_resource_assignments,
+                render_resource_bindings,
                 &refs,
                 &mut encoder,
             );
@@ -153,7 +153,7 @@ impl RenderContext for WgpuRenderContext {
 
 pub fn create_render_pass<'a, 'b>(
     pass_descriptor: &PassDescriptor,
-    global_render_resource_assignments: &'b RenderResourceAssignments,
+    global_render_resource_bindings: &'b RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     encoder: &'a mut wgpu::CommandEncoder,
 ) -> wgpu::RenderPass<'a> {
@@ -162,12 +162,12 @@ pub fn create_render_pass<'a, 'b>(
             .color_attachments
             .iter()
             .map(|c| {
-                create_wgpu_color_attachment_descriptor(global_render_resource_assignments, refs, c)
+                create_wgpu_color_attachment_descriptor(global_render_resource_bindings, refs, c)
             })
             .collect::<Vec<wgpu::RenderPassColorAttachmentDescriptor>>(),
         depth_stencil_attachment: pass_descriptor.depth_stencil_attachment.as_ref().map(|d| {
             create_wgpu_depth_stencil_attachment_descriptor(
-                global_render_resource_assignments,
+                global_render_resource_bindings,
                 refs,
                 d,
             )
@@ -176,13 +176,13 @@ pub fn create_render_pass<'a, 'b>(
 }
 
 fn get_texture_view<'a>(
-    global_render_resource_assignments: &RenderResourceAssignments,
+    global_render_resource_bindings: &RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     attachment: &TextureAttachment,
 ) -> &'a wgpu::TextureView {
     match attachment {
-        TextureAttachment::Name(name) => match global_render_resource_assignments.get(&name) {
-            Some(RenderResourceAssignment::Texture(resource)) => refs.textures.get(&resource).unwrap(),
+        TextureAttachment::Name(name) => match global_render_resource_bindings.get(&name) {
+            Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(&resource).unwrap(),
             _ => {
                 panic!("Color attachment {} does not exist", name);
             }
@@ -193,12 +193,12 @@ fn get_texture_view<'a>(
 }
 
 fn create_wgpu_color_attachment_descriptor<'a>(
-    global_render_resource_assignments: &RenderResourceAssignments,
+    global_render_resource_bindings: &RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
 ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
-        global_render_resource_assignments,
+        global_render_resource_bindings,
         refs,
         &color_attachment_descriptor.attachment,
     );
@@ -206,7 +206,7 @@ fn create_wgpu_color_attachment_descriptor<'a>(
     let resolve_target = color_attachment_descriptor
         .resolve_target
         .as_ref()
-        .map(|target| get_texture_view(global_render_resource_assignments, refs, &target));
+        .map(|target| get_texture_view(global_render_resource_bindings, refs, &target));
 
     wgpu::RenderPassColorAttachmentDescriptor {
         store_op: color_attachment_descriptor.store_op.wgpu_into(),
@@ -218,12 +218,12 @@ fn create_wgpu_color_attachment_descriptor<'a>(
 }
 
 fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
-    global_render_resource_assignments: &RenderResourceAssignments,
+    global_render_resource_bindings: &RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
 ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
-        global_render_resource_assignments,
+        global_render_resource_bindings,
         refs,
         &depth_stencil_attachment_descriptor.attachment,
     );

@@ -3,7 +3,7 @@ use crate::{
     pass::{PassDescriptor, TextureAttachment},
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{BufferId, RenderResourceAssignments, RenderResourceSetId, ResourceInfo},
+    render_resource::{BufferId, RenderResourceBindings, BindGroupId, ResourceInfo},
     renderer::RenderContext,
 };
 use bevy_asset::{Assets, Handle};
@@ -65,7 +65,7 @@ impl Node for MainPassNode {
         input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let render_resource_assignments = resources.get::<RenderResourceAssignments>().unwrap();
+        let render_resource_bindings = resources.get::<RenderResourceBindings>().unwrap();
         let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
@@ -86,7 +86,7 @@ impl Node for MainPassNode {
 
         render_context.begin_pass(
             &self.descriptor,
-            &render_resource_assignments,
+            &render_resource_bindings,
             &mut |render_pass| {
                 let mut draw_state = DrawState::default();
                 for draw in <Read<Draw>>::query().iter(&world) {
@@ -132,18 +132,18 @@ impl Node for MainPassNode {
                             RenderCommand::SetBindGroup {
                                 index,
                                 bind_group_descriptor,
-                                render_resource_set,
+                                bind_group,
                                 dynamic_uniform_indices,
                             } => {
                                 render_pass.set_bind_group(
                                     *index,
                                     *bind_group_descriptor,
-                                    *render_resource_set,
+                                    *bind_group,
                                     dynamic_uniform_indices
                                         .as_ref()
                                         .map(|indices| indices.as_slice()),
                                 );
-                                draw_state.set_bind_group(*index, *render_resource_set);
+                                draw_state.set_bind_group(*index, *bind_group);
                             }
                         }
                     }
@@ -157,14 +157,14 @@ impl Node for MainPassNode {
 #[derive(Default)]
 struct DrawState {
     pipeline: Option<Handle<PipelineDescriptor>>,
-    bind_groups: Vec<Option<RenderResourceSetId>>,
+    bind_groups: Vec<Option<BindGroupId>>,
     vertex_buffers: Vec<Option<BufferId>>,
     index_buffer: Option<BufferId>,
 }
 
 impl DrawState {
-    pub fn set_bind_group(&mut self, index: u32, render_resource_set: RenderResourceSetId) {
-        self.bind_groups[index as usize] = Some(render_resource_set);
+    pub fn set_bind_group(&mut self, index: u32, bind_group: BindGroupId) {
+        self.bind_groups[index as usize] = Some(bind_group);
     }
 
     pub fn set_vertex_buffer(&mut self, index: u32, buffer: BufferId) {
