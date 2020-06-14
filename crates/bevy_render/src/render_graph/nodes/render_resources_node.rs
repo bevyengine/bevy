@@ -9,20 +9,18 @@ use crate::{
     texture,
 };
 
-use bevy_app::{EventReader, Events};
-use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 use render_resource::ResourceInfo;
-use std::{
-    collections::{HashMap, HashSet},
-    marker::PhantomData,
-};
+use std::{collections::HashMap, marker::PhantomData};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
 struct QueuedBufferWrite {
     buffer: RenderResourceId,
-    offset: usize,
+    target_offset: usize,
+    source_offset: usize,
+    size: usize,
 }
 
 #[derive(Debug)]
@@ -37,6 +35,9 @@ struct BufferArrayStatus {
     current_item_capacity: usize,
     indices: HashMap<RenderResourceAssignmentsId, usize>,
     current_index: usize,
+    // TODO: this is a hack to workaround RenderResources without a fixed length
+    changed_size: usize,
+    current_offset: usize,
 }
 
 impl BufferArrayStatus {
@@ -84,6 +85,8 @@ where
         for buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_status)) = buffer_status {
                 buffer_status.changed_item_count = 0;
+                buffer_status.current_offset = 0;
+                buffer_status.changed_size = 0;
             }
         }
     }
@@ -99,6 +102,7 @@ where
                 let size = render_resource.buffer_byte_len().unwrap();
                 if let Some((ref _name, ref mut buffer_array_status)) = self.uniform_arrays[i] {
                     buffer_array_status.changed_item_count += 1;
+                    buffer_array_status.changed_size += size;
                 } else {
                     self.uniform_arrays[i] = Some((
                         render_resource_name.to_string(),
@@ -113,6 +117,8 @@ where
                             current_item_count: 0,
                             current_item_capacity: 0,
                             indices: HashMap::new(),
+                            changed_size: size,
+                            current_offset: 0,
                         },
                     ))
                 }
@@ -179,7 +185,7 @@ where
         for dynamic_buffer_array_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, ref mut buffer_array_status)) = dynamic_buffer_array_status {
                 buffer_array_status.staging_buffer_offset = size;
-                size += buffer_array_status.item_size * buffer_array_status.changed_item_count;
+                size += buffer_array_status.changed_size;
             }
         }
 
@@ -217,44 +223,67 @@ where
                         );
                         (buffer, index * uniform_buffer_status.aligned_size)
                     } else {
-                        let resource = match render_resource_assignments.get(render_resource_name) {
-                            Some(assignment) => assignment.get_resource(),
-                            None => {
-                                // TODO: RE-ADD support for BufferUsage::STORAGE type
-                                let mut usage = BufferUsage::UNIFORM;
-
-                                if let Some(render_resource_hints) =
-                                    uniforms.get_render_resource_hints(i)
+                        let mut matching_buffer = None;
+                        let mut buffer_to_remove = None;
+                        if let Some(assignment) =
+                            render_resource_assignments.get(render_resource_name)
+                        {
+                            let resource = assignment.get_resource();
+                            render_resources.get_resource_info(resource, &mut |info| {
+                                if let Some(ResourceInfo::Buffer(Some(BufferInfo {
+                                    size: current_size,
+                                    ..
+                                }))) = info
                                 {
-                                    if render_resource_hints.contains(RenderResourceHints::BUFFER) {
-                                        usage = BufferUsage::STORAGE
+                                    if size == *current_size {
+                                        matching_buffer = Some(resource);
+                                    } else {
+                                        // TODO: if get_resource_info returns a type instead of taking a closure, move buffer free here
+                                        buffer_to_remove = Some(resource);
                                     }
                                 }
+                            })
+                        }
 
-                                let resource = render_resources.create_buffer(BufferInfo {
-                                    size,
-                                    buffer_usage: BufferUsage::COPY_DST | usage,
-                                    ..Default::default()
-                                });
+                        if let Some(buffer) = buffer_to_remove {
+                            render_resources.remove_buffer(buffer);
+                        }
 
-                                render_resource_assignments.set(
-                                    render_resource_name,
-                                    RenderResourceAssignment::Buffer {
-                                        resource,
-                                        range,
-                                        dynamic_index: None,
-                                    },
-                                );
-                                resource
+                        let resource = if let Some(matching_buffer) = matching_buffer {
+                            matching_buffer
+                        } else {
+                            let mut usage = BufferUsage::UNIFORM;
+                            if let Some(render_resource_hints) =
+                                uniforms.get_render_resource_hints(i)
+                            {
+                                if render_resource_hints.contains(RenderResourceHints::BUFFER) {
+                                    usage = BufferUsage::STORAGE
+                                }
                             }
+
+                            let resource = render_resources.create_buffer(BufferInfo {
+                                size,
+                                buffer_usage: BufferUsage::COPY_DST | usage,
+                                ..Default::default()
+                            });
+
+                            render_resource_assignments.set(
+                                render_resource_name,
+                                RenderResourceAssignment::Buffer {
+                                    resource,
+                                    range,
+                                    dynamic_index: None,
+                                },
+                            );
+                            resource
                         };
 
                         (resource, 0)
                     };
 
                     let staging_buffer_start = uniform_buffer_status.staging_buffer_offset
-                        + (uniform_buffer_status.queued_buffer_writes.len()
-                            * uniform_buffer_status.item_size);
+                        + uniform_buffer_status.current_offset;
+
                     render_resource.write_buffer_bytes(
                         &mut staging_buffer[staging_buffer_start..(staging_buffer_start + size)],
                     );
@@ -263,8 +292,11 @@ where
                         .queued_buffer_writes
                         .push(QueuedBufferWrite {
                             buffer: target_buffer,
-                            offset: target_offset,
+                            target_offset,
+                            source_offset: uniform_buffer_status.current_offset,
+                            size,
                         });
+                    uniform_buffer_status.current_offset += size;
                 }
                 Some(ResourceInfo::Texture(_)) => { /* ignore textures */ }
                 Some(ResourceInfo::Sampler) => { /* ignore samplers */ }
@@ -281,17 +313,13 @@ where
         for uniform_buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_array_status)) = uniform_buffer_status {
                 let start = buffer_array_status.staging_buffer_offset;
-                for (i, queued_buffer_write) in buffer_array_status
-                    .queued_buffer_writes
-                    .drain(..)
-                    .enumerate()
-                {
+                for queued_buffer_write in buffer_array_status.queued_buffer_writes.drain(..) {
                     command_queue.copy_buffer_to_buffer(
                         staging_buffer,
-                        (start + (i * buffer_array_status.item_size)) as u64,
+                        (start + queued_buffer_write.source_offset) as u64,
                         queued_buffer_write.buffer,
-                        queued_buffer_write.offset as u64,
-                        buffer_array_status.item_size as u64,
+                        queued_buffer_write.target_offset as u64,
+                        queued_buffer_write.size as u64,
                     )
                 }
             }
@@ -473,33 +501,38 @@ where
     fn get_system(&self) -> Box<dyn Schedulable> {
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
-        let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
+        // let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
         let mut asset_render_resource_assignments =
             HashMap::<Handle<T>, RenderResourceAssignments>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         (move |world: &mut SubWorld,
                assets: Res<Assets<T>>,
-               asset_events: Res<Events<AssetEvent<T>>>,
+               //    asset_events: Res<Events<AssetEvent<T>>>,
                render_resources: Res<RenderResources>,
                query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
             let render_resource_context = &*render_resources.context;
             uniform_buffer_arrays.reset_changed_item_counts();
 
-            let mut modified_assets = HashSet::new();
-            for event in asset_event_reader.iter(&asset_events) {
-                match event {
-                    AssetEvent::Created { handle } => {
-                        modified_assets.insert(*handle);
-                    }
-                    AssetEvent::Modified { handle } => {
-                        modified_assets.insert(*handle);
-                    }
-                    AssetEvent::Removed { handle } => {
-                        // TODO: handle removals
-                        modified_assets.remove(handle);
-                    }
-                }
-            }
+            let modified_assets = assets
+                .iter()
+                .map(|(handle, _)| handle)
+                .collect::<Vec<Handle<T>>>();
+            // TODO: uncomment this when asset dependency events are added https://github.com/bevyengine/bevy/issues/26
+            // let mut modified_assets = HashSet::new();
+            // for event in asset_event_reader.iter(&asset_events) {
+            //     match event {
+            //         AssetEvent::Created { handle } => {
+            //             modified_assets.insert(*handle);
+            //         }
+            //         AssetEvent::Modified { handle } => {
+            //             modified_assets.insert(*handle);
+            //         }
+            //         AssetEvent::Removed { handle } => {
+            //             // TODO: handle removals
+            //             modified_assets.remove(handle);
+            //         }
+            //     }
+            // }
 
             // update uniform handles info
             for asset_handle in modified_assets.iter() {
@@ -569,8 +602,12 @@ where
             }
 
             for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
-                if let Some(asset_assignments) = asset_render_resource_assignments.get(&asset_handle) {
-                    render_pipelines.render_resource_assignments.extend(asset_assignments);
+                if let Some(asset_assignments) =
+                    asset_render_resource_assignments.get(&asset_handle)
+                {
+                    render_pipelines
+                        .render_resource_assignments
+                        .extend(asset_assignments);
                 }
             }
         })
@@ -596,6 +633,7 @@ fn setup_uniform_texture_resources<T>(
                     let sampler_resource = render_resource_context
                         .get_asset_resource(texture_handle, texture::SAMPLER_ASSET_INDEX)
                         .unwrap();
+
                     render_resource_assignments.set(
                         render_resource_name,
                         RenderResourceAssignment::Texture(texture_resource),
