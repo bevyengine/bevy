@@ -11,7 +11,7 @@ use std::ops::Range;
 pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,
-    pub render_resources: WgpuResourceRefs<'a>,
+    pub wgpu_resources: WgpuResourceRefs<'a>,
     pub pipeline_descriptor: Option<&'a PipelineDescriptor>,
 }
 
@@ -21,7 +21,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_vertex_buffer(&mut self, start_slot: u32, buffer_id: BufferId, offset: u64) {
-        let buffer = self.render_resources.buffers.get(&buffer_id).unwrap();
+        let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass
             .set_vertex_buffer(start_slot, buffer.slice(offset..));
     }
@@ -36,7 +36,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_index_buffer(&mut self, buffer_id: BufferId, offset: u64) {
-        let buffer = self.render_resources.buffers.get(&buffer_id).unwrap();
+        let buffer = self.wgpu_resources.buffers.get(&buffer_id).unwrap();
         self.render_pass.set_index_buffer(buffer.slice(offset..));
     }
 
@@ -57,7 +57,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         dynamic_uniform_indices: Option<&[u32]>,
     ) {
         if let Some(bind_group_info) = self
-            .render_resources
+            .wgpu_resources
             .bind_groups
             .get(&bind_group_descriptor)
         {
@@ -83,7 +83,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
-        let pipeline = self.render_resources.render_pipelines.get(&pipeline_handle).expect(
+        let pipeline = self.wgpu_resources.render_pipelines.get(&pipeline_handle).expect(
             "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
         );
         self.render_pass.set_pipeline(pipeline);

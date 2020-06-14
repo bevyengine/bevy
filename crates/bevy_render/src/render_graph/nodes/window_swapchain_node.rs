@@ -54,7 +54,7 @@ impl Node for WindowSwapChainNode {
                 .expect("Received window resized event for non-existent window"),
         };
 
-        let render_resources = render_context.resources_mut();
+        let render_resource_context = render_context.resources_mut();
 
         // create window swapchain when window is resized or created
         if self
@@ -66,10 +66,10 @@ impl Node for WindowSwapChainNode {
                 .find_latest(&window_resized_events, |e| e.id == window.id)
                 .is_some()
         {
-            render_resources.create_swap_chain(window);
+            render_resource_context.create_swap_chain(window);
         }
 
-        let swap_chain_texture = render_resources.next_swap_chain_texture(window.id);
+        let swap_chain_texture = render_resource_context.next_swap_chain_texture(window.id);
         output.set(WINDOW_TEXTURE, RenderResourceId::Texture(swap_chain_texture));
     }
 }

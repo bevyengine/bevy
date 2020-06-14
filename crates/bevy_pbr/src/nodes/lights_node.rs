@@ -3,7 +3,7 @@ use bevy_render::{
     render_resource::{
         BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
     },
-    renderer::{RenderContext, RenderResources},
+    renderer::{RenderContext, RenderResourceContext},
 };
 
 use crate::{
@@ -60,7 +60,7 @@ impl SystemNode for LightsNode {
         let mut command_queue = self.command_queue.clone();
         let max_lights = self.max_lights;
         (move |world: &mut SubWorld,
-               render_resources: Res<RenderResources>,
+               render_resource_context: Res<Box<dyn RenderResourceContext>>,
                // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
                mut render_resource_bindings: ResMut<RenderResourceBindings>,
                query: &mut Query<(Read<Light>, Read<Transform>, Read<Translation>)>| {
@@ -68,12 +68,12 @@ impl SystemNode for LightsNode {
                 return;
             }
 
-            let render_resources = &render_resources.context;
+            let render_resource_context = &**render_resource_context;
             if light_buffer.is_none() {
                 let light_uniform_size = std::mem::size_of::<LightCount>()
                     + max_lights * std::mem::size_of::<LightRaw>();
 
-                let buffer = render_resources.create_buffer(BufferInfo {
+                let buffer = render_resource_context.create_buffer(BufferInfo {
                     size: light_uniform_size,
                     buffer_usage: BufferUsage::UNIFORM
                         | BufferUsage::COPY_SRC
@@ -103,14 +103,14 @@ impl SystemNode for LightsNode {
             let light_count_size = std::mem::size_of::<LightCount>();
 
             if let Some(old_tmp_light_buffer) = tmp_light_buffer {
-                render_resources.remove_buffer(old_tmp_light_buffer);
+                render_resource_context.remove_buffer(old_tmp_light_buffer);
             }
 
             if let Some(old_tmp_count_buffer) = tmp_count_buffer {
-                render_resources.remove_buffer(old_tmp_count_buffer);
+                render_resource_context.remove_buffer(old_tmp_count_buffer);
             }
 
-            tmp_light_buffer = Some(render_resources.create_buffer_mapped(
+            tmp_light_buffer = Some(render_resource_context.create_buffer_mapped(
                 BufferInfo {
                     size: total_size,
                     buffer_usage: BufferUsage::COPY_SRC,
@@ -126,7 +126,7 @@ impl SystemNode for LightsNode {
                     }
                 },
             ));
-            tmp_count_buffer = Some(render_resources.create_buffer_mapped(
+            tmp_count_buffer = Some(render_resource_context.create_buffer_mapped(
                 BufferInfo {
                     size: light_count_size,
                     buffer_usage: BufferUsage::COPY_SRC,

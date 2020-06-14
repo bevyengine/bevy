@@ -8,21 +8,6 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use downcast_rs::{impl_downcast, Downcast};
 
-pub struct RenderResources {
-    pub context: Box<dyn RenderResourceContext>,
-}
-
-impl RenderResources {
-    pub fn new<T>(context: T) -> RenderResources
-    where
-        T: RenderResourceContext,
-    {
-        RenderResources {
-            context: Box::new(context),
-        }
-    }
-}
-
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&self, window: &Window);
     fn next_swap_chain_texture(&self, window_id: WindowId) -> TextureId;

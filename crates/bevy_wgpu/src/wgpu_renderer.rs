@@ -2,7 +2,7 @@ use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
 use bevy_app::{EventReader, Events};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
-    renderer::RenderResources,
+    renderer::RenderResourceContext,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use legion::prelude::*;
@@ -54,9 +54,10 @@ impl WgpuRenderer {
     }
 
     pub fn handle_window_created_events(&mut self, resources: &Resources) {
-        let mut render_resources = resources.get_mut::<RenderResources>().unwrap();
-        let render_resource_context = render_resources
-            .context
+        let mut render_resource_context = resources
+            .get_mut::<Box<dyn RenderResourceContext>>()
+            .unwrap();
+        let render_resource_context = render_resource_context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
         let windows = resources.get::<Windows>().unwrap();
@@ -102,10 +103,8 @@ impl WgpuRenderer {
         self.handle_window_created_events(resources);
         self.run_graph(world, resources);
 
-        let render_resource_context = resources.get::<RenderResources>().unwrap();
-        render_resource_context
-            .context
-            .drop_all_swap_chain_textures();
-        render_resource_context.context.clear_bind_groups();
+        let render_resource_context = resources.get::<Box<dyn RenderResourceContext>>().unwrap();
+        render_resource_context.drop_all_swap_chain_textures();
+        render_resource_context.clear_bind_groups();
     }
 }

@@ -3,7 +3,7 @@ use bevy_render::{
     draw::Draw,
     pipeline::PipelineDescriptor,
     render_resource::{RenderResourceBindings, SharedBuffers},
-    renderer::RenderResources,
+    renderer::RenderResourceContext,
     texture::Texture,
     Color,
 };
@@ -80,7 +80,7 @@ impl Label {
     pub fn draw_label_system(
         _pipelines: Res<Assets<PipelineDescriptor>>,
         _render_resource_bindings: Res<RenderResourceBindings>,
-        _render_resources: Res<RenderResources>,
+        _render_resource_context: Res<Box<dyn RenderResourceContext>>,
         _shared_buffers: Res<SharedBuffers>,
         _fonts: Res<Assets<Font>>,
         _font_atlas_sets: Res<Assets<FontAtlasSet>>,

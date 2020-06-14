@@ -4,7 +4,7 @@ use crate::{
         AsVertexBufferDescriptor, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     render_resource::{BufferInfo, BufferUsage, RenderResourceId},
-    renderer::{RenderResourceContext, RenderResources},
+    renderer::RenderResourceContext,
     RenderPipelines, Vertex,
 };
 use bevy_app::{EventReader, Events};
@@ -321,20 +321,20 @@ pub mod shape {
 }
 
 fn remove_current_mesh_resources(
-    render_resources: &dyn RenderResourceContext,
+    render_resource_context: &dyn RenderResourceContext,
     handle: Handle<Mesh>,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resources.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
     {
-        render_resources.remove_buffer(buffer);
-        render_resources.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
+        render_resource_context.remove_buffer(buffer);
+        render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
     }
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resources.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
-        render_resources.remove_buffer(buffer);
-        render_resources.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
+        render_resource_context.remove_buffer(buffer);
+        render_resource_context.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
     }
 }
 
@@ -345,12 +345,12 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
     (move |world: &mut SubWorld,
-           render_resources: Res<RenderResources>,
+           render_resource_context: Res<Box<dyn RenderResourceContext>>,
            meshes: Res<Assets<Mesh>>,
            mesh_events: Res<Events<AssetEvent<Mesh>>>,
            query: &mut Query<(Read<Handle<Mesh>>, Write<RenderPipelines>)>| {
-        let render_resources = &*render_resources.context;
         let mut changed_meshes = HashSet::new();
+        let render_resource_context = &**render_resource_context;
         for event in mesh_event_reader.iter(&mesh_events) {
             match event {
                 AssetEvent::Created { handle } => {
@@ -358,10 +358,10 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                 }
                 AssetEvent::Modified { handle } => {
                     changed_meshes.insert(*handle);
-                    remove_current_mesh_resources(render_resources, *handle);
+                    remove_current_mesh_resources(render_resource_context, *handle);
                 }
                 AssetEvent::Removed { handle } => {
-                    remove_current_mesh_resources(render_resources, *handle);
+                    remove_current_mesh_resources(render_resource_context, *handle);
                     // if mesh was modified and removed in the same update, ignore the modification
                     // events are ordered so future modification events are ok
                     changed_meshes.remove(handle);
@@ -375,7 +375,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                     .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
                     .unwrap();
                 // TODO: use a staging buffer here
-                let vertex_buffer = render_resources.create_buffer_with_data(
+                let vertex_buffer = render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::VERTEX,
                         ..Default::default()
@@ -384,7 +384,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                 );
 
                 let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
-                let index_buffer = render_resources.create_buffer_with_data(
+                let index_buffer = render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::INDEX,
                         ..Default::default()
@@ -392,12 +392,12 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
                     &index_bytes,
                 );
 
-                render_resources.set_asset_resource(
+                render_resource_context.set_asset_resource(
                     *changed_mesh_handle,
                     RenderResourceId::Buffer(vertex_buffer),
                     VERTEX_BUFFER_ASSET_INDEX,
                 );
-                render_resources.set_asset_resource(
+                render_resource_context.set_asset_resource(
                     *changed_mesh_handle,
                     RenderResourceId::Buffer(index_buffer),
                     INDEX_BUFFER_ASSET_INDEX,
@@ -415,23 +415,21 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
             }
 
             if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-                render_resources.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+                render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
             {
-                render_pipelines
-                    .render_resource_bindings
-                    .set_vertex_buffer(
-                        "Vertex",
-                        vertex_buffer,
-                        render_resources
-                            .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
-                            .and_then(|r| {
-                                if let RenderResourceId::Buffer(buffer) = r {
-                                    Some(buffer)
-                                } else {
-                                    None
-                                }
-                            }),
-                    );
+                render_pipelines.render_resource_bindings.set_vertex_buffer(
+                    "Vertex",
+                    vertex_buffer,
+                    render_resource_context
+                        .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                        .and_then(|r| {
+                            if let RenderResourceId::Buffer(buffer) = r {
+                                Some(buffer)
+                            } else {
+                                None
+                            }
+                        }),
+                );
             }
         }
     })

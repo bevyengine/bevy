@@ -5,7 +5,7 @@ use crate::{
         self, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
         RenderResourceBindingsId, RenderResourceHints,
     },
-    renderer::{RenderContext, RenderResourceContext, RenderResources},
+    renderer::{RenderContext, RenderResourceContext},
     texture,
 };
 
@@ -196,7 +196,7 @@ where
         &mut self,
         uniforms: &T,
         dynamic_uniforms: bool,
-        render_resources: &dyn RenderResourceContext,
+        render_resource_context: &dyn RenderResourceContext,
         render_resource_bindings: &mut RenderResourceBindings,
         staging_buffer: &mut [u8],
     ) {
@@ -209,8 +209,8 @@ where
                     let range = 0..size as u64;
                     let (target_buffer, target_offset) = if dynamic_uniforms {
                         let buffer = uniform_buffer_status.buffer.unwrap();
-                        let index = uniform_buffer_status
-                            .get_or_assign_index(render_resource_bindings.id);
+                        let index =
+                            uniform_buffer_status.get_or_assign_index(render_resource_bindings.id);
                         render_resource_bindings.set(
                             render_resource_name,
                             RenderResourceBinding::Buffer {
@@ -225,13 +225,11 @@ where
                     } else {
                         let mut matching_buffer = None;
                         let mut buffer_to_remove = None;
-                        if let Some(binding) =
-                            render_resource_bindings.get(render_resource_name)
-                        {
+                        if let Some(binding) = render_resource_bindings.get(render_resource_name) {
                             let buffer_id = binding.get_buffer().unwrap();
                             if let Some(BufferInfo {
                                 size: current_size, ..
-                            }) = render_resources.get_buffer_info(buffer_id)
+                            }) = render_resource_context.get_buffer_info(buffer_id)
                             {
                                 if size == current_size {
                                     matching_buffer = Some(buffer_id);
@@ -243,7 +241,7 @@ where
                         }
 
                         if let Some(buffer) = buffer_to_remove {
-                            render_resources.remove_buffer(buffer);
+                            render_resource_context.remove_buffer(buffer);
                         }
 
                         let resource = if let Some(matching_buffer) = matching_buffer {
@@ -258,7 +256,7 @@ where
                                 }
                             }
 
-                            let buffer = render_resources.create_buffer(BufferInfo {
+                            let buffer = render_resource_context.create_buffer(BufferInfo {
                                 size,
                                 buffer_usage: BufferUsage::COPY_DST | usage,
                                 ..Default::default()
@@ -373,10 +371,10 @@ where
         let dynamic_uniforms = self.dynamic_uniforms;
         // TODO: maybe run "update" here
         (move |world: &mut SubWorld,
-               render_resources: Res<RenderResources>,
+               render_resource_context: Res<Box<dyn RenderResourceContext>>,
                query: &mut Query<(Read<T>, Read<Draw>, Write<RenderPipelines>)>| {
-            let render_resource_context = &*render_resources.context;
-
+            
+            let render_resource_context = &** render_resource_context;
             uniform_buffer_arrays.reset_changed_item_counts();
             // update uniforms info
             for (uniforms, draw, _render_pipelines) in query.iter_mut(world) {
@@ -424,7 +422,7 @@ where
                         size: staging_buffer_size,
                         ..Default::default()
                     },
-                    &mut |mut staging_buffer, _render_resources| {
+                    &mut |mut staging_buffer, _render_resource_context| {
                         for (uniforms, draw, mut render_pipelines) in query.iter_mut(world) {
                             if !draw.is_visible {
                                 return;
@@ -505,9 +503,9 @@ where
         (move |world: &mut SubWorld,
                assets: Res<Assets<T>>,
                //    asset_events: Res<Events<AssetEvent<T>>>,
-               render_resources: Res<RenderResources>,
+               render_resource_context: Res<Box<dyn RenderResourceContext>>,
                query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
-            let render_resource_context = &*render_resources.context;
+            let render_resource_context = &**render_resource_context;
             uniform_buffer_arrays.reset_changed_item_counts();
 
             let modified_assets = assets
@@ -575,7 +573,7 @@ where
                         size: staging_buffer_size,
                         ..Default::default()
                     },
-                    &mut |mut staging_buffer, _render_resources| {
+                    &mut |mut staging_buffer, _render_resource_context| {
                         for asset_handle in modified_assets.iter() {
                             let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
                             let mut render_resource_bindings = asset_render_resource_bindings
@@ -599,9 +597,7 @@ where
             }
 
             for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
-                if let Some(asset_bindings) =
-                    asset_render_resource_bindings.get(&asset_handle)
-                {
+                if let Some(asset_bindings) = asset_render_resource_bindings.get(&asset_handle) {
                     render_pipelines
                         .render_resource_bindings
                         .extend(asset_bindings);

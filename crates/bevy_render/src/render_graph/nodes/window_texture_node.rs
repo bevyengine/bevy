@@ -66,14 +66,14 @@ impl Node for WindowTextureNode {
                 .find_latest(&window_resized_events, |e| e.id == window.id)
                 .is_some()
         {
-            let render_resources = render_context.resources_mut();
+            let render_resource_context = render_context.resources_mut();
             if let Some(RenderResourceId::Texture(old_texture)) = output.get(WINDOW_TEXTURE) {
-                render_resources.remove_texture(old_texture);
+                render_resource_context.remove_texture(old_texture);
             }
 
             self.descriptor.size.width = window.width;
             self.descriptor.size.height = window.height;
-            let texture_resource = render_resources.create_texture(self.descriptor);
+            let texture_resource = render_resource_context.create_texture(self.descriptor);
             output.set(WINDOW_TEXTURE, RenderResourceId::Texture(texture_resource));
         }
     }

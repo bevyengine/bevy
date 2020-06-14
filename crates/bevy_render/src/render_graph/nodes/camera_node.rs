@@ -1,9 +1,7 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{
-        BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
-    },
-    renderer::{RenderContext, RenderResources},
+    render_resource::{BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings},
+    renderer::{RenderResourceContext, RenderContext},
     Camera,
 };
 use bevy_core::bytes::AsBytes;
@@ -48,15 +46,15 @@ impl SystemNode for CameraNode {
         let mut command_queue = self.command_queue.clone();
         let uniform_name = self.uniform_name.clone();
         (move |world: &mut SubWorld,
-               render_resources: Res<RenderResources>,
+               render_resource_context: Res<Box<dyn RenderResourceContext>>,
                // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
                // with other systems that do the same
                mut render_resource_bindings: ResMut<RenderResourceBindings>,
                query: &mut Query<(Read<Camera>, Read<Transform>)>| {
-            let render_resources = &render_resources.context;
+            let render_resource_context = &**render_resource_context;
             if camera_buffer.is_none() {
                 let size = std::mem::size_of::<[[f32; 4]; 4]>();
-                let buffer = render_resources.create_buffer(BufferInfo {
+                let buffer = render_resource_context.create_buffer(BufferInfo {
                     size,
                     buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
                     ..Default::default()
@@ -79,7 +77,7 @@ impl SystemNode for CameraNode {
                 let camera_matrix: [f32; 16] =
                     (camera.view_matrix * transform.value).to_cols_array();
 
-                let tmp_buffer = render_resources.create_buffer_mapped(
+                let tmp_buffer = render_resource_context.create_buffer_mapped(
                     BufferInfo {
                         size: matrix_size,
                         buffer_usage: BufferUsage::COPY_SRC,

@@ -1,7 +1,7 @@
 use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
 use crate::{
     draw::RenderPipelines,
-    renderer::{RenderResourceContext, RenderResources},
+    renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
@@ -214,10 +214,10 @@ pub fn compile_pipelines_system(
     mut shaders: ResMut<Assets<Shader>>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     vertex_buffer_descriptors: Res<VertexBufferDescriptors>,
-    render_resources: Res<RenderResources>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
     query: &mut Query<Write<RenderPipelines>>,
 ) {
-    let render_resource_context = &*render_resources.context;
+    let render_resource_context = &**render_resource_context;
 
     // TODO: only update when RenderPipelines is changed
     for mut render_pipelines in query.iter_mut(world) {

@@ -10,10 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use bevy_render::{
-    render_resource::{free_shared_buffers_system, SharedBuffers},
-    renderer::RenderResources,
-};
+use bevy_render::{renderer::RenderResourceContext, render_resource::{free_shared_buffers_system, SharedBuffers}};
 use legion::prelude::*;
 use renderer::WgpuRenderResourceContext;
 
@@ -33,7 +30,7 @@ impl AppPlugin for WgpuPlugin {
 
 pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
     let mut wgpu_renderer = pollster::block_on(WgpuRenderer::new());
-    resources.insert(RenderResources::new(WgpuRenderResourceContext::new(
+    resources.insert::<Box<dyn RenderResourceContext>>(Box::new(WgpuRenderResourceContext::new(
         wgpu_renderer.device.clone(),
     )));
     resources.insert(SharedBuffers::new(Box::new(

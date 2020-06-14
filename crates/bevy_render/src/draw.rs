@@ -1,10 +1,10 @@
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferId, BufferUsage, RenderResource, RenderResourceBinding, RenderResourceBindings,
-        BindGroup, BindGroupId, SharedBuffers,
+        BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
+        RenderResourceBindings, SharedBuffers,
     },
-    renderer::{RenderResourceContext, RenderResources},
+    renderer::RenderResourceContext,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_property::Properties;
@@ -90,7 +90,7 @@ impl Draw {
             draw: self,
             pipelines,
             render_resource_context,
-            render_resource_bindings: render_resource_bindings,
+            render_resource_bindings,
             shared_buffers,
             current_pipeline: None,
         }
@@ -252,15 +252,14 @@ impl Drawable for RenderPipelines {
 pub fn draw_system<T: Drawable + Component>(
     pipelines: Res<Assets<PipelineDescriptor>>,
     render_resource_bindings: Res<RenderResourceBindings>,
-    render_resources: Res<RenderResources>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
     shared_buffers: Res<SharedBuffers>,
     mut draw: ComMut<Draw>,
     mut drawable: ComMut<T>,
 ) {
-    let context = &*render_resources.context;
     let mut draw_context = draw.get_context(
         &pipelines,
-        context,
+        &**render_resource_context,
         &render_resource_bindings,
         &shared_buffers,
     );

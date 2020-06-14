@@ -51,14 +51,14 @@ impl LazyCommandEncoder {
 pub struct WgpuRenderContext {
     pub device: Arc<wgpu::Device>,
     pub command_encoder: LazyCommandEncoder,
-    pub render_resources: WgpuRenderResourceContext,
+    pub render_resource_context: WgpuRenderResourceContext,
 }
 
 impl WgpuRenderContext {
     pub fn new(device: Arc<wgpu::Device>, resources: WgpuRenderResourceContext) -> Self {
         WgpuRenderContext {
             device,
-            render_resources: resources,
+            render_resource_context: resources,
             command_encoder: LazyCommandEncoder::default(),
         }
     }
@@ -79,7 +79,7 @@ impl RenderContext for WgpuRenderContext {
         destination_offset: u64,
         size: u64,
     ) {
-        self.render_resources.copy_buffer_to_buffer(
+        self.render_resource_context.copy_buffer_to_buffer(
             self.command_encoder.get_or_create(&self.device),
             source_buffer,
             source_offset,
@@ -99,7 +99,7 @@ impl RenderContext for WgpuRenderContext {
         destination_mip_level: u32,
         size: Extent3d,
     ) {
-        self.render_resources.copy_buffer_to_texture(
+        self.render_resource_context.copy_buffer_to_texture(
             self.command_encoder.get_or_create(&self.device),
             source_buffer,
             source_offset,
@@ -112,10 +112,10 @@ impl RenderContext for WgpuRenderContext {
     }
 
     fn resources(&self) -> &dyn RenderResourceContext {
-        &self.render_resources
+        &self.render_resource_context
     }
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext {
-        &mut self.render_resources
+        &mut self.render_resource_context
     }
 
     fn begin_pass(
@@ -127,7 +127,7 @@ impl RenderContext for WgpuRenderContext {
         if !self.command_encoder.is_some() {
             self.command_encoder.create(&self.device);
         }
-        let resource_lock = self.render_resources.resources.read();
+        let resource_lock = self.render_resource_context.resources.read();
         let refs = resource_lock.refs();
         let mut encoder = self.command_encoder.take().unwrap();
         {
@@ -140,7 +140,7 @@ impl RenderContext for WgpuRenderContext {
             let mut wgpu_render_pass = WgpuRenderPass {
                 render_pass,
                 render_context: self,
-                render_resources: refs,
+                wgpu_resources: refs,
                 pipeline_descriptor: None,
             };
 

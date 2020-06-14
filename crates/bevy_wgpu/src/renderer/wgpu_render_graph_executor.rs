@@ -1,7 +1,7 @@
 use super::{WgpuRenderContext, WgpuRenderResourceContext};
 use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
-    renderer::RenderResources,
+    renderer::RenderResourceContext,
 };
 use legion::prelude::{Resources, World};
 use std::{
@@ -22,9 +22,10 @@ impl WgpuRenderGraphExecutor {
         queue: &mut wgpu::Queue,
         stages: &mut [StageBorrow],
     ) {
-        let mut render_resources = resources.get_mut::<RenderResources>().unwrap();
-        let wgpu_render_resources = render_resources
-            .context
+        let mut render_resource_context = resources
+            .get_mut::<Box<dyn RenderResourceContext>>()
+            .unwrap();
+        let render_resource_context = render_resource_context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
         let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
@@ -41,10 +42,10 @@ impl WgpuRenderGraphExecutor {
                 let world = &*world;
                 actual_thread_count += 1;
                 let device = device.clone();
-                let wgpu_render_resources = wgpu_render_resources.clone();
+                let render_resource_context = render_resource_context.clone();
                 let node_outputs = node_outputs.clone();
                 // s.spawn(move |_| {
-                let mut render_context = WgpuRenderContext::new(device, wgpu_render_resources);
+                let mut render_context = WgpuRenderContext::new(device, render_resource_context);
                 for job in jobs_chunk.iter_mut() {
                     for node_state in job.node_states.iter_mut() {
                         // bind inputs from connected node outputs

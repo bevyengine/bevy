@@ -1,7 +1,7 @@
 use crate::renderer::WgpuRenderResourceContext;
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_render::renderer::RenderResources;
+use bevy_render::renderer::RenderResourceContext;
 use legion::prelude::{IntoSystem, Res, ResMut};
 
 #[derive(Default)]
@@ -94,10 +94,9 @@ impl WgpuResourceDiagnosticsPlugin {
 
     pub fn diagnostic_system(
         mut diagnostics: ResMut<Diagnostics>,
-        render_resources: Res<RenderResources>,
+        render_resource_context: Res<Box<dyn RenderResourceContext>>,
     ) {
-        let render_resource_context = render_resources
-            .context
+        let render_resource_context = render_resource_context
             .downcast_ref::<WgpuRenderResourceContext>()
             .unwrap();
 
