@@ -79,8 +79,10 @@ fn setup(
                 label: Label {
                     text: "Text Label".to_string(),
                     font: font_handle,
-                    font_size: 30.0,
-                    ..Default::default()
+                    style: TextStyle {
+                        font_size: 30.0,
+                        color: Color::WHITE,
+                    },
                 },
                 ..Default::default()
             })

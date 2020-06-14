@@ -35,7 +35,7 @@ pub use crate::{
         entity::{SpriteEntity, SpriteSheetEntity},
         ColorMaterial, Quad, Sprite, TextureAtlas, TextureAtlasSprite,
     },
-    text::Font,
+    text::{Font, TextStyle},
     transform::prelude::*,
     type_registry::RegisterType,
     ui::{entity::*, widget::Label, Anchors, Margins, Node},

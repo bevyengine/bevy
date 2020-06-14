@@ -36,8 +36,10 @@ fn setup(command_buffer: &mut CommandBuffer, asset_server: Res<AssetServer>) {
             label: Label {
                 text: "FPS:".to_string(),
                 font: font_handle,
-                font_size: 60.0,
-                color: Color::WHITE,
+                style: TextStyle {
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
             },
             ..Default::default()
         });

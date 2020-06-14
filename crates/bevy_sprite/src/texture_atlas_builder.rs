@@ -128,7 +128,7 @@ impl TextureAtlasBuilder {
             self.place_texture(&mut atlas_texture, texture, packed_location);
         }
         Ok(TextureAtlas {
-            dimensions: atlas_texture.size,
+            size: atlas_texture.size,
             texture: textures.add(atlas_texture),
             textures: texture_rects,
             texture_handles: Some(texture_handles),

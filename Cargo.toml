@@ -172,6 +172,10 @@ name = "text"
 path = "examples/ui/text.rs"
 
 [[example]]
+name = "font_atlas_debug"
+path = "examples/ui/font_atlas_debug.rs"
+
+[[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
 

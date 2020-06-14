@@ -23,7 +23,8 @@ pub struct UiPlugin;
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system_to_stage(stage::POST_UPDATE, ui_update_system())
-            .add_system_to_stage(stage::POST_UPDATE, Label::label_system.system());
+            .add_system_to_stage(stage::POST_UPDATE, Label::label_system.system())
+            .add_system_to_stage(bevy_render::stage::DRAW, Label::draw_label_system.system());
 
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

@@ -8,8 +8,11 @@ edition = "2018"
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
+bevy_core = { path = "../bevy_core" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
+bevy_sprite = { path = "../bevy_sprite" }
+
 ab_glyph = "0.2.2"
 glam = "0.8.7"
 anyhow = "1.0"

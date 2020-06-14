@@ -1,4 +1,4 @@
-use ab_glyph::{FontVec, Glyph, InvalidFont, Point, PxScale, ScaleFont};
+use ab_glyph::{FontVec, Glyph, InvalidFont, OutlinedGlyph, Point, PxScale, ScaleFont};
 use bevy_render::{texture::Texture, Color};
 use glam::Vec2;
 
@@ -13,6 +13,39 @@ impl Font {
     pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, InvalidFont> {
         let font = FontVec::try_from_vec(font_data)?;
         Ok(Font { font })
+    }
+
+    pub fn get_outlined_glyph_texture(outlined_glyph: OutlinedGlyph) -> Texture {
+        let bounds = outlined_glyph.px_bounds();
+        let width = bounds.width() as usize;
+        let height = bounds.height() as usize;
+        let mut alpha = vec![0.0; width * height];
+        outlined_glyph.draw(|x, y, v| {
+            alpha[y as usize * width + x as usize] = v;
+        });
+
+        // TODO: make this texture grayscale
+        let color = Color::WHITE;
+        let color_u8 = [
+            (color.r * 255.0) as u8,
+            (color.g * 255.0) as u8,
+            (color.b * 255.0) as u8,
+        ];
+        Texture::new(
+            alpha
+                .iter()
+                .map(|a| {
+                    vec![
+                        color_u8[0],
+                        color_u8[1],
+                        color_u8[2],
+                        (color.a * a * 255.0) as u8,
+                    ]
+                })
+                .flatten()
+                .collect::<Vec<u8>>(),
+            Vec2::new(width as f32, height as f32),
+        )
     }
 
     // adapted from ab_glyph example: https://github.com/alexheretic/ab-glyph/blob/master/dev/examples/image.rs
@@ -75,7 +108,7 @@ impl Font {
                 })
                 .flatten()
                 .collect::<Vec<u8>>(),
-            Vec2::new(width as f32, height as f32)
+            Vec2::new(width as f32, height as f32),
         )
     }
 }

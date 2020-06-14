@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub struct TextureAtlas {
     pub texture: Handle<Texture>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
-    pub dimensions: Vec2,
+    pub size: Vec2,
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
@@ -30,6 +30,15 @@ pub struct TextureAtlasSprite {
 }
 
 impl TextureAtlas {
+    pub fn new_empty(texture: Handle<Texture>, dimensions: Vec2) -> Self {
+        Self {
+            texture,
+            size: dimensions,
+            texture_handles: None,
+            textures: Vec::new(),
+        }
+    }
+
     pub fn from_grid(
         texture: Handle<Texture>,
         size: Vec2,
@@ -51,11 +60,19 @@ impl TextureAtlas {
             }
         }
         TextureAtlas {
-            dimensions: size,
+            size,
             textures: sprites,
             texture,
             texture_handles: None,
         }
+    }
+
+    pub fn add_texture(&mut self, rect: Rect) {
+        self.textures.push(rect);
+    }
+
+    pub fn len(&self) -> usize {
+        self.textures.len()
     }
 
     pub fn get_texture_index(&self, texture: Handle<Texture>) -> Option<usize> {

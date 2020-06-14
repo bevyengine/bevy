@@ -11,8 +11,8 @@ layout(set = 0, binding = 0) uniform Camera2d {
 };
 
 // TODO: merge dimensions into "sprites" buffer when that is supported in the Uniforms derive abstraction
-layout(set = 1, binding = 0) uniform TextureAtlas_dimensions {
-    vec2 Dimensions;
+layout(set = 1, binding = 0) uniform TextureAtlas_size {
+    vec2 AtlasSize;
 };
 
 struct Rect {
@@ -41,6 +41,6 @@ void main() {
         vec2(sprite_rect.end.x, sprite_rect.begin.y), 
         sprite_rect.end
     );
-    v_Uv = uvs[gl_VertexIndex] / Dimensions;
+    v_Uv = uvs[gl_VertexIndex] / AtlasSize;
     gl_Position = ViewProj * vec4(vertex_position, 1.0);
 }
