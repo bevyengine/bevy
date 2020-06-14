@@ -35,17 +35,24 @@ use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
-use draw::{clear_draw_system, Draw, RenderPipelines};
+use draw::{clear_draw_system, draw_system, Draw, RenderPipelines};
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
-use render_graph::RenderGraph;
+use pipeline::compile_pipelines_system;
+use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
+use render_resource::render_resource_sets_system;
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
 pub mod stage {
+    /// Stage where render resources are set up
     pub static RENDER_RESOURCE: &str = "render_resource";
-    pub static PRE_RENDER: &str = "pre_render";
+    /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
+    pub static RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
+    // Stage where draw systems are executed. This is generally where Draw components are setup
+    pub static DRAW: &str = "draw";
     pub static RENDER: &str = "render";
+    pub static POST_RENDER: &str = "post_render";
 }
 
 pub struct RenderPlugin {
@@ -64,8 +71,10 @@ impl Default for RenderPlugin {
 impl AppPlugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
-            .add_stage_after(stage::RENDER_RESOURCE, stage::PRE_RENDER)
-            .add_stage_after(stage::PRE_RENDER, stage::RENDER)
+            .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
+            .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
+            .add_stage_after(stage::DRAW, stage::RENDER)
+            .add_stage_after(stage::RENDER, stage::POST_RENDER)
             .add_asset::<Mesh>()
             .add_asset::<Texture>()
             .add_asset::<Shader>()
@@ -92,11 +101,25 @@ impl AppPlugin for RenderPlugin {
                 bevy_app::stage::POST_UPDATE,
                 camera::camera_system::<PerspectiveProjection>,
             )
+            // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
             .init_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system)
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),
-            );
+            )
+            .add_system_to_stage(
+                stage::RENDER_GRAPH_SYSTEMS,
+                render_graph_schedule_executor_system,
+            )
+            .add_system_to_stage(
+                stage::RENDER_GRAPH_SYSTEMS,
+                compile_pipelines_system.system(),
+            )
+            .add_system_to_stage(
+                stage::RENDER_GRAPH_SYSTEMS,
+                render_resource_sets_system.system(),
+            )
+            .add_system_to_stage(stage::DRAW, draw_system::<RenderPipelines>.system());
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();

@@ -476,8 +476,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .map(|indexed_assignment| {
                     let wgpu_resource = match &indexed_assignment.assignment {
                         RenderResourceAssignment::Texture(resource) => {
-                            let texture = texture_views.get(&resource).unwrap();
-                            wgpu::BindingResource::TextureView(texture)
+                            let texture_view = texture_views.get(&resource).expect(&format!("{:?}", resource));
+                            wgpu::BindingResource::TextureView(texture_view)
                         }
                         RenderResourceAssignment::Sampler(resource) => {
                             let sampler = samplers.get(&resource).unwrap();

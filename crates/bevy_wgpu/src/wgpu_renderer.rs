@@ -1,10 +1,7 @@
 use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
 use bevy_app::{EventReader, Events};
 use bevy_render::{
-    draw::{draw_system, RenderPipelines},
-    pipeline::compile_pipelines_system,
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
-    render_resource::render_resource_sets_system,
     renderer::RenderResources,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
@@ -82,29 +79,7 @@ impl WgpuRenderer {
     }
 
     pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
-        // TODO: move this to a thread-local system
-        // run systems
-        let mut system_executor = {
-            let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            render_graph.take_executor()
-        };
-
-        if let Some(executor) = system_executor.as_mut() {
-            executor.execute(world, resources);
-        }
-
-        // TODO: move these to a scheduler
-        compile_pipelines_system.system().run(world, resources);
-        render_resource_sets_system.system().run(world, resources);
-        draw_system::<RenderPipelines>
-            .system()
-            .run(world, resources);
-
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        if let Some(executor) = system_executor.take() {
-            render_graph.set_executor(executor);
-        }
-
         // stage nodes
         let mut stager = DependentNodeStager::loose_grouping();
         let stages = stager.get_stages(&render_graph).unwrap();

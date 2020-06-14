@@ -5,6 +5,7 @@ mod node;
 mod node_slot;
 pub mod nodes;
 mod schedule;
+pub mod system;
 pub use command::*;
 pub use edge::*;
 pub use graph::*;
