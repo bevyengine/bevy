@@ -3,7 +3,7 @@ use crate::{
     pass::{PassDescriptor, TextureAttachment},
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{BufferId, RenderResourceBindings, BindGroupId, ResourceInfo},
+    render_resource::{BufferId, RenderResourceBindings, BindGroupId, ResourceType},
     renderer::RenderContext,
 };
 use bevy_asset::{Assets, Handle};
@@ -24,7 +24,7 @@ impl MainPassNode {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
-                    ResourceInfo::Texture(None),
+                    ResourceType::Texture,
                 ));
                 color_attachment_input_indices.push(Some(inputs.len() - 1));
             } else {
@@ -37,7 +37,7 @@ impl MainPassNode {
             if let TextureAttachment::Input(ref name) = depth_stencil_attachment.attachment {
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
-                    ResourceInfo::Texture(None),
+                    ResourceType::Texture,
                 ));
                 depth_stencil_attachment_input_index = Some(inputs.len() - 1);
             }

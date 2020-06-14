@@ -9,6 +9,20 @@ impl BufferId {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BufferInfo {
+    pub size: usize,
+    pub buffer_usage: BufferUsage,
+}
+
+impl Default for BufferInfo {
+    fn default() -> Self {
+        BufferInfo {
+            size: 0,
+            buffer_usage: BufferUsage::empty(),
+        }
+    }
+}
 
 bitflags::bitflags! {
     #[repr(transparent)]

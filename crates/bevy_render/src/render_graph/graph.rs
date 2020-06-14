@@ -202,7 +202,7 @@ impl RenderGraph {
                     });
                 }
 
-                if output_slot.info.resource_info != input_slot.info.resource_info {
+                if output_slot.info.resource_type != input_slot.info.resource_type {
                     return Err(RenderGraphError::MismatchedNodeSlots {
                         output_node,
                         output_slot: output_index,
@@ -309,7 +309,7 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, render_resource::ResourceInfo,
+        renderer::RenderContext, render_resource::ResourceType,
     };
     use legion::prelude::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};
@@ -326,13 +326,13 @@ mod tests {
                 inputs: (0..inputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("in_{}", i).into(),
-                        resource_info: ResourceInfo::Texture(None),
+                        resource_type: ResourceType::Texture,
                     })
                     .collect(),
                 outputs: (0..outputs)
                     .map(|i| ResourceSlotInfo {
                         name: format!("out_{}", i).into(),
-                        resource_info: ResourceInfo::Texture(None),
+                        resource_type: ResourceType::Texture,
                     })
                     .collect(),
             }
