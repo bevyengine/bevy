@@ -1,6 +1,6 @@
 use crate::{
     base_render_graph, mesh::Mesh, Camera, OrthographicProjection, PerspectiveProjection,
-    RenderPipelines, WindowOrigin, draw::Draw,
+    WindowOrigin, draw::Draw, pipeline::RenderPipelines,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;

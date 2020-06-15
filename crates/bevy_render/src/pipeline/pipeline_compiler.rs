@@ -1,8 +1,10 @@
-use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
+use super::{
+    state_descriptors::PrimitiveTopology, PipelineDescriptor, RenderPipeline, RenderPipelines,
+    VertexBufferDescriptors,
+};
 use crate::{
-    draw::RenderPipelines,
     renderer::RenderResourceContext,
-    shader::{Shader, ShaderSource},
+    shader::{Shader, ShaderSource}, render_resource::RenderResourceBindings,
 };
 use bevy_asset::{Assets, Handle};
 use std::collections::{HashMap, HashSet};
@@ -25,7 +27,7 @@ pub struct ShaderSpecialization {
 pub struct PipelineCompiler {
     pub shader_source_to_compiled:
         HashMap<Handle<Shader>, Vec<(ShaderSpecialization, Handle<Shader>)>>,
-    pub pipeline_source_to_compiled: HashMap<
+    pub specialized_pipelines: HashMap<
         Handle<PipelineDescriptor>,
         Vec<(PipelineSpecialization, Handle<PipelineDescriptor>)>,
     >,
@@ -78,17 +80,15 @@ impl PipelineCompiler {
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         shaders: &mut Assets<Shader>,
         pipeline_descriptor: &PipelineDescriptor,
-        render_pipelines: &RenderPipelines,
+        render_pipeline: &RenderPipeline,
+        render_resource_bindings: &RenderResourceBindings,
     ) -> PipelineDescriptor {
         let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
 
         compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
             shaders,
             &pipeline_descriptor.shader_stages.vertex,
-            &render_pipelines
-                .render_resource_bindings
-                .pipeline_specialization
-                .shader_specialization,
+            &render_pipeline.specialization.shader_specialization,
         );
         compiled_pipeline_descriptor.shader_stages.fragment = pipeline_descriptor
             .shader_stages
@@ -98,10 +98,7 @@ impl PipelineCompiler {
                 self.compile_shader(
                     shaders,
                     fragment,
-                    &render_pipelines
-                        .render_resource_bindings
-                        .pipeline_specialization
-                        .shader_specialization,
+                    &render_pipeline.specialization.shader_specialization,
                 )
             });
 
@@ -109,13 +106,11 @@ impl PipelineCompiler {
             shaders,
             true,
             Some(vertex_buffer_descriptors),
-            Some(&render_pipelines.render_resource_bindings),
+            Some(render_resource_bindings),
         );
 
-        compiled_pipeline_descriptor.primitive_topology = render_pipelines
-            .render_resource_bindings
-            .pipeline_specialization
-            .primitive_topology;
+        compiled_pipeline_descriptor.primitive_topology =
+            render_pipeline.specialization.primitive_topology;
         compiled_pipeline_descriptor
     }
 
@@ -127,31 +122,29 @@ impl PipelineCompiler {
         render_pipelines: &mut RenderPipelines,
         render_resource_context: &dyn RenderResourceContext,
     ) {
-        for (i, pipeline_handle) in render_pipelines.pipelines.iter().enumerate() {
-            if let None = self.pipeline_source_to_compiled.get(pipeline_handle) {
-                self.pipeline_source_to_compiled
-                    .insert(*pipeline_handle, Vec::new());
+        for render_pipeline in render_pipelines.pipelines.iter_mut() {
+            let source_pipeline = render_pipeline.pipeline;
+            if let None = self.specialized_pipelines.get(&source_pipeline) {
+                self.specialized_pipelines
+                    .insert(source_pipeline, Vec::new());
             }
-
             let compiled_pipeline_handle = if let Some((_shader_defs, compiled_pipeline_handle)) =
-                self.pipeline_source_to_compiled
-                    .get_mut(pipeline_handle)
+                self.specialized_pipelines
+                    .get_mut(&source_pipeline)
                     .unwrap()
                     .iter()
                     .find(|(pipeline_specialization, _compiled_pipeline_handle)| {
-                        *pipeline_specialization
-                            == render_pipelines
-                                .render_resource_bindings
-                                .pipeline_specialization
+                        *pipeline_specialization == render_pipeline.specialization
                     }) {
                 *compiled_pipeline_handle
             } else {
-                let pipeline_descriptor = pipelines.get(pipeline_handle).unwrap();
+                let pipeline_descriptor = pipelines.get(&source_pipeline).unwrap();
                 let compiled_pipeline_descriptor = self.compile_pipeline(
                     vertex_buffer_descriptors,
                     shaders,
                     pipeline_descriptor,
-                    render_pipelines,
+                    render_pipeline,
+                    &render_pipelines.bindings,
                 );
                 let compiled_pipeline_handle = pipelines.add(compiled_pipeline_descriptor);
                 render_resource_context.create_render_pipeline(
@@ -161,26 +154,17 @@ impl PipelineCompiler {
                 );
 
                 let compiled_pipelines = self
-                    .pipeline_source_to_compiled
-                    .get_mut(pipeline_handle)
+                    .specialized_pipelines
+                    .get_mut(&source_pipeline)
                     .unwrap();
                 compiled_pipelines.push((
-                    render_pipelines
-                        .render_resource_bindings
-                        .pipeline_specialization
-                        .clone(),
+                    render_pipeline.specialization.clone(),
                     compiled_pipeline_handle,
                 ));
                 compiled_pipeline_handle
             };
 
-            if i == render_pipelines.compiled_pipelines.len() {
-                render_pipelines
-                    .compiled_pipelines
-                    .push(compiled_pipeline_handle);
-            } else {
-                render_pipelines.compiled_pipelines[i] = compiled_pipeline_handle;
-            }
+            render_pipeline.specialized_pipeline = Some(compiled_pipeline_handle);
         }
     }
 
@@ -188,7 +172,7 @@ impl PipelineCompiler {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
     ) -> Option<impl Iterator<Item = &Handle<PipelineDescriptor>>> {
-        if let Some(compiled_pipelines) = self.pipeline_source_to_compiled.get(&pipeline_handle) {
+        if let Some(compiled_pipelines) = self.specialized_pipelines.get(&pipeline_handle) {
             Some(compiled_pipelines.iter().map(|(_, handle)| handle))
         } else {
             None
@@ -196,7 +180,7 @@ impl PipelineCompiler {
     }
 
     pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<PipelineDescriptor>> {
-        self.pipeline_source_to_compiled
+        self.specialized_pipelines
             .values()
             .map(|compiled_pipelines| {
                 compiled_pipelines
@@ -230,11 +214,12 @@ pub fn compile_pipelines_system(
         );
 
         // reset shader_defs so they can be changed next frame
-        render_pipelines
-            .render_resource_bindings
-            .pipeline_specialization
-            .shader_specialization
-            .shader_defs
-            .clear();
+        for render_pipeline in render_pipelines.pipelines.iter_mut() {
+            render_pipeline
+                .specialization
+                .shader_specialization
+                .shader_defs
+                .clear();
+        }
     }
 }

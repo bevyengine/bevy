@@ -58,26 +58,6 @@ impl Default for Draw {
     }
 }
 
-#[derive(Properties)]
-pub struct RenderPipelines {
-    pub pipelines: Vec<Handle<PipelineDescriptor>>,
-    // TODO: make these pipeline specific
-    #[property(ignore)]
-    pub render_resource_bindings: RenderResourceBindings,
-    #[property(ignore)]
-    pub compiled_pipelines: Vec<Handle<PipelineDescriptor>>,
-}
-
-impl Default for RenderPipelines {
-    fn default() -> Self {
-        Self {
-            render_resource_bindings: Default::default(),
-            compiled_pipelines: Default::default(),
-            pipelines: vec![Handle::default()],
-        }
-    }
-}
-
 impl Draw {
     pub fn get_context<'a>(
         &'a mut self,
@@ -199,54 +179,6 @@ impl<'a> DrawContext<'a> {
 
 pub trait Drawable {
     fn draw(&mut self, draw: &mut DrawContext) -> Result<(), DrawError>;
-}
-
-impl Drawable for RenderPipelines {
-    fn draw(&mut self, draw: &mut DrawContext) -> Result<(), DrawError> {
-        for pipeline_handle in self.compiled_pipelines.iter() {
-            let pipeline = draw.pipelines.get(pipeline_handle).unwrap();
-            let layout = pipeline.get_layout().unwrap();
-            draw.set_pipeline(*pipeline_handle)?;
-            for bind_group_descriptor in layout.bind_groups.iter() {
-                if let Some(local_bind_group) = self
-                    .render_resource_bindings
-                    .get_descriptor_bind_group(bind_group_descriptor.id)
-                {
-                    draw.set_bind_group(bind_group_descriptor, local_bind_group);
-                } else if let Some(global_bind_group) = draw
-                    .render_resource_bindings
-                    .get_descriptor_bind_group(bind_group_descriptor.id)
-                {
-                    draw.set_bind_group(bind_group_descriptor, global_bind_group);
-                }
-            }
-            let mut indices = 0..0;
-            for (slot, vertex_buffer_descriptor) in
-                layout.vertex_buffer_descriptors.iter().enumerate()
-            {
-                if let Some((vertex_buffer, index_buffer)) = self
-                    .render_resource_bindings
-                    .get_vertex_buffer(&vertex_buffer_descriptor.name)
-                {
-                    draw.set_vertex_buffer(slot as u32, vertex_buffer, 0);
-                    if let Some(index_buffer) = index_buffer {
-                        if let Some(buffer_info) =
-                            draw.render_resource_context.get_buffer_info(index_buffer)
-                        {
-                            indices = 0..(buffer_info.size / 2) as u32;
-                        } else {
-                            panic!("expected buffer type");
-                        }
-                        draw.set_index_buffer(index_buffer, 0);
-                    }
-                }
-            }
-
-            draw.draw_indexed(indices, 0, 0..1);
-        }
-
-        Ok(())
-    }
 }
 
 pub fn draw_system<T: Drawable + Component>(

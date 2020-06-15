@@ -408,16 +408,17 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
         for (handle, mut render_pipelines) in query.iter_mut(world) {
             if let Some(mesh) = meshes.get(&handle) {
-                render_pipelines
-                    .render_resource_bindings
-                    .pipeline_specialization
-                    .primitive_topology = mesh.primitive_topology;
+                for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                    render_pipeline
+                        .specialization
+                        .primitive_topology = mesh.primitive_topology;
+                }
             }
 
             if let Some(RenderResourceId::Buffer(vertex_buffer)) =
                 render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
             {
-                render_pipelines.render_resource_bindings.set_vertex_buffer(
+                render_pipelines.bindings.set_vertex_buffer(
                     "Vertex",
                     vertex_buffer,
                     render_resource_context

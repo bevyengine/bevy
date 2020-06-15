@@ -1,5 +1,6 @@
 use crate::{
-    draw::{Draw, RenderPipelines},
+    draw::Draw,
+    pipeline::RenderPipelines,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{
         self, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
@@ -373,8 +374,7 @@ where
         (move |world: &mut SubWorld,
                render_resource_context: Res<Box<dyn RenderResourceContext>>,
                query: &mut Query<(Read<T>, Read<Draw>, Write<RenderPipelines>)>| {
-            
-            let render_resource_context = &** render_resource_context;
+            let render_resource_context = &**render_resource_context;
             uniform_buffer_arrays.reset_changed_item_counts();
             // update uniforms info
             for (uniforms, draw, _render_pipelines) in query.iter_mut(world) {
@@ -396,7 +396,7 @@ where
                 setup_uniform_texture_resources::<T>(
                     &uniforms,
                     render_resource_context,
-                    &mut render_pipelines.render_resource_bindings,
+                    &mut render_pipelines.bindings,
                 )
             }
 
@@ -411,7 +411,7 @@ where
                         &uniforms,
                         dynamic_uniforms,
                         render_resource_context,
-                        &mut render_pipelines.render_resource_bindings,
+                        &mut render_pipelines.bindings,
                         &mut staging_buffer,
                     );
                 }
@@ -432,7 +432,7 @@ where
                                 &uniforms,
                                 dynamic_uniforms,
                                 render_resource_context,
-                                &mut render_pipelines.render_resource_bindings,
+                                &mut render_pipelines.bindings,
                                 &mut staging_buffer,
                             );
                         }
@@ -598,9 +598,7 @@ where
 
             for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
                 if let Some(asset_bindings) = asset_render_resource_bindings.get(&asset_handle) {
-                    render_pipelines
-                        .render_resource_bindings
-                        .extend(asset_bindings);
+                    render_pipelines.bindings.extend(asset_bindings);
                 }
             }
         })

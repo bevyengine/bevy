@@ -53,7 +53,10 @@ fn setup(
             fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
         }));
 
-        render_graph.add_system_node("my_material", AssetRenderResourcesNode::<MyMaterial>::new(true));
+        render_graph.add_system_node(
+            "my_material",
+            AssetRenderResourcesNode::<MyMaterial>::new(true),
+        );
         pipeline_handle
     };
 
@@ -68,10 +71,7 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines {
-                pipelines: vec![pipeline_handle],
-                ..Default::default()
-            },
+            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
             material,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()

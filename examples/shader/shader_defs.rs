@@ -85,10 +85,7 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines {
-                pipelines: vec![pipeline_handle],
-                ..Default::default()
-            },
+            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
             material: green_material,
             translation: Translation::new(-2.0, 0.0, 0.0),
             ..Default::default()
@@ -96,10 +93,7 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines {
-                pipelines: vec![pipeline_handle],
-                ..Default::default()
-            },
+            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
             material: red_material,
             translation: Translation::new(2.0, 0.0, 0.0),
             ..Default::default()

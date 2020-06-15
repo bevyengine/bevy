@@ -1,6 +1,5 @@
 use crate::{
-    draw::RenderPipelines,
-    pipeline::{PipelineCompiler, PipelineDescriptor},
+    pipeline::{PipelineCompiler, PipelineDescriptor, RenderPipelines},
     render_resource::{BindGroupStatus, RenderResourceBindings},
     renderer::RenderResourceContext,
 };
@@ -56,11 +55,11 @@ pub fn bind_groups_system(
     }
     for mut render_pipelines in query.iter_mut(world) {
         let render_pipelines = render_pipelines.as_mut();
-        for pipeline in render_pipelines.compiled_pipelines.iter() {
-            let pipeline = pipelines.get(pipeline).unwrap();
+        for render_pipeline in render_pipelines.pipelines.iter_mut() {
+            let pipeline = pipelines.get(&render_pipeline.specialized_pipeline.unwrap()).unwrap();
             update_bind_groups(
                 pipeline,
-                &mut render_pipelines.render_resource_bindings,
+                &mut render_pipelines.bindings,
                 render_resource_context,
             )
         }

@@ -2,9 +2,9 @@ use crate::{
     render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, Quad, TextureAtlas,
     TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
-use bevy_asset::Handle;
 use bevy_app::EntityArchetype;
-use bevy_render::{mesh::Mesh, draw::{Draw, RenderPipelines}};
+use bevy_asset::Handle;
+use bevy_render::{draw::Draw, mesh::Mesh, pipeline::RenderPipelines};
 
 #[derive(EntityArchetype)]
 pub struct SpriteEntity {
@@ -24,10 +24,7 @@ impl Default for SpriteEntity {
             mesh: QUAD_HANDLE,
             material: Default::default(),
             draw: Default::default(),
-            render_pipelines: RenderPipelines {
-                pipelines: vec![SPRITE_PIPELINE_HANDLE],
-                ..Default::default()
-            },
+            render_pipelines: RenderPipelines::from_handles(&[SPRITE_PIPELINE_HANDLE]),
         }
     }
 }
@@ -51,10 +48,7 @@ impl Default for SpriteSheetEntity {
             sprite: Default::default(),
             texture_atlas: Default::default(),
             draw: Default::default(),
-            render_pipelines: RenderPipelines {
-                pipelines: vec![SPRITE_SHEET_PIPELINE_HANDLE],
-                ..Default::default()
-            },
+            render_pipelines: RenderPipelines::from_handles(&[SPRITE_SHEET_PIPELINE_HANDLE]),
             mesh: QUAD_HANDLE,
             // transform: Default::default(),
             // translation: Default::default(),
