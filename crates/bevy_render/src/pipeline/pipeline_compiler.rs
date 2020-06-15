@@ -3,8 +3,9 @@ use super::{
     VertexBufferDescriptors,
 };
 use crate::{
+    render_resource::RenderResourceBindings,
     renderer::RenderResourceContext,
-    shader::{Shader, ShaderSource}, render_resource::RenderResourceBindings,
+    shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
 use std::collections::{HashMap, HashSet};

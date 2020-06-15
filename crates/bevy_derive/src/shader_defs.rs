@@ -1,7 +1,7 @@
 use crate::modules::{get_modules, get_path};
+use inflector::Inflector;
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use inflector::Inflector;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Path};
 
@@ -43,7 +43,6 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
-
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_render_path::shader::ShaderDefs for #struct_name#ty_generics {

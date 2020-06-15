@@ -60,8 +60,8 @@ pub use bevy_text as text;
 pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;
 pub use bevy_ui as ui;
-pub use bevy_window as window;
 #[cfg(feature = "bevy_wgpu")]
 pub use bevy_wgpu as wgpu;
+pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;

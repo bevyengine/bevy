@@ -10,7 +10,10 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use bevy_render::{renderer::RenderResourceContext, render_resource::{free_shared_buffers_system, SharedBuffers}};
+use bevy_render::{
+    render_resource::{free_shared_buffers_system, SharedBuffers},
+    renderer::RenderResourceContext,
+};
 use legion::prelude::*;
 use renderer::WgpuRenderResourceContext;
 

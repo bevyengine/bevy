@@ -6,7 +6,6 @@ use bevy_core::bytes::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderResourceType {
     Buffer,
@@ -41,24 +40,24 @@ impl From<SamplerId> for RenderResourceId {
 
 impl RenderResourceId {
     pub fn get_texture(&self) -> Option<TextureId> {
-        if let RenderResourceId::Texture(id) = self{
-           Some(*id) 
+        if let RenderResourceId::Texture(id) = self {
+            Some(*id)
         } else {
             None
         }
     }
 
     pub fn get_buffer(&self) -> Option<BufferId> {
-        if let RenderResourceId::Buffer(id) = self{
-           Some(*id) 
+        if let RenderResourceId::Buffer(id) = self {
+            Some(*id)
         } else {
             None
         }
     }
 
     pub fn get_sampler(&self) -> Option<SamplerId> {
-        if let RenderResourceId::Sampler(id) = self{
-           Some(*id) 
+        if let RenderResourceId::Sampler(id) = self {
+            Some(*id)
         } else {
             None
         }

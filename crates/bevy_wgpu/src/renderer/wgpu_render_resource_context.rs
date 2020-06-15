@@ -7,7 +7,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{
-        BufferId, BufferInfo, RenderResourceId, RenderResourceBinding, BindGroup, SamplerId,
+        BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceId, SamplerId,
         TextureId,
     },
     renderer::RenderResourceContext,
@@ -313,7 +313,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         asset_resources.insert((handle, index), render_resource);
     }
 
-    fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResourceId> {
+    fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResourceId> {
         let asset_resources = self.resources.asset_resources.read().unwrap();
         asset_resources.get(&(handle, index)).cloned()
     }

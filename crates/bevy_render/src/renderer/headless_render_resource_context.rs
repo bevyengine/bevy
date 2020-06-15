@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroup, SamplerId, TextureId},
+    render_resource::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -85,7 +85,11 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
             .unwrap()
             .insert((handle, index), render_resource);
     }
-    fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResourceId> {
+    fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResourceId> {
         self.asset_resources
             .write()
             .unwrap()

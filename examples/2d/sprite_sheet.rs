@@ -29,7 +29,10 @@ fn setup(
 ) {
     env_logger::init();
     let texture_handle = asset_server
-        .load_sync(&mut textures, "assets/textures/rpg/chars/gabe/gabe-idle-run.png")
+        .load_sync(
+            &mut textures,
+            "assets/textures/rpg/chars/gabe/gabe-idle-run.png",
+        )
         .unwrap();
     let texture = textures.get(&texture_handle).unwrap();
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);

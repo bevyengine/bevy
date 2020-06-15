@@ -3,7 +3,7 @@ use crate::{
     pass::{PassDescriptor, TextureAttachment},
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{BufferId, RenderResourceBindings, BindGroupId, RenderResourceType},
+    render_resource::{BindGroupId, BufferId, RenderResourceBindings, RenderResourceType},
     renderer::RenderContext,
 };
 use bevy_asset::{Assets, Handle};

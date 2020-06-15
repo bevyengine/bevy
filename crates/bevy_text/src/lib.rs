@@ -1,15 +1,14 @@
+mod draw;
 mod font;
-mod font_loader;
 mod font_atlas;
 mod font_atlas_set;
-mod draw;
+mod font_loader;
 
+pub use draw::*;
 pub use font::*;
-pub use font_loader::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
-pub use draw::*;
-
+pub use font_loader::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;

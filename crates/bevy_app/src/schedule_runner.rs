@@ -1,5 +1,5 @@
 use super::{App, AppBuilder, AppPlugin};
-use crate::{AppExit, Events, EventReader};
+use crate::{AppExit, EventReader, Events};
 use std::{thread, time::Duration};
 
 #[derive(Copy, Clone, Debug)]

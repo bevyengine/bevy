@@ -1,15 +1,15 @@
 extern crate proc_macro;
 
 mod app_plugin;
+mod as_vertex_buffer_descriptor;
 mod attributes;
 mod bytes;
 mod entity_archetype;
 mod modules;
-mod render_resources;
 mod render_resource;
+mod render_resources;
 mod resource;
 mod shader_defs;
-mod as_vertex_buffer_descriptor;
 
 use proc_macro::TokenStream;
 
@@ -47,7 +47,6 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
 pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     entity_archetype::derive_entity_archetype(input)
 }
-
 
 #[proc_macro_derive(DynamicAppPlugin)]
 pub fn derive_app_plugin(input: TokenStream) -> TokenStream {

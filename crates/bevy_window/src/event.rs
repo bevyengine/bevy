@@ -39,6 +39,6 @@ pub struct WindowCloseRequested {
 
 #[derive(Debug, Clone)]
 pub struct CursorMoved {
-    pub id: WindowId,    
+    pub id: WindowId,
     pub position: Vec2,
 }

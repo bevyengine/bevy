@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{PipelineDescriptor, BindGroupDescriptorId},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
     render_resource::{BindGroupId, BufferId},
     renderer::RenderContext,
 };

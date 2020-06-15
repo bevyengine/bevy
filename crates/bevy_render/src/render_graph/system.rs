@@ -1,5 +1,5 @@
-use legion::prelude::{Resources, World};
 use super::RenderGraph;
+use legion::prelude::{Resources, World};
 
 pub fn render_graph_schedule_executor_system(world: &mut World, resources: &mut Resources) {
     // run render graph systems

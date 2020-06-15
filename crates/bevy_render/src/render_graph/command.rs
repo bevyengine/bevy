@@ -1,4 +1,8 @@
-use crate::{render_resource::{BufferId, TextureId}, renderer::RenderContext, texture::Extent3d};
+use crate::{
+    render_resource::{BufferId, TextureId},
+    renderer::RenderContext,
+    texture::Extent3d,
+};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug)]

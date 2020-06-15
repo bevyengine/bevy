@@ -32,15 +32,13 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                 & (changed::<Scale>()),
         ))
         // NonUniformScale
-        .with_query(
-            <(Write<Transform>, Read<NonUniformScale>)>::query().filter(
-                !component::<Parent>()
-                    & !component::<Translation>()
-                    & !component::<Rotation>()
-                    & !component::<Scale>()
-                    & (changed::<NonUniformScale>()),
-            ),
-        )
+        .with_query(<(Write<Transform>, Read<NonUniformScale>)>::query().filter(
+            !component::<Parent>()
+                & !component::<Translation>()
+                & !component::<Rotation>()
+                & !component::<Scale>()
+                & (changed::<NonUniformScale>()),
+        ))
         // Translation + Rotation
         .with_query(
             <(Write<Transform>, Read<Translation>, Read<Rotation>)>::query().filter(
@@ -61,12 +59,7 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
         )
         // Translation + NonUniformScale
         .with_query(
-            <(
-                Write<Transform>,
-                Read<Translation>,
-                Read<NonUniformScale>,
-            )>::query()
-            .filter(
+            <(Write<Transform>, Read<Translation>, Read<NonUniformScale>)>::query().filter(
                 !component::<Parent>()
                     & !component::<Rotation>()
                     & !component::<Scale>()
@@ -153,9 +146,8 @@ pub fn build(_: &mut World) -> Box<dyn Schedulable> {
                         if !ltw.sync {
                             return;
                         }
-                        *ltw = Transform::new(Mat4::from_scale(Vec3::new(
-                            scale.0, scale.0, scale.0,
-                        )));
+                        *ltw =
+                            Transform::new(Mat4::from_scale(Vec3::new(scale.0, scale.0, scale.0)));
                     });
                 });
                 s.spawn(|_| unsafe {

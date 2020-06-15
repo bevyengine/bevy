@@ -35,14 +35,20 @@ impl Node for TextureCopyNode {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                     if let Some(texture) = textures.get(&handle) {
                         let texture_descriptor: TextureDescriptor = texture.into();
-                        let width = texture.size.x() as usize; 
+                        let width = texture.size.x() as usize;
                         let aligned_width = get_aligned(texture.size.x());
                         let format_size = 4; // TODO: this will be incorrect for some formats
-                        let mut aligned_data = vec![0; format_size * aligned_width * texture.size.y() as usize];
-                        texture.data.chunks_exact(format_size * width).enumerate().for_each(|(index, row)| {
-                           let offset = index * aligned_width * format_size;  
-                           aligned_data[offset..(offset + width * format_size)].copy_from_slice(row);
-                        });
+                        let mut aligned_data =
+                            vec![0; format_size * aligned_width * texture.size.y() as usize];
+                        texture
+                            .data
+                            .chunks_exact(format_size * width)
+                            .enumerate()
+                            .for_each(|(index, row)| {
+                                let offset = index * aligned_width * format_size;
+                                aligned_data[offset..(offset + width * format_size)]
+                                    .copy_from_slice(row);
+                            });
                         let texture_buffer = render_context.resources().create_buffer_with_data(
                             BufferInfo {
                                 buffer_usage: BufferUsage::COPY_SRC,

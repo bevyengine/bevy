@@ -1,5 +1,5 @@
 use bevy_input::{
-    keyboard::{ElementState, KeyboardInput, KeyCode},
+    keyboard::{ElementState, KeyCode, KeyboardInput},
     mouse::MouseButton,
 };
 

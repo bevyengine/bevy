@@ -105,7 +105,7 @@ impl TextureAtlasBuilder {
                     current_width *= 2;
                     current_height *= 2;
                     None
-                },
+                }
             }
         }
 
@@ -113,9 +113,7 @@ impl TextureAtlasBuilder {
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::new();
-        for (texture_handle, (_, packed_location)) in
-            rect_placements.packed_locations().iter()
-        {
+        for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
             let texture = textures.get(texture_handle).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);
             let max = min

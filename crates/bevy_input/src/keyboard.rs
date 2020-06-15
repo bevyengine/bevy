@@ -1,6 +1,6 @@
-use bevy_app::{Events, EventReader};
-use legion::prelude::{Res, ResMut};
 use crate::Input;
+use bevy_app::{EventReader, Events};
+use legion::prelude::{Res, ResMut};
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {

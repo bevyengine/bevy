@@ -9,8 +9,7 @@ use bevy_app::{AppBuilder, AppPlugin};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, KeyboardInputState};
 use legion::prelude::IntoSystem;
 use mouse::{
-    mouse_button_input_system, MouseButton, MouseButtonInput, MouseButtonInputState,
-    MouseMotion,
+    mouse_button_input_system, MouseButton, MouseButtonInput, MouseButtonInputState, MouseMotion,
 };
 
 #[derive(Default)]

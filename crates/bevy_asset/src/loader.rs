@@ -1,4 +1,4 @@
-use crate::{AssetServer, Assets, Handle, AssetVersion, LoadState};
+use crate::{AssetServer, AssetVersion, Assets, Handle, LoadState};
 use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use fs::File;
@@ -56,18 +56,18 @@ pub fn update_asset_storage_system<T>(
 ) {
     loop {
         match asset_channel.receiver.try_recv() {
-            Ok(result) => {
-                match result.result {
-                    Ok(asset) => {
-                        assets.set(result.handle, asset);
-                        asset_server.set_load_state(result.handle.id, LoadState::Loaded(result.version));
-                    },
-                    Err(err) => {
-                        asset_server.set_load_state(result.handle.id, LoadState::Failed(result.version));
-                        log::error!("Failed to load asset: {:?}", err);
-                    }
+            Ok(result) => match result.result {
+                Ok(asset) => {
+                    assets.set(result.handle, asset);
+                    asset_server
+                        .set_load_state(result.handle.id, LoadState::Loaded(result.version));
                 }
-            }
+                Err(err) => {
+                    asset_server
+                        .set_load_state(result.handle.id, LoadState::Failed(result.version));
+                    log::error!("Failed to load asset: {:?}", err);
+                }
+            },
             Err(TryRecvError::Empty) => {
                 break;
             }

@@ -309,7 +309,8 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, render_resource::RenderResourceType,
+        render_resource::RenderResourceType,
+        renderer::RenderContext,
     };
     use legion::prelude::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};

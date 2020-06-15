@@ -1,12 +1,12 @@
 use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
 use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId};
+use bevy_asset::{Handle, HandleUntyped};
 use std::{
     collections::{HashMap, HashSet},
     hash::Hash,
     ops::Range,
 };
 use uuid::Uuid;
-use bevy_asset::{HandleUntyped, Handle};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RenderResourceBinding {
@@ -198,7 +198,9 @@ impl AssetRenderResourceBindings {
     }
 
     pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
-        self.bindings.entry(HandleUntyped::from(handle)).or_insert_with(|| RenderResourceBindings::default())
+        self.bindings
+            .entry(HandleUntyped::from(handle))
+            .or_insert_with(|| RenderResourceBindings::default())
     }
 }
 

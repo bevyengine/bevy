@@ -3,7 +3,7 @@ use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BindGroupId},
+    render_resource::{BindGroupId, BufferId},
     renderer::RenderContext,
 };
 use std::ops::Range;
@@ -56,11 +56,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         bind_group: BindGroupId,
         dynamic_uniform_indices: Option<&[u32]>,
     ) {
-        if let Some(bind_group_info) = self
-            .wgpu_resources
-            .bind_groups
-            .get(&bind_group_descriptor)
-        {
+        if let Some(bind_group_info) = self.wgpu_resources.bind_groups.get(&bind_group_descriptor) {
             if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&bind_group) {
                 const EMPTY: &'static [u32] = &[];
                 let dynamic_uniform_indices =
@@ -83,7 +79,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
     }
 
     fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
-        let pipeline = self.wgpu_resources.render_pipelines.get(&pipeline_handle).expect(
+        let pipeline = self
+            .wgpu_resources
+            .render_pipelines
+            .get(&pipeline_handle)
+            .expect(
             "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
         );
         self.render_pass.set_pipeline(pipeline);

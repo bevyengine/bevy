@@ -1,7 +1,7 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroupId, SamplerId, TextureId},
+    render_resource::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
 };
@@ -108,10 +108,7 @@ impl WgpuResources {
             .unwrap()
             .get(&bind_group_descriptor_id)
         {
-            bind_group_info
-                .bind_groups
-                .get(&bind_group_id)
-                .is_some()
+            bind_group_info.bind_groups.get(&bind_group_id).is_some()
         } else {
             false
         }

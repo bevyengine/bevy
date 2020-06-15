@@ -95,7 +95,9 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             render_resource_fields.push(field_ident);
             render_resource_names.push(format!("{}_{}", struct_name, field_name));
             if attrs.buffer {
-                render_resource_hints.push(quote! {Some(#bevy_render_path::render_resource::RenderResourceHints::BUFFER)})
+                render_resource_hints.push(
+                    quote! {Some(#bevy_render_path::render_resource::RenderResourceHints::BUFFER)},
+                )
             } else {
                 render_resource_hints.push(quote! {None})
             }

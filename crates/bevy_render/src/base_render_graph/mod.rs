@@ -4,7 +4,9 @@ use crate::{
         RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
     },
     render_graph::{
-        nodes::{CameraNode, MainPassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode},
+        nodes::{
+            CameraNode, MainPassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode,
+        },
         RenderGraph,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
@@ -51,17 +53,11 @@ impl Default for BaseRenderGraphConfig {
 /// By itself this graph doesn't do much, but it allows Render plugins to interop with each other by having a common
 /// set of nodes. It can be customized using `BaseRenderGraphConfig`.
 pub trait BaseRenderGraphBuilder {
-    fn add_base_graph(
-        &mut self,
-        config: &BaseRenderGraphConfig,
-    ) -> &mut Self;
+    fn add_base_graph(&mut self, config: &BaseRenderGraphConfig) -> &mut Self;
 }
 
 impl BaseRenderGraphBuilder for RenderGraph {
-    fn add_base_graph(
-        &mut self,
-        config: &BaseRenderGraphConfig,
-    ) -> &mut Self {
+    fn add_base_graph(&mut self, config: &BaseRenderGraphConfig) -> &mut Self {
         self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
         if config.add_3d_camera {
             self.add_system_node(node::CAMERA, CameraNode::new(uniform::CAMERA));

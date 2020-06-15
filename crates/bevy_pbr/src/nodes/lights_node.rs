@@ -1,8 +1,6 @@
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{
-        BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
-    },
+    render_resource::{BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings},
     renderer::{RenderContext, RenderResourceContext},
 };
 

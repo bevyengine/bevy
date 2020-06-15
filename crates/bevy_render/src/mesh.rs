@@ -409,9 +409,7 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
         for (handle, mut render_pipelines) in query.iter_mut(world) {
             if let Some(mesh) = meshes.get(&handle) {
                 for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                    render_pipeline
-                        .specialization
-                        .primitive_topology = mesh.primitive_topology;
+                    render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
                 }
             }
 

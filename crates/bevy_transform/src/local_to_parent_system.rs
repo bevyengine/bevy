@@ -8,12 +8,14 @@ use crate::{
 pub fn build(_: &mut World) -> Box<dyn Schedulable> {
     SystemBuilder::<()>::new("LocalToParentUpdateSystem")
         // Translation
-        .with_query(<(Write<LocalTransform>, Read<Translation>)>::query().filter(
-            !component::<Rotation>()
-                & !component::<Scale>()
-                & !component::<NonUniformScale>()
-                & (changed::<Translation>()),
-        ))
+        .with_query(
+            <(Write<LocalTransform>, Read<Translation>)>::query().filter(
+                !component::<Rotation>()
+                    & !component::<Scale>()
+                    & !component::<NonUniformScale>()
+                    & (changed::<Translation>()),
+            ),
+        )
         // Rotation
         .with_query(<(Write<LocalTransform>, Read<Rotation>)>::query().filter(
             !component::<Translation>()

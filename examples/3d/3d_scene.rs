@@ -7,7 +7,6 @@ fn main() {
         .run();
 }
 
-
 /// set up a simple scene
 fn setup(
     command_buffer: &mut CommandBuffer,

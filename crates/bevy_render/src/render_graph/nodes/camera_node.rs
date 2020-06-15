@@ -1,7 +1,7 @@
 use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     render_resource::{BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings},
-    renderer::{RenderResourceContext, RenderContext},
+    renderer::{RenderContext, RenderResourceContext},
     Camera,
 };
 use bevy_core::bytes::AsBytes;

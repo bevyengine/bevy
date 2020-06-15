@@ -1,12 +1,12 @@
 pub mod bytes;
+pub mod float_ord;
 pub mod time;
 pub mod transform;
-pub mod float_ord;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_transform::{
     components::{
-        Children, LocalTransform, Transform, NonUniformScale, Rotation, Scale, Translation,
+        Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation,
     },
     transform_system_bundle,
 };

@@ -1,6 +1,6 @@
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BufferId, BufferInfo, RenderResourceId, BindGroup, SamplerId, TextureId},
+    render_resource::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
@@ -30,8 +30,17 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn remove_sampler(&self, sampler: SamplerId);
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo>;
 
-    fn set_asset_resource_untyped(&self, handle: HandleUntyped, resource: RenderResourceId, index: usize);
-    fn get_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) -> Option<RenderResourceId>;
+    fn set_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        resource: RenderResourceId,
+        index: usize,
+    );
+    fn get_asset_resource_untyped(
+        &self,
+        handle: HandleUntyped,
+        index: usize,
+    ) -> Option<RenderResourceId>;
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize);
     fn create_render_pipeline(
         &self,

@@ -264,7 +264,8 @@ mod tests {
     use super::{DependentNodeStager, OrderedJob, RenderGraphStager, Stage};
     use crate::{
         render_graph::{Node, NodeId, RenderGraph, ResourceSlotInfo, ResourceSlots},
-        renderer::RenderContext, render_resource::RenderResourceType,
+        render_resource::RenderResourceType,
+        renderer::RenderContext,
     };
     use legion::prelude::{Resources, World};
 
