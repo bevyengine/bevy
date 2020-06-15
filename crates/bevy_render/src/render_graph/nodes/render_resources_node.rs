@@ -12,7 +12,7 @@ use crate::{
 
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
-use render_resource::{BufferId, RenderResourceType};
+use render_resource::{AssetRenderResourceBindings, BufferId, RenderResourceType};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
@@ -497,12 +497,11 @@ where
         let mut command_queue = self.command_queue.clone();
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         // let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
-        let mut asset_render_resource_bindings =
-            HashMap::<Handle<T>, RenderResourceBindings>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         (move |world: &mut SubWorld,
                assets: Res<Assets<T>>,
                //    asset_events: Res<Events<AssetEvent<T>>>,
+               mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
                render_resource_context: Res<Box<dyn RenderResourceContext>>,
                query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
             let render_resource_context = &**render_resource_context;
@@ -540,9 +539,8 @@ where
 
             for asset_handle in modified_assets.iter() {
                 let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                let mut render_resource_bindings = asset_render_resource_bindings
-                    .entry(*asset_handle)
-                    .or_insert_with(|| RenderResourceBindings::default());
+                let mut render_resource_bindings =
+                    asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                 setup_uniform_texture_resources::<T>(
                     &asset,
                     render_resource_context,
@@ -554,9 +552,8 @@ where
                 let mut staging_buffer: [u8; 0] = [];
                 for asset_handle in modified_assets.iter() {
                     let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                    let mut render_resource_bindings = asset_render_resource_bindings
-                        .entry(*asset_handle)
-                        .or_insert_with(|| RenderResourceBindings::default());
+                    let mut render_resource_bindings =
+                        asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                     // TODO: only setup buffer if we haven't seen this handle before
                     uniform_buffer_arrays.setup_uniform_buffer_resources(
                         &asset,
@@ -576,9 +573,8 @@ where
                     &mut |mut staging_buffer, _render_resource_context| {
                         for asset_handle in modified_assets.iter() {
                             let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                            let mut render_resource_bindings = asset_render_resource_bindings
-                                .entry(*asset_handle)
-                                .or_insert_with(|| RenderResourceBindings::default());
+                            let mut render_resource_bindings =
+                                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                             // TODO: only setup buffer if we haven't seen this handle before
                             uniform_buffer_arrays.setup_uniform_buffer_resources(
                                 &asset,
@@ -597,7 +593,7 @@ where
             }
 
             for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
-                if let Some(asset_bindings) = asset_render_resource_bindings.get(&asset_handle) {
+                if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
                     render_pipelines.bindings.extend(asset_bindings);
                 }
             }

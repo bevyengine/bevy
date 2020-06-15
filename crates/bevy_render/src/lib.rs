@@ -38,9 +38,9 @@ use bevy_type_registry::RegisterType;
 use draw::{clear_draw_system, draw_system, Draw};
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
-use pipeline::{RenderPipelines, compile_pipelines_system};
+use pipeline::{compile_pipelines_system, RenderPipelines};
 use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
-use render_resource::bind_groups_system;
+use render_resource::{bind_groups_system, AssetRenderResourceBindings};
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -92,6 +92,7 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<RenderResourceBindings>()
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<TextureResourceSystemState>()
+            .init_resource::<AssetRenderResourceBindings>()
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
             .init_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
@@ -115,10 +116,7 @@ impl AppPlugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 compile_pipelines_system.system(),
             )
-            .add_system_to_stage(
-                stage::RENDER_GRAPH_SYSTEMS,
-                bind_groups_system.system(),
-            )
+            .add_system_to_stage(stage::RENDER_GRAPH_SYSTEMS, bind_groups_system.system())
             .add_system_to_stage(stage::DRAW, draw_system::<RenderPipelines>.system());
 
         if let Some(ref config) = self.base_render_graph_config {

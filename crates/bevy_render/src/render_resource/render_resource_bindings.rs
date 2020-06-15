@@ -6,6 +6,7 @@ use std::{
     ops::Range,
 };
 use uuid::Uuid;
+use bevy_asset::{HandleUntyped, Handle};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RenderResourceBinding {
@@ -183,6 +184,21 @@ impl RenderResourceBindings {
         }
 
         Some(bind_group_builder.finish())
+    }
+}
+
+#[derive(Default)]
+pub struct AssetRenderResourceBindings {
+    pub bindings: HashMap<HandleUntyped, RenderResourceBindings>,
+}
+
+impl AssetRenderResourceBindings {
+    pub fn get<T>(&self, handle: Handle<T>) -> Option<&RenderResourceBindings> {
+        self.bindings.get(&HandleUntyped::from(handle))
+    }
+
+    pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
+        self.bindings.entry(HandleUntyped::from(handle)).or_insert_with(|| RenderResourceBindings::default())
     }
 }
 
