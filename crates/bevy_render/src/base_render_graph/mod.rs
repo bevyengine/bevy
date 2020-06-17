@@ -5,7 +5,8 @@ use crate::{
     },
     render_graph::{
         nodes::{
-            CameraNode, MainPassNode, TextureCopyNode, WindowSwapChainNode, WindowTextureNode,
+            CameraNode, MainPassNode, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
+            WindowTextureNode,
         },
         RenderGraph,
     },
@@ -30,6 +31,7 @@ pub mod node {
     pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_PASS: &str = "main_pass";
+    pub const SHARED_BUFFERS: &str = "shared_buffers";
 }
 
 pub mod uniform {
@@ -67,6 +69,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
             self.add_system_node(node::CAMERA2D, CameraNode::new(uniform::CAMERA2D));
         }
 
+        self.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());
         if config.add_main_depth_texture {
             self.add_node(
                 node::MAIN_DEPTH_TEXTURE,
@@ -116,6 +119,9 @@ impl BaseRenderGraphBuilder for RenderGraph {
 
             self.add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
                 .unwrap();
+            self.add_node_edge(node::SHARED_BUFFERS, node::MAIN_PASS)
+                .unwrap();
+
             if config.add_3d_camera {
                 self.add_node_edge(node::CAMERA, node::MAIN_PASS).unwrap();
             }

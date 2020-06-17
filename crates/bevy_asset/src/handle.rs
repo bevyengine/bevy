@@ -37,6 +37,10 @@ impl<T> Handle<T> {
         }
     }
 
+    pub fn as_handle<U>(&self) -> Handle<U> {
+        Handle::from_id(self.id)
+    }
+
     pub const fn from_id(id: HandleId) -> Self {
         Handle {
             id,

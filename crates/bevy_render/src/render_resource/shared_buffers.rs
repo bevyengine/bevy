@@ -1,5 +1,7 @@
 use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
-use crate::{render_resource::BufferUsage, renderer::RenderResourceContext};
+use crate::{
+    render_graph::CommandQueue, render_resource::BufferUsage, renderer::RenderResourceContext,
+};
 use legion::systems::Res;
 use std::sync::{Arc, RwLock};
 
@@ -9,6 +11,7 @@ use std::sync::{Arc, RwLock};
 pub struct SharedBuffers {
     render_resource_context: Box<dyn RenderResourceContext>,
     buffers: Arc<RwLock<Vec<BufferId>>>,
+    command_queue: Arc<RwLock<CommandQueue>>,
 }
 
 impl SharedBuffers {
@@ -16,6 +19,7 @@ impl SharedBuffers {
         Self {
             render_resource_context,
             buffers: Default::default(),
+            command_queue: Default::default(),
         }
     }
 
@@ -26,18 +30,35 @@ impl SharedBuffers {
     ) -> Option<RenderResourceBinding> {
         if let Some(size) = render_resource.buffer_byte_len() {
             // PERF: this buffer will be slow
-            let buffer = self.render_resource_context.create_buffer_mapped(
+            let staging_buffer = self.render_resource_context.create_buffer_mapped(
                 BufferInfo {
                     size,
-                    buffer_usage: buffer_usage | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
+                    buffer_usage: BufferUsage::COPY_SRC,
                 },
                 &mut |data, _renderer| {
                     render_resource.write_buffer_bytes(data);
                 },
             );
-            self.buffers.write().unwrap().push(buffer);
+
+            let destination_buffer = self.render_resource_context.create_buffer(BufferInfo {
+                size,
+                buffer_usage: BufferUsage::COPY_DST | buffer_usage,
+            });
+
+            let mut command_queue = self.command_queue.write().unwrap();
+            command_queue.copy_buffer_to_buffer(
+                staging_buffer,
+                0,
+                destination_buffer,
+                0,
+                size as u64,
+            );
+
+            let mut buffers = self.buffers.write().unwrap();
+            buffers.push(staging_buffer);
+            buffers.push(destination_buffer);
             Some(RenderResourceBinding::Buffer {
-                buffer,
+                buffer: destination_buffer,
                 range: 0..size as u64,
                 dynamic_index: None,
             })
@@ -52,6 +73,11 @@ impl SharedBuffers {
         for buffer in buffers.drain(..) {
             self.render_resource_context.remove_buffer(buffer)
         }
+    }
+
+    pub fn reset_command_queue(&self) -> CommandQueue {
+        let mut command_queue = self.command_queue.write().unwrap();
+        std::mem::replace(&mut *command_queue, CommandQueue::default())
     }
 }
 
