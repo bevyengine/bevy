@@ -8,7 +8,7 @@ fn main() {
         .add_default_plugins()
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
-        // .add_system(text_update_system.system())
+        .add_system(text_update_system.system())
         .run();
 }
 
