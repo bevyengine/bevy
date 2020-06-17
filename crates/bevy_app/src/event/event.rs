@@ -78,7 +78,7 @@ impl<T> Default for Events<T> {
     }
 }
 
-fn map_event_instance<T>(event_instance: &EventInstance<T>) -> &T {
+fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
@@ -119,28 +119,28 @@ impl<T> EventReader<T> {
                 .get(b_index..)
                 .unwrap_or_else(|| &[])
                 .iter()
-                .map(map_event_instance)
+                .map(map_instance_event)
                 .chain(
                     events
                         .events_a
                         .get(a_index..)
                         .unwrap_or_else(|| &[])
                         .iter()
-                        .map(map_event_instance),
+                        .map(map_instance_event),
                 ),
             State::B => events
                 .events_a
                 .get(a_index..)
                 .unwrap_or_else(|| &[])
                 .iter()
-                .map(map_event_instance)
+                .map(map_instance_event)
                 .chain(
                     events
                         .events_b
                         .get(b_index..)
                         .unwrap_or_else(|| &[])
                         .iter()
-                        .map(map_event_instance),
+                        .map(map_instance_event),
                 ),
         }
     }
@@ -250,6 +250,18 @@ impl<T> Events<T> {
     {
         for event in events {
             self.send(event);
+        }
+    }
+
+    /// Iterates over events that happened since the last "update" call.
+    /// WARNING: You probably don't want to use this call. In most cases you should use an `EventReader`. You should only use 
+    /// this if you know you only need to consume events between the last `update()` call and your call to `iter_current_update_events`.
+    /// If events happen outside that window, they will not be handled. For example, any events that happen after this call and before
+    /// the next `update()` call will be dropped.
+    pub fn iter_current_update_events(&self) -> impl DoubleEndedIterator<Item = &T> {
+        match self.state {
+            State::A => self.events_a.iter().map(map_instance_event),
+            State::B => self.events_b.iter().map(map_instance_event),
         }
     }
 }
