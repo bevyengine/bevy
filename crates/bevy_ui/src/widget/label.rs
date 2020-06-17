@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_render::{
     draw::Draw,
     pipeline::PipelineDescriptor,
-    render_resource::{RenderResourceBindings, SharedBuffers},
+    render_resource::{AssetRenderResourceBindings, RenderResourceBindings, SharedBuffers},
     renderer::RenderResourceContext,
     texture::Texture,
     Color,
@@ -80,6 +80,7 @@ impl Label {
     pub fn draw_label_system(
         _pipelines: Res<Assets<PipelineDescriptor>>,
         _render_resource_bindings: Res<RenderResourceBindings>,
+        _asset_render_resource_bindings: Res<AssetRenderResourceBindings>,
         _render_resource_context: Res<Box<dyn RenderResourceContext>>,
         _shared_buffers: Res<SharedBuffers>,
         _fonts: Res<Assets<Font>>,
@@ -89,19 +90,18 @@ impl Label {
         _label: Com<Label>,
         _quad: Com<Quad>,
     ) {
-        // let context = &*render_resources.context;
         // let mut draw_context = draw.get_context(
         //     &pipelines,
-        //     context,
+        //     &**render_resource_context,
         //     &render_resource_bindings,
+        //     &asset_render_resource_bindings,
         //     &shared_buffers,
         // );
 
-        // // TODO: getting a font mutably will send out font change events. the atlas should be split from the font to avoid this
+        // TODO: getting a font mutably will send out font change events. the atlas should be split from the font to avoid this
         // let mut drawable_text = DrawableText::new(
-        //     label.font,
-        //     &fonts,
-        //     &font_atlas_sets,
+        //     fonts.get(&label.font).unwrap(),
+        //     font_atlas_sets.get(&label.font.as_handle::<FontAtlasSet>()).unwrap(),
         //     &texture_atlases,
         //     quad.position,
         //     &label.style,

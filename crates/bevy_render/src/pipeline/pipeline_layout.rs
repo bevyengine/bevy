@@ -9,6 +9,12 @@ pub struct PipelineLayout {
 }
 
 impl PipelineLayout {
+    pub fn get_bind_group(&self, index: u32) -> Option<&BindGroupDescriptor> {
+        self.bind_groups
+            .iter()
+            .find(|bind_group| bind_group.index == index)
+    }
+    
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
         let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
         let mut vertex_buffer_descriptors = Vec::new();

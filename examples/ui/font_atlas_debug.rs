@@ -36,7 +36,7 @@ fn atlas_render_system(
     if state.added {
         return;
     }
-    if let Some(set) = font_atlas_sets.get(&Handle::from_id(state.handle.id)) {
+    if let Some(set) = font_atlas_sets.get(&state.handle.as_handle::<FontAtlasSet>()) {
         for (_size, atlas) in set.iter() {
             state.added = true;
             let atlas = texture_atlases.get(&atlas.texture_atlas).unwrap();

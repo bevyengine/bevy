@@ -1,6 +1,5 @@
 use crate::{
     render_graph::{Node, ResourceSlots},
-    render_resource::SharedBuffers,
     renderer::RenderContext,
 };
 use legion::prelude::*;
@@ -12,13 +11,14 @@ impl Node for SharedBuffersNode {
     fn update(
         &mut self,
         _world: &World,
-        resources: &Resources,
-        render_context: &mut dyn RenderContext,
+        _resources: &Resources,
+        _render_context: &mut dyn RenderContext,
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let shared_buffers = resources.get::<SharedBuffers>().unwrap();
-        let mut command_queue = shared_buffers.reset_command_queue();
+        // TODO: enable me 
+        // let shared_buffers = resources.get::<SharedBuffers>().unwrap();
+        // let mut command_queue = shared_buffers.reset_command_queue();
         // command_queue.execute(render_context);
     }
 }

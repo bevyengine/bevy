@@ -1,5 +1,5 @@
 use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
-use crate::pipeline::{BindGroupDescriptor, BindGroupDescriptorId};
+use crate::{renderer::RenderResourceContext, pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor}};
 use bevy_asset::{Handle, HandleUntyped};
 use std::{
     collections::{HashMap, HashSet},
@@ -159,6 +159,32 @@ impl RenderResourceBindings {
             }
         } else {
             self.create_bind_group(bind_group_descriptor)
+        }
+    }
+
+    pub fn update_bind_groups(&mut self, pipeline: &PipelineDescriptor, render_resource_context: &dyn RenderResourceContext) {
+        let layout = pipeline.get_layout().unwrap();
+        for bind_group_descriptor in layout.bind_groups.iter() {
+            match self.update_bind_group(bind_group_descriptor) {
+                BindGroupStatus::Changed(id) => {
+                    let bind_group = self
+                        .get_bind_group(id)
+                        .expect("RenderResourceSet was just changed, so it should exist");
+                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+                }
+                // TODO: Don't re-create bind groups if they havent changed. this will require cleanup of orphan bind groups and
+                // removal of global context.clear_bind_groups()
+                // PERF: see above
+                BindGroupStatus::Unchanged(id) => {
+                    let bind_group = self
+                        .get_bind_group(id)
+                        .expect("RenderResourceSet was just changed, so it should exist");
+                    render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+                }
+                BindGroupStatus::NoMatch => {
+                    // ignore unchanged / unmatched render resource sets
+                }
+            }
         }
     }
 

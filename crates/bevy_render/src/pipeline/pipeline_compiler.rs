@@ -1,5 +1,5 @@
 use super::{
-    state_descriptors::PrimitiveTopology, PipelineDescriptor, RenderPipeline, RenderPipelines,
+    state_descriptors::PrimitiveTopology, PipelineDescriptor, RenderPipelines,
     VertexBufferDescriptors,
 };
 use crate::{
@@ -8,9 +8,8 @@ use crate::{
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
-use std::collections::{HashMap, HashSet};
-
 use legion::prelude::*;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct PipelineSpecialization {
@@ -78,20 +77,22 @@ impl PipelineCompiler {
 
     fn compile_pipeline(
         &mut self,
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
+        render_resource_context: &dyn RenderResourceContext,
+        pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-        pipeline_descriptor: &PipelineDescriptor,
-        render_pipeline: &RenderPipeline,
+        source_pipeline: Handle<PipelineDescriptor>,
+        vertex_buffer_descriptors: &VertexBufferDescriptors,
+        pipeline_specialization: &PipelineSpecialization,
         render_resource_bindings: &RenderResourceBindings,
-    ) -> PipelineDescriptor {
-        let mut compiled_pipeline_descriptor = pipeline_descriptor.clone();
-
-        compiled_pipeline_descriptor.shader_stages.vertex = self.compile_shader(
+    ) -> Handle<PipelineDescriptor> {
+        let source_descriptor = pipelines.get(&source_pipeline).unwrap();
+        let mut compiled_descriptor = source_descriptor.clone();
+        compiled_descriptor.shader_stages.vertex = self.compile_shader(
             shaders,
-            &pipeline_descriptor.shader_stages.vertex,
-            &render_pipeline.specialization.shader_specialization,
+            &compiled_descriptor.shader_stages.vertex,
+            &pipeline_specialization.shader_specialization,
         );
-        compiled_pipeline_descriptor.shader_stages.fragment = pipeline_descriptor
+        compiled_descriptor.shader_stages.fragment = compiled_descriptor
             .shader_stages
             .fragment
             .as_ref()
@@ -99,23 +100,42 @@ impl PipelineCompiler {
                 self.compile_shader(
                     shaders,
                     fragment,
-                    &render_pipeline.specialization.shader_specialization,
+                    &pipeline_specialization.shader_specialization,
                 )
             });
 
-        compiled_pipeline_descriptor.reflect_layout(
+        compiled_descriptor.reflect_layout(
             shaders,
             true,
             Some(vertex_buffer_descriptors),
             Some(render_resource_bindings),
         );
 
-        compiled_pipeline_descriptor.primitive_topology =
-            render_pipeline.specialization.primitive_topology;
-        compiled_pipeline_descriptor
+        compiled_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
+        let compiled_pipeline_handle =
+            if *pipeline_specialization == PipelineSpecialization::default() {
+                pipelines.set(source_pipeline, compiled_descriptor);
+                source_pipeline
+            } else {
+                pipelines.add(compiled_descriptor)
+            };
+
+        render_resource_context.create_render_pipeline(
+            compiled_pipeline_handle,
+            pipelines.get(&compiled_pipeline_handle).unwrap(),
+            &shaders,
+        );
+
+        let compiled_pipelines = self
+            .specialized_pipelines
+            .entry(source_pipeline)
+            .or_insert_with(|| Vec::new());
+        compiled_pipelines.push((pipeline_specialization.clone(), compiled_pipeline_handle));
+
+        compiled_pipeline_handle
     }
 
-    fn compile_pipelines(
+    fn compile_render_pipelines(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipelines: &mut Assets<PipelineDescriptor>,
@@ -125,44 +145,27 @@ impl PipelineCompiler {
     ) {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             let source_pipeline = render_pipeline.pipeline;
-            if let None = self.specialized_pipelines.get(&source_pipeline) {
-                self.specialized_pipelines
-                    .insert(source_pipeline, Vec::new());
-            }
             let compiled_pipeline_handle = if let Some((_shader_defs, compiled_pipeline_handle)) =
                 self.specialized_pipelines
                     .get_mut(&source_pipeline)
-                    .unwrap()
-                    .iter()
-                    .find(|(pipeline_specialization, _compiled_pipeline_handle)| {
-                        *pipeline_specialization == render_pipeline.specialization
+                    .and_then(|specialized_pipelines| {
+                        specialized_pipelines.iter().find(
+                            |(pipeline_specialization, _compiled_pipeline_handle)| {
+                                *pipeline_specialization == render_pipeline.specialization
+                            },
+                        )
                     }) {
                 *compiled_pipeline_handle
             } else {
-                let pipeline_descriptor = pipelines.get(&source_pipeline).unwrap();
-                let compiled_pipeline_descriptor = self.compile_pipeline(
-                    vertex_buffer_descriptors,
+                self.compile_pipeline(
+                    render_resource_context,
+                    pipelines,
                     shaders,
-                    pipeline_descriptor,
-                    render_pipeline,
+                    source_pipeline,
+                    vertex_buffer_descriptors,
+                    &render_pipeline.specialization,
                     &render_pipelines.bindings,
-                );
-                let compiled_pipeline_handle = pipelines.add(compiled_pipeline_descriptor);
-                render_resource_context.create_render_pipeline(
-                    compiled_pipeline_handle,
-                    pipelines.get(&compiled_pipeline_handle).unwrap(),
-                    &shaders,
-                );
-
-                let compiled_pipelines = self
-                    .specialized_pipelines
-                    .get_mut(&source_pipeline)
-                    .unwrap();
-                compiled_pipelines.push((
-                    render_pipeline.specialization.clone(),
-                    compiled_pipeline_handle,
-                ));
-                compiled_pipeline_handle
+                )
             };
 
             render_pipeline.specialized_pipeline = Some(compiled_pipeline_handle);
@@ -198,15 +201,44 @@ pub fn compile_pipelines_system(
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     mut shaders: ResMut<Assets<Shader>>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
+    // pipeline_asset_events: Res<Events<AssetEvent<PipelineDescriptor>>>,
     vertex_buffer_descriptors: Res<VertexBufferDescriptors>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     query: &mut Query<Write<RenderPipelines>>,
 ) {
     let render_resource_context = &**render_resource_context;
+    // let default_specialization = PipelineSpecialization::default();
+    // NOTE: this intentionally only handles events that happened prior to this system during this frame. this results in
+    // "specialized pipeline" events being ignored.
+    // for event in pipeline_asset_events.iter_current_update_events() {
+    //     let handle_to_compile = match event {
+    //         AssetEvent::Created { handle } => Some(*handle),
+    //         AssetEvent::Modified { handle } => {
+    //             // TODO: clean up old pipelines
+    //             Some(*handle)
+    //         }
+    //         AssetEvent::Removed { handle } => {
+    //             // TODO: clean up old pipelines
+    //             None
+    //         }
+    //     };
+
+    //     if let Some(handle_to_compile) = handle_to_compile {
+    //         pipeline_compiler.compile_pipeline(
+    //             render_resource_context,
+    //             &mut pipelines,
+    //             &mut shaders,
+    //             handle_to_compile,
+    //             &vertex_buffer_descriptors,
+    //             &default_specialization,
+    //             None,
+    //         );
+    //     }
+    // }
 
     // TODO: only update when RenderPipelines is changed
     for mut render_pipelines in query.iter_mut(world) {
-        pipeline_compiler.compile_pipelines(
+        pipeline_compiler.compile_render_pipelines(
             &vertex_buffer_descriptors,
             &mut pipelines,
             &mut shaders,

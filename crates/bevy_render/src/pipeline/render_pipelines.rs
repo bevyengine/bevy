@@ -69,12 +69,12 @@ impl Drawable for RenderPipelines {
                     .bindings
                     .get_descriptor_bind_group(bind_group_descriptor.id)
                 {
-                    draw.set_bind_group(bind_group_descriptor, local_bind_group);
+                    draw.set_bind_group(bind_group_descriptor.index, local_bind_group);
                 } else if let Some(global_bind_group) = draw
                     .render_resource_bindings
                     .get_descriptor_bind_group(bind_group_descriptor.id)
                 {
-                    draw.set_bind_group(bind_group_descriptor, global_bind_group);
+                    draw.set_bind_group(bind_group_descriptor.index, global_bind_group);
                 }
             }
             let mut indices = 0..0;

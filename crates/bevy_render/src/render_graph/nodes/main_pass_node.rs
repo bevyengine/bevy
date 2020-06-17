@@ -131,13 +131,15 @@ impl Node for MainPassNode {
                             }
                             RenderCommand::SetBindGroup {
                                 index,
-                                bind_group_descriptor,
                                 bind_group,
                                 dynamic_uniform_indices,
                             } => {
+                                let pipeline = pipelines.get(&draw_state.pipeline.unwrap()).unwrap();
+                                let layout = pipeline.get_layout().unwrap();
+                                let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
                                 render_pass.set_bind_group(
                                     *index,
-                                    *bind_group_descriptor,
+                                    bind_group_descriptor.id,
                                     *bind_group,
                                     dynamic_uniform_indices
                                         .as_ref()

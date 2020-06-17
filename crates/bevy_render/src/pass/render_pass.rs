@@ -18,7 +18,7 @@ pub trait RenderPass {
     fn set_bind_group(
         &mut self,
         index: u32,
-        bind_group_descriptor: BindGroupDescriptorId,
+        bind_group_descriptor_id: BindGroupDescriptorId,
         bind_group: BindGroupId,
         dynamic_uniform_indices: Option<&[u32]>,
     );
