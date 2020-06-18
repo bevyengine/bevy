@@ -1,4 +1,5 @@
 use bevy::{prelude::*, render::shader};
+use bevy_render::base_render_graph;
 
 fn main() {
     App::build()
@@ -57,30 +58,36 @@ fn setup(
     mut materials: ResMut<Assets<MyMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    // create new shader pipeline and add to main pass in Render Graph
-    let pipeline_handle = {
-        let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-            vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
-            fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
-        }));
-        render_graph.add_system_node(
-            "my_material",
-            AssetRenderResourcesNode::<MyMaterial>::new(true),
-        );
-        pipeline_handle
-    };
+    // Create a new shader pipeline
+    let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
+        vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, VERTEX_SHADER)),
+        fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, FRAGMENT_SHADER))),
+    }));
 
-    // create materials
+    // Add an AssetRenderResourcesNode to our Render Graph. This will bind MyMaterial resources to our shader
+    render_graph.add_system_node(
+        "my_material",
+        AssetRenderResourcesNode::<MyMaterial>::new(true),
+    );
+
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node
+    render_graph
+        .add_node_edge("my_material", base_render_graph::node::MAIN_PASS)
+        .unwrap();
+
+    // Create a green material
     let green_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
         always_red: false,
     });
 
+    // Create a red material, which uses our "always_red" shader def
     let red_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.0, 0.0),
         always_red: true,
     });
 
+    // Create a cube mesh which will use our materials
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
     command_buffer
