@@ -16,7 +16,7 @@ use legion_core::{
 use legion_fn_system_macro::{impl_fn_query_systems, impl_fn_systems};
 use std::marker::PhantomData;
 
-pub trait IntoSystem<CommandBuffer, Resources, Views, Queries, Filters> {
+pub trait IntoSystem<CommandBuffer, Resources, Views, Queries> {
     fn system_id(self, id: SystemId) -> Box<dyn Schedulable>;
     fn system_named(self, name: &'static str) -> Box<dyn Schedulable>;
     fn system(self) -> Box<dyn Schedulable>;

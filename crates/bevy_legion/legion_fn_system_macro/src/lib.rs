@@ -29,7 +29,6 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
     let resource_vars = get_idents(|i| format!("r{}", i), max_resources);
     let views = get_idents(|i| format!("V{}", i), max_views);
     let view_vars = get_idents(|i| format!("v{}", i), max_views);
-    let filters = get_idents(|i| format!("VF{}", i), max_views);
 
     let mut tokens = TokenStream::new();
 
@@ -60,7 +59,6 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
         for view_count in 0..=max_views {
             let view = &views[0..view_count];
             let view_var = &view_vars[0..view_count];
-            let filter = &filters[0..view_count];
 
             let view_tuple = tuple(view);
 
@@ -84,20 +82,20 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
             } else if view_count == 1 {
                 quote! { SystemQuery<
                     #(#view),*,
-                    #(#filter),*,
+                    #(<#view as DefaultFilter>::Filter),*,
                 > }
             } else {
                 quote! { SystemQuery<
                     (#(#view),*),
                     EntityFilterTuple<
                         And<(
-                            #(<#filter as EntityFilter>::ArchetypeFilter),*
+                            #(<<#view as DefaultFilter>::Filter as EntityFilter>::ArchetypeFilter),*
                         )>,
                         And<(
-                            #(<#filter as EntityFilter>::ChunksetFilter),*
+                            #(<<#view as DefaultFilter>::Filter as EntityFilter>::ChunksetFilter),*
                         )>,
                         And<(
-                            #(<#filter as EntityFilter>::ChunkFilter),*
+                            #(<<#view as DefaultFilter>::Filter as EntityFilter>::ChunkFilter),*
                         )>,
                     >
                 >   }
@@ -127,12 +125,12 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                     impl<'a,
                         Func,
                         #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
-                        #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
-                        #filter: EntityFilter + Sync + 'static),*
-                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*), (), ()> for Func
+                        #(#view: for<'b> View<'b> + DefaultFilter + ViewElement,)*
+                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*), ()> for Func
                     where
                         Func: FnMut(#(&mut #command_buffer,)* #(#resource,)* #(#view),*) + Send + Sync + 'static,
-                        #(<#view as View<'a>>::Iter: Iterator<Item = #view>),*
+                        #(<#view as View<'a>>::Iter: Iterator<Item = #view>,
+                        <#view as DefaultFilter>::Filter: Sync),*
                     {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
                             let resource_access: Access<ResourceTypeId> = #resource_access;
@@ -189,7 +187,6 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
     let resources = get_idents(|i| format!("R{}", i), max_resources);
     let resource_vars = get_idents(|i| format!("r{}", i), max_resources);
     let views = get_idents(|i| format!("V{}", i), max_queries);
-    let filters = get_idents(|i| format!("VF{}", i), max_queries);
     let query_vars = get_idents(|i| format!("q{}", i), max_queries);
 
     let mut tokens = TokenStream::new();
@@ -220,7 +217,6 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
 
         for query_count in 1..=max_queries {
             let view = &views[0..query_count];
-            let filter = &filters[0..query_count];
             let query_var = &query_vars[0..query_count];
 
             let view_tuple = tuple(view);
@@ -251,20 +247,14 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                     quote! {(#(#view,)*)}
                 };
 
-                let filter_tuple_avoid_type_collision = if query_count == 1 {
-                    quote! {(#(#filter)*,)}
-                } else {
-                    quote! {(#(#filter,)*)}
-                };
-
                 tokens.extend(TokenStream::from(quote! {
                     impl<Func,
                         #(#resource: ResourceSet<PreparedResources = #resource> + 'static + Clone,)*
-                        #(#view: for<'b> View<'b> + DefaultFilter<Filter = #filter> + ViewElement,
-                        #filter: EntityFilter + Sync + 'static),*
-                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (), #view_tuple_avoid_type_collision, #filter_tuple_avoid_type_collision> for Func
+                        #(#view: for<'b> View<'b> + DefaultFilter + ViewElement),*
+                    > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (), #view_tuple_avoid_type_collision> for Func
                     where
-                        Func: FnMut(#(&mut #command_buffer,)* &mut SubWorld, #(#resource,)* #(&mut SystemQuery<#view, #filter>),*) + Send + Sync + 'static,
+                        Func: FnMut(#(&mut #command_buffer,)* &mut SubWorld, #(#resource,)* #(&mut SystemQuery<#view, <#view as DefaultFilter>::Filter>),*) + Send + Sync + 'static,
+                        #(<#view as DefaultFilter>::Filter: Sync),*
                     {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
                             let resource_access: Access<ResourceTypeId> = #resource_access;
@@ -274,7 +264,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                                 move |_command_buffer,
                                     _world,
                                     _resources: #resource_tuple,
-                                    _queries: &mut (#(SystemQuery<#view, #filter>),*)
+                                    _queries: &mut (#(SystemQuery<#view, <#view as DefaultFilter>::Filter>),*)
                                 | {
                                     let #resource_var_tuple = _resources;
                                     let #query_var_tuple = _queries;
