@@ -21,6 +21,14 @@ impl RenderPipeline {
             ..Default::default()
         }
     }
+
+    pub fn specialized(pipeline: Handle<PipelineDescriptor>, specialization: PipelineSpecialization) -> Self {
+        RenderPipeline {
+            pipeline,
+            specialization,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Properties)]
@@ -31,6 +39,13 @@ pub struct RenderPipelines {
 }
 
 impl RenderPipelines {
+    pub fn from_pipelines(pipelines: Vec<RenderPipeline>) -> Self {
+        Self {
+            pipelines,
+            ..Default::default()
+        }
+    }
+
     pub fn from_handles<'a, T: IntoIterator<Item = &'a Handle<PipelineDescriptor>>>(
         handles: T,
     ) -> Self {

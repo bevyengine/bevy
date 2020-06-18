@@ -3,18 +3,19 @@ use super::{
     VertexBufferDescriptors,
 };
 use crate::{
-    render_resource::RenderResourceBindings,
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Handle, AssetEvent};
 use legion::prelude::*;
 use std::collections::{HashMap, HashSet};
+use bevy_app::Events;
 
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
+    pub dynamic_bindings: Vec<DynamicBinding>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Default)]
@@ -32,7 +33,12 @@ struct SpecializedPipeline {
     specialization: PipelineSpecialization,
 }
 
-// TODO: consider using (Typeid, fieldinfo.index) in place of string for hashes
+#[derive(Clone, Eq, PartialEq, Debug, Default)]
+pub struct DynamicBinding {
+    pub bind_group: u32,
+    pub binding: u32,
+}
+
 #[derive(Default)]
 pub struct PipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
@@ -92,7 +98,6 @@ impl PipelineCompiler {
         source_pipeline: Handle<PipelineDescriptor>,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
-        render_resource_bindings: &RenderResourceBindings,
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(&source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
@@ -117,7 +122,7 @@ impl PipelineCompiler {
             shaders,
             true,
             Some(vertex_buffer_descriptors),
-            Some(render_resource_bindings),
+            &pipeline_specialization.dynamic_bindings,
         );
 
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
@@ -176,7 +181,6 @@ impl PipelineCompiler {
                     source_pipeline,
                     vertex_buffer_descriptors,
                     &render_pipeline.specialization,
-                    &render_pipelines.bindings,
                 )
             };
 
@@ -213,15 +217,15 @@ pub fn compile_pipelines_system(
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     mut shaders: ResMut<Assets<Shader>>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
-    // pipeline_asset_events: Res<Events<AssetEvent<PipelineDescriptor>>>,
+    _pipeline_asset_events: Res<Events<AssetEvent<PipelineDescriptor>>>,
     vertex_buffer_descriptors: Res<VertexBufferDescriptors>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     query: &mut Query<Write<RenderPipelines>>,
 ) {
     let render_resource_context = &**render_resource_context;
-    // let default_specialization = PipelineSpecialization::default();
     // NOTE: this intentionally only handles events that happened prior to this system during this frame. this results in
-    // "specialized pipeline" events being ignored.
+    // "new specialized pipeline" events being ignored.
+    // let default_specialization = PipelineSpecialization::default();
     // for event in pipeline_asset_events.iter_current_update_events() {
     //     let handle_to_compile = match event {
     //         AssetEvent::Created { handle } => Some(*handle),
@@ -229,13 +233,14 @@ pub fn compile_pipelines_system(
     //             // TODO: clean up old pipelines
     //             Some(*handle)
     //         }
-    //         AssetEvent::Removed { handle } => {
+    //         AssetEvent::Removed { .. } => {
     //             // TODO: clean up old pipelines
     //             None
     //         }
     //     };
 
     //     if let Some(handle_to_compile) = handle_to_compile {
+    //         // TODO: try updating specialization here.
     //         pipeline_compiler.compile_pipeline(
     //             render_resource_context,
     //             &mut pipelines,
@@ -243,7 +248,6 @@ pub fn compile_pipelines_system(
     //             handle_to_compile,
     //             &vertex_buffer_descriptors,
     //             &default_specialization,
-    //             None,
     //         );
     //     }
     // }

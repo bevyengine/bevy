@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_render::base_render_graph;
+use bevy_render::{pipeline::{PipelineSpecialization, RenderPipeline, DynamicBinding}, base_render_graph};
 
 fn main() {
     App::build()
@@ -78,7 +78,25 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+                pipeline_handle,
+                // NOTE: in the future you wont need to manually declare dynamic bindings 
+                PipelineSpecialization {
+                    dynamic_bindings: vec![
+                        // Transform
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 0,
+                        },
+                        // MyMaterial_color
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 1,
+                        },
+                    ],
+                    ..Default::default()
+                },
+            )]),
             material,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()

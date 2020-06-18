@@ -1,5 +1,5 @@
 use bevy::{prelude::*, render::shader};
-use bevy_render::base_render_graph;
+use bevy_render::{pipeline::{PipelineSpecialization, RenderPipeline, DynamicBinding}, base_render_graph};
 
 fn main() {
     App::build()
@@ -18,7 +18,7 @@ struct MyMaterial {
     pub color: Color,
     #[render_resources(ignore)]
     #[shader_def]
-    pub always_red: bool,
+    pub always_blue: bool,
 }
 
 const VERTEX_SHADER: &str = r#"
@@ -44,8 +44,8 @@ layout(set = 1, binding = 1) uniform MyMaterial_color {
 void main() {
     o_Target = color;
 
-# ifdef MYMATERIAL_ALWAYS_RED
-    o_Target = vec4(0.8, 0.0, 0.0, 1.0);
+# ifdef MYMATERIAL_ALWAYS_BLUE
+    o_Target = vec4(0.0, 0.0, 0.8, 1.0);
 # endif
 }
 "#;
@@ -78,13 +78,13 @@ fn setup(
     // Create a green material
     let green_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.8, 0.0),
-        always_red: false,
+        always_blue: false,
     });
 
-    // Create a red material, which uses our "always_red" shader def
+    // Create a blue material, which uses our "always_blue" shader def
     let red_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.0, 0.0),
-        always_red: true,
+        always_blue: true,
     });
 
     // Create a cube mesh which will use our materials
@@ -95,7 +95,25 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+                pipeline_handle,
+                // NOTE: in the future you wont need to manually declare dynamic bindings 
+                PipelineSpecialization {
+                    dynamic_bindings: vec![
+                        // Transform
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 0,
+                        },
+                        // MyMaterial_color
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 1,
+                        },
+                    ],
+                    ..Default::default()
+                },
+            )]),
             material: green_material,
             translation: Translation::new(-2.0, 0.0, 0.0),
             ..Default::default()
@@ -103,7 +121,25 @@ fn setup(
         // cube
         .add_entity(MeshMaterialEntity::<MyMaterial> {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines::from_handles(&[pipeline_handle]),
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+                pipeline_handle,
+                // NOTE: in the future you wont need to manually declare dynamic bindings 
+                PipelineSpecialization {
+                    dynamic_bindings: vec![
+                        // Transform
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 0,
+                        },
+                        // MyMaterial_color
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 1,
+                        },
+                    ],
+                    ..Default::default()
+                },
+            )]),
             material: red_material,
             translation: Translation::new(2.0, 0.0, 0.0),
             ..Default::default()
