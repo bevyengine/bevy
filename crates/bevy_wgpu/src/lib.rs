@@ -33,12 +33,9 @@ impl AppPlugin for WgpuPlugin {
 
 pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
     let mut wgpu_renderer = pollster::block_on(WgpuRenderer::new());
-    resources.insert::<Box<dyn RenderResourceContext>>(Box::new(WgpuRenderResourceContext::new(
-        wgpu_renderer.device.clone(),
-    )));
-    resources.insert(SharedBuffers::new(Box::new(
-        WgpuRenderResourceContext::new(wgpu_renderer.device.clone()),
-    )));
+    let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
+    resources.insert::<Box<dyn RenderResourceContext>>(Box::new(resource_context.clone()));
+    resources.insert(SharedBuffers::new(Box::new(resource_context)));
     move |world, resources| {
         wgpu_renderer.update(world, resources);
     }
