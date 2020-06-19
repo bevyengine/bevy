@@ -1,8 +1,14 @@
 use bevy_asset::{Assets, Handle};
-use bevy_render::{draw::{DrawContext, Draw}, texture::Texture, Color};
+use bevy_render::{
+    draw::{Draw, DrawContext, Drawable},
+    render_resource::{AssetRenderResourceBindings, RenderResourceBindings},
+    texture::Texture,
+    Color,
+};
 use bevy_sprite::{ColorMaterial, ComMut, Quad, TextureAtlas};
-use bevy_text::{Font, FontAtlasSet, TextStyle};
+use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use legion::prelude::{Com, Res, ResMut};
+use glam::Vec3;
 
 pub struct Label {
     pub text: String,
@@ -51,6 +57,11 @@ impl Label {
                 label.style.font_size,
                 &label.text,
             );
+
+            let material = color_materials.get_or_insert_with(*color_material_handle, || {
+                ColorMaterial::from(Handle::<Texture>::new())
+            });
+
             let texture = font.render_text(
                 &label.text,
                 label.style.color,
@@ -59,36 +70,33 @@ impl Label {
                 height as usize,
             );
 
-            let material = color_materials.get_or_insert_with(*color_material_handle, || {
-                ColorMaterial::from(Handle::<Texture>::new())
-            });
-            if let Some(texture_handle) = material.texture {
-                textures.set(texture_handle, texture);
-            } else {
-                material.texture = Some(textures.add(texture));
-            }
+            material.texture = Some(textures.add(texture));
         }
     }
 
     pub fn draw_label_system(
-        mut _draw_context: DrawContext,
-        _fonts: Res<Assets<Font>>,
-        _font_atlas_sets: Res<Assets<FontAtlasSet>>,
-        _texture_atlases: Res<Assets<TextureAtlas>>,
-        mut _draw: ComMut<Draw>,
-        _label: Com<Label>,
-        _quad: Com<Quad>,
+        mut draw_context: DrawContext,
+        fonts: Res<Assets<Font>>,
+        font_atlas_sets: Res<Assets<FontAtlasSet>>,
+        texture_atlases: Res<Assets<TextureAtlas>>,
+        mut render_resource_bindings: ResMut<RenderResourceBindings>,
+        mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
+        mut draw: ComMut<Draw>,
+        label: Com<Label>,
+        quad: Com<Quad>,
     ) {
-        // let mut drawable_text = DrawableText::new(
-        //     fonts.get(&label.font).unwrap(),
-        //     font_atlas_sets
-        //         .get(&label.font.as_handle::<FontAtlasSet>())
-        //         .unwrap(),
-        //     &texture_atlases,
-        //     quad.position,
-        //     &label.style,
-        //     &label.text,
-        // );
-        // drawable_text.draw(&mut draw, &mut draw_context).unwrap();
+        let mut drawable_text = DrawableText::new(
+            fonts.get(&label.font).unwrap(),
+            font_atlas_sets
+                .get(&label.font.as_handle::<FontAtlasSet>())
+                .unwrap(),
+            &texture_atlases,
+            &mut render_resource_bindings,
+            &mut asset_render_resource_bindings,
+            Vec3::new(quad.position.x(), quad.position.y(), 0.0),
+            &label.style,
+            &label.text,
+        );
+        drawable_text.draw(&mut draw, &mut draw_context).unwrap();
     }
 }

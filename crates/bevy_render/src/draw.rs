@@ -126,7 +126,6 @@ pub struct DrawContext<'a> {
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub vertex_buffer_descriptors: Res<'a, VertexBufferDescriptors>,
-    pub asset_render_resource_bindings: Res<'a, AssetRenderResourceBindings>,
     pub shared_buffers: Res<'a, SharedBuffers>,
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
 }
@@ -144,12 +143,6 @@ impl<'a> ResourceSet for DrawContext<'a> {
             vertex_buffer_descriptors: Res::new(
                 resources.get::<VertexBufferDescriptors>().unwrap().deref()
                     as *const VertexBufferDescriptors,
-            ),
-            asset_render_resource_bindings: Res::new(
-                resources
-                    .get::<AssetRenderResourceBindings>()
-                    .unwrap()
-                    .deref() as *const AssetRenderResourceBindings,
             ),
             shared_buffers: Res::new(
                 resources.get::<SharedBuffers>().unwrap().deref() as *const SharedBuffers
@@ -274,6 +267,26 @@ impl<'a> DrawContext<'a> {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn create_bind_group_resource(
+        &self,
+        index: u32,
+        bind_group: &BindGroup,
+    ) -> Result<(), DrawError> {
+        let pipeline = self
+            .current_pipeline
+            .ok_or_else(|| DrawError::NoPipelineSet)?;
+        let pipeline_descriptor = self
+            .pipelines
+            .get(&pipeline)
+            .ok_or_else(|| DrawError::NonExistentPipeline)?;
+        let layout = pipeline_descriptor
+            .get_layout()
+            .ok_or_else(|| DrawError::PipelineHasNoLayout)?;
+        let bind_group_descriptor = &layout.bind_groups[index as usize];
+        self.render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
         Ok(())
     }
 

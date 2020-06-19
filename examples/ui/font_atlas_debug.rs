@@ -37,11 +37,11 @@ fn atlas_render_system(
         return;
     }
     if let Some(set) = font_atlas_sets.get(&state.handle.as_handle::<FontAtlasSet>()) {
-        for (_size, atlas) in set.iter() {
+        for (_size, font_atlas) in set.iter() {
             state.added = true;
-            let atlas = texture_atlases.get(&atlas.texture_atlas).unwrap();
+            let texture_atlas = texture_atlases.get(&font_atlas.texture_atlas).unwrap();
             command_buffer.build().add_entity(SpriteEntity {
-                material: materials.add(atlas.texture.into()),
+                material: materials.add(texture_atlas.texture.into()),
                 quad: Quad {
                     position: Vec2::new(-300.0, 0.),
                     ..Default::default()
