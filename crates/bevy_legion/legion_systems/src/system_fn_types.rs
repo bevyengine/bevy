@@ -33,7 +33,7 @@ impl<'a, T: 'a> Clone for Res<'a, T> {
 
 impl<'a, T: 'a> Res<'a, T> {
     #[inline(always)]
-    fn new(resource: *const T) -> Self {
+    pub fn new(resource: *const T) -> Self {
         Self {
             value: resource,
             _marker: PhantomData::default(),
@@ -120,7 +120,7 @@ impl<'a, T: 'a> Clone for ResMut<'a, T> {
 
 impl<'a, T: 'a> ResMut<'a, T> {
     #[inline(always)]
-    fn new(resource: *mut T) -> Self {
+    pub fn new(resource: *mut T) -> Self {
         Self {
             value: resource,
             _marker: PhantomData::default(),

@@ -27,7 +27,6 @@ fn setup(
     mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    env_logger::init();
     let texture_handle = asset_server
         .load_sync(
             &mut textures,

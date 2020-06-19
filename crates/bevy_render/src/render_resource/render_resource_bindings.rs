@@ -1,5 +1,8 @@
 use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
-use crate::{renderer::RenderResourceContext, pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor}};
+use crate::{
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
+    renderer::RenderResourceContext,
+};
 use bevy_asset::{Handle, HandleUntyped};
 use std::{
     collections::{HashMap, HashSet},
@@ -82,10 +85,8 @@ pub struct RenderResourceBindings {
     // TODO: remove this
     vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
-    bind_group_descriptors: HashMap<BindGroupDescriptorId, BindGroupId>,
+    bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
     dirty_bind_groups: HashSet<BindGroupId>,
-    // TODO: remove this
-    // pub pipeline_specialization: PipelineSpecialization,
 }
 
 impl RenderResourceBindings {
@@ -139,7 +140,7 @@ impl RenderResourceBindings {
         if let Some(bind_group) = bind_group {
             let id = bind_group.id;
             self.bind_groups.insert(id, bind_group);
-            self.bind_group_descriptors.insert(descriptor.id, id);
+            self.bind_group_descriptors.insert(descriptor.id, Some(id));
             BindGroupStatus::Changed(id)
         } else {
             BindGroupStatus::NoMatch
@@ -151,18 +152,26 @@ impl RenderResourceBindings {
         bind_group_descriptor: &BindGroupDescriptor,
     ) -> BindGroupStatus {
         if let Some(id) = self.bind_group_descriptors.get(&bind_group_descriptor.id) {
-            if self.dirty_bind_groups.contains(id) {
-                self.dirty_bind_groups.remove(id);
-                self.create_bind_group(bind_group_descriptor)
+            if let Some(id) = id {
+                if self.dirty_bind_groups.contains(id) {
+                    self.dirty_bind_groups.remove(id);
+                    self.create_bind_group(bind_group_descriptor)
+                } else {
+                    BindGroupStatus::Unchanged(*id)
+                }
             } else {
-                BindGroupStatus::Unchanged(*id)
+                BindGroupStatus::NoMatch
             }
         } else {
             self.create_bind_group(bind_group_descriptor)
         }
     }
 
-    pub fn update_bind_groups(&mut self, pipeline: &PipelineDescriptor, render_resource_context: &dyn RenderResourceContext) {
+    pub fn update_bind_groups(
+        &mut self,
+        pipeline: &PipelineDescriptor,
+        render_resource_context: &dyn RenderResourceContext,
+    ) {
         let layout = pipeline.get_layout().unwrap();
         for bind_group_descriptor in layout.bind_groups.iter() {
             match self.update_bind_group(bind_group_descriptor) {
@@ -195,7 +204,13 @@ impl RenderResourceBindings {
     pub fn get_descriptor_bind_group(&self, id: BindGroupDescriptorId) -> Option<&BindGroup> {
         self.bind_group_descriptors
             .get(&id)
-            .and_then(|bind_group_id| self.get_bind_group(*bind_group_id))
+            .and_then(|bind_group_id| {
+                if let Some(bind_group_id) = bind_group_id {
+                    self.get_bind_group(*bind_group_id)
+                } else {
+                    None
+                }
+            })
     }
 
     fn build_bind_group(&self, bind_group_descriptor: &BindGroupDescriptor) -> Option<BindGroup> {
@@ -227,6 +242,10 @@ impl AssetRenderResourceBindings {
         self.bindings
             .entry(HandleUntyped::from(handle))
             .or_insert_with(|| RenderResourceBindings::default())
+    }
+
+    pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {
+        self.bindings.get_mut(&HandleUntyped::from(handle))
     }
 }
 

@@ -1,10 +1,10 @@
 use crate::{Font, FontAtlasSet};
 use bevy_asset::Assets;
 use bevy_render::{
-    draw::{DrawContext, DrawError, Drawable},
+    draw::{DrawContext, DrawError, Drawable, Draw},
     mesh,
     render_resource::{BindGroup, BufferUsage, RenderResourceId},
-    Color,
+    Color, pipeline::PipelineSpecialization,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 use glam::{Vec2, Vec3};
@@ -45,10 +45,9 @@ impl<'a> DrawableText<'a> {
 }
 
 impl<'a> Drawable for DrawableText<'a> {
-    fn draw(&mut self, draw: &mut DrawContext) -> Result<(), DrawError> {
-        draw.set_pipeline(bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE)?;
-        let render_resource_context = draw.render_resource_context;
-        // TODO: add draw.set_mesh(slot)
+    fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
+        context.set_pipeline(draw, bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE, PipelineSpecialization::empty())?;
+        let render_resource_context = &**context.render_resource_context;
         if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
             .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
         {
@@ -59,8 +58,7 @@ impl<'a> Drawable for DrawableText<'a> {
             .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
         {
             draw.set_index_buffer(quad_index_buffer, 0);
-            if let Some(buffer_info) = draw
-                .render_resource_context
+            if let Some(buffer_info) = render_resource_context
                 .get_buffer_info(quad_index_buffer)
             {
                 indices = 0..(buffer_info.size / 2) as u32;
@@ -70,7 +68,7 @@ impl<'a> Drawable for DrawableText<'a> {
         }
 
         // set global bindings
-        draw.set_bind_groups_from_bindings(&draw.render_resource_bindings)?;
+        // context.set_bind_groups_from_bindings(draw, &mut[context.render_resource_bindings])?;
 
         // set local per-character bindings
         for character in self.text.chars() {
@@ -78,17 +76,17 @@ impl<'a> Drawable for DrawableText<'a> {
                 .font_atlas_set
                 .get_glyph_atlas_info(self.style.font_size, character)
             {
-                let atlas_render_resource_bindings = draw
-                    .asset_render_resource_bindings
-                    .get(glyph_atlas_info.texture_atlas)
-                    .unwrap();
-                draw.set_bind_groups_from_bindings(&atlas_render_resource_bindings)?;
+                // let atlas_render_resource_bindings = context
+                //     .asset_render_resource_bindings
+                //     .get_mut(glyph_atlas_info.texture_atlas)
+                //     .unwrap();
+                // context.set_bind_groups_from_bindings(draw, &mut[atlas_render_resource_bindings])?;
                 let sprite_buffer = TextureAtlasSprite {
                     index: glyph_atlas_info.char_index,
                     position: Vec3::new(300.0, 300.0, 0.0),
                     scale: 5.0,
                 };
-                let sprite_buffer = draw
+                let sprite_buffer = context
                     .shared_buffers
                     .get_buffer(&sprite_buffer, BufferUsage::UNIFORM)
                     .unwrap();

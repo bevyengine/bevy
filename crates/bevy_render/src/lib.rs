@@ -35,12 +35,12 @@ use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
-use draw::{clear_draw_system, draw_system, Draw};
+use draw::{clear_draw_system, Draw};
 use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
-use pipeline::{compile_pipelines_system, RenderPipelines};
+use pipeline::{draw_render_pipelines_system, RenderPipelines};
 use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
-use render_resource::{bind_groups_system, AssetRenderResourceBindings};
+use render_resource::AssetRenderResourceBindings;
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -112,12 +112,7 @@ impl AppPlugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph_schedule_executor_system,
             )
-            .add_system_to_stage(
-                stage::RENDER_GRAPH_SYSTEMS,
-                compile_pipelines_system.system(),
-            )
-            .add_system_to_stage(stage::RENDER_GRAPH_SYSTEMS, bind_groups_system.system())
-            .add_system_to_stage(stage::DRAW, draw_system::<RenderPipelines>.system());
+            .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system());
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();
