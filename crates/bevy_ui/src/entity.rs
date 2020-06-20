@@ -18,12 +18,12 @@ pub struct UiEntity {
 impl Default for UiEntity {
     fn default() -> Self {
         UiEntity {
+            mesh: QUAD_HANDLE,
+            render_pipelines: RenderPipelines::from_handles(&[UI_PIPELINE_HANDLE]),
             node: Default::default(),
             quad: Default::default(),
-            mesh: QUAD_HANDLE,
             material: Default::default(),
             draw: Default::default(),
-            render_pipelines: RenderPipelines::from_handles(&[UI_PIPELINE_HANDLE]),
         }
     }
 }
@@ -32,24 +32,17 @@ impl Default for UiEntity {
 pub struct LabelEntity {
     pub node: Node,
     pub quad: Quad,
-    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
-    pub material: Handle<ColorMaterial>,
     pub draw: Draw,
-    pub render_pipelines: RenderPipelines,
     pub label: Label,
 }
 
 impl Default for LabelEntity {
     fn default() -> Self {
         LabelEntity {
+            label: Label::default(),
             node: Default::default(),
             quad: Default::default(),
-            mesh: QUAD_HANDLE,
-            // NOTE: labels each get their own material.
-            material: Handle::new(), // TODO: maybe abstract this out
             draw: Default::default(),
-            render_pipelines: RenderPipelines::from_handles(&[UI_PIPELINE_HANDLE]),
-            label: Label::default(),
         }
     }
 }

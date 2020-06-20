@@ -15,7 +15,7 @@ fn main() {
 fn text_update_system(diagnostics: Res<Diagnostics>, mut label: ComMut<Label>) {
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(average) = fps.average() {
-            label.text = format!("FPS: {}", average);
+            label.text = format!("FPS: {:.2}", average);
         }
     }
 }
@@ -25,7 +25,6 @@ fn setup(command_buffer: &mut CommandBuffer, asset_server: Res<AssetServer>) {
     command_buffer
         .build()
         // 2d camera
-        .add_entity(OrthographicCameraEntity::default())
         .add_entity(OrthographicCameraEntity::ui())
         // texture
         .add_entity(LabelEntity {

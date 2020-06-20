@@ -37,6 +37,10 @@ impl<T> Handle<T> {
         }
     }
 
+    /// Gets a handle for the given type that has this handle's id. This is useful when an
+    /// asset is derived from another asset. In this case, a common handle can be used to
+    /// correlate them.
+    /// NOTE: This pattern might eventually be replaced by a more formal asset dependency system.
     pub fn as_handle<U>(&self) -> Handle<U> {
         Handle::from_id(self.id)
     }
