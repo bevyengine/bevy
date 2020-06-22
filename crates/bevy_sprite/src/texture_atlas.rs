@@ -111,15 +111,15 @@ mod tests {
             scale: 4.0,
         };
 
-        assert_eq!(x.byte_len(), 36);
+        assert_eq!(x.byte_len(), 40);
         let mut bytes = vec![0; x.byte_len()];
 
         x.write_bytes(&mut bytes);
 
-        let position = Vec3::from_bytes(&bytes[0..12]);
-        let color = Color::from_bytes(&bytes[12..28]);
-        let scale = f32::from_bytes(&bytes[28..32]);
-        let index = u32::from_bytes(&bytes[32..36]);
+        let position = Vec3::from_bytes(&bytes[0..16]);
+        let color = Color::from_bytes(&bytes[16..32]);
+        let scale = f32::from_bytes(&bytes[32..36]);
+        let index = u32::from_bytes(&bytes[36..40]);
 
         assert_eq!(position, x.position);
         assert_eq!(color, x.color);
