@@ -33,12 +33,14 @@ layout(set = 3, binding = 1) uniform sampler StandardMaterial_albedo_texture_sam
 # endif
 
 void main() {
-    vec4 albedo = Albedo;
+    vec4 output_color = Albedo;
 # ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
-    albedo *= texture(
+    output_color *= texture(
         sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_texture_sampler),
         v_Uv);
 # endif
+
+# ifdef STANDARDMATERIAL_SHADED
     vec3 normal = normalize(v_Normal);
     vec3 ambient = vec3(0.05, 0.05, 0.05);
     // accumulate color
@@ -51,7 +53,9 @@ void main() {
         // add light contribution
         color += diffuse * light.color.xyz;
     }
+    output_color.xyz *= color;
+# endif
+
     // multiply the light by material color
-    o_Target = vec4(color, 1.0) * albedo;
-    // o_Target = vec4(v_Normal, 1.0);
+    o_Target = output_color;
 }
