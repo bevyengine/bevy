@@ -91,58 +91,11 @@ unsafe impl Byteable for i64 {}
 unsafe impl Byteable for isize {}
 unsafe impl Byteable for f32 {}
 unsafe impl Byteable for f64 {}
-
-impl Bytes for Vec2 {
-    fn write_bytes(&self, buffer: &mut [u8]) {
-        let array: [f32; 2] = (*self).into();
-        array.write_bytes(buffer);
-    }
-    fn byte_len(&self) -> usize {
-        std::mem::size_of::<Self>()
-    }
-}
-
-impl FromBytes for Vec2 {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        let array = <[f32; 2]>::from_bytes(bytes);
-        Vec2::from(array)
-    }
-}
-
-impl Bytes for Vec3 {
-    fn write_bytes(&self, buffer: &mut [u8]) {
-        let array: [f32; 3] = (*self).into();
-        array.write_bytes(buffer);
-    }
-    fn byte_len(&self) -> usize {
-        // cant use self here because Vec3 is a simd type / technically a vec4
-        std::mem::size_of::<[f32; 3]>()
-    }
-}
-
-impl FromBytes for Vec3 {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        let array = <[f32; 3]>::from_bytes(bytes);
-        Vec3::from(array)
-    }
-}
-
-impl Bytes for Vec4 {
-    fn write_bytes(&self, buffer: &mut [u8]) {
-        let array: [f32; 4] = (*self).into();
-        array.write_bytes(buffer);
-    }
-    fn byte_len(&self) -> usize {
-        std::mem::size_of::<Self>()
-    }
-}
-
-impl FromBytes for Vec4 {
-    fn from_bytes(bytes: &[u8]) -> Self {
-        let array = <[f32; 4]>::from_bytes(bytes);
-        Vec4::from(array)
-    }
-}
+unsafe impl Byteable for Vec2 {}
+// NOTE: Vec3 actually takes up the size of 4 floats / 16 bytes due to SIMD. This is actually convenient because GLSL
+// uniform buffer objects pad Vec3s to be 16 bytes. 
+unsafe impl Byteable for Vec3 {}
+unsafe impl Byteable for Vec4 {}
 
 impl Bytes for Mat4 {
     fn write_bytes(&self, buffer: &mut [u8]) {

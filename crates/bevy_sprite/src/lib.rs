@@ -22,7 +22,7 @@ use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_render::{
     mesh::{shape, Mesh},
     render_graph::RenderGraph,
-    shader::asset_shader_def_system,
+    shader::asset_shader_defs_system,
 };
 use glam::Vec2;
 use legion::prelude::IntoSystem;
@@ -40,7 +40,7 @@ impl AppPlugin for SpritePlugin {
             .add_system_to_stage(stage::POST_UPDATE, sprite_system())
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                asset_shader_def_system::<ColorMaterial>.system(),
+                asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
         let resources = app.resources();

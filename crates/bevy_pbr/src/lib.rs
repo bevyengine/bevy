@@ -25,7 +25,7 @@ impl AppPlugin for PbrPlugin {
             .register_component::<Light>()
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                shader::asset_shader_def_system::<StandardMaterial>.system(),
+                shader::asset_shader_defs_system::<StandardMaterial>.system(),
             );
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();

@@ -219,6 +219,7 @@ impl<'a> DrawContext<'a> {
                 specialization,
             )
         };
+
         draw.set_pipeline(specialized_pipeline);
         self.current_pipeline = Some(specialized_pipeline);
         Ok(())

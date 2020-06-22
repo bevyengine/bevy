@@ -42,9 +42,8 @@ fn setup(
         .add_entity(SpriteSheetEntity {
             texture_atlas: texture_atlas_handle,
             sprite: TextureAtlasSprite {
-                index: 0,
                 scale: 6.0,
-                position: Vec3::new(0.0, 0.0, 0.0),
+                ..Default::default()
             },
             ..Default::default()
         })

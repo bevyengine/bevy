@@ -55,7 +55,7 @@ impl ShaderDef for Option<Handle<Texture>> {
     }
 }
 
-pub fn shader_def_system<T>(shader_defs: Com<T>, mut render_pipelines: ComMut<RenderPipelines>)
+pub fn shader_defs_system<T>(shader_defs: Com<T>, mut render_pipelines: ComMut<RenderPipelines>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
@@ -70,7 +70,17 @@ where
     }
 }
 
-pub fn asset_shader_def_system<T>(
+pub fn clear_shader_defs_system(mut render_pipelines: ComMut<RenderPipelines>) {
+    for render_pipeline in render_pipelines.pipelines.iter_mut() {
+        render_pipeline
+            .specialization
+            .shader_specialization
+            .shader_defs
+            .clear();
+    }
+}
+
+pub fn asset_shader_defs_system<T>(
     assets: Res<Assets<T>>,
     asset_handle: Com<Handle<T>>,
     mut render_pipelines: ComMut<RenderPipelines>,

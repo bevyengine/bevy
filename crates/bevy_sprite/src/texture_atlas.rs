@@ -4,6 +4,7 @@ use bevy_core::bytes::Bytes;
 use bevy_render::{
     render_resource::{RenderResource, RenderResources},
     texture::Texture,
+    Color,
 };
 use glam::{Vec2, Vec3};
 use std::collections::HashMap;
@@ -21,12 +22,24 @@ pub struct TextureAtlas {
 
 // NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
 // Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
-#[derive(Bytes, RenderResources, RenderResource, Default)]
+#[derive(Bytes, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub position: Vec3,
+    pub color: Color,
     pub scale: f32,
     pub index: u32,
+}
+
+impl Default for TextureAtlasSprite {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            color: Color::WHITE,
+            scale: 1.0,
+            position: Default::default(),
+        }
+    }
 }
 
 impl TextureAtlas {
@@ -79,5 +92,38 @@ impl TextureAtlas {
         self.texture_handles
             .as_ref()
             .and_then(|texture_handles| texture_handles.get(&texture).cloned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::TextureAtlasSprite;
+    use bevy_core::bytes::{Bytes, FromBytes};
+    use bevy_render::Color;
+    use glam::Vec3;
+
+    #[test]
+    fn test_atlas_byte_conversion() {
+        let x = TextureAtlasSprite {
+            color: Color::RED,
+            index: 2,
+            position: Vec3::new(1., 2., 3.),
+            scale: 4.0,
+        };
+
+        assert_eq!(x.byte_len(), 36);
+        let mut bytes = vec![0; x.byte_len()];
+
+        x.write_bytes(&mut bytes);
+
+        let position = Vec3::from_bytes(&bytes[0..12]);
+        let color = Color::from_bytes(&bytes[12..28]);
+        let scale = f32::from_bytes(&bytes[28..32]);
+        let index = u32::from_bytes(&bytes[32..36]);
+
+        assert_eq!(position, x.position);
+        assert_eq!(color, x.color);
+        assert_eq!(scale, x.scale);
+        assert_eq!(index, x.index);
     }
 }

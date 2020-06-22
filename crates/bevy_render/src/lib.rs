@@ -41,6 +41,7 @@ use mesh::mesh_resource_provider_system;
 use pipeline::{draw_render_pipelines_system, RenderPipelines};
 use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
 use render_resource::AssetRenderResourceBindings;
+use shader::clear_shader_defs_system;
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -112,7 +113,8 @@ impl AppPlugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph_schedule_executor_system,
             )
-            .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system());
+            .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system())
+            .add_system_to_stage(stage::POST_RENDER, clear_shader_defs_system.system());
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();

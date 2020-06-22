@@ -8,7 +8,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system_to_stage(
             stage::POST_UPDATE,
-            shader::asset_shader_def_system::<MyMaterial>.system(),
+            shader::asset_shader_defs_system::<MyMaterial>.system(),
         )
         .run();
 }

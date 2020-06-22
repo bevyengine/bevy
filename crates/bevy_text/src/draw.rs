@@ -132,6 +132,7 @@ impl<'a> Drawable for DrawableText<'a> {
                     let offset = scaled_font.descent() + glyph_height;
                     let sprite_buffer = TextureAtlasSprite {
                         index: glyph_atlas_info.char_index,
+                        color: self.style.color,
                         position: caret
                             + Vec3::new(
                                 0.0 + glyph_width / 2.0 + bounds.min.x,
