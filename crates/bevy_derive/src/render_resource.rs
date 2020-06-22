@@ -9,6 +9,7 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
     let bevy_asset_path: Path = get_path(&modules.bevy_asset);
+    let bevy_core_path: Path = get_path(&modules.bevy_core);
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
@@ -17,9 +18,11 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
                 Some(#bevy_render_path::render_resource::RenderResourceType::Buffer)
             }
             fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+                use #bevy_core_path::bytes::Bytes;
                 self.write_bytes(buffer);
             }
             fn buffer_byte_len(&self) -> Option<usize> {
+                use #bevy_core_path::bytes::Bytes;
                 Some(self.byte_len())
             }
             fn texture(&self) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {

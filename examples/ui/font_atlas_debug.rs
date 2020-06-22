@@ -42,11 +42,7 @@ fn atlas_render_system(
             let texture_atlas = texture_atlases.get(&font_atlas.texture_atlas).unwrap();
             command_buffer.build().add_entity(SpriteEntity {
                 material: materials.add(texture_atlas.texture.into()),
-                quad: Quad {
-                    position: Vec2::new(-300.0, 0.),
-                    ..Default::default()
-                },
-                sprite: Sprite { scale: 1.0 },
+                translation: Vec3::new(-300.0, 0., 0.0).into(),
                 ..Default::default()
             });
             break;

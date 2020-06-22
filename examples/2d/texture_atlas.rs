@@ -81,11 +81,7 @@ fn load_atlas(
             // draw the atlas itself
             .add_entity(SpriteEntity {
                 material: materials.add(texture_atlas_texture.into()),
-                quad: Quad {
-                    position: Vec2::new(-300.0, 0.),
-                    ..Default::default()
-                },
-                sprite: Sprite { scale: 1.0 },
+                translation: Vec3::new(-300.0, 0., 0.0).into(),
                 ..Default::default()
             });
 

@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Quad, TextureAtlas, TextureAtlasSprite};
+use crate::{ColorMaterial, Quad, TextureAtlas, TextureAtlasSprite, Sprite};
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
@@ -111,6 +111,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
 pub mod node {
     pub const COLOR_MATERIAL: &'static str = "color_material";
     pub const QUAD: &'static str = "quad";
+    pub const SPRITE: &'static str = "sprite";
     pub const SPRITE_SHEET: &'static str = "sprite_sheet";
     pub const SPRITE_SHEET_SPRITE: &'static str = "sprite_sheet_sprite";
 }
@@ -130,6 +131,9 @@ impl SpriteRenderGraphBuilder for RenderGraph {
 
         self.add_system_node(node::QUAD, RenderResourcesNode::<Quad>::new(false));
         self.add_node_edge(node::QUAD, base_render_graph::node::MAIN_PASS)
+            .unwrap();
+        self.add_system_node(node::SPRITE, RenderResourcesNode::<Sprite>::new(true));
+        self.add_node_edge(node::SPRITE, base_render_graph::node::MAIN_PASS)
             .unwrap();
 
         self.add_system_node(

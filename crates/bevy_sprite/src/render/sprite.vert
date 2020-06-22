@@ -10,15 +10,15 @@ layout(set = 0, binding = 0) uniform Camera2d {
     mat4 ViewProj;
 };
 
-layout(set = 1, binding = 0) uniform Quad {
-    vec2 Quad_Position;
-    vec2 Quad_Size;
-    float Quad_ZIndex;
+layout(set = 2, binding = 0) uniform Transform {
+    mat4 Model;
+};
+layout(set = 2, binding = 1) uniform Sprite {
+    vec2 Sprite_size;
 };
 
 void main() {
     v_Uv = Vertex_Uv;
-    vec3 position = Vertex_Position * vec3(Quad_Size, 0.0);
-    position = position + vec3(Quad_Position, Quad_ZIndex);
-    gl_Position = ViewProj * vec4(position, 1.0);
+    vec3 position = Vertex_Position * vec3(Sprite_size, 1.0);
+    gl_Position = ViewProj * Model * vec4(position, 1.0);
 }
