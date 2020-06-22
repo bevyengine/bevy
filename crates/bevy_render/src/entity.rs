@@ -25,6 +25,7 @@ pub struct PerspectiveCameraEntity {
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
+    pub scale: Scale,
 }
 
 impl Default for PerspectiveCameraEntity {
@@ -38,6 +39,7 @@ impl Default for PerspectiveCameraEntity {
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
+            scale: Default::default(),
         }
     }
 }
@@ -49,6 +51,7 @@ pub struct OrthographicCameraEntity {
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
+    pub scale: Scale,
 }
 
 impl OrthographicCameraEntity {
@@ -65,6 +68,7 @@ impl OrthographicCameraEntity {
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
+            scale: Default::default(),
         }
     }
 }
@@ -80,6 +84,7 @@ impl Default for OrthographicCameraEntity {
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
+            scale: Default::default(),
         }
     }
 }
