@@ -14,6 +14,7 @@ impl WindowId {
     }
 }
 
+#[derive(Debug)]
 pub struct Window {
     pub id: WindowId,
     pub width: u32,
