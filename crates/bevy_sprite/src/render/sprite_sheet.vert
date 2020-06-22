@@ -33,17 +33,19 @@ layout(set = 1, binding = 1) buffer TextureAtlas_textures {
 };
 
 
-layout(set = 2, binding = 0) uniform TextureAtlasSprite {
-    vec3 TextureAtlasSprite_position;
+layout(set = 2, binding = 0) uniform Transform {
+    mat4 SpriteTransform;
+};
+
+layout(set = 2, binding = 1) uniform TextureAtlasSprite {
     vec4 TextureAtlasSprite_color;
-    float TextureAtlasSprite_scale;
     uint TextureAtlasSprite_index;
 };
 
 void main() {
     Rect sprite_rect = Textures[TextureAtlasSprite_index];
     vec2 sprite_dimensions = sprite_rect.end - sprite_rect.begin;
-    vec3 vertex_position = vec3(Vertex_Position.xy * sprite_dimensions * TextureAtlasSprite_scale, 0.0) + TextureAtlasSprite_position.xyz;
+    vec3 vertex_position = vec3(Vertex_Position.xy * sprite_dimensions, 0.0);
     vec2 uvs[4] = vec2[](
         vec2(sprite_rect.begin.x, sprite_rect.end.y),
         sprite_rect.begin,
@@ -52,5 +54,5 @@ void main() {
     );
     v_Uv = uvs[gl_VertexIndex] / AtlasSize;
     v_Color = TextureAtlasSprite_color;
-    gl_Position = ViewProj * vec4(vertex_position, 1.0);
+    gl_Position = ViewProj * SpriteTransform * vec4(vertex_position, 1.0);
 }

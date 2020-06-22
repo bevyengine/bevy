@@ -41,10 +41,7 @@ fn setup(
         .add_entity(OrthographicCameraEntity::default())
         .add_entity(SpriteSheetEntity {
             texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite {
-                scale: 6.0,
-                ..Default::default()
-            },
+            scale: Scale(6.0),
             ..Default::default()
         })
         .add(Timer::from_seconds(0.1));

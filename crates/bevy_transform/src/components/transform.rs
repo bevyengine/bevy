@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct Transform {
     pub value: Mat4,
+    #[property(ignore)]
     pub sync: bool, // NOTE: this is hopefully a temporary measure to allow setting the transform directly.
                     // ideally setting the transform automatically propagates back to position / translation / rotation,
                     // but right now they are always considered the source of truth

@@ -69,12 +69,9 @@ fn load_atlas(
             .build()
             // draw a sprite from the atlas
             .add_entity(SpriteSheetEntity {
-                sprite: TextureAtlasSprite {
-                    index: vendor_index as u32,
-                    scale: 4.0,
-                    position: Vec3::new(150.0, 0.0, 0.0),
-                    ..Default::default()
-                },
+                scale: Scale(4.0),
+                translation: Translation(Vec3::new(150.0, 0.0, 0.0)),
+                sprite: TextureAtlasSprite::new(vendor_index as u32),
                 texture_atlas: atlas_handle,
                 ..Default::default()
             })

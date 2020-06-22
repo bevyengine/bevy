@@ -6,7 +6,7 @@ use bevy_render::{
     texture::Texture,
     Color,
 };
-use glam::{Vec2, Vec3};
+use glam::Vec2;
 use std::collections::HashMap;
 
 #[derive(RenderResources)]
@@ -25,9 +25,7 @@ pub struct TextureAtlas {
 #[derive(Bytes, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
-    pub position: Vec3,
     pub color: Color,
-    pub scale: f32,
     pub index: u32,
 }
 
@@ -36,8 +34,15 @@ impl Default for TextureAtlasSprite {
         Self {
             index: 0,
             color: Color::WHITE,
-            scale: 1.0,
-            position: Default::default(),
+        }
+    }
+}
+
+impl TextureAtlasSprite {
+    pub fn new(index: u32) -> TextureAtlasSprite {
+        Self {
+            index,
+            ..Default::default()
         }
     }
 }
@@ -92,38 +97,5 @@ impl TextureAtlas {
         self.texture_handles
             .as_ref()
             .and_then(|texture_handles| texture_handles.get(&texture).cloned())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::TextureAtlasSprite;
-    use bevy_core::bytes::{Bytes, FromBytes};
-    use bevy_render::Color;
-    use glam::Vec3;
-
-    #[test]
-    fn test_atlas_byte_conversion() {
-        let x = TextureAtlasSprite {
-            color: Color::RED,
-            index: 2,
-            position: Vec3::new(1., 2., 3.),
-            scale: 4.0,
-        };
-
-        assert_eq!(x.byte_len(), 40);
-        let mut bytes = vec![0; x.byte_len()];
-
-        x.write_bytes(&mut bytes);
-
-        let position = Vec3::from_bytes(&bytes[0..16]);
-        let color = Color::from_bytes(&bytes[16..32]);
-        let scale = f32::from_bytes(&bytes[32..36]);
-        let index = u32::from_bytes(&bytes[36..40]);
-
-        assert_eq!(position, x.position);
-        assert_eq!(color, x.color);
-        assert_eq!(scale, x.scale);
-        assert_eq!(index, x.index);
     }
 }

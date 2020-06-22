@@ -12,7 +12,7 @@ use bevy_render::{
     Color,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use std::collections::HashSet;
 
 pub struct TextStyle {
@@ -130,24 +130,31 @@ impl<'a> Drawable for DrawableText<'a> {
 
                     let bounds = outlined.px_bounds();
                     let offset = scaled_font.descent() + glyph_height;
-                    let sprite_buffer = TextureAtlasSprite {
-                        index: glyph_atlas_info.char_index,
-                        color: self.style.color,
-                        position: caret
+                    let transform = Mat4::from_translation(
+                        caret
                             + Vec3::new(
                                 0.0 + glyph_width / 2.0 + bounds.min.x,
                                 glyph_height / 2.0 - bounds.min.y - offset,
                                 0.0,
                             ),
-                        scale: 1.0,
+                    );
+                    let sprite = TextureAtlasSprite {
+                        index: glyph_atlas_info.char_index,
+                        color: self.style.color,
                     };
 
+                    let transform_buffer = context
+                        .shared_buffers
+                        .get_buffer(&transform, BufferUsage::UNIFORM)
+                        .unwrap();
                     let sprite_buffer = context
                         .shared_buffers
-                        .get_buffer(&sprite_buffer, BufferUsage::UNIFORM)
+                        .get_buffer(&sprite, BufferUsage::UNIFORM)
                         .unwrap();
                     let sprite_bind_group =
-                        BindGroup::build().add_binding(0, sprite_buffer).finish();
+                        BindGroup::build()
+                            .add_binding(0, transform_buffer)
+                            .add_binding(1, sprite_buffer).finish();
                     context.create_bind_group_resource(2, &sprite_bind_group)?;
                     draw.set_bind_group(2, &sprite_bind_group);
                     draw.draw_indexed(indices.clone(), 0, 0..1);
