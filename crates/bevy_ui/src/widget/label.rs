@@ -77,7 +77,7 @@ impl Label {
             &texture_atlases,
             &mut render_resource_bindings,
             &mut asset_render_resource_bindings,
-            Vec3::new(position.x(), position.y(), 0.0),
+            Vec3::new(position.x(), position.y(), quad.z_index),
             &label.style,
             &label.text,
         );
