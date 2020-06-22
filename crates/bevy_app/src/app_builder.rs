@@ -1,7 +1,7 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
     schedule_plan::SchedulePlan,
-    stage, App, AppExit, Events, FromResources, System,
+    stage, App, AppExit, Events, FromResources, System, startup_stage,
 };
 
 use legion::prelude::{IntoSystem, Resources, World};
@@ -139,7 +139,7 @@ impl AppBuilder {
 
     pub fn add_startup_system(&mut self, system: impl Into<System>) -> &mut Self {
         self.startup_schedule_plan
-            .add_system_to_stage(stage::STARTUP, system);
+            .add_system_to_stage(startup_stage::STARTUP, system);
         self
     }
 
@@ -147,7 +147,7 @@ impl AppBuilder {
     where
         T: Into<System>,
     {
-        self.init_startup_system_to_stage(stage::STARTUP, build)
+        self.init_startup_system_to_stage(startup_stage::STARTUP, build)
     }
 
     pub fn init_startup_system_to_stage<T>(
@@ -163,8 +163,8 @@ impl AppBuilder {
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_startup_stage(stage::STARTUP)
-            .add_startup_stage(stage::POST_STARTUP)
+        self.add_startup_stage(startup_stage::STARTUP)
+            .add_startup_stage(startup_stage::POST_STARTUP)
             .add_stage(stage::FIRST)
             .add_stage(stage::EVENT_UPDATE)
             .add_stage(stage::PRE_UPDATE)

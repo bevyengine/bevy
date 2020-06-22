@@ -7,6 +7,7 @@ mod resources;
 pub mod schedule_plan;
 pub mod schedule_runner;
 pub mod stage;
+pub mod startup_stage;
 mod system;
 
 pub use app::*;
