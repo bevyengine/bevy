@@ -145,16 +145,9 @@ impl PipelineCompiler {
             Some(vertex_buffer_descriptors),
             &pipeline_specialization.dynamic_bindings,
         );
-
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
-        let specialized_pipeline_handle =
-            if *pipeline_specialization == PipelineSpecialization::default() {
-                pipelines.set(source_pipeline, specialized_descriptor);
-                source_pipeline
-            } else {
-                pipelines.add(specialized_descriptor)
-            };
 
+        let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(
             specialized_pipeline_handle,
             pipelines.get(&specialized_pipeline_handle).unwrap(),
