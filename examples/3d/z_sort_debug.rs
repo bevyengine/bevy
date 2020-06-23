@@ -18,14 +18,17 @@ fn rotator_system(time: Res<Time>, _rotator: ComMut<Rotator>, mut rotation: ComM
 
 fn camera_order_color_system(
     world: &mut SubWorld,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     camera_query: &mut Query<(Read<Camera>, Read<VisibleEntities>)>,
-    _material_query: &mut Query<Write<StandardMaterial>>,
+    _material_query: &mut Query<Read<Handle<StandardMaterial>>>,
 ) {
     for (_camera, visible_entities) in camera_query.iter(world) {
         for visible_entity in visible_entities.value.iter() {
-            println!("visible_entity: {:?}", visible_entity.order);
-            // let mut material = world.get_component_mut::<StandardMaterial>(visible_entity.entity).unwrap();
-            // println!("entity {:?}", visible_entity.order);
+            if let Some(material_handle) = world.get_component::<Handle<StandardMaterial>>(visible_entity.entity) {
+                let material = materials.get_mut(&material_handle).unwrap();
+                let value = 1.0 - (20.0 - visible_entity.order.0) / 7.0;
+                material.albedo = Color::rgb(value, value, value);
+            }
         }
     }
 }
