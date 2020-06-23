@@ -25,11 +25,12 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
         .build(move |commands, world, _resource, queries| {
             // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
             // them from the `Children` of the `PreviousParent`.
-            for (entity, previous_parent) in queries.0.iter_entities(world) {
+            let (mut children_world, mut world) = world.split::<Write<Children>>();
+            for (entity, previous_parent) in queries.0.iter_entities(&mut world) {
                 log::trace!("Parent was removed from {}", entity);
                 if let Some(previous_parent_entity) = previous_parent.0 {
                     if let Some(mut previous_parent_children) =
-                        world.get_component_mut::<Children>(previous_parent_entity)
+                        children_world.get_component_mut::<Children>(previous_parent_entity)
                     {
                         log::trace!(" > Removing {} from it's prev parent's children", entity);
                         previous_parent_children.0.retain(|e| *e != entity);
@@ -42,7 +43,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
                 HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
 
             // Entities with a changed Parent (that also have a PreviousParent, even if None)
-            for (entity, (parent, mut previous_parent)) in queries.1.iter_entities_mut(world) {
+            for (entity, (parent, mut previous_parent)) in queries.1.iter_entities_mut(&mut world) {
                 log::trace!("Parent changed for {}", entity);
 
                 // If the `PreviousParent` is not None.
@@ -55,7 +56,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
 
                     // Remove from `PreviousParent.Children`.
                     if let Some(mut previous_parent_children) =
-                        world.get_component_mut::<Children>(previous_parent_entity)
+                        children_world.get_component_mut::<Children>(previous_parent_entity)
                     {
                         log::trace!(" > Removing {} from prev parent's children", entity);
                         (*previous_parent_children).0.retain(|e| *e != entity);
@@ -68,7 +69,7 @@ pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
                 // Add to the parent's `Children` (either the real component, or
                 // `children_additions`).
                 log::trace!("Adding {} to it's new parent {}", entity, parent.0);
-                if let Some(mut new_parent_children) = world.get_component_mut::<Children>(parent.0)
+                if let Some(mut new_parent_children) = children_world.get_component_mut::<Children>(parent.0)
                 {
                     // This is the parent
                     log::trace!(

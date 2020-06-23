@@ -1,6 +1,6 @@
 [package]
 name = "legion"
-version = "0.2.1"
+version = "0.2.4"
 description = "High performance entity component system (ECS) library"
 authors = ["Thomas Gillen <thomas.gillen@googlemail.com>"]
 repository = "https://github.com/TomGillen/legion"
@@ -30,8 +30,8 @@ more-system-fns = ["legion-systems/more-system-fns"]
 # ]
 
 [dependencies]
-legion-core = { path = "legion_core", version = "0.2.1", default-features = false }
-legion-systems = { path = "legion_systems", version = "0.2.1", default-features = false }
+legion-core = { path = "legion_core", version = "0.2.4", default-features = false }
+legion-systems = { path = "legion_systems", version = "0.2.4", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3"

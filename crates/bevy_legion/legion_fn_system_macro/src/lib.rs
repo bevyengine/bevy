@@ -44,44 +44,27 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
         let resource_tuple = tuple(resource);
         let resource_var_tuple = tuple(resource_var);
 
-        let resource_access = if resource_count == 0 {
-            quote! { Access::default() }
+        let resource_permissions = if resource_count == 0 {
+            quote! { Permissions::new() }
         } else {
-            quote! {{
-                let mut resource_access: Access<ResourceTypeId> = Access::default();
-                resource_access
-                    .reads
-                    .extend(<#resource_tuple as ResourceSet>::read_types().iter());
-                resource_access
-                    .writes
-                    .extend(<#resource_tuple as ResourceSet>::write_types().iter());
-                resource_access
-            }}
+            quote! {
+                <#resource_tuple as ResourceSet>::requires_permissions()
+            }
         };
 
         for query_count in 0..=max_queries {
             let view = &views[0..query_count];
             let query_var = &query_vars[0..query_count];
 
-            let view_tuple = tuple(view);
             let query_var_tuple = tuple(query_var);
             let subworld = &subworld[0..query_count.min(1)];
             let subworld_var = &subworld_var[0..query_count.min(1)];
 
-            let component_access = if query_count == 0 {
-                quote! { Access::default() }
-            } else {
-                quote! {{
-                    let mut component_access: Access<ComponentTypeId> = Access::default();
-                    component_access
-                        .reads
-                        .extend(<#view_tuple as View>::read_types().iter());
-                    component_access
-                        .writes
-                        .extend(<#view_tuple as View>::write_types().iter());
-                    component_access
-                }}
-            };
+            let component_permissions = quote! {{
+                let mut permissions = Permissions::new();
+                #(permissions.add(#view::requires_permissions());)*
+                permissions
+            }};
 
             for command_buffer_index in 0..2 {
                 let command_buffer = &command_buffer[0..command_buffer_index];
@@ -93,18 +76,17 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                         #(#view: for<'b> View<'b> + DefaultFilter + ViewElement),*
                     > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*)> for Func
                     where
-                        Func: FnMut(#(#resource,)*#(&mut #command_buffer,)* #(&mut #subworld,)* #(&mut SystemQuery<#view, <#view as DefaultFilter>::Filter>),*) + Send + Sync + 'static,
+                        Func: FnMut(#(#resource,)* #(&mut #command_buffer,)* #(&mut #subworld,)* #(&mut Query<#view, <#view as DefaultFilter>::Filter>),*) + Send + Sync + 'static,
                         #(<#view as DefaultFilter>::Filter: Sync),*
                     {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
-                            let resource_access: Access<ResourceTypeId> = #resource_access;
-                            let component_access: Access<ComponentTypeId> = #component_access;
-
+                            let resource_permissions: Permissions<ResourceTypeId> = #resource_permissions;
+                            let component_permissions: Permissions<ComponentTypeId> = #component_permissions;
                             let run_fn = FuncSystemFnWrapper(
                                 move |_command_buffer,
                                     _world,
                                     _resources: #resource_tuple,
-                                    _queries: &mut (#(SystemQuery<#view, <#view as DefaultFilter>::Filter>),*)
+                                    _queries: &mut (#(Query<#view, <#view as DefaultFilter>::Filter>),*)
                                 | {
                                     let #resource_var_tuple = _resources;
                                     let #query_var_tuple = _queries;
@@ -117,11 +99,13 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                                 name: id,
                                 queries: AtomicRefCell::new((#(<#view>::query()),*)),
                                 access: SystemAccess {
-                                    resources: resource_access,
-                                    components: component_access,
-                                    tags: Access::default(),
+                                    resources: resource_permissions,
+                                    components: component_permissions,
+                                    tags: Permissions::default(),
                                 },
-                                archetypes: ArchetypeAccess::Some(BitSet::default()),
+                                // TODO: by setting to ALL, we're missing out on legion's ability to parallelize archetypes
+                                // archetypes: ArchetypeAccess::Some(BitSet::default()),
+                                archetypes: ArchetypeAccess::All,
                                 _resources: PhantomData::<#resource_tuple>,
                                 command_buffer: FxHashMap::default(),
                                 run_fn: AtomicRefCell::new(run_fn),

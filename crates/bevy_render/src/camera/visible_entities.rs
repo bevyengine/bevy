@@ -1,11 +1,7 @@
 use crate::{draw::Draw, Camera};
 use bevy_core::float_ord::FloatOrd;
 use bevy_transform::prelude::Transform;
-use legion::{
-    entity::Entity,
-    prelude::{Read, Write},
-    systems::{Query, SubWorld},
-};
+use legion::prelude::*;
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -26,17 +22,20 @@ impl VisibleEntities {
 
 pub fn visible_entities_system(
     world: &mut SubWorld,
-    camera_query: &mut Query<(Read<Camera>, Read<Transform>, Write<VisibleEntities>)>,
+    camera_query: &mut Query<(Read<Camera>, Write<VisibleEntities>)>,
     entities_query: &mut Query<Read<Draw>>,
+    _transform_query: &mut Query<Read<Transform>>,
     _transform_entities_query: &mut Query<(Read<Draw>, Read<Transform>)>, // ensures we can optionally access Transforms
 ) {
-    for (_camera, camera_transform, mut visible_entities) in camera_query.iter_mut(world) {
+    let (mut camera_world, world) = world.split_for_query(camera_query);
+    for (camera_entity, (_camera, mut visible_entities)) in camera_query.iter_entities_mut(&mut camera_world) {
         visible_entities.value.clear();
+        let camera_transform = world.get_component::<Transform>(camera_entity).unwrap();
         let camera_position = camera_transform.value.w_axis().truncate();
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, draw) in entities_query.iter_entities(world) {
+        for (entity, draw) in entities_query.iter_entities(&world) {
             if !draw.is_visible {
                 continue;
             }

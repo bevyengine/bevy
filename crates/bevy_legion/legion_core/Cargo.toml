@@ -1,6 +1,6 @@
 [package]
 name = "legion-core"
-version = "0.2.1"
+version = "0.2.4"
 description = "High performance entity component system (ECS) library"
 authors = ["Thomas Gillen <thomas.gillen@googlemail.com>"]
 repository = "https://github.com/TomGillen/legion"
@@ -33,6 +33,7 @@ metrics = { version = "0.12", optional = true }
 serde = { version = "1", optional = true }
 fxhash = "0.2"
 thiserror = "1.0"
+bit-set = "0.5"
 
 [dev-dependencies]
 tracing-subscriber = "0.2"

@@ -1,6 +1,6 @@
 [package]
 name = "legion-systems"
-version = "0.2.1"
+version = "0.2.4"
 description = "High performance entity component system (ECS) library"
 authors = ["Thomas Gillen <thomas.gillen@googlemail.com>"]
 repository = "https://github.com/TomGillen/legion"
@@ -19,7 +19,7 @@ par-schedule = ["rayon", "crossbeam-queue"]
 more-system-fns = []
 
 [dependencies]
-legion-core = { path = "../legion_core", version = "0.2.1", default-features = false }
+legion-core = { path = "../legion_core", version = "0.2.4", default-features = false }
 legion_fn_system_macro = { path = "../legion_fn_system_macro" }
 
 downcast-rs = "1.0"
@@ -32,7 +32,6 @@ bit-set = "0.5"
 paste = "0.1"
 tracing = "0.1"
 fxhash = "0.2"
-uuid = "0.8"
 
 [dev-dependencies]
 tracing-subscriber = "0.2"

@@ -12,10 +12,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_property::Properties;
-use legion::{
-    prelude::{Res, ResourceSet, Write},
-    systems::{resource::ResourceTypeId, ResMut, SubWorld, Query},
-};
+use legion::{systems::resource::ResourceTypeId, prelude::*, permission::Permissions};
 use std::{
     ops::{Deref, DerefMut, Range},
     sync::Arc,
@@ -165,20 +162,16 @@ impl<'a> ResourceSet for DrawContext<'a> {
             current_pipeline: None,
         }
     }
-    fn read_types() -> Vec<legion::systems::resource::ResourceTypeId> {
-        vec![
-            ResourceTypeId::of::<Box<dyn RenderResourceContext>>(),
-            ResourceTypeId::of::<VertexBufferDescriptors>(),
-            ResourceTypeId::of::<AssetRenderResourceBindings>(),
-            ResourceTypeId::of::<SharedBuffers>(),
-        ]
-    }
-    fn write_types() -> Vec<legion::systems::resource::ResourceTypeId> {
-        vec![
-            ResourceTypeId::of::<Assets<PipelineDescriptor>>(),
-            ResourceTypeId::of::<Assets<Shader>>(),
-            ResourceTypeId::of::<PipelineCompiler>(),
-        ]
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ResourceTypeId::of::<Box<dyn RenderResourceContext>>());
+        permissions.push_read(ResourceTypeId::of::<VertexBufferDescriptors>());
+        permissions.push_read(ResourceTypeId::of::<AssetRenderResourceBindings>());
+        permissions.push_read(ResourceTypeId::of::<SharedBuffers>());
+        permissions.push(ResourceTypeId::of::<Assets<PipelineDescriptor>>());
+        permissions.push(ResourceTypeId::of::<Assets<Shader>>());
+        permissions.push(ResourceTypeId::of::<PipelineCompiler>());
+        permissions
     }
 }
 

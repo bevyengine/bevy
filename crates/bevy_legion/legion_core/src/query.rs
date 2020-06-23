@@ -2,6 +2,8 @@ use crate::borrow::RefIter;
 use crate::borrow::RefIterMut;
 use crate::borrow::RefMap;
 use crate::borrow::RefMapMut;
+use crate::borrow::RefMapMutSet;
+use crate::borrow::RefMapSet;
 use crate::borrow::TryRefIter;
 use crate::borrow::TryRefIterMut;
 use crate::entity::Entity;
@@ -17,17 +19,17 @@ use crate::filter::FilterResult;
 use crate::filter::Passthrough;
 use crate::filter::TagFilter;
 use crate::index::ChunkIndex;
-use crate::index::SetIndex;
+use crate::index::{ArchetypeIndex, SetIndex};
 #[cfg(feature = "par-iter")]
 use crate::iterator::{FissileEnumerate, FissileIterator};
 use crate::storage::ArchetypeData;
 use crate::storage::Component;
 use crate::storage::ComponentStorage;
 use crate::storage::ComponentTypeId;
-use crate::storage::Storage;
 use crate::storage::Tag;
 use crate::storage::TagTypeId;
-use crate::world::World;
+use crate::subworld::{ComponentAccess, StorageAccessor};
+use crate::{permission::Permissions, world::EntityStore};
 use derivative::Derivative;
 use std::any::TypeId;
 use std::iter::Enumerate;
@@ -60,17 +62,17 @@ pub trait View<'a>: Sized + Send + Sync + 'static {
     /// Validates that the view does not break any component borrowing rules.
     fn validate() -> bool;
 
+    /// Determines if the given component access includes all permissions required by the view.
+    fn validate_access(access: &ComponentAccess) -> bool;
+
     /// Determines if the view reads the specified data type.
     fn reads<T: Component>() -> bool;
 
     /// Determines if the view writes to the specified data type.
     fn writes<T: Component>() -> bool;
 
-    /// Returns an array of the components read by this view
-    fn read_types() -> Vec<ComponentTypeId>;
-
-    /// Returns an array of the components written by this view
-    fn write_types() -> Vec<ComponentTypeId>;
+    /// Returns the set of permissions required by the view.
+    fn requires_permissions() -> Permissions<ComponentTypeId>;
 }
 
 /// A type which can construct a default entity filter.
@@ -156,9 +158,15 @@ impl<'a, T: Component> View<'a> for Read<T> {
 
     fn writes<D: Component>() -> bool { false }
 
-    fn read_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn validate_access(access: &ComponentAccess) -> bool {
+        access.allows_read(ComponentTypeId::of::<T>())
+    }
 
-    fn write_types() -> Vec<ComponentTypeId> { Vec::with_capacity(0) }
+    fn requires_permissions() -> Permissions<ComponentTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ComponentTypeId::of::<T>());
+        permissions
+    }
 }
 
 impl<T: Component> ViewElement for Read<T> {
@@ -209,9 +217,15 @@ impl<'a, T: Component> View<'a> for TryRead<T> {
 
     fn writes<D: Component>() -> bool { false }
 
-    fn read_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn requires_permissions() -> Permissions<ComponentTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ComponentTypeId::of::<T>());
+        permissions
+    }
 
-    fn write_types() -> Vec<ComponentTypeId> { Vec::with_capacity(0) }
+    fn validate_access(access: &ComponentAccess) -> bool {
+        access.allows_read(ComponentTypeId::of::<T>())
+    }
 }
 
 impl<T: Component> ViewElement for TryRead<T> {
@@ -268,11 +282,15 @@ impl<'a, T: Component> View<'a> for Write<T> {
     #[inline]
     fn writes<D: Component>() -> bool { TypeId::of::<T>() == TypeId::of::<D>() }
 
-    #[inline]
-    fn read_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn requires_permissions() -> Permissions<ComponentTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push(ComponentTypeId::of::<T>());
+        permissions
+    }
 
-    #[inline]
-    fn write_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn validate_access(access: &ComponentAccess) -> bool {
+        access.allows_write(ComponentTypeId::of::<T>())
+    }
 }
 
 impl<T: Component> ViewElement for Write<T> {
@@ -323,11 +341,15 @@ impl<'a, T: Component> View<'a> for TryWrite<T> {
     #[inline]
     fn writes<D: Component>() -> bool { TypeId::of::<T>() == TypeId::of::<D>() }
 
-    #[inline]
-    fn read_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn requires_permissions() -> Permissions<ComponentTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push(ComponentTypeId::of::<T>());
+        permissions
+    }
 
-    #[inline]
-    fn write_types() -> Vec<ComponentTypeId> { vec![ComponentTypeId::of::<T>()] }
+    fn validate_access(access: &ComponentAccess) -> bool {
+        access.allows_write(ComponentTypeId::of::<T>())
+    }
 }
 
 impl<T: Component> ViewElement for TryWrite<T> {
@@ -386,11 +408,10 @@ impl<'a, T: Tag> View<'a> for Tagged<T> {
     #[inline]
     fn writes<D: Component>() -> bool { false }
 
-    #[inline]
-    fn read_types() -> Vec<ComponentTypeId> { Vec::with_capacity(0) }
+    fn requires_permissions() -> Permissions<ComponentTypeId> { Permissions::new() }
 
     #[inline]
-    fn write_types() -> Vec<ComponentTypeId> { Vec::with_capacity(0) }
+    fn validate_access(_: &ComponentAccess) -> bool { true }
 }
 
 impl<T: Tag> ViewElement for Tagged<T> {
@@ -449,6 +470,10 @@ macro_rules! impl_view_tuple {
                 true
             }
 
+            fn validate_access(access: &ComponentAccess) -> bool {
+                $( $ty::validate_access(access) )&&*
+            }
+
             fn reads<Data: Component>() -> bool {
                 $( $ty::reads::<Data>() )||*
             }
@@ -457,16 +482,10 @@ macro_rules! impl_view_tuple {
                 $( $ty::writes::<Data>() )||*
             }
 
-            fn read_types() -> Vec<ComponentTypeId> {
-                let mut vec = vec![];
-                $( vec.extend($ty::read_types()); )*
-                vec
-            }
-
-            fn write_types() -> Vec<ComponentTypeId> {
-                let mut vec = vec![];
-                $( vec.extend($ty::write_types()); )*
-                vec
+            fn requires_permissions() -> Permissions<ComponentTypeId> {
+                let mut permissions = Permissions::new();
+                $( permissions.add($ty::requires_permissions()); )*
+                permissions
             }
         }
     };
@@ -515,7 +534,7 @@ impl<'a, V: for<'b> View<'b>> Chunk<'a, V> {
 
     /// Get an iterator of all data contained within the chunk.
     #[inline]
-    pub fn iter(&mut self) -> <V as View<'a>>::Iter {
+    pub fn iter_mut(&mut self) -> <V as View<'a>>::Iter {
         V::fetch(
             self.archetype,
             self.components,
@@ -618,7 +637,7 @@ where
     FChunk: Filter<ChunkFilterData<'data>>,
 {
     _view: PhantomData<V>,
-    storage: &'data Storage,
+    storage: StorageAccessor<'data>,
     arch_filter: &'filter FArch,
     chunkset_filter: &'filter FChunkset,
     chunk_filter: &'filter FChunk,
@@ -655,10 +674,20 @@ where
                 match self.archetypes.next() {
                     Some((arch_index, arch_data)) => {
                         if self.arch_filter.is_match(&arch_data).is_pass() {
+                            // validate that we are allowed to access this archetype
+                            if !self
+                                .storage
+                                .can_access_archetype(ArchetypeIndex(arch_index))
+                            {
+                                panic!(
+                                    "query attempted to access archetype unavailable via sub world"
+                                );
+                            }
                             // we have found another set
                             self.set_frontier = {
-                                let chunks =
-                                    unsafe { self.storage.archetypes().get_unchecked(arch_index) };
+                                let chunks = unsafe {
+                                    self.storage.inner().archetypes().get_unchecked(arch_index)
+                                };
                                 let data = ChunksetFilterData {
                                     archetype_data: chunks,
                                 };
@@ -748,7 +777,7 @@ where
                 }
             }
             match self.iter.next() {
-                Some(mut inner) => self.frontier = Some(inner.iter()),
+                Some(mut inner) => self.frontier = Some(inner.iter_mut()),
                 None => return None,
             }
         }
@@ -947,17 +976,17 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn iter_chunks_unchecked<'a, 'data>(
+    pub unsafe fn iter_chunks_unchecked<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkViewIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter> {
         self.filter.init();
         let (arch_filter, chunkset_filter, chunk_filter) = self.filter.filters();
-        let storage = world.storage();
+        let storage = world.get_component_storage::<V>().unwrap();
         let archetypes = arch_filter
             .collect(ArchetypeFilterData {
-                component_types: storage.component_types(),
-                tag_types: storage.tag_types(),
+                component_types: storage.inner().component_types(),
+                tag_types: storage.inner().tag_types(),
             })
             .enumerate();
         ChunkViewIter {
@@ -973,9 +1002,9 @@ where
     }
 
     /// Gets an iterator which iterates through all chunks that match the query.
-    pub fn iter_chunks<'a, 'data>(
+    pub fn iter_chunks<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkViewIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter>
     where
         V: ReadOnly,
@@ -985,9 +1014,9 @@ where
     }
 
     /// Gets an iterator which iterates through all chunks that match the query.
-    pub fn iter_chunks_mut<'a, 'data>(
+    pub fn iter_chunks_mut<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data mut World,
+        world: &'data mut T,
     ) -> ChunkViewIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter> {
         // safe because the &mut World ensures exclusivity
         unsafe { self.iter_chunks_unchecked(world) }
@@ -1005,9 +1034,9 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn iter_entities_unchecked<'a, 'data>(
+    pub unsafe fn iter_entities_unchecked<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkEntityIter<
         'data,
         V,
@@ -1021,9 +1050,9 @@ where
     }
 
     /// Gets an iterator which iterates through all entity data that matches the query, and also yields the the `Entity` IDs.
-    pub fn iter_entities<'a, 'data>(
+    pub fn iter_entities<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkEntityIter<
         'data,
         V,
@@ -1037,9 +1066,9 @@ where
     }
 
     /// Gets an iterator which iterates through all entity data that matches the query, and also yields the the `Entity` IDs.
-    pub fn iter_entities_mut<'a, 'data>(
+    pub fn iter_entities_mut<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data mut World,
+        world: &'data mut T,
     ) -> ChunkEntityIter<
         'data,
         V,
@@ -1061,9 +1090,9 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn iter_unchecked<'a, 'data>(
+    pub unsafe fn iter_unchecked<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkDataIter<
         'data,
         V,
@@ -1077,9 +1106,9 @@ where
     }
 
     /// Gets an iterator which iterates through all entity data that matches the query.
-    pub fn iter<'a, 'data>(
+    pub fn iter<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data World,
+        world: &'data T,
     ) -> ChunkDataIter<
         'data,
         V,
@@ -1093,9 +1122,9 @@ where
     }
 
     /// Gets an iterator which iterates through all entity data that matches the query.
-    pub fn iter_mut<'a, 'data>(
+    pub fn iter_mut<'a, 'data, T: EntityStore>(
         &'a self,
-        world: &'data mut World,
+        world: &'data mut T,
     ) -> ChunkDataIter<
         'data,
         V,
@@ -1117,27 +1146,32 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn for_each_entities_unchecked<'a, 'data, T>(&'a self, world: &'data World, mut f: T)
+    pub unsafe fn for_each_entities_unchecked<'a, 'data, T, W>(&'a self, world: &'data W, mut f: T)
     where
         T: Fn((Entity, <<V as View<'data>>::Iter as Iterator>::Item)),
+        W: EntityStore,
     {
-        self.iter_entities_unchecked(world).for_each(&mut f);
+        for mut chunk in self.iter_chunks_unchecked(world) {
+            chunk.iter_entities_mut().for_each(&mut f)
+        }
     }
 
     /// Iterates through all entity data that matches the query.
-    pub fn for_each_entities<'a, 'data, T>(&'a self, world: &'data World, f: T)
+    pub fn for_each_entities<'a, 'data, T, W>(&'a self, world: &'data W, f: T)
     where
         T: Fn((Entity, <<V as View<'data>>::Iter as Iterator>::Item)),
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.for_each_entities_unchecked(world, f) };
     }
 
     /// Iterates through all entity data that matches the query.
-    pub fn for_each_entities_mut<'a, 'data, T>(&'a self, world: &'data mut World, f: T)
+    pub fn for_each_entities_mut<'a, 'data, T, W>(&'a self, world: &'data mut W, f: T)
     where
         T: Fn((Entity, <<V as View<'data>>::Iter as Iterator>::Item)),
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.for_each_entities_unchecked(world, f) };
@@ -1155,30 +1189,102 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn for_each_unchecked<'a, 'data, T>(&'a self, world: &'data World, mut f: T)
+    pub unsafe fn for_each_unchecked<'a, 'data, T, W>(&'a self, world: &'data W, mut f: T)
     where
         T: Fn(<<V as View<'data>>::Iter as Iterator>::Item),
+        W: EntityStore,
     {
-        self.iter_unchecked(world).for_each(&mut f);
+        for mut chunk in self.iter_chunks_unchecked(world) {
+            chunk.iter_mut().for_each(&mut f)
+        }
     }
 
     /// Iterates through all entity data that matches the query.
-    pub fn for_each<'a, 'data, T>(&'a self, world: &'data World, f: T)
+    pub fn for_each<'a, 'data, T, W>(&'a self, world: &'data W, f: T)
     where
         T: Fn(<<V as View<'data>>::Iter as Iterator>::Item),
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.for_each_unchecked(world, f) };
     }
 
     /// Iterates through all entity data that matches the query.
-    pub fn for_each_mut<'a, 'data, T>(&'a self, world: &'data mut World, f: T)
+    pub fn for_each_mut<'a, 'data, T, W>(&'a self, world: &'data mut W, f: T)
     where
         T: Fn(<<V as View<'data>>::Iter as Iterator>::Item),
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.for_each_unchecked(world, f) };
+    }
+
+    /// Returns a RefMapSet of all components of a given type. This simplifies getting a slice of
+    /// references to all components of type T that match the filter. This can be useful for passing
+    /// to other libraries or FFI.
+    pub fn components<'a, T: Component, W: EntityStore>(
+        &self,
+        world: &'a W,
+    ) -> RefMapSet<'a, Vec<&'a T>> {
+        if !V::reads::<T>() {
+            panic!("data type not readable via this query");
+        }
+
+        let mut borrows = vec![];
+        let mut refs = vec![];
+        let storage = world.get_component_storage::<Read<T>>().unwrap().inner();
+
+        unsafe {
+            self.filter
+                .iter_archetype_indexes(storage)
+                .flat_map(|archetype_index| {
+                    storage
+                        .archetypes()
+                        .get_unchecked(archetype_index.0)
+                        .iter_data_slice::<T>()
+                })
+                .map(|x| x.deconstruct())
+                .for_each(|(borrow, slice)| {
+                    borrows.push(borrow);
+                    refs.extend(slice);
+                });
+        }
+
+        RefMapSet::new(borrows, refs)
+    }
+
+    /// Returns a RefMapMutSet of all components of a given type. This simplifies getting a slice of
+    /// mutable refs to all components of type T that match the filter.
+    pub fn components_mut<'a, T: Component, W: EntityStore>(
+        &self,
+        world: &'a mut W,
+    ) -> RefMapMutSet<'a, Vec<&'a mut T>> {
+        if !V::writes::<T>() {
+            panic!("data type not writable via this query");
+        }
+
+        let mut borrows = vec![];
+        let mut refs = vec![];
+        let storage = world.get_component_storage::<Read<T>>().unwrap().inner();
+
+        unsafe {
+            self.filter
+                .iter_archetype_indexes(storage)
+                .flat_map(|archetype_index| {
+                    storage
+                        .archetypes()
+                        .get_unchecked(archetype_index.0)
+                        .iter_data_slice_unchecked_mut::<T>()
+                })
+                .map(|x| x.deconstruct())
+                .for_each(|(borrow, slice)| {
+                    borrows.push(borrow);
+                    refs.extend(slice);
+                });
+        }
+
+        RefMapMutSet::new(borrows, refs)
     }
 
     #[cfg(feature = "par-iter")]
@@ -1194,21 +1300,22 @@ where
     /// # Panics
     ///
     /// This function may panic if other code is concurrently accessing the same components.
-    pub unsafe fn par_iter_chunks_unchecked<'a, 'data>(
+    pub unsafe fn par_iter_chunks_unchecked<'a, 'data, W>(
         &'a self,
-        world: &'data World,
+        world: &'data W,
     ) -> ChunkViewParIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter>
     where
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'data>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         self.filter.init();
         let (arch_filter, chunkset_filter, chunk_filter) = self.filter.filters();
-        let storage = world.storage();
+        let storage = world.get_component_storage::<V>().unwrap();
         let archetypes = FissileEnumerate::new(arch_filter.collect(ArchetypeFilterData {
-            component_types: storage.component_types(),
-            tag_types: storage.tag_types(),
+            component_types: storage.inner().component_types(),
+            tag_types: storage.inner().tag_types(),
         }));
         ChunkViewParIter {
             storage,
@@ -1224,15 +1331,16 @@ where
 
     #[cfg(feature = "par-iter")]
     /// Gets an iterator which iterates through all chunks that match the query in parallel.
-    pub fn par_iter_chunks<'a, 'data>(
+    pub fn par_iter_chunks<'a, 'data, W>(
         &'a self,
-        world: &'data World,
+        world: &'data W,
     ) -> ChunkViewParIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter>
     where
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'data>>>::Iter: FissileIterator,
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.par_iter_chunks_unchecked(world) }
@@ -1240,14 +1348,15 @@ where
 
     #[cfg(feature = "par-iter")]
     /// Gets an iterator which iterates through all chunks that match the query in parallel.
-    pub fn par_iter_chunks_mut<'a, 'data>(
+    pub fn par_iter_chunks_mut<'a, 'data, W>(
         &'a self,
-        world: &'data mut World,
+        world: &'data mut W,
     ) -> ChunkViewParIter<'data, 'a, V, F::ArchetypeFilter, F::ChunksetFilter, F::ChunkFilter>
     where
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'data>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'data>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.par_iter_chunks_unchecked(world) }
@@ -1266,12 +1375,13 @@ where
     ///
     /// This function may panic if other code is concurrently accessing the same components.
     #[cfg(feature = "par-iter")]
-    pub unsafe fn par_entities_for_each_unchecked<'a, T>(&'a self, world: &'a World, f: T)
+    pub unsafe fn par_entities_for_each_unchecked<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn((Entity, <<V as View<'a>>::Iter as Iterator>::Item)) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         self.par_for_each_chunk_unchecked(world, |mut chunk| {
             for data in chunk.iter_entities_mut() {
@@ -1282,13 +1392,14 @@ where
 
     /// Iterates through all entity data that matches the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_entities_for_each<'a, T>(&'a self, world: &'a World, f: T)
+    pub fn par_entities_for_each<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn((Entity, <<V as View<'a>>::Iter as Iterator>::Item)) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.par_entities_for_each_unchecked(world, f) };
@@ -1296,12 +1407,13 @@ where
 
     /// Iterates through all entity data that matches the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_entities_for_each_mut<'a, T>(&'a self, world: &'a mut World, f: T)
+    pub fn par_entities_for_each_mut<'a, T, W>(&'a self, world: &'a mut W, f: T)
     where
         T: Fn((Entity, <<V as View<'a>>::Iter as Iterator>::Item)) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.par_entities_for_each_unchecked(world, f) };
@@ -1320,15 +1432,16 @@ where
     ///
     /// This function may panic if other code is concurrently accessing the same components.
     #[cfg(feature = "par-iter")]
-    pub unsafe fn par_for_each_unchecked<'a, T>(&'a self, world: &'a World, f: T)
+    pub unsafe fn par_for_each_unchecked<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn(<<V as View<'a>>::Iter as Iterator>::Item) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         self.par_for_each_chunk_unchecked(world, |mut chunk| {
-            for data in chunk.iter() {
+            for data in chunk.iter_mut() {
                 f(data);
             }
         });
@@ -1336,13 +1449,14 @@ where
 
     /// Iterates through all entity data that matches the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_for_each<'a, T>(&'a self, world: &'a World, f: T)
+    pub fn par_for_each<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn(<<V as View<'a>>::Iter as Iterator>::Item) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.par_for_each_unchecked(world, f) };
@@ -1350,12 +1464,13 @@ where
 
     /// Iterates through all entity data that matches the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_for_each_mut<'a, T>(&'a self, world: &'a mut World, f: T)
+    pub fn par_for_each_mut<'a, T, W>(&'a self, world: &'a mut W, f: T)
     where
         T: Fn(<<V as View<'a>>::Iter as Iterator>::Item) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.par_for_each_unchecked(world, f) };
@@ -1374,12 +1489,13 @@ where
     ///
     /// This function may panic if other code is concurrently accessing the same components.
     #[cfg(feature = "par-iter")]
-    pub unsafe fn par_for_each_chunk_unchecked<'a, T>(&'a self, world: &'a World, f: T)
+    pub unsafe fn par_for_each_chunk_unchecked<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn(Chunk<'a, V>) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         let par_iter = self.par_iter_chunks_unchecked(world);
         ParallelIterator::for_each(par_iter, |chunk| {
@@ -1389,13 +1505,14 @@ where
 
     /// Iterates through all chunks that match the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_for_each_chunk<'a, T>(&'a self, world: &'a World, f: T)
+    pub fn par_for_each_chunk<'a, T, W>(&'a self, world: &'a W, f: T)
     where
         T: Fn(Chunk<'a, V>) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
         V: ReadOnly,
+        W: EntityStore,
     {
         // safe because the view can only read data immutably
         unsafe { self.par_for_each_chunk_unchecked(world, f) };
@@ -1403,12 +1520,13 @@ where
 
     /// Iterates through all chunks that match the query in parallel.
     #[cfg(feature = "par-iter")]
-    pub fn par_for_each_chunk_mut<'a, T>(&'a self, world: &'a mut World, f: T)
+    pub fn par_for_each_chunk_mut<'a, T, W>(&'a self, world: &'a mut W, f: T)
     where
         T: Fn(Chunk<'a, V>) + Send + Sync,
         <F::ArchetypeFilter as Filter<ArchetypeFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunksetFilter as Filter<ChunksetFilterData<'a>>>::Iter: FissileIterator,
         <F::ChunkFilter as Filter<ChunkFilterData<'a>>>::Iter: FissileIterator,
+        W: EntityStore,
     {
         // safe because the &mut World ensures exclusivity
         unsafe { self.par_for_each_chunk_unchecked(world, f) };
@@ -1428,7 +1546,7 @@ where
     FChunk::Iter: FissileIterator,
 {
     _view: PhantomData<V>,
-    storage: &'data Storage,
+    storage: StorageAccessor<'data>,
     arch_filter: &'filter FArch,
     chunkset_filter: &'filter FChunkset,
     chunk_filter: &'filter FChunk,
@@ -1476,10 +1594,20 @@ where
                 match self.archetypes.next() {
                     Some((arch_index, arch_data)) => {
                         if self.arch_filter.is_match(&arch_data).is_pass() {
+                            // validate that we are allowed to access this archetype
+                            if !self
+                                .storage
+                                .can_access_archetype(ArchetypeIndex(arch_index))
+                            {
+                                panic!(
+                                    "query attempted to access archetype unavailable via sub world"
+                                );
+                            }
                             // we have found another set
                             self.set_frontier = {
-                                let arch =
-                                    unsafe { self.storage.archetypes().get_unchecked(arch_index) };
+                                let arch = unsafe {
+                                    self.storage.inner().archetypes().get_unchecked(arch_index)
+                                };
                                 let data = ChunksetFilterData {
                                     archetype_data: arch,
                                 };
@@ -1619,7 +1747,7 @@ where
 
         let right_split = Self {
             _view,
-            storage,
+            storage: storage.clone(),
             arch_filter,
             chunkset_filter,
             chunk_filter,

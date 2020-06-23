@@ -5,10 +5,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_property::Properties;
-use legion::{
-    prelude::Write,
-    systems::{Query, ResMut, SubWorld},
-};
+use legion::prelude::*;
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,

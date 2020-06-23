@@ -53,10 +53,10 @@ fn main() {
         .write_resource::<ExampleResource1>()
         .read_resource::<ExampleResource2>()
         .with_query(<(Write<Pos>, Read<Vel>)>::query())
-        .build(|_, mut world, (res1, res2), query| {
+        .build(|_, world, (res1, res2), query| {
             res1.0 = res2.0.clone(); // Write the mutable resource from the immutable resource
 
-            for (mut pos, vel) in query.iter_mut(&mut world) {
+            for (mut pos, vel) in query.iter_mut(world) {
                 pos.0 += vel.0;
                 pos.1 += vel.1;
                 pos.2 += vel.2;

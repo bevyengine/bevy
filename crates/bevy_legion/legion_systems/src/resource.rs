@@ -2,7 +2,7 @@ use downcast_rs::{impl_downcast, Downcast};
 use fxhash::FxHashMap;
 use legion_core::borrow::{AtomicRefCell, Ref, RefMut};
 use legion_core::downcast_typename::DowncastTypename;
-use legion_core::query::{Read, ReadOnly, Write};
+use legion_core::{permission::Permissions, query::{Read, ReadOnly, Write}};
 use std::{
     any::{type_name, Any},
     marker::PhantomData,
@@ -37,27 +37,16 @@ impl DowncastTypename for dyn Resource {
         // type_name_of_val(self) == type_name::<T>()
     }
 }
-#[cfg(not(feature = "ffi"))]
+
 /// A type ID identifying a component type.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ResourceTypeId(&'static str);
 
-#[cfg(not(feature = "ffi"))]
 impl ResourceTypeId {
     /// Gets the component type ID that represents type `T`.
     pub fn of<T: Resource>() -> Self { Self(type_name::<T>()) }
 }
 
-#[cfg(feature = "ffi")]
-/// A type ID identifying a component type.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct ResourceTypeId(&'static str, u32);
-
-#[cfg(feature = "ffi")]
-impl ResourceTypeId {
-    /// Gets the component type ID that represents type `T`.
-    pub fn of<T: Resource>() -> Self { Self(type_name::<T>(), 0) }
-}
 
 /// Trait which is implemented for tuples of resources and singular resources. This abstracts
 /// fetching resources to allow for ergonomic fetching.
@@ -108,8 +97,7 @@ pub trait ResourceSet: Send + Sync {
         unsafe { Self::fetch_unchecked(resources) }
     }
 
-    fn read_types() -> Vec<ResourceTypeId>;
-    fn write_types() -> Vec<ResourceTypeId>;
+    fn requires_permissions() -> Permissions<ResourceTypeId>;
 }
 
 /// Blanket trait for resource types.
@@ -368,8 +356,9 @@ impl ResourceSet for () {
     type PreparedResources = ();
 
     unsafe fn fetch_unchecked(_: &Resources) {}
-    fn read_types() -> Vec<ResourceTypeId> { Vec::new() }
-    fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        Permissions::new()
+    }
 }
 
 impl<T: Resource> ResourceSet for Read<T> {
@@ -381,8 +370,11 @@ impl<T: Resource> ResourceSet for Read<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedRead::new(resource.deref() as *const T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
-    fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 impl<T: Resource> ResourceSet for Write<T> {
     type PreparedResources = PreparedWrite<T>;
@@ -393,8 +385,11 @@ impl<T: Resource> ResourceSet for Write<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedWrite::new(resource.deref_mut() as *mut T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { Vec::new() }
-    fn write_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 
 macro_rules! impl_resource_tuple {
@@ -407,15 +402,10 @@ macro_rules! impl_resource_tuple {
             unsafe fn fetch_unchecked(resources: &Resources) -> Self::PreparedResources {
                 ($( $ty::fetch_unchecked(resources), )*)
             }
-            fn read_types() -> Vec<ResourceTypeId> {
-                let mut vec = vec![];
-                $( vec.extend($ty::read_types()); )*
-                vec
-            }
-            fn write_types() -> Vec<ResourceTypeId> {
-                let mut vec = vec![];
-                $( vec.extend($ty::write_types()); )*
-                vec
+            fn requires_permissions() -> Permissions<ResourceTypeId> {
+                let mut permissions = Permissions::new();
+                $( permissions.add($ty::requires_permissions()); )*
+                permissions
             }
         }
     };

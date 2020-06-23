@@ -10,8 +10,10 @@ pub mod filter;
 pub mod guid_entity_allocator;
 pub mod index;
 pub mod iterator;
+pub mod permission;
 pub mod query;
 pub mod storage;
+pub mod subworld;
 pub mod world;
 
 #[cfg(feature = "serialize")]
@@ -27,6 +29,7 @@ pub mod prelude {
         event::Event,
         filter::filter_fns::*,
         query::{IntoQuery, Query as FilteredQuery, Read, Tagged, TryRead, TryWrite, Write},
-        world::{Universe, World},
+        subworld::SubWorld,
+        world::{EntityStore, Universe, World},
     };
 }

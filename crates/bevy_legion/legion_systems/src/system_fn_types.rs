@@ -1,14 +1,14 @@
 use crate::{
     resource::{self, PreparedRead, PreparedWrite, ResourceSet, ResourceTypeId, Resources},
-    schedule::{ArchetypeAccess, Runnable},
-    QuerySet, SubWorld, SystemAccess, SystemId,
+    schedule::Runnable,
+    QuerySet, SystemAccess, SystemId,
 };
 use fxhash::FxHashMap;
 use legion_core::{
     borrow::{AtomicRefCell, RefMut},
     command::CommandBuffer,
     storage::ComponentTypeId,
-    world::{World, WorldId},
+    world::{World, WorldId}, permission::Permissions, subworld::{SubWorld, ArchetypeAccess},
 };
 use std::{
     hash::{Hash, Hasher},
@@ -100,8 +100,11 @@ impl<'a, T: resource::Resource> ResourceSet for Res<'a, T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         Res::new(resource.deref() as *const T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
-    fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 
 #[derive(Debug)]
@@ -194,8 +197,11 @@ impl<'a, T: resource::Resource> ResourceSet for ResMut<'a, T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         ResMut::new(resource.deref_mut() as *mut T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
-    fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 
 impl<T: resource::Resource> ResourceSet for PreparedRead<T> {
@@ -207,8 +213,11 @@ impl<T: resource::Resource> ResourceSet for PreparedRead<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedRead::new(resource.deref() as *const T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
-    fn write_types() -> Vec<ResourceTypeId> { Vec::new() }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push_read(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 
 impl<T: resource::Resource> ResourceSet for PreparedWrite<T> {
@@ -220,8 +229,11 @@ impl<T: resource::Resource> ResourceSet for PreparedWrite<T> {
             .unwrap_or_else(|| panic!("Failed to fetch resource!: {}", std::any::type_name::<T>()));
         PreparedWrite::new(resource.deref_mut() as *mut T)
     }
-    fn read_types() -> Vec<ResourceTypeId> { Vec::new() }
-    fn write_types() -> Vec<ResourceTypeId> { vec![ResourceTypeId::of::<T>()] }
+    fn requires_permissions() -> Permissions<ResourceTypeId> {
+        let mut permissions = Permissions::new();
+        permissions.push(ResourceTypeId::of::<T>());
+        permissions
+    }
 }
 
 /// The concrete type which contains the system closure provided by the user.  This struct should
@@ -240,7 +252,7 @@ where
     Q: QuerySet,
     F: FuncSystemFn<
         Resources = <R as ResourceSet>::PreparedResources,
-        Queries = <Q as QuerySet>::Queries,
+        Queries = Q,
     >,
 {
     pub name: SystemId,
@@ -263,18 +275,21 @@ where
     Q: QuerySet,
     F: FuncSystemFn<
         Resources = <R as ResourceSet>::PreparedResources,
-        Queries = <Q as QuerySet>::Queries,
+        Queries = Q,
     >,
 {
     fn name(&self) -> &SystemId { &self.name }
 
     fn reads(&self) -> (&[ResourceTypeId], &[ComponentTypeId]) {
-        (&self.access.resources.reads, &self.access.components.reads)
+        (
+            self.access.resources.reads(),
+            self.access.components.reads(),
+        )
     }
     fn writes(&self) -> (&[ResourceTypeId], &[ComponentTypeId]) {
         (
-            &self.access.resources.writes,
-            &self.access.components.writes,
+            self.access.resources.writes(),
+            self.access.components.writes(),
         )
     }
 
@@ -297,20 +312,22 @@ where
         debug!("Initializing");
         let resources = R::fetch_unchecked(resources);
         let mut queries = self.queries.get_mut();
-        let mut prepared_queries = queries.prepare();
-        let mut world_shim = SubWorld::new(world, &self.access.components, &self.archetypes);
+        //let mut prepared_queries = queries.prepare();
+        let mut world_shim =
+            SubWorld::new_unchecked(world, &self.access.components, &self.archetypes);
         let cmd = self
             .command_buffer
             .entry(world.id())
             .or_insert_with(|| AtomicRefCell::new(CommandBuffer::new(world)));
 
-        info!("Running");
+        info!(permissions = ?self.access, archetypes = ?self.archetypes, "Running");
         let mut borrow = self.run_fn.get_mut();
         borrow.deref_mut().run(
             &mut cmd.get_mut(),
             &mut world_shim,
             resources,
-            &mut prepared_queries,
+            //&mut prepared_queries,
+            queries.deref_mut(),
         );
     }
 }

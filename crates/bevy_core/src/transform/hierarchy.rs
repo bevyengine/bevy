@@ -1,7 +1,7 @@
 use bevy_transform::prelude::Children;
 use legion::{
-    prelude::{Entity, World},
-    systems::SubWorld,
+    prelude::{Entity, World, EntityStore},
+    subworld::SubWorld,
 };
 
 pub fn run_on_hierarchy<T>(

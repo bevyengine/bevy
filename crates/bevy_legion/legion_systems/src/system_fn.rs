@@ -1,16 +1,19 @@
 use crate::{
     resource::{ResourceSet, ResourceTypeId},
-    schedule::{ArchetypeAccess, Schedulable},
+    schedule::Schedulable,
     system_fn_types::{FuncSystem, FuncSystemFnWrapper},
-    Access, SubWorld, SystemAccess, SystemId, SystemQuery,
+    SystemAccess, SystemId,
 };
-use bit_set::BitSet;
+// use bit_set::BitSet;
 use fxhash::FxHashMap;
 use legion_core::{
     borrow::AtomicRefCell,
     command::CommandBuffer,
+    permission::Permissions,
+    query::Query,
     query::{DefaultFilter, IntoQuery, View, ViewElement},
     storage::ComponentTypeId,
+    subworld::{ArchetypeAccess, SubWorld},
 };
 use legion_fn_system_macro::impl_fn_query_systems;
 use std::marker::PhantomData;
@@ -24,16 +27,17 @@ pub trait IntoSystem<CommandBuffer, Resources, Queries> {
 impl_fn_query_systems!();
 
 #[allow(type_alias_bounds)]
-pub type Query<V>
+pub type SimpleQuery<V>
 where
     V: for<'a> View<'a> + DefaultFilter,
-= SystemQuery<V, <V as DefaultFilter>::Filter>;
+= legion_core::query::Query<V, <V as DefaultFilter>::Filter>;
 
 #[cfg(test)]
 mod tests {
-    use crate::{resource::Resources, system_fn_types::Res, IntoSystem, Query, SubWorld};
+    use crate::{resource::Resources, system_fn_types::Res, IntoSystem, SimpleQuery};
     use legion_core::{
         query::{Read, Write},
+        subworld::SubWorld,
         world::World,
     };
     use std::fmt::Debug;
@@ -54,7 +58,7 @@ mod tests {
         resources.insert(A(0));
         world.insert((), vec![(X(1), Y(1)), (X(2), Y(2))]);
 
-        fn query_system(world: &mut SubWorld, query: &mut Query<(Read<X>, Write<Y>)>) {
+        fn query_system(world: &mut SubWorld, query: &mut SimpleQuery<(Read<X>, Write<Y>)>) {
             for (x, mut y) in query.iter_mut(world) {
                 y.0 = 2;
                 println!("{:?}", x);
@@ -66,8 +70,8 @@ mod tests {
         fn query_system2(
             a: Res<A>,
             world: &mut SubWorld,
-            query: &mut Query<(Read<X>, Write<Y>)>,
-            query2: &mut Query<Read<X>>,
+            query: &mut SimpleQuery<(Read<X>, Write<Y>)>,
+            query2: &mut SimpleQuery<Read<X>>,
         ) {
             println!("{:?}", *a);
             for (x, mut y) in query.iter_mut(world) {

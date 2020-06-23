@@ -2,11 +2,11 @@ use crate::{
     resource::{ResourceTypeId, Resources},
     system::SystemId,
 };
-use bit_set::BitSet;
 use legion_core::{
     borrow::RefMut,
     command::CommandBuffer,
     storage::ComponentTypeId,
+    subworld::ArchetypeAccess,
     world::{World, WorldId},
 };
 use std::cell::UnsafeCell;
@@ -35,26 +35,6 @@ use std::iter::repeat;
 /// This is automatically implemented for all types that implement `Runnable` which meet the requirements.
 pub trait Schedulable: Runnable + Send + Sync {}
 impl<T> Schedulable for T where T: Runnable + Send + Sync {}
-
-/// Describes which archetypes a system declares access to.
-pub enum ArchetypeAccess {
-    /// All archetypes.
-    All,
-    /// Some archetypes.
-    Some(BitSet),
-}
-
-impl ArchetypeAccess {
-    pub fn is_disjoint(&self, other: &ArchetypeAccess) -> bool {
-        match self {
-            Self::All => false,
-            Self::Some(mine) => match other {
-                Self::All => false,
-                Self::Some(theirs) => mine.is_disjoint(theirs),
-            },
-        }
-    }
-}
 
 /// Trait describing a schedulable type. This is implemented by `System`
 pub trait Runnable {
@@ -199,7 +179,6 @@ impl Executor {
                         trace!(system_index = n, "Added write dependency");
                         dependencies.insert(*n);
                     }
-                    resource_last_read.insert(*res, i);
                 }
                 for res in write_res {
                     trace!(resource = ?res, "Write resource");
@@ -213,20 +192,34 @@ impl Executor {
                         trace!(system_index = n, "Added write dependency");
                         dependencies.insert(*n);
                     }
+                }
 
+                // update access tracking
+                for res in read_res {
+                    resource_last_read.insert(*res, i);
+                }
+                for res in write_res {
+                    resource_last_read.insert(*res, i);
                     resource_last_mutated.insert(*res, i);
                 }
 
                 static_dependency_counts.push(AtomicUsize::from(dependencies.len()));
-                trace!(dependants = ?dependencies, "Computed static dependants");
-                for dep in dependencies {
-                    static_dependants[dep].push(i);
+                trace!(dependants = ?dependencies, dependency_counts = ?static_dependency_counts, "Computed static dependants");
+                for dep in &dependencies {
+                    static_dependants[*dep].push(i);
                 }
 
                 // find component access dependencies
                 let mut comp_dependencies = FxHashSet::default();
+                for comp in read_comp {
+                    trace!(component = ?comp, "Read component");
+                    if let Some(n) = component_last_mutated.get(comp) {
+                        trace!(system_index = n, "Added write dependency");
+                        comp_dependencies.insert(*n);
+                    }
+                }
                 for comp in write_comp {
-                    // Writes have to be exclusive, so we are dependent on reads too
+                    // writes have to be exclusive, so we are dependent on reads too
                     trace!(component = ?comp, "Write component");
                     if let Some(n) = component_last_read.get(comp) {
                         trace!(system_index = n, "Added read dependency");
@@ -236,17 +229,20 @@ impl Executor {
                         trace!(system_index = n, "Added write dependency");
                         comp_dependencies.insert(*n);
                     }
+                }
+
+                // update access tracking
+                for comp in read_comp {
+                    component_last_read.insert(*comp, i);
+                }
+                for comp in write_comp {
+                    component_last_read.insert(*comp, i);
                     component_last_mutated.insert(*comp, i);
                 }
 
-                // Do reads after writes to ensure we don't overwrite last_read
-                for comp in read_comp {
-                    trace!(component = ?comp, "Read component");
-                    if let Some(n) = component_last_mutated.get(comp) {
-                        trace!(system_index = n, "Added write dependency");
-                        comp_dependencies.insert(*n);
-                    }
-                    component_last_read.insert(*comp, i);
+                // remove dependencies which are already static from dynamic dependencies
+                for static_dep in &dependencies {
+                    comp_dependencies.remove(static_dep);
                 }
 
                 trace!(depentants = ?comp_dependencies, "Computed dynamic dependants");
@@ -311,6 +307,7 @@ impl Executor {
     pub fn run_systems(&mut self, world: &mut World, resources: &mut Resources) {
         self.systems.iter_mut().for_each(|system| {
             let system = unsafe { system.get_mut() };
+            system.prepare(world);
             system.run(world, resources);
         });
     }
@@ -329,7 +326,11 @@ impl Executor {
                 match self.systems.len() {
                     1 => {
                         // safety: we have exlusive access to all systems, world and resources here
-                        unsafe { self.systems[0].get_mut().run(world, resources) };
+                        unsafe {
+                            let system = self.systems[0].get_mut();
+                            system.prepare(world);
+                            system.run(world, resources);
+                        };
                     }
                     _ => {
                         let systems = &mut self.systems;
@@ -372,14 +373,23 @@ impl Executor {
 
                         let awaiting = &self.awaiting;
 
+                        trace!(?awaiting, "Initialized await counts");
+
                         // execute all systems with no outstanding dependencies
                         (0..systems.len())
-                            .filter(|i| awaiting[*i].load(Ordering::SeqCst) == 0)
+                            .into_par_iter()
+                            .filter(|i| static_dependency_counts[*i].load(Ordering::SeqCst) == 0)
                             .for_each(|i| {
                                 // safety: we are at the root of the execution tree, so we know each
                                 // index is exclusive here
                                 unsafe { self.run_recursive(i, world, resources) };
                             });
+
+                        debug_assert!(
+                            awaiting.iter().all(|x| x.load(Ordering::SeqCst) == 0),
+                            "not all systems run: {:?}",
+                            awaiting
+                        );
                     }
                 }
             },
@@ -408,19 +418,9 @@ impl Executor {
         self.systems[i].get_mut().run_unsafe(world, resources);
 
         self.static_dependants[i].par_iter().for_each(|dep| {
-            match self.awaiting[*dep].compare_exchange(
-                1,
-                std::usize::MAX,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => {
-                    // safety: each dependency is unique, so run_recursive is safe to call
-                    self.run_recursive(*dep, world, resources);
-                }
-                Err(_) => {
-                    self.awaiting[*dep].fetch_sub(1, Ordering::Relaxed);
-                }
+            if self.awaiting[*dep].fetch_sub(1, Ordering::Relaxed) == 1 {
+                // safety: each dependency is unique, so run_recursive is safe to call
+                self.run_recursive(*dep, world, resources);
             }
         });
     }
@@ -469,9 +469,11 @@ impl Builder {
     }
 
     /// Adds a thread local system to the schedule. This system will be executed on the main thread.
-    pub fn add_thread_local<S: Into<Box<dyn Runnable>>>(self, system: S) -> Self {
-        let mut system = system.into();
-        self.add_thread_local_fn(move |world, resources| system.run(world, resources))
+    pub fn add_thread_local<S: Into<Box<dyn Runnable>>>(mut self, system: S) -> Self {
+        self.finalize_executor();
+        let system = system.into();
+        self.steps.push(Step::ThreadLocalSystem(system));
+        self
     }
 
     /// Finalizes the builder into a `Schedule`.
@@ -495,6 +497,8 @@ pub enum Step {
     FlushCmdBuffers,
     /// A thread local function.
     ThreadLocalFn(Box<dyn FnMut(&mut World, &mut Resources)>),
+    /// A thread local system
+    ThreadLocalSystem(Box<dyn Runnable>),
 }
 
 /// A schedule of systems for execution.
@@ -528,17 +532,32 @@ impl Schedule {
 
     /// Executes all of the steps in the schedule.
     pub fn execute(&mut self, world: &mut World, resources: &mut Resources) {
-        let mut waiting_flush: Vec<&mut Executor> = Vec::new();
+        enum ToFlush<'a> {
+            Executor(&'a mut Executor),
+            System(RefMut<'a, CommandBuffer>),
+        }
+
+        let mut waiting_flush: Vec<ToFlush> = Vec::new();
         for step in &mut self.steps {
             match step {
                 Step::Systems(executor) => {
                     executor.run_systems(world, resources);
-                    waiting_flush.push(executor);
+                    waiting_flush.push(ToFlush::Executor(executor));
                 }
-                Step::FlushCmdBuffers => waiting_flush
-                    .drain(..)
-                    .for_each(|e| e.flush_command_buffers(world)),
+                Step::FlushCmdBuffers => {
+                    waiting_flush.drain(..).for_each(|e| match e {
+                        ToFlush::Executor(exec) => exec.flush_command_buffers(world),
+                        ToFlush::System(mut cmd) => cmd.write(world),
+                    });
+                }
                 Step::ThreadLocalFn(function) => function(world, resources),
+                Step::ThreadLocalSystem(system) => {
+                    system.prepare(world);
+                    system.run(world, resources);
+                    if let Some(cmd) = system.command_buffer_mut(world.id()) {
+                        waiting_flush.push(ToFlush::System(cmd));
+                    }
+                }
             }
         }
     }
@@ -620,10 +639,14 @@ mod tests {
         });
         let system_two = SystemBuilder::new("two")
             .with_query(Write::<TestComp>::query())
-            .build(move |_, world, _, query| assert_eq!(0, query.iter_mut(world).count()));
+            .build(move |_, world, _, query| {
+                assert_eq!(0, query.iter_mut(world).count());
+            });
         let system_three = SystemBuilder::new("three")
             .with_query(Write::<TestComp>::query())
-            .build(move |_, world, _, query| assert_eq!(1, query.iter_mut(world).count()));
+            .build(move |_, world, _, query| {
+                assert_eq!(1, query.iter_mut(world).count());
+            });
 
         let mut schedule = Schedule::builder()
             .add_system(system_one)
@@ -633,5 +656,35 @@ mod tests {
             .build();
 
         schedule.execute(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn flush_thread_local() {
+        let universe = Universe::new();
+        let mut world = universe.create_world();
+        let mut resources = Resources::default();
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        struct TestComp(f32, f32, f32);
+
+        let entity = Arc::new(Mutex::new(None));
+
+        {
+            let entity = entity.clone();
+
+            let system_one = SystemBuilder::new("one").build_thread_local(move |cmd, _, _, _| {
+                let mut entity = entity.lock().unwrap();
+                *entity = Some(cmd.insert((), vec![(TestComp(0.0, 0.0, 0.0),)])[0]);
+            });
+
+            let mut schedule = Schedule::builder().add_thread_local(system_one).build();
+
+            schedule.execute(&mut world, &mut resources);
+        }
+
+        let entity = entity.lock().unwrap();
+
+        assert!(entity.is_some());
+        assert!(world.get_entity_location(entity.unwrap()).is_some());
     }
 }

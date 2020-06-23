@@ -1,9 +1,5 @@
 use crate::Camera;
-use legion::{
-    entity::Entity,
-    prelude::Read,
-    systems::{Query, ResMut, SubWorld},
-};
+use legion::prelude::*;
 use std::collections::HashMap;
 
 #[derive(Default)]

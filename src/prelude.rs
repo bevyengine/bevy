@@ -1,12 +1,12 @@
 pub use crate::{
     app::{
-        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, DynamicAppPlugin,
-        ComponentSet, EventReader, Events, FromResources, System,
+        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, ComponentSet,
+        DynamicAppPlugin, EventReader, Events, FromResources, System,
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
         time::{Time, Timer},
-        transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource, FaceToward},
+        transform::{CommandBufferBuilderSource, FaceToward, WorldBuilder, WorldBuilderSource},
     },
     diagnostic::DiagnosticsPlugin,
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
@@ -29,7 +29,7 @@ pub use crate::{
         render_resource::RenderResources,
         shader::{Shader, ShaderDefs, ShaderStage, ShaderStages},
         texture::Texture,
-        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, VisibleEntities
+        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, VisibleEntities,
     },
     scene::{Scene, SceneSpawner},
     sprite::{
@@ -44,17 +44,10 @@ pub use crate::{
     AddDefaultPlugins,
 };
 pub use legion::{
-    borrow::{Ref as Com, RefMut as ComMut},
-    command::CommandBuffer,
-    entity::Entity,
-    event::Event as LegionEvent,
     filter::filter_fns::*,
-    query::{IntoQuery, Read, Tagged, TryRead, TryWrite, Write},
-    systems::{
-        bit_set::BitSet,
-        resource::{ResourceSet, Resources},
-        schedule::{Executor, Runnable, Schedulable, Schedule},
-        IntoSystem, Query, Res, ResMut, SubWorld, SystemBuilder,
+    prelude::{
+        BitSet, CommandBuffer, Entity, EntityStore, Event as LegionEvent, Executor, IntoQuery,
+        IntoSystem, Query, Read, Res, ResMut, ResourceSet, Resources, Runnable, Schedulable,
+        Schedule, SubWorld, SystemBuilder, Tagged, TryRead, TryWrite, Universe, World, Write,
     },
-    world::{Universe, World},
 };

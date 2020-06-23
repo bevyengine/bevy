@@ -1,9 +1,6 @@
 use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
-use legion::{
-    prelude::{Read, Res, Write},
-    systems::{Query, SubWorld},
-};
+use legion::prelude::*;
 
 pub use bevy_derive::ShaderDefs;
 

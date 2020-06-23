@@ -3,7 +3,7 @@ use bevy_core::transform::run_on_hierarchy_subworld_mut;
 use bevy_transform::prelude::{Children, Parent, Translation};
 use bevy_window::Windows;
 use glam::Vec2;
-use legion::{prelude::*, systems::SubWorld};
+use legion::prelude::*;
 
 pub const UI_Z_STEP: f32 = 0.001;
 
@@ -20,15 +20,16 @@ pub fn ui_update_system(
     _parent_query: &mut Query<Read<Parent>>,
     _children_query: &mut Query<Read<Children>>,
 ) {
+    let (mut node_world, hierarchy_world) = world.split_for_query(node_query);
     let window_size = if let Some(window) = windows.get_primary() {
         Vec2::new(window.width as f32, window.height as f32)
     } else {
         return;
     };
     let orphan_nodes = node_query
-        .iter_entities_mut(world)
+        .iter_entities_mut(&mut node_world)
         // TODO: replace this filter with a legion query filter (when SimpleQuery gets support for filters)
-        .filter(|(entity, _)| world.get_component::<Parent>(*entity).is_none())
+        .filter(|(entity, _)| hierarchy_world.get_component::<Parent>(*entity).is_none())
         .map(|(e, _)| e)
         .collect::<Vec<Entity>>();
     let mut window_rect = Rect {

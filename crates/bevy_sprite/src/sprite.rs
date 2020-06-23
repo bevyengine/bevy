@@ -5,7 +5,7 @@ use bevy_render::{
     render_resource::{RenderResource, RenderResources},
     texture::Texture,
 };
-pub use legion::prelude::*;
+use legion::prelude::*;
 use glam::Vec2;
 
 #[repr(C)]

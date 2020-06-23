@@ -25,7 +25,12 @@ use crate::storage::Tag;
 use crate::storage::TagMeta;
 use crate::storage::TagTypeId;
 use crate::storage::Tags;
-use crate::tuple::TupleEq;
+use crate::{
+    query::Query,
+    query::View,
+    subworld::{ComponentAccess, ComponentAccessError, StorageAccessor, SubWorld},
+    tuple::TupleEq,
+};
 use parking_lot::Mutex;
 use std::cell::UnsafeCell;
 use std::collections::HashMap;
@@ -83,6 +88,73 @@ impl Universe {
     }
 }
 
+/// A queryable collection of entities.
+pub trait EntityStore {
+    /// Checks that the provided `Component` is present on a given entity.
+    ///
+    /// Returns true if it exists, otherwise false.
+    fn has_component<T: Component>(&self, entity: Entity) -> bool;
+
+    /// Checks that the provided `ComponentTypeId` is present on a given entity.
+    ///
+    /// Returns true if it exists, otherwise false.
+    fn has_component_by_id(&self, entity: Entity, component: ComponentTypeId) -> bool;
+
+    /// Borrows component data for the given entity.
+    ///
+    /// Returns `Some(data)` if the entity was found and contains the specified data.
+    /// Otherwise `None` is returned.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the component was not declared as read by this system.
+    fn get_component<T: Component>(&self, entity: Entity) -> Option<Ref<T>>;
+
+    /// Borrows component data for the given entity. Does not perform static borrow checking.
+    ///
+    /// Returns `Some(data)` if the entity was found and contains the specified data.
+    /// Otherwise `None` is returned.
+    ///
+    /// # Safety
+    ///
+    /// Accessing a component which is already being concurrently accessed elsewhere is undefined behavior.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if any other code is currently borrowing `T` mutable or if the component was not declared
+    /// as written by this system.
+    unsafe fn get_component_mut_unchecked<T: Component>(&self, entity: Entity)
+        -> Option<RefMut<T>>;
+
+    /// Mutably borrows entity data for the given entity.
+    ///
+    /// Returns `Some(data)` if the entity was found and contains the specified data.
+    /// Otherwise `None` is returned.
+    ///
+    /// # Panics
+    ///
+    /// This function may panic if the component was not declared as written by this system.
+    #[inline]
+    fn get_component_mut<T: Component>(&mut self, entity: Entity) -> Option<RefMut<T>> {
+        // safe because the &mut self ensures exclusivity
+        unsafe { self.get_component_mut_unchecked(entity) }
+    }
+
+    /// Gets tag data for the given entity.
+    ///
+    /// Returns `Some(data)` if the entity was found and contains the specified data.
+    /// Otherwise `None` is returned.
+    fn get_tag<T: Tag>(&self, entity: Entity) -> Option<&T>;
+
+    /// Determines if the given `Entity` is alive within this `World`.
+    fn is_alive(&self, entity: Entity) -> bool;
+
+    /// Gets the entity component storage. Validates that the world can provide access to everything needed by the view.
+    fn get_component_storage<V: for<'a> View<'a>>(
+        &self,
+    ) -> Result<StorageAccessor, ComponentAccessError>;
+}
+
 #[derive(Default, Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct WorldId(usize, usize);
 
@@ -118,7 +190,12 @@ impl World {
     ///
     /// `Entity` IDs in such a world will only be unique within that world. See also
     /// `Universe::create_world`.
-    pub fn new() -> Self { Self::new_in_universe(WorldId::next(0), GuidEntityAllocator::default()) }
+    pub fn new() -> Self {
+        Self::new_in_universe(
+                WorldId::next(0),
+                GuidEntityAllocator::default()
+        )
+    }
 
     fn new_in_universe(id: WorldId, allocator: GuidEntityAllocator) -> Self {
         Self {
@@ -618,114 +695,10 @@ impl World {
         Ok(())
     }
 
-    /// Borrows component data for the given entity.
-    ///
-    /// Returns `Some(data)` if the entity was found and contains the specified data.
-    /// Otherwise `None` is returned.
-    pub fn get_component<T: Component>(&self, entity: Entity) -> Option<Ref<T>> {
-        if !self.is_alive(entity) {
-            return None;
-        }
-
-        let location = self.entity_locations.get(entity)?;
-        let chunk = self.storage().chunk(location)?;
-        let (slice_borrow, slice) = unsafe {
-            chunk
-                .components(ComponentTypeId::of::<T>())?
-                .data_slice::<T>()
-                .deconstruct()
-        };
-        let component = slice.get(*location.component())?;
-
-        Some(Ref::new(slice_borrow, component))
-    }
-
     fn get_component_storage(&self, entity: Entity) -> Option<&ComponentStorage> {
         let location = self.entity_locations.get(entity)?;
         self.storage().chunk(location)
     }
-
-    /// Checks that the provided `ComponentTypeId` is present on a given entity.
-    ///
-    /// Returns true if it exists, otherwise false.
-    pub fn has_component_by_id(&self, entity: Entity, component: ComponentTypeId) -> bool {
-        if !self.is_alive(entity) {
-            return false;
-        }
-
-        if let Some(chunkset) = self.get_component_storage(entity) {
-            return chunkset.components(component).is_some();
-        }
-
-        false
-    }
-
-    /// Checks that the provided `Component` is present on a given entity.
-    ///
-    /// Returns true if it exists, otherwise false.
-    #[inline]
-    pub fn has_component<T: Component>(&self, entity: Entity) -> bool {
-        self.has_component_by_id(entity, ComponentTypeId::of::<T>())
-    }
-
-    /// Mutably borrows entity data for the given entity.
-    ///
-    /// Returns `Some(data)` if the entity was found and contains the specified data.
-    /// Otherwise `None` is returned.
-    ///
-    /// # Safety
-    ///
-    /// Accessing a component which is already being concurrently accessed elsewhere is undefined behavior.
-    ///
-    /// # Panics
-    ///
-    /// This function may panic if any other code is currently borrowing `T` (such as in a query).
-    pub unsafe fn get_component_mut_unchecked<T: Component>(
-        &self,
-        entity: Entity,
-    ) -> Option<RefMut<T>> {
-        if !self.is_alive(entity) {
-            return None;
-        }
-
-        let location = self.entity_locations.get(entity)?;
-        let chunk = self.storage().chunk(location)?;
-        let (slice_borrow, slice) = chunk
-            .components(ComponentTypeId::of::<T>())?
-            .data_slice_mut::<T>()
-            .deconstruct();
-        let component = slice.get_mut(*location.component())?;
-
-        Some(RefMut::new(slice_borrow, component))
-    }
-
-    /// Mutably borrows entity data for the given entity.
-    ///
-    /// Returns `Some(data)` if the entity was found and contains the specified data.
-    /// Otherwise `None` is returned.
-    pub fn get_component_mut<T: Component>(&mut self, entity: Entity) -> Option<RefMut<T>> {
-        // safe because the &mut self ensures exclusivity
-        unsafe { self.get_component_mut_unchecked(entity) }
-    }
-
-    /// Gets tag data for the given entity.
-    ///
-    /// Returns `Some(data)` if the entity was found and contains the specified data.
-    /// Otherwise `None` is returned.
-    pub fn get_tag<T: Tag>(&self, entity: Entity) -> Option<&T> {
-        if !self.is_alive(entity) {
-            return None;
-        }
-
-        let location = self.entity_locations.get(entity)?;
-        let archetype = self.storage().archetype(location.archetype())?;
-        let tags = archetype.tags().get(TagTypeId::of::<T>())?;
-
-        unsafe { tags.data_slice::<T>().get(*location.set()) }
-    }
-
-    /// Determines if the given `Entity` is alive within this `World`.
-    pub fn is_alive(&self, entity: Entity) -> bool { self.entity_allocator.is_alive(entity) }
 
     /// Returns the entity's component types, if the entity exists.
     pub fn entity_component_types(
@@ -1112,6 +1085,116 @@ impl World {
         } else {
             self.create_chunk_set(archetype, tags)
         }
+    }
+
+    /// Splits the world into two. The left world allows access only to the data declared by the view;
+    /// the right world allows access to all else.
+    pub fn split<T: for<'v> View<'v>>(&mut self) -> (SubWorld, SubWorld) {
+        let permissions = T::requires_permissions();
+        let (left, right) = ComponentAccess::All.split(permissions);
+
+        (
+            SubWorld {
+                world: self,
+                components: left,
+                archetypes: None,
+            },
+            SubWorld {
+                world: self,
+                components: right,
+                archetypes: None,
+            },
+        )
+    }
+
+    /// Splits the world into two. The left world allows access only to the data declared by the query's view;
+    /// the right world allows access to all else.
+    pub fn split_for_query<'q, V: for<'v> View<'v>, F: EntityFilter>(
+        &mut self,
+        _: &'q Query<V, F>,
+    ) -> (SubWorld, SubWorld) {
+        self.split::<V>()
+    }
+}
+
+impl EntityStore for World {
+    #[inline]
+    fn has_component<T: Component>(&self, entity: Entity) -> bool {
+        self.has_component_by_id(entity, ComponentTypeId::of::<T>())
+    }
+
+    fn has_component_by_id(&self, entity: Entity, component: ComponentTypeId) -> bool {
+        if !self.is_alive(entity) {
+            return false;
+        }
+
+        if let Some(chunkset) = self.get_component_storage(entity) {
+            return chunkset.components(component).is_some();
+        }
+
+        false
+    }
+
+    #[inline]
+    fn get_component<T: Component>(&self, entity: Entity) -> Option<Ref<T>> {
+        if !self.is_alive(entity) {
+            return None;
+        }
+
+        let location = self.entity_locations.get(entity)?;
+        let chunk = self.storage().chunk(location)?;
+        let (slice_borrow, slice) = unsafe {
+            chunk
+                .components(ComponentTypeId::of::<T>())?
+                .data_slice::<T>()
+                .deconstruct()
+        };
+        let component = slice.get(*location.component())?;
+
+        Some(Ref::new(slice_borrow, component))
+    }
+
+    #[inline]
+    unsafe fn get_component_mut_unchecked<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Option<RefMut<T>> {
+        if !self.is_alive(entity) {
+            return None;
+        }
+
+        let location = self.entity_locations.get(entity)?;
+        let chunk = self.storage().chunk(location)?;
+        let (slice_borrow, slice) = chunk
+            .components(ComponentTypeId::of::<T>())?
+            .data_slice_mut::<T>()
+            .deconstruct();
+        let component = slice.get_mut(*location.component())?;
+
+        Some(RefMut::new(slice_borrow, component))
+    }
+
+    #[inline]
+    fn get_tag<T: Tag>(&self, entity: Entity) -> Option<&T> {
+        if !self.is_alive(entity) {
+            return None;
+        }
+
+        let location = self.entity_locations.get(entity)?;
+        let archetype = self.storage().archetype(location.archetype())?;
+        let tags = archetype.tags().get(TagTypeId::of::<T>())?;
+
+        unsafe { tags.data_slice::<T>().get(*location.set()) }
+    }
+
+    #[inline]
+    fn is_alive(&self, entity: Entity) -> bool { self.entity_allocator.is_alive(entity) }
+
+    #[inline]
+    fn get_component_storage<V: for<'b> View<'b>>(
+        &self,
+    ) -> Result<StorageAccessor, ComponentAccessError> {
+        Ok(StorageAccessor::new(self.storage(), None))
     }
 }
 

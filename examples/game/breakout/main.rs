@@ -198,19 +198,22 @@ fn ball_collision_system(
     mut scoreboard: ResMut<Scoreboard>,
     command_buffer: &mut CommandBuffer,
     world: &mut SubWorld,
-    ball_query: &mut Query<(Write<Ball>, Read<Translation>, Read<Sprite>)>,
+    ball_query: &mut Query<Write<Ball>>,
     paddle_query: &mut Query<(Read<Paddle>, Read<Translation>, Read<Sprite>)>,
     brick_query: &mut Query<(Read<Brick>, Read<Translation>, Read<Sprite>)>,
     wall_query: &mut Query<(Read<Wall>, Read<Translation>, Read<Sprite>)>,
 ) {
-    for (mut ball, translation, sprite) in ball_query.iter_mut(world) {
+    let (mut ball_world, world) = world.split_for_query(ball_query);
+    for (entity, mut ball) in ball_query.iter_entities_mut(&mut ball_world) {
+        let translation = world.get_component::<Translation>(entity).unwrap();
+        let sprite = world.get_component::<Sprite>(entity).unwrap();
         let ball_position = translation.0;
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
         let mut collision = None;
 
         // check collision with walls
-        for (_wall, translation, sprite) in wall_query.iter(world) {
+        for (_wall, translation, sprite) in wall_query.iter(&world) {
             if collision.is_some() {
                 break;
             }
@@ -219,7 +222,7 @@ fn ball_collision_system(
         }
 
         // check collision with paddle(s)
-        for (_paddle, translation, sprite) in paddle_query.iter(world) {
+        for (_paddle, translation, sprite) in paddle_query.iter(&world) {
             if collision.is_some() {
                 break;
             }
@@ -228,7 +231,7 @@ fn ball_collision_system(
         }
 
         // check collision with bricks
-        for (brick_entity, (_brick, translation, sprite)) in brick_query.iter_entities(world) {
+        for (brick_entity, (_brick, translation, sprite)) in brick_query.iter_entities(&world) {
             if collision.is_some() {
                 break;
             }

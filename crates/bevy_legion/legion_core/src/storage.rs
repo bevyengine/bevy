@@ -23,7 +23,7 @@ use smallvec::SmallVec;
 use std::any::type_name;
 use std::cell::UnsafeCell;
 use std::fmt::Debug;
-use std::fmt::Formatter;
+use std::fmt::{Display, Formatter};
 use std::mem::size_of;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -43,48 +43,25 @@ fn next_version() -> u64 {
         .unwrap()
 }
 
-#[cfg(not(feature = "ffi"))]
-/// A type ID identifying a component type.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ComponentTypeId(pub &'static str);
 
-#[cfg(not(feature = "ffi"))]
 impl ComponentTypeId {
     /// Gets the component type ID that represents type `T`.
     pub fn of<T: Component>() -> Self { Self(type_name::<T>()) }
 }
 
-#[cfg(feature = "ffi")]
-/// A type ID identifying a component type.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct ComponentTypeId(pub &'static str, pub u32);
-
-#[cfg(feature = "ffi")]
-impl ComponentTypeId {
-    /// Gets the component type ID that represents type `T`.
-    pub fn of<T: Component>() -> Self { Self(type_name::<T>(), 0) }
+impl Display for ComponentTypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { write!(f, "{}", self.0) }
 }
 
-#[cfg(not(feature = "ffi"))]
 /// A type ID identifying a tag type.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct TagTypeId(pub &'static str);
 
-#[cfg(not(feature = "ffi"))]
 impl TagTypeId {
     /// Gets the tag type ID that represents type `T`.
     pub fn of<T: Component>() -> Self { Self(type_name::<T>()) }
-}
-
-#[cfg(feature = "ffi")]
-/// A type ID identifying a tag type.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
-pub struct TagTypeId(pub &'static str, pub u32);
-
-#[cfg(feature = "ffi")]
-impl TagTypeId {
-    /// Gets the tag type ID that represents type `T`.
-    pub fn of<T: Component>() -> Self { Self(type_name::<T>(), 0) }
 }
 
 /// A `Component` is per-entity data that can be attached to a single entity.
@@ -1213,6 +1190,28 @@ impl ArchetypeData {
         SetIndex(index): SetIndex,
     ) -> &mut Chunkset {
         self.chunksets_mut().get_unchecked_mut(index)
+    }
+
+    pub(crate) fn iter_data_slice<'a, T: Component>(
+        &'a self,
+    ) -> impl Iterator<Item = RefMap<&[T]>> + 'a {
+        self.chunk_sets.iter().flat_map(move |set| {
+            set.chunks.iter().map(move |chunk| {
+                let c = chunk.components(ComponentTypeId::of::<T>()).unwrap();
+                unsafe { c.data_slice::<T>() }
+            })
+        })
+    }
+
+    pub(crate) unsafe fn iter_data_slice_unchecked_mut<'a, T: Component>(
+        &'a self,
+    ) -> impl Iterator<Item = RefMapMut<&mut [T]>> + 'a {
+        self.chunk_sets.iter().flat_map(move |set| {
+            set.chunks.iter().map(move |chunk| {
+                let c = chunk.components(ComponentTypeId::of::<T>()).unwrap();
+                c.data_slice_mut::<T>()
+            })
+        })
     }
 }
 

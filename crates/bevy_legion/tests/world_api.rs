@@ -1,4 +1,6 @@
 use legion::prelude::*;
+use legion::storage::ComponentTypeId;
+use legion::storage::TagTypeId;
 use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -247,39 +249,40 @@ fn delete_first() {
 }
 
 #[test]
-// fn merge() {
-//     let _ = tracing_subscriber::fmt::try_init();
+fn move_from() {
+    let _ = tracing_subscriber::fmt::try_init();
 
-//     let universe = Universe::new();
-//     let mut world_1 = universe.create_world();
-//     let mut world_2 = universe.create_world();
+    let universe = Universe::new();
+    let mut world_1 = universe.create_world();
+    let mut world_2 = universe.create_world();
 
-//     let shared = (Static, Model(5));
-//     let components = vec![
-//         (Pos(1., 2., 3.), Rot(0.1, 0.2, 0.3)),
-//         (Pos(4., 5., 6.), Rot(0.4, 0.5, 0.6)),
-//     ];
+    let shared = (Static, Model(5));
+    let components = vec![
+        (Pos(1., 2., 3.), Rot(0.1, 0.2, 0.3)),
+        (Pos(4., 5., 6.), Rot(0.4, 0.5, 0.6)),
+    ];
 
-//     let mut world_1_entities: Vec<Entity> = Vec::new();
-//     for e in world_1.insert(shared, components.clone()) {
-//         world_1_entities.push(*e);
-//     }
+    let mut world_1_entities: Vec<Entity> = Vec::new();
+    for e in world_1.insert(shared, components.clone()) {
+        world_1_entities.push(*e);
+    }
 
-//     let mut world_2_entities: Vec<Entity> = Vec::new();
-//     for e in world_2.insert(shared, components.clone()) {
-//         world_2_entities.push(*e);
-//     }
+    let mut world_2_entities: Vec<Entity> = Vec::new();
+    for e in world_2.insert(shared, components.clone()) {
+        world_2_entities.push(*e);
+    }
 
-//     world_1.merge(world_2);
+    world_1.move_from(world_2);
 
-//     for (i, e) in world_2_entities.iter().enumerate() {
-//         assert!(world_1.is_alive(*e));
+    for (i, e) in world_2_entities.iter().enumerate() {
+        assert!(world_1.is_alive(*e));
 
-//         let (pos, rot) = components.get(i).unwrap();
-//         assert_eq!(pos, &world_1.get_component(*e).unwrap() as &Pos);
-//         assert_eq!(rot, &world_1.get_component(*e).unwrap() as &Rot);
-//     }
-// }
+        let (pos, rot) = components.get(i).unwrap();
+        assert_eq!(pos, &world_1.get_component(*e).unwrap() as &Pos);
+        assert_eq!(rot, &world_1.get_component(*e).unwrap() as &Rot);
+    }
+}
+
 #[test]
 fn mutate_add_component() {
     let _ = tracing_subscriber::fmt::try_init();
@@ -546,4 +549,43 @@ fn iter_entities() {
 
     // Verify that no extra entities are included
     assert!(entities.is_empty());
+}
+
+// Test that World::entity_component_types returns the correct ComponentTypeId
+#[test]
+fn entity_component_types() {
+    let _ = tracing_subscriber::fmt::try_init();
+
+    let universe = Universe::new();
+    let mut world = universe.create_world();
+
+    let shared = (Model(5),);
+    let components = vec![(Pos(1., 2., 3.),)];
+
+    let entity = world.insert(shared, components)[0];
+
+    let component_types = world.entity_component_types(entity).unwrap();
+    let component_type_ids: Vec<ComponentTypeId> =
+        component_types.iter().map(|(id, _)| *id).collect();
+    assert_eq!(1, component_type_ids.len());
+    assert!(component_type_ids.contains(&ComponentTypeId::of::<Pos>()));
+}
+
+// Test that World::entity_tag_types returns the correct TagTypeId
+#[test]
+fn entity_tag_types() {
+    let _ = tracing_subscriber::fmt::try_init();
+
+    let universe = Universe::new();
+    let mut world = universe.create_world();
+
+    let shared = (Model(5),);
+    let components = vec![(Pos(1., 2., 3.),)];
+
+    let entity = world.insert(shared, components)[0];
+
+    let tag_types = world.entity_tag_types(entity).unwrap();
+    let tag_type_ids: Vec<TagTypeId> = tag_types.iter().map(|(id, _)| *id).collect();
+    assert_eq!(1, tag_type_ids.len());
+    assert!(tag_type_ids.contains(&TagTypeId::of::<Model>()));
 }

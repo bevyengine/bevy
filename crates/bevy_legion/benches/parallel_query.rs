@@ -120,12 +120,12 @@ fn sequential(world: &mut World) {
 fn parallel(world: &mut World) {
     join(
         || unsafe {
-            for (mut b, a) in <(Write<B>, Read<A>)>::query().iter_unchecked(&world) {
+            for (mut b, a) in <(Write<B>, Read<A>)>::query().iter_unchecked(world) {
                 b.0 = a.0;
             }
         },
         || unsafe {
-            for (mut c, a) in <(Write<C>, Read<A>)>::query().iter_unchecked(&world) {
+            for (mut c, a) in <(Write<C>, Read<A>)>::query().iter_unchecked(world) {
                 c.0 = a.0;
             }
         },
@@ -135,12 +135,12 @@ fn parallel(world: &mut World) {
 fn par_for_each_mut(world: &mut World) {
     join(
         || unsafe {
-            <(Write<B>, Read<A>)>::query().par_for_each_unchecked(&world, |(mut b, a)| {
+            <(Write<B>, Read<A>)>::query().par_for_each_unchecked(world, |(mut b, a)| {
                 b.0 = a.0;
             });
         },
         || unsafe {
-            <(Write<C>, Read<A>)>::query().par_for_each_unchecked(&world, |(mut c, a)| {
+            <(Write<C>, Read<A>)>::query().par_for_each_unchecked(world, |(mut c, a)| {
                 c.0 = a.0;
             });
         },
