@@ -4,7 +4,7 @@ use bevy_render::{
     pipeline::{state_descriptors::*, PipelineDescriptor},
     render_graph::{nodes::CameraNode, RenderGraph},
     shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat,
+    texture::TextureFormat, ActiveCameras,
 };
 use legion::prelude::Resources;
 
@@ -60,7 +60,7 @@ pub mod node {
     pub const UI_CAMERA: &'static str = "ui_camera";
 }
 
-pub mod uniform {
+pub mod camera {
     pub const UI_CAMERA: &'static str = "UiCamera";
 }
 
@@ -70,12 +70,14 @@ pub trait UiRenderGraphBuilder {
 
 impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(node::UI_CAMERA, CameraNode::new(uniform::UI_CAMERA));
+        self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
         self.add_node_edge(node::UI_CAMERA, base_render_graph::node::MAIN_PASS)
             .unwrap();
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+        let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+        active_cameras.add(camera::UI_CAMERA);
         self
     }
 }

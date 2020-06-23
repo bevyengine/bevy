@@ -34,7 +34,7 @@ pub mod node {
     pub const SHARED_BUFFERS: &str = "shared_buffers";
 }
 
-pub mod uniform {
+pub mod camera {
     pub const CAMERA: &str = "Camera";
     pub const CAMERA2D: &str = "Camera2d";
 }
@@ -62,11 +62,11 @@ impl BaseRenderGraphBuilder for RenderGraph {
     fn add_base_graph(&mut self, config: &BaseRenderGraphConfig) -> &mut Self {
         self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
         if config.add_3d_camera {
-            self.add_system_node(node::CAMERA, CameraNode::new(uniform::CAMERA));
+            self.add_system_node(node::CAMERA, CameraNode::new(camera::CAMERA));
         }
 
         if config.add_2d_camera {
-            self.add_system_node(node::CAMERA2D, CameraNode::new(uniform::CAMERA2D));
+            self.add_system_node(node::CAMERA2D, CameraNode::new(camera::CAMERA2D));
         }
 
         self.add_node(node::SHARED_BUFFERS, SharedBuffersNode::default());

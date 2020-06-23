@@ -94,7 +94,12 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
+            .init_resource::<ActiveCameras>()
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
+            .add_system_to_stage(
+                bevy_app::stage::POST_UPDATE,
+                camera::active_cameras_system.system(),
+            )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::camera_system::<OrthographicProjection>(),
@@ -125,6 +130,14 @@ impl AppPlugin for RenderPlugin {
             let resources = app.resources();
             let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
             render_graph.add_base_graph(config);
+            let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+            if config.add_3d_camera {
+                active_cameras.add(base_render_graph::camera::CAMERA);
+            }
+
+            if config.add_2d_camera {
+                active_cameras.add(base_render_graph::camera::CAMERA2D);
+            }
         }
     }
 }

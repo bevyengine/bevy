@@ -33,7 +33,7 @@ impl Default for PerspectiveCameraEntity {
     fn default() -> Self {
         PerspectiveCameraEntity {
             camera: Camera {
-                name: Some(base_render_graph::uniform::CAMERA.to_string()),
+                name: Some(base_render_graph::camera::CAMERA.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
@@ -81,7 +81,7 @@ impl Default for OrthographicCameraEntity {
     fn default() -> Self {
         OrthographicCameraEntity {
             camera: Camera {
-                name: Some(base_render_graph::uniform::CAMERA2D.to_string()),
+                name: Some(base_render_graph::camera::CAMERA2D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: Default::default(),
