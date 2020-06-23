@@ -95,13 +95,18 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
-            .init_system_to_stage(
+            .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<OrthographicProjection>,
+                camera::camera_system::<OrthographicProjection>(),
             )
-            .init_system_to_stage(
+            .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<PerspectiveProjection>,
+                camera::camera_system::<PerspectiveProjection>(),
+            )
+            // registration order matters here. this must come after all camera_system::<T> systems
+            .add_system_to_stage(
+                bevy_app::stage::POST_UPDATE,
+                visible_entities_system.system(),
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
             .init_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system)

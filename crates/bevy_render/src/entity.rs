@@ -1,6 +1,6 @@
 use crate::{
     base_render_graph, draw::Draw, mesh::Mesh, pipeline::RenderPipelines, Camera,
-    OrthographicProjection, PerspectiveProjection, WindowOrigin,
+    OrthographicProjection, PerspectiveProjection, WindowOrigin, VisibleEntities,
 };
 use bevy_asset::Handle;
 use bevy_derive::EntityArchetype;
@@ -22,6 +22,7 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
 pub struct PerspectiveCameraEntity {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
+    pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
@@ -36,6 +37,7 @@ impl Default for PerspectiveCameraEntity {
                 ..Default::default()
             },
             perspective_projection: Default::default(),
+            visible_entities: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
@@ -48,6 +50,7 @@ impl Default for PerspectiveCameraEntity {
 pub struct OrthographicCameraEntity {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
+    pub visible_entities: VisibleEntities,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
@@ -65,6 +68,7 @@ impl OrthographicCameraEntity {
                 window_origin: WindowOrigin::BottomLeft,
                 ..Default::default()
             },
+            visible_entities: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
@@ -81,6 +85,7 @@ impl Default for OrthographicCameraEntity {
                 ..Default::default()
             },
             orthographic_projection: Default::default(),
+            visible_entities: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),

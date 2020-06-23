@@ -88,6 +88,10 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "z_sort_debug"
+path = "examples/3d/z_sort_debug.rs"
+
+[[example]]
 name = "dynamic_plugin_loading"
 path = "examples/app/dynamic_plugin_loading/main.rs"
 

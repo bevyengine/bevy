@@ -28,7 +28,7 @@ pub use crate::{
         render_resource::RenderResources,
         shader::{Shader, ShaderDefs, ShaderStage, ShaderStages},
         texture::Texture,
-        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection,
+        Camera, Color, ColorSource, OrthographicProjection, PerspectiveProjection, VisibleEntities
     },
     scene::{Scene, SceneSpawner},
     sprite::{

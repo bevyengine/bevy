@@ -11,9 +11,7 @@ pub struct Camera {
     pub name: Option<String>,
 }
 
-pub fn camera_system<T: CameraProjection + Component>(
-    _resources: &mut Resources,
-) -> Box<dyn Schedulable> {
+pub fn camera_system<T: CameraProjection + Component>() -> Box<dyn Schedulable> {
     let mut window_resized_event_reader = EventReader::<WindowResized>::default();
     let mut window_created_event_reader = EventReader::<WindowCreated>::default();
     (move |world: &mut SubWorld,
