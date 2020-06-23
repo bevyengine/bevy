@@ -32,8 +32,6 @@ fn setup(
     let texture = textures.get(&texture_handle).unwrap();
     let aspect = texture.aspect();
 
-    let blue_material_handle = materials.add(Color::rgb(0.6, 0.6, 1.0).into());
-
     command_buffer
         .build()
         // // cube
@@ -151,7 +149,7 @@ fn setup(
                     Anchors::FULL,
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                 ),
-                material: blue_material_handle,
+                material: materials.add(Color::rgb(0.6, 0.6, 1.0).into()),
                 ..Default::default()
             })
         })
