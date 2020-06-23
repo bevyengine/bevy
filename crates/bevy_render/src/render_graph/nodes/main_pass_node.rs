@@ -4,7 +4,7 @@ use crate::{
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::{BindGroupId, BufferId, RenderResourceBindings, RenderResourceType},
-    renderer::RenderContext,
+    renderer::RenderContext, ActiveCameras, VisibleEntities,
 };
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
@@ -12,6 +12,7 @@ use legion::prelude::*;
 pub struct MainPassNode {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
+    cameras: Vec<String>,
     color_attachment_input_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
 }
@@ -46,9 +47,14 @@ impl MainPassNode {
         MainPassNode {
             descriptor,
             inputs,
+            cameras: Vec::new(),
             color_attachment_input_indices,
             depth_stencil_attachment_input_index,
         }
+    }
+
+    pub fn add_camera(&mut self, camera_name: &str) {
+        self.cameras.push(camera_name.to_string());
     }
 }
 
@@ -67,6 +73,7 @@ impl Node for MainPassNode {
     ) {
         let render_resource_bindings = resources.get::<RenderResourceBindings>().unwrap();
         let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
+        let active_cameras= resources.get::<ActiveCameras>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
@@ -84,74 +91,88 @@ impl Node for MainPassNode {
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
 
-        render_context.begin_pass(
-            &self.descriptor,
-            &render_resource_bindings,
-            &mut |render_pass| {
-                let mut draw_state = DrawState::default();
-                for draw in <Read<Draw>>::query().iter(&world) {
-                    if !draw.is_visible {
-                        continue;
-                    }
+        for camera_name in self.cameras.iter() {
+            let visible_entities = if let Some(camera_entity) = active_cameras.get(camera_name) {
+                world.get_component::<VisibleEntities>(camera_entity).unwrap()
+            } else {
+                continue;
+            };
 
-                    for render_command in draw.render_commands.iter() {
-                        match render_command {
-                            RenderCommand::SetPipeline { pipeline } => {
-                                // TODO: Filter pipelines
-                                render_pass.set_pipeline(*pipeline);
-                                let descriptor = pipelines.get(pipeline).unwrap();
-                                draw_state.set_pipeline(*pipeline, descriptor);
-                            }
-                            RenderCommand::DrawIndexed {
-                                base_vertex,
-                                indices,
-                                instances,
-                            } => {
-                                if draw_state.can_draw_indexed() {
-                                    render_pass.draw_indexed(
-                                        indices.clone(),
-                                        *base_vertex,
-                                        instances.clone(),
-                                    );
-                                } else {
-                                    log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+            render_context.begin_pass(
+                &self.descriptor,
+                &render_resource_bindings,
+                &mut |render_pass| {
+                    let mut draw_state = DrawState::default();
+                    for visible_entity in visible_entities.iter() {
+                        let draw = if let Some(draw) = world.get_component::<Draw>(visible_entity.entity) {
+                            draw
+                        } else {
+                            continue;
+                        };
+
+                        if !draw.is_visible {
+                            continue;
+                        }
+    
+                        for render_command in draw.render_commands.iter() {
+                            match render_command {
+                                RenderCommand::SetPipeline { pipeline } => {
+                                    // TODO: Filter pipelines
+                                    render_pass.set_pipeline(*pipeline);
+                                    let descriptor = pipelines.get(pipeline).unwrap();
+                                    draw_state.set_pipeline(*pipeline, descriptor);
                                 }
-                            }
-                            RenderCommand::SetVertexBuffer {
-                                buffer,
-                                offset,
-                                slot,
-                            } => {
-                                render_pass.set_vertex_buffer(*slot, *buffer, *offset);
-                                draw_state.set_vertex_buffer(*slot, *buffer);
-                            }
-                            RenderCommand::SetIndexBuffer { buffer, offset } => {
-                                render_pass.set_index_buffer(*buffer, *offset);
-                                draw_state.set_index_buffer(*buffer)
-                            }
-                            RenderCommand::SetBindGroup {
-                                index,
-                                bind_group,
-                                dynamic_uniform_indices,
-                            } => {
-                                let pipeline = pipelines.get(&draw_state.pipeline.unwrap()).unwrap();
-                                let layout = pipeline.get_layout().unwrap();
-                                let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
-                                render_pass.set_bind_group(
-                                    *index,
-                                    bind_group_descriptor.id,
-                                    *bind_group,
-                                    dynamic_uniform_indices
-                                        .as_ref()
-                                        .map(|indices| indices.as_slice()),
-                                );
-                                draw_state.set_bind_group(*index, *bind_group);
+                                RenderCommand::DrawIndexed {
+                                    base_vertex,
+                                    indices,
+                                    instances,
+                                } => {
+                                    if draw_state.can_draw_indexed() {
+                                        render_pass.draw_indexed(
+                                            indices.clone(),
+                                            *base_vertex,
+                                            instances.clone(),
+                                        );
+                                    } else {
+                                        log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                    }
+                                }
+                                RenderCommand::SetVertexBuffer {
+                                    buffer,
+                                    offset,
+                                    slot,
+                                } => {
+                                    render_pass.set_vertex_buffer(*slot, *buffer, *offset);
+                                    draw_state.set_vertex_buffer(*slot, *buffer);
+                                }
+                                RenderCommand::SetIndexBuffer { buffer, offset } => {
+                                    render_pass.set_index_buffer(*buffer, *offset);
+                                    draw_state.set_index_buffer(*buffer)
+                                }
+                                RenderCommand::SetBindGroup {
+                                    index,
+                                    bind_group,
+                                    dynamic_uniform_indices,
+                                } => {
+                                    let pipeline = pipelines.get(&draw_state.pipeline.unwrap()).unwrap();
+                                    let layout = pipeline.get_layout().unwrap();
+                                    let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
+                                    render_pass.set_bind_group(
+                                        *index,
+                                        bind_group_descriptor.id,
+                                        *bind_group,
+                                        dynamic_uniform_indices
+                                            .as_ref()
+                                            .map(|indices| indices.as_slice()),
+                                    );
+                                    draw_state.set_bind_group(*index, *bind_group);
+                                }
                             }
                         }
                     }
-                }
-            },
-        );
+                },
+            );
+        }
     }
 }
 

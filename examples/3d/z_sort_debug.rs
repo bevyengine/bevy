@@ -23,10 +23,10 @@ fn camera_order_color_system(
     _material_query: &mut Query<Read<Handle<StandardMaterial>>>,
 ) {
     for (_camera, visible_entities) in camera_query.iter(world) {
-        for visible_entity in visible_entities.value.iter() {
+        for visible_entity in visible_entities.iter() {
             if let Some(material_handle) = world.get_component::<Handle<StandardMaterial>>(visible_entity.entity) {
                 let material = materials.get_mut(&material_handle).unwrap();
-                let value = 1.0 - (20.0 - visible_entity.order.0) / 7.0;
+                let value = 1.0 - (20.0 + visible_entity.order.0) / 7.0;
                 material.albedo = Color::rgb(value, value, value);
             }
         }

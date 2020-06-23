@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{nodes::CameraNode, RenderGraph},
+    render_graph::{nodes::{MainPassNode, CameraNode}, RenderGraph},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat, ActiveCameras,
 };
@@ -70,13 +70,17 @@ pub trait UiRenderGraphBuilder {
 
 impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, base_render_graph::node::MAIN_PASS)
-            .unwrap();
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+
+        // setup ui camera
+        self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
+        self.add_node_edge(node::UI_CAMERA, base_render_graph::node::MAIN_PASS)
+            .unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
+        let main_pass_node: &mut MainPassNode = self.get_node_mut(base_render_graph::node::MAIN_PASS).unwrap();
+        main_pass_node.add_camera(camera::UI_CAMERA);
         active_cameras.add(camera::UI_CAMERA);
         self
     }

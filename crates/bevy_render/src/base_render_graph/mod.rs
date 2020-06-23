@@ -92,29 +92,39 @@ impl BaseRenderGraphBuilder for RenderGraph {
         }
 
         if config.add_main_pass {
+            let mut main_pass_node = MainPassNode::new(PassDescriptor {
+                color_attachments: vec![RenderPassColorAttachmentDescriptor {
+                    attachment: TextureAttachment::Input("color".to_string()),
+                    resolve_target: None,
+                    load_op: LoadOp::Clear,
+                    store_op: StoreOp::Store,
+                    clear_color: Color::rgb(0.1, 0.1, 0.1),
+                }],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: TextureAttachment::Input("depth".to_string()),
+                    depth_load_op: LoadOp::Clear,
+                    depth_store_op: StoreOp::Store,
+                    stencil_load_op: LoadOp::Clear,
+                    stencil_store_op: StoreOp::Store,
+                    stencil_read_only: false,
+                    depth_read_only: false,
+                    clear_depth: 1.0,
+                    clear_stencil: 0,
+                }),
+                sample_count: 1,
+            });
+
+            if config.add_3d_camera {
+                main_pass_node.add_camera(camera::CAMERA);
+            }
+
+            if config.add_2d_camera {
+                main_pass_node.add_camera(camera::CAMERA2D);
+            }
+
             self.add_node(
                 node::MAIN_PASS,
-                MainPassNode::new(PassDescriptor {
-                    color_attachments: vec![RenderPassColorAttachmentDescriptor {
-                        attachment: TextureAttachment::Input("color".to_string()),
-                        resolve_target: None,
-                        load_op: LoadOp::Clear,
-                        store_op: StoreOp::Store,
-                        clear_color: Color::rgb(0.1, 0.1, 0.1),
-                    }],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
-                        attachment: TextureAttachment::Input("depth".to_string()),
-                        depth_load_op: LoadOp::Clear,
-                        depth_store_op: StoreOp::Store,
-                        stencil_load_op: LoadOp::Clear,
-                        stencil_store_op: StoreOp::Store,
-                        stencil_read_only: false,
-                        depth_read_only: false,
-                        clear_depth: 1.0,
-                        clear_stencil: 0,
-                    }),
-                    sample_count: 1,
-                }),
+                main_pass_node
             );
 
             self.add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
