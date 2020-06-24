@@ -72,7 +72,7 @@ fn setup(
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
-            transform: Transform::new_sync_disabled(Mat4::look_at_rh(
+            transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(0.0, -10.0, 3.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),

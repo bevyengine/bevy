@@ -24,9 +24,11 @@ fn camera_order_color_system(
 ) {
     for (_camera, visible_entities) in camera_query.iter(world) {
         for visible_entity in visible_entities.iter() {
-            if let Some(material_handle) = world.get_component::<Handle<StandardMaterial>>(visible_entity.entity) {
+            if let Some(material_handle) =
+                world.get_component::<Handle<StandardMaterial>>(visible_entity.entity)
+            {
                 let material = materials.get_mut(&material_handle).unwrap();
-                let value = 1.0 - (20.0 + visible_entity.order.0) / 7.0;
+                let value = 1.0 - (visible_entity.order.0 - 10.0) / 7.0;
                 material.albedo = Color::rgb(value, value, value);
             }
         }
@@ -40,7 +42,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-
     command_buffer
         .build()
         // parent cube
@@ -83,7 +84,7 @@ fn setup(
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
-            transform: Transform::new_sync_disabled(Mat4::look_at_rh(
+            transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),

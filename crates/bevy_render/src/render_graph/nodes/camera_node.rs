@@ -81,7 +81,7 @@ impl SystemNode for CameraNode {
             };
 
             let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-            let camera_matrix: [f32; 16] = (camera.view_matrix * transform.value).to_cols_array();
+            let camera_matrix: [f32; 16] = (camera.projection_matrix * transform.value.inverse()).to_cols_array();
 
             let tmp_buffer = render_resource_context.create_buffer_mapped(
                 BufferInfo {

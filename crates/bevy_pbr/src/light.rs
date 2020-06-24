@@ -41,7 +41,7 @@ impl LightRaw {
             far: light.depth.end,
         };
 
-        let proj = perspective.get_view_matrix() * *transform;
+        let proj = perspective.get_projection_matrix() * *transform;
         let (x, y, z) = translation.0.into();
         LightRaw {
             proj: proj.to_cols_array_2d(),

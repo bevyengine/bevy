@@ -7,7 +7,7 @@ use legion::{prelude::*, storage::Component};
 
 #[derive(Default, Debug, Properties)]
 pub struct Camera {
-    pub view_matrix: Mat4,
+    pub projection_matrix: Mat4,
     pub name: Option<String>,
 }
 
@@ -29,7 +29,7 @@ pub fn camera_system<T: CameraProjection + Component>() -> Box<dyn Schedulable> 
             if let Some(window) = windows.get(event.id) {
                 for (mut camera, mut camera_projection) in query.iter_mut(world) {
                     camera_projection.update(window.width as usize, window.height as usize);
-                    camera.view_matrix = camera_projection.get_view_matrix();
+                    camera.projection_matrix = camera_projection.get_projection_matrix();
                 }
             }
         }
@@ -40,7 +40,7 @@ pub fn camera_system<T: CameraProjection + Component>() -> Box<dyn Schedulable> 
                     primary_window_resized_event.width,
                     primary_window_resized_event.height,
                 );
-                camera.view_matrix = camera_projection.get_view_matrix();
+                camera.projection_matrix = camera_projection.get_projection_matrix();
             }
         }
     })

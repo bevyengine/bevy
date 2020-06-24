@@ -91,17 +91,17 @@ impl Node for MainPassNode {
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
 
-        for camera_name in self.cameras.iter() {
-            let visible_entities = if let Some(camera_entity) = active_cameras.get(camera_name) {
-                world.get_component::<VisibleEntities>(camera_entity).unwrap()
-            } else {
-                continue;
-            };
+        render_context.begin_pass(
+            &self.descriptor,
+            &render_resource_bindings,
+            &mut |render_pass| {
+                for camera_name in self.cameras.iter() {
+                    let visible_entities = if let Some(camera_entity) = active_cameras.get(camera_name) {
+                        world.get_component::<VisibleEntities>(camera_entity).unwrap()
+                    } else {
+                        continue;
+                    };
 
-            render_context.begin_pass(
-                &self.descriptor,
-                &render_resource_bindings,
-                &mut |render_pass| {
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
                         let draw = if let Some(draw) = world.get_component::<Draw>(visible_entity.entity) {
@@ -170,9 +170,9 @@ impl Node for MainPassNode {
                             }
                         }
                     }
-                },
-            );
-        }
+                }
+            },
+        );
     }
 }
 

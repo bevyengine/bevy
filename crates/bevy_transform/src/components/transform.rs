@@ -27,7 +27,7 @@ impl Transform {
 
     /// This creates a new `LocalToWorld` transform with the `sync` field set to `false`.
     /// While `sync` is false, position, rotation, and scale components will not be synced to the transform.
-    /// This is helpful if you want to manually set the transform to a value (ex: Mat4::look_at_rh)  
+    /// This is helpful if you want to manually set the transform to a value (ex: Mat4::face_toward)  
     #[inline(always)]
     pub fn new_sync_disabled(value: Mat4) -> Self {
         Transform { value, sync: false }

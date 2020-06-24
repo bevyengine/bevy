@@ -3,7 +3,7 @@ use glam::Mat4;
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {
-    fn get_view_matrix(&self) -> Mat4;
+    fn get_projection_matrix(&self) -> Mat4;
     fn update(&mut self, width: usize, height: usize);
 }
 
@@ -16,7 +16,7 @@ pub struct PerspectiveProjection {
 }
 
 impl CameraProjection for PerspectiveProjection {
-    fn get_view_matrix(&self) -> Mat4 {
+    fn get_projection_matrix(&self) -> Mat4 {
         let projection = Mat4::perspective_rh_gl(self.fov, self.aspect_ratio, self.near, self.far);
         projection
     }
@@ -55,7 +55,7 @@ pub struct OrthographicProjection {
 }
 
 impl CameraProjection for OrthographicProjection {
-    fn get_view_matrix(&self) -> Mat4 {
+    fn get_projection_matrix(&self) -> Mat4 {
         let projection = Mat4::orthographic_rh(
             self.left,
             self.right,

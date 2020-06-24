@@ -7,12 +7,13 @@ use legion::{
     systems::{Query, SubWorld},
 };
 
+#[derive(Debug)]
 pub struct VisibleEntity {
     pub entity: Entity,
     pub order: FloatOrd,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct VisibleEntities {
     pub value: Vec<VisibleEntity>,
 }
@@ -41,8 +42,8 @@ pub fn visible_entities_system(
 
             let order = if let Some(transform) = world.get_component::<Transform>(entity) {
                 let position = transform.value.w_axis().truncate();
-                // smaller distances are sorted to lower indices by using the negative distance from the camera 
-                FloatOrd(-(camera_position - position).length())
+                // smaller distances are sorted to lower indices by using the distance from the camera 
+                FloatOrd((camera_position - position).length())
             } else {
                 let order = FloatOrd(no_transform_order);
                 no_transform_order += 0.1;
@@ -54,7 +55,7 @@ pub fn visible_entities_system(
             })
         }
 
-        visible_entities.value.sort_by_key(|e| e.order)
+        visible_entities.value.sort_by_key(|e| e.order);
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize to prevent holding unneeded memory
     }

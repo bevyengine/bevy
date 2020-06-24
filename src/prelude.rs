@@ -6,7 +6,7 @@ pub use crate::{
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
         time::{Time, Timer},
-        transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource},
+        transform::{CommandBufferBuilderSource, WorldBuilder, WorldBuilderSource, FaceToward},
     },
     diagnostic::DiagnosticsPlugin,
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
