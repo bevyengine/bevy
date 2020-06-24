@@ -34,9 +34,16 @@ fn setup(
         ..Default::default()
     });
 
-    // this material modulates the texture to make it red
-    let modulated_material_handle = materials.add(StandardMaterial {
+    // this material modulates the texture to make it red (and slightly transparent)
+    let red_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
+        albedo_texture: Some(texture_handle),
+        ..Default::default()
+    });
+
+    // and lets make this one blue! (and also slightly transparent)
+    let blue_material_handle = materials.add(StandardMaterial {
+        albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
         albedo_texture: Some(texture_handle),
         ..Default::default()
     });
@@ -48,6 +55,14 @@ fn setup(
         .add_entity(MeshEntity {
             mesh: quad_handle,
             material: material_handle,
+            translation: Translation::new(0.0, -1.5, 0.0),
+            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            ..Default::default()
+        })
+        // textured quad - modulated
+        .add_entity(MeshEntity {
+            mesh: quad_handle,
+            material: red_material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
             ..Default::default()
@@ -55,7 +70,7 @@ fn setup(
         // textured quad - modulated
         .add_entity(MeshEntity {
             mesh: quad_handle,
-            material: modulated_material_handle,
+            material: blue_material_handle,
             translation: Translation::new(0.0, 1.5, 0.0),
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
             ..Default::default()
