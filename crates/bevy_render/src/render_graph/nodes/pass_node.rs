@@ -9,7 +9,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 
-pub struct MainPassNode {
+pub struct PassNode {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
     cameras: Vec<String>,
@@ -17,7 +17,7 @@ pub struct MainPassNode {
     depth_stencil_attachment_input_index: Option<usize>,
 }
 
-impl MainPassNode {
+impl PassNode {
     pub fn new(descriptor: PassDescriptor) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
@@ -44,7 +44,7 @@ impl MainPassNode {
             }
         }
 
-        MainPassNode {
+        PassNode {
             descriptor,
             inputs,
             cameras: Vec::new(),
@@ -58,7 +58,7 @@ impl MainPassNode {
     }
 }
 
-impl Node for MainPassNode {
+impl Node for PassNode {
     fn input(&self) -> &[ResourceSlotInfo] {
         &self.inputs
     }

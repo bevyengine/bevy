@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{nodes::{MainPassNode, CameraNode}, RenderGraph},
+    render_graph::{nodes::{PassNode, CameraNode}, RenderGraph},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat, ActiveCameras,
 };
@@ -79,7 +79,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         self.add_node_edge(node::UI_CAMERA, base_render_graph::node::MAIN_PASS)
             .unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
-        let main_pass_node: &mut MainPassNode = self.get_node_mut(base_render_graph::node::MAIN_PASS).unwrap();
+        let main_pass_node: &mut PassNode = self.get_node_mut(base_render_graph::node::MAIN_PASS).unwrap();
         main_pass_node.add_camera(camera::UI_CAMERA);
         active_cameras.add(camera::UI_CAMERA);
         self

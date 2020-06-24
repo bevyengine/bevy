@@ -5,7 +5,7 @@ use crate::{
     },
     render_graph::{
         nodes::{
-            CameraNode, MainPassNode, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
+            CameraNode, PassNode, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
             WindowTextureNode,
         },
         RenderGraph,
@@ -92,7 +92,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
         }
 
         if config.add_main_pass {
-            let mut main_pass_node = MainPassNode::new(PassDescriptor {
+            let mut main_pass_node = PassNode::new(PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
                     attachment: TextureAttachment::Input("color".to_string()),
                     resolve_target: None,
