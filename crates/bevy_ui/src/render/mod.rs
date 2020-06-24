@@ -14,7 +14,7 @@ pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
 pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Ccw,
+            front_face: FrontFace::Cw,
             cull_mode: CullMode::None,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,

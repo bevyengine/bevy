@@ -17,8 +17,7 @@ pub struct PerspectiveProjection {
 
 impl CameraProjection for PerspectiveProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        let projection = Mat4::perspective_rh_gl(self.fov, self.aspect_ratio, self.near, self.far);
-        projection
+        Mat4::perspective_lh(self.fov, self.aspect_ratio, self.near, self.far)
     }
     fn update(&mut self, width: usize, height: usize) {
         self.aspect_ratio = width as f32 / height as f32;
@@ -56,15 +55,14 @@ pub struct OrthographicProjection {
 
 impl CameraProjection for OrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        let projection = Mat4::orthographic_rh(
+        Mat4::orthographic_lh(
             self.left,
             self.right,
             self.bottom,
             self.top,
             self.near,
             self.far,
-        );
-        projection
+        )
     }
     fn update(&mut self, width: usize, height: usize) {
         match self.window_origin {
@@ -93,8 +91,8 @@ impl Default for OrthographicProjection {
             right: 0.0,
             bottom: 0.0,
             top: 0.0,
-            near: -1.0,
-            far: 0.1,
+            near: 0.0,
+            far: 1000.0,
             window_origin: WindowOrigin::Center,
         }
     }

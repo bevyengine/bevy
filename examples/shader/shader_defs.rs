@@ -82,7 +82,7 @@ fn setup(
     });
 
     // Create a blue material, which uses our "always_blue" shader def
-    let red_material = materials.add(MyMaterial {
+    let blue_material = materials.add(MyMaterial {
         color: Color::rgb(0.0, 0.0, 0.0),
         always_blue: true,
     });
@@ -140,16 +140,16 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            material: red_material,
+            material: blue_material,
             translation: Translation::new(2.0, 0.0, 0.0),
             ..Default::default()
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });

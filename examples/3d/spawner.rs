@@ -64,9 +64,9 @@ fn setup(
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });
@@ -86,8 +86,8 @@ fn setup(
             material: spawned_material_handle,
             translation: Translation::new(
                 rng.gen_range(-50.0, 50.0),
-                rng.gen_range(-50.0, 50.0),
                 0.0,
+                rng.gen_range(-50.0, 50.0),
             ),
             ..Default::default()
         });

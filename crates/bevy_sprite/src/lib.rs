@@ -50,9 +50,8 @@ impl AppPlugin for SpritePlugin {
         let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
         meshes.set(
             QUAD_HANDLE,
-            Mesh::from(shape::Quad {
-                size: Vec2::new(1.0, 1.0),
-            }),
+            // Use a flipped quad because the camera is facing "forward" but quads should face backward 
+            Mesh::from(shape::Quad::flipped(Vec2::new(1.0, 1.0))),
         );
 
         let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();

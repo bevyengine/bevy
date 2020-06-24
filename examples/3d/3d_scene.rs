@@ -40,20 +40,20 @@ fn setup(
         .add_entity(MeshEntity {
             mesh: cube_handle,
             material: cube_material_handle,
-            translation: Translation::new(0.0, 0.0, 1.0),
+            translation: Translation::new(0.0, 1.0, 0.0),
             ..Default::default()
         })
         // light
         .add_entity(LightEntity {
-            translation: Translation::new(4.0, -4.0, 5.0),
+            translation: Translation::new(4.0, 5.0, -4.0),
             ..Default::default()
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(3.0, 8.0, 5.0),
+                Vec3::new(3.0, 5.0, 8.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });

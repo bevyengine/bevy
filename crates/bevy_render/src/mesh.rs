@@ -249,6 +249,17 @@ pub mod shape {
 
     pub struct Quad {
         pub size: Vec2,
+        pub flip: bool,
+    }
+
+    impl Quad {
+        pub fn new(size: Vec2) -> Self {
+            Self { size, flip: false }
+        }
+
+        pub fn flipped(size: Vec2) -> Self {
+            Self { size, flip: true }
+        }
     }
 
     impl From<Quad> for Mesh {
@@ -260,28 +271,53 @@ pub mod shape {
             let north_east = vec2(extent_x, extent_y);
             let south_west = vec2(-extent_x, -extent_y);
             let south_east = vec2(extent_x, -extent_y);
-            let vertices = &[
-                (
-                    [south_west.x(), south_west.y(), 0.0],
-                    [0.0, 0.0, 1.0],
-                    [0.0, 1.0],
-                ),
-                (
-                    [north_west.x(), north_west.y(), 0.0],
-                    [0.0, 0.0, 1.0],
-                    [0.0, 0.0],
-                ),
-                (
-                    [north_east.x(), north_east.y(), 0.0],
-                    [0.0, 0.0, 1.0],
-                    [1.0, 0.0],
-                ),
-                (
-                    [south_east.x(), south_east.y(), 0.0],
-                    [0.0, 0.0, 1.0],
-                    [1.0, 1.0],
-                ),
-            ];
+            let vertices = if quad.flip {
+                [
+                    (
+                        [south_west.x(), south_west.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [0.0, 1.0],
+                    ),
+                    (
+                        [north_west.x(), north_west.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [0.0, 0.0],
+                    ),
+                    (
+                        [north_east.x(), north_east.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 0.0],
+                    ),
+                    (
+                        [south_east.x(), south_east.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 1.0],
+                    ),
+                ]
+            } else {
+                [
+                    (
+                        [south_east.x(), south_east.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 1.0],
+                    ),
+                    (
+                        [north_east.x(), north_east.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 0.0],
+                    ),
+                    (
+                        [north_west.x(), north_west.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [0.0, 0.0],
+                    ),
+                    (
+                        [south_west.x(), south_west.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [0.0, 1.0],
+                    ),
+                ]
+            };
 
             let indices = vec![0, 2, 1, 0, 3, 2];
 
@@ -312,10 +348,51 @@ pub mod shape {
 
     impl From<Plane> for Mesh {
         fn from(plane: Plane) -> Self {
-            Quad {
-                size: Vec2::new(plane.size, plane.size),
+            let extent = plane.size / 2.0;
+
+            let vertices = [
+                    (
+                        [extent, 0.0, -extent],
+                        [0.0, 1.0, 0.0],
+                        [1.0, 1.0],
+                    ),
+                    (
+                        [extent, 0.0, extent],
+                        [0.0, 1.0, 0.0],
+                        [1.0, 0.0],
+                    ),
+                    (
+                        [-extent, 0.0, extent],
+                        [0.0, 1.0, 0.0],
+                        [0.0, 0.0],
+                    ),
+                    (
+                        [-extent, 0.0, -extent],
+                        [0.0, 1.0, 0.0],
+                        [0.0, 1.0],
+                    ),
+                ];
+
+            let indices = vec![0, 2, 1, 0, 3, 2];
+
+            let mut positions = Vec::new();
+            let mut normals = Vec::new();
+            let mut uvs = Vec::new();
+            for (position, normal, uv) in vertices.iter() {
+                positions.push(position.clone());
+                normals.push(normal.clone());
+                uvs.push(uv.clone());
             }
-            .into()
+
+            Mesh {
+                primitive_topology: PrimitiveTopology::TriangleList,
+                attributes: vec![
+                    VertexAttribute::position(positions),
+                    VertexAttribute::normal(normals),
+                    VertexAttribute::uv(uvs),
+                ],
+                indices: Some(indices),
+            }
         }
     }
 }

@@ -24,9 +24,10 @@ fn setup(
 
     // create a new quad mesh. this is what we will apply the texture to
     let quad_width = 8.0;
-    let quad_handle = meshes.add(Mesh::from(shape::Quad {
-        size: Vec2::new(quad_width, quad_width * aspect),
-    }));
+    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+        quad_width,
+        quad_width * aspect,
+    ))));
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
@@ -58,8 +59,8 @@ fn setup(
         .add_entity(MeshEntity {
             mesh: quad_handle,
             material: material_handle,
-            translation: Translation::new(0.0, -1.5, 0.0),
-            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            translation: Translation::new(0.0, 0.0, -1.5),
+            rotation: Rotation(Quat::from_rotation_x(std::f32::consts::PI / 5.0)),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -71,7 +72,7 @@ fn setup(
             mesh: quad_handle,
             material: red_material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
-            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            rotation: Rotation(Quat::from_rotation_x(std::f32::consts::PI / 5.0)),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -82,8 +83,8 @@ fn setup(
         .add_entity(MeshEntity {
             mesh: quad_handle,
             material: blue_material_handle,
-            translation: Translation::new(0.0, 1.5, 0.0),
-            rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            translation: Translation::new(0.0, 0.0, 1.5),
+            rotation: Rotation(Quat::from_rotation_x(std::f32::consts::PI / 5.0)),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -93,9 +94,9 @@ fn setup(
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(3.0, -8.0, 5.0),
+                Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });

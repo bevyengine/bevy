@@ -1,6 +1,6 @@
 {
     "asset" : {
-        "generator" : "Khronos glTF Blender I/O v1.1.46",
+        "generator" : "Khronos glTF Blender I/O v1.2.75",
         "version" : "2.0"
     },
     "scene" : 0,
@@ -37,63 +37,63 @@
         {
             "bufferView" : 0,
             "componentType" : 5126,
-            "count" : 1968,
+            "count" : 3321,
             "max" : [
-                1.3671875,
-                0.8515625,
-                0.984375
+                1.325934886932373,
+                0.9392361640930176,
+                0.8223199844360352
             ],
             "min" : [
-                -1.3671875,
-                -0.8515625,
-                -0.984375
+                -1.325934886932373,
+                -0.9704862236976624,
+                -0.7782661318778992
             ],
             "type" : "VEC3"
         },
         {
             "bufferView" : 1,
             "componentType" : 5126,
-            "count" : 1968,
+            "count" : 3321,
             "type" : "VEC3"
         },
         {
             "bufferView" : 2,
             "componentType" : 5126,
-            "count" : 1968,
+            "count" : 3321,
             "type" : "VEC2"
         },
         {
             "bufferView" : 3,
             "componentType" : 5123,
-            "count" : 2904,
+            "count" : 11808,
             "type" : "SCALAR"
         }
     ],
     "bufferViews" : [
         {
             "buffer" : 0,
-            "byteLength" : 23616,
+            "byteLength" : 39852,
             "byteOffset" : 0
         },
         {
             "buffer" : 0,
+            "byteLength" : 39852,
+            "byteOffset" : 39852
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 26568,
+            "byteOffset" : 79704
+        },
+        {
+            "buffer" : 0,
             "byteLength" : 23616,
-            "byteOffset" : 23616
-        },
-        {
-            "buffer" : 0,
-            "byteLength" : 15744,
-            "byteOffset" : 47232
-        },
-        {
-            "buffer" : 0,
-            "byteLength" : 5808,
-            "byteOffset" : 62976
+            "byteOffset" : 106272
         }
     ],
     "buffers" : [
         {
-            "byteLength" : 68784,
+            "byteLength" : 129888,
             "uri" : "Monkey.bin"
         }
     ]

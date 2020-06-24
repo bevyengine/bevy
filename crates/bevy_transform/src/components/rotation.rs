@@ -10,11 +10,6 @@ impl Rotation {
     pub fn identity() -> Self {
         Self(Quat::identity())
     }
-
-    #[inline(always)]
-    pub fn from_euler_angles(yaw: f32, pitch: f32, roll: f32) -> Self {
-        Self(Quat::from_rotation_ypr(yaw, pitch, roll))
-    }
 }
 
 impl Default for Rotation {

@@ -64,7 +64,7 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    translation: Translation::new(0.0, 0.0, 3.0),
+                    translation: Translation::new(0.0, 3.0, 0.0),
                     ..Default::default()
                 })
                 .add_entity(MeshEntity {
@@ -73,21 +73,16 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    translation: Translation::new(0.0, 0.0, -3.0),
+                    translation: Translation::new(0.0, -3.0, 0.0),
                     ..Default::default()
                 })
-        })
-        // light
-        .add_entity(LightEntity {
-            translation: Translation::new(4.0, -4.0, 5.0),
-            ..Default::default()
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });

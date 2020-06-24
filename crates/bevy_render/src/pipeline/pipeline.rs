@@ -72,7 +72,7 @@ impl PipelineDescriptor {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
             rasterization_state: Some(RasterizationStateDescriptor {
-                front_face: FrontFace::Ccw,
+                front_face: FrontFace::Cw,
                 cull_mode: CullMode::Back,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,

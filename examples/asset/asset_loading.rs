@@ -67,15 +67,15 @@ fn setup(
         })
         // light
         .add_entity(LightEntity {
-            translation: Translation::new(4.0, -4.0, 5.0),
+            translation: Translation::new(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // camera
         .add_entity(PerspectiveCameraEntity {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(0.0, -10.0, 3.0),
+                Vec3::new(0.0, 3.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
+                Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
         });

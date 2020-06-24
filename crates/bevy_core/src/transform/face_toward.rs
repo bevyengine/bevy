@@ -6,7 +6,7 @@ pub trait FaceToward {
 
 impl FaceToward for Mat4 {
     fn face_toward(eye: Vec3, center: Vec3, up: Vec3) -> Self {
-        let forward = (eye - center).normalize();
+        let forward = (center - eye).normalize();
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
         Mat4::from_cols(
