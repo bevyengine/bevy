@@ -31,6 +31,7 @@ fn setup(
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
         albedo_texture: Some(texture_handle),
+        shaded: false,
         ..Default::default()
     });
 
@@ -38,6 +39,7 @@ fn setup(
     let red_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
         albedo_texture: Some(texture_handle),
+        shaded: false,
         ..Default::default()
     });
 
@@ -45,6 +47,7 @@ fn setup(
     let blue_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
         albedo_texture: Some(texture_handle),
+        shaded: false,
         ..Default::default()
     });
 
@@ -57,6 +60,10 @@ fn setup(
             material: material_handle,
             translation: Translation::new(0.0, -1.5, 0.0),
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            draw: Draw {
+                is_transparent: true,
+                ..Default::default()
+            },
             ..Default::default()
         })
         // textured quad - modulated
@@ -65,6 +72,10 @@ fn setup(
             material: red_material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
+            draw: Draw {
+                is_transparent: true,
+                ..Default::default()
+            },
             ..Default::default()
         })
         // textured quad - modulated
@@ -73,11 +84,10 @@ fn setup(
             material: blue_material_handle,
             translation: Translation::new(0.0, 1.5, 0.0),
             rotation: Rotation::from_euler_angles(0.0, std::f32::consts::PI / 3.0, 0.0),
-            ..Default::default()
-        })
-        // light
-        .add_entity(LightEntity {
-            translation: Translation::new(0.0, -5.0, 0.0),
+            draw: Draw {
+                is_transparent: true,
+                ..Default::default()
+            },
             ..Default::default()
         })
         // camera

@@ -51,6 +51,7 @@ pub enum RenderCommand {
 #[derive(Properties)]
 pub struct Draw {
     pub is_visible: bool,
+    pub is_transparent: bool,
     #[property(ignore)]
     pub render_commands: Vec<RenderCommand>,
 }
@@ -59,6 +60,7 @@ impl Default for Draw {
     fn default() -> Self {
         Self {
             is_visible: true,
+            is_transparent: false,
             render_commands: Default::default(),
         }
     }

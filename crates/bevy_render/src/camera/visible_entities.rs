@@ -35,6 +35,7 @@ pub fn visible_entities_system(
         let camera_position = camera_transform.value.w_axis().truncate();
 
         let mut no_transform_order = 0.0;
+        let mut transparent_entities = Vec::new();
         for (entity, draw) in entities_query.iter_entities(world) {
             if !draw.is_visible {
                 continue;
@@ -49,13 +50,27 @@ pub fn visible_entities_system(
                 no_transform_order += 0.1;
                 order
             };
-            visible_entities.value.push(VisibleEntity {
-                entity,
-                order,
-            })
+
+            if draw.is_transparent {
+                transparent_entities.push(VisibleEntity {
+                    entity,
+                    order,
+                })
+            } else {
+                visible_entities.value.push(VisibleEntity {
+                    entity,
+                    order,
+                })
+            }
         }
 
+
+        // sort opaque entities front-to-back
         visible_entities.value.sort_by_key(|e| e.order);
+
+        // sort transparent entities front-to-back
+        transparent_entities.sort_by_key(|e|-e.order);
+        visible_entities.value.extend(transparent_entities);
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize to prevent holding unneeded memory
     }

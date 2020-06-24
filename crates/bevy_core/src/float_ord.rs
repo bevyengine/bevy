@@ -2,6 +2,7 @@ use crate::bytes::AsBytes;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
+    ops::Neg,
 };
 
 // working around the famous "rust float ordering" problem
@@ -37,5 +38,12 @@ impl Eq for FloatOrd {}
 impl Hash for FloatOrd {
     fn hash<H: Hasher>(&self, state: &mut H) {
         state.write(self.0.as_bytes());
+    }
+}
+
+impl Neg for FloatOrd {
+    type Output = FloatOrd;
+    fn neg(self) -> Self::Output {
+        FloatOrd(-self.0)
     }
 }

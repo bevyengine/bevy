@@ -103,7 +103,7 @@ impl Node for PassNode {
                     };
 
                     let mut draw_state = DrawState::default();
-                    for visible_entity in visible_entities.iter().rev() {
+                    for visible_entity in visible_entities.iter() {
                         let draw = if let Some(draw) = world.get_component::<Draw>(visible_entity.entity) {
                             draw
                         } else {

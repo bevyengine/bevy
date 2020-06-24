@@ -46,9 +46,12 @@ impl Default for SpriteEntity {
                     ..Default::default()
                 },
             )]),
+            draw: Draw {
+                is_transparent: true,
+                ..Default::default()
+            },
             sprite: Default::default(),
             material: Default::default(),
-            draw: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
@@ -91,10 +94,13 @@ impl Default for SpriteSheetEntity {
                     ..Default::default()
                 },
             )]),
+            draw: Draw {
+                is_transparent: true,
+                ..Default::default()
+            },
             mesh: QUAD_HANDLE,
             sprite: Default::default(),
             texture_atlas: Default::default(),
-            draw: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
             rotation: Default::default(),
