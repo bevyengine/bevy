@@ -34,6 +34,11 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
+    pub fn set_entity(&mut self, entity: Entity) -> &mut Self {
+        self.current_entity = Some(entity);
+        self
+    }
+
     /// note: this is slow and does a full entity copy
     pub fn with<T>(&mut self, component: T) -> &mut Self
     where
@@ -111,6 +116,11 @@ impl<'a> CommandBufferBuilder<'a> {
         let entity = *self.command_buffer.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);
         self.add_parent_to_current_entity();
+        self
+    }
+
+    pub fn set_entity(&mut self, entity: Entity) -> &mut Self {
+        self.current_entity = Some(entity);
         self
     }
 
