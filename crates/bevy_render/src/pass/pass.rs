@@ -18,6 +18,28 @@ impl TextureAttachment {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ClearColor {
+    pub color: Color,
+}
+
+impl ClearColor {
+    pub fn new(color: Color) -> Self {
+        ClearColor {
+            color,
+        }
+    }
+}
+
+impl Default for ClearColor {
+    fn default() -> Self {
+        Self {
+            color: Color::rgb(0.1, 0.1, 0.1),
+        }
+    }
+    
+}
+
 #[derive(Debug, Clone)]
 pub struct RenderPassColorAttachmentDescriptor {
     /// The actual color attachment.

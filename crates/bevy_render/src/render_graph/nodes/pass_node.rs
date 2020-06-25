@@ -1,6 +1,6 @@
 use crate::{
     draw::{Draw, RenderCommand},
-    pass::{PassDescriptor, TextureAttachment},
+    pass::{PassDescriptor, TextureAttachment, ClearColor},
     pipeline::PipelineDescriptor,
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     render_resource::{BindGroupId, BufferId, RenderResourceBindings, RenderResourceType},
@@ -15,6 +15,7 @@ pub struct PassNode {
     cameras: Vec<String>,
     color_attachment_input_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
+    default_clear_color_inputs: Vec<usize>,
 }
 
 impl PassNode {
@@ -50,11 +51,16 @@ impl PassNode {
             cameras: Vec::new(),
             color_attachment_input_indices,
             depth_stencil_attachment_input_index,
+            default_clear_color_inputs: Vec::new(),
         }
     }
 
     pub fn add_camera(&mut self, camera_name: &str) {
         self.cameras.push(camera_name.to_string());
+    }
+
+    pub fn use_default_clear_color(&mut self, color_attachment_index: usize) {
+        self.default_clear_color_inputs.push(color_attachment_index);
     }
 }
 
@@ -76,6 +82,11 @@ impl Node for PassNode {
         let active_cameras= resources.get::<ActiveCameras>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
+            if self.default_clear_color_inputs.contains(&i) {
+                if let Some(default_clear_color) = resources.get::<ClearColor>() {
+                    color_attachment.clear_color = default_clear_color.color; 
+                }
+            }
             if let Some(input_index) = self.color_attachment_input_indices[i] {
                 color_attachment.attachment =
                     TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());

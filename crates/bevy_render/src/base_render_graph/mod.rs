@@ -114,6 +114,8 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 sample_count: 1,
             });
 
+            main_pass_node.use_default_clear_color(0);
+
             if config.add_3d_camera {
                 main_pass_node.add_camera(camera::CAMERA);
             }

@@ -17,6 +17,7 @@ pub use crate::{
         draw::Draw,
         entity::*,
         mesh::{shape, Mesh},
+        pass::ClearColor,
         pipeline::{PipelineDescriptor, RenderPipelines},
         render_graph::{
             nodes::{
