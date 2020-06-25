@@ -9,6 +9,10 @@ pub enum WindowReference {
 pub struct WindowId(Uuid);
 
 impl WindowId {
+    pub fn new() -> Self {
+        WindowId(Uuid::new_v4())
+    }
+
     pub fn to_string(&self) -> String {
         self.0.to_simple().to_string()
     }
@@ -24,9 +28,9 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(window_descriptor: &WindowDescriptor) -> Self {
+    pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
         Window {
-            id: WindowId(Uuid::new_v4()),
+            id,
             height: window_descriptor.height,
             width: window_descriptor.width,
             title: window_descriptor.title.clone(),

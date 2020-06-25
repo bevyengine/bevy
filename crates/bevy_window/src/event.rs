@@ -13,6 +13,7 @@ pub struct WindowResized {
 /// An event that indicates that a new window should be created.
 #[derive(Debug, Clone)]
 pub struct CreateWindow {
+    pub id: WindowId,
     pub descriptor: WindowDescriptor,
 }
 

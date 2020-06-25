@@ -38,6 +38,7 @@ impl AppPlugin for WindowPlugin {
             let mut create_window_event =
                 app.resources().get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
+                id: WindowId::new(),
                 descriptor: primary_window_descriptor.clone(),
             });
         }

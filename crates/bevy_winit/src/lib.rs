@@ -155,7 +155,7 @@ fn handle_create_window_events(
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = Window::new(&create_window_event.descriptor);
+        let window = Window::new(create_window_event.id, &create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;
         windows.add(window);

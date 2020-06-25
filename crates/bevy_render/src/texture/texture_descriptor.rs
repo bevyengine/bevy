@@ -26,3 +26,22 @@ impl From<&Texture> for TextureDescriptor {
         }
     }
 }
+
+
+impl Default for TextureDescriptor {
+    fn default() -> Self {
+        TextureDescriptor {
+            size: Extent3d {
+                width: 1,
+                height: 1,
+                depth: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Rgba8UnormSrgb,
+            usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
+        }
+    }
+    
+}
