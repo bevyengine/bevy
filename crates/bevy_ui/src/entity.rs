@@ -1,13 +1,13 @@
 use super::Node;
 use crate::{render::UI_PIPELINE_HANDLE, widget::Label};
 use bevy_asset::Handle;
-use bevy_derive::EntityArchetype;
+use bevy_derive::ComponentSet;
 use bevy_render::{draw::Draw, mesh::Mesh, pipeline::{PipelineSpecialization, RenderPipelines, DynamicBinding, RenderPipeline}};
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{Translation, Transform, Rotation, Scale};
 
-#[derive(EntityArchetype)]
-pub struct UiEntity {
+#[derive(ComponentSet)]
+pub struct UiComponents {
     pub node: Node,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
@@ -19,9 +19,9 @@ pub struct UiEntity {
     pub scale: Scale,
 }
 
-impl Default for UiEntity {
+impl Default for UiComponents {
     fn default() -> Self {
-        UiEntity {
+        UiComponents {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
@@ -52,8 +52,8 @@ impl Default for UiEntity {
     }
 }
 
-#[derive(EntityArchetype)]
-pub struct LabelEntity {
+#[derive(ComponentSet)]
+pub struct LabelComponents {
     pub node: Node,
     pub draw: Draw,
     pub label: Label,
@@ -63,9 +63,9 @@ pub struct LabelEntity {
     pub scale: Scale,
 }
 
-impl Default for LabelEntity {
+impl Default for LabelComponents {
     fn default() -> Self {
-        LabelEntity {
+        LabelComponents {
             label: Label::default(),
             node: Default::default(),
             draw: Draw {

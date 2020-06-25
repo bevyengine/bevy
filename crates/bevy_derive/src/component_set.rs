@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Ident};
 
-pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
+pub fn derive_component_set(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -28,7 +28,7 @@ pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_app_path::EntityArchetype for #struct_name#ty_generics {
+        impl #impl_generics #bevy_app_path::ComponentSet for #struct_name#ty_generics {
             fn insert(self, world: &mut #legion_path::prelude::World) -> #legion_path::prelude::Entity {
                 *world.insert((),
                     vec![(

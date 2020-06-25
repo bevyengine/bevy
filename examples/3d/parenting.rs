@@ -30,16 +30,16 @@ fn setup(
     command_buffer
         .build()
         // parent cube
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: cube_handle,
             material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
-        .add(Rotator)
-        .add_children(|builder| {
+        .with(Rotator)
+        .with_children(|builder| {
             // child cube
-            builder.add_entity(MeshEntity {
+            builder.entity_with(MeshComponents {
                 mesh: cube_handle,
                 material: cube_material_handle,
                 translation: Translation::new(0.0, 0.0, 3.0),
@@ -47,12 +47,12 @@ fn setup(
             })
         })
         // light
-        .add_entity(LightEntity {
+        .entity_with(LightComponents {
             translation: Translation::new(4.0, 5.0, -4.0),
             ..Default::default()
         })
         // camera
-        .add_entity(PerspectiveCameraEntity {
+        .entity_with(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),

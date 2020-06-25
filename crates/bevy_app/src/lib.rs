@@ -1,6 +1,6 @@
 mod app;
 mod app_builder;
-mod entity_archetype;
+mod component_set;
 mod event;
 mod plugin;
 mod resources;
@@ -12,8 +12,8 @@ mod system;
 
 pub use app::*;
 pub use app_builder::*;
-pub use bevy_derive::{DynamicAppPlugin, EntityArchetype, FromResources};
-pub use entity_archetype::*;
+pub use bevy_derive::{DynamicAppPlugin, ComponentSet, FromResources};
+pub use component_set::*;
 pub use event::*;
 pub use plugin::*;
 pub use resources::*;

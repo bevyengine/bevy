@@ -27,7 +27,7 @@ fn setup(
         .unwrap();
     command_buffer
         .build()
-        .add_entity(OrthographicCameraEntity::default());
+        .entity_with(OrthographicCameraComponents::default());
 }
 
 #[derive(Default)]
@@ -68,7 +68,7 @@ fn load_atlas(
         command_buffer
             .build()
             // draw a sprite from the atlas
-            .add_entity(SpriteSheetEntity {
+            .entity_with(SpriteSheetComponents {
                 scale: Scale(4.0),
                 translation: Translation(Vec3::new(150.0, 0.0, 0.0)),
                 sprite: TextureAtlasSprite::new(vendor_index as u32),
@@ -76,7 +76,7 @@ fn load_atlas(
                 ..Default::default()
             })
             // draw the atlas itself
-            .add_entity(SpriteEntity {
+            .entity_with(SpriteComponents {
                 material: materials.add(texture_atlas_texture.into()),
                 translation: Vec3::new(-300.0, 0., 0.0).into(),
                 ..Default::default()

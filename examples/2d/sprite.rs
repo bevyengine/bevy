@@ -15,8 +15,8 @@ fn setup(
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
     command_buffer
         .build()
-        .add_entity(OrthographicCameraEntity::default())
-        .add_entity(SpriteEntity {
+        .entity_with(OrthographicCameraComponents::default())
+        .entity_with(SpriteComponents {
             material: materials.add(texture_handle.into()),
             ..Default::default()
         });

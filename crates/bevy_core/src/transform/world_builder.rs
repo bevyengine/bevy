@@ -1,4 +1,4 @@
-use bevy_app::EntityArchetype;
+use bevy_app::ComponentSet;
 use bevy_transform::components::{LocalTransform, Parent};
 use legion::{
     filter::{ChunksetFilterData, Filter},
@@ -27,7 +27,7 @@ pub struct WorldBuilder<'a> {
 }
 
 impl<'a> WorldBuilder<'a> {
-    pub fn build_entity(&mut self) -> &mut Self {
+    pub fn entity(&mut self) -> &mut Self {
         let entity = *self.world.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);
         self.add_parent_to_current_entity();
@@ -35,7 +35,7 @@ impl<'a> WorldBuilder<'a> {
     }
 
     /// note: this is slow and does a full entity copy
-    pub fn add<T>(&mut self, component: T) -> &mut Self
+    pub fn with<T>(&mut self, component: T) -> &mut Self
     where
         T: legion::storage::Component,
     {
@@ -45,33 +45,22 @@ impl<'a> WorldBuilder<'a> {
         self
     }
 
-    pub fn tag<T>(&mut self, tag: T) -> &mut Self
+    pub fn entities<C>(&mut self, components: C) -> &mut Self
     where
-        T: legion::storage::Tag,
-    {
-        let _ = self
-            .world
-            .add_tag(*self.current_entity.as_ref().unwrap(), tag);
-        self
-    }
-
-    pub fn add_entities<T, C>(&mut self, tags: T, components: C) -> &mut Self
-    where
-        T: TagSet + TagLayout + for<'b> Filter<ChunksetFilterData<'b>>,
         C: IntoComponentSource,
     {
-        self.world.insert(tags, components);
+        self.world.insert((), components);
         self
     }
 
-    pub fn add_entity(&mut self, entity_archetype: impl EntityArchetype) -> &mut Self {
-        let current_entity = entity_archetype.insert(self.world);
+    pub fn entity_with(&mut self, component_set: impl ComponentSet) -> &mut Self {
+        let current_entity = component_set.insert(self.world);
         self.current_entity = Some(current_entity);
         self.add_parent_to_current_entity();
         self
     }
 
-    pub fn add_children(&mut self, mut build_children: impl FnMut(&mut Self) -> &mut Self) -> &mut Self {
+    pub fn with_children(&mut self, mut build_children: impl FnMut(&mut Self) -> &mut Self) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 
@@ -116,7 +105,7 @@ pub struct CommandBufferBuilder<'a> {
 }
 
 impl<'a> CommandBufferBuilder<'a> {
-    pub fn build_entity(&mut self) -> &mut Self {
+    pub fn entity(&mut self) -> &mut Self {
         let entity = *self.command_buffer.insert((), vec![()]).first().unwrap();
         self.current_entity = Some(entity);
         self.add_parent_to_current_entity();
@@ -124,7 +113,7 @@ impl<'a> CommandBufferBuilder<'a> {
     }
 
     // note: this is slow and does a full entity copy
-    pub fn add<T>(&mut self, component: T) -> &mut Self
+    pub fn with<T>(&mut self, component: T) -> &mut Self
     where
         T: legion::storage::Component,
     {
@@ -134,17 +123,7 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn tag<T>(&mut self, tag: T) -> &mut Self
-    where
-        T: legion::storage::Tag,
-    {
-        let _ = self
-            .command_buffer
-            .add_tag(*self.current_entity.as_ref().unwrap(), tag);
-        self
-    }
-
-    pub fn add_entities<T, C>(&mut self, tags: T, components: C) -> &mut Self
+    pub fn entities<T, C>(&mut self, tags: T, components: C) -> &mut Self
     where
         T: TagSet + TagLayout + for<'b> Filter<ChunksetFilterData<'b>> + 'static,
         C: IntoComponentSource + 'static,
@@ -153,14 +132,14 @@ impl<'a> CommandBufferBuilder<'a> {
         self
     }
 
-    pub fn add_entity(&mut self, entity_archetype: impl EntityArchetype) -> &mut Self {
-        let current_entity = entity_archetype.insert_command_buffer(self.command_buffer);
+    pub fn entity_with(&mut self, component_set: impl ComponentSet) -> &mut Self {
+        let current_entity = component_set.insert_command_buffer(self.command_buffer);
         self.current_entity = Some(current_entity);
         self.add_parent_to_current_entity();
         self
     }
 
-    pub fn add_children(&mut self, mut build_children: impl FnMut(&mut Self) -> &mut Self) -> &mut Self {
+    pub fn with_children(&mut self, mut build_children: impl FnMut(&mut Self) -> &mut Self) -> &mut Self {
         self.parent_entity = self.current_entity;
         self.current_entity = None;
 

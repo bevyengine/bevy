@@ -1,6 +1,6 @@
 use crate::{light::Light, material::StandardMaterial, pipelines::FORWARD_PIPELINE_HANDLE};
 use bevy_asset::Handle;
-use bevy_derive::EntityArchetype;
+use bevy_derive::ComponentSet;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
@@ -8,8 +8,8 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
-#[derive(EntityArchetype)]
-pub struct MeshEntity {
+#[derive(ComponentSet)]
+pub struct MeshComponents {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
     pub draw: Draw,
@@ -20,7 +20,7 @@ pub struct MeshEntity {
     pub scale: Scale,
 }
 
-impl Default for MeshEntity {
+impl Default for MeshComponents {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
@@ -52,8 +52,8 @@ impl Default for MeshEntity {
     }
 }
 
-#[derive(EntityArchetype, Default)]
-pub struct LightEntity {
+#[derive(ComponentSet, Default)]
+pub struct LightComponents {
     pub light: Light,
     pub transform: Transform,
     pub translation: Translation,

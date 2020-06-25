@@ -45,33 +45,33 @@ fn setup(
     command_buffer
         .build()
         // monkey
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: monkey_handle,
             material: material_handle,
             translation: Translation::new(-3.0, 0.0, 0.0),
             ..Default::default()
         })
         // cube
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: cube_handle,
             material: material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
         // sphere
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: sphere_handle,
             material: material_handle,
             translation: Translation::new(3.0, 0.0, 0.0),
             ..Default::default()
         })
         // light
-        .add_entity(LightEntity {
+        .entity_with(LightComponents {
             translation: Translation::new(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // camera
-        .add_entity(PerspectiveCameraEntity {
+        .entity_with(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(0.0, 3.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),

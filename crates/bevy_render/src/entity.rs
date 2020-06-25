@@ -3,11 +3,11 @@ use crate::{
     OrthographicProjection, PerspectiveProjection, WindowOrigin, VisibleEntities,
 };
 use bevy_asset::Handle;
-use bevy_derive::EntityArchetype;
+use bevy_derive::ComponentSet;
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
 
-#[derive(EntityArchetype, Default)]
-pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
+#[derive(ComponentSet, Default)]
+pub struct MeshMaterialComponents<T: Default + Send + Sync + 'static> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<T>,
     pub draw: Draw,
@@ -18,8 +18,8 @@ pub struct MeshMaterialEntity<T: Default + Send + Sync + 'static> {
     pub scale: Scale,
 }
 
-#[derive(EntityArchetype)]
-pub struct PerspectiveCameraEntity {
+#[derive(ComponentSet)]
+pub struct PerspectiveCameraComponents {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
@@ -29,9 +29,9 @@ pub struct PerspectiveCameraEntity {
     pub scale: Scale,
 }
 
-impl Default for PerspectiveCameraEntity {
+impl Default for PerspectiveCameraComponents {
     fn default() -> Self {
-        PerspectiveCameraEntity {
+        PerspectiveCameraComponents {
             camera: Camera {
                 name: Some(base_render_graph::camera::CAMERA.to_string()),
                 ..Default::default()
@@ -46,8 +46,8 @@ impl Default for PerspectiveCameraEntity {
     }
 }
 
-#[derive(EntityArchetype)]
-pub struct OrthographicCameraEntity {
+#[derive(ComponentSet)]
+pub struct OrthographicCameraComponents {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -57,9 +57,9 @@ pub struct OrthographicCameraEntity {
     pub scale: Scale,
 }
 
-impl OrthographicCameraEntity {
+impl OrthographicCameraComponents {
     pub fn ui() -> Self {
-        OrthographicCameraEntity {
+        OrthographicCameraComponents {
             camera: Camera {
                 name: Some("UiCamera".to_string()),
                 ..Default::default()
@@ -77,9 +77,9 @@ impl OrthographicCameraEntity {
     }
 }
 
-impl Default for OrthographicCameraEntity {
+impl Default for OrthographicCameraComponents {
     fn default() -> Self {
-        OrthographicCameraEntity {
+        OrthographicCameraComponents {
             camera: Camera {
                 name: Some(base_render_graph::camera::CAMERA2D.to_string()),
                 ..Default::default()

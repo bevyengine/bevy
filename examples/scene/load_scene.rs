@@ -107,14 +107,14 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
     let mut world = World::new();
     world
         .build()
-        .build_entity()
-        .add(ComponentA { x: 1.0, y: 2.0 })
-        .add(ComponentB {
+        .entity()
+        .with(ComponentA { x: 1.0, y: 2.0 })
+        .with(ComponentB {
             value: "hello".to_string(),
             ..ComponentB::from_resources(resources)
         })
-        .build_entity()
-        .add(ComponentA { x: 3.0, y: 4.0 });
+        .entity()
+        .with(ComponentA { x: 3.0, y: 4.0 });
 
     // The component registry resource contains information about all registered components. This is used to construct scenes.
     let type_registry = resources.get::<TypeRegistry>().unwrap();

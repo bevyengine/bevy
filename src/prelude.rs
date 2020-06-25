@@ -1,7 +1,7 @@
 pub use crate::{
     app::{
         schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, DynamicAppPlugin,
-        EntityArchetype, EventReader, Events, FromResources, System,
+        ComponentSet, EventReader, Events, FromResources, System,
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
@@ -32,7 +32,7 @@ pub use crate::{
     },
     scene::{Scene, SceneSpawner},
     sprite::{
-        entity::{SpriteEntity, SpriteSheetEntity},
+        entity::{SpriteComponents, SpriteSheetComponents},
         ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite,
     },
     text::{Font, TextStyle},

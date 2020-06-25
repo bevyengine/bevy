@@ -76,7 +76,7 @@ fn setup(
     command_buffer
         .build()
         // cube
-        .add_entity(MeshMaterialEntity::<MyMaterial> {
+        .entity_with(MeshMaterialComponents::<MyMaterial> {
             mesh: cube_handle,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 pipeline_handle,
@@ -102,7 +102,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .add_entity(PerspectiveCameraEntity {
+        .entity_with(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),

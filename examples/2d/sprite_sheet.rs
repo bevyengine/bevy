@@ -38,11 +38,11 @@ fn setup(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     command_buffer
         .build()
-        .add_entity(OrthographicCameraEntity::default())
-        .add_entity(SpriteSheetEntity {
+        .entity_with(OrthographicCameraComponents::default())
+        .entity_with(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
             scale: Scale(6.0),
             ..Default::default()
         })
-        .add(Timer::from_seconds(0.1));
+        .with(Timer::from_seconds(0.1));
 }

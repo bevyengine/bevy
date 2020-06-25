@@ -4,7 +4,7 @@ mod app_plugin;
 mod as_vertex_buffer_descriptor;
 mod attributes;
 mod bytes;
-mod entity_archetype;
+mod component_set;
 mod modules;
 mod render_resource;
 mod render_resources;
@@ -43,9 +43,9 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     as_vertex_buffer_descriptor::derive_as_vertex_buffer_descriptor(input)
 }
 
-#[proc_macro_derive(EntityArchetype, attributes(tag, module))]
-pub fn derive_entity_archetype(input: TokenStream) -> TokenStream {
-    entity_archetype::derive_entity_archetype(input)
+#[proc_macro_derive(ComponentSet, attributes(tag, module))]
+pub fn derive_component_set(input: TokenStream) -> TokenStream {
+    component_set::derive_component_set(input)
 }
 
 #[proc_macro_derive(DynamicAppPlugin)]

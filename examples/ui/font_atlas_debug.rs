@@ -40,7 +40,7 @@ fn atlas_render_system(
         for (_size, font_atlas) in set.iter() {
             state.added = true;
             let texture_atlas = texture_atlases.get(&font_atlas.texture_atlas).unwrap();
-            command_buffer.build().add_entity(SpriteEntity {
+            command_buffer.build().entity_with(SpriteComponents {
                 material: materials.add(texture_atlas.texture.into()),
                 translation: Vec3::new(-300.0, 0., 0.0).into(),
                 ..Default::default()
@@ -68,10 +68,10 @@ fn setup(
     command_buffer
         .build()
         // 2d camera
-        .add_entity(OrthographicCameraEntity::default())
-        .add_entity(OrthographicCameraEntity::ui())
+        .entity_with(OrthographicCameraComponents::default())
+        .entity_with(OrthographicCameraComponents::ui())
         // texture
-        .add_entity(LabelEntity {
+        .entity_with(LabelComponents {
             node: Node::new(
                 Anchors::TOP_LEFT,
                 Margins::new(0.0, 250.0, 0.0, 60.0),

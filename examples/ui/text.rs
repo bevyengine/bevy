@@ -25,9 +25,9 @@ fn setup(command_buffer: &mut CommandBuffer, asset_server: Res<AssetServer>) {
     command_buffer
         .build()
         // 2d camera
-        .add_entity(OrthographicCameraEntity::ui())
+        .entity_with(OrthographicCameraComponents::ui())
         // texture
-        .add_entity(LabelEntity {
+        .entity_with(LabelComponents {
             node: Node::new(
                 Anchors::TOP_LEFT,
                 Margins::new(0.0, 250.0, 0.0, 60.0),

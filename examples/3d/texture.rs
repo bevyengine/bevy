@@ -56,7 +56,7 @@ fn setup(
     command_buffer
         .build()
         // textured quad - normal
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: quad_handle,
             material: material_handle,
             translation: Translation::new(0.0, 0.0, -1.5),
@@ -68,7 +68,7 @@ fn setup(
             ..Default::default()
         })
         // textured quad - modulated
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: quad_handle,
             material: red_material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
@@ -80,7 +80,7 @@ fn setup(
             ..Default::default()
         })
         // textured quad - modulated
-        .add_entity(MeshEntity {
+        .entity_with(MeshComponents {
             mesh: quad_handle,
             material: blue_material_handle,
             translation: Translation::new(0.0, 0.0, 1.5),
@@ -92,7 +92,7 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .add_entity(PerspectiveCameraEntity {
+        .entity_with(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),

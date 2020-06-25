@@ -23,14 +23,14 @@ fn placement_system(
 
 fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>) {
     let mut builder = command_buffer.build();
-    builder.add_entity(OrthographicCameraEntity::ui());
+    builder.entity_with(OrthographicCameraComponents::ui());
 
     let mut prev = Vec2::default();
     let count = 1000;
     for i in 0..count {
         // 2d camera
         let cur = Vec2::new(1.0, 1.0) + prev;
-        builder.add_entity(UiEntity {
+        builder.entity_with(UiComponents {
             node: Node {
                 position: Vec2::new(75.0, 75.0) + cur,
                 anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),

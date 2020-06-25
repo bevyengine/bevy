@@ -2,7 +2,7 @@ use crate::{
     render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, TextureAtlas,
     TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
-use bevy_app::EntityArchetype;
+use bevy_app::ComponentSet;
 use bevy_asset::Handle;
 use bevy_render::{
     draw::Draw,
@@ -11,8 +11,8 @@ use bevy_render::{
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
-#[derive(EntityArchetype)]
-pub struct SpriteEntity {
+#[derive(ComponentSet)]
+pub struct SpriteComponents {
     pub sprite: Sprite,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
@@ -24,7 +24,7 @@ pub struct SpriteEntity {
     pub scale: Scale,
 }
 
-impl Default for SpriteEntity {
+impl Default for SpriteComponents {
     fn default() -> Self {
         Self {
             mesh: QUAD_HANDLE,
@@ -60,8 +60,8 @@ impl Default for SpriteEntity {
     }
 }
 
-#[derive(EntityArchetype)]
-pub struct SpriteSheetEntity {
+#[derive(ComponentSet)]
+pub struct SpriteSheetComponents {
     pub sprite: TextureAtlasSprite,
     pub texture_atlas: Handle<TextureAtlas>,
     pub draw: Draw,
@@ -73,7 +73,7 @@ pub struct SpriteSheetEntity {
     pub scale: Scale,
 }
 
-impl Default for SpriteSheetEntity {
+impl Default for SpriteSheetComponents {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
