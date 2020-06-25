@@ -29,13 +29,14 @@ fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorM
     let count = 1000;
     for i in 0..count {
         // 2d camera
-        let cur = Vec2::new(1.0, 1.0) * 1.0 + prev;
+        let cur = Vec2::new(1.0, 1.0) + prev;
         builder.add_entity(UiEntity {
-            node: Node::new(
-                math::vec2(75.0, 75.0) + cur,
-                Anchors::new(0.5, 0.5, 0.5, 0.5),
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
+            node: Node {
+                position: Vec2::new(75.0, 75.0) + cur,
+                anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),
+                margins: Margins::new(0.0, 100.0, 0.0, 100.0),
+                ..Default::default()
+            },
             material: materials.add(Color::rgb(0.0 + i as f32 / count as f32, 0.1, 0.1).into()),
             ..Default::default()
         });

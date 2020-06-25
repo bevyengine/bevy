@@ -1,3 +1,4 @@
+use crate::Node;
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
@@ -5,9 +6,9 @@ use bevy_render::{
     texture::Texture,
     Color,
 };
-use bevy_sprite::{ComMut, Quad, TextureAtlas};
+use bevy_sprite::{ComMut, TextureAtlas};
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
-use glam::Vec3;
+use bevy_transform::prelude::Transform;
 use legion::prelude::{Com, Res, ResMut};
 
 pub struct Label {
@@ -44,7 +45,7 @@ impl Label {
             });
         // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS
         // stage. That logic runs _before_ the DRAW stage, which means we cant call add_glyphs_to_atlas in the draw stage
-        // without or render resources being a frame behind. Therefore glyph atlasing either needs its own system or the TextureAtlas
+        // without our render resources being a frame behind. Therefore glyph atlasing either needs its own system or the TextureAtlas
         // resource generation needs to happen AFTER the render graph systems. maybe draw systems should execute within the
         // render graph so ordering like this can be taken into account? Maybe the RENDER_GRAPH_SYSTEMS stage should be removed entirely
         // in favor of node.update()? Regardless, in the immediate short term the current approach is fine.
@@ -66,9 +67,12 @@ impl Label {
         mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
         mut draw: ComMut<Draw>,
         label: Com<Label>,
-        quad: Com<Quad>,
+        node: Com<Node>,
+        transform: Com<Transform>,
     ) {
-        let position = quad.position - quad.size / 2.0;
+        // let position = transform.0 - quad.size / 2.0;
+        let position = transform.value.w_axis().truncate() - (node.size / 2.0).extend(0.0);
+
         let mut drawable_text = DrawableText::new(
             fonts.get(&label.font).unwrap(),
             font_atlas_sets
@@ -77,7 +81,7 @@ impl Label {
             &texture_atlases,
             &mut render_resource_bindings,
             &mut asset_render_resource_bindings,
-            Vec3::new(position.x(), position.y(), quad.z_index),
+            position,
             &label.style,
             &label.text,
         );

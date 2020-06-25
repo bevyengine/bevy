@@ -60,7 +60,6 @@ fn setup(
         // left vertical fill
         .add_entity(UiEntity {
             node: Node::new(
-                math::vec2(0.0, 0.0),
                 Anchors::LEFT_FULL,
                 Margins::new(10.0, 200.0, 10.0, 10.0),
             ),
@@ -70,7 +69,6 @@ fn setup(
         .add_children(|builder| {
             builder.add_entity(LabelEntity {
                 node: Node::new(
-                    math::vec2(0.0, 0.0),
                     Anchors::TOP_LEFT,
                     Margins::new(10.0, 200.0, 40.0, 10.0),
                 ),
@@ -88,7 +86,6 @@ fn setup(
         // right vertical fill
         .add_entity(UiEntity {
             node: Node::new(
-                math::vec2(0.0, 0.0),
                 Anchors::RIGHT_FULL,
                 Margins::new(10.0, 100.0, 100.0, 100.0),
             ),
@@ -97,7 +94,7 @@ fn setup(
         })
         // render order test: reddest in the back, whitest in the front
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(75.0, 60.0),
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
@@ -106,7 +103,7 @@ fn setup(
             ..Default::default()
         })
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(50.0, 35.0),
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
@@ -115,7 +112,7 @@ fn setup(
             ..Default::default()
         })
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(100.0, 85.0),
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
@@ -124,7 +121,7 @@ fn setup(
             ..Default::default()
         })
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(150.0, 135.0),
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
@@ -134,7 +131,7 @@ fn setup(
         })
         // parenting
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(210.0, 0.0),
                 Anchors::BOTTOM_LEFT,
                 Margins::new(0.0, 200.0, 10.0, 210.0),
@@ -145,7 +142,6 @@ fn setup(
         .add_children(|builder| {
             builder.add_entity(UiEntity {
                 node: Node::new(
-                    math::vec2(0.0, 0.0),
                     Anchors::FULL,
                     Margins::new(20.0, 20.0, 20.0, 20.0),
                 ),
@@ -155,7 +151,7 @@ fn setup(
         })
         // alpha test
         .add_entity(UiEntity {
-            node: Node::new(
+            node: Node::positioned(
                 math::vec2(200.0, 185.0),
                 Anchors::CENTER,
                 Margins::new(0.0, 100.0, 0.0, 100.0),
@@ -166,7 +162,6 @@ fn setup(
         // texture
         .add_entity(UiEntity {
             node: Node::new(
-                math::vec2(0.0, 0.0),
                 Anchors::CENTER_TOP,
                 Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),
             ),

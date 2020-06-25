@@ -65,7 +65,7 @@ impl OrthographicCameraEntity {
                 ..Default::default()
             },
             orthographic_projection: OrthographicProjection {
-                window_origin: WindowOrigin::BottomLeft,
+                window_origin: WindowOrigin::Center,
                 ..Default::default()
             },
             visible_entities: Default::default(),

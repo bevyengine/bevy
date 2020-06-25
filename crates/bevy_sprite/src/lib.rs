@@ -1,7 +1,6 @@
 mod color_material;
 mod dynamic_texture_atlas_builder;
 pub mod entity;
-mod quad;
 mod rect;
 mod render;
 mod sprite;
@@ -10,7 +9,6 @@ mod texture_atlas_builder;
 
 pub use color_material::*;
 pub use dynamic_texture_atlas_builder::*;
-pub use quad::*;
 pub use rect::*;
 pub use render::*;
 pub use sprite::*;

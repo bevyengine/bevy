@@ -9,8 +9,8 @@ layout(set = 2, binding = 0) uniform ColorMaterial_color {
 };
 
 # ifdef COLORMATERIAL_TEXTURE 
-layout(set = 3, binding = 0) uniform texture2D ColorMaterial_texture;
-layout(set = 3, binding = 1) uniform sampler ColorMaterial_texture_sampler;
+layout(set = 2, binding = 1) uniform texture2D ColorMaterial_texture;
+layout(set = 2, binding = 2) uniform sampler ColorMaterial_texture_sampler;
 # endif
 
 void main() {

@@ -73,7 +73,6 @@ fn setup(
         // texture
         .add_entity(LabelEntity {
             node: Node::new(
-                math::vec2(0.0, 0.0),
                 Anchors::TOP_LEFT,
                 Margins::new(0.0, 250.0, 0.0, 60.0),
             ),
