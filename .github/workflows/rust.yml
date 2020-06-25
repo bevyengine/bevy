@@ -1,8 +1,11 @@
 name: Rust
 
 on:
-  push:
-    branches: [master]
+  # NOTE: temporarily disabled because on-push currently uses up too many resources
+  # push:
+  #   branches: [master]
+  schedule:
+    - cron:  '0 21 * * *'
   pull_request:
     branches: [master]
 
