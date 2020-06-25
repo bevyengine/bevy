@@ -27,6 +27,7 @@ impl Color {
     pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
     pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
     pub const BLUE: Color = Color::rgb(0.0, 0.0, 1.0);
+    pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }

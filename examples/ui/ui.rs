@@ -57,115 +57,112 @@ fn setup(
         // })
         // ui camera
         .entity_with(OrthographicCameraComponents::ui())
-        // left vertical fill
+        // root node
         .entity_with(UiComponents {
-            node: Node::new(
-                Anchors::LEFT_FULL,
-                Margins::new(10.0, 200.0, 10.0, 10.0),
-            ),
-            material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+            node: Node::new(Anchors::FULL, Margins::default()),
+            material: materials.add(Color::NONE.into()),
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.entity_with(LabelComponents {
-                node: Node::new(
-                    Anchors::TOP_LEFT,
-                    Margins::new(10.0, 200.0, 40.0, 10.0),
-                ),
-                label: Label {
-                    text: "Text Label".to_string(),
-                    font: font_handle,
-                    style: TextStyle {
-                        font_size: 30.0,
-                        color: Color::WHITE,
-                    },
-                },
-                ..Default::default()
-            })
-        })
-        // right vertical fill
-        .entity_with(UiComponents {
-            node: Node::new(
-                Anchors::RIGHT_FULL,
-                Margins::new(10.0, 100.0, 100.0, 100.0),
-            ),
-            material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
-            ..Default::default()
-        })
-        // render order test: reddest in the back, whitest in the front
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(75.0, 60.0),
-                Anchors::CENTER,
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
-            material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
-            ..Default::default()
-        })
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(50.0, 35.0),
-                Anchors::CENTER,
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
-            material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
-            ..Default::default()
-        })
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(100.0, 85.0),
-                Anchors::CENTER,
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
-            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
-            ..Default::default()
-        })
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(150.0, 135.0),
-                Anchors::CENTER,
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
-            material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
-            ..Default::default()
-        })
-        // parenting
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(210.0, 0.0),
-                Anchors::BOTTOM_LEFT,
-                Margins::new(0.0, 200.0, 10.0, 210.0),
-            ),
-            material: materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
-            ..Default::default()
-        })
-        .with_children(|builder| {
-            builder.entity_with(UiComponents {
-                node: Node::new(
-                    Anchors::FULL,
-                    Margins::new(20.0, 20.0, 20.0, 20.0),
-                ),
-                material: materials.add(Color::rgb(0.6, 0.6, 1.0).into()),
-                ..Default::default()
-            })
-        })
-        // alpha test
-        .entity_with(UiComponents {
-            node: Node::positioned(
-                math::vec2(200.0, 185.0),
-                Anchors::CENTER,
-                Margins::new(0.0, 100.0, 0.0, 100.0),
-            ),
-            material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
-            ..Default::default()
-        })
-        // texture
-        .entity_with(UiComponents {
-            node: Node::new(
-                Anchors::CENTER_TOP,
-                Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),
-            ),
-            material: materials.add(ColorMaterial::texture(texture_handle)),
-            ..Default::default()
+            builder
+                // left vertical fill
+                .entity_with(UiComponents {
+                    node: Node::new(Anchors::LEFT_FULL, Margins::new(10.0, 200.0, 10.0, 10.0)),
+                    material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+                    ..Default::default()
+                })
+                .with_children(|builder| {
+                    builder.entity_with(LabelComponents {
+                        node: Node::new(Anchors::TOP_LEFT, Margins::new(10.0, 200.0, 40.0, 10.0)),
+                        label: Label {
+                            text: "Text Label".to_string(),
+                            font: font_handle,
+                            style: TextStyle {
+                                font_size: 30.0,
+                                color: Color::WHITE,
+                            },
+                        },
+                        ..Default::default()
+                    })
+                })
+                // right vertical fill
+                .entity_with(UiComponents {
+                    node: Node::new(Anchors::RIGHT_FULL, Margins::new(10.0, 100.0, 100.0, 100.0)),
+                    material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+                    ..Default::default()
+                })
+                // render order test: reddest in the back, whitest in the front
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(75.0, 60.0),
+                        Anchors::CENTER,
+                        Margins::new(0.0, 100.0, 0.0, 100.0),
+                    ),
+                    material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
+                    ..Default::default()
+                })
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(50.0, 35.0),
+                        Anchors::CENTER,
+                        Margins::new(0.0, 100.0, 0.0, 100.0),
+                    ),
+                    material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+                    ..Default::default()
+                })
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(100.0, 85.0),
+                        Anchors::CENTER,
+                        Margins::new(0.0, 100.0, 0.0, 100.0),
+                    ),
+                    material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
+                    ..Default::default()
+                })
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(150.0, 135.0),
+                        Anchors::CENTER,
+                        Margins::new(0.0, 100.0, 0.0, 100.0),
+                    ),
+                    material: materials.add(Color::rgb(1.0, 0.7, 0.7).into()),
+                    ..Default::default()
+                })
+                // parenting
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(210.0, 0.0),
+                        Anchors::BOTTOM_LEFT,
+                        Margins::new(0.0, 200.0, 10.0, 210.0),
+                    ),
+                    material: materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
+                    ..Default::default()
+                })
+                .with_children(|builder| {
+                    builder.entity_with(UiComponents {
+                        node: Node::new(Anchors::FULL, Margins::new(20.0, 20.0, 20.0, 20.0)),
+                        material: materials.add(Color::rgb(0.6, 0.6, 1.0).into()),
+                        ..Default::default()
+                    })
+                })
+                // alpha test
+                .entity_with(UiComponents {
+                    node: Node::positioned(
+                        math::vec2(200.0, 185.0),
+                        Anchors::CENTER,
+                        Margins::new(0.0, 100.0, 0.0, 100.0),
+                    ),
+                    material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+                    ..Default::default()
+                })
+                // texture
+                .entity_with(UiComponents {
+                    node: Node::new(
+                        Anchors::CENTER_TOP,
+                        Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),
+                    ),
+                    material: materials.add(ColorMaterial::texture(texture_handle)),
+                    ..Default::default()
+                })
         });
 }
