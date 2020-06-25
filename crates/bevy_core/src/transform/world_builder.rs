@@ -94,6 +94,7 @@ impl CommandBufferBuilderSource for CommandBuffer {
             command_buffer: self,
             current_entity: None,
             parent_entity: None,
+            parent_entities: Vec::new(),
         }
     }
 }
@@ -101,6 +102,7 @@ impl CommandBufferBuilderSource for CommandBuffer {
 pub struct CommandBufferBuilder<'a> {
     command_buffer: &'a mut CommandBuffer,
     current_entity: Option<Entity>,
+    parent_entities: Vec<Entity>,
     parent_entity: Option<Entity>,
 }
 
@@ -140,13 +142,15 @@ impl<'a> CommandBufferBuilder<'a> {
     }
 
     pub fn with_children(&mut self, mut build_children: impl FnMut(&mut Self) -> &mut Self) -> &mut Self {
-        self.parent_entity = self.current_entity;
+        let current_entity = self.current_entity.expect("Cannot add children without a parent. Try creating an entity first.");
+        self.parent_entities.push(current_entity);
+        self.parent_entity = Some(current_entity);
         self.current_entity = None;
 
         build_children(self);
 
-        self.current_entity = self.parent_entity;
-        self.parent_entity = None;
+        self.current_entity = self.parent_entities.pop();
+        self.parent_entity = if self.parent_entities.is_empty() { None } else { self.parent_entities.last().cloned() };
         self
     }
 
