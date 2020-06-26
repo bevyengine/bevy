@@ -4,7 +4,7 @@ use bevy_asset::Assets;
 use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
-    pipeline::{PipelineSpecialization, ShaderSpecialization},
+    pipeline::PipelineSpecialization,
     render_resource::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
@@ -13,7 +13,6 @@ use bevy_render::{
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 use glam::{Mat4, Vec3};
-use std::collections::HashSet;
 
 pub struct TextStyle {
     pub font_size: f32,
@@ -57,16 +56,11 @@ impl<'a> DrawableText<'a> {
 
 impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
-        let mut shader_defs = HashSet::new();
-        shader_defs.insert("UI_CAMERA".to_string());
         context.set_pipeline(
             draw,
             bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             // TODO: remove this shader def specialization when its easier to manually bind global render resources to specific bind groups
-            &PipelineSpecialization {
-                shader_specialization: ShaderSpecialization { shader_defs },
-                ..Default::default()
-            },
+            &PipelineSpecialization::default(),
         )?;
 
         let render_resource_context = &**context.render_resource_context;
@@ -151,10 +145,10 @@ impl<'a> Drawable for DrawableText<'a> {
                         .shared_buffers
                         .get_buffer(&sprite, BufferUsage::UNIFORM)
                         .unwrap();
-                    let sprite_bind_group =
-                        BindGroup::build()
-                            .add_binding(0, transform_buffer)
-                            .add_binding(1, sprite_buffer).finish();
+                    let sprite_bind_group = BindGroup::build()
+                        .add_binding(0, transform_buffer)
+                        .add_binding(1, sprite_buffer)
+                        .finish();
                     context.create_bind_group_resource(2, &sprite_bind_group)?;
                     draw.set_bind_group(2, &sprite_bind_group);
                     draw.draw_indexed(indices.clone(), 0, 0..1);

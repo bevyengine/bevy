@@ -261,7 +261,7 @@ impl Default for RenderResourceBindingsId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{BindType, BindingDescriptor, UniformProperty, UniformPropertyType};
+    use crate::pipeline::{BindType, BindingDescriptor, UniformProperty};
 
     #[test]
     fn test_bind_groups() {
@@ -273,13 +273,7 @@ mod tests {
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty {
-                            name: "A".to_string(),
-                            property_type: UniformPropertyType::Struct(vec![UniformProperty {
-                                name: "".to_string(),
-                                property_type: UniformPropertyType::Mat4,
-                            }]),
-                        }],
+                        properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
                     },
                 },
                 BindingDescriptor {
@@ -287,10 +281,7 @@ mod tests {
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty {
-                            name: "B".to_string(),
-                            property_type: UniformPropertyType::Float,
-                        }],
+                        properties: vec![UniformProperty::Float],
                     },
                 },
             ],

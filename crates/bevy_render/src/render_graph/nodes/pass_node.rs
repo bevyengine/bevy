@@ -1,21 +1,32 @@
 use crate::{
     draw::{Draw, RenderCommand},
-    pass::{PassDescriptor, TextureAttachment, ClearColor},
-    pipeline::PipelineDescriptor,
+    pass::{ClearColor, PassDescriptor, TextureAttachment},
+    pipeline::{
+        BindGroupDescriptor, BindType, BindingDescriptor, PipelineDescriptor, UniformProperty,
+    },
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{BindGroupId, BufferId, RenderResourceBindings, RenderResourceType},
-    renderer::RenderContext, ActiveCameras, VisibleEntities,
+    render_resource::{
+        BindGroup, BindGroupId, BufferId, RenderResourceBindings, RenderResourceType,
+    },
+    renderer::RenderContext,
+    ActiveCameras, VisibleEntities,
 };
 use bevy_asset::{Assets, Handle};
 use legion::prelude::*;
 
+struct CameraInfo {
+    name: String,
+    bind_group_id: Option<BindGroupId>,
+}
+
 pub struct PassNode {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
-    cameras: Vec<String>,
+    cameras: Vec<CameraInfo>,
     color_attachment_input_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
+    camera_bind_group_descriptor: BindGroupDescriptor,
 }
 
 impl PassNode {
@@ -45,6 +56,18 @@ impl PassNode {
             }
         }
 
+        let camera_bind_group_descriptor = BindGroupDescriptor::new(
+            0,
+            vec![BindingDescriptor {
+                name: "Camera".to_string(),
+                index: 0,
+                bind_type: BindType::Uniform {
+                    dynamic: false,
+                    properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
+                },
+            }],
+        );
+
         PassNode {
             descriptor,
             inputs,
@@ -52,11 +75,15 @@ impl PassNode {
             color_attachment_input_indices,
             depth_stencil_attachment_input_index,
             default_clear_color_inputs: Vec::new(),
+            camera_bind_group_descriptor,
         }
     }
 
     pub fn add_camera(&mut self, camera_name: &str) {
-        self.cameras.push(camera_name.to_string());
+        self.cameras.push(CameraInfo {
+            name: camera_name.to_string(),
+            bind_group_id: None,
+        });
     }
 
     pub fn use_default_clear_color(&mut self, color_attachment_index: usize) {
@@ -79,12 +106,12 @@ impl Node for PassNode {
     ) {
         let render_resource_bindings = resources.get::<RenderResourceBindings>().unwrap();
         let pipelines = resources.get::<Assets<PipelineDescriptor>>().unwrap();
-        let active_cameras= resources.get::<ActiveCameras>().unwrap();
+        let active_cameras = resources.get::<ActiveCameras>().unwrap();
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if self.default_clear_color_inputs.contains(&i) {
                 if let Some(default_clear_color) = resources.get::<ClearColor>() {
-                    color_attachment.clear_color = default_clear_color.color; 
+                    color_attachment.clear_color = default_clear_color.color;
                 }
             }
             if let Some(input_index) = self.color_attachment_input_indices[i] {
@@ -101,18 +128,40 @@ impl Node for PassNode {
                 .attachment =
                 TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
         }
+        for camera_info in self.cameras.iter_mut() {
+            let camera_binding =
+                if let Some(camera_binding) = render_resource_bindings.get(&camera_info.name) {
+                    camera_binding.clone()
+                } else {
+                    continue;
+                };
+
+            let camera_bind_group = BindGroup::build().add_binding(0, camera_binding).finish();
+            render_context
+                .resources()
+                .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);
+            camera_info.bind_group_id = Some(camera_bind_group.id);
+        }
 
         render_context.begin_pass(
             &self.descriptor,
             &render_resource_bindings,
             &mut |render_pass| {
-                for camera_name in self.cameras.iter() {
-                    let visible_entities = if let Some(camera_entity) = active_cameras.get(camera_name) {
+                for camera_info in self.cameras.iter() {
+                    let camera_bind_group_id= if let Some(bind_group_id) = camera_info.bind_group_id {
+                        bind_group_id
+                    } else {
+                        continue;
+                    };
+
+                    // get an ordered list of entities visible to the camera
+                    let visible_entities = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
                         world.get_component::<VisibleEntities>(camera_entity).unwrap()
                     } else {
                         continue;
                     };
 
+                    // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
                         let draw = if let Some(draw) = world.get_component::<Draw>(visible_entity.entity) {
@@ -124,7 +173,8 @@ impl Node for PassNode {
                         if !draw.is_visible {
                             continue;
                         }
-    
+
+                        // each Draw component contains an ordered list of render commands. we turn those into actual render commands here
                         for render_command in draw.render_commands.iter() {
                             match render_command {
                                 RenderCommand::SetPipeline { pipeline } => {
@@ -132,6 +182,20 @@ impl Node for PassNode {
                                     render_pass.set_pipeline(*pipeline);
                                     let descriptor = pipelines.get(pipeline).unwrap();
                                     draw_state.set_pipeline(*pipeline, descriptor);
+
+                                    // try to set current camera bind group
+                                    let layout = descriptor.get_layout().unwrap();
+                                    if let Some(descriptor) = layout.get_bind_group(0) {
+                                        if *descriptor == self.camera_bind_group_descriptor {
+                                            draw_state.set_bind_group(0, camera_bind_group_id);
+                                            render_pass.set_bind_group(
+                                                0,
+                                                descriptor.id,
+                                                camera_bind_group_id,
+                                                None
+                                            );
+                                        }
+                                    }
                                 }
                                 RenderCommand::DrawIndexed {
                                     base_vertex,

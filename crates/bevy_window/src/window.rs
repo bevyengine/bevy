@@ -1,8 +1,16 @@
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub enum WindowReference {
     Primary,
     Id(WindowId),
+}
+
+impl Default for WindowReference {
+    fn default() -> Self {
+        WindowReference::Primary
+    }
+    
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

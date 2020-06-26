@@ -29,12 +29,12 @@ impl Default for MeshComponents {
                     dynamic_bindings: vec![
                         // Transform
                         DynamicBinding {
-                            bind_group: 1,
+                            bind_group: 2,
                             binding: 0,
                         },
                         // StandardMaterial_albedo
                         DynamicBinding {
-                            bind_group: 2,
+                            bind_group: 3,
                             binding: 0,
                         },
                     ],

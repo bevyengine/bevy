@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, InputStepMode, UniformProperty,
-        UniformPropertyType, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     texture::{TextureComponentType, TextureViewDimension},
 };
@@ -214,31 +214,26 @@ enum NumberType {
 }
 
 fn reflect_uniform(type_description: &ReflectTypeDescription) -> UniformProperty {
-    let uniform_property_type = if type_description
+    if type_description
         .type_flags
         .contains(ReflectTypeFlags::STRUCT)
     {
         reflect_uniform_struct(type_description)
     } else {
         reflect_uniform_numeric(type_description)
-    };
-
-    UniformProperty {
-        name: type_description.type_name.to_string(),
-        property_type: uniform_property_type,
     }
 }
 
-fn reflect_uniform_struct(type_description: &ReflectTypeDescription) -> UniformPropertyType {
+fn reflect_uniform_struct(type_description: &ReflectTypeDescription) -> UniformProperty {
     let mut properties = Vec::new();
     for member in type_description.members.iter() {
         properties.push(reflect_uniform(member));
     }
 
-    UniformPropertyType::Struct(properties)
+    UniformProperty::Struct(properties)
 }
 
-fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> UniformPropertyType {
+fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> UniformProperty {
     let traits = &type_description.traits;
     let number_type = if type_description.type_flags.contains(ReflectTypeFlags::INT) {
         match traits.numeric.scalar.signedness {
@@ -266,8 +261,8 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
             traits.numeric.matrix.column_count,
             traits.numeric.matrix.row_count,
         ) {
-            (NumberType::Float, 3, 3) => UniformPropertyType::Mat3,
-            (NumberType::Float, 4, 4) => UniformPropertyType::Mat4,
+            (NumberType::Float, 3, 3) => UniformProperty::Mat3,
+            (NumberType::Float, 4, 4) => UniformProperty::Mat4,
             (number_type, column_count, row_count) => panic!(
                 "unexpected uniform property matrix format {:?} {}x{}",
                 number_type, column_count, row_count
@@ -275,14 +270,14 @@ fn reflect_uniform_numeric(type_description: &ReflectTypeDescription) -> Uniform
         }
     } else {
         match (number_type, traits.numeric.vector.component_count) {
-            (NumberType::UInt, 0) => UniformPropertyType::UInt,
-            (NumberType::Int, 0) => UniformPropertyType::Int,
-            (NumberType::Int, 2) => UniformPropertyType::IVec2,
-            (NumberType::Float, 0) => UniformPropertyType::Float,
-            (NumberType::Float, 2) => UniformPropertyType::Vec2,
-            (NumberType::Float, 3) => UniformPropertyType::Vec3,
-            (NumberType::Float, 4) => UniformPropertyType::Vec4,
-            (NumberType::UInt, 4) => UniformPropertyType::UVec4,
+            (NumberType::UInt, 0) => UniformProperty::UInt,
+            (NumberType::Int, 0) => UniformProperty::Int,
+            (NumberType::Int, 2) => UniformProperty::IVec2,
+            (NumberType::Float, 0) => UniformProperty::Float,
+            (NumberType::Float, 2) => UniformProperty::Vec2,
+            (NumberType::Float, 3) => UniformProperty::Vec3,
+            (NumberType::Float, 4) => UniformProperty::Vec4,
+            (NumberType::UInt, 4) => UniformProperty::UVec4,
             (number_type, component_count) => panic!(
                 "unexpected uniform property format {:?} {}",
                 number_type, component_count
@@ -414,15 +409,9 @@ mod tests {
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 dynamic: false,
-                                properties: vec![UniformProperty {
-                                    name: "Camera".into(),
-                                    property_type: UniformPropertyType::Struct(vec![
-                                        UniformProperty {
-                                            name: "".into(),
-                                            property_type: UniformPropertyType::Mat4,
-                                        }
-                                    ]),
-                                }],
+                                properties: vec![UniformProperty::Struct(vec![
+                                    UniformProperty::Mat4
+                                ])],
                             },
                         }]
                     ),

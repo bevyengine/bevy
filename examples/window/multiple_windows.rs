@@ -1,18 +1,30 @@
-use bevy::{prelude::*, window::CreateWindow};
-use bevy_render::{pass::{StoreOp, LoadOp, TextureAttachment, RenderPassColorAttachmentDescriptor, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor}, texture::{TextureDescriptor, TextureFormat, TextureUsage}};
-use bevy_window::{WindowId, WindowReference};
+use bevy::{
+    prelude::*,
+    render::{
+        pass::{
+            LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
+            RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
+        },
+        texture::{TextureDescriptor, TextureFormat, TextureUsage},
+        ActiveCameras,
+    },
+    window::{CreateWindow, WindowId, WindowReference},
+};
 
 fn main() {
     App::build()
         .add_default_plugins()
-        .add_startup_system(create_second_window_system.system())
-        .add_startup_system(setup_scene.system())
+        .add_startup_system(setup.system())
         .run();
 }
 
-fn create_second_window_system(
+fn setup(
+    command_buffer: &mut CommandBuffer,
     mut create_window_events: ResMut<Events<CreateWindow>>,
+    mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let window_id = WindowId::new();
 
@@ -48,6 +60,10 @@ fn create_second_window_system(
         ),
     );
 
+    // add a new depth texture node for our new window
+    render_graph.add_system_node("secondary_camera", CameraNode::new("Secondary"));
+
+    // add a new render pass for our new camera
     let mut second_window_pass = PassNode::new(PassDescriptor {
         color_attachments: vec![RenderPassColorAttachmentDescriptor {
             attachment: TextureAttachment::Input("color".to_string()),
@@ -70,13 +86,10 @@ fn create_second_window_system(
         sample_count: 1,
     });
 
-    // TODO: use different camera here
-    second_window_pass.add_camera(bevy::render::base_render_graph::camera::CAMERA);
+    second_window_pass.add_camera("Secondary");
+    active_cameras.add("Secondary");
 
-    render_graph.add_node(
-        "second_window_pass",
-        second_window_pass,
-    );
+    render_graph.add_node("second_window_pass", second_window_pass);
 
     render_graph
         .add_slot_edge(
@@ -95,13 +108,13 @@ fn create_second_window_system(
             "depth",
         )
         .unwrap();
-}
 
-fn setup_scene(
-    command_buffer: &mut CommandBuffer,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+    render_graph
+        .add_node_edge("secondary_camera", "second_window_pass")
+        .unwrap();
+
+    // SETUP SCENE
+
     // load the mesh
     let mesh_handle = asset_server
         .load("assets/models/monkey/Monkey.gltf")
@@ -135,18 +148,19 @@ fn setup_scene(
                 Vec3::new(0.0, 1.0, 0.0),
             )),
             ..Default::default()
+        })
+        // second window camera
+        .entity_with(PerspectiveCameraComponents {
+            camera: Camera {
+                name: Some("Secondary".to_string()),
+                window: WindowReference::Id(window_id),
+                ..Default::default()
+            },
+            transform: Transform::new_sync_disabled(Mat4::face_toward(
+                Vec3::new(6.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            )),
+            ..Default::default()
         });
-        // // second window camera
-        // .entity_with(PerspectiveCameraComponents {
-        //     camera: Camera {
-        //         name: Some("Secondary".to_string()),
-        //         ..Default::default()
-        //     },
-        //     transform: Transform::new_sync_disabled(Mat4::face_toward(
-        //         Vec3::new(0.0, 0.0, 6.0),
-        //         Vec3::new(0.0, 0.0, 0.0),
-        //         Vec3::new(0.0, 1.0, 0.0),
-        //     )),
-        //     ..Default::default()
-        // });
 }

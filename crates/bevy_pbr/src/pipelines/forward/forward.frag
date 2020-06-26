@@ -18,18 +18,18 @@ layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
 
-layout(set = 0, binding = 1) uniform Lights {
+layout(set = 1, binding = 0) uniform Lights {
     uvec4 NumLights;
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 2, binding = 0) uniform StandardMaterial_albedo {
+layout(set = 3, binding = 0) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 
 # ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
-layout(set = 3, binding = 0) uniform texture2D StandardMaterial_albedo_texture;
-layout(set = 3, binding = 1) uniform sampler StandardMaterial_albedo_texture_sampler;
+layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
+layout(set = 3, binding = 2) uniform sampler StandardMaterial_albedo_texture_sampler;
 # endif
 
 void main() {

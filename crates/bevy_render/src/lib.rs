@@ -132,7 +132,7 @@ impl AppPlugin for RenderPlugin {
             render_graph.add_base_graph(config);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
-                active_cameras.add(base_render_graph::camera::CAMERA);
+                active_cameras.add(base_render_graph::camera::CAMERA3D);
             }
 
             if config.add_2d_camera {

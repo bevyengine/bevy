@@ -85,14 +85,7 @@ impl PipelineLayout {
 }
 
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct UniformProperty {
-    pub name: String,
-    pub property_type: UniformPropertyType,
-}
-
-#[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub enum UniformPropertyType {
-    // TODO: Use VertexFormat here
+pub enum UniformProperty {
     UInt,
     Int,
     IVec2,
@@ -104,27 +97,27 @@ pub enum UniformPropertyType {
     Mat3,
     Mat4,
     Struct(Vec<UniformProperty>),
-    Array(Box<UniformPropertyType>, usize),
+    Array(Box<UniformProperty>, usize),
 }
 
-impl UniformPropertyType {
+impl UniformProperty {
     pub fn get_size(&self) -> u64 {
         match self {
-            UniformPropertyType::UInt => 4,
-            UniformPropertyType::Int => 4,
-            UniformPropertyType::IVec2 => 4 * 2,
-            UniformPropertyType::Float => 4,
-            UniformPropertyType::UVec4 => 4 * 4,
-            UniformPropertyType::Vec2 => 4 * 2,
-            UniformPropertyType::Vec3 => 4 * 3,
-            UniformPropertyType::Vec4 => 4 * 4,
-            UniformPropertyType::Mat3 => 4 * 4 * 3,
-            UniformPropertyType::Mat4 => 4 * 4 * 4,
-            UniformPropertyType::Struct(properties) => properties
+            UniformProperty::UInt => 4,
+            UniformProperty::Int => 4,
+            UniformProperty::IVec2 => 4 * 2,
+            UniformProperty::Float => 4,
+            UniformProperty::UVec4 => 4 * 4,
+            UniformProperty::Vec2 => 4 * 2,
+            UniformProperty::Vec3 => 4 * 3,
+            UniformProperty::Vec4 => 4 * 4,
+            UniformProperty::Mat3 => 4 * 4 * 3,
+            UniformProperty::Mat4 => 4 * 4 * 4,
+            UniformProperty::Struct(properties) => properties
                 .iter()
-                .map(|p| p.property_type.get_size())
+                .map(|p| p.get_size())
                 .fold(0, |total, size| total + size),
-            UniformPropertyType::Array(property, length) => property.get_size() * *length as u64,
+            UniformProperty::Array(property, length) => property.get_size() * *length as u64,
         }
     }
 }

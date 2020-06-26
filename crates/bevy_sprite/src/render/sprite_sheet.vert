@@ -7,16 +7,9 @@ layout(location = 2) in vec2 Vertex_Uv;
 layout(location = 0) out vec2 v_Uv;
 layout(location = 1) out vec4 v_Color;
 
-// TODO: remove UI shader def and replace with generic "Camera" when its easier to manually bind global RenderResourceBindings 
-#ifdef UI_CAMERA
-layout(set = 0, binding = 0) uniform UiCamera {
+layout(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
-# else
-layout(set = 0, binding = 0) uniform Camera2d {
-    mat4 ViewProj;
-};
-#endif
 
 // TODO: merge dimensions into "sprites" buffer when that is supported in the Uniforms derive abstraction
 layout(set = 1, binding = 0) uniform TextureAtlas_size {

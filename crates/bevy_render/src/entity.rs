@@ -33,7 +33,7 @@ impl Default for PerspectiveCameraComponents {
     fn default() -> Self {
         PerspectiveCameraComponents {
             camera: Camera {
-                name: Some(base_render_graph::camera::CAMERA.to_string()),
+                name: Some(base_render_graph::camera::CAMERA3D.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
