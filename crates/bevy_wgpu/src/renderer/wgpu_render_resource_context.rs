@@ -433,6 +433,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         render_pipelines.insert(pipeline_handle, render_pipeline);
     }
 
+    fn bind_group_descriptor_exists(
+        &self,
+        bind_group_descriptor_id: BindGroupDescriptorId,
+    ) -> bool {
+        let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
+        bind_group_layouts.get(&bind_group_descriptor_id).is_some()
+    }
+
     fn create_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,

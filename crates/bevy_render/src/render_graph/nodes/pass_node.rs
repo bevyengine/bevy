@@ -135,12 +135,16 @@ impl Node for PassNode {
                 } else {
                     continue;
                 };
-
-            let camera_bind_group = BindGroup::build().add_binding(0, camera_binding).finish();
-            render_context
+            if render_context
                 .resources()
-                .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);
-            camera_info.bind_group_id = Some(camera_bind_group.id);
+                .bind_group_descriptor_exists(self.camera_bind_group_descriptor.id)
+            {
+                let camera_bind_group = BindGroup::build().add_binding(0, camera_binding).finish();
+                render_context
+                    .resources()
+                    .create_bind_group(self.camera_bind_group_descriptor.id, &camera_bind_group);
+                camera_info.bind_group_id = Some(camera_bind_group.id);
+            }
         }
 
         render_context.begin_pass(

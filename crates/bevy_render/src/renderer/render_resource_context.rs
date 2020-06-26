@@ -48,6 +48,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         pipeline_descriptor: &PipelineDescriptor,
         shaders: &Assets<Shader>,
     );
+    fn bind_group_descriptor_exists(&self, bind_group_descriptor_id: BindGroupDescriptorId)
+        -> bool;
     fn create_bind_group(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,

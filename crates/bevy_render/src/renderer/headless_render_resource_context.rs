@@ -120,4 +120,8 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
         self.buffer_info.read().unwrap().get(&buffer).cloned()
     }
+    fn bind_group_descriptor_exists(&self, _bind_group_descriptor_id: BindGroupDescriptorId)
+        -> bool {
+        false
+    }
 }
