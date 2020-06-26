@@ -39,13 +39,13 @@ void main() {
     Rect sprite_rect = Textures[TextureAtlasSprite_index];
     vec2 sprite_dimensions = sprite_rect.end - sprite_rect.begin;
     vec3 vertex_position = vec3(Vertex_Position.xy * sprite_dimensions, 0.0);
-    vec2 uvs[4] = vec2[](
+    vec2 atlas_positions[4] = vec2[](
         vec2(sprite_rect.begin.x, sprite_rect.end.y),
         sprite_rect.begin,
         vec2(sprite_rect.end.x, sprite_rect.begin.y), 
         sprite_rect.end
     );
-    v_Uv = uvs[gl_VertexIndex] / AtlasSize;
+    v_Uv = (atlas_positions[gl_VertexIndex] + vec2(0.05, 0.05)) / AtlasSize;
     v_Color = TextureAtlasSprite_color;
-    gl_Position = ViewProj * SpriteTransform * vec4(vertex_position, 1.0);
+    gl_Position = ViewProj * SpriteTransform * vec4(ceil(vertex_position), 1.0);
 }
