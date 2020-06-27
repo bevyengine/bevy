@@ -26,8 +26,8 @@ impl ActiveCameras {
 }
 
 pub fn active_cameras_system(
-    world: &mut SubWorld,
     mut active_cameras: ResMut<ActiveCameras>,
+    world: &mut SubWorld,
     query: &mut Query<Read<Camera>>,
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {

@@ -31,7 +31,11 @@ struct Scoreboard {
     score: usize,
 }
 
-fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>, asset_server: Res<AssetServer>) {
+fn setup(
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    command_buffer: &mut CommandBuffer,
+) {
     // Add the game's entities to our world
     let mut builder = command_buffer.build();
     builder
@@ -67,15 +71,11 @@ fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorM
                 style: TextStyle {
                     color: Color::rgb(0.2, 0.2, 0.8).into(),
                     font_size: 40.0,
-                }
+                },
             },
-            node: Node::new(
-                Anchors::TOP_LEFT,
-                Margins::new(10.0, 50.0, 10.0, 50.0),
-            ),
+            node: Node::new(Anchors::TOP_LEFT, Margins::new(10.0, 50.0, 10.0, 50.0)),
             ..Default::default()
-        })
-        ;
+        });
 
     // Add walls
     let wall_material = materials.add(Color::rgb(0.5, 0.5, 0.5).into());
@@ -155,9 +155,9 @@ fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorM
 }
 
 fn paddle_movement_system(
-    world: &mut SubWorld,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
+    world: &mut SubWorld,
     query: &mut Query<(Read<Paddle>, Write<Translation>)>,
 ) {
     for (paddle, mut translation) in query.iter_mut(world) {
@@ -175,8 +175,8 @@ fn paddle_movement_system(
 }
 
 fn ball_movement_system(
-    world: &mut SubWorld,
     time: Res<Time>,
+    world: &mut SubWorld,
     ball_query: &mut Query<(Read<Ball>, Write<Translation>)>,
 ) {
     for (ball, mut translation) in ball_query.iter_mut(world) {
@@ -184,16 +184,20 @@ fn ball_movement_system(
     }
 }
 
-fn scoreboard_system(world: &mut SubWorld, scoreboard: Res<Scoreboard>, query: &mut Query<Write<Label>>) {
+fn scoreboard_system(
+    scoreboard: Res<Scoreboard>,
+    world: &mut SubWorld,
+    query: &mut Query<Write<Label>>,
+) {
     for mut label in query.iter_mut(world) {
         label.text = format!("Score: {}", scoreboard.score);
     }
 }
 
 fn ball_collision_system(
+    mut scoreboard: ResMut<Scoreboard>,
     command_buffer: &mut CommandBuffer,
     world: &mut SubWorld,
-    mut scoreboard: ResMut<Scoreboard>,
     ball_query: &mut Query<(Write<Ball>, Read<Translation>, Read<Sprite>)>,
     paddle_query: &mut Query<(Read<Paddle>, Read<Translation>, Read<Sprite>)>,
     brick_query: &mut Query<(Read<Brick>, Read<Translation>, Read<Sprite>)>,

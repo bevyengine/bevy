@@ -8,10 +8,10 @@ fn main() {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // You can load all assets in a folder like this. They will be loaded in parallel without blocking
     asset_server

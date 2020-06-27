@@ -17,8 +17,8 @@ fn rotator_system(time: Res<Time>, _rotator: ComMut<Rotator>, mut rotation: ComM
 }
 
 fn camera_order_color_system(
-    world: &mut SubWorld,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    world: &mut SubWorld,
     camera_query: &mut Query<(Read<Camera>, Read<VisibleEntities>)>,
     _material_query: &mut Query<Read<Handle<StandardMaterial>>>,
 ) {
@@ -37,9 +37,9 @@ fn camera_order_color_system(
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
-    command_buffer: &mut CommandBuffer,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     command_buffer

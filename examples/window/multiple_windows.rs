@@ -19,12 +19,12 @@ fn main() {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     mut create_window_events: ResMut<Events<CreateWindow>>,
     mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    command_buffer: &mut CommandBuffer,
 ) {
     let window_id = WindowId::new();
 

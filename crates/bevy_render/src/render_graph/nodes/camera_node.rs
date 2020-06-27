@@ -45,12 +45,13 @@ impl SystemNode for CameraNode {
         let mut camera_buffer = None;
         let mut command_queue = self.command_queue.clone();
         let camera_name = self.camera_name.clone();
-        (move |world: &mut SubWorld,
+        (move |
                active_cameras: Res<ActiveCameras>,
                render_resource_context: Res<Box<dyn RenderResourceContext>>,
                // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
                // with other systems that do the same
                mut render_resource_bindings: ResMut<RenderResourceBindings>,
+               world: &mut SubWorld,
                _query: &mut Query<(Read<Camera>, Read<Transform>)>| {
             let render_resource_context = &**render_resource_context;
             if camera_buffer.is_none() {

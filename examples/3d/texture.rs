@@ -9,11 +9,11 @@ fn main() {
 
 /// sets up a scene with textured entities
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // load a texture
     let texture_handle = asset_server

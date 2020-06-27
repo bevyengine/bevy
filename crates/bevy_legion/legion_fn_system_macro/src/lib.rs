@@ -112,11 +112,11 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                 let command_buffer_var = &command_buffer_var[0..command_buffer_index];
 
                 let run_fn = if view_count == 0 {
-                    quote! { self(#(#command_buffer_var,)*#(#resource_var),*) }
+                    quote! { self(#(#resource_var,)* #(#command_buffer_var,)*) }
                 } else {
                     quote! {
                         for (#(#view_var),*) in _query.iter_mut(_world) {
-                            self(#(#command_buffer_var,)*#(#resource_var.clone(),)* #(#view_var),*);
+                            self(#(#resource_var.clone(),)* #(#command_buffer_var,)* #(#view_var),*);
                         }
                     }
                 };
@@ -128,7 +128,7 @@ pub fn impl_fn_systems(_input: TokenStream) -> TokenStream {
                         #(#view: for<'b> View<'b> + DefaultFilter + ViewElement,)*
                     > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (#(#view,)*), ()> for Func
                     where
-                        Func: FnMut(#(&mut #command_buffer,)* #(#resource,)* #(#view),*) + Send + Sync + 'static,
+                        Func: FnMut(#(#resource,)* #(&mut #command_buffer,)* #(#view),*) + Send + Sync + 'static,
                         #(<#view as View<'a>>::Iter: Iterator<Item = #view>,
                         <#view as DefaultFilter>::Filter: Sync),*
                     {
@@ -253,7 +253,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                         #(#view: for<'b> View<'b> + DefaultFilter + ViewElement),*
                     > IntoSystem<(#(#command_buffer)*), (#(#resource,)*), (), #view_tuple_avoid_type_collision> for Func
                     where
-                        Func: FnMut(#(&mut #command_buffer,)* &mut SubWorld, #(#resource,)* #(&mut SystemQuery<#view, <#view as DefaultFilter>::Filter>),*) + Send + Sync + 'static,
+                        Func: FnMut(#(#resource,)*#(&mut #command_buffer,)* &mut SubWorld, #(&mut SystemQuery<#view, <#view as DefaultFilter>::Filter>),*) + Send + Sync + 'static,
                         #(<#view as DefaultFilter>::Filter: Sync),*
                     {
                         fn system_id(mut self, id: SystemId) -> Box<dyn Schedulable> {
@@ -268,7 +268,7 @@ pub fn impl_fn_query_systems(_input: TokenStream) -> TokenStream {
                                 | {
                                     let #resource_var_tuple = _resources;
                                     let #query_var_tuple = _queries;
-                                    self(#(#command_buffer_var,)*_world,#(#resource_var,)* #(#query_var),*)
+                                    self(#(#resource_var,)*#(#command_buffer_var,)*_world,#(#query_var),*)
                                 },
                                 PhantomData,
                             );

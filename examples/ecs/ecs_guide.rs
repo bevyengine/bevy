@@ -193,9 +193,9 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
 // NOTE: Command buffers must always come before resources and components in system functions
 fn new_player_system(
-    command_buffer: &mut CommandBuffer,
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // Randomly add a new player
     let add_new_player = random::<bool>();

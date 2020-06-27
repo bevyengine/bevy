@@ -27,11 +27,11 @@ impl Default for State {
 }
 
 fn atlas_render_system(
-    command_buffer: &mut CommandBuffer,
     mut state: ResMut<State>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     if state.added {
         return;
@@ -59,9 +59,9 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut label: ComM
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut state: ResMut<State>,
+    command_buffer: &mut CommandBuffer,
 ) {
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     state.handle = font_handle;

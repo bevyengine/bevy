@@ -10,9 +10,9 @@ impl AppPlugin for ExamplePlugin {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let cube_material_handle = materials.add(StandardMaterial {

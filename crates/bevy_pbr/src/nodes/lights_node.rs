@@ -57,10 +57,10 @@ impl SystemNode for LightsNode {
         let mut tmp_light_buffer = None;
         let mut command_queue = self.command_queue.clone();
         let max_lights = self.max_lights;
-        (move |world: &mut SubWorld,
-               render_resource_context: Res<Box<dyn RenderResourceContext>>,
+        (move |render_resource_context: Res<Box<dyn RenderResourceContext>>,
                // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
                mut render_resource_bindings: ResMut<RenderResourceBindings>,
+               world: &mut SubWorld,
                query: &mut Query<(Read<Light>, Read<Transform>, Read<Translation>)>| {
             if !lights_are_dirty {
                 return;

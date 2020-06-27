@@ -8,10 +8,10 @@ fn main() {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // TODO: "background" 3D temporarily disabled until depth mismatch is fixed
     // let mut mesh_storage = resources.get_mut::<AssetStorage<Mesh>>().unwrap();

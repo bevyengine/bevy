@@ -18,9 +18,9 @@ pub struct RpgSpriteHandles {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
+    command_buffer: &mut CommandBuffer,
 ) {
     rpg_sprite_handles.handles = asset_server
         .load_asset_folder("assets/textures/rpg")
@@ -36,13 +36,13 @@ struct State {
 }
 
 fn load_atlas(
-    command_buffer: &mut CommandBuffer,
     mut state: ResMut<State>,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     if state.atlas_loaded {
         return;

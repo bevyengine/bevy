@@ -14,8 +14,8 @@ pub struct Rect {
 }
 
 pub fn ui_update_system(
-    world: &mut SubWorld,
     windows: Res<Windows>,
+    world: &mut SubWorld,
     node_query: &mut Query<(Write<Node>, Write<Translation>)>,
     _parent_query: &mut Query<Read<Parent>>,
     _children_query: &mut Query<Read<Children>>,
@@ -51,7 +51,12 @@ pub fn ui_update_system(
     }
 }
 
-fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_rect: Option<&mut Rect>, previous_rect: Option<Rect>) -> Option<Rect> {
+fn update_node_entity(
+    world: &mut SubWorld,
+    entity: Entity,
+    parent_rect: Option<&mut Rect>,
+    previous_rect: Option<Rect>,
+) -> Option<Rect> {
     // TODO: Somehow remove this unsafe
     unsafe {
         if let Some(mut node) = world.get_component_mut_unchecked::<Node>(entity) {
@@ -64,15 +69,8 @@ fn update_node_entity(world: &mut SubWorld, entity: Entity, parent_rect: Option<
                 };
 
                 z -= UI_Z_STEP;
-                node.update(
-                    &mut translation,
-                    z - parent_rect.z, 
-                    parent_rect.size,
-                );
-                return Some(Rect {
-                    size: node.size,
-                    z,
-                });
+                node.update(&mut translation, z - parent_rect.z, parent_rect.size);
+                return Some(Rect { size: node.size, z });
             }
         }
     }

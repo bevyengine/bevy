@@ -10,9 +10,9 @@ fn main() {
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // Load our mesh:
     let mesh_handle = asset_server

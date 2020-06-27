@@ -16,10 +16,10 @@ pub struct Camera {
 pub fn camera_system<T: CameraProjection + Component>() -> Box<dyn Schedulable> {
     let mut window_resized_event_reader = EventReader::<WindowResized>::default();
     let mut window_created_event_reader = EventReader::<WindowCreated>::default();
-    (move |world: &mut SubWorld,
-           window_resized_events: Res<Events<WindowResized>>,
+    (move |window_resized_events: Res<Events<WindowResized>>,
            window_created_events: Res<Events<WindowCreated>>,
            windows: Res<Windows>,
+           world: &mut SubWorld,
            query: &mut Query<(Write<Camera>, Write<T>)>| {
         let mut changed_window_ids = Vec::new();
         let mut changed_primary_window_id = None;

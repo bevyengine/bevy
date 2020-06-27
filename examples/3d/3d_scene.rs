@@ -9,9 +9,9 @@ fn main() {
 
 /// set up a simple scene
 fn setup(
-    command_buffer: &mut CommandBuffer,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     // create a cube and a plane mesh
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));

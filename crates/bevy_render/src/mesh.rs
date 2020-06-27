@@ -351,27 +351,11 @@ pub mod shape {
             let extent = plane.size / 2.0;
 
             let vertices = [
-                    (
-                        [extent, 0.0, -extent],
-                        [0.0, 1.0, 0.0],
-                        [1.0, 1.0],
-                    ),
-                    (
-                        [extent, 0.0, extent],
-                        [0.0, 1.0, 0.0],
-                        [1.0, 0.0],
-                    ),
-                    (
-                        [-extent, 0.0, extent],
-                        [0.0, 1.0, 0.0],
-                        [0.0, 0.0],
-                    ),
-                    (
-                        [-extent, 0.0, -extent],
-                        [0.0, 1.0, 0.0],
-                        [0.0, 1.0],
-                    ),
-                ];
+                ([extent, 0.0, -extent], [0.0, 1.0, 0.0], [1.0, 1.0]),
+                ([extent, 0.0, extent], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([-extent, 0.0, extent], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([-extent, 0.0, -extent], [0.0, 1.0, 0.0], [0.0, 1.0]),
+            ];
 
             let indices = vec![0, 2, 1, 0, 3, 2];
 
@@ -421,10 +405,10 @@ pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Sched
     // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
     let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
     vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-    (move |world: &mut SubWorld,
-           render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    (move |render_resource_context: Res<Box<dyn RenderResourceContext>>,
            meshes: Res<Assets<Mesh>>,
            mesh_events: Res<Events<AssetEvent<Mesh>>>,
+           world: &mut SubWorld,
            query: &mut Query<(Read<Handle<Mesh>>, Write<RenderPipelines>)>| {
         let mut changed_meshes = HashSet::new();
         let render_resource_context = &**render_resource_context;

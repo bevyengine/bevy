@@ -20,7 +20,7 @@ fn text_update_system(diagnostics: Res<Diagnostics>, mut label: ComMut<Label>) {
     }
 }
 
-fn setup(command_buffer: &mut CommandBuffer, asset_server: Res<AssetServer>) {
+fn setup(asset_server: Res<AssetServer>, command_buffer: &mut CommandBuffer) {
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     command_buffer
         .build()

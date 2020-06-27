@@ -371,8 +371,8 @@ where
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
         // TODO: maybe run "update" here
-        (move |world: &mut SubWorld,
-               render_resource_context: Res<Box<dyn RenderResourceContext>>,
+        (move |render_resource_context: Res<Box<dyn RenderResourceContext>>,
+               world: &mut SubWorld,
                query: &mut Query<(Read<T>, Read<Draw>, Write<RenderPipelines>)>| {
             let render_resource_context = &**render_resource_context;
             uniform_buffer_arrays.reset_changed_item_counts();
@@ -498,11 +498,11 @@ where
         let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
         // let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
         let dynamic_uniforms = self.dynamic_uniforms;
-        (move |world: &mut SubWorld,
-               assets: Res<Assets<T>>,
+        (move |assets: Res<Assets<T>>,
                //    asset_events: Res<Events<AssetEvent<T>>>,
                mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
                render_resource_context: Res<Box<dyn RenderResourceContext>>,
+               world: &mut SubWorld,
                query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
             let render_resource_context = &**render_resource_context;
             uniform_buffer_arrays.reset_changed_item_counts();

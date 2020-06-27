@@ -22,10 +22,10 @@ fn animate_sprite_system(
 }
 
 fn setup(
-    command_buffer: &mut CommandBuffer,
     asset_server: Res<AssetServer>,
     mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    command_buffer: &mut CommandBuffer,
 ) {
     let texture_handle = asset_server
         .load_sync(

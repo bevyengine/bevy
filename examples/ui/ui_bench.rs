@@ -21,7 +21,7 @@ fn placement_system(
     }
 }
 
-fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn setup(mut materials: ResMut<Assets<ColorMaterial>>, command_buffer: &mut CommandBuffer) {
     let mut builder = command_buffer.build();
     builder.entity_with(OrthographicCameraComponents::ui());
 
