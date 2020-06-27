@@ -10,14 +10,19 @@ fn main() {
 
 fn animate_sprite_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut timer: ComMut<Timer>,
-    mut sprite: ComMut<TextureAtlasSprite>,
-    texture_atlas_handle: Com<Handle<TextureAtlas>>,
+    world: &mut SubWorld,
+    query: &mut Query<(
+        Write<Timer>,
+        Write<TextureAtlasSprite>,
+        Read<Handle<TextureAtlas>>,
+    )>,
 ) {
-    if timer.finished {
-        let texture_atlas = texture_atlases.get(&texture_atlas_handle).unwrap();
-        sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
-        timer.reset();
+    for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut(world) {
+        if timer.finished {
+            let texture_atlas = texture_atlases.get(&texture_atlas_handle).unwrap();
+            sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
+            timer.reset();
+        }
     }
 }
 

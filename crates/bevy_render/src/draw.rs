@@ -13,8 +13,8 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_property::Properties;
 use legion::{
-    prelude::{ComMut, Res, ResourceSet},
-    systems::{resource::ResourceTypeId, ResMut},
+    prelude::{Res, ResourceSet, Write},
+    systems::{resource::ResourceTypeId, ResMut, SubWorld, Query},
 };
 use std::{
     ops::{Deref, DerefMut, Range},
@@ -340,6 +340,8 @@ pub trait Drawable {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError>;
 }
 
-pub fn clear_draw_system(mut draw: ComMut<Draw>) {
-    draw.clear_render_commands();
+pub fn clear_draw_system(world: &mut SubWorld, query: &mut Query<Write<Draw>>) {
+    for mut draw in query.iter_mut(world) {
+        draw.clear_render_commands();
+    }
 }

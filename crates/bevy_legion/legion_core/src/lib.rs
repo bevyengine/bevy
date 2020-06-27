@@ -17,13 +17,11 @@ pub mod world;
 #[cfg(feature = "serialize")]
 pub mod serialize;
 
-mod system_fn_types;
 mod tuple;
 mod zip;
 
 pub mod prelude {
     pub use crate::{
-        borrow::{Ref as Com, RefMut as ComMut},
         command::CommandBuffer,
         entity::Entity,
         event::Event,

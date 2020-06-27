@@ -5,7 +5,10 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_property::Properties;
-use legion::{prelude::ComMut, systems::ResMut};
+use legion::{
+    prelude::Write,
+    systems::{Query, ResMut, SubWorld},
+};
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
@@ -104,12 +107,14 @@ impl<'a> Drawable for DrawableRenderPipelines<'a> {
 pub fn draw_render_pipelines_system(
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut draw: ComMut<Draw>,
-    mut render_pipelines: ComMut<RenderPipelines>,
+    world: &mut SubWorld,
+    query: &mut Query<(Write<Draw>, Write<RenderPipelines>)>,
 ) {
-    let mut drawable = DrawableRenderPipelines {
-        render_pipelines: &mut render_pipelines,
-        render_resource_bindings: &mut render_resource_bindings,
-    };
-    drawable.draw(&mut draw, &mut draw_context).unwrap();
+    for (mut draw, mut render_pipelines) in query.iter_mut(world) {
+        let mut drawable = DrawableRenderPipelines {
+            render_pipelines: &mut render_pipelines,
+            render_resource_bindings: &mut render_resource_bindings,
+        };
+        drawable.draw(&mut draw, &mut draw_context).unwrap();
+    }
 }

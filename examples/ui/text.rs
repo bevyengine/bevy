@@ -12,10 +12,16 @@ fn main() {
         .run();
 }
 
-fn text_update_system(diagnostics: Res<Diagnostics>, mut label: ComMut<Label>) {
-    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(average) = fps.average() {
-            label.text = format!("FPS: {:.2}", average);
+fn text_update_system(
+    diagnostics: Res<Diagnostics>,
+    world: &mut SubWorld,
+    query: &mut Query<Write<Label>>,
+) {
+    for mut label in query.iter_mut(world) {
+        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+            if let Some(average) = fps.average() {
+                label.text = format!("FPS: {:.2}", average);
+            }
         }
     }
 }
@@ -28,10 +34,7 @@ fn setup(asset_server: Res<AssetServer>, command_buffer: &mut CommandBuffer) {
         .entity_with(OrthographicCameraComponents::default())
         // texture
         .entity_with(LabelComponents {
-            node: Node::new(
-                Anchors::TOP_LEFT,
-                Margins::new(0.0, 250.0, 0.0, 60.0),
-            ),
+            node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
             label: Label {
                 text: "FPS:".to_string(),
                 font: font_handle,

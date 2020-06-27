@@ -1,6 +1,9 @@
 use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
-use legion::prelude::{Com, ComMut, Res};
+use legion::{
+    prelude::{Read, Res, Write},
+    systems::{Query, SubWorld},
+};
 
 pub use bevy_derive::ShaderDefs;
 
@@ -55,46 +58,52 @@ impl ShaderDef for Option<Handle<Texture>> {
     }
 }
 
-pub fn shader_defs_system<T>(shader_defs: Com<T>, mut render_pipelines: ComMut<RenderPipelines>)
+pub fn shader_defs_system<T>(world: &mut SubWorld, query: Query<(Read<T>, Write<RenderPipelines>)>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for shader_def in shader_defs.iter_shader_defs() {
+    for (shader_defs, mut render_pipelines) in query.iter_mut(world) {
+        for shader_def in shader_defs.iter_shader_defs() {
+            for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                render_pipeline
+                    .specialization
+                    .shader_specialization
+                    .shader_defs
+                    .insert(shader_def.to_string());
+            }
+        }
+    }
+}
+
+pub fn clear_shader_defs_system(world: &mut SubWorld, query: &mut Query<Write<RenderPipelines>>) {
+    for mut render_pipelines in query.iter_mut(world) {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             render_pipeline
                 .specialization
                 .shader_specialization
                 .shader_defs
-                .insert(shader_def.to_string());
+                .clear();
         }
-    }
-}
-
-pub fn clear_shader_defs_system(mut render_pipelines: ComMut<RenderPipelines>) {
-    for render_pipeline in render_pipelines.pipelines.iter_mut() {
-        render_pipeline
-            .specialization
-            .shader_specialization
-            .shader_defs
-            .clear();
     }
 }
 
 pub fn asset_shader_defs_system<T>(
     assets: Res<Assets<T>>,
-    asset_handle: Com<Handle<T>>,
-    mut render_pipelines: ComMut<RenderPipelines>,
+    world: &mut SubWorld,
+    query: &mut Query<(Read<Handle<T>>, Write<RenderPipelines>)>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    let shader_defs = assets.get(&asset_handle).unwrap();
-    for shader_def in shader_defs.iter_shader_defs() {
-        for render_pipeline in render_pipelines.pipelines.iter_mut() {
-            render_pipeline
-                .specialization
-                .shader_specialization
-                .shader_defs
-                .insert(shader_def.to_string());
+    for (asset_handle, mut render_pipelines) in query.iter_mut(world) {
+        let shader_defs = assets.get(&asset_handle).unwrap();
+        for shader_def in shader_defs.iter_shader_defs() {
+            for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                render_pipeline
+                    .specialization
+                    .shader_specialization
+                    .shader_defs
+                    .insert(shader_def.to_string());
+            }
         }
     }
 }

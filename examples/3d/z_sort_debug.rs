@@ -12,8 +12,14 @@ fn main() {
 }
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Res<Time>, _rotator: ComMut<Rotator>, mut rotation: ComMut<Rotation>) {
-    rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
+fn rotator_system(
+    time: Res<Time>,
+    world: &mut SubWorld,
+    query: &mut Query<(Read<Rotator>, Write<Rotation>)>,
+) {
+    for (_rotator, mut rotation) in query.iter_mut(world) {
+        rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
+    }
 }
 
 fn camera_order_color_system(

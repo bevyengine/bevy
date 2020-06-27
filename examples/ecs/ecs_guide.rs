@@ -80,21 +80,22 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
     );
 }
 
-// This system runs once for each entity with both the "Player" and "Score" component.
-// NOTE: Com<Player> is a read-only component reference, whereas ComMut<Score> can modify the component
-fn score_system(player: Com<Player>, mut score: ComMut<Score>) {
-    let scored_a_point = random::<bool>();
-    if scored_a_point {
-        score.value += 1;
-        println!(
-            "{} scored a point! Their score is: {}",
-            player.name, score.value
-        );
-    } else {
-        println!(
-            "{} did not score a point! Their score is: {}",
-            player.name, score.value
-        );
+// This system updates the score for each entity with the "Player" and "Score" component.
+fn score_system(world: &mut SubWorld, query: &mut Query<(Read<Player>, Write<Score>)>) {
+    for (player, mut score) in query.iter_mut(world) {
+        let scored_a_point = random::<bool>();
+        if scored_a_point {
+            score.value += 1;
+            println!(
+                "{} scored a point! Their score is: {}",
+                player.name, score.value
+            );
+        } else {
+            println!(
+                "{} did not score a point! Their score is: {}",
+                player.name, score.value
+            );
+        }
     }
 
     // this game isn't very fun is it :)
@@ -102,26 +103,11 @@ fn score_system(player: Com<Player>, mut score: ComMut<Score>) {
 
 // This system runs on all entities with the "Player" and "Score" components, but it also
 // accesses the "GameRules" resource to determine if a player has won.
-// NOTE: resources must always come before components in system functions
+// NOTE: resources must always come before worlds/queries in system functions
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
-    player: Com<Player>,
-    score: Com<Score>,
-) {
-    if score.value == game_rules.winning_score {
-        game_state.winning_player = Some(player.name.clone());
-    }
-}
-
-// If you need more control over iteration or direct access to SubWorld, you can also use "query systems"
-// This is how you would represent the system above with a "query system"
-// NOTE: You can add as many queries as you want, but they must come after all resources (Res/ResMut).
-#[allow(dead_code)]
-fn query_score_check_system(
     world: &mut SubWorld,
-    game_rules: Res<GameRules>,
-    mut game_state: ResMut<GameState>,
     query: &mut Query<(Read<Player>, Read<Score>)>,
 ) {
     for (player, score) in query.iter(world) {
@@ -191,7 +177,7 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
 // Normal systems cannot safely access the World instance directly because they run in parallel.
 // Our World contains all of our components, so accessing it in parallel is not thread safe.
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
-// NOTE: Command buffers must always come before resources and components in system functions
+// NOTE: Command buffers must always come after resources and before queries in system functions
 fn new_player_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
@@ -252,9 +238,11 @@ fn thread_local_system(world: &mut World, resources: &mut Resources) {
 #[allow(dead_code)]
 fn closure_system() -> Box<dyn Schedulable> {
     let mut counter = 0;
-    (move |player: Com<Player>, score: Com<Score>| {
-        println!("processed: {} {}", player.name, score.value);
-        println!("this ran {} times", counter);
+    (move |world: &mut SubWorld, query: &mut Query<(Read<Player>, Read<Score>)>| {
+        for (player, score) in query.iter(world) {
+            println!("processed: {} {}", player.name, score.value);
+        }
+        println!("this system ran {} times", counter);
         counter += 1;
     })
     .system()
@@ -270,9 +258,15 @@ struct State {
 
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn stateful_system(mut state: ComMut<State>, player: Com<Player>, score: ComMut<Score>) {
-    println!("processed: {} {}", player.name, score.value);
-    println!("this ran {} times", state.counter);
+fn stateful_system(
+    mut state: ResMut<State>,
+    world: &mut SubWorld,
+    query: &mut Query<(Read<Player>, Read<Score>)>,
+) {
+    for (player, score) in query.iter(world) {
+        println!("processed: {} {}", player.name, score.value);
+    }
+    println!("this system ran {} times", state.counter);
     state.counter += 1;
 }
 

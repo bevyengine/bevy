@@ -12,12 +12,14 @@ fn main() {
 fn placement_system(
     time: Res<Time>,
     materials: Res<Assets<ColorMaterial>>,
-    mut node: ComMut<Node>,
-    material_handle: Com<Handle<ColorMaterial>>,
+    world: &mut SubWorld,
+    query: &mut Query<(Write<Node>, Read<Handle<ColorMaterial>>)>,
 ) {
-    let material = materials.get(&material_handle).unwrap();
-    if material.color.r > 0.2 {
-        node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
+    for (mut node, material_handle) in query.iter_mut(world) {
+        let material = materials.get(&material_handle).unwrap();
+        if material.color.r > 0.2 {
+            node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
+        }
     }
 }
 

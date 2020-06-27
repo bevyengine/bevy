@@ -50,11 +50,18 @@ fn atlas_render_system(
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut label: ComMut<Label>) {
-    state.timer.tick(time.delta_seconds);
-    if state.timer.finished {
-        label.text = format!("{}", rand::random::<u8>() as char);
-        state.timer.reset();
+fn text_update_system(
+    mut state: ResMut<State>,
+    time: Res<Time>,
+    world: &mut SubWorld,
+    query: &mut Query<Write<Label>>,
+) {
+    for mut label in query.iter_mut(world) {
+        state.timer.tick(time.delta_seconds);
+        if state.timer.finished {
+            label.text = format!("{}", rand::random::<u8>() as char);
+            state.timer.reset();
+        }
     }
 }
 
@@ -71,10 +78,7 @@ fn setup(
         .entity_with(OrthographicCameraComponents::default())
         // texture
         .entity_with(LabelComponents {
-            node: Node::new(
-                Anchors::TOP_LEFT,
-                Margins::new(0.0, 250.0, 0.0, 60.0),
-            ),
+            node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
             label: Label {
                 text: "a".to_string(),
                 font: font_handle,

@@ -17,12 +17,14 @@ fn main() {
 fn move_cubes(
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut translation: ComMut<Translation>,
-    material_handle: Com<Handle<StandardMaterial>>,
+    world: &mut SubWorld,
+    query: &mut Query<(Write<Translation>, Read<Handle<StandardMaterial>>)>,
 ) {
-    let material = materials.get_mut(&material_handle).unwrap();
-    translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
-    material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
+    for (mut translation, material_handle) in query.iter_mut(world) {
+        let material = materials.get_mut(&material_handle).unwrap();
+        translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+        material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
+    }
 }
 
 fn setup(
