@@ -6,11 +6,13 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_resource(Scoreboard { score: 0 })
         .add_resource(ClearColor(Color::rgb(0.7, 0.7, 0.7)))
         .add_startup_system(setup.system())
         .add_system(paddle_movement_system.system())
         .add_system(ball_collision_system.system())
         .add_system(ball_movement_system.system())
+        .add_system(scoreboard_system.system())
         .run();
 }
 
@@ -25,7 +27,11 @@ struct Ball {
 struct Brick;
 struct Wall;
 
-fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>) {
+struct Scoreboard {
+    score: usize,
+}
+
+fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorMaterial>>, asset_server: Res<AssetServer>) {
     // Add the game's entities to our world
     let mut builder = command_buffer.build();
     builder
@@ -52,7 +58,24 @@ fn setup(command_buffer: &mut CommandBuffer, mut materials: ResMut<Assets<ColorM
         })
         .with(Ball {
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
-        });
+        })
+        // scoreboard
+        .entity_with(LabelComponents {
+            label: Label {
+                font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
+                text: "Score:".to_string(),
+                style: TextStyle {
+                    color: Color::rgb(0.2, 0.2, 0.8).into(),
+                    font_size: 40.0,
+                }
+            },
+            node: Node::new(
+                Anchors::TOP_LEFT,
+                Margins::new(10.0, 50.0, 10.0, 50.0),
+            ),
+            ..Default::default()
+        })
+        ;
 
     // Add walls
     let wall_material = materials.add(Color::rgb(0.5, 0.5, 0.5).into());
@@ -161,9 +184,16 @@ fn ball_movement_system(
     }
 }
 
+fn scoreboard_system(world: &mut SubWorld, scoreboard: Res<Scoreboard>, query: &mut Query<Write<Label>>) {
+    for mut label in query.iter_mut(world) {
+        label.text = format!("Score: {}", scoreboard.score);
+    }
+}
+
 fn ball_collision_system(
     command_buffer: &mut CommandBuffer,
     world: &mut SubWorld,
+    mut scoreboard: ResMut<Scoreboard>,
     ball_query: &mut Query<(Write<Ball>, Read<Translation>, Read<Sprite>)>,
     paddle_query: &mut Query<(Read<Paddle>, Read<Translation>, Read<Sprite>)>,
     brick_query: &mut Query<(Read<Brick>, Read<Translation>, Read<Sprite>)>,
@@ -201,6 +231,7 @@ fn ball_collision_system(
 
             collision = collide(ball_position, ball_size, translation.0, sprite.size);
             if collision.is_some() {
+                scoreboard.score += 1;
                 command_buffer.delete(brick_entity);
             }
         }
