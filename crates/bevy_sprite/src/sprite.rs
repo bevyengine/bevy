@@ -12,7 +12,7 @@ use glam::Vec2;
 #[derive(Default, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct Sprite {
-    size: Vec2,
+    pub size: Vec2,
 }
 
 // SAFE: sprite is repr(C) and only consists of byteables

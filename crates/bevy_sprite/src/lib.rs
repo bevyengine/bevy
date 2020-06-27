@@ -1,6 +1,7 @@
 mod color_material;
 mod dynamic_texture_atlas_builder;
 pub mod entity;
+pub mod collide_aabb;
 mod rect;
 mod render;
 mod sprite;
