@@ -19,25 +19,12 @@ impl TextureAttachment {
 }
 
 #[derive(Clone, Debug)]
-pub struct ClearColor {
-    pub color: Color,
-}
-
-impl ClearColor {
-    pub fn new(color: Color) -> Self {
-        ClearColor {
-            color,
-        }
-    }
-}
+pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {
     fn default() -> Self {
-        Self {
-            color: Color::rgb(0.1, 0.1, 0.1),
-        }
+        Self(Color::rgb(0.1, 0.1, 0.1))
     }
-    
 }
 
 #[derive(Debug, Clone)]
