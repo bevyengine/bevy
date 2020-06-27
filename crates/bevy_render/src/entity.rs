@@ -1,6 +1,6 @@
 use crate::{
     base_render_graph, draw::Draw, mesh::Mesh, pipeline::RenderPipelines, Camera,
-    OrthographicProjection, PerspectiveProjection, WindowOrigin, VisibleEntities,
+    OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use bevy_asset::Handle;
 use bevy_derive::ComponentSet;
@@ -55,26 +55,6 @@ pub struct OrthographicCameraComponents {
     pub translation: Translation,
     pub rotation: Rotation,
     pub scale: Scale,
-}
-
-impl OrthographicCameraComponents {
-    pub fn ui() -> Self {
-        OrthographicCameraComponents {
-            camera: Camera {
-                name: Some("UiCamera".to_string()),
-                ..Default::default()
-            },
-            orthographic_projection: OrthographicProjection {
-                window_origin: WindowOrigin::Center,
-                ..Default::default()
-            },
-            visible_entities: Default::default(),
-            transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
-        }
-    }
 }
 
 impl Default for OrthographicCameraComponents {

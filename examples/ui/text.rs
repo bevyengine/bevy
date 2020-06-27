@@ -25,7 +25,7 @@ fn setup(asset_server: Res<AssetServer>, command_buffer: &mut CommandBuffer) {
     command_buffer
         .build()
         // 2d camera
-        .entity_with(OrthographicCameraComponents::ui())
+        .entity_with(OrthographicCameraComponents::default())
         // texture
         .entity_with(LabelComponents {
             node: Node::new(

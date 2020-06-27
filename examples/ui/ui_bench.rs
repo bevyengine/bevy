@@ -23,7 +23,7 @@ fn placement_system(
 
 fn setup(mut materials: ResMut<Assets<ColorMaterial>>, command_buffer: &mut CommandBuffer) {
     let mut builder = command_buffer.build();
-    builder.entity_with(OrthographicCameraComponents::ui());
+    builder.entity_with(OrthographicCameraComponents::default());
 
     let mut prev = Vec2::default();
     let count = 1000;

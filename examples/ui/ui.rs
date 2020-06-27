@@ -56,7 +56,7 @@ fn setup(
         //     ..Default::default()
         // })
         // ui camera
-        .entity_with(OrthographicCameraComponents::ui())
+        .entity_with(OrthographicCameraComponents::default())
         // root node
         .entity_with(UiComponents {
             node: Node::new(Anchors::FULL, Margins::default()),

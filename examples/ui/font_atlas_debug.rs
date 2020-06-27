@@ -69,7 +69,6 @@ fn setup(
         .build()
         // 2d camera
         .entity_with(OrthographicCameraComponents::default())
-        .entity_with(OrthographicCameraComponents::ui())
         // texture
         .entity_with(LabelComponents {
             node: Node::new(
