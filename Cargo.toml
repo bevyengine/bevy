@@ -142,7 +142,7 @@ path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
 name = "breakout"
-path = "examples/game/breakout/main.rs"
+path = "examples/game/breakout.rs"
 
 [[example]]
 name = "mouse_input"
