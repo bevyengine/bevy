@@ -12,3 +12,4 @@ ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c
 glam = { version = "0.8.7", features = ["serde"] }
 legion = { path = "../bevy_legion" }
 smallvec = { version = "1.4", features = ["serde"] }
+euclid = { git = "https://github.com/servo/euclid", rev = "1a8b95d46fa33978f7a6dcbb7a4c0f2a0550a1c9", features = ["serde"]}

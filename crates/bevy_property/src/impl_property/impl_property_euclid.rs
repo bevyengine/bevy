@@ -1,0 +1,24 @@
+use crate::impl_property;
+use euclid::*;
+use serde::{Deserialize, Serialize};
+
+impl_property!(Length<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Point2D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Point3D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Vector2D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Vector3D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(HomogeneousVector<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Size2D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Size3D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Rect<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Box2D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Box3D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(SideOffsets2D<T, Src> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Transform2D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Transform3D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Rotation2D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Rotation3D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Translation2D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Translation3D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(Scale<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
+impl_property!(RigidTransform3D<T, Src, Dst> where Self: Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> +'static);
