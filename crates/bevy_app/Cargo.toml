@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
+[features]
+profiler = ["legion/profiler"]
+
 [dependencies]
 bevy_derive = { path = "../bevy_derive" }
 legion = { path = "../bevy_legion", features = ["serialize"] }

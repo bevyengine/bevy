@@ -7,6 +7,7 @@ edition = "2018"
 [features]
 default = ["bevy_wgpu", "bevy_winit"]
 more-system-fns = ["legion/more-system-fns"]
+profiler = ["bevy_app/profiler", "bevy_diagnostic/profiler"]
 
 [workspace]
 members = [

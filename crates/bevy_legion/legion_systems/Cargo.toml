@@ -17,12 +17,13 @@ travis-ci = { repository = "TomGillen/legion", branch = "master" }
 par-iter = ["rayon", "legion-core/par-iter"]
 par-schedule = ["rayon", "crossbeam-queue"]
 more-system-fns = []
+profiler = []
 
 [dependencies]
 legion-core = { path = "../legion_core", version = "0.2.4", default-features = false }
 legion_fn_system_macro = { path = "../legion_fn_system_macro" }
 
-downcast-rs = "1.0"
+downcast-rs = "1.1.1"
 itertools = "0.9"
 rayon = { version = "1.2", optional = true }
 crossbeam-queue = { version = "0.2.0", optional = true }

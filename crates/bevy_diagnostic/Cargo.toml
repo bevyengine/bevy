@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
+[features]
+profiler = []
+
 [dependencies]
 bevy_app = { path = "../bevy_app" }
 bevy_core = { path = "../bevy_core" }

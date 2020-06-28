@@ -20,7 +20,7 @@ serialize = ["serde"]
 
 [dependencies]
 parking_lot = "0.10"
-downcast-rs = "1.0"
+downcast-rs = "1.1.1"
 itertools = "0.9"
 rayon = { version = "1.2", optional = true }
 crossbeam-queue = { version = "0.2.0", optional = true }

@@ -22,6 +22,7 @@ ffi = ["legion-core/ffi"]
 serialize = ["legion-core/serialize"]
 metrics = ["legion-core/metrics"]
 more-system-fns = ["legion-systems/more-system-fns"]
+profiler = ["legion-systems/profiler"]
 
 # [workspace]
 # members = [

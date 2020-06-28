@@ -307,8 +307,12 @@ impl Executor {
     pub fn run_systems(&mut self, world: &mut World, resources: &mut Resources) {
         self.systems.iter_mut().for_each(|system| {
             let system = unsafe { system.get_mut() };
+            #[cfg(feature = "profiler")]
+            crate::profiler::profiler_start(resources, system.name().name());
             system.prepare(world);
             system.run(world, resources);
+            #[cfg(feature = "profiler")]
+            crate::profiler::profiler_stop(resources, system.name().name());
         });
     }
 
@@ -328,8 +332,12 @@ impl Executor {
                         // safety: we have exlusive access to all systems, world and resources here
                         unsafe {
                             let system = self.systems[0].get_mut();
+                            #[cfg(feature = "profiler")]
+                            crate::profiler::profiler_start(resources, system.name().name());
                             system.prepare(world);
                             system.run(world, resources);
+                            #[cfg(feature = "profiler")]
+                            crate::profiler::profiler_stop(resources, system.name().name());
                         };
                     }
                     _ => {
@@ -415,7 +423,11 @@ impl Executor {
     #[cfg(feature = "par-schedule")]
     unsafe fn run_recursive(&self, i: usize, world: &World, resources: &Resources) {
         // safety: the caller ensures nothing else is accessing systems[i]
+        #[cfg(feature = "profiler")]
+        crate::profiler::profiler_start(resources, self.systems[i].get().name().name());
         self.systems[i].get_mut().run_unsafe(world, resources);
+        #[cfg(feature = "profiler")]
+        crate::profiler::profiler_stop(resources, self.systems[i].get().name().name());
 
         self.static_dependants[i].par_iter().for_each(|dep| {
             if self.awaiting[*dep].fetch_sub(1, Ordering::Relaxed) == 1 {
@@ -550,10 +562,20 @@ impl Schedule {
                         ToFlush::System(mut cmd) => cmd.write(world),
                     });
                 }
-                Step::ThreadLocalFn(function) => function(world, resources),
+                Step::ThreadLocalFn(function) => {
+                    #[cfg(feature = "profiler")]
+                    crate::profiler::profiler_start(resources, std::borrow::Cow::Borrowed("thread_local"));
+                    function(world, resources);
+                    #[cfg(feature = "profiler")]
+                    crate::profiler::profiler_stop(resources, std::borrow::Cow::Borrowed("thread_local"));
+                },
                 Step::ThreadLocalSystem(system) => {
+                    #[cfg(feature = "profiler")]
+                    crate::profiler::profiler_start(resources, system.name().name());
                     system.prepare(world);
                     system.run(world, resources);
+                    #[cfg(feature = "profiler")]
+                    crate::profiler::profiler_stop(resources, system.name().name());
                     if let Some(cmd) = system.command_buffer_mut(world.id()) {
                         waiting_flush.push(ToFlush::System(cmd));
                     }

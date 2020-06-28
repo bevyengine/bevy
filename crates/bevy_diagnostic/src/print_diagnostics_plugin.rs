@@ -53,7 +53,7 @@ impl PrintDiagnosticsPlugin {
 
     fn print_diagnostic(diagnostic: &Diagnostic) {
         if let Some(value) = diagnostic.value() {
-            print!("{:<20}: {:<19.6}", diagnostic.name, value);
+            print!("{:<65}: {:<10.6}", diagnostic.name, value);
             if let Some(average) = diagnostic.average() {
                 print!("  (avg {:.6})", average);
             }
@@ -70,7 +70,7 @@ impl PrintDiagnosticsPlugin {
         state.timer.tick(time.delta_seconds);
         if state.timer.finished {
             println!("Diagnostics:");
-            println!("{}", "-".repeat(60));
+            println!("{}", "-".repeat(93));
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     Self::print_diagnostic(diagnostic);
@@ -93,7 +93,7 @@ impl PrintDiagnosticsPlugin {
         state.timer.tick(time.delta_seconds);
         if state.timer.finished {
             println!("Diagnostics (Debug):");
-            println!("{}", "-".repeat(60));
+            println!("{}", "-".repeat(93));
             if let Some(ref filter) = state.filter {
                 for diagnostic in filter.iter().map(|id| diagnostics.get(*id).unwrap()) {
                     println!("{:#?}\n", diagnostic);

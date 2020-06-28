@@ -1,5 +1,6 @@
 pub mod resource;
 pub mod schedule;
+pub mod profiler;
 
 mod system;
 mod system_fn;
