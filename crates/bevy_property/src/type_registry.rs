@@ -91,11 +91,19 @@ impl PropertyTypeRegistration {
     }
 
     pub fn get_short_name(full_name: &str) -> String {
-        full_name
-            .split("<")
-            .map(|p| p.split("::").last().unwrap())
-            .collect::<Vec<&str>>()
-            .join("<")
+        let mut split = full_name.splitn(2, "<");
+
+        // main type
+        let mut short_name = split.next().unwrap().split("::").last().unwrap().to_string();
+
+        // process generics if they exist
+        if let Some(generics) = split.next() {
+            let generics = generics.strip_suffix(">").expect("should end with closing carrot");
+            short_name.push('<');
+            short_name.push_str(&generics.split(',').map(|generic| Self::get_short_name(generic.trim())).collect::<Vec<String>>().join(", "));
+            short_name.push('>');
+        }
+        short_name
     }
 
     pub fn deserialize<'de, D>(
