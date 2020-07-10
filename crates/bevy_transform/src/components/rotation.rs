@@ -1,9 +1,7 @@
 use crate::math::Quat;
 use bevy_property::Properties;
-use shrinkwraprs::Shrinkwrap;
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
-#[shrinkwrap(mutable)]
+#[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct Rotation(pub Quat);
 impl Rotation {
     #[inline(always)]

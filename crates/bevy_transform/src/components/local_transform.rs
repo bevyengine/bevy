@@ -1,10 +1,8 @@
 use crate::math::Mat4;
 use bevy_property::Properties;
-use shrinkwraprs::Shrinkwrap;
 use std::fmt;
 
-#[derive(Shrinkwrap, Debug, PartialEq, Clone, Copy, Properties)]
-#[shrinkwrap(mutable)]
+#[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct LocalTransform(pub Mat4);
 
 impl LocalTransform {

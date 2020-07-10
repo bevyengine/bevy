@@ -1,7 +1,7 @@
 [package]
 name = "bevy_transform"
-version = "0.3.0"
-authors = ["Alec Thilenius <alec@thilenius.com>"]
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>", "Alec Thilenius <alec@thilenius.com>"]
 edition = "2018"
 
 license = "MIT"
@@ -11,10 +11,7 @@ bevy_ecs = { path = "../bevy_ecs"}
 bevy_property = { path =  "../bevy_property" }
 glam = "0.8.7"
 log = "0.4"
-rayon = "1.2"
-serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.4", features = ["serde"] }
-shrinkwraprs = "0.2"
 
 [dev-dependencies]
 env_logger = "0.7"

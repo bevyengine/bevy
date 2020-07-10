@@ -1,10 +1,8 @@
 use bevy_ecs::Entity;
 use bevy_property::Properties;
-use shrinkwraprs::Shrinkwrap;
 use smallvec::SmallVec;
 
-#[derive(Shrinkwrap, Default, Clone, Properties, Debug)]
-#[shrinkwrap(mutable)]
+#[derive(Default, Clone, Properties, Debug)]
 pub struct Children(pub SmallVec<[Entity; 8]>);
 
 impl Children {

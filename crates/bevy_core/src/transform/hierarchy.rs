@@ -17,6 +17,7 @@ where
     let children = match children_query.get::<Children>(entity) {
         Ok(children) => Some(
             children
+                .0
                 .iter()
                 .map(|entity| *entity)
                 .collect::<Vec<Entity>>(),
