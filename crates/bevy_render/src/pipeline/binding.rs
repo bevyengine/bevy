@@ -29,7 +29,6 @@ pub enum BindType {
     },
     StorageTexture {
         dimension: TextureViewDimension,
-        component_type: TextureComponentType,
         format: TextureFormat,
         readonly: bool,
     },

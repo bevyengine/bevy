@@ -1,5 +1,5 @@
 use bevy_render::{
-    pass::{LoadOp, StoreOp},
+    pass::{LoadOp, Operations},
     pipeline::{
         state_descriptors::{
             BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
@@ -140,20 +140,41 @@ impl WgpuFrom<BufferUsage> for wgpu::BufferUsage {
     }
 }
 
-impl WgpuFrom<LoadOp> for wgpu::LoadOp {
-    fn from(val: LoadOp) -> Self {
+impl WgpuFrom<&LoadOp<Color>> for wgpu::LoadOp<wgpu::Color> {
+    fn from(val: &LoadOp<Color>) -> Self {
         match val {
-            LoadOp::Clear => wgpu::LoadOp::Clear,
+            LoadOp::Clear(value) => wgpu::LoadOp::Clear(value.clone().wgpu_into()),
             LoadOp::Load => wgpu::LoadOp::Load,
         }
     }
 }
 
-impl WgpuFrom<StoreOp> for wgpu::StoreOp {
-    fn from(val: StoreOp) -> Self {
+impl WgpuFrom<&LoadOp<f32>> for wgpu::LoadOp<f32> {
+    fn from(val: &LoadOp<f32>) -> Self {
         match val {
-            StoreOp::Clear => wgpu::StoreOp::Clear,
-            StoreOp::Store => wgpu::StoreOp::Store,
+            LoadOp::Clear(value) => wgpu::LoadOp::Clear(*value),
+            LoadOp::Load => wgpu::LoadOp::Load,
+        }
+    }
+}
+
+impl WgpuFrom<&LoadOp<u32>> for wgpu::LoadOp<u32> {
+    fn from(val: &LoadOp<u32>) -> Self {
+        match val {
+            LoadOp::Clear(value) => wgpu::LoadOp::Clear(*value),
+            LoadOp::Load => wgpu::LoadOp::Load,
+        }
+    }
+}
+
+impl<'a, T, U> WgpuFrom<&'a Operations<T>> for wgpu::Operations<U>
+where
+    wgpu::LoadOp<U>: WgpuFrom<&'a LoadOp<T>>,
+{
+    fn from(val: &'a Operations<T>) -> Self {
+        Self {
+            load: (&val.load).wgpu_into(),
+            store: val.store,
         }
     }
 }
@@ -163,11 +184,19 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
         match bind_type {
             BindType::Uniform {
                 dynamic,
-                properties: _,
-            } => wgpu::BindingType::UniformBuffer { dynamic: *dynamic },
+                properties: _properties,
+            } => wgpu::BindingType::UniformBuffer {
+                dynamic: *dynamic,
+                min_binding_size: bind_type
+                    .get_uniform_size()
+                    .and_then(|size| wgpu::BufferSize::new(size)),
+            },
             BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
                 dynamic: *dynamic,
                 readonly: *readonly,
+                min_binding_size: bind_type
+                    .get_uniform_size()
+                    .and_then(|size| wgpu::BufferSize::new(size)),
             },
             BindType::SampledTexture {
                 dimension,
@@ -183,12 +212,10 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
             },
             BindType::StorageTexture {
                 dimension,
-                component_type,
                 format,
                 readonly,
             } => wgpu::BindingType::StorageTexture {
                 dimension: (*dimension).wgpu_into(),
-                component_type: (*component_type).wgpu_into(),
                 format: (*format).wgpu_into(),
                 readonly: *readonly,
             },

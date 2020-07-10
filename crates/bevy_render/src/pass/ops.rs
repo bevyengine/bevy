@@ -1,13 +1,17 @@
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum LoadOp {
-    Clear = 0,
-    Load = 1,
+/// Operation to perform to the output attachment at the start of a renderpass.
+#[derive(Clone, Copy, Debug, Hash, PartialEq)]
+pub enum LoadOp<V> {
+    /// Clear with a specified value.
+    Clear(V),
+    /// Load from memory.
+    Load,
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum StoreOp {
-    Clear = 0,
-    Store = 1,
+/// Pair of load and store operations for an attachment aspect.
+#[derive(Clone, Debug, Hash, PartialEq)]
+pub struct Operations<V> {
+    /// How data should be read through this attachment.
+    pub load: LoadOp<V>,
+    /// Whether data will be written to through this attachment.
+    pub store: bool,
 }

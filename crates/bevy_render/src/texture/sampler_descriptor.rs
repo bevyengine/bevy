@@ -24,9 +24,9 @@ impl Default for SamplerDescriptor {
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            compare_function: Some(CompareFunction::Always),
+            lod_min_clamp: 0.0,
+            lod_max_clamp: std::f32::MAX,
+            compare_function: None,
             anisotropy_clamp: None,
         }
     }
@@ -41,9 +41,9 @@ impl From<&Texture> for SamplerDescriptor {
             mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Linear,
             mipmap_filter: FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            compare_function: Some(CompareFunction::Always),
+            lod_min_clamp: 0.0,
+            lod_max_clamp: std::f32::MAX,
+            compare_function: None,
             anisotropy_clamp: None,
         }
     }

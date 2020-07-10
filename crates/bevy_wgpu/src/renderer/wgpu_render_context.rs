@@ -209,9 +209,7 @@ fn create_wgpu_color_attachment_descriptor<'a>(
         .map(|target| get_texture_view(global_render_resource_bindings, refs, &target));
 
     wgpu::RenderPassColorAttachmentDescriptor {
-        store_op: color_attachment_descriptor.store_op.wgpu_into(),
-        load_op: color_attachment_descriptor.load_op.wgpu_into(),
-        clear_color: color_attachment_descriptor.clear_color.wgpu_into(),
+        ops: (&color_attachment_descriptor.ops).wgpu_into(),
         attachment,
         resolve_target,
     }
@@ -230,21 +228,7 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
 
     wgpu::RenderPassDepthStencilAttachmentDescriptor {
         attachment,
-        clear_depth: depth_stencil_attachment_descriptor.clear_depth,
-        clear_stencil: depth_stencil_attachment_descriptor.clear_stencil,
-        depth_load_op: depth_stencil_attachment_descriptor
-            .depth_load_op
-            .wgpu_into(),
-        depth_store_op: depth_stencil_attachment_descriptor
-            .depth_store_op
-            .wgpu_into(),
-        stencil_load_op: depth_stencil_attachment_descriptor
-            .stencil_load_op
-            .wgpu_into(),
-        stencil_store_op: depth_stencil_attachment_descriptor
-            .stencil_store_op
-            .wgpu_into(),
-        depth_read_only: depth_stencil_attachment_descriptor.depth_read_only,
-        stencil_read_only: depth_stencil_attachment_descriptor.stencil_read_only,
+        depth_ops: depth_stencil_attachment_descriptor.depth_ops.as_ref().map(|ops| ops.wgpu_into()),
+        stencil_ops: depth_stencil_attachment_descriptor.stencil_ops.as_ref().map(|ops| ops.wgpu_into()),
     }
 }

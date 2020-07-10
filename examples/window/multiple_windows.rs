@@ -3,13 +3,14 @@ use bevy::{
     render::{
         pass::{
             LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
-            RenderPassDepthStencilAttachmentDescriptor, StoreOp, TextureAttachment,
+            RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
         },
         texture::{TextureDescriptor, TextureFormat, TextureUsage},
         ActiveCameras,
     },
     window::{CreateWindow, WindowId, WindowReference},
 };
+use bevy_render::pass::Operations;
 
 fn main() {
     App::build()
@@ -68,20 +69,18 @@ fn setup(
         color_attachments: vec![RenderPassColorAttachmentDescriptor {
             attachment: TextureAttachment::Input("color".to_string()),
             resolve_target: None,
-            load_op: LoadOp::Clear,
-            store_op: StoreOp::Store,
-            clear_color: Color::rgb(0.1, 0.1, 0.1),
+            ops: Operations {
+                load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
+                store: true,
+            },
         }],
         depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
             attachment: TextureAttachment::Input("depth".to_string()),
-            depth_load_op: LoadOp::Clear,
-            depth_store_op: StoreOp::Store,
-            stencil_load_op: LoadOp::Clear,
-            stencil_store_op: StoreOp::Store,
-            stencil_read_only: false,
-            depth_read_only: false,
-            clear_depth: 1.0,
-            clear_stencil: 0,
+            depth_ops: Some(Operations {
+                load: LoadOp::Clear(1.0),
+                store: true,
+            }),
+            stencil_ops: None,
         }),
         sample_count: 1,
     });

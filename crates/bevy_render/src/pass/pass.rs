@@ -1,4 +1,4 @@
-use super::{LoadOp, StoreOp};
+use super::Operations;
 use crate::{render_resource::TextureId, Color};
 
 #[derive(Debug, Clone)]
@@ -35,27 +35,17 @@ pub struct RenderPassColorAttachmentDescriptor {
     /// The resolve target for this color attachment, if any.
     pub resolve_target: Option<TextureAttachment>,
 
-    /// The beginning-of-pass load operation for this color attachment.
-    pub load_op: LoadOp,
-
-    /// The end-of-pass store operation for this color attachment.
-    pub store_op: StoreOp,
-
-    /// The color that will be assigned to every pixel of this attachment when cleared.
-    pub clear_color: Color,
+    /// What operations will be performed on this color attachment.
+    pub ops: Operations<Color>,
 }
 
 #[derive(Debug, Clone)]
 pub struct RenderPassDepthStencilAttachmentDescriptor {
     pub attachment: TextureAttachment,
-    pub depth_load_op: LoadOp,
-    pub depth_store_op: StoreOp,
-    pub clear_depth: f32,
-    pub stencil_load_op: LoadOp,
-    pub stencil_store_op: StoreOp,
-    pub depth_read_only: bool,
-    pub stencil_read_only: bool,
-    pub clear_stencil: u32,
+    /// What operations will be performed on the depth part of the attachment.
+    pub depth_ops: Option<Operations<f32>>,
+    /// What operations will be performed on the stencil part of the attachment.
+    pub stencil_ops: Option<Operations<u32>>,
 }
 
 // A set of pipeline bindings and draw calls with color and depth outputs

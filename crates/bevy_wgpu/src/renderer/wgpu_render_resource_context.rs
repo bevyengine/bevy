@@ -113,10 +113,12 @@ impl WgpuRenderResourceContext {
         let bind_group_layout_binding = descriptor
             .bindings
             .iter()
-            .map(|binding| wgpu::BindGroupLayoutEntry {
-                binding: binding.index,
-                visibility: wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
-                ty: (&binding.bind_type).wgpu_into(),
+            .map(|binding| {
+                wgpu::BindGroupLayoutEntry::new(
+                    binding.index,
+                    wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT,
+                    (&binding.bind_type).wgpu_into(),
+                )
             })
             .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
         let wgpu_descriptor = wgpu::BindGroupLayoutDescriptor {
@@ -186,12 +188,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             label: None,
             mapped_at_creation: false,
         });
-
-        let data = buffer.map_async(wgpu::MapMode::Write, 0, wgpu::BufferSize::WHOLE);
+        let buffer_slice = buffer.slice(..);
+        let data = buffer_slice.map_async(wgpu::MapMode::Write);
         self.device.poll(wgpu::Maintain::Wait);
         if let Ok(()) = pollster::block_on(data) {
-            let data = buffer.get_mapped_range_mut(0, wgpu::BufferSize::WHOLE);
-            setup_data(data, self);
+            let mut data = buffer_slice.get_mapped_range_mut();
+            setup_data(&mut data, self);
         } else {
             panic!("failed to map buffer to host");
         }
@@ -246,7 +248,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write().unwrap();
-        let shader_module = self.device.create_shader_module(&shader.get_spirv(None));
+        let shader_module = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleSource::SpirV(&shader.get_spirv(None)));
         shader_modules.insert(shader_handle, shader_module);
     }
 
