@@ -43,7 +43,6 @@ log = { version = "0.4", features = ["release_max_level_info"] }
 [dev-dependencies]
 rand = "0.7.2"
 serde = { version = "1", features = ["derive"]}
-env_logger = "0.7"
 
 [profile.dev]
 opt-level = 3

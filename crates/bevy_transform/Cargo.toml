@@ -13,5 +13,3 @@ glam = "0.8.7"
 log = "0.4"
 smallvec = { version = "1.4", features = ["serde"] }
 
-[dev-dependencies]
-env_logger = "0.7"

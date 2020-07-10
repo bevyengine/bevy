@@ -205,7 +205,6 @@ mod test {
 
     #[test]
     fn correct_world_transformation() {
-        let _ = env_logger::builder().is_test(true).try_init();
         let mut world = World::default();
         let mut resources = Resources::default();
 
