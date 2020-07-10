@@ -9,6 +9,6 @@ bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_render = { path = "../bevy_render" }
 
-gltf = "0.15.2"
+gltf = { version = "0.15.2", default-features = false, features = ["utils"] }
 thiserror = "1.0"
 anyhow = "1.0"

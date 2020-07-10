@@ -10,7 +10,6 @@ filesystem_watcher = ["notify"]
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
-bevy_core = { path = "../bevy_core" }
 bevy_ecs = { path = "../bevy_ecs" }
 bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_property = { path = "../bevy_property" }
