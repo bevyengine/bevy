@@ -1,8 +1,8 @@
 use crate::renderer::WgpuRenderResourceContext;
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
+use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use bevy_render::renderer::RenderResourceContext;
-use bevy_ecs::{Res, ResMut, IntoQuerySystem};
 
 #[derive(Default)]
 pub struct WgpuResourceDiagnosticsPlugin;

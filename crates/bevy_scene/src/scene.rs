@@ -7,7 +7,7 @@ use serde::Serialize;
 
 #[derive(Default)]
 pub struct Scene {
-    pub entities: Vec<Entity>, 
+    pub entities: Vec<Entity>,
 }
 
 pub struct Entity {

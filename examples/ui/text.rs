@@ -12,10 +12,7 @@ fn main() {
         .run();
 }
 
-fn text_update_system(
-    diagnostics: Res<Diagnostics>,
-    mut query: Query<&mut Label>,
-) {
+fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Label>) {
     for label in &mut query.iter() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {

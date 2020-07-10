@@ -4,16 +4,16 @@ pub mod time;
 pub mod transform;
 
 use bevy_app::{stage, startup_stage, AppBuilder, AppPlugin};
+use bevy_ecs::IntoQuerySystem;
 use bevy_transform::{
+    build_systems,
     components::{
         Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation,
     },
-    build_systems,
 };
 use bevy_type_registry::RegisterType;
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
 use time::{time_system, timer_system, Time, Timer};
-use bevy_ecs::IntoQuerySystem;
 
 #[derive(Default)]
 pub struct CorePlugin;

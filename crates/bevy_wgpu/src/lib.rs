@@ -10,12 +10,12 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
+use bevy_ecs::{IntoQuerySystem, Resources, ThreadLocalSystem, World};
 use bevy_render::{
     render_resource::{free_shared_buffers_system, SharedBuffers},
     renderer::RenderResourceContext,
 };
 use renderer::WgpuRenderResourceContext;
-use bevy_ecs::{World, Resources, ThreadLocalSystem, IntoQuerySystem};
 
 #[derive(Default)]
 pub struct WgpuPlugin;
@@ -23,11 +23,14 @@ pub struct WgpuPlugin;
 impl AppPlugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources_mut());
-        app.add_system_to_stage(bevy_render::stage::RENDER, ThreadLocalSystem::new(render_system))
-            .add_system_to_stage(
-                bevy_render::stage::POST_RENDER,
-                free_shared_buffers_system.system(),
-            );
+        app.add_system_to_stage(
+            bevy_render::stage::RENDER,
+            ThreadLocalSystem::new(render_system),
+        )
+        .add_system_to_stage(
+            bevy_render::stage::POST_RENDER,
+            free_shared_buffers_system.system(),
+        );
     }
 }
 

@@ -1,7 +1,7 @@
+pub mod collide_aabb;
 mod color_material;
 mod dynamic_texture_atlas_builder;
 pub mod entity;
-pub mod collide_aabb;
 mod rect;
 mod render;
 mod sprite;
@@ -18,12 +18,12 @@ pub use texture_atlas_builder::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_ecs::IntoQuerySystem;
 use bevy_render::{
     mesh::{shape, Mesh},
     render_graph::RenderGraph,
     shader::asset_shader_defs_system,
 };
-use bevy_ecs::IntoQuerySystem;
 use glam::Vec2;
 use sprite::sprite_system;
 
@@ -49,7 +49,7 @@ impl AppPlugin for SpritePlugin {
         let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
         meshes.set(
             QUAD_HANDLE,
-            // Use a flipped quad because the camera is facing "forward" but quads should face backward 
+            // Use a flipped quad because the camera is facing "forward" but quads should face backward
             Mesh::from(shape::Quad::flipped(Vec2::new(1.0, 1.0))),
         );
 

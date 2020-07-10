@@ -1,4 +1,4 @@
-use bevy_asset::{Handle, Assets};
+use bevy_asset::{Assets, Handle};
 use bevy_render::{
     pipeline::{
         state_descriptors::{

@@ -27,7 +27,6 @@ impl From<&Texture> for TextureDescriptor {
     }
 }
 
-
 impl Default for TextureDescriptor {
     fn default() -> Self {
         TextureDescriptor {
@@ -43,5 +42,4 @@ impl Default for TextureDescriptor {
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }
     }
-    
 }

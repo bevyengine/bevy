@@ -1,9 +1,9 @@
 use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
 use crate::renderer::RenderContext;
+use bevy_ecs::{Commands, Resources, System, World};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use uuid::Uuid;
-use bevy_ecs::{Resources, World, System, Commands};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NodeId(Uuid);

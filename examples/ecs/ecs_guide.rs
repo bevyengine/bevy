@@ -221,7 +221,7 @@ fn thread_local_system(world: &mut World, resources: &mut Resources) {
 
 // Sometimes systems need their own unique "local" state. Bevy's ECS provides Local<T> resources for this case.
 // Local<T> resources are unique to their system and are automatically initialized on your behalf (if they don't already exist).
-// If you have a system's id, you can also access local resources directly in the Resources collection using `Resources::get_local()`. 
+// If you have a system's id, you can also access local resources directly in the Resources collection using `Resources::get_local()`.
 // In general you should only need this feature in the following cases:
 //  1. You have multiple instances of the same system and they each need their own unique state
 //  2. You already have a global version of a resource that you don't want to overwrite for your current system

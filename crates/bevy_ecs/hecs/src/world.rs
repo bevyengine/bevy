@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use crate::alloc::vec::Vec;
 use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
@@ -261,12 +261,7 @@ impl World {
     /// ```
     pub fn query_one<Q: Query>(&self, entity: Entity) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
         let loc = self.entities.get(entity)?;
-        Ok(unsafe {
-            QueryOne::new(
-                &self.archetypes[loc.archetype as usize],
-                loc.index,
-            )
-        })
+        Ok(unsafe { QueryOne::new(&self.archetypes[loc.archetype as usize], loc.index) })
     }
 
     /// Borrow the `T` component of `entity`
@@ -740,10 +735,13 @@ where
                 self.archetype.put_dynamic(ptr, ty, size, index);
                 true
             });
-            self.entities.insert(entity, Location {
-                archetype: self.archetype_id,
-                index,
-            });
+            self.entities.insert(
+                entity,
+                Location {
+                    archetype: self.archetype_id,
+                    index,
+                },
+            );
         }
         Some(entity)
     }

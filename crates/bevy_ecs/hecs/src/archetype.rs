@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
-use crate::alloc::alloc::{alloc, dealloc, Layout};
-use crate::alloc::boxed::Box;
-use crate::alloc::{vec, vec::Vec};
-use core::any::{type_name, TypeId};
-use core::cell::UnsafeCell;
-use core::mem;
-use core::ptr::{self, NonNull};
+use crate::alloc::{
+    alloc::{alloc, dealloc, Layout},
+    boxed::Box,
+    vec,
+    vec::Vec,
+};
+use core::{
+    any::{type_name, TypeId},
+    cell::UnsafeCell,
+    mem,
+    ptr::{self, NonNull},
+};
 
 use hashbrown::HashMap;
 
-use crate::borrow::AtomicBorrow;
-use crate::query::Fetch;
-use crate::{Access, Component, Query};
+use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 
 /// A collection of entities having the same component types
 ///
@@ -45,7 +48,7 @@ pub struct Archetype {
 }
 
 impl Archetype {
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn new(types: Vec<TypeInfo>) -> Self {
         debug_assert!(
             types.windows(2).all(|x| x[0] < x[1]),
@@ -62,7 +65,7 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn with_grow(types: Vec<TypeInfo>, grow_size: u32) -> Self {
         debug_assert!(
             types.windows(2).all(|x| x[0] < x[1]),
@@ -102,7 +105,7 @@ impl Archetype {
         self.state.contains_key(&id)
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn get<T: Component>(&self) -> Option<NonNull<T>> {
         let state = self.state.get(&TypeId::of::<T>())?;
         Some(unsafe {
@@ -112,7 +115,7 @@ impl Archetype {
         })
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn borrow<T: Component>(&self) {
         if self
             .state
@@ -123,7 +126,7 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn borrow_mut<T: Component>(&self) {
         if self
             .state
@@ -134,27 +137,27 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn release<T: Component>(&self) {
         if let Some(x) = self.state.get(&TypeId::of::<T>()) {
             x.borrow.release();
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn release_mut<T: Component>(&self) {
         if let Some(x) = self.state.get(&TypeId::of::<T>()) {
             x.borrow.release_mut();
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn len(&self) -> u32 {
         self.len
     }
 
-    #[allow(missing_docs)] 
-    pub fn iter_entities(&self) -> impl Iterator<Item=&u32> {
+    #[allow(missing_docs)]
+    pub fn iter_entities(&self) -> impl Iterator<Item = &u32> {
         self.entities.iter().take(self.len as usize)
     }
 
@@ -166,7 +169,7 @@ impl Archetype {
         self.entities[index as usize]
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn types(&self) -> &[TypeInfo] {
         &self.types
     }
@@ -312,14 +315,8 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)] 
-    pub unsafe fn put_dynamic(
-        &mut self,
-        component: *mut u8,
-        ty: TypeId,
-        size: usize,
-        index: u32,
-    ) {
+    #[allow(missing_docs)]
+    pub unsafe fn put_dynamic(&mut self, component: *mut u8, ty: TypeId, size: usize, index: u32) {
         let ptr = self
             .get_dynamic(ty, size, index)
             .unwrap()
@@ -387,12 +384,12 @@ impl TypeInfo {
         }
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn id(&self) -> TypeId {
         self.id
     }
 
-    #[allow(missing_docs)] 
+    #[allow(missing_docs)]
     pub fn layout(&self) -> Layout {
         self.layout
     }

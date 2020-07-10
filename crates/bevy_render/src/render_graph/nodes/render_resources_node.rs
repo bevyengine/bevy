@@ -11,7 +11,7 @@ use crate::{
 };
 
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World, Commands};
+use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
 use render_resource::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
 use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
 

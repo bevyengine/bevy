@@ -3,13 +3,13 @@ use crate::{
     TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
 use bevy_asset::Handle;
+use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
-use bevy_ecs::Bundle;
 
 #[derive(Bundle)]
 pub struct SpriteComponents {

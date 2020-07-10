@@ -1,6 +1,6 @@
 use crate::Camera;
+use bevy_ecs::{Entity, Query, ResMut};
 use std::collections::HashMap;
-use bevy_ecs::{ResMut, Entity, Query};
 
 #[derive(Default)]
 pub struct ActiveCameras {

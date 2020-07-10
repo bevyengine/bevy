@@ -1,5 +1,6 @@
-use crate::{ColorMaterial, TextureAtlas, TextureAtlasSprite, Sprite};
+use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
+use bevy_ecs::Resources;
 use bevy_render::{
     base_render_graph,
     pipeline::{state_descriptors::*, PipelineDescriptor},
@@ -10,7 +11,6 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use bevy_ecs::Resources;
 
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_u128(278534784033876544639935131272264723170);

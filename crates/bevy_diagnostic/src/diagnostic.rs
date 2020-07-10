@@ -17,7 +17,6 @@ impl Default for DiagnosticId {
     fn default() -> Self {
         DiagnosticId(Uuid::new_v4())
     }
-    
 }
 
 #[derive(Debug)]

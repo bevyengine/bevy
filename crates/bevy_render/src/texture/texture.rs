@@ -5,9 +5,9 @@ use crate::{
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_ecs::{Res, ResMut};
 use glam::Vec2;
 use std::collections::HashSet;
-use bevy_ecs::{Res, ResMut};
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;

@@ -10,7 +10,6 @@ impl Default for WindowReference {
     fn default() -> Self {
         WindowReference::Primary
     }
-    
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

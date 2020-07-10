@@ -3,6 +3,7 @@ use crate::{
     Assets, Handle, HandleId, LoadRequest,
 };
 use anyhow::Result;
+use bevy_ecs::{Res, Resource, Resources};
 use crossbeam_channel::TryRecvError;
 use std::{
     collections::{HashMap, HashSet},
@@ -12,7 +13,6 @@ use std::{
     thread,
 };
 use thiserror::Error;
-use bevy_ecs::{Res, Resources, Resource};
 
 pub type AssetVersion = usize;
 #[derive(Error, Debug)]

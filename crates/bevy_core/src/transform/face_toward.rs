@@ -1,4 +1,4 @@
-use glam::{Vec3, Mat4};
+use glam::{Mat4, Vec3};
 
 pub trait FaceToward {
     fn face_toward(eye: Vec3, center: Vec3, up: Vec3) -> Self;

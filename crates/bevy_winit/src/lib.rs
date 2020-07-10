@@ -8,6 +8,7 @@ use bevy_input::{
 };
 
 use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events};
+use bevy_ecs::Resources;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
@@ -17,7 +18,6 @@ use winit::{
     event::{DeviceEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
-use bevy_ecs::Resources;
 
 #[derive(Default)]
 pub struct WinitPlugin;

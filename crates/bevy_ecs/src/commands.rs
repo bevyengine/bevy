@@ -156,7 +156,10 @@ impl CommandsInternal {
         self
     }
 
-    pub fn with_bundle(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn with_bundle(
+        &mut self,
+        components: impl DynamicBundle + Send + Sync + 'static,
+    ) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add components because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.push(Command::WriteWorld(Box::new(Insert {
             entity: current_entity,
@@ -230,7 +233,10 @@ impl Commands {
         self
     }
 
-    pub fn with_bundle(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn with_bundle(
+        &mut self,
+        components: impl DynamicBundle + Send + Sync + 'static,
+    ) -> &mut Self {
         {
             let mut commands = self.commands.lock().unwrap();
             commands.with_bundle(components);

@@ -66,8 +66,7 @@ pub fn parent_update_system(
         // Add to the parent's `Children` (either the real component, or
         // `children_additions`).
         log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
-        if let Ok(mut new_parent_children) = children_query.get_mut::<Children>(parent.0)
-        {
+        if let Ok(mut new_parent_children) = children_query.get_mut::<Children>(parent.0) {
             // This is the parent
             log::trace!(
                 " > The new parent {:?} already has a `Children`, adding to it.",
@@ -110,8 +109,8 @@ pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use bevy_ecs::{Resources, World, Schedule};
     use crate::build_systems;
+    use bevy_ecs::{Resources, Schedule, World};
 
     #[test]
     fn correct_children() {
@@ -162,7 +161,6 @@ mod test {
 
         // Parent `e1` to `e2`.
         (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
-
 
         schedule.run(&mut world, &mut resources);
 

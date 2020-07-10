@@ -1,7 +1,7 @@
 use crate::{draw::Draw, Camera};
 use bevy_core::float_ord::FloatOrd;
+use bevy_ecs::{Entity, Query};
 use bevy_transform::prelude::Transform;
-use bevy_ecs::{Query, Entity};
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -15,7 +15,7 @@ pub struct VisibleEntities {
 }
 
 impl VisibleEntities {
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item=&VisibleEntity> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntity> {
         self.value.iter()
     }
 }
@@ -40,7 +40,7 @@ pub fn visible_entities_system(
 
             let order = if let Ok(transform) = transform_query.get::<Transform>(entity) {
                 let position = transform.value.w_axis().truncate();
-                // smaller distances are sorted to lower indices by using the distance from the camera 
+                // smaller distances are sorted to lower indices by using the distance from the camera
                 FloatOrd((camera_position - position).length())
             } else {
                 let order = FloatOrd(no_transform_order);
@@ -49,24 +49,17 @@ pub fn visible_entities_system(
             };
 
             if draw.is_transparent {
-                transparent_entities.push(VisibleEntity {
-                    entity,
-                    order,
-                })
+                transparent_entities.push(VisibleEntity { entity, order })
             } else {
-                visible_entities.value.push(VisibleEntity {
-                    entity,
-                    order,
-                })
+                visible_entities.value.push(VisibleEntity { entity, order })
             }
         }
-
 
         // sort opaque entities front-to-back
         visible_entities.value.sort_by_key(|e| e.order);
 
         // sort transparent entities front-to-back
-        transparent_entities.sort_by_key(|e|-e.order);
+        transparent_entities.sort_by_key(|e| -e.order);
         visible_entities.value.extend(transparent_entities);
 
         // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize to prevent holding unneeded memory

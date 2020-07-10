@@ -1,12 +1,12 @@
 use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
 use bevy_app::{EventReader, Events};
+use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},
     renderer::RenderResourceContext,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
-use bevy_ecs::{World, Resources};
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,

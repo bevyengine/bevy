@@ -1,6 +1,6 @@
 use super::{Anchors, Margins};
-use bevy_transform::prelude::Translation;
 use bevy_render::render_resource::RenderResources;
+use bevy_transform::prelude::Translation;
 use glam::{Vec2, Vec3};
 
 #[derive(Debug, Clone)]
@@ -55,7 +55,8 @@ impl Node {
         );
 
         self.size = Vec2::new(quad_width, quad_height);
-        translation.0 = self.position.extend(0.0) + Vec3::new(quad_x, quad_y, z_offset) - (parent_size / 2.0).extend(0.0);
+        translation.0 = self.position.extend(0.0) + Vec3::new(quad_x, quad_y, z_offset)
+            - (parent_size / 2.0).extend(0.0);
     }
 
     fn compute_dimension_properties(

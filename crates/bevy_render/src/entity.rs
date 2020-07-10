@@ -1,10 +1,10 @@
 use crate::{
-    base_render_graph, Camera,
-    OrthographicProjection, PerspectiveProjection, VisibleEntities, mesh::Mesh, draw::Draw, pipeline::RenderPipelines,
+    base_render_graph, draw::Draw, mesh::Mesh, pipeline::RenderPipelines, Camera,
+    OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
-use bevy_transform::components::{Rotation, Scale, Transform, Translation};
-use bevy_ecs::Bundle;
 use bevy_asset::Handle;
+use bevy_ecs::Bundle;
+use bevy_transform::components::{Rotation, Scale, Transform, Translation};
 
 #[derive(Bundle, Default)]
 pub struct MeshComponents {

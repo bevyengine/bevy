@@ -93,7 +93,7 @@ unsafe impl Byteable for f32 {}
 unsafe impl Byteable for f64 {}
 unsafe impl Byteable for Vec2 {}
 // NOTE: Vec3 actually takes up the size of 4 floats / 16 bytes due to SIMD. This is actually convenient because GLSL
-// uniform buffer objects pad Vec3s to be 16 bytes. 
+// uniform buffer objects pad Vec3s to be 16 bytes.
 unsafe impl Byteable for Vec3 {}
 unsafe impl Byteable for Vec4 {}
 
@@ -171,8 +171,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use super::{FromBytes, Bytes};
-    use glam::{Vec3, Vec2, Vec4, Mat4};
+    use super::{Bytes, FromBytes};
+    use glam::{Mat4, Vec2, Vec3, Vec4};
 
     fn test_round_trip<T: Bytes + FromBytes + std::fmt::Debug + PartialEq>(value: T) {
         let mut bytes = vec![0; value.byte_len()];

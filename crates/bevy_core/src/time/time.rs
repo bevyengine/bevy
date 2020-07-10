@@ -1,5 +1,5 @@
-use std::time::{Duration, Instant};
 use bevy_ecs::ResMut;
+use std::time::{Duration, Instant};
 
 pub struct Time {
     pub delta: Duration,

@@ -1,4 +1,4 @@
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use crate::entities::Entity;
 use serde::{Serialize, Serializer};

@@ -2,7 +2,7 @@ use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
 
 pub use bevy_derive::ShaderDefs;
-use bevy_ecs::{Res, Query};
+use bevy_ecs::{Query, Res};
 
 pub trait ShaderDef {
     fn is_defined(&self) -> bool;

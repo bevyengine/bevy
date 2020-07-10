@@ -12,19 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
-use crate::alloc::alloc::{alloc, dealloc, Layout};
-use crate::alloc::boxed::Box;
-use crate::alloc::{vec, vec::Vec};
-use core::any::TypeId;
-use core::mem::{self, MaybeUninit};
-use core::ptr;
+use crate::alloc::{
+    alloc::{alloc, dealloc, Layout},
+    boxed::Box,
+    vec,
+    vec::Vec,
+};
+use core::{
+    any::TypeId,
+    mem::{self, MaybeUninit},
+    ptr,
+};
 
 use hashbrown::HashSet;
 
-use crate::archetype::TypeInfo;
-use crate::{Component, DynamicBundle};
+use crate::{archetype::TypeInfo, Component, DynamicBundle};
 
 /// Helper for incrementally constructing a bundle of components with dynamic component types
 ///

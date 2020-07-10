@@ -4,9 +4,9 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_app::{EventReader, Events};
+use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
 use std::borrow::Cow;
-use bevy_ecs::{Resources, World};
 
 pub struct WindowSwapChainNode {
     window_reference: WindowReference,

@@ -1,4 +1,4 @@
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 //! One way to the contents of an entity, as you might do for debugging. A similar pattern could
 //! also be useful for serialization, or other row-oriented generic operations.

@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use crate::alloc::{vec, vec::Vec};
-use core::any::{type_name, TypeId};
-use core::ptr::NonNull;
-use core::{fmt, mem};
+use core::{
+    any::{type_name, TypeId},
+    fmt, mem,
+    ptr::NonNull,
+};
 
-use crate::archetype::TypeInfo;
-use crate::Component;
+use crate::{archetype::TypeInfo, Component};
 
 /// A dynamically typed collection of components
 pub trait DynamicBundle {

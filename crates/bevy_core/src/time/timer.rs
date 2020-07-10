@@ -1,7 +1,7 @@
 use crate::time::Time;
+use bevy_ecs::{Query, Res};
 use bevy_property::Properties;
 use std::time::Duration;
-use bevy_ecs::{Query, Res};
 
 #[derive(Clone, Debug, Default, Properties)]
 pub struct Timer {

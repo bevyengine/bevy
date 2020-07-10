@@ -1,5 +1,6 @@
 use crate::{AssetServer, AssetVersion, Assets, Handle, LoadState};
 use anyhow::Result;
+use bevy_ecs::{Res, ResMut, Resource};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use fs::File;
 use io::Read;
@@ -8,7 +9,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use bevy_ecs::{ResMut, Res, Resource};
 
 #[derive(Error, Debug)]
 pub enum AssetLoadError {

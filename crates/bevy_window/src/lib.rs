@@ -36,8 +36,10 @@ impl AppPlugin for WindowPlugin {
             .init_resource::<Windows>();
 
         if let Some(ref primary_window_descriptor) = self.primary_window {
-            let mut create_window_event =
-                app.resources_mut().get_mut::<Events<CreateWindow>>().unwrap();
+            let mut create_window_event = app
+                .resources_mut()
+                .get_mut::<Events<CreateWindow>>()
+                .unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::new(),
                 descriptor: primary_window_descriptor.clone(),

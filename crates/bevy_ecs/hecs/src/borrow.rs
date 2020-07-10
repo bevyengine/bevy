@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
-use core::ops::{Deref, DerefMut};
-use core::ptr::NonNull;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
-use crate::archetype::Archetype;
-use crate::{Component, MissingComponent};
+use crate::{archetype::Archetype, Component, MissingComponent};
 
 pub struct AtomicBorrow(AtomicUsize);
 
@@ -70,11 +71,8 @@ pub struct Ref<'a, T: Component> {
 }
 
 impl<'a, T: Component> Ref<'a, T> {
-    #[allow(missing_docs)] 
-    pub unsafe fn new(
-        archetype: &'a Archetype,
-        index: u32,
-    ) -> Result<Self, MissingComponent> {
+    #[allow(missing_docs)]
+    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
         let target = NonNull::new_unchecked(
             archetype
                 .get::<T>()
@@ -110,11 +108,8 @@ pub struct RefMut<'a, T: Component> {
 }
 
 impl<'a, T: Component> RefMut<'a, T> {
-    #[allow(missing_docs)] 
-    pub unsafe fn new(
-        archetype: &'a Archetype,
-        index: u32,
-    ) -> Result<Self, MissingComponent> {
+    #[allow(missing_docs)]
+    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
         let target = NonNull::new_unchecked(
             archetype
                 .get::<T>()

@@ -34,8 +34,8 @@ use self::{
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
+use bevy_ecs::{IntoQuerySystem, ThreadLocalSystem};
 use bevy_type_registry::RegisterType;
-use bevy_ecs::{ThreadLocalSystem, IntoQuerySystem};
 use draw::{clear_draw_system, Draw};
 use mesh::mesh_resource_provider_system;
 use pipeline::{draw_render_pipelines_system, RenderPipelines};
@@ -114,7 +114,10 @@ impl AppPlugin for RenderPlugin {
                 visible_entities_system.system(),
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system.system())
+            .add_system_to_stage(
+                stage::RENDER_RESOURCE,
+                mesh_resource_provider_system.system(),
+            )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),

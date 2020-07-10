@@ -1,4 +1,4 @@
-use crate::{resources::FromResources, Archetype, Component, Resources, system::SystemId};
+use crate::{resources::FromResources, system::SystemId, Archetype, Component, Resources};
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
@@ -222,7 +222,9 @@ impl<'a, T: Component + FromResources> FetchResource<'a> for FetchResourceLocalM
             let archetype = resources
                 .resource_archetypes
                 .get(&TypeId::of::<T>())
-                .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()));
+                .unwrap_or_else(|| {
+                    panic!("Resource does not exist {}", std::any::type_name::<T>())
+                });
             let index = resources
                 .system_id_to_archetype_index
                 .get(&system_id.0)

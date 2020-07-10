@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_core::bytes::AsBytes;
 
-use bevy_ecs::{IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World, Commands};
+use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -45,11 +45,14 @@ impl Node for CameraNode {
 impl SystemNode for CameraNode {
     fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
         let system = camera_node_system.system();
-        commands.insert_local_resource(system.id(), CameraNodeState {
-            camera_name: self.camera_name.clone(),
-            command_queue: self.command_queue.clone(),
-            camera_buffer: None,
-        });
+        commands.insert_local_resource(
+            system.id(),
+            CameraNodeState {
+                camera_name: self.camera_name.clone(),
+                command_queue: self.command_queue.clone(),
+                camera_buffer: None,
+            },
+        );
         system
     }
 }
@@ -117,12 +120,8 @@ pub fn camera_node_system(
     );
 
     let camera_buffer = state.camera_buffer.unwrap();
-    state.command_queue.copy_buffer_to_buffer(
-        tmp_buffer,
-        0,
-        camera_buffer,
-        0,
-        matrix_size as u64,
-    );
+    state
+        .command_queue
+        .copy_buffer_to_buffer(tmp_buffer, 0, camera_buffer, 0, matrix_size as u64);
     state.command_queue.free_buffer(tmp_buffer);
 }

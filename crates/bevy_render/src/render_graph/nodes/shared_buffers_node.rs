@@ -1,6 +1,7 @@
 use crate::{
     render_graph::{Node, ResourceSlots},
-    renderer::RenderContext, render_resource::SharedBuffers,
+    render_resource::SharedBuffers,
+    renderer::RenderContext,
 };
 use bevy_ecs::{Resources, World};
 

@@ -13,8 +13,8 @@ pub use render::*;
 pub use ui_update_system::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
-use bevy_render::render_graph::RenderGraph;
 use bevy_ecs::IntoQuerySystem;
+use bevy_render::render_graph::RenderGraph;
 use widget::Label;
 
 #[derive(Default)]

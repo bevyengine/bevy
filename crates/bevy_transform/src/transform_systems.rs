@@ -201,7 +201,7 @@ pub fn transform_systems() -> Vec<Box<dyn System>> {
 mod test {
     use super::*;
     use crate::math::{Mat4, Quat, Vec3};
-    use bevy_ecs::{Schedule, World, Resources};
+    use bevy_ecs::{Resources, Schedule, World};
 
     #[test]
     fn correct_world_transformation() {
@@ -251,10 +251,7 @@ mod test {
             Mat4::from_scale(Vec3::new(s.0, s.0, s.0))
         );
         assert_eq!(
-            world
-                .get::<Transform>(non_uniform_scale)
-                .unwrap()
-                .value,
+            world.get::<Transform>(non_uniform_scale).unwrap().value,
             Mat4::from_scale(nus.0)
         );
         assert_eq!(
@@ -265,24 +262,15 @@ mod test {
             Mat4::from_rotation_translation(r.0, t.0)
         );
         assert_eq!(
-            world
-                .get::<Transform>(translation_and_scale)
-                .unwrap()
-                .value,
+            world.get::<Transform>(translation_and_scale).unwrap().value,
             Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), Quat::default(), t.0)
         );
         assert_eq!(
-            world
-                .get::<Transform>(translation_and_nus)
-                .unwrap()
-                .value,
+            world.get::<Transform>(translation_and_nus).unwrap().value,
             Mat4::from_scale_rotation_translation(nus.0, Quat::default(), t.0)
         );
         assert_eq!(
-            world
-                .get::<Transform>(rotation_scale)
-                .unwrap()
-                .value,
+            world.get::<Transform>(rotation_scale).unwrap().value,
             Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), r.0, Vec3::default())
         );
         assert_eq!(

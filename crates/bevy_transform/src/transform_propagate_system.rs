@@ -105,7 +105,7 @@ mod test {
                 ),
             ])
             .collect::<Vec<Entity>>();
-        
+
         // TODO: ideally we dont need three runs to keep transforms in sync.
         // command buffers should be flushed in the appropriate places
         schedule.run(&mut world, &mut resources);

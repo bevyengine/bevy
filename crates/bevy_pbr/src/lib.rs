@@ -9,11 +9,11 @@ pub use forward_pbr_render_graph::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
+use bevy_ecs::IntoQuerySystem;
 use bevy_render::{render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
 use light::Light;
 use material::StandardMaterial;
-use bevy_ecs::IntoQuerySystem;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]

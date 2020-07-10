@@ -1,4 +1,4 @@
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use core::fmt;
 use hashbrown::HashMap;
@@ -67,7 +67,9 @@ impl Entities {
 
     /// Access the location storage of an entity
     pub fn get_mut(&mut self, entity: Entity) -> Result<&mut Location, NoSuchEntity> {
-        self.entity_locations.get_mut(&entity).ok_or_else(|| NoSuchEntity)
+        self.entity_locations
+            .get_mut(&entity)
+            .ok_or_else(|| NoSuchEntity)
     }
 
     /// Access the location storage of an entity
@@ -76,7 +78,10 @@ impl Entities {
     }
 
     pub fn get(&self, entity: Entity) -> Result<Location, NoSuchEntity> {
-        self.entity_locations.get(&entity).cloned().ok_or_else(|| NoSuchEntity)
+        self.entity_locations
+            .get(&entity)
+            .cloned()
+            .ok_or_else(|| NoSuchEntity)
     }
 }
 

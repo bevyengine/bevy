@@ -6,7 +6,7 @@ use crate::{
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
 pub struct AppBuilder {
-   pub app: App,
+    pub app: App,
 }
 
 impl Default for AppBuilder {

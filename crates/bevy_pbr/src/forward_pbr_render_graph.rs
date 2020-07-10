@@ -1,5 +1,10 @@
-use crate::{material::StandardMaterial, nodes::LightsNode, pipelines::{FORWARD_PIPELINE_HANDLE, build_forward_pipeline}};
+use crate::{
+    material::StandardMaterial,
+    nodes::LightsNode,
+    pipelines::{build_forward_pipeline, FORWARD_PIPELINE_HANDLE},
+};
 use bevy_asset::Assets;
+use bevy_ecs::Resources;
 use bevy_render::{
     base_render_graph,
     pipeline::PipelineDescriptor,
@@ -10,7 +15,6 @@ use bevy_render::{
     shader::Shader,
 };
 use bevy_transform::prelude::Transform;
-use bevy_ecs::Resources;
 
 pub mod node {
     pub const TRANSFORM: &str = "transform";
@@ -36,7 +40,10 @@ impl ForwardPbrRenderGraphBuilder for RenderGraph {
         self.add_system_node(node::LIGHTS, LightsNode::new(10));
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
-        pipelines.set(FORWARD_PIPELINE_HANDLE, build_forward_pipeline(&mut shaders));
+        pipelines.set(
+            FORWARD_PIPELINE_HANDLE,
+            build_forward_pipeline(&mut shaders),
+        );
 
         // TODO: replace these with "autowire" groups
         self.add_node_edge(node::STANDARD_MATERIAL, base_render_graph::node::MAIN_PASS)

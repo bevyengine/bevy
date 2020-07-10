@@ -1,6 +1,7 @@
 use crate::{
     resource_query::{FetchResource, ResourceQuery},
-    ComponentError, TypeInfo, system::SystemId, Res, ResMut,
+    system::SystemId,
+    ComponentError, Res, ResMut, TypeInfo,
 };
 use core::any::TypeId;
 use hecs::{Archetype, Ref, RefMut};
@@ -198,13 +199,17 @@ mod tests {
         assert!(resources.get_local::<i32>(SystemId(0)).is_err());
         resources.insert_local(SystemId(0), 111);
         assert_eq!(
-            *resources.get_local::<i32>(SystemId(0)).expect("resource exists"),
+            *resources
+                .get_local::<i32>(SystemId(0))
+                .expect("resource exists"),
             111
         );
         assert_eq!(*resources.get::<i32>().expect("resource exists"), 123);
         resources.insert_local(SystemId(0), 222);
         assert_eq!(
-            *resources.get_local::<i32>(SystemId(0)).expect("resource exists"),
+            *resources
+                .get_local::<i32>(SystemId(0))
+                .expect("resource exists"),
             222
         );
         assert_eq!(*resources.get::<i32>().expect("resource exists"), 123);

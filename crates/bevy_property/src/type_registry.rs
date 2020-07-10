@@ -94,7 +94,13 @@ impl PropertyTypeRegistration {
         let mut split = full_name.splitn(2, "<");
 
         // main type
-        let mut short_name = split.next().unwrap().split("::").last().unwrap().to_string();
+        let mut short_name = split
+            .next()
+            .unwrap()
+            .split("::")
+            .last()
+            .unwrap()
+            .to_string();
 
         // process generics if they exist
         if let Some(generics) = split.next() {
@@ -104,7 +110,13 @@ impl PropertyTypeRegistration {
 
             let generics = &generics[0..generics.len() - 1];
             short_name.push('<');
-            short_name.push_str(&generics.split(',').map(|generic| Self::get_short_name(generic.trim())).collect::<Vec<String>>().join(", "));
+            short_name.push_str(
+                &generics
+                    .split(',')
+                    .map(|generic| Self::get_short_name(generic.trim()))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            );
             short_name.push('>');
         }
         short_name

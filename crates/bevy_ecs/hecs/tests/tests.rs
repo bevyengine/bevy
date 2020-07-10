@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use hecs::*;
 
@@ -315,11 +315,7 @@ fn query_batched() {
 fn spawn_batch() {
     let mut world = World::new();
     world.spawn_batch((0..100).map(|x| (x, "abc")));
-    let entities = world
-        .query::<&i32>()
-        .iter()
-        .map(|&x| x)
-        .collect::<Vec<_>>();
+    let entities = world.query::<&i32>().iter().map(|&x| x).collect::<Vec<_>>();
     assert_eq!(entities.len(), 100);
 }
 

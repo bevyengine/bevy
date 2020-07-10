@@ -1,10 +1,14 @@
 use super::Node;
 use crate::{render::UI_PIPELINE_HANDLE, widget::Label};
 use bevy_asset::Handle;
-use bevy_render::{draw::Draw, mesh::Mesh, pipeline::{PipelineSpecialization, RenderPipelines, DynamicBinding, RenderPipeline}};
-use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
-use bevy_transform::prelude::{Translation, Transform, Rotation, Scale};
 use bevy_ecs::Bundle;
+use bevy_render::{
+    draw::Draw,
+    mesh::Mesh,
+    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+};
+use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
+use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
 #[derive(Bundle)]
 pub struct UiComponents {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 use bencher::{benchmark_group, benchmark_main, Bencher};
 use hecs::*;

@@ -3,9 +3,9 @@ use crate::{
     Handle, HandleId,
 };
 use bevy_app::{AppBuilder, Events};
+use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
 use bevy_type_registry::RegisterType;
 use std::collections::HashMap;
-use bevy_ecs::{Resource, ResMut, IntoQuerySystem, FromResources};
 
 pub enum AssetEvent<T: Resource> {
     Created { handle: Handle<T> },

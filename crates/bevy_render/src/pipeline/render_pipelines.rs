@@ -4,8 +4,8 @@ use crate::{
     render_resource::RenderResourceBindings,
 };
 use bevy_asset::Handle;
-use bevy_property::Properties;
 use bevy_ecs::{Query, ResMut};
+use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,

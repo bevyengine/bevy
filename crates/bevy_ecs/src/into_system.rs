@@ -1,10 +1,12 @@
 use crate::{
     resource_query::{FetchResource, ResourceQuery},
-    system::{System, ThreadLocalExecution, SystemId},
+    system::{System, SystemId, ThreadLocalExecution},
     Commands, Resources,
 };
 use core::marker::PhantomData;
-use hecs::{Fetch, Query as HecsQuery, QueryBorrow, World, Component, Ref, ComponentError, Entity, RefMut};
+use hecs::{
+    Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryBorrow, Ref, RefMut, World,
+};
 use std::borrow::Cow;
 
 pub struct SystemFn<F, Init>
@@ -104,12 +106,12 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         self.world.query::<Q>()
     }
 
-    pub fn get<T: Component>(&self, entity: Entity) ->  Result<Ref<'_, T>, ComponentError> {
+    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, ComponentError> {
         // TODO: Check if request matches query
         self.world.get(entity)
     }
 
-    pub fn get_mut<T: Component>(&self, entity: Entity) ->  Result<RefMut<'_, T>, ComponentError> {
+    pub fn get_mut<T: Component>(&self, entity: Entity) -> Result<RefMut<'_, T>, ComponentError> {
         // TODO: Check if request matches query
         self.world.get_mut(entity)
     }
@@ -262,7 +264,7 @@ where
         Box::new(Self {
             func,
             name: core::any::type_name::<F>().into(),
-            id: SystemId::new()
+            id: SystemId::new(),
         })
     }
 }

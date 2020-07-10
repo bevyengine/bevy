@@ -172,19 +172,13 @@ fn paddle_movement_system(
     }
 }
 
-fn ball_movement_system(
-    time: Res<Time>,
-    mut ball_query: Query<(&Ball, &mut Translation)>,
-) {
+fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
     for (ball, translation) in &mut ball_query.iter() {
         translation.0 += ball.velocity * time.delta_seconds;
     }
 }
 
-fn scoreboard_system(
-    scoreboard: Res<Scoreboard>,
-    mut query: Query<&mut Label>,
-) {
+fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Label>) {
     for mut label in &mut query.iter() {
         label.text = format!("Score: {}", scoreboard.score);
     }

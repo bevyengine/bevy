@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// modified by Bevy contributors 
+// modified by Bevy contributors
 
 //! A handy ECS
 //!
@@ -71,14 +71,14 @@ mod entities;
 mod entity_builder;
 mod query;
 mod query_one;
-mod world;
 #[cfg(feature = "serde")]
 mod serde;
+mod world;
 
 pub use archetype::Archetype;
 pub use borrow::{EntityRef, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
-pub use entities::{Entity, NoSuchEntity, Location};
+pub use entities::{Entity, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{Access, BatchedIter, Query, QueryBorrow, QueryIter, With, Without};
 pub use query_one::QueryOne;

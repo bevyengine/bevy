@@ -13,8 +13,8 @@ pub use load_request::*;
 pub use loader::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use bevy_type_registry::RegisterType;
 use bevy_ecs::IntoQuerySystem;
+use bevy_type_registry::RegisterType;
 
 pub mod stage {
     pub const LOAD_ASSETS: &str = "load_assets";

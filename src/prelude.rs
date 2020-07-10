@@ -12,7 +12,7 @@ pub use crate::{
     ecs::{
         Bundle, Commands, Component, Entity, FromResources, IntoForEachSystem, IntoQuerySystem,
         Local, Query, Ref, RefMut, Res, ResMut, Resource, Resources, System, ThreadLocalSystem,
-        World, WorldBuilderSource
+        World, WorldBuilderSource,
     },
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},

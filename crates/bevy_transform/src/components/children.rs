@@ -1,7 +1,7 @@
+use bevy_ecs::Entity;
 use bevy_property::Properties;
 use shrinkwraprs::Shrinkwrap;
 use smallvec::SmallVec;
-use bevy_ecs::Entity;
 
 #[derive(Shrinkwrap, Default, Clone, Properties, Debug)]
 #[shrinkwrap(mutable)]

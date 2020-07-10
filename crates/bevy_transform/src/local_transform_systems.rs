@@ -242,7 +242,10 @@ mod test {
             Mat4::from_rotation_translation(r.0, t.0)
         );
         assert_eq!(
-            world.get::<LocalTransform>(translation_and_scale).unwrap().0,
+            world
+                .get::<LocalTransform>(translation_and_scale)
+                .unwrap()
+                .0,
             Mat4::from_scale_rotation_translation(Vec3::new(s.0, s.0, s.0), Quat::default(), t.0)
         );
         assert_eq!(

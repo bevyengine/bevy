@@ -1,5 +1,6 @@
 use crate::Node;
 use bevy_asset::{Assets, Handle};
+use bevy_ecs::{Query, Res, ResMut};
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     render_resource::{AssetRenderResourceBindings, RenderResourceBindings},
@@ -9,7 +10,6 @@ use bevy_render::{
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::Transform;
-use bevy_ecs::{Res, ResMut, Query};
 
 pub struct Label {
     pub text: String,

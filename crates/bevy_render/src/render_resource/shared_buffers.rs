@@ -2,8 +2,8 @@ use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
 use crate::{
     render_graph::CommandQueue, render_resource::BufferUsage, renderer::RenderResourceContext,
 };
-use std::sync::{Arc, RwLock};
 use bevy_ecs::Res;
+use std::sync::{Arc, RwLock};
 
 // TODO: Instead of allocating small "exact size" buffers each frame, this should use multiple large shared buffers and probably
 // a long-living "cpu mapped" staging buffer. Im punting that for now because I don't know the best way to use wgpu's new async

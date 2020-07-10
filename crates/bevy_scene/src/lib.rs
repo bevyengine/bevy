@@ -23,7 +23,7 @@ impl AppPlugin for ScenePlugin {
             .init_resource::<SceneSpawner>()
             .add_stage_after(stage::EVENT_UPDATE, SCENE_STAGE)
             .add_system_to_stage(SCENE_STAGE, ThreadLocalSystem::new(scene_spawner_system));
-            // TODO: port scenes to bevy_ecs
-            // .add_system_to_stage_ecs(SCENE_STAGE, ThreadLocalSystem::new(scene_spawner_system));
+        // TODO: port scenes to bevy_ecs
+        // .add_system_to_stage_ecs(SCENE_STAGE, ThreadLocalSystem::new(scene_spawner_system));
     }
 }

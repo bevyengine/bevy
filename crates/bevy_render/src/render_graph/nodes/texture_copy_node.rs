@@ -8,7 +8,6 @@ use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
 
-
 #[derive(Default)]
 pub struct TextureCopyNode {
     pub texture_event_reader: EventReader<AssetEvent<Texture>>,

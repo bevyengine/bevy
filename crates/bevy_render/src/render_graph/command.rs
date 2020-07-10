@@ -83,7 +83,7 @@ impl CommandQueue {
     pub fn clear(&mut self) {
         self.queue.lock().unwrap().clear();
     }
-    
+
     pub fn execute(&mut self, render_context: &mut dyn RenderContext) {
         for command in self.queue.lock().unwrap().drain(..) {
             match command {

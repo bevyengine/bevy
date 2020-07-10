@@ -1,12 +1,12 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
 use bevy_core::bytes::Byteable;
+use bevy_ecs::{Query, Res};
 use bevy_render::{
     render_resource::{RenderResource, RenderResources},
     texture::Texture,
 };
 use glam::Vec2;
-use bevy_ecs::{Res, Query};
 
 #[repr(C)]
 #[derive(Default, RenderResources, RenderResource)]

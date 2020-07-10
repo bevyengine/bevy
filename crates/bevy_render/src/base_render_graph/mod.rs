@@ -124,10 +124,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 main_pass_node.add_camera(camera::CAMERA2D);
             }
 
-            self.add_node(
-                node::MAIN_PASS,
-                main_pass_node
-            );
+            self.add_node(node::MAIN_PASS, main_pass_node);
 
             self.add_node_edge(node::TEXTURE_COPY, node::MAIN_PASS)
                 .unwrap();

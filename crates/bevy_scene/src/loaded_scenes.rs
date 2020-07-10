@@ -1,10 +1,10 @@
 use crate::{serde::SceneDeserializer, Scene};
 use anyhow::Result;
 use bevy_asset::AssetLoader;
+use bevy_ecs::{FromResources, Resources};
 use bevy_property::PropertyTypeRegistry;
 use bevy_type_registry::TypeRegistry;
 use serde::de::DeserializeSeed;
-use bevy_ecs::{Resources, FromResources};
 use std::{
     path::Path,
     sync::{Arc, RwLock},

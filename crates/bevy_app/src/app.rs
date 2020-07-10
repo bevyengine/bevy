@@ -22,7 +22,8 @@ impl App {
 
     pub fn run(mut self) {
         self.startup_schedule.initialize(&mut self.resources);
-        self.startup_schedule.run(&mut self.world, &mut self.resources);
+        self.startup_schedule
+            .run(&mut self.world, &mut self.resources);
         if let Some(run) = self.runner.take() {
             run(self)
         }

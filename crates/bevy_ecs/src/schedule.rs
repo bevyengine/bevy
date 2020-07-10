@@ -1,6 +1,6 @@
 use crate::{
     system::{System, ThreadLocalExecution},
-    Resources, World, SystemId,
+    Resources, SystemId, World,
 };
 use rayon::prelude::*;
 use std::{
@@ -84,7 +84,11 @@ impl Schedule {
             .get_mut(&stage_name)
             .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
         if self.system_ids.contains(&system.id()) {
-            panic!("System with id {:?} ({}) already exists", system.id(), system.name());
+            panic!(
+                "System with id {:?} ({}) already exists",
+                system.id(),
+                system.name()
+            );
         }
         self.system_ids.insert(system.id());
         systems.push(system);

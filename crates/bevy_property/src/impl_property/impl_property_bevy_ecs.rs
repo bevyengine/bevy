@@ -1,6 +1,6 @@
 use crate::{impl_property, property_serde::Serializable, Property, PropertyTypeRegistry};
-use erased_serde::Deserializer;
 use bevy_ecs::Entity;
+use erased_serde::Deserializer;
 use serde::Deserialize;
 
 impl_property!(Entity, serialize_entity, deserialize_entity);
