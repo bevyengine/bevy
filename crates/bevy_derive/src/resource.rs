@@ -13,7 +13,7 @@ pub fn derive_from_resources(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
-    let modules = get_modules(&ast);
+    let modules = get_modules();
     let bevy_app_path = get_path(&modules.bevy_app);
 
     let field_types = fields.iter().map(|field| &field.ty);

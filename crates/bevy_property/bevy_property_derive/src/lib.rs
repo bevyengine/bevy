@@ -2,22 +2,20 @@ extern crate proc_macro;
 
 mod modules;
 
-use darling::FromMeta;
 use modules::{get_modules, get_path};
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream};
 use proc_macro_crate::crate_name;
 use quote::quote;
 use syn::{
-    parse::Parse,
+    parse::{ParseStream, Parse},
     parse_macro_input,
     punctuated::Punctuated,
     token::{Comma, Where},
     Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Index, Member,
 };
 
-#[derive(FromMeta, Debug, Default)]
+#[derive(Default)]
 struct PropAttributeArgs {
-    #[darling(default)]
     pub ignore: Option<bool>,
 }
 
@@ -50,12 +48,21 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 f,
                 f.attrs
                     .iter()
-                    .find(|a| {
-                        a.path.get_ident().as_ref().unwrap().to_string() == PROP_ATTRIBUTE_NAME
-                    })
+                    .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == PROP_ATTRIBUTE_NAME)
                     .map(|a| {
-                        PropAttributeArgs::from_meta(&a.parse_meta().unwrap())
-                            .unwrap_or_else(|_err| PropAttributeArgs::default())
+                        syn::custom_keyword!(ignore);
+                        let mut attribute_args = PropAttributeArgs {
+                            ignore: None,
+                        };
+                        a.parse_args_with(|input: ParseStream| {
+                            if let Some(_) = input.parse::<Option<ignore>>()? {
+                                attribute_args.ignore = Some(true);
+                                return Ok(());
+                            }
+                            Ok(())
+                        }).expect("invalid 'property' attribute format");
+
+                        attribute_args
                     }),
                 i,
             )
@@ -73,7 +80,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
         .map(|(f, _attr, i)| (*f, *i))
         .collect::<Vec<(&Field, usize)>>();
 
-    let modules = get_modules(&ast);
+    let modules = get_modules();
     let bevy_property_path = get_path(&modules.bevy_property);
 
     let field_names = active_fields
@@ -224,7 +231,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Property)]
 pub fn derive_property(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast);
+    let modules = get_modules();
     let bevy_property_path = get_path(&modules.bevy_property);
 
     let generics = ast.generics;

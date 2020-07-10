@@ -1,50 +1,50 @@
-use crate::{
-    attributes::{get_attributes, get_field_attributes},
-    modules::{get_modules, get_path},
-};
-use darling::FromMeta;
+use crate::modules::{get_modules, get_path};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, Path};
+use syn::{
+    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
+};
 
-#[derive(FromMeta, Debug, Default)]
-struct RenderResourceAttributeArgs {
-    #[darling(default)]
-    pub ignore: Option<bool>,
-    #[darling(default)]
-    pub buffer: Option<bool>,
-    #[darling(default)]
-    pub from_self: Option<bool>,
+#[derive(Default)]
+struct RenderResourceFieldAttributes {
+    pub ignore: bool,
+    pub buffer: bool,
 }
 
 #[derive(Default)]
 struct RenderResourceAttributes {
-    pub ignore: bool,
-    pub buffer: bool,
     pub from_self: bool,
-}
-
-impl From<RenderResourceAttributeArgs> for RenderResourceAttributes {
-    fn from(args: RenderResourceAttributeArgs) -> Self {
-        Self {
-            ignore: args.ignore.unwrap_or(false),
-            buffer: args.buffer.unwrap_or(false),
-            from_self: args.from_self.unwrap_or(false),
-        }
-    }
 }
 
 static RENDER_RESOURCE_ATTRIBUTE_NAME: &'static str = "render_resources";
 
 pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast);
+    let modules = get_modules();
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
-    let attributes = get_attributes::<RenderResourceAttributes, RenderResourceAttributeArgs>(
-        RENDER_RESOURCE_ATTRIBUTE_NAME,
-        &ast.attrs,
-    );
+    let attributes = ast
+        .attrs
+        .iter()
+        .find(|a| {
+            a.path.get_ident().as_ref().unwrap().to_string() == RENDER_RESOURCE_ATTRIBUTE_NAME
+        })
+        .map_or_else(
+            || RenderResourceAttributes::default(),
+            |a| {
+                syn::custom_keyword!(from_self);
+                let mut attributes = RenderResourceAttributes::default();
+                a.parse_args_with(|input: ParseStream| {
+                    if let Some(_) = input.parse::<Option<from_self>>()? {
+                        attributes.from_self = true;
+                    }
+                    Ok(())
+                })
+                .expect("invalid 'render_resources' attribute format");
+
+                attributes
+            },
+        );
     let struct_name = &ast.ident;
     let struct_name_string = struct_name.to_string();
 
@@ -77,11 +77,47 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             }
         })
     } else {
-        let field_attributes = get_field_attributes::<
-            RenderResourceAttributes,
-            RenderResourceAttributeArgs,
-        >(RENDER_RESOURCE_ATTRIBUTE_NAME, &ast.data);
+        let fields = match &ast.data {
+            Data::Struct(DataStruct {
+                fields: Fields::Named(fields),
+                ..
+            }) => &fields.named,
+            _ => panic!("expected a struct with named fields"),
+        };
+        let field_attributes = fields
+            .iter()
+            .map(|field| {
+                (
+                    field,
+                    field
+                        .attrs
+                        .iter()
+                        .find(|a| {
+                            a.path.get_ident().as_ref().unwrap().to_string()
+                                == RENDER_RESOURCE_ATTRIBUTE_NAME
+                        })
+                        .map_or_else(
+                            || RenderResourceFieldAttributes::default(),
+                            |a| {
+                                syn::custom_keyword!(ignore);
+                                syn::custom_keyword!(buffer);
+                                let mut attributes = RenderResourceFieldAttributes::default();
+                                a.parse_args_with(|input: ParseStream| {
+                                    if let Some(_) = input.parse::<Option<ignore>>()? {
+                                        attributes.ignore = true;
+                                    } else if let Some(_) = input.parse::<Option<buffer>>()? {
+                                        attributes.buffer = true;
+                                    }
+                                    Ok(())
+                                })
+                                .expect("invalid 'render_resources' attribute format");
 
+                                attributes
+                            },
+                        ),
+                )
+            })
+            .collect::<Vec<(&Field, RenderResourceFieldAttributes)>>();
         let mut render_resource_names = Vec::new();
         let mut render_resource_fields = Vec::new();
         let mut render_resource_hints = Vec::new();

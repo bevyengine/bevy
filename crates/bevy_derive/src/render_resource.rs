@@ -5,7 +5,7 @@ use syn::{parse_macro_input, DeriveInput, Path};
 
 pub fn derive_render_resource(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast);
+    let modules = get_modules();
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
     let bevy_asset_path: Path = get_path(&modules.bevy_asset);

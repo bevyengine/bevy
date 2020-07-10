@@ -1,20 +1,10 @@
 use crate::{
-    attributes::get_field_attributes,
     modules::{get_modules, get_path},
 };
-use darling::FromMeta;
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, Path};
-
-#[derive(FromMeta, Debug, Default)]
-struct VertexAttributeArgs {
-    #[darling(default)]
-    pub ignore: Option<bool>,
-    #[darling(default)]
-    pub instance: Option<bool>,
-}
+use syn::{parse_macro_input, DeriveInput, Path, Data, DataStruct, Fields, Field, parse::ParseStream};
 
 #[derive(Default)]
 struct VertexAttributes {
@@ -22,27 +12,44 @@ struct VertexAttributes {
     pub instance: bool,
 }
 
-impl From<VertexAttributeArgs> for VertexAttributes {
-    fn from(args: VertexAttributeArgs) -> Self {
-        VertexAttributes {
-            ignore: args.ignore.unwrap_or(false),
-            instance: args.instance.unwrap_or(false),
-        }
-    }
-}
-
 static VERTEX_ATTRIBUTE_NAME: &'static str = "vertex";
 
 pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast);
+    let modules = get_modules();
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
+    let fields = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => &fields.named,
+        _ => panic!("expected a struct with named fields"),
+    };
+    let field_attributes = fields
+        .iter()
+        .map(|field| {
+            (
+                field,
+                field.attrs
+                    .iter()
+                    .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == VERTEX_ATTRIBUTE_NAME)
+                    .map_or_else(|| VertexAttributes::default() ,|a| {
+                        syn::custom_keyword!(ignore);
+                        let mut vertex_attributes = VertexAttributes::default();
+                        a.parse_args_with(|input: ParseStream| {
+                            if let Some(_) = input.parse::<Option<ignore>>()? {
+                                vertex_attributes.ignore = true;
+                                return Ok(());
+                            }
+                            Ok(())
+                        }).expect("invalid 'vertex' attribute format");
 
-    let field_attributes = get_field_attributes::<VertexAttributes, VertexAttributeArgs>(
-        VERTEX_ATTRIBUTE_NAME,
-        &ast.data,
-    );
+                        vertex_attributes
+                    }),
+            )
+        })
+        .collect::<Vec<(&Field, VertexAttributes)>>();
 
     let struct_name = &ast.ident;
 

@@ -9,7 +9,7 @@ static SHADER_DEF_ATTRIBUTE_NAME: &'static str = "shader_def";
 
 pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules(&ast);
+    let modules = get_modules();
     let bevy_render_path: Path = get_path(&modules.bevy_render);
 
     let fields = match &ast.data {

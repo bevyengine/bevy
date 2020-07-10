@@ -2,7 +2,6 @@ extern crate proc_macro;
 
 mod app_plugin;
 mod as_vertex_buffer_descriptor;
-mod attributes;
 mod bytes;
 mod component_set;
 mod modules;
