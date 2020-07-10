@@ -1,9 +1,9 @@
-use crate::ecs::prelude::*;
 use bevy_property::Properties;
 use shrinkwraprs::Shrinkwrap;
 use smallvec::SmallVec;
+use bevy_ecs::Entity;
 
-#[derive(Shrinkwrap, Default, Clone, Properties)]
+#[derive(Shrinkwrap, Default, Clone, Properties, Debug)]
 #[shrinkwrap(mutable)]
 pub struct Children(pub SmallVec<[Entity; 8]>);
 

@@ -10,7 +10,7 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
-use legion::prelude::Resources;
+use bevy_ecs::Resources;
 
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_u128(278534784033876544639935131272264723170);

@@ -10,14 +10,9 @@ fn main() {
 
 fn animate_sprite_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
-    world: &mut SubWorld,
-    query: &mut Query<(
-        Write<Timer>,
-        Write<TextureAtlasSprite>,
-        Read<Handle<TextureAtlas>>,
-    )>,
+    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in query.iter_mut(world) {
+    for (timer, sprite, texture_atlas_handle) in &mut query.iter() {
         if timer.finished {
             let texture_atlas = texture_atlases.get(&texture_atlas_handle).unwrap();
             sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
@@ -27,10 +22,10 @@ fn animate_sprite_system(
 }
 
 fn setup(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let texture_handle = asset_server
         .load_sync(
@@ -41,10 +36,9 @@ fn setup(
     let texture = textures.get(&texture_handle).unwrap();
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
-    command_buffer
-        .build()
-        .entity_with(OrthographicCameraComponents::default())
-        .entity_with(SpriteSheetComponents {
+    commands
+        .spawn(OrthographicCameraComponents::default())
+        .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
             scale: Scale(6.0),
             ..Default::default()

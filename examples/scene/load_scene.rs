@@ -10,7 +10,7 @@ fn main() {
         // The core Bevy plugins already register their components, so you only need this step for custom components.
         .register_component::<ComponentA>()
         .register_component::<ComponentB>()
-        .add_startup_system(save_scene_system)
+        .add_startup_system(ThreadLocalSystem::new(save_scene_system))
         .add_startup_system(load_scene_system.system())
         .add_system(print_system.system())
         .run();
@@ -91,10 +91,10 @@ fn load_scene_right_now_system(world: &mut World, resources: &mut Resources) {
 
 // This system prints all ComponentA components in our world. Try making a change to a ComponentA in load_scene_example.scn.
 // You should immediately see the changes appear in the console.
-fn print_system(world: &mut SubWorld, query: &mut Query<Read<ComponentA>>) {
+fn print_system(mut query: Query<(Entity, &ComponentA)>) {
     println!("Current World State:");
-    for (entity, component_a) in query.iter_entities(world) {
-        println!("  Entity({})", entity.index());
+    for (entity, component_a) in &mut query.iter() {
+        println!("  Entity({})", entity.id());
         println!(
             "    ComponentA: {{ x: {} y: {} }}\n",
             component_a.x, component_a.y
@@ -105,16 +105,14 @@ fn print_system(world: &mut SubWorld, query: &mut Query<Read<ComponentA>>) {
 fn save_scene_system(_world: &mut World, resources: &mut Resources) {
     // Scenes can be created from any ECS World. You can either create a new one for the scene or use the current World.
     let mut world = World::new();
-    world
-        .build()
-        .entity()
-        .with(ComponentA { x: 1.0, y: 2.0 })
-        .with(ComponentB {
+    world.spawn((
+        ComponentA { x: 1.0, y: 2.0 },
+        ComponentB {
             value: "hello".to_string(),
             ..ComponentB::from_resources(resources)
-        })
-        .entity()
-        .with(ComponentA { x: 3.0, y: 4.0 });
+        },
+    ));
+    world.spawn((ComponentA { x: 3.0, y: 4.0 },));
 
     // The component registry resource contains information about all registered components. This is used to construct scenes.
     let type_registry = resources.get::<TypeRegistry>().unwrap();

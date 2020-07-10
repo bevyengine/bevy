@@ -1,21 +1,14 @@
 use crate::Scene;
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
+use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
-use legion::{
-    entity::EntityIndex,
-    guid_entity_allocator::GuidEntityAllocator,
-    prelude::{Entity, Resources, World},
-};
-use std::{
-    collections::{HashMap, HashSet},
-    num::Wrapping,
-};
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
 struct InstanceInfo {
-    entity_map: HashMap<EntityIndex, EntityIndex>,
+    entity_map: HashMap<u32, bevy_ecs::Entity>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -101,21 +94,16 @@ impl SceneSpawner {
             })?;
 
         for scene_entity in scene.entities.iter() {
-            let entity_id = if let Some(ref mut instance_info) = instance_info {
+            let entity = if let Some(ref mut instance_info) = instance_info {
                 *instance_info
                     .entity_map
                     .entry(scene_entity.entity)
-                    .or_insert_with(|| GuidEntityAllocator::new_entity_id())
+                    .or_insert_with(|| bevy_ecs::Entity::new())
             } else {
-                scene_entity.entity
+                bevy_ecs::Entity::with_id(scene_entity.entity)
             };
-            let mut entity = Entity::new(entity_id, Wrapping(1));
-            // TODO: use EntityEntry when legion refactor is finished
-            if world.get_entity_location(entity).is_none() {
-                world
-                    .entity_allocator
-                    .push_next_ids((&[entity]).iter().cloned());
-                entity = world.insert((), vec![()])[0];
+            if !world.contains(entity) {
+                world.spawn_as_entity(entity, (1,));
             }
             for component in scene_entity.components.iter() {
                 let component_registration = component_registry

@@ -1,15 +1,15 @@
 use crate::{light::Light, material::StandardMaterial, pipelines::FORWARD_PIPELINE_HANDLE};
 use bevy_asset::Handle;
-use bevy_derive::ComponentSet;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
+use bevy_ecs::Bundle;
 
-#[derive(ComponentSet)]
-pub struct MeshComponents {
+#[derive(Bundle)]
+pub struct PbrComponents {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
     pub draw: Draw,
@@ -20,7 +20,7 @@ pub struct MeshComponents {
     pub scale: Scale,
 }
 
-impl Default for MeshComponents {
+impl Default for PbrComponents {
     fn default() -> Self {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
@@ -52,7 +52,7 @@ impl Default for MeshComponents {
     }
 }
 
-#[derive(ComponentSet, Default)]
+#[derive(Bundle, Default)]
 pub struct LightComponents {
     pub light: Light,
     pub transform: Transform,

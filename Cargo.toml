@@ -6,17 +6,13 @@ edition = "2018"
 
 [features]
 default = ["bevy_wgpu", "bevy_winit"]
-more-system-fns = ["legion/more-system-fns"]
-profiler = ["bevy_app/profiler", "bevy_diagnostic/profiler"]
+profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 
 [workspace]
 members = [
     "crates/*",
+    "crates/bevy_ecs/hecs",
     "examples/app/dynamic_plugin_loading/example_plugin"
-]
-exclude = [
-    "crates/bevy_glam",
-    "crates/bevy_legion"
 ]
 
 [dependencies]
@@ -26,6 +22,7 @@ bevy_asset = { path = "crates/bevy_asset" }
 bevy_type_registry = { path = "crates/bevy_type_registry" }
 bevy_core = { path = "crates/bevy_core" }
 bevy_diagnostic = { path = "crates/bevy_diagnostic" }
+bevy_ecs = { path = "crates/bevy_ecs" }
 bevy_gltf = { path = "crates/bevy_gltf" }
 bevy_input = { path = "crates/bevy_input" }
 bevy_pbr = { path = "crates/bevy_pbr" }
@@ -39,7 +36,6 @@ bevy_ui = { path = "crates/bevy_ui" }
 bevy_window = { path = "crates/bevy_window" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
-legion = { path = "crates/bevy_legion" }
 glam = "0.8.7"
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }

@@ -14,10 +14,9 @@ fn main() {
 
 fn text_update_system(
     diagnostics: Res<Diagnostics>,
-    world: &mut SubWorld,
-    query: &mut Query<Write<Label>>,
+    mut query: Query<&mut Label>,
 ) {
-    for mut label in query.iter_mut(world) {
+    for label in &mut query.iter() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 label.text = format!("FPS: {:.2}", average);
@@ -26,14 +25,13 @@ fn text_update_system(
     }
 }
 
-fn setup(asset_server: Res<AssetServer>, command_buffer: &mut CommandBuffer) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
-    command_buffer
-        .build()
+    commands
         // 2d camera
-        .entity_with(OrthographicCameraComponents::default())
+        .spawn(OrthographicCameraComponents::default())
         // texture
-        .entity_with(LabelComponents {
+        .spawn(LabelComponents {
             node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
             label: Label {
                 text: "FPS:".to_string(),

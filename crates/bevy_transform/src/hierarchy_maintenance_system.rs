@@ -1,212 +1,206 @@
 #![allow(dead_code)]
-use crate::{components::*, ecs::prelude::*};
+use crate::components::*;
+use bevy_ecs::{Commands, Entity, IntoQuerySystem, Query, System, Without};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-pub fn build(_: &mut World) -> Vec<Box<dyn Schedulable>> {
-    let missing_previous_parent_system = SystemBuilder::<()>::new("MissingPreviousParentSystem")
-        // Entities with missing `PreviousParent`
-        .with_query(<Read<Parent>>::query().filter(!component::<PreviousParent>()))
-        .build(move |commands, world, _resource, query| {
-            // Add missing `PreviousParent` components
-            for (entity, _parent) in query.iter_entities(world) {
-                log::trace!("Adding missing PreviousParent to {}", entity);
-                commands.add_component(entity, PreviousParent(None));
-            }
-        });
-
-    let parent_update_system = SystemBuilder::<()>::new("ParentUpdateSystem")
-        // Entities with a removed `Parent`
-        .with_query(<Read<PreviousParent>>::query().filter(!component::<Parent>()))
-        // Entities with a changed `Parent`
-        .with_query(<(Read<Parent>, Write<PreviousParent>)>::query().filter(changed::<Parent>()))
-        // Deleted Parents (ie Entities with `Children` and without a `LocalToWorld`).
-        .write_component::<Children>()
-        .build(move |commands, world, _resource, queries| {
-            // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
-            // them from the `Children` of the `PreviousParent`.
-            let (mut children_world, mut world) = world.split::<Write<Children>>();
-            for (entity, previous_parent) in queries.0.iter_entities(&mut world) {
-                log::trace!("Parent was removed from {}", entity);
-                if let Some(previous_parent_entity) = previous_parent.0 {
-                    if let Some(mut previous_parent_children) =
-                        children_world.get_component_mut::<Children>(previous_parent_entity)
-                    {
-                        log::trace!(" > Removing {} from it's prev parent's children", entity);
-                        previous_parent_children.0.retain(|e| *e != entity);
-                    }
-                }
-            }
-
-            // Tracks all newly created `Children` Components this frame.
-            let mut children_additions =
-                HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
-
-            // Entities with a changed Parent (that also have a PreviousParent, even if None)
-            for (entity, (parent, mut previous_parent)) in queries.1.iter_entities_mut(&mut world) {
-                log::trace!("Parent changed for {}", entity);
-
-                // If the `PreviousParent` is not None.
-                if let Some(previous_parent_entity) = previous_parent.0 {
-                    // New and previous point to the same Entity, carry on, nothing to see here.
-                    if previous_parent_entity == parent.0 {
-                        log::trace!(" > But the previous parent is the same, ignoring...");
-                        continue;
-                    }
-
-                    // Remove from `PreviousParent.Children`.
-                    if let Some(mut previous_parent_children) =
-                        children_world.get_component_mut::<Children>(previous_parent_entity)
-                    {
-                        log::trace!(" > Removing {} from prev parent's children", entity);
-                        (*previous_parent_children).0.retain(|e| *e != entity);
-                    }
-                }
-
-                // Set `PreviousParent = Parent`.
-                *previous_parent = PreviousParent(Some(parent.0));
-
-                // Add to the parent's `Children` (either the real component, or
-                // `children_additions`).
-                log::trace!("Adding {} to it's new parent {}", entity, parent.0);
-                if let Some(mut new_parent_children) = children_world.get_component_mut::<Children>(parent.0)
-                {
-                    // This is the parent
-                    log::trace!(
-                        " > The new parent {} already has a `Children`, adding to it.",
-                        parent.0
-                    );
-                    (*new_parent_children).0.push(entity);
-                } else {
-                    // The parent doesn't have a children entity, lets add it
-                    log::trace!(
-                        "The new parent {} doesn't yet have `Children` component.",
-                        parent.0
-                    );
-                    children_additions
-                        .entry(parent.0)
-                        .or_insert_with(Default::default)
-                        .push(entity);
-                }
-            }
-
-            // Flush the `children_additions` to the command buffer. It is stored separate to
-            // collect multiple new children that point to the same parent into the same
-            // SmallVec, and to prevent redundant add+remove operations.
-            children_additions.iter().for_each(|(k, v)| {
-                log::trace!("Flushing: Entity {} adding `Children` component {:?}", k, v);
-                commands.add_component(*k, Children::with(v));
-            });
-        });
-
-    vec![missing_previous_parent_system, parent_update_system]
+pub fn missing_previous_parent_system(
+    mut commands: Commands,
+    mut query: Query<Without<PreviousParent, (Entity, &Parent)>>,
+) {
+    // Add missing `PreviousParent` components
+    for (entity, _parent) in &mut query.iter() {
+        log::trace!("Adding missing PreviousParent to {:?}", entity);
+        commands.insert_one(entity, PreviousParent(None));
+    }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
+pub fn parent_update_system(
+    mut commands: Commands,
+    mut removed_parent_query: Query<Without<Parent, (Entity, &PreviousParent)>>,
+    // TODO: ideally this only runs when the Parent component has changed
+    mut changed_parent_query: Query<(Entity, &Parent, &mut PreviousParent)>,
+    children_query: Query<&mut Children>,
+) {
+    // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
+    // them from the `Children` of the `PreviousParent`.
+    for (entity, previous_parent) in &mut removed_parent_query.iter() {
+        log::trace!("Parent was removed from {:?}", entity);
+        if let Some(previous_parent_entity) = previous_parent.0 {
+            if let Ok(mut previous_parent_children) =
+                children_query.get_mut::<Children>(previous_parent_entity)
+            {
+                log::trace!(" > Removing {:?} from it's prev parent's children", entity);
+                previous_parent_children.0.retain(|e| *e != entity);
+            }
+        }
+    }
 
-//     #[test]
-//     fn correct_children() {
-//         let _ = env_logger::builder().is_test(true).try_init();
+    // Tracks all newly created `Children` Components this frame.
+    let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
 
-//         let mut world = Universe::new().create_world();
+    // Entities with a changed Parent (that also have a PreviousParent, even if None)
+    for (entity, parent, previous_parent) in &mut changed_parent_query.iter() {
+        log::trace!("Parent changed for {:?}", entity);
 
-//         let systems = build(&mut world);
+        // If the `PreviousParent` is not None.
+        if let Some(previous_parent_entity) = previous_parent.0 {
+            // New and previous point to the same Entity, carry on, nothing to see here.
+            if previous_parent_entity == parent.0 {
+                log::trace!(" > But the previous parent is the same, ignoring...");
+                continue;
+            }
 
-//         // Add parent entities
-//         let parent = *world
-//             .insert(
-//                 (),
-//                 vec![(Translation::identity(), LocalToWorld::identity())],
-//             )
-//             .first()
-//             .unwrap();
-//         let children = world.insert(
-//             (),
-//             vec![
-//                 (
-//                     Translation::identity(),
-//                     LocalToParent::identity(),
-//                     LocalToWorld::identity(),
-//                 ),
-//                 (
-//                     Translation::identity(),
-//                     LocalToParent::identity(),
-//                     LocalToWorld::identity(),
-//                 ),
-//             ],
-//         );
-//         let (e1, e2) = (children[0], children[1]);
+            // Remove from `PreviousParent.Children`.
+            if let Ok(mut previous_parent_children) =
+                children_query.get_mut::<Children>(previous_parent_entity)
+            {
+                log::trace!(" > Removing {:?} from prev parent's children", entity);
+                (*previous_parent_children).0.retain(|e| *e != entity);
+            }
+        }
 
-//         // Parent `e1` and `e2` to `parent`.
-//         world.add_component(e1, Parent(parent));
-//         world.add_component(e2, Parent(parent));
+        // Set `PreviousParent = Parent`.
+        *previous_parent = PreviousParent(Some(parent.0));
 
-//         for system in systems.iter() {
-//             system.run(&mut world);
-//             system.command_buffer_mut().write(&mut world);
-//         }
+        // Add to the parent's `Children` (either the real component, or
+        // `children_additions`).
+        log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
+        if let Ok(mut new_parent_children) = children_query.get_mut::<Children>(parent.0)
+        {
+            // This is the parent
+            log::trace!(
+                " > The new parent {:?} already has a `Children`, adding to it.",
+                parent.0
+            );
+            (*new_parent_children).0.push(entity);
+        } else {
+            // The parent doesn't have a children entity, lets add it
+            log::trace!(
+                "The new parent {:?} doesn't yet have `Children` component.",
+                parent.0
+            );
+            children_additions
+                .entry(parent.0)
+                .or_insert_with(Default::default)
+                .push(entity);
+        }
+    }
 
-//         assert_eq!(
-//             world
-//                 .get_component::<Children>(parent)
-//                 .unwrap()
-//                 .0
-//                 .iter()
-//                 .cloned()
-//                 .collect::<Vec<_>>(),
-//             vec![e1, e2]
-//         );
+    // Flush the `children_additions` to the command buffer. It is stored separate to
+    // collect multiple new children that point to the same parent into the same
+    // SmallVec, and to prevent redundant add+remove operations.
+    children_additions.iter().for_each(|(k, v)| {
+        log::trace!(
+            "Flushing: Entity {:?} adding `Children` component {:?}",
+            k,
+            v
+        );
+        commands.insert_one(*k, Children::with(v));
+    });
+}
 
-//         // Parent `e1` to `e2`.
-//         (*world.get_component_mut::<Parent>(e1).unwrap()).0 = e2;
+pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
+    vec![
+        missing_previous_parent_system.system(),
+        parent_update_system.system(),
+    ]
+}
 
-//         // Run the system on it
-//         for system in systems.iter() {
-//             system.run(&mut world);
-//             system.command_buffer_mut().write(&mut world);
-//         }
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bevy_ecs::{Resources, World, Schedule};
+    use crate::build_systems;
 
-//         assert_eq!(
-//             world
-//                 .get_component::<Children>(parent)
-//                 .unwrap()
-//                 .0
-//                 .iter()
-//                 .cloned()
-//                 .collect::<Vec<_>>(),
-//             vec![e2]
-//         );
+    #[test]
+    fn correct_children() {
+        let _ = env_logger::builder().is_test(true).try_init();
 
-//         assert_eq!(
-//             world
-//                 .get_component::<Children>(e2)
-//                 .unwrap()
-//                 .0
-//                 .iter()
-//                 .cloned()
-//                 .collect::<Vec<_>>(),
-//             vec![e1]
-//         );
+        let mut world = World::default();
+        let mut resources = Resources::default();
 
-//         world.delete(e1);
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        for system in build_systems() {
+            schedule.add_system_to_stage("update", system);
+        }
 
-//         // Run the system on it
-//         for system in systems.iter() {
-//             system.run(&mut world);
-//             system.command_buffer_mut().write(&mut world);
-//         }
+        // Add parent entities
+        let parent = world.spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()));
+        let children = world
+            .spawn_batch(vec![
+                (
+                    Translation::new(0.0, 2.0, 0.0),
+                    LocalTransform::identity(),
+                    Transform::identity(),
+                    Parent(parent),
+                ),
+                (
+                    Translation::new(0.0, 0.0, 3.0),
+                    LocalTransform::identity(),
+                    Transform::identity(),
+                    Parent(parent),
+                ),
+            ])
+            .collect::<Vec<Entity>>();
 
-//         assert_eq!(
-//             world
-//                 .get_component::<Children>(parent)
-//                 .unwrap()
-//                 .0
-//                 .iter()
-//                 .cloned()
-//                 .collect::<Vec<_>>(),
-//             vec![e2]
-//         );
-//     }
-// }
+        schedule.run(&mut world, &mut resources);
+        // TODO: this should be in sync after one run
+        schedule.run(&mut world, &mut resources);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .0
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            children,
+        );
+
+        // Parent `e1` to `e2`.
+        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
+
+
+        schedule.run(&mut world, &mut resources);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .0
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
+
+        assert_eq!(
+            world
+                .get::<Children>(children[1])
+                .unwrap()
+                .0
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[0]]
+        );
+
+        world.despawn(children[0]).unwrap();
+
+        schedule.run(&mut world, &mut resources);
+
+        assert_eq!(
+            world
+                .get::<Children>(parent)
+                .unwrap()
+                .0
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![children[1]]
+        );
+    }
+}

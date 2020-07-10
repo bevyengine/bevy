@@ -1,5 +1,5 @@
-use legion::prelude::*;
 use std::time::{Duration, Instant};
+use bevy_ecs::ResMut;
 
 pub struct Time {
     pub delta: Duration,

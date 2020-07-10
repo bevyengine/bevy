@@ -8,10 +8,10 @@ fn main() {
 }
 
 fn setup(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     // You can load all assets in a folder like this. They will be loaded in parallel without blocking
     asset_server
@@ -42,36 +42,35 @@ fn setup(
     });
 
     // Add entities to the world:
-    command_buffer
-        .build()
+    commands
         // monkey
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: monkey_handle,
             material: material_handle,
             translation: Translation::new(-3.0, 0.0, 0.0),
             ..Default::default()
         })
         // cube
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: cube_handle,
             material: material_handle,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
         // sphere
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: sphere_handle,
             material: material_handle,
             translation: Translation::new(3.0, 0.0, 0.0),
             ..Default::default()
         })
         // light
-        .entity_with(LightComponents {
+        .spawn(LightComponents {
             translation: Translation::new(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(0.0, 3.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),

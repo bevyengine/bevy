@@ -5,8 +5,8 @@ use bevy_render::{
     renderer::RenderResourceContext,
 };
 use bevy_window::{WindowCreated, WindowResized, Windows};
-use legion::prelude::*;
 use std::{ops::Deref, sync::Arc};
+use bevy_ecs::{World, Resources};
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,

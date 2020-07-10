@@ -2,7 +2,7 @@ use crate::{
     render_graph::{Node, ResourceSlots},
     renderer::RenderContext, render_resource::SharedBuffers,
 };
-use legion::prelude::*;
+use bevy_ecs::{Resources, World};
 
 #[derive(Default)]
 pub struct SharedBuffersNode;

@@ -13,19 +13,18 @@ fn main() {
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(
     time: Res<Time>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Rotator>, Write<Rotation>)>,
+    mut query: Query<(&Rotator, &mut Rotation)>,
 ) {
-    for (_rotator, mut rotation) in query.iter_mut(world) {
+    for (_rotator, rotation) in &mut query.iter() {
         rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let cube_material_handle = materials.add(StandardMaterial {
@@ -33,32 +32,31 @@ fn setup(
         ..Default::default()
     });
 
-    command_buffer
-        .build()
+    commands
         // parent cube
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: cube_handle,
             material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
         .with(Rotator)
-        .with_children(|builder| {
+        .with_children(|parent| {
             // child cube
-            builder.entity_with(MeshComponents {
+            parent.spawn(PbrComponents {
                 mesh: cube_handle,
                 material: cube_material_handle,
                 translation: Translation::new(0.0, 0.0, 3.0),
                 ..Default::default()
-            })
+            });
         })
         // light
-        .entity_with(LightComponents {
+        .spawn(LightComponents {
             translation: Translation::new(4.0, 5.0, -4.0),
             ..Default::default()
         })
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),

@@ -40,12 +40,12 @@ void main() {
 "#;
 
 fn setup(
+    mut commands: Commands,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<MyMaterial>>,
     mut render_graph: ResMut<RenderGraph>,
-    command_buffer: &mut CommandBuffer,
 ) {
     // Create a new shader pipeline
     let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
@@ -73,10 +73,9 @@ fn setup(
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
 
     // Setup our world
-    command_buffer
-        .build()
+    commands
         // cube
-        .entity_with(MeshMaterialComponents::<MyMaterial> {
+        .spawn(MeshComponents {
             mesh: cube_handle,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 pipeline_handle,
@@ -97,12 +96,12 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            material,
             translation: Translation::new(0.0, 0.0, 0.0),
             ..Default::default()
         })
+        .with(material)
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),

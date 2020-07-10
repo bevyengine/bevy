@@ -9,12 +9,12 @@ edition = "2018"
 [dependencies]
 bevy_app = { path = "../bevy_app" }
 bevy_core = { path = "../bevy_core" }
+bevy_ecs = { path = "../bevy_ecs" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_render = { path = "../bevy_render" }
 bevy_transform = { path = "../bevy_transform" }
 
-legion = { path = "../bevy_legion", features = ["serialize"] }
 glam = "0.8.7"
 rectangle-pack = "0.1"
 thiserror = "1.0"

@@ -287,7 +287,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
         let next_texture = window_swap_chain.get_next_frame().unwrap();
 
-        // TODO: Add ResourceInfo
         let id = TextureId::new();
         swap_chain_outputs.insert(id, next_texture);
         id

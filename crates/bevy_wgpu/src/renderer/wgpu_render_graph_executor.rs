@@ -3,11 +3,11 @@ use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
 };
-use legion::prelude::{Resources, World};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
+use bevy_ecs::{Resources, World};
 
 pub struct WgpuRenderGraphExecutor {
     pub max_thread_count: usize,

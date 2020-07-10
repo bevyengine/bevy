@@ -1,0 +1,16 @@
+[package]
+name = "hecs-macros"
+version = "0.3.0"
+description = "Procedural macro definitions for hecs"
+authors = ["Benjamin Saunders <ben.e.saunders@gmail.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0", default-features = false, features = ["proc-macro", "parsing", "printing", "derive"] }
+quote = "1.0.3"
+proc-macro2 = "1.0.1"
+proc-macro-crate = "0.1.4"

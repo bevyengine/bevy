@@ -1,25 +1,28 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use legion::prelude::{Executor, Schedulable};
+use bevy_ecs::{Commands, Schedule};
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
-#[derive(Default)]
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
-    new_node_systems: Vec<Box<dyn Schedulable>>,
-    node_system_executor: Option<Executor>,
+    system_node_schedule: Option<Schedule>,
+    commands: Commands,
+}
+
+impl Default for RenderGraph {
+    fn default() -> Self {
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        Self {
+            nodes: Default::default(),
+            node_names: Default::default(),
+            system_node_schedule: Some(schedule),
+            commands: Default::default(),
+        }
+    }
 }
 
 impl RenderGraph {
-    pub fn add_node_nameless<T>(&mut self, node: T) -> NodeId
-    where
-        T: Node,
-    {
-        let id = NodeId::new();
-        self.nodes.insert(id, NodeState::new(id, node));
-        id
-    }
-
     pub fn add_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: Node,
@@ -33,19 +36,14 @@ impl RenderGraph {
         id
     }
 
-    pub fn add_system_node_nameless<T>(&mut self, node: T) -> NodeId
-    where
-        T: SystemNode + 'static,
-    {
-        self.new_node_systems.push(node.get_system());
-        self.add_node_nameless(node)
-    }
-
     pub fn add_system_node<T>(&mut self, name: impl Into<Cow<'static, str>>, node: T) -> NodeId
     where
         T: SystemNode + 'static,
     {
-        self.new_node_systems.push(node.get_system());
+        self.system_node_schedule
+            .as_mut()
+            .unwrap()
+            .add_system_to_stage("update", node.get_system(&mut self.commands));
         self.add_node(name, node)
     }
 
@@ -233,26 +231,12 @@ impl RenderGraph {
         false
     }
 
-    pub fn take_executor(&mut self) -> Option<Executor> {
-        // rebuild executor if there are new systems
-        if self.new_node_systems.len() > 0 {
-            let mut systems = self
-                .node_system_executor
-                .take()
-                .map(|executor| executor.into_vec())
-                .unwrap_or_else(|| Vec::new());
-            for system in self.new_node_systems.drain(..) {
-                systems.push(system);
-            }
-
-            self.node_system_executor = Some(Executor::new(systems));
-        }
-
-        self.node_system_executor.take()
+    pub fn take_schedule(&mut self) -> Option<Schedule> {
+        self.system_node_schedule.take()
     }
 
-    pub fn set_executor(&mut self, executor: Executor) {
-        self.node_system_executor = Some(executor);
+    pub fn set_schedule(&mut self, schedule: Schedule) {
+        self.system_node_schedule = Some(schedule);
     }
 
     pub fn iter_nodes(&self) -> impl Iterator<Item = &NodeState> {
@@ -290,6 +274,10 @@ impl RenderGraph {
             .map(|edge| (edge, edge.get_input_node()))
             .map(move |(edge, input_node_id)| (edge, self.get_node_state(input_node_id).unwrap())))
     }
+
+    pub fn take_commands(&mut self) -> Commands {
+        std::mem::replace(&mut self.commands, Commands::default())
+    }
 }
 
 impl Debug for RenderGraph {
@@ -312,7 +300,7 @@ mod tests {
         render_resource::RenderResourceType,
         renderer::RenderContext,
     };
-    use legion::prelude::{Resources, World};
+    use bevy_ecs::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};
 
     #[derive(Debug)]

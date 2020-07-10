@@ -42,22 +42,18 @@ impl AppPlugin for ScheduleRunnerPlugin {
             let mut app_exit_event_reader = EventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
-                    if let Some(ref mut schedule) = app.schedule {
-                        schedule.execute(&mut app.world, &mut app.resources);
-                    }
+                    app.schedule.run(&mut app.world, &mut app.resources);
                 }
                 RunMode::Loop { wait } => loop {
-                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                    if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
                         }
                     }
 
-                    if let Some(ref mut schedule) = app.schedule {
-                        schedule.execute(&mut app.world, &mut app.resources);
-                    }
+                    app.schedule.run(&mut app.world, &mut app.resources);
 
-                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                    if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
                         }

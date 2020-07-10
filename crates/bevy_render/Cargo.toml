@@ -12,10 +12,10 @@ bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_core = { path = "../bevy_core" }
 bevy_derive = { path = "../bevy_derive" }
+bevy_ecs = { path = "../bevy_ecs" }
 bevy_property = { path = "../bevy_property" }
 bevy_transform = { path = "../bevy_transform" }
 bevy_window = { path = "../bevy_window" }
-legion = { path = "../bevy_legion" }
 
 # rendering
 spirv-reflect = "0.2.3"

@@ -4,19 +4,16 @@ use crate::{
         VertexBufferDescriptors,
     },
     render_resource::{
-        AssetRenderResourceBindings, BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource,
-        RenderResourceBinding, RenderResourceBindings, SharedBuffers,
+        BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
+        RenderResourceBindings, SharedBuffers,
     },
     renderer::RenderResourceContext,
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
+use bevy_ecs::{Archetype, FetchResource, Query, Res, ResMut, ResourceQuery, Resources, SystemId};
 use bevy_property::Properties;
-use legion::{systems::resource::ResourceTypeId, prelude::*, permission::Permissions};
-use std::{
-    ops::{Deref, DerefMut, Range},
-    sync::Arc,
-};
+use std::{any::TypeId, collections::HashMap, ops::Range, sync::Arc};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -129,49 +126,76 @@ pub struct DrawContext<'a> {
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
 }
 
-impl<'a> ResourceSet for DrawContext<'a> {
-    type PreparedResources = DrawContext<'a>;
-    unsafe fn fetch_unchecked(resources: &legion::prelude::Resources) -> Self::PreparedResources {
+impl<'a> ResourceQuery for DrawContext<'a> {
+    type Fetch = FetchDrawContext;
+}
+
+pub struct FetchDrawContext;
+
+impl<'a> FetchResource<'a> for FetchDrawContext {
+    type Item = DrawContext<'a>;
+    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
+        resource_archetypes
+            .get(&TypeId::of::<Assets<PipelineDescriptor>>())
+            .unwrap()
+            .borrow_mut::<Assets<PipelineDescriptor>>();
+        resource_archetypes
+            .get(&TypeId::of::<Assets<Shader>>())
+            .unwrap()
+            .borrow_mut::<Assets<Shader>>();
+        resource_archetypes
+            .get(&TypeId::of::<PipelineCompiler>())
+            .unwrap()
+            .borrow_mut::<PipelineCompiler>();
+        resource_archetypes
+            .get(&TypeId::of::<Box<dyn RenderResourceContext>>())
+            .unwrap()
+            .borrow::<Box<dyn RenderResourceContext>>();
+        resource_archetypes
+            .get(&TypeId::of::<VertexBufferDescriptors>())
+            .unwrap()
+            .borrow::<VertexBufferDescriptors>();
+        resource_archetypes
+            .get(&TypeId::of::<SharedBuffers>())
+            .unwrap()
+            .borrow::<SharedBuffers>();
+    }
+    fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
+        resource_archetypes
+            .get(&TypeId::of::<Assets<PipelineDescriptor>>())
+            .unwrap()
+            .release_mut::<Assets<PipelineDescriptor>>();
+        resource_archetypes
+            .get(&TypeId::of::<Assets<Shader>>())
+            .unwrap()
+            .release_mut::<Assets<Shader>>();
+        resource_archetypes
+            .get(&TypeId::of::<PipelineCompiler>())
+            .unwrap()
+            .release_mut::<PipelineCompiler>();
+        resource_archetypes
+            .get(&TypeId::of::<Box<dyn RenderResourceContext>>())
+            .unwrap()
+            .release::<Box<dyn RenderResourceContext>>();
+        resource_archetypes
+            .get(&TypeId::of::<VertexBufferDescriptors>())
+            .unwrap()
+            .release::<VertexBufferDescriptors>();
+        resource_archetypes
+            .get(&TypeId::of::<SharedBuffers>())
+            .unwrap()
+            .release::<SharedBuffers>();
+    }
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         DrawContext {
-            render_resource_context: Res::new(
-                resources
-                    .get::<Box<dyn RenderResourceContext>>()
-                    .unwrap()
-                    .deref() as *const Box<dyn RenderResourceContext>,
-            ),
-            vertex_buffer_descriptors: Res::new(
-                resources.get::<VertexBufferDescriptors>().unwrap().deref()
-                    as *const VertexBufferDescriptors,
-            ),
-            shared_buffers: Res::new(
-                resources.get::<SharedBuffers>().unwrap().deref() as *const SharedBuffers
-            ),
-            pipelines: ResMut::new(
-                resources
-                    .get_mut::<Assets<PipelineDescriptor>>()
-                    .unwrap()
-                    .deref_mut() as *mut Assets<PipelineDescriptor>,
-            ),
-            shaders: ResMut::new(
-                resources.get_mut::<Assets<Shader>>().unwrap().deref_mut() as *mut Assets<Shader>
-            ),
-            pipeline_compiler: ResMut::new(
-                resources.get_mut::<PipelineCompiler>().unwrap().deref_mut()
-                    as *mut PipelineCompiler,
-            ),
+            pipelines: resources.get_res_mut::<Assets<PipelineDescriptor>>(),
+            shaders: resources.get_res_mut::<Assets<Shader>>(),
+            pipeline_compiler: resources.get_res_mut::<PipelineCompiler>(),
+            render_resource_context: resources.get_res::<Box<dyn RenderResourceContext>>(),
+            vertex_buffer_descriptors: resources.get_res::<VertexBufferDescriptors>(),
+            shared_buffers: resources.get_res::<SharedBuffers>(),
             current_pipeline: None,
         }
-    }
-    fn requires_permissions() -> Permissions<ResourceTypeId> {
-        let mut permissions = Permissions::new();
-        permissions.push_read(ResourceTypeId::of::<Box<dyn RenderResourceContext>>());
-        permissions.push_read(ResourceTypeId::of::<VertexBufferDescriptors>());
-        permissions.push_read(ResourceTypeId::of::<AssetRenderResourceBindings>());
-        permissions.push_read(ResourceTypeId::of::<SharedBuffers>());
-        permissions.push(ResourceTypeId::of::<Assets<PipelineDescriptor>>());
-        permissions.push(ResourceTypeId::of::<Assets<Shader>>());
-        permissions.push(ResourceTypeId::of::<PipelineCompiler>());
-        permissions
     }
 }
 
@@ -282,7 +306,8 @@ impl<'a> DrawContext<'a> {
             .get_layout()
             .ok_or_else(|| DrawError::PipelineHasNoLayout)?;
         let bind_group_descriptor = &layout.bind_groups[index as usize];
-        self.render_resource_context.create_bind_group(bind_group_descriptor.id, bind_group);
+        self.render_resource_context
+            .create_bind_group(bind_group_descriptor.id, bind_group);
         Ok(())
     }
 
@@ -333,8 +358,8 @@ pub trait Drawable {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError>;
 }
 
-pub fn clear_draw_system(world: &mut SubWorld, query: &mut Query<Write<Draw>>) {
-    for mut draw in query.iter_mut(world) {
+pub fn clear_draw_system(mut query: Query<&mut Draw>) {
+    for draw in &mut query.iter() {
         draw.clear_render_commands();
     }
 }

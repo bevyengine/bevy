@@ -1,15 +1,14 @@
 use crate::{
-    base_render_graph, draw::Draw, mesh::Mesh, pipeline::RenderPipelines, Camera,
-    OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    base_render_graph, Camera,
+    OrthographicProjection, PerspectiveProjection, VisibleEntities, mesh::Mesh, draw::Draw, pipeline::RenderPipelines,
 };
-use bevy_asset::Handle;
-use bevy_derive::ComponentSet;
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
+use bevy_ecs::Bundle;
+use bevy_asset::Handle;
 
-#[derive(ComponentSet, Default)]
-pub struct MeshMaterialComponents<T: Default + Send + Sync + 'static> {
+#[derive(Bundle, Default)]
+pub struct MeshComponents {
     pub mesh: Handle<Mesh>,
-    pub material: Handle<T>,
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
@@ -18,7 +17,7 @@ pub struct MeshMaterialComponents<T: Default + Send + Sync + 'static> {
     pub scale: Scale,
 }
 
-#[derive(ComponentSet)]
+#[derive(Bundle)]
 pub struct PerspectiveCameraComponents {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
@@ -46,7 +45,7 @@ impl Default for PerspectiveCameraComponents {
     }
 }
 
-#[derive(ComponentSet)]
+#[derive(Bundle)]
 pub struct OrthographicCameraComponents {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,

@@ -22,7 +22,6 @@ impl BindGroupDescriptor {
             id: BindGroupDescriptorId(0),
         };
 
-        // TODO: remove all instances of get_or_update_id
         descriptor.update_id();
         descriptor
     }

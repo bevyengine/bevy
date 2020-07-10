@@ -6,8 +6,8 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat, ActiveCameras,
 };
-use legion::prelude::Resources;
 use crate::Node;
+use bevy_ecs::Resources;
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_u128(323432002226399387835192542539754486265);

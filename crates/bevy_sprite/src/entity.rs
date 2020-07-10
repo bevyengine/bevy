@@ -2,7 +2,6 @@ use crate::{
     render::SPRITE_PIPELINE_HANDLE, sprite::Sprite, ColorMaterial, TextureAtlas,
     TextureAtlasSprite, QUAD_HANDLE, SPRITE_SHEET_PIPELINE_HANDLE,
 };
-use bevy_app::ComponentSet;
 use bevy_asset::Handle;
 use bevy_render::{
     draw::Draw,
@@ -10,8 +9,9 @@ use bevy_render::{
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
+use bevy_ecs::Bundle;
 
-#[derive(ComponentSet)]
+#[derive(Bundle)]
 pub struct SpriteComponents {
     pub sprite: Sprite,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
@@ -60,7 +60,7 @@ impl Default for SpriteComponents {
     }
 }
 
-#[derive(ComponentSet)]
+#[derive(Bundle)]
 pub struct SpriteSheetComponents {
     pub sprite: TextureAtlasSprite,
     pub texture_atlas: Handle<TextureAtlas>,

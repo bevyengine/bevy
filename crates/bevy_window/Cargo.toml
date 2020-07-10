@@ -6,6 +6,6 @@ edition = "2018"
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
-legion = { path = "../bevy_legion" }
+bevy_ecs = { path = "../bevy_ecs" }
 glam = "0.8.7"
 uuid = { version = "0.8", features = ["v4", "serde"] }

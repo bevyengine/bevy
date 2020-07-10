@@ -7,9 +7,9 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-legion = { path = "../bevy_legion", features = ["serialize"]}
-glam = "0.8.7"
+bevy_ecs = { path = "../bevy_ecs"}
 bevy_property = { path =  "../bevy_property" }
+glam = "0.8.7"
 log = "0.4"
 rayon = "1.2"
 serde = { version = "1", features = ["derive"] }

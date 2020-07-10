@@ -35,8 +35,8 @@ use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use bevy_type_registry::RegisterType;
+use bevy_ecs::{ThreadLocalSystem, IntoQuerySystem};
 use draw::{clear_draw_system, Draw};
-use legion::prelude::IntoSystem;
 use mesh::mesh_resource_provider_system;
 use pipeline::{draw_render_pipelines_system, RenderPipelines};
 use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
@@ -102,11 +102,11 @@ impl AppPlugin for RenderPlugin {
             )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<OrthographicProjection>(),
+                camera::camera_system::<OrthographicProjection>.system(),
             )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                camera::camera_system::<PerspectiveProjection>(),
+                camera::camera_system::<PerspectiveProjection>.system(),
             )
             // registration order matters here. this must come after all camera_system::<T> systems
             .add_system_to_stage(
@@ -114,14 +114,14 @@ impl AppPlugin for RenderPlugin {
                 visible_entities_system.system(),
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .init_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system)
+            .add_system_to_stage(stage::RENDER_RESOURCE, mesh_resource_provider_system.system())
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
-                render_graph_schedule_executor_system,
+                ThreadLocalSystem::new(render_graph_schedule_executor_system),
             )
             .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system())
             .add_system_to_stage(stage::POST_RENDER, clear_shader_defs_system.system());

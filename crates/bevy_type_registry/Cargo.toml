@@ -8,6 +8,6 @@ edition = "2018"
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
+bevy_ecs = { path = "../bevy_ecs" }
 bevy_property = { path = "../bevy_property" }
-legion = { path = "../bevy_legion" }
 serde = { version = "1", features = ["derive"] }
