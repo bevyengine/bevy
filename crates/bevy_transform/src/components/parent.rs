@@ -1,4 +1,4 @@
-use crate::ecs::prelude::*;
+use bevy_ecs::Entity;
 use bevy_property::Properties;
 use shrinkwraprs::Shrinkwrap;
 

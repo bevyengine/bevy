@@ -1,9 +1,9 @@
 use super::{Edge, RenderGraphError, ResourceSlotInfo, ResourceSlots};
 use crate::renderer::RenderContext;
 use downcast_rs::{impl_downcast, Downcast};
-use legion::prelude::{Resources, Schedulable, World};
 use std::{borrow::Cow, fmt::Debug};
 use uuid::Uuid;
+use bevy_ecs::{Resources, World, System, Commands};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NodeId(Uuid);
@@ -36,7 +36,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
 impl_downcast!(Node);
 
 pub trait SystemNode: Node {
-    fn get_system(&self) -> Box<dyn Schedulable>;
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System>;
 }
 
 pub struct Edges {

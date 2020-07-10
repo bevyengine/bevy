@@ -267,7 +267,7 @@ mod tests {
         render_resource::RenderResourceType,
         renderer::RenderContext,
     };
-    use legion::prelude::{Resources, World};
+    use bevy_ecs::{Resources, World};
 
     struct TestNode {
         inputs: Vec<ResourceSlotInfo>,

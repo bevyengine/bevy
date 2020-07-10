@@ -1,7 +1,7 @@
 use crate::time::Time;
 use bevy_property::Properties;
-use legion::prelude::{Query, Res, SubWorld, Write};
 use std::time::Duration;
+use bevy_ecs::{Query, Res};
 
 #[derive(Clone, Debug, Default, Properties)]
 pub struct Timer {
@@ -37,8 +37,8 @@ impl Timer {
     }
 }
 
-pub fn timer_system(time: Res<Time>, world: &mut SubWorld, query: &mut Query<Write<Timer>>) {
-    for mut timer in query.iter_mut(world) {
+pub fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
+    for timer in &mut query.iter() {
         timer.tick(time.delta_seconds);
     }
 }

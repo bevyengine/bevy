@@ -1,6 +1,6 @@
 use crate::Camera;
-use legion::prelude::*;
 use std::collections::HashMap;
+use bevy_ecs::{ResMut, Entity, Query};
 
 #[derive(Default)]
 pub struct ActiveCameras {
@@ -23,12 +23,11 @@ impl ActiveCameras {
 
 pub fn active_cameras_system(
     mut active_cameras: ResMut<ActiveCameras>,
-    world: &mut SubWorld,
-    query: &mut Query<Read<Camera>>,
+    mut query: Query<(Entity, &Camera)>,
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {
         if let None = active_camera {
-            for (camera_entity, camera) in query.iter_entities(world) {
+            for (camera_entity, camera) in &mut query.iter() {
                 if let Some(ref current_name) = camera.name {
                     if current_name == name {
                         *active_camera = Some(camera_entity);

@@ -1,6 +1,0 @@
-[workspace]
-
-members = [
-    "hello_world",
-    "serialization",
-]

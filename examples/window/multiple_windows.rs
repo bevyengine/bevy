@@ -19,12 +19,12 @@ fn main() {
 }
 
 fn setup(
+    mut commands: Commands,
     mut create_window_events: ResMut<Events<CreateWindow>>,
     mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let window_id = WindowId::new();
 
@@ -127,21 +127,20 @@ fn setup(
     });
 
     // add entities to the world
-    command_buffer
-        .build()
+    commands
         // mesh
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: mesh_handle,
             material: material_handle,
             ..Default::default()
         })
         // light
-        .entity_with(LightComponents {
+        .spawn(LightComponents {
             translation: Translation::new(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // main camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(0.0, 0.0, 6.0),
                 Vec3::new(0.0, 0.0, 0.0),
@@ -150,7 +149,7 @@ fn setup(
             ..Default::default()
         })
         // second window camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: WindowReference::Id(window_id),

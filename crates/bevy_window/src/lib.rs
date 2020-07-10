@@ -9,6 +9,7 @@ pub use window::*;
 pub use windows::*;
 
 use bevy_app::{AppBuilder, AppPlugin, Events};
+use bevy_ecs::IntoQuerySystem;
 
 pub struct WindowPlugin {
     pub primary_window: Option<WindowDescriptor>,
@@ -36,7 +37,7 @@ impl AppPlugin for WindowPlugin {
 
         if let Some(ref primary_window_descriptor) = self.primary_window {
             let mut create_window_event =
-                app.resources().get_mut::<Events<CreateWindow>>().unwrap();
+                app.resources_mut().get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::new(),
                 descriptor: primary_window_descriptor.clone(),
@@ -44,8 +45,7 @@ impl AppPlugin for WindowPlugin {
         }
 
         if self.exit_on_close {
-            let exit_on_close_system = exit_on_window_close_system(None);
-            app.add_system(exit_on_close_system);
+            app.add_system(exit_on_window_close_system.system());
         }
     }
 }

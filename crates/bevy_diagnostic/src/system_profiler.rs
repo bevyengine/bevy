@@ -1,11 +1,10 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
-use legion::{
-    systems::{profiler::Profiler, Res, ResMut},
-};
+use bevy_ecs::{profiler::Profiler, Res, ResMut};
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{Arc, RwLock},
-    time::Instant, borrow::Cow,
+    time::Instant,
 };
 
 #[derive(Debug)]
@@ -57,11 +56,7 @@ pub fn profiler_diagnostic_system(
     let mut system_profiles = system_profiler.system_profiles.write().unwrap();
     for (scope, profiles) in system_profiles.iter_mut() {
         if diagnostics.get(profiles.diagnostic_id).is_none() {
-            diagnostics.add(Diagnostic::new(
-                profiles.diagnostic_id,
-                &scope,
-                20,
-            ))
+            diagnostics.add(Diagnostic::new(profiles.diagnostic_id, &scope, 20))
         }
         for profile in profiles.history.drain(..) {
             diagnostics.add_measurement(

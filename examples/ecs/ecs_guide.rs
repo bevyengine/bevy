@@ -81,8 +81,8 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 }
 
 // This system updates the score for each entity with the "Player" and "Score" component.
-fn score_system(world: &mut SubWorld, query: &mut Query<(Read<Player>, Write<Score>)>) {
-    for (player, mut score) in query.iter_mut(world) {
+fn score_system(mut query: Query<(&Player, &mut Score)>) {
+    for (player, score) in &mut query.iter() {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             score.value += 1;
@@ -107,10 +107,9 @@ fn score_system(world: &mut SubWorld, query: &mut Query<(Read<Player>, Write<Sco
 fn score_check_system(
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Player>, Read<Score>)>,
+    mut query: Query<(&Player, &Score)>,
 ) {
-    for (player, score) in query.iter(world) {
+    for (player, score) in &mut query.iter() {
         if score.value == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }
@@ -140,7 +139,7 @@ fn game_over_system(
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
 // This startup system needs direct access to the ECS World and Resources, which makes it a "thread local system".
-// That being said, startup systems can use any of the system forms we've covered. We will cover thread local systems more in a bit.
+// That being said, startup systems can use any of the system forms we've covered. We will also cover thread local systems more in a bit.
 fn startup_system(world: &mut World, resources: &mut Resources) {
     // Create our game rules resource
     resources.insert(GameRules {
@@ -150,23 +149,20 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
     });
 
     // Add some players to our world. Players start with a score of 0 ... we want our game to be fair!
-    world.insert(
-        (),
-        vec![
-            (
-                Player {
-                    name: "Alice".to_string(),
-                },
-                Score { value: 0 },
-            ),
-            (
-                Player {
-                    name: "Bob".to_string(),
-                },
-                Score { value: 0 },
-            ),
-        ],
-    );
+    world.spawn_batch(vec![
+        (
+            Player {
+                name: "Alice".to_string(),
+            },
+            Score { value: 0 },
+        ),
+        (
+            Player {
+                name: "Bob".to_string(),
+            },
+            Score { value: 0 },
+        ),
+    ]);
 
     // set the total players to "2"
     let mut game_state = resources.get_mut::<GameState>().unwrap();
@@ -175,27 +171,24 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
 
 // This system uses a command buffer to (potentially) add a new player to our game on each iteration.
 // Normal systems cannot safely access the World instance directly because they run in parallel.
-// Our World contains all of our components, so accessing it in parallel is not thread safe.
+// Our World contains all of our components, so mutating arbitrary parts of it in parallel is not thread safe.
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
-// NOTE: Command buffers must always come after resources and before queries in system functions
+// NOTE: Command buffers must always come before resources and queries in system functions
 fn new_player_system(
+    mut commands: Commands,
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
-    command_buffer: &mut CommandBuffer,
 ) {
     // Randomly add a new player
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        command_buffer.insert(
-            (),
-            vec![(
-                Player {
-                    name: format!("Player {}", game_state.total_players),
-                },
-                Score { value: 0 },
-            )],
-        );
+        commands.spawn((
+            Player {
+                name: format!("Player {}", game_state.total_players),
+            },
+            Score { value: 0 },
+        ));
 
         println!("Player {} joined the game!", game_state.total_players);
     }
@@ -215,94 +208,38 @@ fn thread_local_system(world: &mut World, resources: &mut Resources) {
     // Randomly add a new player
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
-        world.insert(
-            (),
-            vec![(
-                Player {
-                    name: format!("Player {}", game_state.total_players),
-                },
-                Score { value: 0 },
-            )],
-        );
+        world.spawn((
+            Player {
+                name: format!("Player {}", game_state.total_players),
+            },
+            Score { value: 0 },
+        ));
 
         game_state.total_players += 1;
     }
 }
 
-// Closures are like normal systems, but they also "capture" variables, which they can use as local state.
-// This system captures the "counter" variable and uses it to maintain a count across executions
-// NOTE: This function returns a Box<dyn Schedulable> type. If you are new to rust don't worry! All you
-// need to know for now is that the Box contains our system AND the state it captured.
-// The .system() call converts the function into the Box<dyn Schedulable> type. We will use the same approach
-// when we add our other systems to our app in the main() function below.
-#[allow(dead_code)]
-fn closure_system() -> Box<dyn Schedulable> {
-    let mut counter = 0;
-    (move |world: &mut SubWorld, query: &mut Query<(Read<Player>, Read<Score>)>| {
-        for (player, score) in query.iter(world) {
-            println!("processed: {} {}", player.name, score.value);
-        }
-        println!("this system ran {} times", counter);
-        counter += 1;
-    })
-    .system()
-}
+// Sometimes systems need their own unique "local" state. Bevy's ECS provides Local<T> resources for this case.
+// Local<T> resources are unique to their system and are automatically initialized on your behalf (if they don't already exist).
+// If you have a system's id, you can also access local resources directly in the Resources collection using `Resources::get_local()`. 
+// In general you should only need this feature in the following cases:
+//  1. You have multiple instances of the same system and they each need their own unique state
+//  2. You already have a global version of a resource that you don't want to overwrite for your current system
+//  3. You are too lazy to register the system's resource as a global resource
 
-// Closure systems should be avoided in general because they hide state from the ECS. This makes scenarios
-// like "saving", "networking/multiplayer", and "replays" much harder.
-// Instead you should use the "state" pattern whenever possible:
-
+#[derive(Default)]
 struct State {
     counter: usize,
 }
 
 // NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
 #[allow(dead_code)]
-fn stateful_system(
-    mut state: ResMut<State>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Player>, Read<Score>)>,
-) {
-    for (player, score) in query.iter(world) {
+fn local_state_system(mut state: Local<State>, mut query: Query<(&Player, &Score)>) {
+    for (player, score) in &mut query.iter() {
         println!("processed: {} {}", player.name, score.value);
     }
     println!("this system ran {} times", state.counter);
     state.counter += 1;
-}
-
-// If you need more flexibility, you can define complex systems using "system builders".
-// The main features SystemBuilder currently provides over "function style systems" are:
-//     * "query filters": filter components in your queries based on some criteria (ex: changed components)
-//     * "additional components": Enables access to a component in your SubWorld, even if it isn't in your queries,
-// NOTE: this doesn't do anything relevant to our game, it is just here for illustrative purposes
-#[allow(dead_code)]
-fn complex_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let game_state = resources.get::<GameState>().unwrap();
-    let initial_player_count = game_state.total_players;
-    SystemBuilder::new("complex_system")
-        .read_resource::<GameState>()
-        .write_resource::<GameRules>()
-        .read_component::<Draw>()
-        // this query is equivalent to the system we saw above: system(player: Com<Player>, mut score: ComMut<Score>)
-        .with_query(<(Read<Player>, Write<Score>)>::query())
-        // this query only returns entities with a Player component that has changed since the last update
-        .with_query(<Read<Player>>::query().filter(changed::<Player>()))
-        .build(
-            move |_command_buffer,
-                  world,
-                  (_game_state, _game_rules),
-                  (player_score_query, player_changed_query)| {
-                println!("The game started with {} players", initial_player_count);
-
-                for (player, score) in player_score_query.iter_mut(world) {
-                    println!("processed : {} {}", player.name, score.value);
-                }
-
-                for player in player_changed_query.iter(world) {
-                    println!("This player was modified: {}", player.name);
-                }
-            },
-        )
 }
 
 // Our Bevy app's entry point
@@ -319,11 +256,9 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system)
+        .add_startup_system(ThreadLocalSystem::new(startup_system))
         // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
-        // Systems that need a reference to Resources to be constructed can be added using "init_system":
-        // .init_system(complex_system)
         //
         // SYSTEM EXECUTION ORDER
         //

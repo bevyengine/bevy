@@ -8,15 +8,14 @@ fn main() {
 }
 
 fn setup(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
-    command_buffer
-        .build()
-        .entity_with(OrthographicCameraComponents::default())
-        .entity_with(SpriteComponents {
+    commands
+        .spawn(OrthographicCameraComponents::default())
+        .spawn(SpriteComponents {
             material: materials.add(texture_handle.into()),
             ..Default::default()
         });

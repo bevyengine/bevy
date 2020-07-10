@@ -1,8 +1,8 @@
 use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
-use legion::prelude::*;
 
 pub use bevy_derive::ShaderDefs;
+use bevy_ecs::{Res, Query};
 
 pub trait ShaderDef {
     fn is_defined(&self) -> bool;
@@ -55,11 +55,11 @@ impl ShaderDef for Option<Handle<Texture>> {
     }
 }
 
-pub fn shader_defs_system<T>(world: &mut SubWorld, query: Query<(Read<T>, Write<RenderPipelines>)>)
+pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines)>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (shader_defs, mut render_pipelines) in query.iter_mut(world) {
+    for (shader_defs, render_pipelines) in &mut query.iter() {
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline
@@ -72,8 +72,8 @@ where
     }
 }
 
-pub fn clear_shader_defs_system(world: &mut SubWorld, query: &mut Query<Write<RenderPipelines>>) {
-    for mut render_pipelines in query.iter_mut(world) {
+pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
+    for render_pipelines in &mut query.iter() {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             render_pipeline
                 .specialization
@@ -86,12 +86,11 @@ pub fn clear_shader_defs_system(world: &mut SubWorld, query: &mut Query<Write<Re
 
 pub fn asset_shader_defs_system<T>(
     assets: Res<Assets<T>>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Handle<T>>, Write<RenderPipelines>)>,
+    mut query: Query<(&Handle<T>, &mut RenderPipelines)>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (asset_handle, mut render_pipelines) in query.iter_mut(world) {
+    for (asset_handle, render_pipelines) in &mut query.iter() {
         let shader_defs = assets.get(&asset_handle).unwrap();
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {

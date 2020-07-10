@@ -12,10 +12,9 @@ fn main() {
 fn placement_system(
     time: Res<Time>,
     materials: Res<Assets<ColorMaterial>>,
-    world: &mut SubWorld,
-    query: &mut Query<(Write<Node>, Read<Handle<ColorMaterial>>)>,
+    mut query: Query<(&mut Node, &Handle<ColorMaterial>)>,
 ) {
-    for (mut node, material_handle) in query.iter_mut(world) {
+    for (node, material_handle) in &mut query.iter() {
         let material = materials.get(&material_handle).unwrap();
         if material.color.r > 0.2 {
             node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);
@@ -23,16 +22,15 @@ fn placement_system(
     }
 }
 
-fn setup(mut materials: ResMut<Assets<ColorMaterial>>, command_buffer: &mut CommandBuffer) {
-    let mut builder = command_buffer.build();
-    builder.entity_with(OrthographicCameraComponents::default());
+fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    commands.spawn(OrthographicCameraComponents::default());
 
     let mut prev = Vec2::default();
     let count = 1000;
     for i in 0..count {
         // 2d camera
         let cur = Vec2::new(1.0, 1.0) + prev;
-        builder.entity_with(UiComponents {
+        commands.spawn(UiComponents {
             node: Node {
                 position: Vec2::new(75.0, 75.0) + cur,
                 anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),

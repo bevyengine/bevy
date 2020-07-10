@@ -1,6 +1,6 @@
 use crate::Input;
 use bevy_app::{EventReader, Events};
-use legion::prelude::{Res, ResMut};
+use bevy_ecs::{Res, ResMut};
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {
@@ -153,7 +153,6 @@ pub enum KeyCode {
     Down,
 
     /// The Backspace key, right over Enter.
-    // TODO: rename
     Back,
     /// The Enter key.
     Return,

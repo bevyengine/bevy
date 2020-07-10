@@ -9,11 +9,11 @@ bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_core = { path = "../bevy_core" }
+bevy_ecs = { path = "../bevy_ecs" }
 bevy_derive = { path = "../bevy_derive" }
 bevy_render = { path = "../bevy_render" }
 bevy_property = { path = "../bevy_property" }
 bevy_transform = { path = "../bevy_transform" }
 bevy_window = { path = "../bevy_window" }
-legion = { path = "../bevy_legion"}
 
 glam = "0.8.7"

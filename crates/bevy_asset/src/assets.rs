@@ -2,23 +2,23 @@ use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
     Handle, HandleId,
 };
-use bevy_app::{AppBuilder, Events, FromResources};
+use bevy_app::{AppBuilder, Events};
 use bevy_type_registry::RegisterType;
-use legion::prelude::*;
 use std::collections::HashMap;
+use bevy_ecs::{Resource, ResMut, IntoQuerySystem, FromResources};
 
-pub enum AssetEvent<T: 'static> {
+pub enum AssetEvent<T: Resource> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
     Removed { handle: Handle<T> },
 }
 
-pub struct Assets<T: 'static> {
+pub struct Assets<T: Resource> {
     assets: HashMap<Handle<T>, T>,
     events: Events<AssetEvent<T>>,
 }
 
-impl<T> Default for Assets<T> {
+impl<T: Resource> Default for Assets<T> {
     fn default() -> Self {
         Assets {
             assets: HashMap::default(),
@@ -27,7 +27,7 @@ impl<T> Default for Assets<T> {
     }
 }
 
-impl<T> Assets<T> {
+impl<T: Resource> Assets<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
         let handle = Handle::new();
         self.assets.insert(handle, asset);
@@ -121,7 +121,7 @@ pub trait AddAsset {
 impl AddAsset for AppBuilder {
     fn add_asset<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static,
+        T: Resource,
     {
         self.init_resource::<Assets<T>>()
             .register_component::<Handle<T>>()

@@ -4,12 +4,9 @@ version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
 
-[features]
-profiler = ["legion/profiler"]
-
 [dependencies]
 bevy_derive = { path = "../bevy_derive" }
-legion = { path = "../bevy_legion", features = ["serialize"] }
+bevy_ecs = { path = "../bevy_ecs" }
 libloading = "0.5.2"
 log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"]}

@@ -18,16 +18,14 @@ pub struct RpgSpriteHandles {
 }
 
 fn setup(
+    mut commands: Commands,
     mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
-    command_buffer: &mut CommandBuffer,
 ) {
     rpg_sprite_handles.handles = asset_server
         .load_asset_folder("assets/textures/rpg")
         .unwrap();
-    command_buffer
-        .build()
-        .entity_with(OrthographicCameraComponents::default());
+    commands.spawn(OrthographicCameraComponents::default());
 }
 
 #[derive(Default)]
@@ -36,13 +34,13 @@ struct State {
 }
 
 fn load_atlas(
+    mut commands: Commands,
     mut state: ResMut<State>,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     if state.atlas_loaded {
         return;
@@ -65,10 +63,9 @@ fn load_atlas(
             .unwrap();
         let vendor_index = texture_atlas.get_texture_index(vendor_handle).unwrap();
         let atlas_handle = texture_atlases.add(texture_atlas);
-        command_buffer
-            .build()
+        commands
             // draw a sprite from the atlas
-            .entity_with(SpriteSheetComponents {
+            .spawn(SpriteSheetComponents {
                 scale: Scale(4.0),
                 translation: Translation(Vec3::new(150.0, 0.0, 0.0)),
                 sprite: TextureAtlasSprite::new(vendor_index as u32),
@@ -76,7 +73,7 @@ fn load_atlas(
                 ..Default::default()
             })
             // draw the atlas itself
-            .entity_with(SpriteComponents {
+            .spawn(SpriteComponents {
                 material: materials.add(texture_atlas_texture.into()),
                 translation: Vec3::new(-300.0, 0., 0.0).into(),
                 ..Default::default()

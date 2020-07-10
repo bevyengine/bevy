@@ -12,12 +12,12 @@ use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
 use glam::Vec2;
-use legion::prelude::*;
 use winit::{
     event,
     event::{DeviceEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
+use bevy_ecs::Resources;
 
 #[derive(Default)]
 pub struct WinitPlugin;
@@ -52,7 +52,7 @@ pub fn winit_runner(mut app: App) {
             ControlFlow::Poll
         };
 
-        if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+        if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {
                 *control_flow = ControlFlow::Exit;
             }

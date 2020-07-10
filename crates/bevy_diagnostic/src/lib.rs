@@ -19,9 +19,14 @@ impl AppPlugin for DiagnosticsPlugin {
         app.init_resource::<Diagnostics>();
         #[cfg(feature = "profiler")]
         {
-            use legion::prelude::IntoSystem;
-            app.add_resource::<Box<dyn legion::systems::profiler::Profiler>>(Box::new(system_profiler::SystemProfiler::default()))
-                .add_system_to_stage(bevy_app::stage::LAST, system_profiler::profiler_diagnostic_system.system());
+            use bevy_ecs::IntoQuerySystem;
+            app.add_resource_ecs::<Box<dyn bevy_ecs::profiler::Profiler>>(Box::new(
+                system_profiler::SystemProfiler::default(),
+            ))
+            .add_system_to_stage_ecs(
+                bevy_app::stage::LAST,
+                system_profiler::profiler_diagnostic_system.system(),
+            );
         }
     }
 }

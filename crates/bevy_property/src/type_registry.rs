@@ -98,7 +98,11 @@ impl PropertyTypeRegistration {
 
         // process generics if they exist
         if let Some(generics) = split.next() {
-            let generics = generics.strip_suffix(">").expect("should end with closing carrot");
+            if !generics.ends_with(">") {
+                panic!("should end with closing carrot")
+            }
+
+            let generics = &generics[0..generics.len() - 1];
             short_name.push('<');
             short_name.push_str(&generics.split(',').map(|generic| Self::get_short_name(generic.trim())).collect::<Vec<String>>().join(", "));
             short_name.push('>');

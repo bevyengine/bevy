@@ -6,8 +6,8 @@ use crate::{
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
+use bevy_ecs::{Resources, World};
 
-use legion::prelude::*;
 
 #[derive(Default)]
 pub struct TextureCopyNode {

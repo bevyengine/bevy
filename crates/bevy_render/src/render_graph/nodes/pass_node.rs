@@ -12,7 +12,7 @@ use crate::{
     ActiveCameras, VisibleEntities,
 };
 use bevy_asset::{Assets, Handle};
-use legion::prelude::*;
+use bevy_ecs::{Resources, World};
 
 struct CameraInfo {
     name: String,
@@ -110,7 +110,7 @@ impl Node for PassNode {
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if self.default_clear_color_inputs.contains(&i) {
-                if let Some(default_clear_color) = resources.get::<ClearColor>() {
+                if let Ok(default_clear_color) = resources.get::<ClearColor>() {
                     color_attachment.clear_color = default_clear_color.0;
                 }
             }
@@ -160,7 +160,7 @@ impl Node for PassNode {
 
                     // get an ordered list of entities visible to the camera
                     let visible_entities = if let Some(camera_entity) = active_cameras.get(&camera_info.name) {
-                        world.get_component::<VisibleEntities>(camera_entity).unwrap()
+                        world.get::<VisibleEntities>(camera_entity).unwrap()
                     } else {
                         continue;
                     };
@@ -168,7 +168,7 @@ impl Node for PassNode {
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        let draw = if let Some(draw) = world.get_component::<Draw>(visible_entity.entity) {
+                        let draw = if let Ok(draw) = world.get::<Draw>(visible_entity.entity) {
                             draw
                         } else {
                             continue;

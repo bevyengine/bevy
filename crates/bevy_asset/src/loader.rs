@@ -3,12 +3,12 @@ use anyhow::Result;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use fs::File;
 use io::Read;
-use legion::prelude::{Res, ResMut};
 use std::{
     fs, io,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+use bevy_ecs::{ResMut, Res, Resource};
 
 #[derive(Error, Debug)]
 pub enum AssetLoadError {
@@ -49,7 +49,7 @@ impl<T> AssetChannel<T> {
     }
 }
 
-pub fn update_asset_storage_system<T>(
+pub fn update_asset_storage_system<T: Resource>(
     asset_channel: Res<AssetChannel<T>>,
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<T>>,

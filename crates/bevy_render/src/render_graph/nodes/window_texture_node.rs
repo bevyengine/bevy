@@ -6,8 +6,8 @@ use crate::{
 };
 use bevy_app::{EventReader, Events};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
-use legion::prelude::*;
 use std::borrow::Cow;
+use bevy_ecs::{Resources, World};
 
 pub struct WindowTextureNode {
     window_reference: WindowReference,

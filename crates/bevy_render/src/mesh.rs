@@ -10,8 +10,8 @@ use crate::{
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::bytes::AsBytes;
+use bevy_ecs::{Local, Query, Res, ResMut};
 use glam::*;
-use legion::prelude::*;
 use std::{borrow::Cow, collections::HashSet};
 use thiserror::Error;
 
@@ -399,101 +399,112 @@ fn remove_current_mesh_resources(
     }
 }
 
-pub fn mesh_resource_provider_system(resources: &mut Resources) -> Box<dyn Schedulable> {
-    let mut vertex_buffer_descriptors = resources.get_mut::<VertexBufferDescriptors>().unwrap();
-    let mut mesh_event_reader = EventReader::<AssetEvent<Mesh>>::default();
-    // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
-    let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
-    vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-    (move |render_resource_context: Res<Box<dyn RenderResourceContext>>,
-           meshes: Res<Assets<Mesh>>,
-           mesh_events: Res<Events<AssetEvent<Mesh>>>,
-           world: &mut SubWorld,
-           query: &mut Query<(Read<Handle<Mesh>>, Write<RenderPipelines>)>| {
-        let mut changed_meshes = HashSet::new();
-        let render_resource_context = &**render_resource_context;
-        for event in mesh_event_reader.iter(&mesh_events) {
-            match event {
-                AssetEvent::Created { handle } => {
-                    changed_meshes.insert(*handle);
-                }
-                AssetEvent::Modified { handle } => {
-                    changed_meshes.insert(*handle);
-                    remove_current_mesh_resources(render_resource_context, *handle);
-                }
-                AssetEvent::Removed { handle } => {
-                    remove_current_mesh_resources(render_resource_context, *handle);
-                    // if mesh was modified and removed in the same update, ignore the modification
-                    // events are ordered so future modification events are ok
-                    changed_meshes.remove(handle);
-                }
+#[derive(Default)]
+pub struct MeshResourceProviderState {
+    mesh_event_reader: EventReader<AssetEvent<Mesh>>,
+    vertex_buffer_descriptor: Option<&'static VertexBufferDescriptor>,
+}
+
+pub fn mesh_resource_provider_system(
+    mut state: Local<MeshResourceProviderState>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    meshes: Res<Assets<Mesh>>,
+    mut vertex_buffer_descriptors: ResMut<VertexBufferDescriptors>,
+    mesh_events: Res<Events<AssetEvent<Mesh>>>,
+    mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
+) {
+    let vertex_buffer_descriptor = match state.vertex_buffer_descriptor {
+        Some(value) => value,
+        None => {
+            // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
+            let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
+            vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
+            state.vertex_buffer_descriptor = Some(vertex_buffer_descriptor);
+            vertex_buffer_descriptor
+        }
+    };
+    let mut changed_meshes = HashSet::new();
+    let render_resource_context = &**render_resource_context;
+    for event in state.mesh_event_reader.iter(&mesh_events) {
+        match event {
+            AssetEvent::Created { handle } => {
+                changed_meshes.insert(*handle);
+            }
+            AssetEvent::Modified { handle } => {
+                changed_meshes.insert(*handle);
+                remove_current_mesh_resources(render_resource_context, *handle);
+            }
+            AssetEvent::Removed { handle } => {
+                remove_current_mesh_resources(render_resource_context, *handle);
+                // if mesh was modified and removed in the same update, ignore the modification
+                // events are ordered so future modification events are ok
+                changed_meshes.remove(handle);
+            }
+        }
+    }
+
+    for changed_mesh_handle in changed_meshes.iter() {
+        if let Some(mesh) = meshes.get(changed_mesh_handle) {
+            let vertex_bytes = mesh
+                .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                .unwrap();
+            // TODO: use a staging buffer here
+            let vertex_buffer = render_resource_context.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::VERTEX,
+                    ..Default::default()
+                },
+                &vertex_bytes,
+            );
+
+            let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
+            let index_buffer = render_resource_context.create_buffer_with_data(
+                BufferInfo {
+                    buffer_usage: BufferUsage::INDEX,
+                    ..Default::default()
+                },
+                &index_bytes,
+            );
+
+            render_resource_context.set_asset_resource(
+                *changed_mesh_handle,
+                RenderResourceId::Buffer(vertex_buffer),
+                VERTEX_BUFFER_ASSET_INDEX,
+            );
+            render_resource_context.set_asset_resource(
+                *changed_mesh_handle,
+                RenderResourceId::Buffer(index_buffer),
+                INDEX_BUFFER_ASSET_INDEX,
+            );
+        }
+    }
+
+    // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
+    for (handle, render_pipelines) in &mut query.iter() {
+        if let Some(mesh) = meshes.get(&handle) {
+            for render_pipeline in render_pipelines.pipelines.iter_mut() {
+                render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
             }
         }
 
-        for changed_mesh_handle in changed_meshes.iter() {
-            if let Some(mesh) = meshes.get(changed_mesh_handle) {
-                let vertex_bytes = mesh
-                    .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
-                    .unwrap();
-                // TODO: use a staging buffer here
-                let vertex_buffer = render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::VERTEX,
-                        ..Default::default()
-                    },
-                    &vertex_bytes,
-                );
-
-                let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
-                let index_buffer = render_resource_context.create_buffer_with_data(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::INDEX,
-                        ..Default::default()
-                    },
-                    &index_bytes,
-                );
-
-                render_resource_context.set_asset_resource(
-                    *changed_mesh_handle,
-                    RenderResourceId::Buffer(vertex_buffer),
-                    VERTEX_BUFFER_ASSET_INDEX,
-                );
-                render_resource_context.set_asset_resource(
-                    *changed_mesh_handle,
-                    RenderResourceId::Buffer(index_buffer),
-                    INDEX_BUFFER_ASSET_INDEX,
-                );
-            }
+        if let Some(RenderResourceId::Buffer(vertex_buffer)) =
+            render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+        {
+            render_pipelines.bindings.set_vertex_buffer(
+                "Vertex",
+                vertex_buffer,
+                render_resource_context
+                    .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                    .and_then(|r| {
+                        if let RenderResourceId::Buffer(buffer) = r {
+                            Some(buffer)
+                        } else {
+                            None
+                        }
+                    }),
+            );
         }
-
-        // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
-        for (handle, mut render_pipelines) in query.iter_mut(world) {
-            if let Some(mesh) = meshes.get(&handle) {
-                for render_pipeline in render_pipelines.pipelines.iter_mut() {
-                    render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
-                }
-            }
-
-            if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-                render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
-            {
-                render_pipelines.bindings.set_vertex_buffer(
-                    "Vertex",
-                    vertex_buffer,
-                    render_resource_context
-                        .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
-                        .and_then(|r| {
-                            if let RenderResourceId::Buffer(buffer) = r {
-                                Some(buffer)
-                            } else {
-                                None
-                            }
-                        }),
-                );
-            }
-        }
-    })
-    .system()
+    }
 }
 
 #[cfg(test)]

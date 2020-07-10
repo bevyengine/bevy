@@ -11,9 +11,9 @@ use crate::{
 };
 
 use bevy_asset::{Assets, Handle};
-use legion::prelude::*;
-use render_resource::{AssetRenderResourceBindings, BufferId, RenderResourceType};
-use std::{collections::HashMap, marker::PhantomData};
+use bevy_ecs::{IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World, Commands};
+use render_resource::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
+use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
@@ -225,7 +225,6 @@ where
                         (buffer, index * uniform_buffer_status.aligned_size)
                     } else {
                         let mut matching_buffer = None;
-                        let mut buffer_to_remove = None;
                         if let Some(binding) = render_resource_bindings.get(render_resource_name) {
                             let buffer_id = binding.get_buffer().unwrap();
                             if let Some(BufferInfo {
@@ -235,14 +234,9 @@ where
                                 if size == current_size {
                                     matching_buffer = Some(buffer_id);
                                 } else {
-                                    // TODO: if get_resource_info returns a type instead of taking a closure, move buffer free here
-                                    buffer_to_remove = Some(buffer_id);
+                                    render_resource_context.remove_buffer(buffer_id);
                                 }
                             }
-                        }
-
-                        if let Some(buffer) = buffer_to_remove {
-                            render_resource_context.remove_buffer(buffer);
                         }
 
                         let resource = if let Some(matching_buffer) = matching_buffer {
@@ -366,85 +360,115 @@ impl<T> SystemNode for RenderResourcesNode<T>
 where
     T: render_resource::RenderResources,
 {
-    fn get_system(&self) -> Box<dyn Schedulable> {
-        let mut command_queue = self.command_queue.clone();
-        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
-        let dynamic_uniforms = self.dynamic_uniforms;
-        // TODO: maybe run "update" here
-        (move |render_resource_context: Res<Box<dyn RenderResourceContext>>,
-               world: &mut SubWorld,
-               query: &mut Query<(Read<T>, Read<Draw>, Write<RenderPipelines>)>| {
-            let render_resource_context = &**render_resource_context;
-            uniform_buffer_arrays.reset_changed_item_counts();
-            // update uniforms info
-            for (uniforms, draw, _render_pipelines) in query.iter_mut(world) {
-                if !draw.is_visible {
-                    return;
-                }
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+        let system = render_resources_node_system::<T>.system();
+        commands.insert_local_resource(
+            system.id(),
+            RenderResourcesNodeState {
+                command_queue: self.command_queue.clone(),
+                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                dynamic_uniforms: self.dynamic_uniforms,
+            },
+        );
 
-                uniform_buffer_arrays.increment_changed_item_counts(&uniforms);
+        system
+    }
+}
+
+struct RenderResourcesNodeState<T: RenderResources> {
+    command_queue: CommandQueue,
+    uniform_buffer_arrays: UniformBufferArrays<T>,
+    dynamic_uniforms: bool,
+}
+
+impl<T: RenderResources> Default for RenderResourcesNodeState<T> {
+    fn default() -> Self {
+        Self {
+            command_queue: Default::default(),
+            uniform_buffer_arrays: Default::default(),
+            dynamic_uniforms: Default::default(),
+        }
+    }
+}
+
+fn render_resources_node_system<T: RenderResources>(
+    mut state: Local<RenderResourcesNodeState<T>>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    mut query: Query<(&T, &Draw, &mut RenderPipelines)>,
+) {
+    let state = state.deref_mut();
+    let render_resource_context = &**render_resource_context;
+    state.uniform_buffer_arrays.reset_changed_item_counts();
+    // update uniforms info
+    for (uniforms, draw, _render_pipelines) in &mut query.iter() {
+        if !draw.is_visible {
+            return;
+        }
+
+        state
+            .uniform_buffer_arrays
+            .increment_changed_item_counts(&uniforms);
+    }
+    state
+        .uniform_buffer_arrays
+        .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
+    let staging_buffer_size = state.uniform_buffer_arrays.update_staging_buffer_offsets();
+
+    for (uniforms, draw, render_pipelines) in &mut query.iter() {
+        if !draw.is_visible {
+            return;
+        }
+
+        setup_uniform_texture_resources::<T>(
+            &uniforms,
+            render_resource_context,
+            &mut render_pipelines.bindings,
+        )
+    }
+
+    if staging_buffer_size == 0 {
+        let mut staging_buffer: [u8; 0] = [];
+        for (uniforms, draw, render_pipelines) in &mut query.iter() {
+            if !draw.is_visible {
+                return;
             }
 
-            uniform_buffer_arrays.setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-            let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
-
-            for (uniforms, draw, mut render_pipelines) in query.iter_mut(world) {
-                if !draw.is_visible {
-                    return;
-                }
-
-                setup_uniform_texture_resources::<T>(
-                    &uniforms,
-                    render_resource_context,
-                    &mut render_pipelines.bindings,
-                )
-            }
-
-            if staging_buffer_size == 0 {
-                let mut staging_buffer: [u8; 0] = [];
-                for (uniforms, draw, mut render_pipelines) in query.iter_mut(world) {
+            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                &uniforms,
+                state.dynamic_uniforms,
+                render_resource_context,
+                &mut render_pipelines.bindings,
+                &mut staging_buffer,
+            );
+        }
+    } else {
+        let staging_buffer = render_resource_context.create_buffer_mapped(
+            BufferInfo {
+                buffer_usage: BufferUsage::COPY_SRC,
+                size: staging_buffer_size,
+                ..Default::default()
+            },
+            &mut |mut staging_buffer, _render_resource_context| {
+                for (uniforms, draw, render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
                         return;
                     }
 
-                    uniform_buffer_arrays.setup_uniform_buffer_resources(
+                    state.uniform_buffer_arrays.setup_uniform_buffer_resources(
                         &uniforms,
-                        dynamic_uniforms,
+                        state.dynamic_uniforms,
                         render_resource_context,
                         &mut render_pipelines.bindings,
                         &mut staging_buffer,
                     );
                 }
-            } else {
-                let staging_buffer = render_resource_context.create_buffer_mapped(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::COPY_SRC,
-                        size: staging_buffer_size,
-                        ..Default::default()
-                    },
-                    &mut |mut staging_buffer, _render_resource_context| {
-                        for (uniforms, draw, mut render_pipelines) in query.iter_mut(world) {
-                            if !draw.is_visible {
-                                return;
-                            }
+            },
+        );
 
-                            uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                &uniforms,
-                                dynamic_uniforms,
-                                render_resource_context,
-                                &mut render_pipelines.bindings,
-                                &mut staging_buffer,
-                            );
-                        }
-                    },
-                );
-
-                uniform_buffer_arrays
-                    .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
-                command_queue.free_buffer(staging_buffer);
-            }
-        })
-        .system()
+        state
+            .uniform_buffer_arrays
+            .copy_staging_buffer_to_final_buffers(&mut state.command_queue, staging_buffer);
+        state.command_queue.free_buffer(staging_buffer);
     }
 }
 
@@ -493,112 +517,127 @@ impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
     T: render_resource::RenderResources,
 {
-    fn get_system(&self) -> Box<dyn Schedulable> {
-        let mut command_queue = self.command_queue.clone();
-        let mut uniform_buffer_arrays = UniformBufferArrays::<T>::default();
-        // let mut asset_event_reader = EventReader::<AssetEvent<T>>::default();
-        let dynamic_uniforms = self.dynamic_uniforms;
-        (move |assets: Res<Assets<T>>,
-               //    asset_events: Res<Events<AssetEvent<T>>>,
-               mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
-               render_resource_context: Res<Box<dyn RenderResourceContext>>,
-               world: &mut SubWorld,
-               query: &mut Query<(Read<Handle<T>>, Read<Draw>, Write<RenderPipelines>)>| {
-            let render_resource_context = &**render_resource_context;
-            uniform_buffer_arrays.reset_changed_item_counts();
+    fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
+        let system = asset_render_resources_node_system::<T>.system();
+        commands.insert_local_resource(
+            system.id(),
+            RenderResourcesNodeState {
+                command_queue: self.command_queue.clone(),
+                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                dynamic_uniforms: self.dynamic_uniforms,
+            },
+        );
 
-            let modified_assets = assets
-                .iter()
-                .map(|(handle, _)| handle)
-                .collect::<Vec<Handle<T>>>();
-            // TODO: uncomment this when asset dependency events are added https://github.com/bevyengine/bevy/issues/26
-            // let mut modified_assets = HashSet::new();
-            // for event in asset_event_reader.iter(&asset_events) {
-            //     match event {
-            //         AssetEvent::Created { handle } => {
-            //             modified_assets.insert(*handle);
-            //         }
-            //         AssetEvent::Modified { handle } => {
-            //             modified_assets.insert(*handle);
-            //         }
-            //         AssetEvent::Removed { handle } => {
-            //             // TODO: handle removals
-            //             modified_assets.remove(handle);
-            //         }
-            //     }
-            // }
+        system
+    }
+}
 
-            // update uniform handles info
-            for asset_handle in modified_assets.iter() {
-                let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                uniform_buffer_arrays.increment_changed_item_counts(&asset);
-            }
+fn asset_render_resources_node_system<T: RenderResources>(
+    mut state: Local<RenderResourcesNodeState<T>>,
+    assets: Res<Assets<T>>,
+    //    asset_events: Res<Events<AssetEvent<T>>>,
+    mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
+    render_resource_context: Res<Box<dyn RenderResourceContext>>,
+    mut query: Query<(&Handle<T>, &Draw, &mut RenderPipelines)>,
+) {
+    let state = state.deref_mut();
+    let render_resource_context = &**render_resource_context;
+    state.uniform_buffer_arrays.reset_changed_item_counts();
 
-            uniform_buffer_arrays.setup_buffer_arrays(render_resource_context, dynamic_uniforms);
-            let staging_buffer_size = uniform_buffer_arrays.update_staging_buffer_offsets();
+    let modified_assets = assets
+        .iter()
+        .map(|(handle, _)| handle)
+        .collect::<Vec<Handle<T>>>();
+    // TODO: uncomment this when asset dependency events are added https://github.com/bevyengine/bevy/issues/26
+    // let mut modified_assets = HashSet::new();
+    // for event in asset_event_reader.iter(&asset_events) {
+    //     match event {
+    //         AssetEvent::Created { handle } => {
+    //             modified_assets.insert(*handle);
+    //         }
+    //         AssetEvent::Modified { handle } => {
+    //             modified_assets.insert(*handle);
+    //         }
+    //         AssetEvent::Removed { handle } => {
+    //             // TODO: handle removals
+    //             modified_assets.remove(handle);
+    //         }
+    //     }
+    // }
 
-            for asset_handle in modified_assets.iter() {
-                let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                let mut render_resource_bindings =
-                    asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
-                setup_uniform_texture_resources::<T>(
-                    &asset,
-                    render_resource_context,
-                    &mut render_resource_bindings,
-                );
-            }
+    // update uniform handles info
+    for asset_handle in modified_assets.iter() {
+        let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+        state
+            .uniform_buffer_arrays
+            .increment_changed_item_counts(&asset);
+    }
 
-            if staging_buffer_size == 0 {
-                let mut staging_buffer: [u8; 0] = [];
+    state
+        .uniform_buffer_arrays
+        .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
+    let staging_buffer_size = state.uniform_buffer_arrays.update_staging_buffer_offsets();
+
+    for asset_handle in modified_assets.iter() {
+        let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+        let mut render_resource_bindings =
+            asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+        setup_uniform_texture_resources::<T>(
+            &asset,
+            render_resource_context,
+            &mut render_resource_bindings,
+        );
+    }
+
+    if staging_buffer_size == 0 {
+        let mut staging_buffer: [u8; 0] = [];
+        for asset_handle in modified_assets.iter() {
+            let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+            let mut render_resource_bindings =
+                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+            // TODO: only setup buffer if we haven't seen this handle before
+            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                &asset,
+                state.dynamic_uniforms,
+                render_resource_context,
+                &mut render_resource_bindings,
+                &mut staging_buffer,
+            );
+        }
+    } else {
+        let staging_buffer = render_resource_context.create_buffer_mapped(
+            BufferInfo {
+                buffer_usage: BufferUsage::COPY_SRC,
+                size: staging_buffer_size,
+                ..Default::default()
+            },
+            &mut |mut staging_buffer, _render_resource_context| {
                 for asset_handle in modified_assets.iter() {
                     let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
                     let mut render_resource_bindings =
                         asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                     // TODO: only setup buffer if we haven't seen this handle before
-                    uniform_buffer_arrays.setup_uniform_buffer_resources(
+                    state.uniform_buffer_arrays.setup_uniform_buffer_resources(
                         &asset,
-                        dynamic_uniforms,
+                        state.dynamic_uniforms,
                         render_resource_context,
                         &mut render_resource_bindings,
                         &mut staging_buffer,
                     );
                 }
-            } else {
-                let staging_buffer = render_resource_context.create_buffer_mapped(
-                    BufferInfo {
-                        buffer_usage: BufferUsage::COPY_SRC,
-                        size: staging_buffer_size,
-                        ..Default::default()
-                    },
-                    &mut |mut staging_buffer, _render_resource_context| {
-                        for asset_handle in modified_assets.iter() {
-                            let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                            let mut render_resource_bindings =
-                                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
-                            // TODO: only setup buffer if we haven't seen this handle before
-                            uniform_buffer_arrays.setup_uniform_buffer_resources(
-                                &asset,
-                                dynamic_uniforms,
-                                render_resource_context,
-                                &mut render_resource_bindings,
-                                &mut staging_buffer,
-                            );
-                        }
-                    },
-                );
+            },
+        );
 
-                uniform_buffer_arrays
-                    .copy_staging_buffer_to_final_buffers(&mut command_queue, staging_buffer);
-                command_queue.free_buffer(staging_buffer);
-            }
+        state
+            .uniform_buffer_arrays
+            .copy_staging_buffer_to_final_buffers(&mut state.command_queue, staging_buffer);
+        state.command_queue.free_buffer(staging_buffer);
+    }
 
-            for (asset_handle, _draw, mut render_pipelines) in query.iter_mut(world) {
-                if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
-                    render_pipelines.bindings.extend(asset_bindings);
-                }
-            }
-        })
-        .system()
+    for (asset_handle, _draw, render_pipelines) in &mut query.iter() {
+        if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
+            render_pipelines.bindings.extend(asset_bindings);
+        }
     }
 }
 

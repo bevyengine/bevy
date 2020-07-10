@@ -12,26 +12,21 @@ fn main() {
 }
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(
-    time: Res<Time>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Rotator>, Write<Rotation>)>,
-) {
-    for (_rotator, mut rotation) in query.iter_mut(world) {
+fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Rotation)>) {
+    for (_rotator, mut rotation) in &mut query.iter() {
         rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
 
 fn camera_order_color_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
-    world: &mut SubWorld,
-    camera_query: &mut Query<(Read<Camera>, Read<VisibleEntities>)>,
-    _material_query: &mut Query<Read<Handle<StandardMaterial>>>,
+    mut camera_query: Query<(&Camera, &VisibleEntities)>,
+    material_query: Query<&Handle<StandardMaterial>>,
 ) {
-    for (_camera, visible_entities) in camera_query.iter(world) {
+    for (_camera, visible_entities) in &mut camera_query.iter() {
         for visible_entity in visible_entities.iter() {
-            if let Some(material_handle) =
-                world.get_component::<Handle<StandardMaterial>>(visible_entity.entity)
+            if let Ok(material_handle) =
+                material_query.get::<Handle<StandardMaterial>>(visible_entity.entity)
             {
                 let material = materials.get_mut(&material_handle).unwrap();
                 let value = 1.0 - (visible_entity.order.0 - 10.0) / 7.0;
@@ -43,15 +38,14 @@ fn camera_order_color_system(
 
 /// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-    command_buffer
-        .build()
+    commands
         // parent cube
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: cube_handle,
             material: materials.add(StandardMaterial {
                 shaded: false,
@@ -61,10 +55,10 @@ fn setup(
             ..Default::default()
         })
         .with(Rotator)
-        .with_children(|builder| {
+        .with_children(|parent| {
             // child cubes
-            builder
-                .entity_with(MeshComponents {
+            parent
+                .spawn(PbrComponents {
                     mesh: cube_handle,
                     material: materials.add(StandardMaterial {
                         shaded: false,
@@ -73,7 +67,7 @@ fn setup(
                     translation: Translation::new(0.0, 3.0, 0.0),
                     ..Default::default()
                 })
-                .entity_with(MeshComponents {
+                .spawn(PbrComponents {
                     mesh: cube_handle,
                     material: materials.add(StandardMaterial {
                         shaded: false,
@@ -81,10 +75,10 @@ fn setup(
                     }),
                     translation: Translation::new(0.0, -3.0, 0.0),
                     ..Default::default()
-                })
+                });
         })
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),

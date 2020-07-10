@@ -9,7 +9,7 @@ use bevy_render::{
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::Transform;
-use legion::prelude::*;
+use bevy_ecs::{Res, ResMut, Query};
 
 pub struct Label {
     pub text: String,
@@ -31,16 +31,14 @@ impl Default for Label {
 }
 
 impl Label {
-    // PERF: this is horrendously inefficient. (1) new texture per label per frame (2) no atlas
     pub fn label_system(
         mut textures: ResMut<Assets<Texture>>,
         fonts: Res<Assets<Font>>,
         mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
         mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-        world: &mut SubWorld,
-        query: &mut Query<Read<Label>>,
+        mut query: Query<&Label>,
     ) {
-        for label in query.iter(world) {
+        for label in &mut query.iter() {
             let font_atlases = font_atlas_sets
                 .get_or_insert_with(Handle::from_id(label.font.id), || {
                     FontAtlasSet::new(label.font)
@@ -68,10 +66,9 @@ impl Label {
         texture_atlases: Res<Assets<TextureAtlas>>,
         mut render_resource_bindings: ResMut<RenderResourceBindings>,
         mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
-        world: &mut SubWorld,
-        query: &mut Query<(Write<Draw>, Read<Label>, Read<Node>, Read<Transform>)>,
+        mut query: Query<(&mut Draw, &Label, &Node, &Transform)>,
     ) {
-        for (mut draw, label, node, transform) in query.iter_mut(world) {
+        for (mut draw, label, node, transform) in &mut query.iter() {
             // let position = transform.0 - quad.size / 2.0;
             let position = transform.value.w_axis().truncate() - (node.size / 2.0).extend(0.0);
 

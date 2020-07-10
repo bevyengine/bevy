@@ -1,14 +1,19 @@
 pub use crate::{
     app::{
-        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, ComponentSet,
-        DynamicAppPlugin, EventReader, Events, FromResources, System,
+        schedule_runner::ScheduleRunnerPlugin, stage, App, AppBuilder, AppPlugin, DynamicAppPlugin,
+        EventReader, Events,
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     core::{
         time::{Time, Timer},
-        transform::{CommandBufferBuilderSource, FaceToward, WorldBuilder, WorldBuilderSource},
+        transform::FaceToward,
     },
     diagnostic::DiagnosticsPlugin,
+    ecs::{
+        Bundle, Commands, Component, Entity, FromResources, IntoForEachSystem, IntoQuerySystem,
+        Local, Query, Ref, RefMut, Res, ResMut, Resource, Resources, System, ThreadLocalSystem,
+        World, WorldBuilderSource
+    },
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
     math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     pbr::{entity::*, light::Light, material::StandardMaterial},
@@ -42,12 +47,4 @@ pub use crate::{
     ui::{entity::*, widget::Label, Anchors, Margins, Node},
     window::{Window, WindowDescriptor, WindowPlugin, Windows},
     AddDefaultPlugins,
-};
-pub use legion::{
-    filter::filter_fns::*,
-    prelude::{
-        BitSet, CommandBuffer, Entity, EntityStore, Event as LegionEvent, Executor, IntoQuery,
-        IntoSystem, Query, Read, Res, ResMut, ResourceSet, Resources, Runnable, Schedulable,
-        Schedule, SubWorld, SystemBuilder, Tagged, TryRead, TryWrite, Universe, World, Write,
-    },
 };

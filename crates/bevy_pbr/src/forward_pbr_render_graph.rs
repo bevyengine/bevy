@@ -10,7 +10,7 @@ use bevy_render::{
     shader::Shader,
 };
 use bevy_transform::prelude::Transform;
-use legion::prelude::Resources;
+use bevy_ecs::Resources;
 
 pub mod node {
     pub const TRANSFORM: &str = "transform";

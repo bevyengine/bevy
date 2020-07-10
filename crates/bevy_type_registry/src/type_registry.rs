@@ -1,10 +1,7 @@
-use bevy_app::FromResources;
+use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
-use legion::{
-    prelude::{Entity, Resources, World},
-    storage::{Component, ComponentResourceSet, ComponentTypeId},
-};
 use std::{
+    any::TypeId,
     collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
 };
@@ -17,9 +14,9 @@ pub struct TypeRegistry {
 
 #[derive(Default)]
 pub struct ComponentRegistry {
-    pub registrations: HashMap<ComponentTypeId, ComponentRegistration>,
-    pub short_names: HashMap<String, ComponentTypeId>,
-    pub full_names: HashMap<String, ComponentTypeId>,
+    pub registrations: HashMap<TypeId, ComponentRegistration>,
+    pub short_names: HashMap<String, TypeId>,
+    pub full_names: HashMap<String, TypeId>,
     pub ambigous_names: HashSet<String>,
 }
 
@@ -31,7 +28,7 @@ impl ComponentRegistry {
         let registration = ComponentRegistration::of::<T>();
         let short_name = registration.short_name.to_string();
         self.full_names
-            .insert(registration.ty.0.to_string(), registration.ty);
+            .insert(registration.long_name.to_string(), registration.ty);
         if self.short_names.contains_key(&short_name) || self.ambigous_names.contains(&short_name) {
             // name is ambiguous. fall back to long names for all ambiguous types
             self.short_names.remove(&short_name);
@@ -42,7 +39,7 @@ impl ComponentRegistry {
         self.registrations.insert(registration.ty, registration);
     }
 
-    pub fn get(&self, type_id: &ComponentTypeId) -> Option<&ComponentRegistration> {
+    pub fn get(&self, type_id: &TypeId) -> Option<&ComponentRegistration> {
         self.registrations.get(type_id)
     }
 
@@ -74,15 +71,16 @@ impl ComponentRegistry {
 
 #[derive(Clone)]
 pub struct ComponentRegistration {
-    pub ty: ComponentTypeId,
+    pub ty: TypeId,
     component_add_fn: fn(&mut World, resources: &Resources, Entity, &dyn Property),
-    component_properties_fn: fn(&ComponentResourceSet, usize) -> &dyn Properties,
+    component_properties_fn: fn(&Archetype, usize) -> &dyn Properties,
     pub short_name: String,
+    pub long_name: &'static str,
 }
 
 impl ComponentRegistration {
     pub fn of<T: Properties + Component + FromResources>() -> Self {
-        let ty = ComponentTypeId::of::<T>();
+        let ty = TypeId::of::<T>();
         Self {
             ty,
             component_add_fn: |world: &mut World,
@@ -91,14 +89,21 @@ impl ComponentRegistration {
                                property: &dyn Property| {
                 let mut component = T::from_resources(resources);
                 component.apply(property);
-                world.add_component(entity, component).unwrap();
+                world.insert_one(entity, component).unwrap();
             },
-            component_properties_fn: |component_resource_set: &ComponentResourceSet,
-                                      index: usize| {
+            component_properties_fn: |archetype: &Archetype, index: usize| {
                 // the type has been looked up by the caller, so this is safe
-                unsafe { &component_resource_set.data_slice::<T>()[index] }
+                unsafe {
+                    let ptr = archetype
+                        .get::<T>()
+                        .unwrap()
+                        .as_ptr()
+                        .offset(index as isize);
+                    ptr.as_ref().unwrap()
+                }
             },
-            short_name: PropertyTypeRegistration::get_short_name(ty.0),
+            short_name: PropertyTypeRegistration::get_short_name(std::any::type_name::<T>()),
+            long_name: std::any::type_name::<T>(),
         }
     }
 
@@ -114,9 +119,9 @@ impl ComponentRegistration {
 
     pub fn get_component_properties<'a>(
         &self,
-        component_resource_set: &'a ComponentResourceSet,
+        archetype: &'a Archetype,
         entity_index: usize,
     ) -> &'a dyn Properties {
-        (self.component_properties_fn)(component_resource_set, entity_index)
+        (self.component_properties_fn)(archetype, entity_index)
     }
 }

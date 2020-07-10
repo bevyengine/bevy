@@ -14,7 +14,7 @@ pub use ui_update_system::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_render::render_graph::RenderGraph;
-use legion::prelude::IntoSystem;
+use bevy_ecs::IntoQuerySystem;
 use widget::Label;
 
 #[derive(Default)]

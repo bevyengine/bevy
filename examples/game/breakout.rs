@@ -24,25 +24,24 @@ struct Ball {
     velocity: Vec3,
 }
 
-struct Brick;
-struct Wall;
-
 struct Scoreboard {
     score: usize,
 }
 
+struct Brick;
+struct Wall;
+
 fn setup(
+    mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    command_buffer: &mut CommandBuffer,
 ) {
     // Add the game's entities to our world
-    let mut builder = command_buffer.build();
-    builder
+    commands
         // camera
-        .entity_with(OrthographicCameraComponents::default())
+        .spawn(OrthographicCameraComponents::default())
         // paddle
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
             translation: Translation(Vec3::new(0.0, -250.0, 0.0)),
             sprite: Sprite {
@@ -52,7 +51,7 @@ fn setup(
         })
         .with(Paddle { speed: 500.0 })
         // ball
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
             translation: Translation(Vec3::new(0.0, -100.0, 1.0)),
             sprite: Sprite {
@@ -64,7 +63,7 @@ fn setup(
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
         })
         // scoreboard
-        .entity_with(LabelComponents {
+        .spawn(LabelComponents {
             label: Label {
                 font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                 text: "Score:".to_string(),
@@ -82,9 +81,9 @@ fn setup(
     let wall_thickness = 10.0;
     let bounds = Vec2::new(900.0, 600.0);
 
-    builder
+    commands
         // left
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite {
@@ -94,7 +93,7 @@ fn setup(
         })
         .with(Wall)
         // right
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite {
@@ -104,7 +103,7 @@ fn setup(
         })
         .with(Wall)
         // bottom
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
             sprite: Sprite {
@@ -114,7 +113,7 @@ fn setup(
         })
         .with(Wall)
         // top
-        .entity_with(SpriteComponents {
+        .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
             sprite: Sprite {
@@ -141,9 +140,9 @@ fn setup(
                 y_position,
                 0.0,
             ) + bricks_offset;
-            builder
+            commands
                 // brick
-                .entity_with(SpriteComponents {
+                .spawn(SpriteComponents {
                     material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
                     sprite: Sprite { size: brick_size },
                     translation: Translation(brick_position),
@@ -157,10 +156,9 @@ fn setup(
 fn paddle_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    world: &mut SubWorld,
-    query: &mut Query<(Read<Paddle>, Write<Translation>)>,
+    query: &mut Query<(&Paddle, &mut Translation)>,
 ) {
-    for (paddle, mut translation) in query.iter_mut(world) {
+    for (paddle, translation) in &mut query.iter() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -176,44 +174,38 @@ fn paddle_movement_system(
 
 fn ball_movement_system(
     time: Res<Time>,
-    world: &mut SubWorld,
-    ball_query: &mut Query<(Read<Ball>, Write<Translation>)>,
+    mut ball_query: Query<(&Ball, &mut Translation)>,
 ) {
-    for (ball, mut translation) in ball_query.iter_mut(world) {
+    for (ball, translation) in &mut ball_query.iter() {
         translation.0 += ball.velocity * time.delta_seconds;
     }
 }
 
 fn scoreboard_system(
     scoreboard: Res<Scoreboard>,
-    world: &mut SubWorld,
-    query: &mut Query<Write<Label>>,
+    mut query: Query<&mut Label>,
 ) {
-    for mut label in query.iter_mut(world) {
+    for mut label in &mut query.iter() {
         label.text = format!("Score: {}", scoreboard.score);
     }
 }
 
 fn ball_collision_system(
+    mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
-    command_buffer: &mut CommandBuffer,
-    world: &mut SubWorld,
-    ball_query: &mut Query<Write<Ball>>,
-    paddle_query: &mut Query<(Read<Paddle>, Read<Translation>, Read<Sprite>)>,
-    brick_query: &mut Query<(Read<Brick>, Read<Translation>, Read<Sprite>)>,
-    wall_query: &mut Query<(Read<Wall>, Read<Translation>, Read<Sprite>)>,
+    mut ball_query: Query<(&mut Ball, &Translation, &Sprite)>,
+    mut paddle_query: Query<(&Paddle, &Translation, &Sprite)>,
+    mut brick_query: Query<(Entity, &Brick, &Translation, &Sprite)>,
+    mut wall_query: Query<(&Wall, &Translation, &Sprite)>,
 ) {
-    let (mut ball_world, world) = world.split_for_query(ball_query);
-    for (entity, mut ball) in ball_query.iter_entities_mut(&mut ball_world) {
-        let translation = world.get_component::<Translation>(entity).unwrap();
-        let sprite = world.get_component::<Sprite>(entity).unwrap();
+    for (ball, translation, sprite) in &mut ball_query.iter() {
         let ball_position = translation.0;
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
         let mut collision = None;
 
         // check collision with walls
-        for (_wall, translation, sprite) in wall_query.iter(&world) {
+        for (_wall, translation, sprite) in &mut wall_query.iter() {
             if collision.is_some() {
                 break;
             }
@@ -222,7 +214,7 @@ fn ball_collision_system(
         }
 
         // check collision with paddle(s)
-        for (_paddle, translation, sprite) in paddle_query.iter(&world) {
+        for (_paddle, translation, sprite) in &mut paddle_query.iter() {
             if collision.is_some() {
                 break;
             }
@@ -231,7 +223,7 @@ fn ball_collision_system(
         }
 
         // check collision with bricks
-        for (brick_entity, (_brick, translation, sprite)) in brick_query.iter_entities(&world) {
+        for (brick_entity, _brick, translation, sprite) in &mut brick_query.iter() {
             if collision.is_some() {
                 break;
             }
@@ -239,7 +231,7 @@ fn ball_collision_system(
             collision = collide(ball_position, ball_size, translation.0, sprite.size);
             if collision.is_some() {
                 scoreboard.score += 1;
-                command_buffer.delete(brick_entity);
+                commands.despawn(brick_entity);
             }
         }
 

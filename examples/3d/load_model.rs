@@ -8,9 +8,9 @@ fn main() {
 }
 
 fn setup(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     // load the mesh
     let mesh_handle = asset_server
@@ -24,21 +24,20 @@ fn setup(
     });
 
     // add entities to the world
-    command_buffer
-        .build()
+    commands
         // mesh
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: mesh_handle,
             material: material_handle,
             ..Default::default()
         })
         // light
-        .entity_with(LightComponents {
+        .spawn(LightComponents {
             translation: Translation::new(4.0, 5.0, 4.0),
             ..Default::default()
         })
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(-2.0, 2.0, 6.0),
                 Vec3::new(0.0, 0.0, 0.0),

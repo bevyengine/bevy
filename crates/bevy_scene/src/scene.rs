@@ -1,53 +1,43 @@
 use crate::serde::SceneSerializer;
 use anyhow::Result;
+use bevy_ecs::World;
 use bevy_property::{DynamicProperties, PropertyTypeRegistry};
 use bevy_type_registry::ComponentRegistry;
-use legion::{entity::EntityIndex, prelude::World};
 use serde::Serialize;
 
 #[derive(Default)]
 pub struct Scene {
-    pub entities: Vec<Entity>,
+    pub entities: Vec<Entity>, 
 }
 
 pub struct Entity {
-    pub entity: EntityIndex,
+    pub entity: u32,
     pub components: Vec<DynamicProperties>,
 }
 
 impl Scene {
     pub fn from_world(world: &World, component_registry: &ComponentRegistry) -> Self {
         let mut scene = Scene::default();
-        for archetype in world.storage().archetypes() {
-            for chunkset in archetype.chunksets() {
-                for component_storage in chunkset.occupied() {
-                    let mut entities = Vec::new();
-                    for (component_type_id, _component_meta) in archetype.description().components()
-                    {
-                        if let Some(component_registration) =
-                            component_registry.get(component_type_id)
-                        {
-                            let component_resource_set =
-                                component_storage.components(*component_type_id).unwrap();
-                            for (index, entity) in component_storage.entities().iter().enumerate() {
-                                if index == entities.len() {
-                                    entities.push(Entity {
-                                        entity: entity.index(),
-                                        components: Vec::new(),
-                                    })
-                                }
+        for archetype in world.archetypes() {
+            let mut entities = Vec::new();
+            for (index, entity) in archetype.iter_entities().enumerate() {
+                if index == entities.len() {
+                    entities.push(Entity {
+                        entity: *entity,
+                        components: Vec::new(),
+                    })
+                }
+                for type_info in archetype.types() {
+                    if let Some(component_registration) = component_registry.get(&type_info.id()) {
+                        let properties =
+                            component_registration.get_component_properties(&archetype, index);
 
-                                let properties = component_registration
-                                    .get_component_properties(&component_resource_set, index);
-
-                                entities[index].components.push(properties.to_dynamic());
-                            }
-                        }
+                        entities[index].components.push(properties.to_dynamic());
                     }
-
-                    scene.entities.extend(entities.drain(..));
                 }
             }
+
+            scene.entities.extend(entities.drain(..));
         }
 
         scene

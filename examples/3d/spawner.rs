@@ -17,10 +17,9 @@ fn main() {
 fn move_cubes(
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    world: &mut SubWorld,
-    query: &mut Query<(Write<Translation>, Read<Handle<StandardMaterial>>)>,
+    mut query: Query<(&mut Translation, &Handle<StandardMaterial>)>,
 ) {
-    for (mut translation, material_handle) in query.iter_mut(world) {
+    for (translation, material_handle) in &mut query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
         translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
@@ -28,9 +27,9 @@ fn move_cubes(
 }
 
 fn setup(
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    command_buffer: &mut CommandBuffer,
 ) {
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
@@ -43,28 +42,27 @@ fn setup(
         ..Default::default()
     });
 
-    let mut builder = command_buffer.build();
-    builder
+    commands
         // plane
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: plane_handle,
             material: plane_material_handle,
             ..Default::default()
         })
         // cube
-        .entity_with(MeshComponents {
+        .spawn(PbrComponents {
             mesh: cube_handle,
             material: cube_material_handle,
             translation: Translation::new(0.0, 0.0, 1.0),
             ..Default::default()
         })
         // light
-        .entity_with(LightComponents {
+        .spawn(LightComponents {
             translation: Translation::new(4.0, -4.0, 5.0),
             ..Default::default()
         })
         // camera
-        .entity_with(PerspectiveCameraComponents {
+        .spawn(PerspectiveCameraComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
@@ -83,7 +81,7 @@ fn setup(
             ),
             ..Default::default()
         });
-        builder.entity_with(MeshComponents {
+        commands.spawn(PbrComponents {
             mesh: cube_handle,
             material: spawned_material_handle,
             translation: Translation::new(

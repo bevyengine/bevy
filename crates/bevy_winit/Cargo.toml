@@ -6,9 +6,9 @@ edition = "2018"
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
+bevy_ecs = { path = "../bevy_ecs" }
 bevy_input = { path = "../bevy_input" }
 bevy_window = { path = "../bevy_window" }
-legion = { path = "../bevy_legion" }
 
 winit = { version = "0.22.2" }
 glam = "0.8.7"

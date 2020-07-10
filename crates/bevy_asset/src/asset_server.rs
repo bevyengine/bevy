@@ -4,7 +4,6 @@ use crate::{
 };
 use anyhow::Result;
 use crossbeam_channel::TryRecvError;
-use legion::prelude::{Res, Resources};
 use std::{
     collections::{HashMap, HashSet},
     env, fs, io,
@@ -13,6 +12,7 @@ use std::{
     thread,
 };
 use thiserror::Error;
+use bevy_ecs::{Res, Resources, Resource};
 
 pub type AssetVersion = usize;
 #[derive(Error, Debug)]
@@ -242,7 +242,7 @@ impl AssetServer {
             .map(|handle_id| Handle::from(handle_id))
     }
 
-    pub fn load_sync<T, P: AsRef<Path>>(
+    pub fn load_sync<T: Resource, P: AsRef<Path>>(
         &self,
         assets: &mut Assets<T>,
         path: P,

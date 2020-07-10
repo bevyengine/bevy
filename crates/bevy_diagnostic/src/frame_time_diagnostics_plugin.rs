@@ -1,7 +1,7 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::AppPlugin;
 use bevy_core::time::Time;
-use legion::prelude::{IntoSystem, Res, ResMut};
+use bevy_ecs::{Res, ResMut, IntoQuerySystem};
 
 #[derive(Default)]
 pub struct FrameTimeDiagnosticsPlugin;

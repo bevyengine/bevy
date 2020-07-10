@@ -9,6 +9,7 @@ pub use scene_spawner::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
+use bevy_ecs::ThreadLocalSystem;
 
 #[derive(Default)]
 pub struct ScenePlugin;
@@ -21,6 +22,8 @@ impl AppPlugin for ScenePlugin {
             .add_asset_loader::<Scene, SceneLoader>()
             .init_resource::<SceneSpawner>()
             .add_stage_after(stage::EVENT_UPDATE, SCENE_STAGE)
-            .add_system_to_stage(SCENE_STAGE, scene_spawner_system);
+            .add_system_to_stage(SCENE_STAGE, ThreadLocalSystem::new(scene_spawner_system));
+            // TODO: port scenes to bevy_ecs
+            // .add_system_to_stage_ecs(SCENE_STAGE, ThreadLocalSystem::new(scene_spawner_system));
     }
 }
