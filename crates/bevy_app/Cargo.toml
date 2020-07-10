@@ -7,6 +7,6 @@ edition = "2018"
 [dependencies]
 bevy_derive = { path = "../bevy_derive" }
 bevy_ecs = { path = "../bevy_ecs" }
-libloading = "0.5.2"
+libloading = "0.6"
 log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"]}
