@@ -156,7 +156,7 @@ fn setup(
 fn paddle_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    query: &mut Query<(&Paddle, &mut Translation)>,
+    mut query: Query<(&Paddle, &mut Translation)>,
 ) {
     for (paddle, translation) in &mut query.iter() {
         let mut direction = 0.0;
