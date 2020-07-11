@@ -19,8 +19,7 @@ bevy_window = { path = "../bevy_window" }
 bevy_winit = { path = "../bevy_winit", optional = true }
 
 # render
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "344161feae78b077dc28089cf8daa8ce80277eb9" }
-# wgpu = { version = "0.5.0" }
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "8c4d814607a303458ad9453da59dfc3a9951d7a3" }
 
 pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
