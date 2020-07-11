@@ -15,7 +15,7 @@ use bevy_render::{
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_window::{Window, WindowId};
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
@@ -167,43 +167,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             label: None,
             size: buffer_info.size as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
-            mapped_at_creation: false,
+            mapped_at_creation: buffer_info.mapped_at_creation,
         });
 
         let id = BufferId::new();
         buffer_infos.insert(id, buffer_info);
-        buffers.insert(id, buffer);
-        id
-    }
-
-    fn create_buffer_mapped(
-        &self,
-        buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> BufferId {
-        let usage: wgpu::BufferUsage = buffer_info.buffer_usage.wgpu_into();
-        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            size: buffer_info.size as u64,
-            usage: usage | wgpu::BufferUsage::MAP_WRITE,
-            label: None,
-            mapped_at_creation: false,
-        });
-        let buffer_slice = buffer.slice(..);
-        let data = buffer_slice.map_async(wgpu::MapMode::Write);
-        self.device.poll(wgpu::Maintain::Wait);
-        if let Ok(()) = pollster::block_on(data) {
-            let mut data = buffer_slice.get_mapped_range_mut();
-            setup_data(&mut data, self);
-        } else {
-            panic!("failed to map buffer to host");
-        }
-
-        buffer.unmap();
-        let id = BufferId::new();
-        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
-        let mut buffers = self.resources.buffers.write().unwrap();
-        buffer_infos.insert(id, buffer_info);
-        buffers.insert(id, buffer);
+        buffers.insert(id, Arc::new(buffer));
         id
     }
 
@@ -219,7 +188,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let id = BufferId::new();
         buffer_infos.insert(id, buffer_info);
-        buffers.insert(id, buffer);
+        buffers.insert(id, Arc::new(buffer));
         id
     }
 
@@ -521,5 +490,35 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .unwrap()
             .get(&buffer)
             .cloned()
+    }
+    fn write_mapped_buffer(
+        &self,
+        id: BufferId,
+        range: Range<u64>,
+        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
+    ) {
+        let buffer = {
+            let buffers = self.resources.buffers.read().unwrap();
+            buffers.get(&id).unwrap().clone()
+        };
+        let buffer_slice = buffer.slice(range);
+        let mut data = buffer_slice.get_mapped_range_mut();
+        write(&mut data, self);
+    }
+
+    fn map_buffer(&self, id: BufferId) {
+        let buffers = self.resources.buffers.read().unwrap();
+        let buffer = buffers.get(&id).unwrap();
+        let buffer_slice = buffer.slice(..);
+        let data = buffer_slice.map_async(wgpu::MapMode::Write);
+        self.device.poll(wgpu::Maintain::Wait);
+        if let Err(_) = pollster::block_on(data) {
+            panic!("failed to map buffer to host");
+        }
+    }
+    fn unmap_buffer(&self, id: BufferId) {
+        let buffers = self.resources.buffers.read().unwrap();
+        let buffer = buffers.get(&id).unwrap();
+        buffer.unmap();
     }
 }

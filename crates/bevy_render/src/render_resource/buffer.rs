@@ -13,6 +13,7 @@ impl BufferId {
 pub struct BufferInfo {
     pub size: usize,
     pub buffer_usage: BufferUsage,
+    pub mapped_at_creation: bool,
 }
 
 impl Default for BufferInfo {
@@ -20,6 +21,7 @@ impl Default for BufferInfo {
         BufferInfo {
             size: 0,
             buffer_usage: BufferUsage::empty(),
+            mapped_at_creation: false,
         }
     }
 }

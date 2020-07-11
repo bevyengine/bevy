@@ -63,6 +63,8 @@ where
     T: render_resource::RenderResources,
 {
     uniform_arrays: Vec<Option<(String, BufferArrayStatus)>>,
+    staging_buffer: Option<BufferId>,
+    staging_buffer_size: usize,
     _marker: PhantomData<T>,
 }
 
@@ -73,6 +75,8 @@ where
     fn default() -> Self {
         Self {
             uniform_arrays: Default::default(),
+            staging_buffer: Default::default(),
+            staging_buffer_size: 0,
             _marker: Default::default(),
         }
     }
@@ -166,6 +170,7 @@ where
             let buffer = render_resource_context.create_buffer(BufferInfo {
                 size: total_size,
                 buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+                ..Default::default()
             });
 
             buffer_array_status.current_item_capacity = new_capacity;
@@ -181,7 +186,7 @@ where
             buffer_array_status.buffer = Some(buffer);
         }
     }
-    fn update_staging_buffer_offsets(&mut self) -> usize {
+    fn update_staging_buffer(&mut self, render_resource_context: &dyn RenderResourceContext) {
         let mut size = 0;
         for dynamic_buffer_array_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, ref mut buffer_array_status)) = dynamic_buffer_array_status {
@@ -190,7 +195,24 @@ where
             }
         }
 
-        size
+        if self.staging_buffer_size != size {
+            if let Some(staging_buffer) = self.staging_buffer {
+                render_resource_context.remove_buffer(staging_buffer);
+            }
+
+            if size > 0 {
+                let staging_buffer = render_resource_context.create_buffer(BufferInfo {
+                    buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                    size,
+                    ..Default::default()
+                });
+                self.staging_buffer = Some(staging_buffer);
+            } else {
+                self.staging_buffer = None;
+            }
+
+            self.staging_buffer_size = size;
+        }
     }
 
     fn setup_uniform_buffer_resources(
@@ -412,7 +434,9 @@ fn render_resources_node_system<T: RenderResources>(
     state
         .uniform_buffer_arrays
         .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
-    let staging_buffer_size = state.uniform_buffer_arrays.update_staging_buffer_offsets();
+    state
+        .uniform_buffer_arrays
+        .update_staging_buffer(render_resource_context);
 
     for (uniforms, draw, render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
@@ -426,28 +450,11 @@ fn render_resources_node_system<T: RenderResources>(
         )
     }
 
-    if staging_buffer_size == 0 {
-        let mut staging_buffer: [u8; 0] = [];
-        for (uniforms, draw, render_pipelines) in &mut query.iter() {
-            if !draw.is_visible {
-                return;
-            }
-
-            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
-                &uniforms,
-                state.dynamic_uniforms,
-                render_resource_context,
-                &mut render_pipelines.bindings,
-                &mut staging_buffer,
-            );
-        }
-    } else {
-        let staging_buffer = render_resource_context.create_buffer_mapped(
-            BufferInfo {
-                buffer_usage: BufferUsage::COPY_SRC,
-                size: staging_buffer_size,
-                ..Default::default()
-            },
+    if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
+        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
                 for (uniforms, draw, render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
@@ -464,11 +471,27 @@ fn render_resources_node_system<T: RenderResources>(
                 }
             },
         );
+        render_resource_context.unmap_buffer(staging_buffer);
 
         state
             .uniform_buffer_arrays
             .copy_staging_buffer_to_final_buffers(&mut state.command_queue, staging_buffer);
-        state.command_queue.free_buffer(staging_buffer);
+    } else {
+        // TODO: can we just remove this?
+        let mut staging_buffer: [u8; 0] = [];
+        for (uniforms, draw, render_pipelines) in &mut query.iter() {
+            if !draw.is_visible {
+                return;
+            }
+
+            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                &uniforms,
+                state.dynamic_uniforms,
+                render_resource_context,
+                &mut render_pipelines.bindings,
+                &mut staging_buffer,
+            );
+        }
     }
 }
 
@@ -576,7 +599,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
     state
         .uniform_buffer_arrays
         .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
-    let staging_buffer_size = state.uniform_buffer_arrays.update_staging_buffer_offsets();
+    state.uniform_buffer_arrays.update_staging_buffer(render_resource_context);
 
     for asset_handle in modified_assets.iter() {
         let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
@@ -589,28 +612,11 @@ fn asset_render_resources_node_system<T: RenderResources>(
         );
     }
 
-    if staging_buffer_size == 0 {
-        let mut staging_buffer: [u8; 0] = [];
-        for asset_handle in modified_assets.iter() {
-            let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-            let mut render_resource_bindings =
-                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
-            // TODO: only setup buffer if we haven't seen this handle before
-            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
-                &asset,
-                state.dynamic_uniforms,
-                render_resource_context,
-                &mut render_resource_bindings,
-                &mut staging_buffer,
-            );
-        }
-    } else {
-        let staging_buffer = render_resource_context.create_buffer_mapped(
-            BufferInfo {
-                buffer_usage: BufferUsage::COPY_SRC,
-                size: staging_buffer_size,
-                ..Default::default()
-            },
+    if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
+        render_resource_context.map_buffer(staging_buffer);
+        render_resource_context.write_mapped_buffer(
+            staging_buffer,
+            0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
                 for asset_handle in modified_assets.iter() {
                     let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
@@ -627,11 +633,26 @@ fn asset_render_resources_node_system<T: RenderResources>(
                 }
             },
         );
+        render_resource_context.unmap_buffer(staging_buffer);
 
         state
             .uniform_buffer_arrays
             .copy_staging_buffer_to_final_buffers(&mut state.command_queue, staging_buffer);
-        state.command_queue.free_buffer(staging_buffer);
+    } else {
+        let mut staging_buffer: [u8; 0] = [];
+        for asset_handle in modified_assets.iter() {
+            let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+            let mut render_resource_bindings =
+                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+            // TODO: only setup buffer if we haven't seen this handle before
+            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                &asset,
+                state.dynamic_uniforms,
+                render_resource_context,
+                &mut render_resource_bindings,
+                &mut staging_buffer,
+            );
+        }
     }
 
     for (asset_handle, _draw, render_pipelines) in &mut query.iter() {

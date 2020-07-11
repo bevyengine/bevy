@@ -7,6 +7,7 @@ use crate::{
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use downcast_rs::{impl_downcast, Downcast};
+use std::ops::Range;
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&self, window: &Window);
@@ -17,11 +18,20 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId;
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId;
     // TODO: remove RenderResourceContext here
-    fn create_buffer_mapped(
+    fn write_mapped_buffer(
         &self,
-        buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> BufferId;
+        id: BufferId,
+        range: Range<u64>,
+        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
+    );
+    fn map_buffer(
+        &self,
+        id: BufferId,
+    );
+    fn unmap_buffer(
+        &self,
+        id: BufferId,
+    );
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
     fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>);
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader);

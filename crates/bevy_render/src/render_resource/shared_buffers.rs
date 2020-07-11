@@ -30,19 +30,26 @@ impl SharedBuffers {
     ) -> Option<RenderResourceBinding> {
         if let Some(size) = render_resource.buffer_byte_len() {
             // PERF: this buffer will be slow
-            let staging_buffer = self.render_resource_context.create_buffer_mapped(
-                BufferInfo {
-                    size,
-                    buffer_usage: BufferUsage::COPY_SRC,
-                },
+            let staging_buffer = self.render_resource_context.create_buffer(BufferInfo {
+                size,
+                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                mapped_at_creation: true,
+            });
+
+            self.render_resource_context.write_mapped_buffer(
+                staging_buffer,
+                0..size as u64,
                 &mut |data, _renderer| {
                     render_resource.write_buffer_bytes(data);
                 },
             );
 
+            self.render_resource_context.unmap_buffer(staging_buffer);
+
             let destination_buffer = self.render_resource_context.create_buffer(BufferInfo {
                 size,
                 buffer_usage: BufferUsage::COPY_DST | buffer_usage,
+                ..Default::default()
             });
 
             let mut command_queue = self.command_queue.write().unwrap();

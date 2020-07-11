@@ -58,10 +58,8 @@ impl SystemNode for LightsNode {
             LightsNodeSystemState {
                 command_queue: self.command_queue.clone(),
                 max_lights: self.max_lights,
-                tmp_count_buffer: None,
-                tmp_light_buffer: None,
                 light_buffer: None,
-                lights_are_dirty: true,
+                staging_buffer: None,
             },
         );
         system
@@ -71,10 +69,7 @@ impl SystemNode for LightsNode {
 #[derive(Default)]
 pub struct LightsNodeSystemState {
     light_buffer: Option<BufferId>,
-    lights_are_dirty: bool,
-    // TODO: merge these
-    tmp_count_buffer: Option<BufferId>,
-    tmp_light_buffer: Option<BufferId>,
+    staging_buffer: Option<BufferId>,
     command_queue: CommandQueue,
     max_lights: usize,
 }
@@ -82,22 +77,30 @@ pub struct LightsNodeSystemState {
 pub fn lights_node_system(
     mut state: Local<LightsNodeSystemState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    // TODO: this write on RenderResourceAssignments will prevent this system from running in parallel with other systems that do the same
+    // TODO: this write on RenderResourceBindings will prevent this system from running in parallel with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut query: Query<(&Light, &Transform, &Translation)>,
 ) {
     let state = &mut state;
-    if !state.lights_are_dirty {
-        return;
-    }
-
     let render_resource_context = &**render_resource_context;
-    if state.light_buffer.is_none() {
-        let light_uniform_size =
-            std::mem::size_of::<LightCount>() + state.max_lights * std::mem::size_of::<LightRaw>();
 
+    let light_count = query.iter().iter().count();
+    let size = std::mem::size_of::<LightRaw>();
+    let light_count_size = std::mem::size_of::<LightCount>();
+    let light_array_size = size * light_count;
+    let light_array_max_size = size * state.max_lights;
+    let current_light_uniform_size = light_count_size + light_array_size;
+    let max_light_uniform_size = light_count_size + light_array_max_size;
+
+    if let Some(staging_buffer) = state.staging_buffer {
+        if light_count == 0 {
+            return;
+        }
+
+        render_resource_context.map_buffer(staging_buffer);
+    } else {
         let buffer = render_resource_context.create_buffer(BufferInfo {
-            size: light_uniform_size,
+            size: max_light_uniform_size,
             buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
             ..Default::default()
         });
@@ -105,74 +108,45 @@ pub fn lights_node_system(
             uniform::LIGHTS,
             RenderResourceBinding::Buffer {
                 buffer,
-                range: 0..light_uniform_size as u64,
+                range: 0..max_light_uniform_size as u64,
                 dynamic_index: None,
             },
         );
         state.light_buffer = Some(buffer);
+
+        let staging_buffer = render_resource_context.create_buffer(BufferInfo {
+            size: max_light_uniform_size,
+            buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+            mapped_at_creation: true,
+        });
+        state.staging_buffer = Some(staging_buffer);
     }
 
-    let light_count = query.iter().iter().count();
-
-    if light_count == 0 {
-        return;
-    }
-
-    state.lights_are_dirty = false;
-    let size = std::mem::size_of::<LightRaw>();
-    let total_size = size * light_count;
-    let light_count_size = std::mem::size_of::<LightCount>();
-
-    if let Some(old_tmp_light_buffer) = state.tmp_light_buffer {
-        render_resource_context.remove_buffer(old_tmp_light_buffer);
-    }
-
-    if let Some(old_tmp_count_buffer) = state.tmp_count_buffer {
-        render_resource_context.remove_buffer(old_tmp_count_buffer);
-    }
-
-    state.tmp_light_buffer = Some(render_resource_context.create_buffer_mapped(
-        BufferInfo {
-            size: total_size,
-            buffer_usage: BufferUsage::COPY_SRC,
-            ..Default::default()
-        },
+    let staging_buffer = state.staging_buffer.unwrap();
+    render_resource_context.write_mapped_buffer(
+        staging_buffer,
+        0..current_light_uniform_size as u64,
         &mut |data, _renderer| {
+            // light count
+            data[0..light_count_size].copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
+
+            // light array
             for ((light, transform, translation), slot) in
-                query.iter().iter().zip(data.chunks_exact_mut(size))
+                query.iter().iter().zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
             {
                 slot.copy_from_slice(
                     LightRaw::from(&light, &transform.value, &translation).as_bytes(),
                 );
             }
         },
-    ));
-    state.tmp_count_buffer = Some(render_resource_context.create_buffer_mapped(
-        BufferInfo {
-            size: light_count_size,
-            buffer_usage: BufferUsage::COPY_SRC,
-            ..Default::default()
-        },
-        &mut |data, _renderer| {
-            data.copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
-        },
-    ));
-    let tmp_count_buffer = state.tmp_count_buffer.unwrap();
+    );
+    render_resource_context.unmap_buffer(staging_buffer);
     let light_buffer = state.light_buffer.unwrap();
     state.command_queue.copy_buffer_to_buffer(
-        tmp_count_buffer,
+        staging_buffer,
         0,
         light_buffer,
         0,
-        light_count_size as u64,
-    );
-
-    let tmp_light_buffer = state.tmp_light_buffer.unwrap();
-    state.command_queue.copy_buffer_to_buffer(
-        tmp_light_buffer,
-        0,
-        light_buffer,
-        light_count_size as u64,
-        total_size as u64,
+        max_light_uniform_size as u64,
     );
 }

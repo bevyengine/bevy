@@ -9,6 +9,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::{Window, WindowId};
 use std::{
     collections::HashMap,
+    ops::Range,
     sync::{Arc, RwLock},
 };
 
@@ -52,15 +53,18 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         self.add_buffer_info(buffer, buffer_info);
         buffer
     }
-    fn create_buffer_mapped(
+    fn write_mapped_buffer(
         &self,
-        buffer_info: BufferInfo,
-        setup_data: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
-    ) -> BufferId {
-        let mut buffer = vec![0; buffer_info.size];
-        setup_data(&mut buffer, self);
-        BufferId::new()
+        id: BufferId,
+        _range: Range<u64>,
+        write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
+    ) {
+        let size = self.buffer_info.read().unwrap().get(&id).unwrap().size;
+        let mut buffer = vec![0; size];
+        write(&mut buffer, self);
     }
+    fn map_buffer(&self, _id: BufferId) {}
+    fn unmap_buffer(&self, _id: BufferId) {}
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, _data: &[u8]) -> BufferId {
         let buffer = BufferId::new();
         self.add_buffer_info(buffer, buffer_info);

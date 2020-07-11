@@ -39,7 +39,7 @@ pub struct WgpuBindGroupInfo {
 /// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
 pub struct WgpuResourcesReadLock<'a> {
-    pub buffers: RwLockReadGuard<'a, HashMap<BufferId, wgpu::Buffer>>,
+    pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
     pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
     pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
@@ -61,7 +61,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
 
 /// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
 pub struct WgpuResourceRefs<'a> {
-    pub buffers: &'a HashMap<BufferId, wgpu::Buffer>,
+    pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
     pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
@@ -75,7 +75,7 @@ pub struct WgpuResources {
     pub window_surfaces: Arc<RwLock<HashMap<WindowId, wgpu::Surface>>>,
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_frames: Arc<RwLock<HashMap<TextureId, wgpu::SwapChainFrame>>>,
-    pub buffers: Arc<RwLock<HashMap<BufferId, wgpu::Buffer>>>,
+    pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
     pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
     pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,

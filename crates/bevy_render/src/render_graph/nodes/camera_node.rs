@@ -51,6 +51,7 @@ impl SystemNode for CameraNode {
                 camera_name: self.camera_name.clone(),
                 command_queue: self.command_queue.clone(),
                 camera_buffer: None,
+                staging_buffer: None,
             },
         );
         system
@@ -62,6 +63,7 @@ pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
     camera_buffer: Option<BufferId>,
+    staging_buffer: Option<BufferId>,
 }
 
 pub fn camera_node_system(
@@ -74,27 +76,7 @@ pub fn camera_node_system(
     query: Query<(&Camera, &Transform)>,
 ) {
     let render_resource_context = &**render_resource_context;
-    state.camera_buffer = Some(match state.camera_buffer {
-        Some(buffer) => buffer,
-        None => {
-            let size = std::mem::size_of::<[[f32; 4]; 4]>();
-            let buffer = render_resource_context.create_buffer(BufferInfo {
-                size,
-                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                ..Default::default()
-            });
-            render_resource_bindings.set(
-                &state.camera_name,
-                RenderResourceBinding::Buffer {
-                    buffer,
-                    range: 0..size as u64,
-                    dynamic_index: None,
-                },
-            );
-            state.camera_buffer = Some(buffer);
-            buffer
-        }
-    });
+
     let (camera, transform) = if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
         (
             query.get::<Camera>(camera_entity).unwrap(),
@@ -104,24 +86,55 @@ pub fn camera_node_system(
         return;
     };
 
+    let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
+        render_resource_context.map_buffer(staging_buffer);
+        staging_buffer
+    } else {
+        let size = std::mem::size_of::<[[f32; 4]; 4]>();
+        let buffer = render_resource_context.create_buffer(BufferInfo {
+            size,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+        render_resource_bindings.set(
+            &state.camera_name,
+            RenderResourceBinding::Buffer {
+                buffer,
+                range: 0..size as u64,
+                dynamic_index: None,
+            },
+        );
+        state.camera_buffer = Some(buffer);
+
+        let staging_buffer = render_resource_context.create_buffer(BufferInfo {
+            size,
+            buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+            mapped_at_creation: true,
+        });
+
+        state.staging_buffer = Some(staging_buffer);
+        staging_buffer
+    };
+
     let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
     let camera_matrix: [f32; 16] =
         (camera.projection_matrix * transform.value.inverse()).to_cols_array();
 
-    let tmp_buffer = render_resource_context.create_buffer_mapped(
-        BufferInfo {
-            size: matrix_size,
-            buffer_usage: BufferUsage::COPY_SRC,
-            ..Default::default()
-        },
+    render_resource_context.write_mapped_buffer(
+        staging_buffer,
+        0..matrix_size as u64,
         &mut |data, _renderer| {
             data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
         },
     );
+    render_resource_context.unmap_buffer(staging_buffer);
 
     let camera_buffer = state.camera_buffer.unwrap();
-    state
-        .command_queue
-        .copy_buffer_to_buffer(tmp_buffer, 0, camera_buffer, 0, matrix_size as u64);
-    state.command_queue.free_buffer(tmp_buffer);
+    state.command_queue.copy_buffer_to_buffer(
+        staging_buffer,
+        0,
+        camera_buffer,
+        0,
+        matrix_size as u64,
+    );
 }
