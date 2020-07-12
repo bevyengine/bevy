@@ -1,7 +1,7 @@
 use crate::{
     resource_query::{FetchResource, ResourceQuery, UnsafeClone},
     system::{System, SystemId, ThreadLocalExecution},
-    Commands, Resources,
+    Commands, Resources, Res,
 };
 use core::marker::PhantomData;
 use hecs::{
@@ -83,10 +83,14 @@ macro_rules! impl_into_foreach_system {
                     name: core::any::type_name::<Self>().into(),
                     id,
                     func: move |commands, world, resources| {
-                        let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
-                        for ($($component,)*) in world.query::<($($component,)*)>().iter() {
-                            fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($component),*))
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
+                        {
+                            let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
+                            for ($($component,)*) in world.query::<($($component,)*)>().iter() {
+                                fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($component),*))
+                            }
                         }
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
                     },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
@@ -146,13 +150,17 @@ macro_rules! impl_into_query_system {
                     id,
                     name: core::any::type_name::<Self>().into(),
                     func: move |commands, world, resources| {
-                        let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
-                        $(let $query = Query::<$query> {
-                            world,
-                            _marker: PhantomData::default(),
-                        };)*
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
+                        {
+                            let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
+                            $(let $query = Query::<$query> {
+                                world,
+                                _marker: PhantomData::default(),
+                            };)*
 
-                        fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
+                            fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
+                        }
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
                     },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
