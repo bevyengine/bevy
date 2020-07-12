@@ -599,7 +599,9 @@ fn asset_render_resources_node_system<T: RenderResources>(
     state
         .uniform_buffer_arrays
         .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
-    state.uniform_buffer_arrays.update_staging_buffer(render_resource_context);
+    state
+        .uniform_buffer_arrays
+        .update_staging_buffer(render_resource_context);
 
     for asset_handle in modified_assets.iter() {
         let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);

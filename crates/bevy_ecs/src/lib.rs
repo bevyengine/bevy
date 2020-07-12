@@ -4,7 +4,7 @@ mod commands;
 mod into_system;
 #[cfg(feature = "profiler")]
 pub mod profiler;
-mod resource_query;
+pub mod resource_query;
 mod resources;
 mod schedule;
 mod system;

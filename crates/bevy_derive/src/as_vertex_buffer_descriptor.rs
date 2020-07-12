@@ -1,10 +1,10 @@
-use crate::{
-    modules::{get_modules, get_path},
-};
+use crate::modules::{get_modules, get_path};
 use inflector::Inflector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, Path, Data, DataStruct, Fields, Field, parse::ParseStream};
+use syn::{
+    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
+};
 
 #[derive(Default)]
 struct VertexAttributes {
@@ -31,22 +31,29 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
         .map(|field| {
             (
                 field,
-                field.attrs
+                field
+                    .attrs
                     .iter()
-                    .find(|a| a.path.get_ident().as_ref().unwrap().to_string() == VERTEX_ATTRIBUTE_NAME)
-                    .map_or_else(|| VertexAttributes::default() ,|a| {
-                        syn::custom_keyword!(ignore);
-                        let mut vertex_attributes = VertexAttributes::default();
-                        a.parse_args_with(|input: ParseStream| {
-                            if let Some(_) = input.parse::<Option<ignore>>()? {
-                                vertex_attributes.ignore = true;
-                                return Ok(());
-                            }
-                            Ok(())
-                        }).expect("invalid 'vertex' attribute format");
+                    .find(|a| {
+                        a.path.get_ident().as_ref().unwrap().to_string() == VERTEX_ATTRIBUTE_NAME
+                    })
+                    .map_or_else(
+                        || VertexAttributes::default(),
+                        |a| {
+                            syn::custom_keyword!(ignore);
+                            let mut vertex_attributes = VertexAttributes::default();
+                            a.parse_args_with(|input: ParseStream| {
+                                if let Some(_) = input.parse::<Option<ignore>>()? {
+                                    vertex_attributes.ignore = true;
+                                    return Ok(());
+                                }
+                                Ok(())
+                            })
+                            .expect("invalid 'vertex' attribute format");
 
-                        vertex_attributes
-                    }),
+                            vertex_attributes
+                        },
+                    ),
             )
         })
         .collect::<Vec<(&Field, VertexAttributes)>>();

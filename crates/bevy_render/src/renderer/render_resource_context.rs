@@ -24,14 +24,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         range: Range<u64>,
         write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     );
-    fn map_buffer(
-        &self,
-        id: BufferId,
-    );
-    fn unmap_buffer(
-        &self,
-        id: BufferId,
-    );
+    fn map_buffer(&self, id: BufferId);
+    fn unmap_buffer(&self, id: BufferId);
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
     fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>);
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader);

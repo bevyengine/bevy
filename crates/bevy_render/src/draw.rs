@@ -11,7 +11,10 @@ use crate::{
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Archetype, FetchResource, Query, Res, ResMut, ResourceQuery, Resources, SystemId};
+use bevy_ecs::{
+    resource_query::UnsafeClone, Archetype, FetchResource, Query, Res, ResMut, ResourceQuery,
+    Resources, SystemId,
+};
 use bevy_property::Properties;
 use std::{any::TypeId, collections::HashMap, ops::Range, sync::Arc};
 use thiserror::Error;
@@ -115,7 +118,6 @@ pub enum DrawError {
     BufferAllocationFailure,
 }
 
-#[derive(Clone)]
 pub struct DrawContext<'a> {
     pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
@@ -124,6 +126,20 @@ pub struct DrawContext<'a> {
     pub vertex_buffer_descriptors: Res<'a, VertexBufferDescriptors>,
     pub shared_buffers: Res<'a, SharedBuffers>,
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
+}
+
+impl<'a> UnsafeClone for DrawContext<'a> {
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self {
+            pipelines: self.pipelines.unsafe_clone(),
+            shaders: self.shaders.unsafe_clone(),
+            pipeline_compiler: self.pipeline_compiler.unsafe_clone(),
+            render_resource_context: self.render_resource_context.unsafe_clone(),
+            vertex_buffer_descriptors: self.vertex_buffer_descriptors.unsafe_clone(),
+            shared_buffers: self.shared_buffers.unsafe_clone(),
+            current_pipeline: self.current_pipeline.clone(),
+        }
+    }
 }
 
 impl<'a> ResourceQuery for DrawContext<'a> {

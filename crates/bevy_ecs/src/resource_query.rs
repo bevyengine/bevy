@@ -26,9 +26,13 @@ impl<'a, T: Component> Res<'a, T> {
     }
 }
 
+pub trait UnsafeClone {
+    unsafe fn unsafe_clone(&self) -> Self;
+}
+
 // TODO: this is unsafe. lets think of a better solution that allows us to clone internally
-impl<'a, T: Component> Clone for ResMut<'a, T> {
-    fn clone(&self) -> Self {
+impl<'a, T: Component> UnsafeClone for ResMut<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
         Self {
             archetype: self.archetype,
             target: self.target,
@@ -36,8 +40,8 @@ impl<'a, T: Component> Clone for ResMut<'a, T> {
     }
 }
 
-impl<'a, T: Component> Clone for Res<'a, T> {
-    fn clone(&self) -> Self {
+impl<'a, T: Component> UnsafeClone for Res<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
         Self {
             archetype: self.archetype,
             target: self.target,
@@ -110,9 +114,8 @@ impl<'a, T: Component + FromResources> Local<'a, T> {
     }
 }
 
-// TODO: this is unsafe. lets think of a better solution that allows us to clone internally
-impl<'a, T: Component + FromResources> Clone for Local<'a, T> {
-    fn clone(&self) -> Self {
+impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
         Self {
             archetype: self.archetype,
             target: self.target,
@@ -143,7 +146,7 @@ pub trait ResourceQuery {
 /// Streaming iterators over contiguous homogeneous ranges of components
 pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
-    type Item: Clone;
+    type Item: UnsafeClone;
 
     fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>);
     fn release(resource_archetypes: &HashMap<TypeId, Archetype>);
@@ -274,6 +277,15 @@ macro_rules! tuple_impl {
             #[allow(unused_variables)]
             fn initialize(resources: &mut Resources, system_id: Option<SystemId>) {
                 $($name::initialize(resources, system_id);)*
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<$($name: UnsafeClone),*> UnsafeClone for ($($name,)*) {
+            unsafe fn unsafe_clone(&self) -> Self {
+                let ($($name,)*) = self;
+                ($($name.unsafe_clone(),)*)
             }
         }
     };

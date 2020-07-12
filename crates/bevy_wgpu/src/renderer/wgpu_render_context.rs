@@ -228,7 +228,13 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
 
     wgpu::RenderPassDepthStencilAttachmentDescriptor {
         attachment,
-        depth_ops: depth_stencil_attachment_descriptor.depth_ops.as_ref().map(|ops| ops.wgpu_into()),
-        stencil_ops: depth_stencil_attachment_descriptor.stencil_ops.as_ref().map(|ops| ops.wgpu_into()),
+        depth_ops: depth_stencil_attachment_descriptor
+            .depth_ops
+            .as_ref()
+            .map(|ops| ops.wgpu_into()),
+        stencil_ops: depth_stencil_attachment_descriptor
+            .stencil_ops
+            .as_ref()
+            .map(|ops| ops.wgpu_into()),
     }
 }

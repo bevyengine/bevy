@@ -1,5 +1,5 @@
 use crate::{
-    resource_query::{FetchResource, ResourceQuery},
+    resource_query::{FetchResource, ResourceQuery, UnsafeClone},
     system::{System, SystemId, ThreadLocalExecution},
     Commands, Resources,
 };
@@ -74,6 +74,7 @@ macro_rules! impl_into_foreach_system {
         {
             #[allow(non_snake_case)]
             #[allow(unused_variables)]
+            #[allow(unused_unsafe)]
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
                 Box::new(SystemFn {
@@ -136,6 +137,7 @@ macro_rules! impl_into_query_system {
         {
             #[allow(non_snake_case)]
             #[allow(unused_variables)]
+            #[allow(unused_unsafe)]
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
                 Box::new(SystemFn {
@@ -163,10 +165,10 @@ macro_rules! impl_into_query_system {
 
 macro_rules! fn_call {
     ($self:ident, ($($commands: ident, $commands_var: ident)*), ($($resource: ident),*), ($($a: ident),*)) => {
-        $self($($commands_var.clone(),)* $($resource.clone(),)* $($a,)*)
+        unsafe { $self($($commands_var.clone(),)* $($resource.unsafe_clone(),)* $($a,)*) }
     };
     ($self:ident, (), ($($resource: ident),*), ($($a: ident),*)) => {
-        $self($($resource.clone(),)* $($a,)*)
+        unsafe { $self($($resource.unsafe_clone(),)* $($a,)*) }
     };
 }
 

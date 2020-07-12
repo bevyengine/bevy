@@ -131,8 +131,10 @@ pub fn lights_node_system(
             data[0..light_count_size].copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
 
             // light array
-            for ((light, transform, translation), slot) in
-                query.iter().iter().zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
+            for ((light, transform, translation), slot) in query
+                .iter()
+                .iter()
+                .zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
             {
                 slot.copy_from_slice(
                     LightRaw::from(&light, &transform.value, &translation).as_bytes(),
