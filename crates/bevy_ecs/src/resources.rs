@@ -140,7 +140,7 @@ impl Resources {
         let archetype = self
             .resource_archetypes
             .get(&TypeId::of::<T>())
-            .expect("Resource does not exist");
+            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()));
         Res::new(archetype, 0).expect("Resource does not exist")
     }
 
@@ -149,7 +149,7 @@ impl Resources {
         let archetype = self
             .resource_archetypes
             .get(&TypeId::of::<T>())
-            .expect("Resource does not exist");
+            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()));
         ResMut::new(archetype, 0).expect("Resource does not exist")
     }
 }
