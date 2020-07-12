@@ -2,14 +2,14 @@
 
 ## Adapted Code
 
-* legion
+* hecs
 * legion_transform
 * wgpu-rs examples
 
 ## Inspiration
 
-* amethyst
-* coffee
+* game engines: amethyst, coffee
+* ecs: legion, shipyard, yaks 
 
 ## Assets
 
