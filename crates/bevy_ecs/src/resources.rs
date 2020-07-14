@@ -57,10 +57,11 @@ impl Resources {
         if let Some(index) = self.system_id_to_archetype_index.get(&id.0).cloned() {
             self.insert_index(resource, index);
         } else {
-            let index = self.archetype_len::<T>();
+            let mut index = self.archetype_len::<T>();
             // index 0 is reserved for the global non-system resource
             if index == 0 {
                 self.allocate_next::<T>();
+                index += 1;
             }
             self.insert_index(resource, index);
             self.system_id_to_archetype_index.insert(id.0, index);
