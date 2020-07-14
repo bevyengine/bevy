@@ -1,16 +1,16 @@
-use crate::{system::ThreadLocalExecution, Resources, Schedule, System};
+use crate::{system::{ArchetypeAccess, ThreadLocalExecution}, Resources, Schedule, System};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use hecs::{Access, Query, World};
+use hecs::{World};
 use rayon::ScopeFifo;
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
-pub struct Executor {
+pub struct ParallelExecutor {
     stages: Vec<ExecutorStage>,
 }
 
-impl Executor {
+impl ParallelExecutor {
     pub fn prepare(&mut self, schedule: &mut Schedule, world: &World) {
         // TODO: if world archetype generation hasnt changed, dont update here
 
@@ -27,6 +27,7 @@ impl Executor {
     }
 
     pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+        self.prepare(schedule, world);
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {
             if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
@@ -265,49 +266,9 @@ impl ExecutorStage {
     }
 }
 
-// credit to Ratysz from the Yaks codebase
-#[derive(Default)]
-pub struct ArchetypeAccess {
-    pub immutable: FixedBitSet,
-    pub mutable: FixedBitSet,
-}
-
-impl ArchetypeAccess {
-    pub fn is_compatible(&self, other: &ArchetypeAccess) -> bool {
-        self.mutable.is_disjoint(&other.mutable)
-            && self.mutable.is_disjoint(&other.immutable)
-            && self.immutable.is_disjoint(&other.mutable)
-    }
-
-    pub fn union(&mut self, other: &ArchetypeAccess) {
-        self.mutable.union_with(&other.mutable);
-        self.immutable.union_with(&other.immutable);
-    }
-
-    pub fn set_access_for_query<Q>(&mut self, world: &World)
-    where
-        Q: Query,
-    {
-        self.immutable.clear();
-        self.mutable.clear();
-        let iterator = world.archetypes();
-        let bits = iterator.len();
-        self.immutable.grow(bits);
-        self.mutable.grow(bits);
-        iterator
-            .enumerate()
-            .filter_map(|(index, archetype)| archetype.access::<Q>().map(|access| (index, access)))
-            .for_each(|(archetype, access)| match access {
-                Access::Read => self.immutable.set(archetype, true),
-                Access::Write => self.mutable.set(archetype, true),
-                Access::Iterate => (),
-            });
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::Executor;
+    use super::ParallelExecutor;
     use crate::{IntoQuerySystem, IntoThreadLocalSystem, Query, Res, Resources, Schedule, World};
     use fixedbitset::FixedBitSet;
     use std::sync::{Arc, Mutex};
@@ -403,14 +364,14 @@ mod tests {
         schedule.add_system_to_stage("B", thread_local_system.thread_local_system());
         schedule.add_system_to_stage("B", write_f32.system());
 
-        let mut executor = Executor::default();
+        let mut executor = ParallelExecutor::default();
         run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
         // run again (with counter reset) to ensure executor works correctly across runs
         *resources.get::<Counter>().unwrap().count.lock().unwrap() = 0;
         run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
     }
 
-    fn run_executor_and_validate(executor: &mut Executor, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+    fn run_executor_and_validate(executor: &mut ParallelExecutor, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
         executor.prepare(schedule, world);
 
         assert_eq!(

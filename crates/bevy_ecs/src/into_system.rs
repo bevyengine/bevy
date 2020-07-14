@@ -1,7 +1,6 @@
 use crate::{
-    executor::ArchetypeAccess,
     resource_query::{FetchResource, ResourceQuery, UnsafeClone},
-    system::{System, SystemId, ThreadLocalExecution},
+    system::{ArchetypeAccess, System, SystemId, ThreadLocalExecution},
     Commands, Resources,
 };
 use core::marker::PhantomData;
@@ -27,7 +26,8 @@ where
     pub set_archetype_access: SetArchetypeAccess,
 }
 
-impl<F, ThreadLocalF, Init, SetArchetypeAccess> System for SystemFn<F, ThreadLocalF, Init, SetArchetypeAccess>
+impl<F, ThreadLocalF, Init, SetArchetypeAccess> System
+    for SystemFn<F, ThreadLocalF, Init, SetArchetypeAccess>
 where
     F: FnMut(&World, &Resources) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources) + Send + Sync,
@@ -294,7 +294,10 @@ pub trait IntoThreadLocalSystem {
     fn thread_local_system(self) -> Box<dyn System>;
 }
 
-impl<F> IntoThreadLocalSystem for F where F: ThreadLocalSystemFn {
+impl<F> IntoThreadLocalSystem for F
+where
+    F: ThreadLocalSystemFn,
+{
     fn thread_local_system(mut self) -> Box<dyn System> {
         Box::new(SystemFn {
             thread_local_func: move |world, resources| {
