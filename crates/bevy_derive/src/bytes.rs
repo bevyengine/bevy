@@ -13,7 +13,7 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
-    let modules = get_modules();
+    let modules = get_modules(&ast.attrs);
     let bevy_core_path = get_path(&modules.bevy_core);
 
     let fields = fields

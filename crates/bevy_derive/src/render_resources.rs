@@ -20,7 +20,7 @@ static RENDER_RESOURCE_ATTRIBUTE_NAME: &'static str = "render_resources";
 
 pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules();
+    let modules = get_modules(&ast.attrs);
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
     let attributes = ast

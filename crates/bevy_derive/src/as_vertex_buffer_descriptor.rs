@@ -16,7 +16,7 @@ static VERTEX_ATTRIBUTE_NAME: &'static str = "vertex";
 
 pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let modules = get_modules();
+    let modules = get_modules(&ast.attrs);
 
     let bevy_render_path: Path = get_path(&modules.bevy_render);
     let fields = match &ast.data {
