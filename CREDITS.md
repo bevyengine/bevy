@@ -5,6 +5,7 @@
 * hecs
 * legion_transform
 * wgpu-rs examples
+* yaks: ArchetypeSet, borrowed some ideas from their scheduler implementation 
 
 ## Inspiration
 

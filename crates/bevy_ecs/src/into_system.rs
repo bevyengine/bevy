@@ -1,7 +1,7 @@
 use crate::{
     resource_query::{FetchResource, ResourceQuery, UnsafeClone},
     system::{System, SystemId, ThreadLocalExecution},
-    Commands, Resources, Res,
+    Commands, Resources, executor::ArchetypeAccess,
 };
 use core::marker::PhantomData;
 use hecs::{
@@ -9,10 +9,11 @@ use hecs::{
 };
 use std::borrow::Cow;
 
-pub struct SystemFn<F, Init>
+pub struct SystemFn<F, Init, SetArchetypeAccess>
 where
     F: FnMut(Commands, &World, &Resources) + Send + Sync,
     Init: FnMut(&mut Resources) + Send + Sync,
+    SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess) + Send + Sync,
 {
     pub func: F,
     pub init_func: Init,
@@ -20,16 +21,27 @@ where
     pub thread_local_execution: ThreadLocalExecution,
     pub name: Cow<'static, str>,
     pub id: SystemId,
+    pub archetype_access: ArchetypeAccess,
+    pub set_archetype_access: SetArchetypeAccess,
     // TODO: add dependency info here
 }
 
-impl<F, Init> System for SystemFn<F, Init>
+impl<F, Init, SetArchetypeAccess> System for SystemFn<F, Init, SetArchetypeAccess>
 where
     F: FnMut(Commands, &World, &Resources) + Send + Sync,
     Init: FnMut(&mut Resources) + Send + Sync,
+    SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess) + Send + Sync,
 {
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
+    }
+
+    fn update_archetype_access(&mut self, world: &World) {
+        (self.set_archetype_access)(world, &mut self.archetype_access);
+    }
+
+    fn get_archetype_access(&self) -> Option<&ArchetypeAccess> {
+        Some(&self.archetype_access)
     }
 
     fn thread_local_execution(&self) -> ThreadLocalExecution {
@@ -94,6 +106,12 @@ macro_rules! impl_into_foreach_system {
                     },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
+                    },
+                    archetype_access: ArchetypeAccess::default(),
+                    set_archetype_access: |world, archetype_access| {
+                        for archetype in world.archetypes() {
+                           archetype_access.set_bits_for_query::<($($component,)*)>(world);
+                        }
                     },
                 })
             }
@@ -164,6 +182,12 @@ macro_rules! impl_into_query_system {
                     },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
+                    },
+                    archetype_access: ArchetypeAccess::default(),
+                    set_archetype_access: |world, archetype_access| {
+                        for archetype in world.archetypes() {
+                           $(archetype_access.set_bits_for_query::<$query>(world);)* 
+                        }
                     },
                 })
             }
@@ -310,5 +334,10 @@ where
     }
     fn id(&self) -> SystemId {
         self.id
+    }
+    fn update_archetype_access(&mut self, _world: &World) {
+    }
+    fn get_archetype_access(&self) -> Option<&ArchetypeAccess> {
+        None
     }
 }

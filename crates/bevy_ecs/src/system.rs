@@ -1,4 +1,4 @@
-use crate::{Resources, World};
+use crate::{Resources, World, executor::ArchetypeAccess};
 use std::borrow::Cow;
 
 #[derive(Copy, Clone)]
@@ -19,6 +19,8 @@ impl SystemId {
 pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
+    fn update_archetype_access(&mut self, world: &World);
+    fn get_archetype_access(&self) -> Option<&ArchetypeAccess>;
     fn thread_local_execution(&self) -> ThreadLocalExecution;
     fn run(&mut self, world: &World, resources: &Resources);
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);

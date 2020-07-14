@@ -2,17 +2,16 @@ use crate::{
     system::{System, ThreadLocalExecution},
     Resources, SystemId, World,
 };
-use rayon::prelude::*;
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet}, sync::{Mutex, Arc},
 };
 
 #[derive(Default)]
 pub struct Schedule {
-    stages: HashMap<Cow<'static, str>, Vec<Box<dyn System>>>,
-    stage_order: Vec<Cow<'static, str>>,
-    system_ids: HashSet<SystemId>,
+    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Arc<Mutex<Box<dyn System>>>>>,
+    pub(crate) stage_order: Vec<Cow<'static, str>>,
+    pub(crate) system_ids: HashSet<SystemId>,
     is_dirty: bool,
 }
 
@@ -91,7 +90,7 @@ impl Schedule {
             );
         }
         self.system_ids.insert(system.id());
-        systems.push(system);
+        systems.push(Arc::new(Mutex::new(system)));
 
         self.is_dirty = true;
         self
@@ -103,6 +102,7 @@ impl Schedule {
                 for system in stage_systems.iter_mut() {
                     #[cfg(feature = "profiler")]
                     crate::profiler::profiler_start(resources, system.name().clone());
+                    let mut system = system.lock().unwrap();
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => system.run(world, resources),
                         ThreadLocalExecution::Immediate => {
@@ -118,40 +118,12 @@ impl Schedule {
                 // "flush"
                 // NOTE: when this is made parallel a full sync is required here
                 for system in stage_systems.iter_mut() {
+                    let mut system = system.lock().unwrap();
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => {
                             system.run_thread_local(world, resources)
                         }
                         ThreadLocalExecution::Immediate => { /* already ran immediate */ }
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn dumb_par_run(&mut self, world: &mut World, resources: &mut Resources) {
-        for stage_name in self.stage_order.iter() {
-            if let Some(stage_systems) = self.stages.get_mut(stage_name) {
-                stage_systems.par_iter_mut().for_each(|system| {
-                    match system.thread_local_execution() {
-                        ThreadLocalExecution::NextFlush => system.run(world, resources),
-                        ThreadLocalExecution::Immediate => {
-                            system.run(world, resources);
-                        }
-                    }
-                });
-
-                // "flush"
-                // NOTE: when this is made parallel a full sync is required here
-                for system in stage_systems.iter_mut() {
-                    match system.thread_local_execution() {
-                        ThreadLocalExecution::NextFlush => {
-                            system.run_thread_local(world, resources)
-                        }
-                        ThreadLocalExecution::Immediate => {
-                            // TODO: this should happen immediately after thread local systems
-                            system.run_thread_local(world, resources)
-                        }
                     }
                 }
             }
@@ -165,6 +137,7 @@ impl Schedule {
 
         for stage in self.stages.values_mut() {
             for system in stage.iter_mut() {
+                let mut system = system.lock().unwrap();
                 system.initialize(resources);
             }
         }
@@ -172,25 +145,3 @@ impl Schedule {
         self.is_dirty = false;
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use crate::{Resources, Schedule, World};
-//     use crate::{IntoForEachSystem, IntoQuerySystem};
-
-//     #[test]
-//     fn schedule() {
-//         let mut world = World::new();
-//         let mut resources = Resources::default();
-
-//         world.spawn((1u32, 2u64));
-
-//         let mut schedule = Schedule::default();
-//         schedule.add_stage("A");
-//         schedule.add_stage("B");
-
-//         let xy_system = (|_x: &u32, _y: &mut u64| {
-
-//         }).system();
-//     }
-// }
