@@ -296,7 +296,7 @@ impl Commands {
         self
     }
 
-    pub fn apply(self, world: &mut World, resources: &mut Resources) {
+    pub fn apply(&self, world: &mut World, resources: &mut Resources) {
         let mut commands = self.commands.lock().unwrap();
         for command in commands.commands.drain(..) {
             match command {

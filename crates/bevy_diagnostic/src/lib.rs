@@ -20,10 +20,10 @@ impl AppPlugin for DiagnosticsPlugin {
         #[cfg(feature = "profiler")]
         {
             use bevy_ecs::IntoQuerySystem;
-            app.add_resource_ecs::<Box<dyn bevy_ecs::profiler::Profiler>>(Box::new(
+            app.add_resource::<Box<dyn bevy_ecs::profiler::Profiler>>(Box::new(
                 system_profiler::SystemProfiler::default(),
             ))
-            .add_system_to_stage_ecs(
+            .add_system_to_stage(
                 bevy_app::stage::LAST,
                 system_profiler::profiler_diagnostic_system.system(),
             );

@@ -11,7 +11,7 @@ pub use crate::{
     diagnostic::DiagnosticsPlugin,
     ecs::{
         Bundle, Commands, Component, Entity, FromResources, IntoForEachSystem, IntoQuerySystem,
-        Local, Query, Ref, RefMut, Res, ResMut, Resource, Resources, System, ThreadLocalSystem,
+        IntoThreadLocalSystem, Local, Query, Ref, RefMut, Res, ResMut, Resource, Resources, System,
         World, WorldBuilderSource,
     },
     input::{keyboard::KeyCode, mouse::MouseButton, Input},

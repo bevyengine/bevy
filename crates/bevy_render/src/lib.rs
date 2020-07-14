@@ -34,7 +34,7 @@ use self::{
 use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
-use bevy_ecs::{IntoQuerySystem, ThreadLocalSystem};
+use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
 use bevy_type_registry::RegisterType;
 use draw::{clear_draw_system, Draw};
 use mesh::mesh_resource_provider_system;
@@ -124,7 +124,7 @@ impl AppPlugin for RenderPlugin {
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
-                ThreadLocalSystem::new(render_graph_schedule_executor_system),
+                render_graph_schedule_executor_system.thread_local_system(),
             )
             .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system())
             .add_system_to_stage(stage::POST_RENDER, clear_shader_defs_system.system());

@@ -256,7 +256,7 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(ThreadLocalSystem::new(startup_system))
+        .add_startup_system(startup_system.thread_local_system())
         // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
         //

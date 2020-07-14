@@ -1,7 +1,8 @@
 use crate::{
+    executor::ArchetypeAccess,
     resource_query::{FetchResource, ResourceQuery, UnsafeClone},
     system::{System, SystemId, ThreadLocalExecution},
-    Commands, Resources, executor::ArchetypeAccess,
+    Commands, Resources,
 };
 use core::marker::PhantomData;
 use hecs::{
@@ -9,26 +10,27 @@ use hecs::{
 };
 use std::borrow::Cow;
 
-pub struct SystemFn<F, Init, SetArchetypeAccess>
+pub struct SystemFn<F, ThreadLocalF, Init, SetArchetypeAccess>
 where
-    F: FnMut(Commands, &World, &Resources) + Send + Sync,
+    F: FnMut(&World, &Resources) + Send + Sync,
+    ThreadLocalF: FnMut(&mut World, &mut Resources) + Send + Sync,
     Init: FnMut(&mut Resources) + Send + Sync,
     SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess) + Send + Sync,
 {
     pub func: F,
+    pub thread_local_func: ThreadLocalF,
     pub init_func: Init,
-    pub commands: Commands,
     pub thread_local_execution: ThreadLocalExecution,
     pub name: Cow<'static, str>,
     pub id: SystemId,
     pub archetype_access: ArchetypeAccess,
     pub set_archetype_access: SetArchetypeAccess,
-    // TODO: add dependency info here
 }
 
-impl<F, Init, SetArchetypeAccess> System for SystemFn<F, Init, SetArchetypeAccess>
+impl<F, ThreadLocalF, Init, SetArchetypeAccess> System for SystemFn<F, ThreadLocalF, Init, SetArchetypeAccess>
 where
-    F: FnMut(Commands, &World, &Resources) + Send + Sync,
+    F: FnMut(&World, &Resources) + Send + Sync,
+    ThreadLocalF: FnMut(&mut World, &mut Resources) + Send + Sync,
     Init: FnMut(&mut Resources) + Send + Sync,
     SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess) + Send + Sync,
 {
@@ -40,8 +42,8 @@ where
         (self.set_archetype_access)(world, &mut self.archetype_access);
     }
 
-    fn get_archetype_access(&self) -> Option<&ArchetypeAccess> {
-        Some(&self.archetype_access)
+    fn get_archetype_access(&self) -> &ArchetypeAccess {
+        &self.archetype_access
     }
 
     fn thread_local_execution(&self) -> ThreadLocalExecution {
@@ -49,12 +51,11 @@ where
     }
 
     fn run(&mut self, world: &World, resources: &Resources) {
-        (self.func)(self.commands.clone(), world, resources);
+        (self.func)(world, resources);
     }
 
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
-        let commands = core::mem::replace(&mut self.commands, Commands::default());
-        commands.apply(world, resources);
+        (self.thread_local_func)(world, resources);
     }
 
     fn initialize(&mut self, resources: &mut Resources) {
@@ -89,12 +90,13 @@ macro_rules! impl_into_foreach_system {
             #[allow(unused_unsafe)]
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
+                let commands = Commands::default();
+                let thread_local_commands = commands.clone();
                 Box::new(SystemFn {
-                    commands: Commands::default(),
                     thread_local_execution: ThreadLocalExecution::NextFlush,
                     name: core::any::type_name::<Self>().into(),
                     id,
-                    func: move |commands, world, resources| {
+                    func: move |world, resources| {
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
                         {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
@@ -104,13 +106,16 @@ macro_rules! impl_into_foreach_system {
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
                     },
+                    thread_local_func: move |world, resources| {
+                        thread_local_commands.apply(world, resources);
+                    },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
                     },
                     archetype_access: ArchetypeAccess::default(),
                     set_archetype_access: |world, archetype_access| {
                         for archetype in world.archetypes() {
-                           archetype_access.set_bits_for_query::<($($component,)*)>(world);
+                           archetype_access.set_access_for_query::<($($component,)*)>(world);
                         }
                     },
                 })
@@ -162,12 +167,13 @@ macro_rules! impl_into_query_system {
             #[allow(unused_unsafe)]
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
+                let commands = Commands::default();
+                let thread_local_commands = commands.clone();
                 Box::new(SystemFn {
-                    commands: Commands::default(),
                     thread_local_execution: ThreadLocalExecution::NextFlush,
                     id,
                     name: core::any::type_name::<Self>().into(),
-                    func: move |commands, world, resources| {
+                    func: move |world, resources| {
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
                         {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
@@ -180,13 +186,16 @@ macro_rules! impl_into_query_system {
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
                     },
+                    thread_local_func: move |world, resources| {
+                        thread_local_commands.apply(world, resources);
+                    },
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
                     },
                     archetype_access: ArchetypeAccess::default(),
                     set_archetype_access: |world, archetype_access| {
                         for archetype in world.archetypes() {
-                           $(archetype_access.set_bits_for_query::<$query>(world);)* 
+                           $(archetype_access.set_access_for_query::<$query>(world);)*
                         }
                     },
                 })
@@ -281,27 +290,27 @@ impl_into_systems!(Ra,Rb,Rc,Rd,Re,Rf,Rg,Rh,Ri);
 #[rustfmt::skip]
 impl_into_systems!(Ra,Rb,Rc,Rd,Re,Rf,Rg,Rh,Ri,Rj);
 
-pub struct ThreadLocalSystem<F>
-where
-    F: ThreadLocalSystemFn,
-{
-    func: F,
-    name: Cow<'static, str>,
-    id: SystemId,
-    // TODO: add dependency info here
+pub trait IntoThreadLocalSystem {
+    fn thread_local_system(self) -> Box<dyn System>;
 }
-impl<F> ThreadLocalSystem<F>
-where
-    F: ThreadLocalSystemFn,
-{
-    pub fn new(func: F) -> Box<dyn System> {
-        Box::new(Self {
-            func,
+
+impl<F> IntoThreadLocalSystem for F where F: ThreadLocalSystemFn {
+    fn thread_local_system(mut self) -> Box<dyn System> {
+        Box::new(SystemFn {
+            thread_local_func: move |world, resources| {
+                self.run(world, resources);
+            },
+            func: |_, _| {},
+            init_func: |_| {},
+            set_archetype_access: |_, _| {},
+            thread_local_execution: ThreadLocalExecution::Immediate,
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
+            archetype_access: ArchetypeAccess::default(),
         })
     }
 }
+
 pub trait ThreadLocalSystemFn: Send + Sync + 'static {
     fn run(&mut self, world: &mut World, resource: &mut Resources);
 }
@@ -312,32 +321,5 @@ where
 {
     fn run(&mut self, world: &mut World, resources: &mut Resources) {
         self(world, resources);
-    }
-}
-
-impl<F> System for ThreadLocalSystem<F>
-where
-    F: ThreadLocalSystemFn + Send + Sync,
-{
-    fn name(&self) -> Cow<'static, str> {
-        self.name.clone()
-    }
-
-    fn thread_local_execution(&self) -> ThreadLocalExecution {
-        ThreadLocalExecution::Immediate
-    }
-
-    fn run(&mut self, _world: &World, _resources: &Resources) {}
-
-    fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
-        self.func.run(world, resources);
-    }
-    fn id(&self) -> SystemId {
-        self.id
-    }
-    fn update_archetype_access(&mut self, _world: &World) {
-    }
-    fn get_archetype_access(&self) -> Option<&ArchetypeAccess> {
-        None
     }
 }
