@@ -106,6 +106,7 @@ impl Archetype {
     }
 
     #[allow(missing_docs)]
+    #[inline]
     pub fn get<T: Component>(&self) -> Option<NonNull<T>> {
         let state = self.state.get(&TypeId::of::<T>())?;
         Some(unsafe {

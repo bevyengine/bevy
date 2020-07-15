@@ -53,6 +53,7 @@ where
         self.thread_local_execution
     }
 
+    #[inline]
     fn run(&mut self, world: &World, resources: &Resources) {
         (self.func)(world, resources, &self.archetype_access, &mut self.state);
     }
@@ -102,9 +103,8 @@ macro_rules! impl_into_foreach_system {
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
                         {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
-                            let commands = state.clone();
                             for ($($component,)*) in world.query::<($($component,)*)>().iter() {
-                                fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($component),*))
+                                fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
                             }
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
@@ -242,7 +242,7 @@ macro_rules! impl_into_query_system {
                                 i += 1;
                             )*
 
-                            let commands = state.commands.clone();
+                            let commands = &state.commands;
                             fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);

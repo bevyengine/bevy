@@ -72,9 +72,11 @@ impl Query for Entity {
 
 impl<'a> Fetch<'a> for EntityFetch {
     type Item = Entity;
+    #[inline]
     fn access(_archetype: &Archetype) -> Option<Access> {
         Some(Access::Iterate)
     }
+    #[inline]
     fn borrow(_archetype: &Archetype) {}
     #[inline]
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
@@ -82,6 +84,7 @@ impl<'a> Fetch<'a> for EntityFetch {
             archetype.entities().as_ptr().add(offset),
         )))
     }
+    #[inline]
     fn release(_archetype: &Archetype) {}
 
     #[inline]
@@ -152,7 +155,6 @@ impl<'a, T: Component> Fetch<'a> for FetchWrite<T> {
     fn borrow(archetype: &Archetype) {
         archetype.borrow_mut::<T>();
     }
-    #[inline]
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
             .get::<T>()
@@ -162,7 +164,6 @@ impl<'a, T: Component> Fetch<'a> for FetchWrite<T> {
         archetype.release_mut::<T>();
     }
 
-    #[inline]
     unsafe fn next(&mut self) -> &'a mut T {
         let x = self.0.as_ptr();
         self.0 = NonNull::new_unchecked(x.add(1));
@@ -517,7 +518,6 @@ struct ChunkIter<Q: Query> {
 }
 
 impl<Q: Query> ChunkIter<Q> {
-    #[inline]
     unsafe fn next<'a, 'w>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         if self.len == 0 {
             return None;
