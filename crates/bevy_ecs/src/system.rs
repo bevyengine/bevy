@@ -1,7 +1,7 @@
 use crate::{Resources, World};
-use std::borrow::Cow;
 use fixedbitset::FixedBitSet;
-use hecs::{Query, Access};
+use hecs::{Access, Query};
+use std::borrow::Cow;
 
 #[derive(Copy, Clone)]
 pub enum ThreadLocalExecution {
@@ -52,8 +52,6 @@ impl ArchetypeAccess {
     where
         Q: Query,
     {
-        self.immutable.clear();
-        self.mutable.clear();
         let iterator = world.archetypes();
         let bits = iterator.len();
         self.immutable.grow(bits);
@@ -66,5 +64,46 @@ impl ArchetypeAccess {
                 Access::Write => self.mutable.set(archetype, true),
                 Access::Iterate => (),
             });
+    }
+
+    pub fn clear(&mut self) {
+        self.immutable.clear();
+        self.mutable.clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ArchetypeAccess;
+    use hecs::World;
+
+    struct A;
+    struct B;
+    struct C;
+
+    #[test]
+    fn query_archetype_access() {
+        let mut world = World::default();
+        let e1 = world.spawn((A,));
+        let e2 = world.spawn((A, B));
+        let e3 = world.spawn((A, B, C));
+
+        let mut access = ArchetypeAccess::default();
+        access.set_access_for_query::<(&A,)>(&world);
+
+        let e1_archetype = world.get_entity_location(e1).unwrap().archetype as usize;
+        let e2_archetype = world.get_entity_location(e2).unwrap().archetype as usize;
+        let e3_archetype = world.get_entity_location(e3).unwrap().archetype as usize;
+
+        assert!(access.immutable.contains(e1_archetype));
+        assert!(access.immutable.contains(e2_archetype));
+        assert!(access.immutable.contains(e3_archetype));
+
+        let mut access = ArchetypeAccess::default();
+        access.set_access_for_query::<(&A, &B)>(&world);
+
+        assert!(access.immutable.contains(e1_archetype) == false);
+        assert!(access.immutable.contains(e2_archetype));
+        assert!(access.immutable.contains(e3_archetype));
     }
 }

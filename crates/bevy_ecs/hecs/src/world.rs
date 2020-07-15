@@ -554,6 +554,11 @@ impl World {
     pub fn archetypes_generation(&self) -> ArchetypesGeneration {
         ArchetypesGeneration(self.archetype_generation)
     }
+
+    /// Retrieves the entity's current location, if it exists
+    pub fn get_entity_location(&self, entity: Entity) -> Option<Location> {
+        self.entities.get(entity).ok()
+    }
 }
 
 unsafe impl Send for World {}

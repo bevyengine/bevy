@@ -103,6 +103,7 @@ impl Schedule {
                     #[cfg(feature = "profiler")]
                     crate::profiler::profiler_start(resources, system.name().clone());
                     let mut system = system.lock().unwrap();
+                    system.update_archetype_access(world);
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => system.run(world, resources),
                         ThreadLocalExecution::Immediate => {

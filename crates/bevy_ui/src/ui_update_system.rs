@@ -1,6 +1,6 @@
 use super::Node;
 use bevy_core::transform::run_on_hierarchy;
-use bevy_ecs::{Entity, Query, Res};
+use bevy_ecs::{Entity, Query, Res, Without};
 use bevy_transform::prelude::{Children, Parent, Translation};
 use bevy_window::Windows;
 use glam::Vec2;
@@ -15,8 +15,8 @@ pub struct Rect {
 
 pub fn ui_update_system(
     windows: Res<Windows>,
+    mut orphan_node_query: Query<Without<Parent, (Entity, &mut Node, &mut Translation)>>,
     mut node_query: Query<(Entity, &mut Node, &mut Translation)>,
-    parent_query: Query<&Parent>,
     children_query: Query<&Children>,
 ) {
     let window_size = if let Some(window) = windows.get_primary() {
@@ -24,11 +24,9 @@ pub fn ui_update_system(
     } else {
         return;
     };
-    let orphan_nodes = node_query
+    let orphan_nodes = orphan_node_query
         .iter()
         .iter()
-        // TODO: replace this filter with a legion query filter (when SimpleQuery gets support for filters)
-        .filter(|(entity, _, _)| parent_query.get::<Parent>(*entity).is_err())
         .map(|(e, _, _)| e)
         .collect::<Vec<Entity>>();
     let mut window_rect = Rect {

@@ -226,6 +226,9 @@ impl ExecutorStage {
                 system.run_thread_local(world, resources);
                 self.finished_systems.insert(thread_local_index);
                 self.sender.send(thread_local_index).unwrap();
+
+                // TODO: if archetype generation has changed, call "prepare" on all systems after this one
+                
                 run_ready_result = RunReadyResult::Ok;
             } else {
                 // wait for a system to finish, then run its dependents
