@@ -700,7 +700,7 @@ impl<A: DynamicBundle> core::iter::FromIterator<A> for World {
 
 /// Determines freshness of information derived from `World::archetypes`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct ArchetypesGeneration(u64);
+pub struct ArchetypesGeneration(pub u64);
 
 /// Entity IDs created by `World::spawn_batch`
 pub struct SpawnBatchIter<'a, I>

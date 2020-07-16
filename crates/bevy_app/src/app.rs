@@ -1,5 +1,5 @@
 use super::AppBuilder;
-use bevy_ecs::{Resources, Schedule, World};
+use bevy_ecs::{Resources, Schedule, World, ParallelExecutor};
 
 #[derive(Default)]
 pub struct App {
@@ -7,7 +7,9 @@ pub struct App {
     pub resources: Resources,
     pub runner: Option<Box<dyn Fn(App)>>,
     pub schedule: Schedule,
+    pub executor: ParallelExecutor,
     pub startup_schedule: Schedule,
+    pub startup_executor: ParallelExecutor,
 }
 
 impl App {
@@ -17,13 +19,12 @@ impl App {
 
     pub fn update(&mut self) {
         self.schedule.initialize(&mut self.resources);
-        self.schedule.run(&mut self.world, &mut self.resources);
+        self.executor.run(&mut self.schedule, &mut self.world, &mut self.resources);
     }
 
     pub fn run(mut self) {
         self.startup_schedule.initialize(&mut self.resources);
-        self.startup_schedule
-            .run(&mut self.world, &mut self.resources);
+        self.startup_executor.run(&mut self.startup_schedule, &mut self.world, &mut self.resources);
         if let Some(run) = self.runner.take() {
             run(self)
         }
