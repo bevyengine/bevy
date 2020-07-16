@@ -8,7 +8,6 @@ edition = "2018"
 bevy_app = { path = "../bevy_app" }
 bevy_asset = { path = "../bevy_asset" }
 bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_core = { path = "../bevy_core" }
 bevy_derive = { path = "../bevy_derive" }
 bevy_ecs = { path = "../bevy_ecs" }
 bevy_sprite = { path = "../bevy_sprite" }

@@ -1,5 +1,5 @@
+use crate::components::Children;
 use bevy_ecs::{Entity, Query};
-use bevy_transform::prelude::Children;
 
 pub fn run_on_hierarchy<T, S>(
     children_query: &Query<&Children>,

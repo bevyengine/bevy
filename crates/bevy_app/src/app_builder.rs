@@ -74,6 +74,10 @@ impl AppBuilder {
         self.add_system_to_stage(stage::UPDATE, system)
     }
 
+    pub fn add_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
+        self.add_systems_to_stage(stage::UPDATE, systems)
+    }
+
     pub fn init_system(
         &mut self,
         build: impl FnMut(&mut Resources) -> Box<dyn System>,
@@ -101,11 +105,28 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_startup_systems_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        systems: Vec<Box<dyn System>>,
+    ) -> &mut Self {
+        for system in systems {
+            self.app
+                .startup_schedule
+                .add_system_to_stage(stage_name, system);
+        }
+        self
+    }
+
     pub fn add_startup_system(&mut self, system: Box<dyn System>) -> &mut Self {
         self.app
             .startup_schedule
             .add_system_to_stage(startup_stage::STARTUP, system);
         self
+    }
+
+    pub fn add_startup_systems(&mut self, systems: Vec<Box<dyn System>>) -> &mut Self {
+        self.add_startup_systems_to_stage(startup_stage::STARTUP, systems)
     }
 
     pub fn init_startup_system(
@@ -141,6 +162,17 @@ impl AppBuilder {
         system: Box<dyn System>,
     ) -> &mut Self {
         self.app.schedule.add_system_to_stage(stage_name, system);
+        self
+    }
+
+    pub fn add_systems_to_stage(
+        &mut self,
+        stage_name: &'static str,
+        systems: Vec<Box<dyn System>>,
+    ) -> &mut Self {
+        for system in systems {
+            self.app.schedule.add_system_to_stage(stage_name, system);
+        }
         self
     }
 

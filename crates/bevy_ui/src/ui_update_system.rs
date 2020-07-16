@@ -1,7 +1,9 @@
 use super::Node;
-use bevy_core::transform::run_on_hierarchy;
 use bevy_ecs::{Entity, Query, Res, Without};
-use bevy_transform::prelude::{Children, Parent, Translation};
+use bevy_transform::{
+    hierarchy,
+    prelude::{Children, Parent, Translation},
+};
 use bevy_window::Windows;
 use glam::Vec2;
 
@@ -39,7 +41,7 @@ pub fn ui_update_system(
         size: window_size,
     });
     for entity in orphan_nodes {
-        previous_sibling_result = run_on_hierarchy(
+        previous_sibling_result = hierarchy::run_on_hierarchy(
             &children_query,
             &mut node_query,
             entity,

@@ -7,7 +7,7 @@ pub use crate::{
     audio::{AudioOutput, AudioSource},
     core::{
         time::{Time, Timer},
-        transform::FaceToward,
+        math::FaceToward,
     },
     diagnostic::DiagnosticsPlugin,
     ecs::{

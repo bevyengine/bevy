@@ -70,7 +70,7 @@ fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::build_systems;
+    use crate::transform_systems;
     use bevy_ecs::{Resources, Schedule, World};
     use glam::{Mat4, Vec3};
 
@@ -81,7 +81,7 @@ mod test {
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
-        for system in build_systems() {
+        for system in transform_systems() {
             schedule.add_system_to_stage("update", system);
         }
 
