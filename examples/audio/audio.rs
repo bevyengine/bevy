@@ -11,5 +11,5 @@ fn setup(asset_server: Res<AssetServer>, audio_output: Res<AudioOutput>) {
     let music = asset_server
         .load("assets/sounds/Windless Slopes.mp3")
         .unwrap();
-    audio_output.queue(music);
+    audio_output.play(music);
 }

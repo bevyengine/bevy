@@ -19,13 +19,13 @@ impl Default for AudioOutput {
 }
 
 impl AudioOutput {
-    pub fn play(&self, audio_source: &AudioSource) {
+    pub fn play_source(&self, audio_source: &AudioSource) {
         let sink = Sink::new(&self.device);
         sink.append(Decoder::new(Cursor::new(audio_source.clone())).unwrap());
         sink.detach();
     }
 
-    pub fn queue(&self, audio_source: Handle<AudioSource>) {
+    pub fn play(&self, audio_source: Handle<AudioSource>) {
         self.queue.write().unwrap().push_front(audio_source);
     }
 
@@ -36,7 +36,7 @@ impl AudioOutput {
         while i < len {
             let audio_source_handle = queue.pop_back().unwrap();
             if let Some(audio_source) = audio_sources.get(&audio_source_handle) {
-                self.play(audio_source);
+                self.play_source(audio_source);
             } else {
                 // audio source hasn't loaded yet. add it back to the queue
                 queue.push_front(audio_source_handle);
