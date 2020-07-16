@@ -51,7 +51,7 @@ impl FromResources for ComponentB {
 fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<SceneSpawner>) {
     // Scenes are loaded just like any other asset.
     let scene_handle: Handle<Scene> = asset_server
-        .load("assets/scene/load_scene_example.scn")
+        .load("assets/scenes/load_scene_example.scn")
         .unwrap();
 
     // SceneSpawner can "spawn" scenes. "spawning" a scene creates a new instance of the scene in the World with new entity ids.
@@ -80,7 +80,7 @@ fn load_scene_right_now_system(world: &mut World, resources: &mut Resources) {
         let asset_server = resources.get::<AssetServer>().unwrap();
         let mut scenes = resources.get_mut::<Assets<Scene>>().unwrap();
         asset_server
-            .load_sync(&mut scenes, "assets/scene/load_scene_example.scn")
+            .load_sync(&mut scenes, "assets/scenes/load_scene_example.scn")
             .unwrap()
     };
     let mut scene_spawner = resources.get_mut::<SceneSpawner>().unwrap();
