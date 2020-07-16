@@ -1,4 +1,4 @@
-use crate::math::Vec3;
+use bevy_math::Vec3;
 use bevy_property::Properties;
 use std::fmt;
 

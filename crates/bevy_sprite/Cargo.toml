@@ -15,7 +15,7 @@ bevy_type_registry = { path = "../bevy_type_registry" }
 bevy_render = { path = "../bevy_render" }
 bevy_transform = { path = "../bevy_transform" }
 
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }
 rectangle-pack = "0.1"
 thiserror = "1.0"
 guillotiere = "0.5.2"

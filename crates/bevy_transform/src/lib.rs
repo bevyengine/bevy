@@ -1,7 +1,5 @@
-pub use glam as math;
-
-pub mod hierarchy;
 pub mod components;
+pub mod hierarchy;
 pub mod local_transform_systems;
 pub mod transform_propagate_system;
 pub mod transform_systems;

@@ -1,4 +1,4 @@
-use glam::{Vec2, Vec3};
+use bevy_math::{Vec2, Vec3};
 
 #[derive(Debug)]
 pub enum Collision {

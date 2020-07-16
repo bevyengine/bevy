@@ -11,7 +11,7 @@ use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::bytes::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
-use glam::*;
+use bevy_math::*;
 use std::{borrow::Cow, collections::HashSet};
 use thiserror::Error;
 
@@ -169,7 +169,7 @@ impl Mesh {
 pub mod shape {
     use super::{Mesh, VertexAttribute};
     use crate::pipeline::state_descriptors::PrimitiveTopology;
-    use glam::*;
+    use bevy_math::*;
 
     pub struct Cube {
         pub size: f32,

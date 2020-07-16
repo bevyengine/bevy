@@ -1,5 +1,5 @@
 use bevy_property::{Properties, Property};
-use glam::Mat4;
+use bevy_math::Mat4;
 use serde::{Deserialize, Serialize};
 
 pub trait CameraProjection {

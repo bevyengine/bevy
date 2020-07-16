@@ -11,5 +11,5 @@ bevy_input = { path = "../bevy_input" }
 bevy_window = { path = "../bevy_window" }
 
 winit = { git = "https://github.com/rust-windowing/winit/", default-features = false, features = ["x11"] }
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }
 log = { version = "0.4", features = ["release_max_level_info"] }

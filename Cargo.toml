@@ -26,6 +26,7 @@ bevy_diagnostic = { path = "crates/bevy_diagnostic" }
 bevy_ecs = { path = "crates/bevy_ecs" }
 bevy_gltf = { path = "crates/bevy_gltf" }
 bevy_input = { path = "crates/bevy_input" }
+bevy_math = { path = "crates/bevy_math" }
 bevy_pbr = { path = "crates/bevy_pbr" }
 bevy_property = { path = "crates/bevy_property" }
 bevy_render = { path = "crates/bevy_render" }
@@ -37,7 +38,6 @@ bevy_ui = { path = "crates/bevy_ui" }
 bevy_window = { path = "crates/bevy_window" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
-glam = "0.8.7"
 # other
 log = { version = "0.4", features = ["release_max_level_info"] }
 

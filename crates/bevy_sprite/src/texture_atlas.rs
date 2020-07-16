@@ -6,7 +6,7 @@ use bevy_render::{
     texture::Texture,
     Color,
 };
-use glam::Vec2;
+use bevy_math::Vec2;
 use std::collections::HashMap;
 
 #[derive(RenderResources)]

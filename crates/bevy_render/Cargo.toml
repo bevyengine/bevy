@@ -26,7 +26,7 @@ png = "0.16.0"
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.0"
 smallvec = "1.4.0"

@@ -1,14 +1,14 @@
 [package]
-name = "bevy_property"
-version = "0.1.0"
 authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
+name = "bevy_property"
+version = "0.1.0"
 
 [dependencies]
-serde = "1"
+bevy_ecs = {path = "../bevy_ecs"}
+bevy_math = {path = "../bevy_math"}
+bevy_property_derive = {path = "bevy_property_derive"}
 erased-serde = "0.3"
-bevy_property_derive = { path = "bevy_property_derive" }
-ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14" }
-glam = { version = "0.8.7", features = ["serde"] }
-bevy_ecs = { path = "../bevy_ecs" }
-smallvec = { version = "1.4", features = ["serde"] }
+ron = {git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14"}
+serde = "1"
+smallvec = {version = "1.4", features = ["serde"]}

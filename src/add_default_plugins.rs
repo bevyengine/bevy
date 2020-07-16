@@ -8,6 +8,7 @@ impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
         self.add_plugin(bevy_type_registry::TypeRegistryPlugin::default());
         self.add_plugin(bevy_core::CorePlugin::default());
+        self.add_plugin(bevy_transform::TransformPlugin::default());
         self.add_plugin(bevy_diagnostic::DiagnosticsPlugin::default());
         self.add_plugin(bevy_input::InputPlugin::default());
         self.add_plugin(bevy_window::WindowPlugin::default());

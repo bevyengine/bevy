@@ -1,4 +1,4 @@
-use crate::math::Mat4;
+use bevy_math::Mat4;
 use bevy_property::Properties;
 use std::fmt;
 

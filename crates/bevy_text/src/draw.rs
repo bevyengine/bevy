@@ -12,7 +12,7 @@ use bevy_render::{
     Color,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
-use glam::{Mat4, Vec3};
+use bevy_math::{Mat4, Vec3};
 
 pub struct TextStyle {
     pub font_size: f32,

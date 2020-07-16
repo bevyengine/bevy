@@ -6,7 +6,7 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_core::bytes::{Byteable, Bytes};
 use bevy_property::Property;
-use glam::Vec4;
+use bevy_math::Vec4;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign};
 

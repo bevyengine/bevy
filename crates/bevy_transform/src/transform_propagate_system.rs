@@ -72,7 +72,7 @@ mod test {
     use super::*;
     use crate::transform_systems;
     use bevy_ecs::{Resources, Schedule, World};
-    use glam::{Mat4, Vec3};
+    use bevy_math::{Mat4, Vec3};
 
     #[test]
     fn did_propagate() {

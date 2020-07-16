@@ -43,8 +43,6 @@ pub mod prelude;
 
 pub use add_default_plugins::*;
 pub use bevy_app as app;
-pub use glam as math;
-
 pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 pub use bevy_core as core;
@@ -52,6 +50,7 @@ pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
 pub use bevy_gltf as gltf;
 pub use bevy_input as input;
+pub use bevy_math as math;
 pub use bevy_pbr as pbr;
 pub use bevy_property as property;
 pub use bevy_render as render;

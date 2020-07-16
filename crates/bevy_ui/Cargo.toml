@@ -16,4 +16,4 @@ bevy_transform = { path = "../bevy_transform" }
 bevy_render = { path = "../bevy_render" }
 bevy_window = { path = "../bevy_window" }
 
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }

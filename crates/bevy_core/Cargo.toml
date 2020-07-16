@@ -10,4 +10,4 @@ bevy_derive = { path = "../bevy_derive" }
 bevy_ecs = { path = "../bevy_ecs" }
 bevy_property = { path = "../bevy_property" }
 bevy_type_registry = { path = "../bevy_type_registry" }
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }

@@ -1,10 +1,8 @@
 #![allow(dead_code)]
-use crate::{
-    components::*,
-    math::{Mat4, Quat, Vec3},
-};
+use crate::components::*;
 
 use bevy_ecs::{IntoQuerySystem, Query, System, Without};
+use bevy_math::{Mat4, Quat, Vec3};
 
 // TODO: on changed for all of these systems
 pub fn transform_translation_system(
@@ -200,8 +198,8 @@ pub fn transform_systems() -> Vec<Box<dyn System>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::math::{Mat4, Quat, Vec3};
     use bevy_ecs::{Resources, Schedule, World};
+    use bevy_math::{Mat4, Quat, Vec3};
 
     #[test]
     fn correct_world_transformation() {

@@ -1,4 +1,4 @@
-use crate::math::Quat;
+use bevy_math::Quat;
 use bevy_property::Properties;
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]

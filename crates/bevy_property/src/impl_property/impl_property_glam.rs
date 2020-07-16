@@ -1,5 +1,5 @@
 use crate::impl_property;
-use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
+use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 
 impl_property!(Vec2);
 impl_property!(Vec3);

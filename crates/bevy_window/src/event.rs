@@ -1,5 +1,5 @@
 use super::{WindowDescriptor, WindowId};
-use glam::Vec2;
+use bevy_math::Vec2;
 
 /// A window event that is sent whenever a window has been resized.
 #[derive(Debug, Clone)]

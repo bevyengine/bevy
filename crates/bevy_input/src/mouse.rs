@@ -2,7 +2,7 @@ use super::keyboard::ElementState;
 use crate::Input;
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Res, ResMut};
-use glam::Vec2;
+use bevy_math::Vec2;
 
 #[derive(Debug, Clone)]
 pub struct MouseButtonInput {

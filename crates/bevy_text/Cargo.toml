@@ -14,5 +14,5 @@ bevy_render = { path = "../bevy_render" }
 bevy_sprite = { path = "../bevy_sprite" }
 
 ab_glyph = "0.2.2"
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }
 anyhow = "1.0"

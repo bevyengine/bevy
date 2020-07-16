@@ -4,7 +4,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_core::float_ord::FloatOrd;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
-use glam::Vec2;
+use bevy_math::Vec2;
 use std::collections::HashMap;
 
 // work around rust's f32 order/hash limitations

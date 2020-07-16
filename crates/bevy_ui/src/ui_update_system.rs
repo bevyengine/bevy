@@ -5,7 +5,7 @@ use bevy_transform::{
     prelude::{Children, Parent, Translation},
 };
 use bevy_window::Windows;
-use glam::Vec2;
+use bevy_math::Vec2;
 
 pub const UI_Z_STEP: f32 = 0.001;
 

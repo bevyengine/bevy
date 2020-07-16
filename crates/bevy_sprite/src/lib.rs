@@ -24,7 +24,7 @@ use bevy_render::{
     render_graph::RenderGraph,
     shader::asset_shader_defs_system,
 };
-use glam::Vec2;
+use bevy_math::Vec2;
 use sprite::sprite_system;
 
 #[derive(Default)]

@@ -12,7 +12,7 @@ use bevy_ecs::Resources;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
-use glam::Vec2;
+use bevy_math::Vec2;
 use winit::{
     event,
     event::{DeviceEvent, WindowEvent},

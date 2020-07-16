@@ -11,7 +11,7 @@ bevy_app = { path = "../bevy_app"}
 bevy_ecs = { path = "../bevy_ecs"}
 bevy_property = { path =  "../bevy_property" }
 bevy_type_registry = { path =  "../bevy_type_registry" }
-glam = "0.8.7"
+bevy_math = { path = "../bevy_math" }
 log = "0.4"
 smallvec = { version = "1.4", features = ["serde"] }
 

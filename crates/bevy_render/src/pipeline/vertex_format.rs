@@ -1,5 +1,5 @@
 use crate::Color;
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum VertexFormat {
     Uchar2 = 1,

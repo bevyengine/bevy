@@ -6,7 +6,7 @@ use bevy_render::{
     render_resource::{RenderResource, RenderResources},
     texture::Texture,
 };
-use glam::Vec2;
+use bevy_math::Vec2;
 
 #[repr(C)]
 #[derive(Default, RenderResources, RenderResource)]

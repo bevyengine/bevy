@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 
 pub use bevy_derive::Bytes;
 
@@ -172,7 +172,7 @@ where
 mod tests {
 
     use super::{Bytes, FromBytes};
-    use glam::{Mat4, Vec2, Vec3, Vec4};
+    use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 
     fn test_round_trip<T: Bytes + FromBytes + std::fmt::Debug + PartialEq>(value: T) {
         let mut bytes = vec![0; value.byte_len()];

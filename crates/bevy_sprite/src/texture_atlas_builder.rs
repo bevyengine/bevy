@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_render::texture::Texture;
-use glam::Vec2;
+use bevy_math::Vec2;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
