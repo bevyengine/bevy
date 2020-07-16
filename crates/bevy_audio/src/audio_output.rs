@@ -25,7 +25,7 @@ impl AudioOutput {
         sink.detach();
     }
 
-    pub fn queue_play(&self, audio_source: Handle<AudioSource>) {
+    pub fn queue(&self, audio_source: Handle<AudioSource>) {
         self.queue.write().unwrap().push_front(audio_source);
     }
 
