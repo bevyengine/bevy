@@ -12,7 +12,8 @@ pub struct Schedule {
     pub(crate) stages: HashMap<Cow<'static, str>, Vec<Arc<Mutex<Box<dyn System>>>>>,
     pub(crate) stage_order: Vec<Cow<'static, str>>,
     pub(crate) system_ids: HashSet<SystemId>,
-    is_dirty: bool,
+    generation: usize,
+    last_initialize_generation: usize,
 }
 
 impl Schedule {
@@ -92,7 +93,7 @@ impl Schedule {
         self.system_ids.insert(system.id());
         systems.push(Arc::new(Mutex::new(system)));
 
-        self.is_dirty = true;
+        self.generation += 1;
         self
     }
 
@@ -131,8 +132,9 @@ impl Schedule {
         }
     }
 
+    // TODO: move this code to ParallelExecutor
     pub fn initialize(&mut self, resources: &mut Resources) {
-        if !self.is_dirty {
+        if self.last_initialize_generation == self.generation {
             return;
         }
 
@@ -143,6 +145,10 @@ impl Schedule {
             }
         }
 
-        self.is_dirty = false;
+        self.last_initialize_generation = self.generation;
+    }
+
+    pub fn generation(&self) -> usize {
+        self.generation
     }
 }

@@ -1,7 +1,7 @@
 use crate::{Resources, World};
 use fixedbitset::FixedBitSet;
 use hecs::{Access, Query};
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 #[derive(Copy, Clone)]
 pub enum ThreadLocalExecution {
@@ -22,7 +22,8 @@ pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
     fn update_archetype_access(&mut self, world: &World);
-    fn get_archetype_access(&self) -> &ArchetypeAccess;
+    fn archetype_access(&self) -> &ArchetypeAccess;
+    fn resource_access(&self) -> &TypeAccess;
     fn thread_local_execution(&self) -> ThreadLocalExecution;
     fn run(&mut self, world: &World, resources: &Resources);
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
@@ -72,10 +73,36 @@ impl ArchetypeAccess {
     }
 }
 
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
+pub struct TypeAccess {
+    pub immutable: HashSet<TypeId>,
+    pub mutable: HashSet<TypeId>,
+}
+
+impl TypeAccess {
+    pub fn is_compatible(&self, other: &TypeAccess) -> bool {
+        self.mutable.is_disjoint(&other.mutable)
+            && self.mutable.is_disjoint(&other.immutable)
+            && self.immutable.is_disjoint(&other.mutable)
+    }
+
+    pub fn union(&mut self, other: &TypeAccess) {
+        self.mutable.extend(&other.mutable);
+        self.immutable.extend(&other.immutable);
+    }
+
+    pub fn clear(&mut self) {
+        self.immutable.clear();
+        self.mutable.clear();
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ArchetypeAccess;
+    use super::{TypeAccess, ArchetypeAccess};
     use hecs::World;
+    use crate::{ResourceQuery, FetchResource, Res, ResMut};
+    use std::any::TypeId;
 
     struct A;
     struct B;
@@ -105,5 +132,15 @@ mod tests {
         assert!(access.immutable.contains(e1_archetype) == false);
         assert!(access.immutable.contains(e2_archetype));
         assert!(access.immutable.contains(e3_archetype));
+    }
+
+    #[test]
+    fn resource_query_access() {
+        let access = <<(Res<A>, ResMut<B>, Res<C>) as ResourceQuery>::Fetch as FetchResource>::access();
+        let mut expected_access = TypeAccess::default();
+        expected_access.immutable.insert(TypeId::of::<A>());
+        expected_access.immutable.insert(TypeId::of::<C>());
+        expected_access.mutable.insert(TypeId::of::<B>());
+        assert_eq!(access, expected_access);
     }
 }

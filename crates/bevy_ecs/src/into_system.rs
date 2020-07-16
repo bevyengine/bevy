@@ -1,7 +1,7 @@
 use crate::{
     resource_query::{FetchResource, ResourceQuery, UnsafeClone},
     system::{ArchetypeAccess, System, SystemId, ThreadLocalExecution},
-    Commands, Resources,
+    Commands, Resources, TypeAccess,
 };
 use core::marker::PhantomData;
 use hecs::{
@@ -22,6 +22,7 @@ where
     pub thread_local_func: ThreadLocalF,
     pub init_func: Init,
     pub thread_local_execution: ThreadLocalExecution,
+    pub resource_access: TypeAccess,
     pub name: Cow<'static, str>,
     pub id: SystemId,
     pub archetype_access: ArchetypeAccess,
@@ -45,8 +46,12 @@ where
         (self.set_archetype_access)(world, &mut self.archetype_access, &mut self.state);
     }
 
-    fn get_archetype_access(&self) -> &ArchetypeAccess {
+    fn archetype_access(&self) -> &ArchetypeAccess {
         &self.archetype_access
+    }
+    
+    fn resource_access(&self) -> &TypeAccess {
+        &self.resource_access
     }
 
     fn thread_local_execution(&self) -> ThreadLocalExecution {
@@ -115,6 +120,7 @@ macro_rules! impl_into_foreach_system {
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
                     },
+                    resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
                     archetype_access: ArchetypeAccess::default(),
                     set_archetype_access: |world, archetype_access, _state| {
                         archetype_access.clear();
@@ -253,6 +259,7 @@ macro_rules! impl_into_query_system {
                     init_func: move |resources| {
                         <($($resource,)*)>::initialize(resources, Some(id));
                     },
+                    resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
                     archetype_access: ArchetypeAccess::default(),
                     set_archetype_access: |world, archetype_access, state| {
                         archetype_access.clear();
@@ -378,6 +385,7 @@ where
             thread_local_execution: ThreadLocalExecution::Immediate,
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
+            resource_access: TypeAccess::default(),
             archetype_access: ArchetypeAccess::default(),
         })
     }

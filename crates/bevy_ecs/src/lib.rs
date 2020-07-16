@@ -17,5 +17,5 @@ pub use resource_query::{FetchResource, Local, Res, ResMut, ResourceQuery};
 pub use resources::{FromResources, Resource, Resources};
 pub use schedule::Schedule;
 pub use parallel_executor::ParallelExecutor;
-pub use system::{System, SystemId};
+pub use system::{System, SystemId, TypeAccess, ArchetypeAccess};
 pub use world_builder::{WorldBuilder, WorldBuilderSource};

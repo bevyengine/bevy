@@ -13,7 +13,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     resource_query::UnsafeClone, Archetype, FetchResource, Query, Res, ResMut, ResourceQuery,
-    Resources, SystemId,
+    Resources, SystemId, TypeAccess,
 };
 use bevy_property::Properties;
 use std::{any::TypeId, collections::HashMap, ops::Range, sync::Arc};
@@ -148,6 +148,7 @@ impl<'a> ResourceQuery for DrawContext<'a> {
 
 pub struct FetchDrawContext;
 
+// TODO: derive this impl
 impl<'a> FetchResource<'a> for FetchDrawContext {
     type Item = DrawContext<'a>;
     fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
@@ -212,6 +213,23 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
             shared_buffers: resources.get_res::<SharedBuffers>(),
             current_pipeline: None,
         }
+    }
+
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access
+            .mutable
+            .insert(TypeId::of::<Assets<PipelineDescriptor>>());
+        access.mutable.insert(TypeId::of::<Assets<Shader>>());
+        access.mutable.insert(TypeId::of::<PipelineCompiler>());
+        access
+            .immutable
+            .insert(TypeId::of::<Box<dyn RenderResourceContext>>());
+        access
+            .immutable
+            .insert(TypeId::of::<VertexBufferDescriptors>());
+        access.immutable.insert(TypeId::of::<SharedBuffers>());
+        access
     }
 }
 

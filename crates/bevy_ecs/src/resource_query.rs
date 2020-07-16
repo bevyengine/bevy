@@ -1,4 +1,4 @@
-use crate::{resources::FromResources, system::SystemId, Archetype, Component, Resources};
+use crate::{resources::FromResources, system::{TypeAccess, SystemId}, Archetype, Component, Resources};
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
@@ -148,6 +148,7 @@ pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
     type Item: UnsafeClone;
 
+    fn access() -> TypeAccess;
     fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>);
     fn release(resource_archetypes: &HashMap<TypeId, Archetype>);
 
@@ -180,6 +181,11 @@ impl<'a, T: Component> FetchResource<'a> for FetchResourceRead<T> {
             archetype.release::<T>();
         }
     }
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.immutable.insert(TypeId::of::<T>());
+        access
+    }
 }
 
 impl<'a, T: Component> ResourceQuery for ResMut<'a, T> {
@@ -203,6 +209,11 @@ impl<'a, T: Component> FetchResource<'a> for FetchResourceWrite<T> {
         if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
             archetype.release_mut::<T>();
         }
+    }
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.mutable.insert(TypeId::of::<T>());
+        access
     }
 }
 
@@ -248,6 +259,11 @@ impl<'a, T: Component + FromResources> FetchResource<'a> for FetchResourceLocalM
             archetype.release_mut::<T>();
         }
     }
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.mutable.insert(TypeId::of::<T>());
+        access
+    }
 }
 
 macro_rules! tuple_impl {
@@ -268,6 +284,13 @@ macro_rules! tuple_impl {
             #[allow(unused_variables)]
             unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
                 ($($name::get(resources, system_id),)*)
+            }
+
+            #[allow(unused_mut)]
+            fn access() -> TypeAccess {
+                let mut access = TypeAccess::default();
+                $(access.union(&$name::access());)*
+                access
             }
         }
 

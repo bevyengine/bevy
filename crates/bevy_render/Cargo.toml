@@ -31,7 +31,7 @@ serde = { version = "1", features = ["derive"] }
 bitflags = "1.0"
 smallvec = "1.4.0"
 # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
-once_cell = "1.3.1"
+once_cell = "1.4.0"
 downcast-rs = "1.1.1"
 thiserror = "1.0"
 anyhow = "1.0"
