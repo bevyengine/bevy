@@ -19,6 +19,7 @@ impl AddDefaultPlugins for AppBuilder {
         self.add_plugin(bevy_ui::UiPlugin::default());
         self.add_plugin(bevy_gltf::GltfPlugin::default());
         self.add_plugin(bevy_text::TextPlugin::default());
+        self.add_plugin(bevy_audio::AudioPlugin::default());
 
         #[cfg(feature = "bevy_winit")]
         self.add_plugin(bevy_winit::WinitPlugin::default());

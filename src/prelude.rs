@@ -4,6 +4,7 @@ pub use crate::{
         EventReader, Events,
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
+    audio::{AudioOutput, AudioSource},
     core::{
         time::{Time, Timer},
         transform::FaceToward,

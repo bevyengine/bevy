@@ -1,0 +1,14 @@
+[package]
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+name = "bevy_audio"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_app = {path = "../bevy_app"}
+bevy_asset = {path = "../bevy_asset"}
+bevy_ecs = {path = "../bevy_ecs"}
+anyhow = "1.0"
+rodio = {version = "0.11", default-features = false, features = ["mp3"]}

@@ -17,6 +17,7 @@ members = [
 
 [dependencies]
 # bevy
+bevy_audio = { path = "crates/bevy_audio" }
 bevy_app = { path = "crates/bevy_app" }
 bevy_asset = { path = "crates/bevy_asset" }
 bevy_type_registry = { path = "crates/bevy_type_registry" }
@@ -114,6 +115,10 @@ path = "examples/asset/hot_asset_reloading.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+
+[[example]]
+name = "audio"
+path = "examples/audio/audio.rs"
 
 [[example]]
 name = "custom_diagnostic"
