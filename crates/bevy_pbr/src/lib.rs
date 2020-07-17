@@ -3,9 +3,11 @@ pub mod light;
 pub mod material;
 pub mod nodes;
 pub mod pipelines;
+pub mod render_graph;
 
-mod forward_pbr_render_graph;
-pub use forward_pbr_render_graph::*;
+pub mod prelude {
+    pub use crate::{entity::*, light::Light, material::StandardMaterial};
+}
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
@@ -14,6 +16,7 @@ use bevy_render::{render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
 use light::Light;
 use material::StandardMaterial;
+use render_graph::ForwardPbrRenderGraphBuilder;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]

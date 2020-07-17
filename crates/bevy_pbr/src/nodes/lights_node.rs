@@ -1,6 +1,6 @@
 use crate::{
     light::{Light, LightRaw},
-    uniform,
+    render_graph::uniform,
 };
 use bevy_core::{AsBytes, Byteable};
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};

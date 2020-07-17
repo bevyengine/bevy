@@ -5,6 +5,10 @@ pub mod system;
 
 pub use input::*;
 
+pub mod prelude {
+    pub use crate::{keyboard::KeyCode, mouse::MouseButton, Input};
+}
+
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, KeyboardInputState};
 use mouse::{
