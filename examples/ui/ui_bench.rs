@@ -5,7 +5,6 @@ fn main() {
         .add_default_plugins()
         .add_startup_system(setup.system())
         .add_system(placement_system.system())
-        .add_plugin(DiagnosticsPlugin::default())
         .run();
 }
 

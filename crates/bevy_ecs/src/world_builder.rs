@@ -1,4 +1,4 @@
-use crate::{Bundle, Component, DynamicBundle, Entity, World};
+use hecs::{Bundle, Component, DynamicBundle, Entity, World};
 
 pub trait WorldBuilderSource {
     fn build(&mut self) -> WorldBuilder;

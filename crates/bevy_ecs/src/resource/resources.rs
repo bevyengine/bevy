@@ -1,10 +1,7 @@
-use crate::{
-    resource_query::{FetchResource, ResourceQuery},
-    system::SystemId,
-    ComponentError, Res, ResMut, TypeInfo,
-};
+use super::{FetchResource, Res, ResMut, ResourceQuery};
+use crate::system::SystemId;
 use core::any::TypeId;
-use hecs::{Archetype, Ref, RefMut};
+use hecs::{Archetype, ComponentError, Ref, RefMut, TypeInfo};
 use std::collections::HashMap;
 
 pub trait Resource: Send + Sync + 'static {}
@@ -173,7 +170,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{system::SystemId, Resources};
+    use super::Resources;
+    use crate::system::SystemId;
 
     #[test]
     fn resource() {

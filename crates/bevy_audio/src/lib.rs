@@ -4,6 +4,11 @@ mod audio_source;
 pub use audio_output::*;
 pub use audio_source::*;
 
+pub mod prelude {
+    pub use crate::{AudioOutput, AudioSource};
+}
+
+
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::IntoQuerySystem;

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::components::*;
-use bevy_ecs::{Commands, Entity, Query, Without};
+use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
     mut commands: Commands,

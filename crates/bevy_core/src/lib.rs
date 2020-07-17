@@ -6,8 +6,12 @@ pub use bytes::*;
 pub use float_ord::*;
 pub use time::*;
 
+pub mod prelude {
+    pub use crate::{Time, Timer};
+}
+
 use bevy_app::prelude::*;
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::prelude::*;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 

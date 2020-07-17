@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::components::*;
 
-use bevy_ecs::{IntoQuerySystem, Query, System, Without};
+use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Quat, Vec3};
 
 // TODO: on changed for all of these systems

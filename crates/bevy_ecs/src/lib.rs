@@ -1,21 +1,21 @@
 pub use hecs::{Query as HecsQuery, *};
-
-mod commands;
-mod into_system;
-mod parallel_executor;
-#[cfg(feature = "profiler")]
-pub mod profiler;
-mod resource_query;
-mod resources;
+mod resource;
 mod schedule;
 mod system;
 mod world_builder;
 
-pub use commands::{Commands, CommandsInternal};
-pub use into_system::{IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query};
-pub use parallel_executor::ParallelExecutor;
-pub use resource_query::{FetchResource, Local, Res, ResMut, ResourceQuery, UnsafeClone};
-pub use resources::{FromResources, Resource, Resources};
-pub use schedule::Schedule;
-pub use system::{ArchetypeAccess, System, SystemId, TypeAccess};
-pub use world_builder::{WorldBuilder, WorldBuilderSource};
+pub use resource::*;
+pub use schedule::*;
+pub use system::{*, Query};
+pub use world_builder::*;
+
+pub mod prelude {
+    pub use crate::{
+        resource::{FromResources, Local, Res, ResMut, Resource, Resources},
+        system::{
+            Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
+        },
+        world_builder::WorldBuilderSource,
+        Bundle, Component, Entity, Ref, RefMut, With, Without, World,
+    };
+}

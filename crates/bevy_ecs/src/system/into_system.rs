@@ -1,7 +1,7 @@
+use super::TypeAccess;
 use crate::{
-    resource_query::{FetchResource, ResourceQuery, UnsafeClone},
-    system::{ArchetypeAccess, System, SystemId, ThreadLocalExecution},
-    Commands, Resources, TypeAccess,
+    resource::{FetchResource, ResourceQuery, Resources, UnsafeClone},
+    system::{ArchetypeAccess, Commands, System, SystemId, ThreadLocalExecution},
 };
 use core::marker::PhantomData;
 use hecs::{
@@ -406,8 +406,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::IntoQuerySystem;
-    use crate::{Query, ResMut, Resources, Schedule};
+    use super::{IntoQuerySystem, Query};
+    use crate::{
+        resource::{ResMut, Resources},
+        schedule::Schedule,
+    };
     use hecs::{Entity, With, World};
 
     struct A;

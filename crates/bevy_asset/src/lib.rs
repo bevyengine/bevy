@@ -12,14 +12,18 @@ pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
 
-use bevy_app::{prelude::AppPlugin, AppBuilder};
-use bevy_ecs::IntoQuerySystem;
-use bevy_type_registry::RegisterType;
-
 pub mod stage {
     pub const LOAD_ASSETS: &str = "load_assets";
     pub const ASSET_EVENTS: &str = "asset_events";
 }
+
+pub mod prelude {
+    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+}
+
+use bevy_app::{prelude::AppPlugin, AppBuilder};
+use bevy_ecs::IntoQuerySystem;
+use bevy_type_registry::RegisterType;
 
 #[derive(Default)]
 pub struct AssetPlugin;

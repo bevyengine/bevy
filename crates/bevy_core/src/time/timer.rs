@@ -1,5 +1,5 @@
 use crate::time::Time;
-use bevy_ecs::{Query, Res};
+use bevy_ecs::prelude::*;
 use bevy_property::Properties;
 use std::time::Duration;
 

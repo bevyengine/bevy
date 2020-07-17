@@ -1,6 +1,7 @@
+use super::Schedule;
 use crate::{
-    system::{ArchetypeAccess, ThreadLocalExecution},
-    Resources, Schedule, System, TypeAccess,
+    resource::Resources,
+    system::{ArchetypeAccess, System, ThreadLocalExecution, TypeAccess},
 };
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
@@ -328,9 +329,12 @@ impl ExecutorStage {
 mod tests {
     use super::ParallelExecutor;
     use crate::{
-        IntoQuerySystem, IntoThreadLocalSystem, Query, Res, ResMut, Resources, Schedule, World,
+        resource::{Res, ResMut, Resources},
+        schedule::Schedule,
+        system::{IntoQuerySystem, IntoThreadLocalSystem, Query},
     };
     use fixedbitset::FixedBitSet;
+    use hecs::World;
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]

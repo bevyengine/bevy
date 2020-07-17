@@ -1,5 +1,6 @@
-use crate::{DynamicBundle, Resource, Resources, SystemId, World};
-use hecs::{Bundle, Component, Entity};
+use super::SystemId;
+use crate::resource::{Resource, Resources};
+use hecs::{Bundle, Component, DynamicBundle, Entity, World};
 use std::sync::{Arc, Mutex};
 
 pub enum Command {
@@ -311,7 +312,9 @@ impl Commands {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Commands, Resources, World};
+    use super::Commands;
+    use crate::resource::Resources;
+    use hecs::World;
 
     #[test]
     fn command_buffer() {

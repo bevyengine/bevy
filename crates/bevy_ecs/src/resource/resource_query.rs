@@ -1,15 +1,14 @@
 use crate::{
-    resources::FromResources,
     system::{SystemId, TypeAccess},
-    Archetype, Component, Resources,
 };
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use hecs::{smaller_tuples_too, MissingComponent};
+use hecs::{smaller_tuples_too, MissingComponent, Component, Archetype};
 use std::collections::HashMap;
+use super::{Resources, FromResources};
 /// Shared borrow of an entity's component
 pub struct Res<'a, T: Component> {
     archetype: &'a Archetype,

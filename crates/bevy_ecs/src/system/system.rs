@@ -1,6 +1,6 @@
-use crate::{Resources, World};
+use crate::resource::Resources;
 use fixedbitset::FixedBitSet;
-use hecs::{Access, Query};
+use hecs::{Access, Query, World};
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 #[derive(Copy, Clone)]
@@ -100,9 +100,9 @@ impl TypeAccess {
 #[cfg(test)]
 mod tests {
     use super::{ArchetypeAccess, TypeAccess};
-    use crate::{FetchResource, Res, ResMut, ResourceQuery};
     use hecs::World;
     use std::any::TypeId;
+    use crate::resource::{Res, ResourceQuery, ResMut, FetchResource};
 
     struct A;
     struct B;

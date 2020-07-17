@@ -9,7 +9,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{IntoQuerySystem, System};
+use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
 use prelude::{Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation};
 
