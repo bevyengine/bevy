@@ -22,7 +22,7 @@ fn move_cubes(
 ) {
     for (translation, material_handle) in &mut query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
-        translation.0 += math::vec3(1.0, 0.0, 0.0) * time.delta_seconds;
+        translation.0 += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
     }
 }

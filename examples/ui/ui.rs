@@ -61,7 +61,7 @@ fn setup(
                 // render order test: reddest in the back, whitest in the front
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(75.0, 60.0),
+                        Vec2::new(75.0, 60.0),
                         Anchors::CENTER,
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),
@@ -70,7 +70,7 @@ fn setup(
                 })
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(50.0, 35.0),
+                        Vec2::new(50.0, 35.0),
                         Anchors::CENTER,
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),
@@ -79,7 +79,7 @@ fn setup(
                 })
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(100.0, 85.0),
+                        Vec2::new(100.0, 85.0),
                         Anchors::CENTER,
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),
@@ -88,7 +88,7 @@ fn setup(
                 })
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(150.0, 135.0),
+                        Vec2::new(150.0, 135.0),
                         Anchors::CENTER,
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),
@@ -98,7 +98,7 @@ fn setup(
                 // parenting
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(210.0, 0.0),
+                        Vec2::new(210.0, 0.0),
                         Anchors::BOTTOM_LEFT,
                         Margins::new(0.0, 200.0, 10.0, 210.0),
                     ),
@@ -115,7 +115,7 @@ fn setup(
                 // alpha test
                 .spawn(UiComponents {
                     node: Node::positioned(
-                        math::vec2(200.0, 185.0),
+                        Vec2::new(200.0, 185.0),
                         Anchors::CENTER,
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),

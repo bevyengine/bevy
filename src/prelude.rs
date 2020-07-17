@@ -5,7 +5,7 @@ pub use crate::{
     core::prelude::*,
     ecs::prelude::*,
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
-    math::{self, FaceToward, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
+    math::prelude::*,
     pbr::{entity::*, light::Light, material::StandardMaterial},
     property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal},
     render::prelude::*,
