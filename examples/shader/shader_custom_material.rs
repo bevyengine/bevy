@@ -1,7 +1,9 @@
-use bevy::prelude::*;
-use bevy_render::{
-    base_render_graph,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
+use bevy::{
+    prelude::*,
+    render::{
+        base_render_graph,
+        pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
+    },
 };
 
 fn main() {

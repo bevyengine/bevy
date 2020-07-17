@@ -13,7 +13,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    
     // create a cube and a plane mesh
     let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));

@@ -1,7 +1,10 @@
-use bevy::{prelude::*, render::shader};
-use bevy_render::{
-    base_render_graph,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
+use bevy::{
+    prelude::*,
+    render::{
+        base_render_graph,
+        pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
+        shader,
+    },
 };
 
 fn main() {

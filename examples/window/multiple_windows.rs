@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         pass::{
-            LoadOp, PassDescriptor, RenderPassColorAttachmentDescriptor,
+            LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
             RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
         },
         texture::{TextureDescriptor, TextureFormat, TextureUsage},
@@ -10,7 +10,6 @@ use bevy::{
     },
     window::{CreateWindow, WindowId, WindowReference},
 };
-use bevy_render::pass::Operations;
 
 fn main() {
     App::build()
