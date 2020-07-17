@@ -7,7 +7,7 @@ use bevy_input::{
     mouse::{MouseButtonInput, MouseMotion},
 };
 
-use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events};
+use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::Resources;
 use bevy_math::Vec2;
 use bevy_window::{

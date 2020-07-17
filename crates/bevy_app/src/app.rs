@@ -1,4 +1,4 @@
-use super::AppBuilder;
+use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
 #[derive(Default)]

@@ -10,7 +10,7 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 
-use bevy_app::{AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 
 #[derive(Default)]

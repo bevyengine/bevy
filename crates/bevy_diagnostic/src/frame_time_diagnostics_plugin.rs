@@ -1,5 +1,5 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_app::AppPlugin;
+use bevy_app::prelude::*;
 use bevy_core::Time;
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 

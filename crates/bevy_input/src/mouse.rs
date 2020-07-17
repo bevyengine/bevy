@@ -1,6 +1,6 @@
 use super::keyboard::ElementState;
 use crate::Input;
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;
 

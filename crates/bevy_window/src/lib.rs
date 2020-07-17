@@ -8,7 +8,7 @@ pub use system::*;
 pub use window::*;
 pub use windows::*;
 
-use bevy_app::{AppBuilder, AppPlugin, Events};
+use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 
 pub struct WindowPlugin {

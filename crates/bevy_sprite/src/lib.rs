@@ -16,7 +16,7 @@ pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
 
-use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_ecs::IntoQuerySystem;
 use bevy_math::Vec2;

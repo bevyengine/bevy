@@ -1,7 +1,7 @@
 mod loader;
 pub use loader::*;
 
-use bevy_app::{AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_render::mesh::Mesh;
 

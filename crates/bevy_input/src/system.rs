@@ -1,5 +1,8 @@
 use crate::keyboard::{ElementState, KeyCode, KeyboardInput};
-use bevy_app::{AppExit, EventReader, Events};
+use bevy_app::{
+    prelude::{EventReader, Events},
+    AppExit,
+};
 use bevy_ecs::{Local, Res, ResMut};
 
 #[derive(Default)]

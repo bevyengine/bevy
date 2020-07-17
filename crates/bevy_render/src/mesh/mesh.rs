@@ -1,12 +1,12 @@
+use super::Vertex;
 use crate::{
     pipeline::{
         AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
-    vertex::Vertex,
 };
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
@@ -509,7 +509,7 @@ pub fn mesh_resource_provider_system(
 #[cfg(test)]
 mod tests {
     use super::{AsVertexBufferDescriptor, Mesh, VertexAttribute};
-    use crate::{pipeline::PrimitiveTopology, vertex::Vertex};
+    use crate::{mesh::Vertex, pipeline::PrimitiveTopology};
     use bevy_core::AsBytes;
 
     #[test]

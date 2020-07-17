@@ -1,8 +1,7 @@
 use crate::{
     plugin::{load_plugin, AppPlugin},
-    stage, startup_stage, App, AppExit, Events,
+    stage, startup_stage, app::{AppExit, App}, event::Events
 };
-
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
 pub struct AppBuilder {

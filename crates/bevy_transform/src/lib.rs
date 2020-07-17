@@ -8,7 +8,7 @@ pub mod prelude {
     pub use crate::{components::*, hierarchy::*, TransformPlugin};
 }
 
-use bevy_app::{AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_ecs::{IntoQuerySystem, System};
 use bevy_type_registry::RegisterType;
 use prelude::{Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation};

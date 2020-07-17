@@ -12,7 +12,7 @@ pub use node::*;
 pub use render::*;
 pub use ui_update_system::*;
 
-use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 use bevy_render::render_graph::RenderGraph;
 use widget::Label;

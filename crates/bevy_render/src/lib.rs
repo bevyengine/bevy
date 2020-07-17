@@ -9,7 +9,6 @@ pub mod render_graph;
 pub mod renderer;
 pub mod shader;
 pub mod texture;
-pub mod vertex;
 
 mod entity;
 pub use once_cell;
@@ -22,7 +21,7 @@ pub mod prelude {
 }
 
 use crate::prelude::*;
-use bevy_app::{AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
 use bevy_type_registry::RegisterType;

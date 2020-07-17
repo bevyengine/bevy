@@ -1,6 +1,6 @@
-use super::AppBuilder;
 use libloading::{Library, Symbol};
 use std::any::Any;
+use crate::AppBuilder;
 
 pub trait AppPlugin: Any + Send + Sync {
     fn build(&self, app: &mut AppBuilder);

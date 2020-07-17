@@ -5,7 +5,7 @@ pub mod system;
 
 pub use input::*;
 
-use bevy_app::{AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, KeyboardInputState};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseButtonInputState, MouseMotion,

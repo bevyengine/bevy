@@ -2,7 +2,7 @@ use super::{SamplerDescriptor, TextureDescriptor};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;

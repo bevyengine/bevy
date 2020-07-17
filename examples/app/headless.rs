@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use std::time::Duration;
 
 // This example disables the default plugins by not registering them during setup.

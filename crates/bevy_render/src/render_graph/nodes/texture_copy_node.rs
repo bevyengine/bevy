@@ -3,7 +3,7 @@ use crate::{
     renderer::{BufferInfo, BufferUsage, RenderContext},
     texture::{Texture, TextureDescriptor, TEXTURE_ASSET_INDEX},
 };
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::{Resources, World};
 

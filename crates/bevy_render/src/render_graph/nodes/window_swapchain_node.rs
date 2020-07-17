@@ -2,7 +2,7 @@ use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{RenderContext, RenderResourceId, RenderResourceType},
 };
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
 use std::borrow::Cow;

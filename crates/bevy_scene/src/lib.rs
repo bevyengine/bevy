@@ -7,7 +7,7 @@ pub use loaded_scenes::*;
 pub use scene::*;
 pub use scene_spawner::*;
 
-use bevy_app::{stage, AppBuilder, AppPlugin};
+use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::IntoThreadLocalSystem;
 

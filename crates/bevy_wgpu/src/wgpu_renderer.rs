@@ -1,5 +1,5 @@
 use crate::renderer::{WgpuRenderGraphExecutor, WgpuRenderResourceContext};
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::*;
 use bevy_ecs::{Resources, World};
 use bevy_render::{
     render_graph::{DependentNodeStager, RenderGraph, RenderGraphStager},

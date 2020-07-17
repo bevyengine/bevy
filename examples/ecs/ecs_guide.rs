@@ -1,4 +1,7 @@
-use bevy::{app::AppExit, prelude::*};
+use bevy::{
+    app::{AppExit, ScheduleRunnerPlugin},
+    prelude::*,
+};
 use rand::random;
 use std::time::Duration;
 

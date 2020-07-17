@@ -1,4 +1,4 @@
-use bevy::{app::schedule_runner::ScheduleRunnerPlugin, prelude::*};
+use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 
 fn main() {
     App::build()

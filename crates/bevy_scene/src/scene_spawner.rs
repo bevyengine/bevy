@@ -1,5 +1,5 @@
 use crate::Scene;
-use bevy_app::{EventReader, Events};
+use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
