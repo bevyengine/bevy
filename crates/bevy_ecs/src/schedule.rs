@@ -4,7 +4,8 @@ use crate::{
 };
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet}, sync::{Mutex, Arc},
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
 };
 
 #[derive(Default)]

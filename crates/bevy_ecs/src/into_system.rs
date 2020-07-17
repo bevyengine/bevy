@@ -49,7 +49,7 @@ where
     fn archetype_access(&self) -> &ArchetypeAccess {
         &self.archetype_access
     }
-    
+
     fn resource_access(&self) -> &TypeAccess {
         &self.resource_access
     }

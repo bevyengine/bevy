@@ -99,9 +99,9 @@ impl TypeAccess {
 
 #[cfg(test)]
 mod tests {
-    use super::{TypeAccess, ArchetypeAccess};
+    use super::{ArchetypeAccess, TypeAccess};
+    use crate::{FetchResource, Res, ResMut, ResourceQuery};
     use hecs::World;
-    use crate::{ResourceQuery, FetchResource, Res, ResMut};
     use std::any::TypeId;
 
     struct A;
@@ -136,7 +136,8 @@ mod tests {
 
     #[test]
     fn resource_query_access() {
-        let access = <<(Res<A>, ResMut<B>, Res<C>) as ResourceQuery>::Fetch as FetchResource>::access();
+        let access =
+            <<(Res<A>, ResMut<B>, Res<C>) as ResourceQuery>::Fetch as FetchResource>::access();
         let mut expected_access = TypeAccess::default();
         expected_access.immutable.insert(TypeId::of::<A>());
         expected_access.immutable.insert(TypeId::of::<C>());

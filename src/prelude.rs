@@ -5,9 +5,7 @@ pub use crate::{
     },
     asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle},
     audio::{AudioOutput, AudioSource},
-    core::{
-        time::{Time, Timer},
-    },
+    core::time::{Time, Timer},
     diagnostic::DiagnosticsPlugin,
     ecs::{
         Bundle, Commands, Component, Entity, FromResources, IntoForEachSystem, IntoQuerySystem,
@@ -15,7 +13,7 @@ pub use crate::{
         World, WorldBuilderSource,
     },
     input::{keyboard::KeyCode, mouse::MouseButton, Input},
-    math::{self, Mat3, Mat4, Quat, Vec2, Vec3, Vec4, FaceToward},
+    math::{self, FaceToward, Mat3, Mat4, Quat, Vec2, Vec3, Vec4},
     pbr::{entity::*, light::Light, material::StandardMaterial},
     property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal},
     render::{

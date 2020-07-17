@@ -1,11 +1,11 @@
 use super::Node;
 use bevy_ecs::{Entity, Query, Res, Without};
+use bevy_math::Vec2;
 use bevy_transform::{
     hierarchy,
     prelude::{Children, Parent, Translation},
 };
 use bevy_window::Windows;
-use bevy_math::Vec2;
 
 pub const UI_Z_STEP: f32 = 0.001;
 

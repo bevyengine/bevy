@@ -1,8 +1,8 @@
 pub use hecs::{Query as HecsQuery, *};
 
 mod commands;
-mod parallel_executor;
 mod into_system;
+mod parallel_executor;
 #[cfg(feature = "profiler")]
 pub mod profiler;
 pub mod resource_query;
@@ -13,9 +13,9 @@ mod world_builder;
 
 pub use commands::{Commands, CommandsInternal};
 pub use into_system::{IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query};
+pub use parallel_executor::ParallelExecutor;
 pub use resource_query::{FetchResource, Local, Res, ResMut, ResourceQuery};
 pub use resources::{FromResources, Resource, Resources};
 pub use schedule::Schedule;
-pub use parallel_executor::ParallelExecutor;
-pub use system::{System, SystemId, TypeAccess, ArchetypeAccess};
+pub use system::{ArchetypeAccess, System, SystemId, TypeAccess};
 pub use world_builder::{WorldBuilder, WorldBuilderSource};

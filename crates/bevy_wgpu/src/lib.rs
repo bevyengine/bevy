@@ -10,7 +10,7 @@ pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
 
 use bevy_app::{AppBuilder, AppPlugin};
-use bevy_ecs::{IntoQuerySystem, Resources, IntoThreadLocalSystem, World};
+use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem, Resources, World};
 use bevy_render::{
     render_resource::{free_shared_buffers_system, SharedBuffers},
     renderer::RenderResourceContext,

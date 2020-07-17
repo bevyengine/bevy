@@ -9,10 +9,10 @@ use bevy_input::{
 
 use bevy_app::{App, AppBuilder, AppExit, AppPlugin, EventReader, Events};
 use bevy_ecs::Resources;
+use bevy_math::Vec2;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
-use bevy_math::Vec2;
 use winit::{
     event,
     event::{DeviceEvent, WindowEvent},

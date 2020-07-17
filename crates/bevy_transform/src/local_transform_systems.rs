@@ -2,7 +2,7 @@
 use crate::components::*;
 
 use bevy_ecs::{IntoQuerySystem, Query, System, Without};
-use bevy_math::{Vec3, Mat4, Quat};
+use bevy_math::{Mat4, Quat, Vec3};
 
 // TODO: "on changed" for all of these systems
 pub fn local_transform_translation_system(
@@ -178,8 +178,8 @@ pub fn local_transform_systems() -> Vec<Box<dyn System>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use bevy_math::{Mat4, Quat, Vec3};
     use bevy_ecs::{Resources, Schedule, World};
+    use bevy_math::{Mat4, Quat, Vec3};
 
     #[test]
     fn correct_local_transformation() {

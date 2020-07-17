@@ -4,9 +4,9 @@ pub mod time;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_ecs::IntoQuerySystem;
+use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 use time::{time_system, timer_system, Time, Timer};
-use bevy_math::{Vec3, Vec2, Mat3, Mat4, Quat};
 
 #[derive(Default)]
 pub struct CorePlugin;

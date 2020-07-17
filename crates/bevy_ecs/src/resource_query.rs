@@ -1,4 +1,8 @@
-use crate::{resources::FromResources, system::{TypeAccess, SystemId}, Archetype, Component, Resources};
+use crate::{
+    resources::FromResources,
+    system::{SystemId, TypeAccess},
+    Archetype, Component, Resources,
+};
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},

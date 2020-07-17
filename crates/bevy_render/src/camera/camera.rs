@@ -1,9 +1,9 @@
 use crate::CameraProjection;
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Component, Local, Query, Res};
+use bevy_math::Mat4;
 use bevy_property::Properties;
 use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
-use bevy_math::Mat4;
 
 #[derive(Default, Debug, Properties)]
 pub struct Camera {

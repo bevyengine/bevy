@@ -1,6 +1,6 @@
 use ab_glyph::{FontVec, Glyph, InvalidFont, OutlinedGlyph, Point, PxScale, ScaleFont};
-use bevy_render::{texture::Texture, Color};
 use bevy_math::Vec2;
+use bevy_render::{texture::Texture, Color};
 
 pub struct Font {
     pub font: FontVec,

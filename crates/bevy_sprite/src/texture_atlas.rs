@@ -1,12 +1,12 @@
 use crate::Rect;
 use bevy_asset::Handle;
 use bevy_core::bytes::Bytes;
+use bevy_math::Vec2;
 use bevy_render::{
     render_resource::{RenderResource, RenderResources},
     texture::Texture,
     Color,
 };
-use bevy_math::Vec2;
 use std::collections::HashMap;
 
 #[derive(RenderResources)]

@@ -47,7 +47,7 @@ pub fn get_modules(attributes: &[Attribute]) -> Modules {
         if attribute.path.get_ident().as_ref().unwrap().to_string() == AS_CRATE_ATTRIBUTE_NAME {
             let value = attribute.tokens.to_string();
             if &value[1..value.len() - 1] == modules.bevy_render {
-              modules.bevy_render = "crate".to_string();  
+                modules.bevy_render = "crate".to_string();
             }
         }
     }

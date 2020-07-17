@@ -1,7 +1,7 @@
 use super::{Anchors, Margins};
+use bevy_math::{Vec2, Vec3};
 use bevy_render::render_resource::RenderResources;
 use bevy_transform::prelude::Translation;
-use bevy_math::{Vec2, Vec3};
 
 #[derive(Debug, Clone)]
 enum MarginGrowDirection {

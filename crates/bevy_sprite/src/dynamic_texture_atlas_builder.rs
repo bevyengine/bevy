@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
-use bevy_render::texture::Texture;
 use bevy_math::Vec2;
+use bevy_render::texture::Texture;
 use guillotiere::{size2, AllocId, Allocation, AtlasAllocator};
 use std::collections::HashMap;
 

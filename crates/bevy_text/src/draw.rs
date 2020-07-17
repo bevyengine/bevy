@@ -1,6 +1,7 @@
 use crate::{Font, FontAtlasSet};
 use ab_glyph::{Glyph, PxScale, ScaleFont};
 use bevy_asset::Assets;
+use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
@@ -12,7 +13,6 @@ use bevy_render::{
     Color,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
-use bevy_math::{Mat4, Vec3};
 
 pub struct TextStyle {
     pub font_size: f32,

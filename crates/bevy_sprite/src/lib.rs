@@ -19,12 +19,12 @@ pub use texture_atlas_builder::*;
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_ecs::IntoQuerySystem;
+use bevy_math::Vec2;
 use bevy_render::{
     mesh::{shape, Mesh},
     render_graph::RenderGraph,
     shader::asset_shader_defs_system,
 };
-use bevy_math::Vec2;
 use sprite::sprite_system;
 
 #[derive(Default)]
