@@ -7,7 +7,7 @@ pub use crate::{
     input::prelude::*,
     math::prelude::*,
     pbr::prelude::*,
-    property::{DynamicProperties, Properties, PropertiesVal, Property, PropertyVal},
+    property::prelude::*,
     render::prelude::*,
     scene::{Scene, SceneSpawner},
     sprite::{
