@@ -1,10 +1,10 @@
 use super::texture::Texture;
 use crate::{
     impl_render_resource_bytes,
-    render_resource::{RenderResource, RenderResourceType},
+    renderer::{RenderResource, RenderResourceType},
 };
 use bevy_asset::Handle;
-use bevy_core::bytes::{Byteable, Bytes};
+use bevy_core::{Byteable, Bytes};
 use bevy_math::Vec4;
 use bevy_property::Property;
 use serde::{Deserialize, Serialize};

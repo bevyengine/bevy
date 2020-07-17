@@ -1,5 +1,5 @@
 use super::Operations;
-use crate::{render_resource::TextureId, Color};
+use crate::{renderer::TextureId, Color};
 
 #[derive(Debug, Clone)]
 pub enum TextureAttachment {

@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::{stage, AppPlugin};
-use bevy_core::time::{Time, Timer};
+use bevy_core::{Time, Timer};
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use std::time::Duration;
 

@@ -1,5 +1,5 @@
 use crate::pipeline::AsVertexBufferDescriptor;
-use bevy_core::bytes::Byteable;
+use bevy_core::Byteable;
 
 #[repr(C)]
 #[derive(Clone, Copy, AsVertexBufferDescriptor)]

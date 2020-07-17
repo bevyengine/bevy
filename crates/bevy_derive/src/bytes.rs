@@ -27,7 +27,7 @@ pub fn derive_bytes(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_core_path::bytes::Bytes for #struct_name#ty_generics {
+        impl #impl_generics #bevy_core_path::Bytes for #struct_name#ty_generics {
             fn write_bytes(&self, buffer: &mut [u8]) {
                 let mut offset: usize = 0;
                 #(let byte_len = self.#fields.byte_len();

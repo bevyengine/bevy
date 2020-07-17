@@ -1,7 +1,7 @@
 use crate::{Font, FontAtlas};
 use ab_glyph::ScaleFont;
 use bevy_asset::{Assets, Handle};
-use bevy_core::float_ord::FloatOrd;
+use bevy_core::FloatOrd;
 use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;

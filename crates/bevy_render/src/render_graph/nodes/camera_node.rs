@@ -1,12 +1,12 @@
 use crate::{
+    camera::{ActiveCameras, Camera},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{
-        BufferId, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
+    renderer::{
+        BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        RenderResourceBindings, RenderResourceContext,
     },
-    renderer::{RenderContext, RenderResourceContext},
-    ActiveCameras, Camera,
 };
-use bevy_core::bytes::AsBytes;
+use bevy_core::AsBytes;
 
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_transform::prelude::*;

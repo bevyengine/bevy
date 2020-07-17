@@ -1,15 +1,14 @@
 use crate::{
     pipeline::{
-        state_descriptors::{IndexFormat, PrimitiveTopology},
-        AsVertexBufferDescriptor, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
+        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
+        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
-    render_resource::{BufferInfo, BufferUsage, RenderResourceId},
-    renderer::RenderResourceContext,
-    RenderPipelines, Vertex,
+    renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
+    vertex::Vertex,
 };
 use bevy_app::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_core::bytes::AsBytes;
+use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
 use std::{borrow::Cow, collections::HashSet};
@@ -168,7 +167,7 @@ impl Mesh {
 
 pub mod shape {
     use super::{Mesh, VertexAttribute};
-    use crate::pipeline::state_descriptors::PrimitiveTopology;
+    use crate::pipeline::PrimitiveTopology;
     use bevy_math::*;
 
     pub struct Cube {
@@ -510,8 +509,8 @@ pub fn mesh_resource_provider_system(
 #[cfg(test)]
 mod tests {
     use super::{AsVertexBufferDescriptor, Mesh, VertexAttribute};
-    use crate::{pipeline::state_descriptors::PrimitiveTopology, Vertex};
-    use bevy_core::bytes::AsBytes;
+    use crate::{pipeline::PrimitiveTopology, vertex::Vertex};
+    use bevy_core::AsBytes;
 
     #[test]
     fn test_get_vertex_bytes() {

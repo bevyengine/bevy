@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
+    renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };

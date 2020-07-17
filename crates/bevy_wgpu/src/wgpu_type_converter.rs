@@ -1,20 +1,18 @@
 use bevy_render::{
+    color::Color,
     pass::{LoadOp, Operations},
     pipeline::{
-        state_descriptors::{
-            BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
-            PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
-            StencilStateFaceDescriptor,
-        },
-        BindType, InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        BindType, BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
+        CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
+        InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
+        StencilStateFaceDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
+        VertexFormat,
     },
-    render_resource::BufferUsage,
+    renderer::BufferUsage,
     texture::{
         AddressMode, Extent3d, FilterMode, SamplerDescriptor, TextureComponentType,
         TextureDescriptor, TextureDimension, TextureFormat, TextureUsage, TextureViewDimension,
     },
-    Color,
 };
 use bevy_window::Window;
 

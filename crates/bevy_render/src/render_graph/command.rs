@@ -1,6 +1,5 @@
 use crate::{
-    render_resource::{BufferId, TextureId},
-    renderer::RenderContext,
+    renderer::{BufferId, RenderContext, TextureId},
     texture::Extent3d,
 };
 use std::sync::{Arc, Mutex};

@@ -1,7 +1,10 @@
-use bevy_core::bytes::Byteable;
+use bevy_core::Byteable;
 use bevy_math::Mat4;
 use bevy_property::Properties;
-use bevy_render::{CameraProjection, Color, PerspectiveProjection};
+use bevy_render::{
+    camera::{CameraProjection, PerspectiveProjection},
+    color::Color,
+};
 use bevy_transform::components::Translation;
 use std::ops::Range;
 

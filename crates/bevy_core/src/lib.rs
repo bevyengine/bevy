@@ -1,12 +1,15 @@
-pub mod bytes;
-pub mod float_ord;
-pub mod time;
+mod bytes;
+mod float_ord;
+mod time;
+
+pub use bytes::*;
+pub use float_ord::*;
+pub use time::*;
 
 use bevy_app::{stage, AppBuilder, AppPlugin};
 use bevy_ecs::IntoQuerySystem;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
-use time::{time_system, timer_system, Time, Timer};
 
 #[derive(Default)]
 pub struct CorePlugin;

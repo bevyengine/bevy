@@ -1,12 +1,9 @@
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
     pipeline::{
-        state_descriptors::{
-            BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
-            CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace,
-            RasterizationStateDescriptor, StencilStateFaceDescriptor,
-        },
-        PipelineDescriptor,
+        BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
+        CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
+        RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,

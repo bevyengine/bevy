@@ -1,6 +1,6 @@
-use crate::{texture::Texture, RenderPipelines};
 use bevy_asset::{Assets, Handle};
 
+use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
 use bevy_ecs::{Query, Res};
 

@@ -1,47 +1,38 @@
 pub mod batch;
-mod camera;
+pub mod camera;
+pub mod color;
 pub mod draw;
-pub mod entity;
 pub mod mesh;
+pub mod pass;
+pub mod pipeline;
 pub mod render_graph;
 pub mod renderer;
 pub mod shader;
+pub mod texture;
 pub mod vertex;
 
-mod color;
-
-pub use camera::*;
-pub use color::*;
-
-pub use vertex::Vertex;
-
-pub mod base_render_graph;
-pub mod pass;
-pub mod pipeline;
-pub mod render_resource;
-pub mod texture;
-
+mod entity;
 pub use once_cell;
 
-use self::{
-    mesh::Mesh,
-    pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors},
-    render_resource::RenderResourceBindings,
-    shader::Shader,
-    texture::Texture,
-};
+pub mod prelude {
+    pub use crate::{
+        color::Color, draw::Draw, entity::*, mesh::Mesh, pipeline::RenderPipelines, shader::Shader,
+        texture::Texture,
+    };
+}
 
-use base_render_graph::{BaseRenderGraphBuilder, BaseRenderGraphConfig};
+use crate::prelude::*;
 use bevy_app::{AppBuilder, AppPlugin};
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
 use bevy_type_registry::RegisterType;
-use draw::{clear_draw_system, Draw};
-use mesh::mesh_resource_provider_system;
-use pipeline::{draw_render_pipelines_system, RenderPipelines};
-use render_graph::{system::render_graph_schedule_executor_system, RenderGraph};
-use render_resource::AssetRenderResourceBindings;
-use shader::clear_shader_defs_system;
+use camera::{ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection};
+use pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors};
+use render_graph::{
+    base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
+    RenderGraph,
+};
+use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
 use texture::{PngTextureLoader, TextureResourceSystemState};
 
@@ -95,7 +86,10 @@ impl AppPlugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
-            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, clear_draw_system.system())
+            .add_system_to_stage(
+                bevy_app::stage::PRE_UPDATE,
+                draw::clear_draw_system.system(),
+            )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::active_cameras_system.system(),
@@ -111,12 +105,12 @@ impl AppPlugin for RenderPlugin {
             // registration order matters here. this must come after all camera_system::<T> systems
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
-                visible_entities_system.system(),
+                camera::visible_entities_system.system(),
             )
             // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
-                mesh_resource_provider_system.system(),
+                mesh::mesh_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
@@ -124,10 +118,13 @@ impl AppPlugin for RenderPlugin {
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
-                render_graph_schedule_executor_system.thread_local_system(),
+                render_graph::render_graph_schedule_executor_system.thread_local_system(),
             )
-            .add_system_to_stage(stage::DRAW, draw_render_pipelines_system.system())
-            .add_system_to_stage(stage::POST_RENDER, clear_shader_defs_system.system());
+            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
+            .add_system_to_stage(
+                stage::POST_RENDER,
+                shader::clear_shader_defs_system.system(),
+            );
 
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();
@@ -135,11 +132,11 @@ impl AppPlugin for RenderPlugin {
             render_graph.add_base_graph(config);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
-                active_cameras.add(base_render_graph::camera::CAMERA3D);
+                active_cameras.add(base::camera::CAMERA3D);
             }
 
             if config.add_2d_camera {
-                active_cameras.add(base_render_graph::camera::CAMERA2D);
+                active_cameras.add(base::camera::CAMERA2D);
             }
         }
     }

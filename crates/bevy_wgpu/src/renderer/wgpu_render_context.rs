@@ -6,8 +6,10 @@ use bevy_render::{
         PassDescriptor, RenderPass, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    render_resource::{BufferId, RenderResourceBinding, RenderResourceBindings, TextureId},
-    renderer::{RenderContext, RenderResourceContext},
+    renderer::{
+        BufferId, RenderContext, RenderResourceBinding, RenderResourceBindings,
+        RenderResourceContext, TextureId,
+    },
     texture::Extent3d,
 };
 

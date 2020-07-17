@@ -3,8 +3,7 @@ use bevy_asset::Handle;
 use bevy_render::{
     pass::RenderPass,
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BindGroupId, BufferId},
-    renderer::RenderContext,
+    renderer::{BindGroupId, BufferId, RenderContext},
 };
 use std::ops::Range;
 

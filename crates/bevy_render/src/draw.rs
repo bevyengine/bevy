@@ -3,17 +3,16 @@ use crate::{
         PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
         VertexBufferDescriptors,
     },
-    render_resource::{
+    renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
-        RenderResourceBindings, SharedBuffers,
+        RenderResourceBindings, RenderResourceContext, SharedBuffers,
     },
-    renderer::RenderResourceContext,
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
-    resource_query::UnsafeClone, Archetype, FetchResource, Query, Res, ResMut, ResourceQuery,
-    Resources, SystemId, TypeAccess,
+    Archetype, FetchResource, Query, Res, ResMut, ResourceQuery, Resources, SystemId, TypeAccess,
+    UnsafeClone,
 };
 use bevy_property::Properties;
 use std::{any::TypeId, collections::HashMap, ops::Range, sync::Arc};

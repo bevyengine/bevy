@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::mesh::shape};
 
 #[derive(DynamicAppPlugin)]
 pub struct ExamplePlugin;

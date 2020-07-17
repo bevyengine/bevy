@@ -2,17 +2,17 @@ use crate::{
     draw::Draw,
     pipeline::RenderPipelines,
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{
-        self, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
-        RenderResourceBindingsId, RenderResourceHints,
+    renderer::{
+        self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        RenderResourceBindings, RenderResourceBindingsId, RenderResourceContext,
+        RenderResourceHints,
     },
-    renderer::{RenderContext, RenderResourceContext},
     texture,
 };
 
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
-use render_resource::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
+use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
 use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
@@ -60,7 +60,7 @@ impl BufferArrayStatus {
 
 struct UniformBufferArrays<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     uniform_arrays: Vec<Option<(String, BufferArrayStatus)>>,
     staging_buffer: Option<BufferId>,
@@ -70,7 +70,7 @@ where
 
 impl<T> Default for UniformBufferArrays<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn default() -> Self {
         Self {
@@ -84,7 +84,7 @@ where
 
 impl<T> UniformBufferArrays<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn reset_changed_item_counts(&mut self) {
         for buffer_status in self.uniform_arrays.iter_mut() {
@@ -342,7 +342,7 @@ where
 #[derive(Default)]
 pub struct RenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -351,7 +351,7 @@ where
 
 impl<T> RenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         RenderResourcesNode {
@@ -364,7 +364,7 @@ where
 
 impl<T> Node for RenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn update(
         &mut self,
@@ -380,7 +380,7 @@ where
 
 impl<T> SystemNode for RenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
         let system = render_resources_node_system::<T>.system();
@@ -498,7 +498,7 @@ fn render_resources_node_system<T: RenderResources>(
 #[derive(Default)]
 pub struct AssetRenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
@@ -507,7 +507,7 @@ where
 
 impl<T> AssetRenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     pub fn new(dynamic_uniforms: bool) -> Self {
         AssetRenderResourcesNode {
@@ -520,7 +520,7 @@ where
 
 impl<T> Node for AssetRenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn update(
         &mut self,
@@ -538,7 +538,7 @@ const EXPECT_ASSET_MESSAGE: &str = "Only assets that exist should be in the modi
 
 impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
         let system = asset_render_resources_node_system::<T>.system();
@@ -669,7 +669,7 @@ fn setup_uniform_texture_resources<T>(
     render_resource_context: &dyn RenderResourceContext,
     render_resource_bindings: &mut RenderResourceBindings,
 ) where
-    T: render_resource::RenderResources,
+    T: renderer::RenderResources,
 {
     for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
         if let Some(RenderResourceType::Texture) = render_resource.resource_type() {

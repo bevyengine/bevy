@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, render::pass::ClearColor};
 
 fn main() {
     App::build()

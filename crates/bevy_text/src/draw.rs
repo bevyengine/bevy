@@ -3,14 +3,14 @@ use ab_glyph::{Glyph, PxScale, ScaleFont};
 use bevy_asset::Assets;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
+    color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     pipeline::PipelineSpecialization,
-    render_resource::{
+    renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
     },
-    Color,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 

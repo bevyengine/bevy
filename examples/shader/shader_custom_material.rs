@@ -1,8 +1,11 @@
 use bevy::{
     prelude::*,
     render::{
-        base_render_graph,
-        pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
+        mesh::shape,
+        pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+        render_graph::{base, AssetRenderResourcesNode, RenderGraph},
+        renderer::RenderResources,
+        shader::{ShaderStage, ShaderStages},
     },
 };
 
@@ -66,7 +69,7 @@ fn setup(
 
     // Add a Render Graph edge connecting our new "my_material" node to the main pass node
     render_graph
-        .add_node_edge("my_material", base_render_graph::node::MAIN_PASS)
+        .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();
 
     // Create a new material

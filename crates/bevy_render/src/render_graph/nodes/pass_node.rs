@@ -1,15 +1,14 @@
 use crate::{
+    camera::{ActiveCameras, VisibleEntities},
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, PipelineDescriptor, UniformProperty,
     },
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{
-        BindGroup, BindGroupId, BufferId, RenderResourceBindings, RenderResourceType,
+    renderer::{
+        BindGroup, BindGroupId, BufferId, RenderContext, RenderResourceBindings, RenderResourceType,
     },
-    renderer::RenderContext,
-    ActiveCameras, VisibleEntities,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World};

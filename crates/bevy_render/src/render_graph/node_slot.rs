@@ -1,5 +1,5 @@
 use super::RenderGraphError;
-use crate::render_resource::{RenderResourceId, RenderResourceType};
+use crate::renderer::{RenderResourceId, RenderResourceType};
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]

@@ -1,7 +1,7 @@
 use super::RenderResourceContext;
 use crate::{
     pass::{PassDescriptor, RenderPass},
-    render_resource::{BufferId, RenderResourceBindings, TextureId},
+    renderer::{BufferId, RenderResourceBindings, TextureId},
     texture::Extent3d,
 };
 

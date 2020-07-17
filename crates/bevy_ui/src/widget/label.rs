@@ -2,10 +2,10 @@ use crate::Node;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_render::{
+    color::Color,
     draw::{Draw, DrawContext, Drawable},
-    render_resource::{AssetRenderResourceBindings, RenderResourceBindings},
+    renderer::{AssetRenderResourceBindings, RenderResourceBindings},
     texture::Texture,
-    Color,
 };
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};

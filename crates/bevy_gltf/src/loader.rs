@@ -1,6 +1,6 @@
 use bevy_render::{
     mesh::{Mesh, VertexAttribute, VertexAttributeValues},
-    pipeline::state_descriptors::PrimitiveTopology,
+    pipeline::PrimitiveTopology,
 };
 
 use anyhow::Result;

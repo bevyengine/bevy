@@ -1,4 +1,4 @@
-use crate::CameraProjection;
+use super::CameraProjection;
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Component, Local, Query, Res};
 use bevy_math::Mat4;

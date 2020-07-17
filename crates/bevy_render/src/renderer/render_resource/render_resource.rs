@@ -2,7 +2,7 @@ use super::{BufferId, SamplerId, TextureId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
 
-use bevy_core::bytes::{Byteable, Bytes};
+use bevy_core::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 

@@ -1,6 +1,7 @@
 use super::{BufferId, BufferInfo, RenderResource, RenderResourceBinding};
 use crate::{
-    render_graph::CommandQueue, render_resource::BufferUsage, renderer::RenderResourceContext,
+    render_graph::CommandQueue,
+    renderer::{BufferUsage, RenderResourceContext},
 };
 use bevy_ecs::Res;
 use std::sync::{Arc, RwLock};

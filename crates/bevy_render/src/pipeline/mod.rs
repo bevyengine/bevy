@@ -4,7 +4,7 @@ mod pipeline;
 mod pipeline_compiler;
 mod pipeline_layout;
 mod render_pipelines;
-pub mod state_descriptors;
+mod state_descriptors;
 mod vertex_buffer_descriptor;
 mod vertex_format;
 
@@ -14,5 +14,6 @@ pub use pipeline::*;
 pub use pipeline_compiler::*;
 pub use pipeline_layout::*;
 pub use render_pipelines::*;
+pub use state_descriptors::*;
 pub use vertex_buffer_descriptor::*;
 pub use vertex_format::*;

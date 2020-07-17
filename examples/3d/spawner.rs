@@ -1,6 +1,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
     prelude::*,
+    render::mesh::shape,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 

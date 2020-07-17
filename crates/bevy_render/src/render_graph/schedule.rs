@@ -264,8 +264,7 @@ mod tests {
     use super::{DependentNodeStager, OrderedJob, RenderGraphStager, Stage};
     use crate::{
         render_graph::{Node, NodeId, RenderGraph, ResourceSlotInfo, ResourceSlots},
-        render_resource::RenderResourceType,
-        renderer::RenderContext,
+        renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
 

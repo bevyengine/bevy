@@ -1,17 +1,16 @@
-use bevy_render::{
-    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
-    render_resource::{
-        BufferId, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceBindings,
-    },
-    renderer::{RenderContext, RenderResourceContext},
-};
-
 use crate::{
     light::{Light, LightRaw},
     uniform,
 };
-use bevy_core::bytes::{AsBytes, Byteable};
+use bevy_core::{AsBytes, Byteable};
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_render::{
+    render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
+    renderer::{
+        BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
+        RenderResourceBindings, RenderResourceContext,
+    },
+};
 use bevy_transform::prelude::*;
 
 #[derive(Default)]

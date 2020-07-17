@@ -6,11 +6,10 @@ use crate::{
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{
-        BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceId, SamplerId,
-        TextureId,
+    renderer::{
+        BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
+        RenderResourceId, SamplerId, TextureId,
     },
-    renderer::RenderResourceContext,
     shader::Shader,
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };

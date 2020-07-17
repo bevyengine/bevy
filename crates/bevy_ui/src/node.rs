@@ -1,6 +1,6 @@
 use super::{Anchors, Margins};
 use bevy_math::{Vec2, Vec3};
-use bevy_render::render_resource::RenderResources;
+use bevy_render::renderer::RenderResources;
 use bevy_transform::prelude::Translation;
 
 #[derive(Debug, Clone)]

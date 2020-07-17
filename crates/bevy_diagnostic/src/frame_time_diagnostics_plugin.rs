@@ -1,6 +1,6 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::AppPlugin;
-use bevy_core::time::Time;
+use bevy_core::Time;
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 
 #[derive(Default)]

@@ -1,6 +1,8 @@
 use crate::{
-    base_render_graph, draw::Draw, mesh::Mesh, pipeline::RenderPipelines, Camera,
-    OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    camera::{Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities},
+    pipeline::RenderPipelines,
+    render_graph::base,
+    Draw, Mesh,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -32,7 +34,7 @@ impl Default for PerspectiveCameraComponents {
     fn default() -> Self {
         PerspectiveCameraComponents {
             camera: Camera {
-                name: Some(base_render_graph::camera::CAMERA3D.to_string()),
+                name: Some(base::camera::CAMERA3D.to_string()),
                 ..Default::default()
             },
             perspective_projection: Default::default(),
@@ -60,7 +62,7 @@ impl Default for OrthographicCameraComponents {
     fn default() -> Self {
         OrthographicCameraComponents {
             camera: Camera {
-                name: Some(base_render_graph::camera::CAMERA2D.to_string()),
+                name: Some(base::camera::CAMERA2D.to_string()),
                 ..Default::default()
             },
             orthographic_projection: Default::default(),

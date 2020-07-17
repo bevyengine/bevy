@@ -50,12 +50,12 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
 
     if attributes.from_self {
         TokenStream::from(quote! {
-            impl #bevy_render_path::render_resource::RenderResources for #struct_name {
+            impl #bevy_render_path::renderer::RenderResources for #struct_name {
                 fn render_resources_len(&self) -> usize {
                     1
                 }
 
-                fn get_render_resource(&self, index: usize) -> Option<&dyn #bevy_render_path::render_resource::RenderResource> {
+                fn get_render_resource(&self, index: usize) -> Option<&dyn #bevy_render_path::renderer::RenderResource> {
                     if index == 0 {
                         Some(self)
                     } else {
@@ -71,8 +71,8 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn iter_render_resources(&self) -> #bevy_render_path::render_resource::RenderResourceIterator {
-                    #bevy_render_path::render_resource::RenderResourceIterator::new(self)
+                fn iter_render_resources(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
+                    #bevy_render_path::renderer::RenderResourceIterator::new(self)
                 }
             }
         })
@@ -131,9 +131,8 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             render_resource_fields.push(field_ident);
             render_resource_names.push(format!("{}_{}", struct_name, field_name));
             if attrs.buffer {
-                render_resource_hints.push(
-                    quote! {Some(#bevy_render_path::render_resource::RenderResourceHints::BUFFER)},
-                )
+                render_resource_hints
+                    .push(quote! {Some(#bevy_render_path::renderer::RenderResourceHints::BUFFER)})
             } else {
                 render_resource_hints.push(quote! {None})
             }
@@ -153,16 +152,16 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                 #(#render_resource_names,)*
             ];
 
-            static #render_resource_hints_ident: &[Option<#bevy_render_path::render_resource::RenderResourceHints>] = &[
+            static #render_resource_hints_ident: &[Option<#bevy_render_path::renderer::RenderResourceHints>] = &[
                 #(#render_resource_hints,)*
             ];
 
-            impl #bevy_render_path::render_resource::RenderResources for #struct_name {
+            impl #bevy_render_path::renderer::RenderResources for #struct_name {
                 fn render_resources_len(&self) -> usize {
                     #render_resource_count
                 }
 
-                fn get_render_resource(&self, index: usize) -> Option<&dyn #bevy_render_path::render_resource::RenderResource> {
+                fn get_render_resource(&self, index: usize) -> Option<&dyn #bevy_render_path::renderer::RenderResource> {
                     match index {
                         #(#render_resource_indices => Some(&self.#render_resource_fields),)*
                         _ => None,
@@ -173,12 +172,12 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                     Some(#render_resource_names_ident[index])
                 }
 
-                fn get_render_resource_hints(&self, index: usize) -> Option<#bevy_render_path::render_resource::RenderResourceHints> {
+                fn get_render_resource_hints(&self, index: usize) -> Option<#bevy_render_path::renderer::RenderResourceHints> {
                     #render_resource_hints_ident[index].clone()
                 }
 
-                fn iter_render_resources(&self) -> #bevy_render_path::render_resource::RenderResourceIterator {
-                    #bevy_render_path::render_resource::RenderResourceIterator::new(self)
+                fn iter_render_resources(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
+                    #bevy_render_path::renderer::RenderResourceIterator::new(self)
                 }
             }
         })

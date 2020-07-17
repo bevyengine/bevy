@@ -1,7 +1,6 @@
 use crate::{
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
-    render_resource::{RenderResourceId, RenderResourceType},
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderResourceId, RenderResourceType},
     texture::TextureDescriptor,
 };
 use bevy_app::{EventReader, Events};

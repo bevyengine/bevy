@@ -1,7 +1,7 @@
 use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext, DrawError, Drawable},
-    render_resource::RenderResourceBindings,
+    renderer::RenderResourceBindings,
 };
 use bevy_asset::Handle;
 use bevy_ecs::{Query, ResMut};

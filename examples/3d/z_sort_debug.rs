@@ -1,4 +1,10 @@
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{
+        camera::{Camera, VisibleEntities},
+        mesh::shape,
+    },
+};
 
 struct Rotator;
 

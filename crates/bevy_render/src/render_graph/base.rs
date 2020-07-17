@@ -1,14 +1,11 @@
+use super::{
+    CameraNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
+    WindowTextureNode,
+};
 use crate::{
     pass::{
         LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
-    },
-    render_graph::{
-        nodes::{
-            CameraNode, PassNode, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
-            WindowTextureNode,
-        },
-        RenderGraph,
     },
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,

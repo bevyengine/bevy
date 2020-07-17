@@ -1,9 +1,11 @@
 use bevy::{
     prelude::*,
     render::{
-        base_render_graph,
-        pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline},
-        shader,
+        mesh::shape,
+        pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+        render_graph::{base, AssetRenderResourcesNode, RenderGraph},
+        renderer::RenderResources,
+        shader::{asset_shader_defs_system, ShaderDefs, ShaderStage, ShaderStages},
     },
 };
 
@@ -14,7 +16,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_system_to_stage(
             stage::POST_UPDATE,
-            shader::asset_shader_defs_system::<MyMaterial>.system(),
+            asset_shader_defs_system::<MyMaterial>.system(),
         )
         .run();
 }
@@ -78,7 +80,7 @@ fn setup(
 
     // Add a Render Graph edge connecting our new "my_material" node to the main pass node
     render_graph
-        .add_node_edge("my_material", base_render_graph::node::MAIN_PASS)
+        .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();
 
     // Create a green material

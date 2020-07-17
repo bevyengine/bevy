@@ -6,12 +6,8 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_ecs::Resources;
 use bevy_render::{
-    base_render_graph,
     pipeline::PipelineDescriptor,
-    render_graph::{
-        nodes::{AssetRenderResourcesNode, RenderResourcesNode},
-        RenderGraph,
-    },
+    render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::Shader,
 };
 use bevy_transform::prelude::Transform;
@@ -46,11 +42,11 @@ impl ForwardPbrRenderGraphBuilder for RenderGraph {
         );
 
         // TODO: replace these with "autowire" groups
-        self.add_node_edge(node::STANDARD_MATERIAL, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::STANDARD_MATERIAL, base::node::MAIN_PASS)
             .unwrap();
-        self.add_node_edge(node::TRANSFORM, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::TRANSFORM, base::node::MAIN_PASS)
             .unwrap();
-        self.add_node_edge(node::LIGHTS, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::LIGHTS, base::node::MAIN_PASS)
             .unwrap();
         self
     }

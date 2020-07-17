@@ -1,7 +1,6 @@
 use crate::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BindGroupId, BufferId},
-    renderer::RenderContext,
+    renderer::{BindGroupId, BufferId, RenderContext},
 };
 use bevy_asset::Handle;
 use std::ops::Range;

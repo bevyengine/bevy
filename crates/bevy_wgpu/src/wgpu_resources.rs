@@ -1,7 +1,7 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{BindGroupDescriptorId, PipelineDescriptor},
-    render_resource::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
+    renderer::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
 };

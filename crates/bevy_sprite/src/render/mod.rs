@@ -2,12 +2,12 @@ use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
 use bevy_render::{
-    base_render_graph,
-    pipeline::{state_descriptors::*, PipelineDescriptor},
-    render_graph::{
-        nodes::{AssetRenderResourcesNode, RenderResourcesNode},
-        RenderGraph,
+    pipeline::{
+        BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
+        CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
+        RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
+    render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
@@ -125,11 +125,11 @@ impl SpriteRenderGraphBuilder for RenderGraph {
             node::COLOR_MATERIAL,
             AssetRenderResourcesNode::<ColorMaterial>::new(false),
         );
-        self.add_node_edge(node::COLOR_MATERIAL, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::COLOR_MATERIAL, base::node::MAIN_PASS)
             .unwrap();
 
         self.add_system_node(node::SPRITE, RenderResourcesNode::<Sprite>::new(true));
-        self.add_node_edge(node::SPRITE, base_render_graph::node::MAIN_PASS)
+        self.add_node_edge(node::SPRITE, base::node::MAIN_PASS)
             .unwrap();
 
         self.add_system_node(

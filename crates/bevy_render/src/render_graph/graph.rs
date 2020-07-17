@@ -297,8 +297,7 @@ mod tests {
     use super::RenderGraph;
     use crate::{
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
-        render_resource::RenderResourceType,
-        renderer::RenderContext,
+        renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};
