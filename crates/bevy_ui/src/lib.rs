@@ -12,6 +12,10 @@ pub use node::*;
 pub use render::*;
 pub use ui_update_system::*;
 
+pub mod prelude {
+    pub use crate::{entity::*, widget::Label, Anchors, Margins, Node};
+}
+
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 use bevy_render::render_graph::RenderGraph;

@@ -1,7 +1,8 @@
 pub mod collide_aabb;
+pub mod entity;
+
 mod color_material;
 mod dynamic_texture_atlas_builder;
-pub mod entity;
 mod rect;
 mod render;
 mod sprite;
@@ -15,6 +16,13 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+
+pub mod prelude {
+    pub use crate::{
+        entity::{SpriteComponents, SpriteSheetComponents},
+        ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite,
+    };
+}
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};

@@ -6,7 +6,7 @@ use bevy::{
         render_graph::{CameraNode, PassNode, RenderGraph, WindowSwapChainNode, WindowTextureNode},
         texture::{TextureDescriptor, TextureFormat, TextureUsage},
     },
-    window::{CreateWindow, WindowId, WindowReference},
+    window::{CreateWindow, WindowDescriptor, WindowId, WindowReference},
 };
 
 fn main() {

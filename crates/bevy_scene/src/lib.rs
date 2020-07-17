@@ -7,6 +7,10 @@ pub use loaded_scenes::*;
 pub use scene::*;
 pub use scene_spawner::*;
 
+pub mod prelude {
+    pub use crate::{Scene, SceneSpawner};
+}
+
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::IntoThreadLocalSystem;

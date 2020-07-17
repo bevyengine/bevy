@@ -15,7 +15,12 @@ pub use once_cell;
 
 pub mod prelude {
     pub use crate::{
-        color::Color, draw::Draw, entity::*, mesh::Mesh, pipeline::RenderPipelines, shader::Shader,
+        color::Color,
+        draw::Draw,
+        entity::*,
+        mesh::{shape, Mesh},
+        pipeline::RenderPipelines,
+        shader::Shader,
         texture::Texture,
     };
 }
