@@ -203,6 +203,10 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     unsafe fn next(&mut self) -> Option<T::Item> {
         Some(self.0.as_mut()?.next())
     }
+
+    unsafe fn should_skip(&self) -> bool {
+        self.0.as_ref().map_or(false, |fetch| fetch.should_skip())
+    }
 }
 
 /// Query transformer skipping entities that have a `T` component
@@ -257,6 +261,10 @@ impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
 
     unsafe fn next(&mut self) -> F::Item {
         self.0.next()
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        self.0.should_skip()
     }
 }
 
@@ -314,6 +322,10 @@ impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWith<T, F> {
 
     unsafe fn next(&mut self) -> F::Item {
         self.0.next()
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        self.0.should_skip()
     }
 }
 
@@ -536,7 +548,7 @@ impl<Q: Query> ChunkIter<Q> {
                 continue;
             }
 
-            break Some(self.fetch.next())
+            break Some(self.fetch.next());
         }
     }
 }
@@ -635,6 +647,10 @@ macro_rules! tuple_impl {
                 #[allow(non_snake_case)]
                 let ($($name,)*) = self;
                 ($($name.next(),)*)
+            }
+            
+            unsafe fn should_skip(&self) -> bool {
+                false
             }
         }
 
