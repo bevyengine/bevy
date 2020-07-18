@@ -3,33 +3,69 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
+        .init_resource::<ButtonMaterials>()
         .add_startup_system(setup.system())
         .add_system(button_system.system())
         .run();
 }
 
+struct ButtonMaterials {
+    normal: Handle<ColorMaterial>,
+    hovered: Handle<ColorMaterial>,
+    pressed: Handle<ColorMaterial>,
+}
+
+impl FromResources for ButtonMaterials {
+    fn from_resources(resources: &Resources) -> Self {
+        let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
+        ButtonMaterials {
+            normal: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+            hovered: materials.add(Color::rgb(0.05, 0.05, 0.05).into()),
+            pressed: materials.add(Color::rgb(0.1, 0.5, 0.1).into()),
+        }
+    }
+}
+
 fn button_system(
-    mut click_query: Query<(&Button, Changed<Click>)>,
-    mut hover_query: Query<(&Button, Changed<Hover>)>,
+    button_materials: Res<ButtonMaterials>,
+    mut click_query: Query<(
+        &Button,
+        Changed<Click>,
+        &mut Handle<ColorMaterial>,
+        &Children,
+    )>,
+    mut hover_query: Query<(
+        &Button,
+        Changed<Hover>,
+        &mut Handle<ColorMaterial>,
+        &Children,
+    )>,
+    label_query: Query<&mut Label>,
 ) {
-    for (_button, click) in &mut click_query.iter() {
+    for (_button, click, mut material, children) in &mut click_query.iter() {
+        let mut label = label_query.get_mut::<Label>(children[0]).unwrap();
         match *click {
             Click::Pressed => {
-                println!("pressed");
+                label.text = "Press".to_string();
+                *material = button_materials.pressed;
             }
             Click::Released => {
-                println!("released");
+                label.text = "Button".to_string();
+                *material = button_materials.normal;
             }
         }
     }
 
-    for (_button, hover) in &mut hover_query.iter() {
+    for (_button, hover, mut material, children) in &mut hover_query.iter() {
+        let mut label = label_query.get_mut::<Label>(children[0]).unwrap();
         match *hover {
             Hover::Hovered => {
-                println!("hovered");
+                label.text = "Hover".to_string();
+                *material = button_materials.hovered;
             }
             Hover::NotHovered => {
-                println!("unhovered");
+                label.text = "Button".to_string();
+                *material = button_materials.normal;
             }
         }
     }
@@ -38,14 +74,14 @@ fn button_system(
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    button_materials: Res<ButtonMaterials>,
 ) {
     commands
         // ui camera
         .spawn(OrthographicCameraComponents::default())
         .spawn(ButtonComponents {
-            node: Node::new(Anchors::BOTTOM_LEFT, Margins::new(10.0, 160.0, 10.0, 80.0)),
-            material: materials.add(Color::rgb(0.2, 0.8, 0.2).into()),
+            node: Node::new(Anchors::CENTER, Margins::new(-75.0, 75.0, -35.0, 35.0)),
+            material: button_materials.normal,
             ..Default::default()
         })
         .with_children(|parent| {
@@ -56,7 +92,7 @@ fn setup(
                     font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                     style: TextStyle {
                         font_size: 40.0,
-                        color: Color::rgb(0.1, 0.1, 0.1),
+                        color: Color::rgb(0.8, 0.8, 0.8),
                     },
                 },
                 ..Default::default()
