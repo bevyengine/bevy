@@ -105,6 +105,7 @@ impl<'a, T: Component> Deref for Ref<'a, T> {
 pub struct RefMut<'a, T: Component> {
     archetype: &'a Archetype,
     target: NonNull<T>,
+    modified: &'a mut bool,
 }
 
 impl<'a, T: Component> RefMut<'a, T> {
@@ -118,7 +119,16 @@ impl<'a, T: Component> RefMut<'a, T> {
                 .add(index as usize),
         );
         archetype.borrow_mut::<T>();
-        Ok(Self { archetype, target })
+        let modified = archetype
+            .get_modified::<T>()
+            .unwrap()
+            .as_ptr()
+            .add(index as usize);
+        Ok(Self {
+            archetype,
+            target,
+            modified: &mut *modified,
+        })
     }
 }
 
@@ -140,6 +150,7 @@ impl<'a, T: Component> Deref for RefMut<'a, T> {
 
 impl<'a, T: Component> DerefMut for RefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
+        *self.modified = true;
         unsafe { self.target.as_mut() }
     }
 }
