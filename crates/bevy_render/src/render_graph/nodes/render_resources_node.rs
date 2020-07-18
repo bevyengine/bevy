@@ -438,7 +438,7 @@ fn render_resources_node_system<T: RenderResources>(
         .uniform_buffer_arrays
         .update_staging_buffer(render_resource_context);
 
-    for (uniforms, draw, render_pipelines) in &mut query.iter() {
+    for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
             return;
         }
@@ -456,7 +456,7 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                for (uniforms, draw, render_pipelines) in &mut query.iter() {
+                for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
                         return;
                     }
@@ -479,7 +479,7 @@ fn render_resources_node_system<T: RenderResources>(
     } else {
         // TODO: can we just remove this?
         let mut staging_buffer: [u8; 0] = [];
-        for (uniforms, draw, render_pipelines) in &mut query.iter() {
+        for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
             if !draw.is_visible {
                 return;
             }
@@ -657,7 +657,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
         }
     }
 
-    for (asset_handle, _draw, render_pipelines) in &mut query.iter() {
+    for (asset_handle, _draw, mut render_pipelines) in &mut query.iter() {
         if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
             render_pipelines.bindings.extend(asset_bindings);
         }

@@ -10,7 +10,7 @@ pub fn transform_translation_system(
         Without<Rotation, Without<Scale, Without<NonUniformScale, (&mut Transform, &Translation)>>>,
     >,
 ) {
-    for (transform, translation) in &mut query.iter() {
+    for (mut transform, translation) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -24,7 +24,7 @@ pub fn transform_rotation_system(
         Without<Translation, Without<Scale, Without<NonUniformScale, (&mut Transform, &Rotation)>>>,
     >,
 ) {
-    for (transform, rotation) in &mut query.iter() {
+    for (mut transform, rotation) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -38,7 +38,7 @@ pub fn transform_scale_system(
         Without<Translation, Without<Rotation, Without<NonUniformScale, (&mut Transform, &Scale)>>>,
     >,
 ) {
-    for (transform, scale) in &mut query.iter() {
+    for (mut transform, scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -52,7 +52,7 @@ pub fn transform_non_uniform_scale_system(
         Without<Translation, Without<Rotation, Without<Scale, (&mut Transform, &NonUniformScale)>>>,
     >,
 ) {
-    for (transform, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, non_uniform_scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -66,7 +66,7 @@ pub fn transform_translation_rotation_system(
         Without<Scale, Without<NonUniformScale, (&mut Transform, &Translation, &Rotation)>>,
     >,
 ) {
-    for (transform, translation, rotation) in &mut query.iter() {
+    for (mut transform, translation, rotation) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -80,7 +80,7 @@ pub fn transform_translation_scale_system(
         Without<Rotation, Without<NonUniformScale, (&mut Transform, &Translation, &Scale)>>,
     >,
 ) {
-    for (transform, translation, scale) in &mut query.iter() {
+    for (mut transform, translation, scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -98,7 +98,7 @@ pub fn transform_translation_non_uniform_scale_system(
         Without<Rotation, Without<Scale, (&mut Transform, &Translation, &NonUniformScale)>>,
     >,
 ) {
-    for (transform, translation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, translation, non_uniform_scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -116,7 +116,7 @@ pub fn transform_rotation_scale_system(
         Without<Translation, Without<NonUniformScale, (&mut Transform, &Rotation, &Scale)>>,
     >,
 ) {
-    for (transform, rotation, scale) in &mut query.iter() {
+    for (mut transform, rotation, scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -134,7 +134,7 @@ pub fn transform_rotation_non_uniform_scale_system(
         Without<Translation, Without<Scale, (&mut Transform, &Rotation, &NonUniformScale)>>,
     >,
 ) {
-    for (transform, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, rotation, non_uniform_scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -150,7 +150,7 @@ pub fn transform_rotation_non_uniform_scale_system(
 pub fn transform_translation_rotation_scale_system(
     mut query: Query<Without<NonUniformScale, (&mut Transform, &Translation, &Rotation, &Scale)>>,
 ) {
-    for (transform, translation, rotation, scale) in &mut query.iter() {
+    for (mut transform, translation, rotation, scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -166,7 +166,7 @@ pub fn transform_translation_rotation_scale_system(
 pub fn transform_translation_rotation_non_uniform_scale_system(
     mut query: Query<Without<Scale, (&mut Transform, &Translation, &Rotation, &NonUniformScale)>>,
 ) {
-    for (transform, translation, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, translation, rotation, non_uniform_scale) in &mut query.iter() {
         if !transform.sync {
             continue;
         }

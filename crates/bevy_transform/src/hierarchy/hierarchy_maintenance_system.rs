@@ -40,7 +40,7 @@ pub fn parent_update_system(
     let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
-    for (entity, parent, previous_parent) in &mut changed_parent_query.iter() {
+    for (entity, parent, mut previous_parent) in &mut changed_parent_query.iter() {
         log::trace!("Parent changed for {:?}", entity);
 
         // If the `PreviousParent` is not None.

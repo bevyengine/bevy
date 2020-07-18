@@ -13,7 +13,7 @@ fn placement_system(
     materials: Res<Assets<ColorMaterial>>,
     mut query: Query<(&mut Node, &Handle<ColorMaterial>)>,
 ) {
-    for (node, material_handle) in &mut query.iter() {
+    for (mut node, material_handle) in &mut query.iter() {
         let material = materials.get(&material_handle).unwrap();
         if material.color.r > 0.2 {
             node.position += Vec2::new(0.1 * time.delta_seconds, 0.0);

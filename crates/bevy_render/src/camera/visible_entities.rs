@@ -26,7 +26,7 @@ pub fn visible_entities_system(
     mut draw_query: Query<(Entity, &Draw)>,
     draw_transform_query: Query<(&Draw, &Transform)>,
 ) {
-    for (_camera, camera_transform, visible_entities) in &mut camera_query.iter() {
+    for (_camera, camera_transform, mut visible_entities) in &mut camera_query.iter() {
         visible_entities.value.clear();
         let camera_position = camera_transform.value.w_axis().truncate();
 

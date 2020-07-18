@@ -13,7 +13,7 @@ fn main() {
 }
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Label>) {
-    for label in &mut query.iter() {
+    for mut label in &mut query.iter() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 label.text = format!("FPS: {:.2}", average);

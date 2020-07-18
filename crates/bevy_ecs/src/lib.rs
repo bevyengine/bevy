@@ -6,7 +6,7 @@ mod world;
 
 pub use resource::*;
 pub use schedule::*;
-pub use system::{*, Query};
+pub use system::{Query, *};
 pub use world::*;
 
 pub mod prelude {
@@ -15,7 +15,7 @@ pub mod prelude {
         system::{
             Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
         },
-        world::{WorldBuilderSource, Track},
+        world::WorldBuilderSource,
         Bundle, Component, Entity, Ref, RefMut, With, Without, World,
     };
 }

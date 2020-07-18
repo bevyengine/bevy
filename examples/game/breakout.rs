@@ -159,7 +159,7 @@ fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Translation)>,
 ) {
-    for (paddle, translation) in &mut query.iter() {
+    for (paddle, mut translation) in &mut query.iter() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -174,7 +174,7 @@ fn paddle_movement_system(
 }
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
-    for (ball, translation) in &mut ball_query.iter() {
+    for (ball, mut translation) in &mut ball_query.iter() {
         translation.0 += ball.velocity * time.delta_seconds;
     }
 }
@@ -193,7 +193,7 @@ fn ball_collision_system(
     mut brick_query: Query<(Entity, &Brick, &Translation, &Sprite)>,
     mut wall_query: Query<(&Wall, &Translation, &Sprite)>,
 ) {
-    for (ball, translation, sprite) in &mut ball_query.iter() {
+    for (mut ball, translation, sprite) in &mut ball_query.iter() {
         let ball_position = translation.0;
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
