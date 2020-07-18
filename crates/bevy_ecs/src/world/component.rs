@@ -213,5 +213,12 @@ mod tests {
             .iter()
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_changed, vec![e2]);
+
+        let a_b_changed_tuple = world
+            .query::<(Changed<A, Entity>, Changed<B, &B>)>()
+            .iter()
+            .map(|(e, _b)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed_tuple, vec![e2]);
     }
 }
