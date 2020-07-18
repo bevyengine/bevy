@@ -134,6 +134,11 @@ impl Archetype {
     }
 
     #[allow(missing_docs)]
+    pub fn get_type_state_mut(&mut self, ty: TypeId) -> Option<&mut TypeState> {
+        self.state.get_mut(&ty)
+    }
+
+    #[allow(missing_docs)]
     pub fn borrow<T: Component>(&self) {
         if self
             .state
@@ -229,6 +234,7 @@ impl Archetype {
         self.entities.len() as u32
     }
 
+    #[allow(missing_docs)]
     pub fn clear_trackers(&mut self) {
         for type_state in self.state.values_mut() {
             type_state.clear_trackers();
@@ -302,6 +308,9 @@ impl Archetype {
                     removed,
                     ty.layout.size(),
                 );
+
+                let type_state = self.state.get_mut(&ty.id).unwrap();
+                type_state.modified_entities[index as usize] = type_state.modified_entities[last as usize]; 
             }
         }
         self.len = last;
@@ -317,7 +326,7 @@ impl Archetype {
     pub(crate) unsafe fn move_to(
         &mut self,
         index: u32,
-        mut f: impl FnMut(*mut u8, TypeId, usize),
+        mut f: impl FnMut(*mut u8, TypeId, usize, bool),
     ) -> Option<u32> {
         let last = self.len - 1;
         for ty in &self.types {
@@ -325,8 +334,9 @@ impl Archetype {
                 .get_dynamic(ty.id, ty.layout.size(), index)
                 .unwrap()
                 .as_ptr();
-            f(moved, ty.id(), ty.layout().size());
-            // TODO: copy component tracker state here
+            let type_state = self.state.get(&ty.id).unwrap();
+            let is_modified = type_state.modified_entities[index as usize];
+            f(moved, ty.id(), ty.layout().size(), is_modified);
             if index != last {
                 ptr::copy_nonoverlapping(
                     self.get_dynamic(ty.id, ty.layout.size(), last)
@@ -335,6 +345,8 @@ impl Archetype {
                     moved,
                     ty.layout.size(),
                 );
+                let type_state = self.state.get_mut(&ty.id).unwrap();
+                type_state.modified_entities[index as usize] = type_state.modified_entities[last as usize]; 
             }
         }
         self.len -= 1;
@@ -379,10 +391,10 @@ impl Drop for Archetype {
     }
 }
 
-struct TypeState {
+pub struct TypeState {
     offset: usize,
     borrow: AtomicBorrow,
-    modified_entities: Vec<bool>,
+    pub modified_entities: Vec<bool>,
 }
 
 impl TypeState {

@@ -386,8 +386,9 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             let old_index = mem::replace(&mut loc.index, target_index);
-            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size| {
+            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, is_modified| {
                 target_arch.put_dynamic(ptr, ty, size, target_index);
+                target_arch.get_type_state_mut(ty).unwrap().modified_entities[target_index as usize] = is_modified;
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;
             }
@@ -463,10 +464,11 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             loc.index = target_index;
-            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size| {
+            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size, is_modified| {
                 // Only move the components present in the target archetype, i.e. the non-removed ones.
                 if let Some(dst) = target_arch.get_dynamic(ty, size, target_index) {
                     ptr::copy_nonoverlapping(src, dst.as_ptr(), size);
+                    target_arch.get_type_state_mut(ty).unwrap().modified_entities[target_index as usize] = is_modified;
                 }
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;

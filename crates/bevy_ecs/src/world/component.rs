@@ -136,7 +136,7 @@ mod tests {
     fn modified_trackers() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B));
-        world.spawn((A(0), B));
+        let e2 = world.spawn((A(0), B));
         let e3 = world.spawn((A(0), B));
         world.spawn((A(0), B));
 
@@ -146,20 +146,31 @@ mod tests {
             }
         }
 
-        let changed_entities = world
-            .query::<Changed<A, Entity>>()
-            .iter()
-            .collect::<Vec<Entity>>();
-        assert_eq!(changed_entities, vec![e1, e3]);
+        fn get_changed(world: &World) -> Vec<Entity> {
+            world
+                .query::<Changed<A, Entity>>()
+                .iter()
+                .collect::<Vec<Entity>>()
+        };
+
+        assert_eq!(get_changed(&world), vec![e1, e3]);
 
         // ensure changing an entity's archetypes also moves its modified state
         world.insert(e1, (C,)).unwrap();
-        
-        let changed_entities = world
-            .query::<Changed<A, Entity>>()
-            .iter()
-            .collect::<Vec<Entity>>();
-        assert_eq!(changed_entities, vec![e1, e3]);
+
+        assert_eq!(get_changed(&world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+
+        // spawning a new A entity should not change existing modified state
+        world.insert(e1, (A(0), B)).unwrap();
+        assert_eq!(get_changed(&world), vec![e3, e1], "changed entities list should not change");
+
+        // removing an unchanged entity should not change modified state
+        world.despawn(e2).unwrap();
+        assert_eq!(get_changed(&world), vec![e3, e1], "changed entities list should not change");
+
+        // removing a changed entity should remove it from enumeration
+        world.despawn(e1).unwrap();
+        assert_eq!(get_changed(&world), vec![e3], "e1 should no longer be returned");
 
         world.clear_trackers();
 
