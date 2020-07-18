@@ -1,6 +1,6 @@
 use bevy_math::Vec3;
 use bevy_property::Properties;
-use std::fmt;
+use std::{ops::{DerefMut, Deref}, fmt};
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct NonUniformScale(pub Vec3);
@@ -39,5 +39,18 @@ impl fmt::Display for NonUniformScale {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (x, y, z) = self.0.into();
         write!(f, "NonUniformScale({}, {}, {})", x, y, z)
+    }
+}
+
+impl Deref for NonUniformScale {
+    type Target = Vec3;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for NonUniformScale {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

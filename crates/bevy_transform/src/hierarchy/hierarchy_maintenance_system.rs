@@ -166,7 +166,6 @@ mod test {
             world
                 .get::<Children>(parent)
                 .unwrap()
-                .0
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),
@@ -177,7 +176,6 @@ mod test {
             world
                 .get::<Children>(children[1])
                 .unwrap()
-                .0
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),
@@ -192,7 +190,6 @@ mod test {
             world
                 .get::<Children>(parent)
                 .unwrap()
-                .0
                 .iter()
                 .cloned()
                 .collect::<Vec<_>>(),

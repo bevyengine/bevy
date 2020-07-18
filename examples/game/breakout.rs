@@ -193,8 +193,7 @@ fn ball_collision_system(
     mut brick_query: Query<(Entity, &Brick, &Translation, &Sprite)>,
     mut wall_query: Query<(&Wall, &Translation, &Sprite)>,
 ) {
-    for (mut ball, translation, sprite) in &mut ball_query.iter() {
-        let ball_position = translation.0;
+    for (mut ball, ball_translation, sprite) in &mut ball_query.iter() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
         let mut collision = None;
@@ -205,7 +204,7 @@ fn ball_collision_system(
                 break;
             }
 
-            collision = collide(ball_position, ball_size, translation.0, sprite.size);
+            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
         }
 
         // check collision with paddle(s)
@@ -214,7 +213,7 @@ fn ball_collision_system(
                 break;
             }
 
-            collision = collide(ball_position, ball_size, translation.0, sprite.size);
+            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
         }
 
         // check collision with bricks
@@ -223,7 +222,7 @@ fn ball_collision_system(
                 break;
             }
 
-            collision = collide(ball_position, ball_size, translation.0, sprite.size);
+            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
             if collision.is_some() {
                 scoreboard.score += 1;
                 commands.despawn(brick_entity);
