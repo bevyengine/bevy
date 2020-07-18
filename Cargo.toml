@@ -177,6 +177,10 @@ name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 
 [[example]]
+name = "button"
+path = "examples/ui/button.rs"
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 

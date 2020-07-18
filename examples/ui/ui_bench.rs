@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     for i in 0..count {
         // 2d camera
         let cur = Vec2::new(1.0, 1.0) + prev;
-        commands.spawn(UiComponents {
+        commands.spawn(NodeComponents {
             node: Node {
                 position: Vec2::new(75.0, 75.0) + cur,
                 anchors: Anchors::new(0.5, 0.5, 0.5, 0.5),

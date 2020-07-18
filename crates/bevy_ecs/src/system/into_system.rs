@@ -150,6 +150,8 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         self.world.query::<Q>()
     }
 
+    /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
     pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, QueryComponentError> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
@@ -170,6 +172,8 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         }
     }
 
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
     pub fn get_mut<T: Component>(
         &self,
         entity: Entity,
@@ -191,6 +195,18 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
                 ComponentError::NoSuchEntity,
             ))
         }
+    }
+
+    /// Sets the entity's component to the given value. This will fail if the entity does not already have
+    /// the given component type or if the given component type does not match this query.
+    pub fn set<T: Component>(
+        &self,
+        entity: Entity,
+        component: T,
+    ) -> Result<(), QueryComponentError> {
+        let mut current = self.get_mut::<T>(entity)?;
+        *current = component;
+        Ok(())
     }
 }
 

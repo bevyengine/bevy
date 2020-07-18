@@ -25,7 +25,7 @@ fn setup(
         // ui camera
         .spawn(OrthographicCameraComponents::default())
         // root node
-        .spawn(UiComponents {
+        .spawn(NodeComponents {
             node: Node::new(Anchors::FULL, Margins::default()),
             material: materials.add(Color::NONE.into()),
             ..Default::default()
@@ -33,7 +33,7 @@ fn setup(
         .with_children(|parent| {
             parent
                 // left vertical fill
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::new(Anchors::LEFT_FULL, Margins::new(10.0, 200.0, 10.0, 10.0)),
                     material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
                     ..Default::default()
@@ -53,13 +53,13 @@ fn setup(
                     });
                 })
                 // right vertical fill
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::new(Anchors::RIGHT_FULL, Margins::new(10.0, 100.0, 100.0, 100.0)),
                     material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
                     ..Default::default()
                 })
                 // render order test: reddest in the back, whitest in the front
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(75.0, 60.0),
                         Anchors::CENTER,
@@ -68,7 +68,7 @@ fn setup(
                     material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
                     ..Default::default()
                 })
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(50.0, 35.0),
                         Anchors::CENTER,
@@ -77,7 +77,7 @@ fn setup(
                     material: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
                     ..Default::default()
                 })
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(100.0, 85.0),
                         Anchors::CENTER,
@@ -86,7 +86,7 @@ fn setup(
                     material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
                     ..Default::default()
                 })
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(150.0, 135.0),
                         Anchors::CENTER,
@@ -96,7 +96,7 @@ fn setup(
                     ..Default::default()
                 })
                 // parenting
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(210.0, 0.0),
                         Anchors::BOTTOM_LEFT,
@@ -106,14 +106,14 @@ fn setup(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(UiComponents {
+                    parent.spawn(NodeComponents {
                         node: Node::new(Anchors::FULL, Margins::new(20.0, 20.0, 20.0, 20.0)),
                         material: materials.add(Color::rgb(0.6, 0.6, 1.0).into()),
                         ..Default::default()
                     });
                 })
                 // alpha test
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::positioned(
                         Vec2::new(200.0, 185.0),
                         Anchors::CENTER,
@@ -123,7 +123,7 @@ fn setup(
                     ..Default::default()
                 })
                 // texture
-                .spawn(UiComponents {
+                .spawn(NodeComponents {
                     node: Node::new(
                         Anchors::CENTER_TOP,
                         Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),

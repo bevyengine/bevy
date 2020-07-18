@@ -131,6 +131,8 @@ impl Schedule {
                 }
             }
         }
+
+        world.clear_trackers();
     }
 
     // TODO: move this code to ParallelExecutor

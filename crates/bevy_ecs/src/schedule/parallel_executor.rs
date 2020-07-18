@@ -52,6 +52,8 @@ impl ParallelExecutor {
                 executor_stage.run(world, resources, stage_systems);
             }
         }
+
+        world.clear_trackers();
     }
 }
 

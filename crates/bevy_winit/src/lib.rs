@@ -107,9 +107,13 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<CursorMoved>>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+                    let window = winit_windows.get_window(window_id).unwrap();
+                    let inner_size = window.inner_size();
+                    // move origin to bottom left
+                    let y_position = inner_size.height as f32 - position.y as f32; 
                     cursor_moved_events.send(CursorMoved {
                         id: window_id,
-                        position: Vec2::new(position.x as f32, position.y as f32),
+                        position: Vec2::new(position.x as f32, y_position as f32),
                     });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {

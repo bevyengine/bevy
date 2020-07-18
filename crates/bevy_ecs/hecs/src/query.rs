@@ -14,7 +14,11 @@
 
 // modified by Bevy contributors
 
-use core::{marker::PhantomData, ptr::NonNull, ops::{Deref, DerefMut}};
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+};
 
 use crate::{archetype::Archetype, Component, Entity};
 
@@ -615,7 +619,7 @@ macro_rules! tuple_impl {
                 let ($($name,)*) = self;
                 ($($name.next(),)*)
             }
-            
+
             unsafe fn should_skip(&self) -> bool {
                 #[allow(non_snake_case)]
                 let ($($name,)*) = self;
@@ -702,58 +706,65 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
 }
 
 #[allow(missing_docs)]
-pub struct Changed<T, Q>(PhantomData<(Q, fn(T))>);
+pub struct Changed<'a, T> {
+    value: &'a T,
+}
 
-impl<T: Component, Q: Query> Query for Changed<T, Q> {
-    type Fetch = FetchChanged<T, Q::Fetch>;
+impl<'a, T: Component> Deref for Changed<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: Component> Query for Changed<'a, T> {
+    type Fetch = FetchChanged<T>;
 }
 
 #[doc(hidden)]
-pub struct FetchChanged<T, F>(F, PhantomData<fn(T)>, NonNull<bool>);
+pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>);
 
-impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchChanged<T, F> {
-    type Item = F::Item;
+impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
+    type Item = Changed<'a, T>;
 
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
-            F::access(archetype)
+            Some(Access::Read)
         } else {
             None
         }
     }
 
     fn borrow(archetype: &Archetype) {
-        F::borrow(archetype)
+        archetype.borrow::<T>();
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        if !archetype.has::<T>() {
-            return None;
-        }
-        Some(Self(
-            F::get(archetype, offset)?,
-            PhantomData,
-            NonNull::new_unchecked(archetype.get_modified::<T>()?.as_ptr().add(offset)),
-        ))
+        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
+        let modified = NonNull::new_unchecked(archetype.get_modified::<T>()?.as_ptr().add(offset));
+        Some(Self(components, modified))
     }
     fn release(archetype: &Archetype) {
-        F::release(archetype)
+        archetype.release::<T>();
     }
 
     unsafe fn should_skip(&self) -> bool {
         // skip if the current item wasn't changed
-        !*self.2.as_ref() || self.0.should_skip()
+        !*self.1.as_ref()
     }
 
-    unsafe fn next(&mut self) -> F::Item {
-        self.2 = NonNull::new_unchecked(self.2.as_ptr().add(1));
-        self.0.next()
+    #[inline]
+    unsafe fn next(&mut self) -> Self::Item {
+        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
+        let value = self.0.as_ptr();
+        self.0 = NonNull::new_unchecked(value.add(1));
+        Changed { value: &*value }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Entity, World, Mut, Changed};
-    use std::{vec::Vec, vec};
+    use crate::{Changed, Entity, Mut, World};
+    use std::{vec, vec::Vec};
 
     use super::*;
 
@@ -784,8 +795,9 @@ mod tests {
 
         fn get_changed_a(world: &World) -> Vec<Entity> {
             world
-                .query::<Changed<A, Entity>>()
+                .query::<(Changed<A>, Entity)>()
                 .iter()
+                .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
         };
 
@@ -823,14 +835,15 @@ mod tests {
         world.clear_trackers();
 
         assert!(world
-            .query::<Changed<A, Entity>>()
+            .query::<(Changed<A>, Entity)>()
             .iter()
+            .map(|(_a, e)| e)
             .collect::<Vec<Entity>>()
             .is_empty());
     }
 
     #[test]
-    fn nested_changed_query() {
+    fn multiple_changed_query() {
         let mut world = World::default();
         world.spawn((A(0), B(0)));
         let e2 = world.spawn((A(0), B(0)));
@@ -845,16 +858,10 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query::<Changed<A, Changed<B, Entity>>>()
+            .query::<(Changed<A>, Changed<B>, Entity)>()
             .iter()
+            .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_changed, vec![e2]);
-
-        let a_b_changed_tuple = world
-            .query::<(Changed<A, Entity>, Changed<B, &B>)>()
-            .iter()
-            .map(|(e, _b)| e)
-            .collect::<Vec<Entity>>();
-        assert_eq!(a_b_changed_tuple, vec![e2]);
     }
 }
