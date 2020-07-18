@@ -42,6 +42,11 @@ pub trait Fetch<'a>: Sized {
     /// Release dynamic borrows acquired by `borrow`
     fn release(archetype: &Archetype);
 
+    /// if this returns true, the current item will be skipped during iteration
+    unsafe fn should_skip(&self) -> bool {
+        false
+    }
+
     /// Access the next item in this archetype without bounds checking
     ///
     /// # Safety
@@ -519,11 +524,20 @@ struct ChunkIter<Q: Query> {
 
 impl<Q: Query> ChunkIter<Q> {
     unsafe fn next<'a, 'w>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
-        if self.len == 0 {
-            return None;
+        loop {
+            if self.len == 0 {
+                return None;
+            }
+
+            self.len -= 1;
+            if self.fetch.should_skip() {
+                // we still need to progress the iterator
+                let _ = self.fetch.next();
+                continue;
+            }
+
+            break Some(self.fetch.next())
         }
-        self.len -= 1;
-        Some(self.fetch.next())
     }
 }
 

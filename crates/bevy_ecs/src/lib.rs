@@ -2,12 +2,12 @@ pub use hecs::{Query as HecsQuery, *};
 mod resource;
 mod schedule;
 mod system;
-mod world_builder;
+mod world;
 
 pub use resource::*;
 pub use schedule::*;
 pub use system::{*, Query};
-pub use world_builder::*;
+pub use world::*;
 
 pub mod prelude {
     pub use crate::{
@@ -15,7 +15,7 @@ pub mod prelude {
         system::{
             Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
         },
-        world_builder::WorldBuilderSource,
+        world::{WorldBuilderSource, ComMut},
         Bundle, Component, Entity, Ref, RefMut, With, Without, World,
     };
 }

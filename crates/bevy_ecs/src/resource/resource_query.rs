@@ -62,7 +62,7 @@ impl<'a, T: Component> Deref for Res<'a, T> {
     }
 }
 
-/// Unique borrow of an entity's component
+/// Unique borrow of a resource
 pub struct ResMut<'a, T: Component> {
     archetype: &'a Archetype,
     target: NonNull<T>,

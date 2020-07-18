@@ -50,19 +50,7 @@ pub struct Archetype {
 impl Archetype {
     #[allow(missing_docs)]
     pub fn new(types: Vec<TypeInfo>) -> Self {
-        debug_assert!(
-            types.windows(2).all(|x| x[0] < x[1]),
-            "type info unsorted or contains duplicates"
-        );
-        Self {
-            types,
-            state: HashMap::default(),
-            entities: Box::new([]),
-            len: 0,
-            data: UnsafeCell::new(NonNull::dangling()),
-            data_size: 0,
-            grow_size: 64,
-        }
+        Self::with_grow(types, 64)
     }
 
     #[allow(missing_docs)]
@@ -71,9 +59,13 @@ impl Archetype {
             types.windows(2).all(|x| x[0] < x[1]),
             "type info unsorted or contains duplicates"
         );
+        let mut state = HashMap::with_capacity(types.len());
+        for ty in &types {
+            state.insert(ty.id, TypeState::new());
+        }
         Self {
+            state,
             types,
-            state: HashMap::default(),
             entities: Box::new([]),
             len: 0,
             data: UnsafeCell::new(NonNull::dangling()),
@@ -97,7 +89,8 @@ impl Archetype {
         self.len = 0;
     }
 
-    pub(crate) fn has<T: Component>(&self) -> bool {
+    #[allow(missing_docs)]
+    pub fn has<T: Component>(&self) -> bool {
         self.has_dynamic(TypeId::of::<T>())
     }
 
@@ -105,6 +98,7 @@ impl Archetype {
         self.state.contains_key(&id)
     }
 
+    // TODO: this should be unsafe i think
     #[allow(missing_docs)]
     #[inline]
     pub fn get<T: Component>(&self) -> Option<NonNull<T>> {
@@ -114,6 +108,29 @@ impl Archetype {
                 (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
             )
         })
+    }
+
+    // TODO: this should be unsafe i think
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn get_with_modified<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>)> {
+        let state = self.state.get(&TypeId::of::<T>())?;
+        Some(unsafe {
+            (
+                NonNull::new_unchecked(
+                    (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
+                ),
+                NonNull::new_unchecked(state.modified_entities.as_ptr() as *mut bool),
+            )
+        })
+    }
+
+    // TODO: this should be unsafe i think
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn get_modified<T: Component>(&self) -> Option<NonNull<bool>> {
+        let state = self.state.get(&TypeId::of::<T>())?;
+        Some(unsafe { NonNull::new_unchecked(state.modified_entities.as_ptr() as *mut bool) })
     }
 
     #[allow(missing_docs)]
@@ -212,6 +229,12 @@ impl Archetype {
         self.entities.len() as u32
     }
 
+    pub fn clear_trackers(&mut self) {
+        for type_state in self.state.values_mut() {
+            type_state.clear_trackers();
+        }
+    }
+
     fn grow(&mut self, increment: u32) {
         unsafe {
             let old_count = self.len as usize;
@@ -220,11 +243,17 @@ impl Archetype {
             new_entities[0..old_count].copy_from_slice(&self.entities[0..old_count]);
             self.entities = new_entities;
 
+            for type_state in self.state.values_mut() {
+                type_state.modified_entities.resize_with(count, || false);
+            }
+
             let old_data_size = mem::replace(&mut self.data_size, 0);
-            let mut state = HashMap::with_capacity(self.types.len());
+            let mut old_offsets = Vec::with_capacity(self.types.len());
             for ty in &self.types {
                 self.data_size = align(self.data_size, ty.layout.align());
-                state.insert(ty.id, TypeState::new(self.data_size));
+                let ty_state = self.state.get_mut(&ty.id).unwrap();
+                old_offsets.push(ty_state.offset);
+                ty_state.offset = self.data_size;
                 self.data_size += ty.layout.size() * count;
             }
             let new_data = if self.data_size == 0 {
@@ -240,9 +269,9 @@ impl Archetype {
                 .unwrap()
             };
             if old_data_size != 0 {
-                for ty in &self.types {
-                    let old_off = self.state.get(&ty.id).unwrap().offset;
-                    let new_off = state.get(&ty.id).unwrap().offset;
+                for (i, ty) in self.types.iter().enumerate() {
+                    let old_off = old_offsets[i];
+                    let new_off = self.state.get(&ty.id).unwrap().offset;
                     ptr::copy_nonoverlapping(
                         (*self.data.get()).as_ptr().add(old_off),
                         new_data.as_ptr().add(new_off),
@@ -252,7 +281,6 @@ impl Archetype {
             }
 
             self.data = UnsafeCell::new(new_data);
-            self.state = state;
         }
     }
 
@@ -266,6 +294,7 @@ impl Archetype {
                 .as_ptr();
             (ty.drop)(removed);
             if index != last {
+                // TODO: copy component tracker state here
                 ptr::copy_nonoverlapping(
                     self.get_dynamic(ty.id, ty.layout.size(), last)
                         .unwrap()
@@ -297,6 +326,7 @@ impl Archetype {
                 .unwrap()
                 .as_ptr();
             f(moved, ty.id(), ty.layout().size());
+            // TODO: copy component tracker state here
             if index != last {
                 ptr::copy_nonoverlapping(
                     self.get_dynamic(ty.id, ty.layout.size(), last)
@@ -352,13 +382,21 @@ impl Drop for Archetype {
 struct TypeState {
     offset: usize,
     borrow: AtomicBorrow,
+    modified_entities: Vec<bool>,
 }
 
 impl TypeState {
-    fn new(offset: usize) -> Self {
+    fn new() -> Self {
         Self {
-            offset,
+            offset: 0,
             borrow: AtomicBorrow::new(),
+            modified_entities: Vec::new(),
+        }
+    }
+
+    fn clear_trackers(&mut self) {
+        for modified in self.modified_entities.iter_mut() {
+            *modified = false;
         }
     }
 }

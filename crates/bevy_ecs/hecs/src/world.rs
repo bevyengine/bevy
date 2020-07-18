@@ -559,6 +559,13 @@ impl World {
     pub fn get_entity_location(&self, entity: Entity) -> Option<Location> {
         self.entities.get(entity).ok()
     }
+
+    /// Clears each entity's tracker state. For example, each entity's component "modified" state will be reset to `false`. 
+    pub fn clear_trackers(&mut self) {
+        for archetype in self.archetypes.iter_mut() {
+            archetype.clear_trackers();
+        }
+    }
 }
 
 unsafe impl Send for World {}
