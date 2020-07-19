@@ -42,11 +42,11 @@ impl<'a> ChildBuilder<'a> {
 }
 
 pub trait BuildChildren {
-    fn with_children(&mut self, spawn_children: impl FnMut(&mut ChildBuilder)) -> &mut Self;
+    fn with_children(&mut self, parent: impl FnMut(&mut ChildBuilder)) -> &mut Self;
 }
 
 impl BuildChildren for Commands {
-    fn with_children(&mut self, mut spawn_children: impl FnMut(&mut ChildBuilder)) -> &mut Self {
+    fn with_children(&mut self, mut parent: impl FnMut(&mut ChildBuilder)) -> &mut Self {
         {
             let mut commands = self.commands.lock().unwrap();
             let current_entity = commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
@@ -55,7 +55,7 @@ impl BuildChildren for Commands {
                 parent_entities: vec![current_entity],
             };
 
-            spawn_children(&mut builder);
+            parent(&mut builder);
         }
         self
     }

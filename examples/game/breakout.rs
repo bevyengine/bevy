@@ -71,6 +71,7 @@ fn setup(
                 style: TextStyle {
                     color: Color::rgb(0.2, 0.2, 0.8).into(),
                     font_size: 40.0,
+                    ..Default::default()
                 },
             },
             node: Node::new(Anchors::TOP_LEFT, Margins::new(10.0, 50.0, 10.0, 50.0)),

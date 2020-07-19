@@ -36,6 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font_size: 60.0,
                     color: Color::WHITE,
+                    align: TextAlign::Left,
                 },
             },
             ..Default::default()

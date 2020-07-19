@@ -1,7 +1,7 @@
 use crate::{Font, FontAtlasSet};
-use ab_glyph::{Glyph, PxScale, ScaleFont};
+use ab_glyph::{FontVec, Glyph, PxScale, PxScaleFont, ScaleFont};
 use bevy_asset::Assets;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Vec3, Vec2};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
@@ -17,41 +17,61 @@ use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 pub struct TextStyle {
     pub font_size: f32,
     pub color: Color,
+    pub align: TextAlign,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE,
+            font_size: 12.0,
+            align: TextAlign::default(),
+        }
+    }
+}
+
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl Default for TextAlign {
+    fn default() -> Self {
+        TextAlign::Left
+    }
 }
 
 pub struct DrawableText<'a> {
-    font: &'a Font,
-    font_atlas_set: &'a FontAtlasSet,
-    texture_atlases: &'a Assets<TextureAtlas>,
-    render_resource_bindings: &'a mut RenderResourceBindings,
-    asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
-    position: Vec3,
-    style: &'a TextStyle,
-    text: &'a str,
+    pub font: &'a Font,
+    pub font_atlas_set: &'a FontAtlasSet,
+    pub texture_atlases: &'a Assets<TextureAtlas>,
+    pub render_resource_bindings: &'a mut RenderResourceBindings,
+    pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
+    pub position: Vec3,
+    pub container_size: Vec2,
+    pub style: &'a TextStyle,
+    pub text: &'a str,
 }
 
-impl<'a> DrawableText<'a> {
-    pub fn new(
-        font: &'a Font,
-        font_atlas_set: &'a FontAtlasSet,
-        texture_atlases: &'a Assets<TextureAtlas>,
-        render_resource_bindings: &'a mut RenderResourceBindings,
-        asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
-        position: Vec3,
-        style: &'a TextStyle,
-        text: &'a str,
-    ) -> Self {
-        Self {
-            font,
-            font_atlas_set,
-            texture_atlases,
-            render_resource_bindings,
-            asset_render_resource_bindings,
-            position,
-            style,
-            text,
+fn get_text_width(text: &str, scaled_font: &PxScaleFont<&&FontVec>) -> f32 {
+    let mut last_glyph: Option<Glyph> = None;
+    let mut position = 0.0;
+    for character in text.chars() {
+        if character.is_control() {
+            continue;
         }
+
+        let glyph = scaled_font.scaled_glyph(character);
+        if let Some(last_glyph) = last_glyph.take() {
+            position += scaled_font.kern(last_glyph.id, glyph.id);
+        }
+
+        position += scaled_font.h_advance(glyph.id);
+        last_glyph = Some(glyph);
     }
+
+    position
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -89,6 +109,14 @@ impl<'a> Drawable for DrawableText<'a> {
         let scale = PxScale::from(self.style.font_size);
         let scaled_font = ab_glyph::Font::as_scaled(&font, scale);
         let mut caret = self.position;
+        match self.style.align {
+            TextAlign::Left => { /* already aligned left by default */ }
+            TextAlign::Center => {
+                *caret.x_mut() += self.container_size.x() / 2.0 - get_text_width(&self.text, &scaled_font) / 2.0
+            }
+            TextAlign::Right => *caret.x_mut() = self.container_size.x() - get_text_width(&self.text, &scaled_font),
+        }
+
         let mut last_glyph: Option<Glyph> = None;
 
         // set local per-character bindings

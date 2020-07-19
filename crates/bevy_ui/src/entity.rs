@@ -65,6 +65,7 @@ pub struct LabelComponents {
     pub node: Node,
     pub draw: Draw,
     pub label: Label,
+    pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
@@ -76,6 +77,7 @@ impl Default for LabelComponents {
         LabelComponents {
             label: Label::default(),
             node: Default::default(),
+            focus_policy: FocusPolicy::Pass,
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()

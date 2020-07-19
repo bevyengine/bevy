@@ -31,18 +31,41 @@ fn button_system(
     mut click_query: Query<(
         &Button,
         Changed<Click>,
+        Option<&Hover>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
     mut hover_query: Query<(
         &Button,
         Changed<Hover>,
+        Option<&Click>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
     label_query: Query<&mut Label>,
 ) {
-    for (_button, click, mut material, children) in &mut click_query.iter() {
+    for (_button, hover, click, mut material, children) in &mut hover_query.iter() {
+        let mut label = label_query.get_mut::<Label>(children[0]).unwrap();
+        match *hover {
+            Hover::Hovered => {
+                if let Some(Click::Released) = click {
+                    label.text = "Hover".to_string();
+                    *material = button_materials.hovered;
+                }
+            }
+            Hover::NotHovered => {
+                if let Some(Click::Pressed) = click {
+                    label.text = "Press".to_string();
+                    *material = button_materials.pressed;
+                } else {
+                    label.text = "Button".to_string();
+                    *material = button_materials.normal;
+                }
+            }
+        }
+    }
+
+    for (_button, click, hover, mut material, children) in &mut click_query.iter() {
         let mut label = label_query.get_mut::<Label>(children[0]).unwrap();
         match *click {
             Click::Pressed => {
@@ -50,22 +73,13 @@ fn button_system(
                 *material = button_materials.pressed;
             }
             Click::Released => {
-                label.text = "Button".to_string();
-                *material = button_materials.normal;
-            }
-        }
-    }
-
-    for (_button, hover, mut material, children) in &mut hover_query.iter() {
-        let mut label = label_query.get_mut::<Label>(children[0]).unwrap();
-        match *hover {
-            Hover::Hovered => {
-                label.text = "Hover".to_string();
-                *material = button_materials.hovered;
-            }
-            Hover::NotHovered => {
-                label.text = "Button".to_string();
-                *material = button_materials.normal;
+                if let Some(Hover::Hovered) = hover {
+                    label.text = "Hover".to_string();
+                    *material = button_materials.hovered;
+                } else {
+                    label.text = "Button".to_string();
+                    *material = button_materials.normal;
+                }
             }
         }
     }
@@ -86,13 +100,14 @@ fn setup(
         })
         .with_children(|parent| {
             parent.spawn(LabelComponents {
-                node: Node::new(Anchors::CENTER, Margins::new(52.0, 10.0, 20.0, 20.0)),
+                node: Node::new(Anchors::FULL, Margins::new(0.0, 0.0, 12.0, 0.0)),
                 label: Label {
                     text: "Button".to_string(),
                     font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                     style: TextStyle {
                         font_size: 40.0,
                         color: Color::rgb(0.8, 0.8, 0.8),
+                        align: TextAlign::Center,
                     },
                 },
                 ..Default::default()

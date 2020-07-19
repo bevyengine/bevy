@@ -2,7 +2,6 @@ use crate::Node;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_render::{
-    color::Color,
     draw::{Draw, DrawContext, Drawable},
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
     texture::Texture,
@@ -11,23 +10,11 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::Transform;
 
+#[derive(Default)]
 pub struct Label {
     pub text: String,
     pub font: Handle<Font>,
     pub style: TextStyle,
-}
-
-impl Default for Label {
-    fn default() -> Self {
-        Label {
-            text: String::new(),
-            style: TextStyle {
-                color: Color::WHITE,
-                font_size: 12.0,
-            },
-            font: Handle::default(),
-        }
-    }
 }
 
 impl Label {
@@ -69,21 +56,21 @@ impl Label {
         mut query: Query<(&mut Draw, &Label, &Node, &Transform)>,
     ) {
         for (mut draw, label, node, transform) in &mut query.iter() {
-            // let position = transform.0 - quad.size / 2.0;
             let position = transform.value.w_axis().truncate() - (node.size / 2.0).extend(0.0);
 
-            let mut drawable_text = DrawableText::new(
-                fonts.get(&label.font).unwrap(),
-                font_atlas_sets
+            let mut drawable_text = DrawableText {
+                font: fonts.get(&label.font).unwrap(),
+                font_atlas_set: font_atlas_sets
                     .get(&label.font.as_handle::<FontAtlasSet>())
                     .unwrap(),
-                &texture_atlases,
-                &mut render_resource_bindings,
-                &mut asset_render_resource_bindings,
+                texture_atlases: &texture_atlases,
+                render_resource_bindings: &mut render_resource_bindings,
+                asset_render_resource_bindings: &mut asset_render_resource_bindings,
                 position,
-                &label.style,
-                &label.text,
-            );
+                style: &label.style,
+                text: &label.text,
+                container_size: node.size,
+            };
             drawable_text.draw(&mut draw, &mut draw_context).unwrap();
         }
     }
