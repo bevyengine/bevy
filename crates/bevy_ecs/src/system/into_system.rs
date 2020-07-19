@@ -105,14 +105,14 @@ macro_rules! impl_into_foreach_system {
                     name: core::any::type_name::<Self>().into(),
                     id,
                     func: move |world, resources, _archetype_access, state| {
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
                             for ($($component,)*) in world.query::<($($component,)*)>().iter() {
                                 fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
                             }
                         }
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
                     },
                     thread_local_func: move |world, resources, state| {
                         state.apply(world, resources);
@@ -251,7 +251,7 @@ macro_rules! impl_into_query_system {
                     id,
                     name: core::any::type_name::<Self>().into(),
                     func: move |world, resources, archetype_access, state| {
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources.resource_archetypes);
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
                             let mut i = 0;
@@ -267,7 +267,7 @@ macro_rules! impl_into_query_system {
                             let commands = &state.commands;
                             fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
                         }
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources.resource_archetypes);
+                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
                     },
                     thread_local_func: move |world, resources, state| {
                         state.commands.apply(world, resources);

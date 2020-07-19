@@ -11,11 +11,11 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
-    Archetype, FetchResource, Query, Res, ResMut, ResourceQuery, Resources, SystemId, TypeAccess,
-    UnsafeClone,
+    FetchResource, Query, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
+    TypeAccess, UnsafeClone,
 };
 use bevy_property::Properties;
-use std::{any::TypeId, collections::HashMap, ops::Range, sync::Arc};
+use std::{any::TypeId, ops::Range, sync::Arc};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -150,66 +150,40 @@ pub struct FetchDrawContext;
 // TODO: derive this impl
 impl<'a> FetchResource<'a> for FetchDrawContext {
     type Item = DrawContext<'a>;
-    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        resource_archetypes
-            .get(&TypeId::of::<Assets<PipelineDescriptor>>())
-            .unwrap()
-            .borrow_mut::<Assets<PipelineDescriptor>>();
-        resource_archetypes
-            .get(&TypeId::of::<Assets<Shader>>())
-            .unwrap()
-            .borrow_mut::<Assets<Shader>>();
-        resource_archetypes
-            .get(&TypeId::of::<PipelineCompiler>())
-            .unwrap()
-            .borrow_mut::<PipelineCompiler>();
-        resource_archetypes
-            .get(&TypeId::of::<Box<dyn RenderResourceContext>>())
-            .unwrap()
-            .borrow::<Box<dyn RenderResourceContext>>();
-        resource_archetypes
-            .get(&TypeId::of::<VertexBufferDescriptors>())
-            .unwrap()
-            .borrow::<VertexBufferDescriptors>();
-        resource_archetypes
-            .get(&TypeId::of::<SharedBuffers>())
-            .unwrap()
-            .borrow::<SharedBuffers>();
+    fn borrow(resources: &Resources) {
+        resources.borrow_mut::<Assets<PipelineDescriptor>>();
+        resources.borrow_mut::<Assets<Shader>>();
+        resources.borrow_mut::<PipelineCompiler>();
+        resources.borrow::<Box<dyn RenderResourceContext>>();
+        resources.borrow::<VertexBufferDescriptors>();
+        resources.borrow::<SharedBuffers>();
     }
-    fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        resource_archetypes
-            .get(&TypeId::of::<Assets<PipelineDescriptor>>())
-            .unwrap()
-            .release_mut::<Assets<PipelineDescriptor>>();
-        resource_archetypes
-            .get(&TypeId::of::<Assets<Shader>>())
-            .unwrap()
-            .release_mut::<Assets<Shader>>();
-        resource_archetypes
-            .get(&TypeId::of::<PipelineCompiler>())
-            .unwrap()
-            .release_mut::<PipelineCompiler>();
-        resource_archetypes
-            .get(&TypeId::of::<Box<dyn RenderResourceContext>>())
-            .unwrap()
-            .release::<Box<dyn RenderResourceContext>>();
-        resource_archetypes
-            .get(&TypeId::of::<VertexBufferDescriptors>())
-            .unwrap()
-            .release::<VertexBufferDescriptors>();
-        resource_archetypes
-            .get(&TypeId::of::<SharedBuffers>())
-            .unwrap()
-            .release::<SharedBuffers>();
+    fn release(resources: &Resources) {
+        resources.release_mut::<Assets<PipelineDescriptor>>();
+        resources.release_mut::<Assets<Shader>>();
+        resources.release_mut::<PipelineCompiler>();
+        resources.release::<Box<dyn RenderResourceContext>>();
+        resources.release::<VertexBufferDescriptors>();
+        resources.release::<SharedBuffers>();
     }
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         DrawContext {
-            pipelines: resources.get_res_mut::<Assets<PipelineDescriptor>>(),
-            shaders: resources.get_res_mut::<Assets<Shader>>(),
-            pipeline_compiler: resources.get_res_mut::<PipelineCompiler>(),
-            render_resource_context: resources.get_res::<Box<dyn RenderResourceContext>>(),
-            vertex_buffer_descriptors: resources.get_res::<VertexBufferDescriptors>(),
-            shared_buffers: resources.get_res::<SharedBuffers>(),
+            pipelines: ResMut::new(
+                resources.get_unsafe_ref::<Assets<PipelineDescriptor>>(ResourceIndex::Global),
+            ),
+            shaders: ResMut::new(resources.get_unsafe_ref::<Assets<Shader>>(ResourceIndex::Global)),
+            pipeline_compiler: ResMut::new(
+                resources.get_unsafe_ref::<PipelineCompiler>(ResourceIndex::Global),
+            ),
+            render_resource_context: Res::new(
+                resources.get_unsafe_ref::<Box<dyn RenderResourceContext>>(ResourceIndex::Global),
+            ),
+            vertex_buffer_descriptors: Res::new(
+                resources.get_unsafe_ref::<VertexBufferDescriptors>(ResourceIndex::Global),
+            ),
+            shared_buffers: Res::new(
+                resources.get_unsafe_ref::<SharedBuffers>(ResourceIndex::Global),
+            ),
             current_pipeline: None,
         }
     }

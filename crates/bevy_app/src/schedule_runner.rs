@@ -45,7 +45,7 @@ impl AppPlugin for ScheduleRunnerPlugin {
                     app.schedule.run(&mut app.world, &mut app.resources);
                 }
                 RunMode::Loop { wait } => loop {
-                    if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
                         }
@@ -53,7 +53,7 @@ impl AppPlugin for ScheduleRunnerPlugin {
 
                     app.schedule.run(&mut app.world, &mut app.resources);
 
-                    if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
                         }

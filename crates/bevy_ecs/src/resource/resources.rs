@@ -1,77 +1,78 @@
-use super::{FetchResource, Res, ResMut, ResourceQuery};
+use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use core::any::TypeId;
-use hecs::{Archetype, ComponentError, Ref, RefMut, TypeInfo};
-use std::collections::HashMap;
+use hecs::{Archetype, Ref, RefMut, TypeInfo};
+use std::{collections::HashMap, ptr::NonNull};
 
 pub trait Resource: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Resource for T {}
 
+pub struct ResourceData {
+    archetype: Archetype,
+    default_index: Option<u32>,
+    system_id_to_archetype_index: HashMap<u32, u32>,
+}
+
+pub enum ResourceIndex {
+    Global,
+    System(SystemId),
+}
+
 #[derive(Default)]
 pub struct Resources {
-    pub(crate) resource_archetypes: HashMap<TypeId, Archetype>,
-    pub(crate) system_id_to_archetype_index: HashMap<u32, u32>,
+    pub(crate) resource_data: HashMap<TypeId, ResourceData>,
 }
 
 impl Resources {
     pub fn insert<T: Resource>(&mut self, resource: T) {
-        self.insert_index(resource, 0);
+        self.insert_resource(resource, ResourceIndex::Global);
     }
 
     pub fn contains<T: Resource>(&self) -> bool {
-        self.get_index::<T>(0).is_ok()
+        self.get_resource::<T>(ResourceIndex::Global).is_some()
     }
 
-    pub fn get<T: Resource>(&self) -> Result<Ref<'_, T>, ComponentError> {
-        self.get_index(0)
+    pub fn get<T: Resource>(&self) -> Option<Ref<'_, T>> {
+        self.get_resource(ResourceIndex::Global)
     }
 
-    pub fn get_mut<T: Resource>(&self) -> Result<RefMut<'_, T>, ComponentError> {
-        self.get_index_mut(0)
+    pub fn get_mut<T: Resource>(&self) -> Option<RefMut<'_, T>> {
+        self.get_resource_mut(ResourceIndex::Global)
     }
 
-    pub fn get_local<'a, T: Resource>(
-        &'a self,
-        id: SystemId,
-    ) -> Result<Ref<'a, T>, ComponentError> {
-        self.system_id_to_archetype_index
-            .get(&id.0)
-            .ok_or_else(|| ComponentError::NoSuchEntity)
-            .and_then(|index| self.get_index(*index))
+    pub fn get_local<'a, T: Resource>(&'a self, id: SystemId) -> Option<Ref<'a, T>> {
+        self.get_resource(ResourceIndex::System(id))
     }
 
-    pub fn get_local_mut<'a, T: Resource>(
-        &'a self,
-        id: SystemId,
-    ) -> Result<RefMut<'a, T>, ComponentError> {
-        self.system_id_to_archetype_index
-            .get(&id.0)
-            .ok_or_else(|| ComponentError::NoSuchEntity)
-            .and_then(|index| self.get_index_mut(*index))
+    pub fn get_local_mut<'a, T: Resource>(&'a self, id: SystemId) -> Option<RefMut<'a, T>> {
+        self.get_resource_mut(ResourceIndex::System(id))
     }
 
     pub fn insert_local<T: Resource>(&mut self, id: SystemId, resource: T) {
-        if let Some(index) = self.system_id_to_archetype_index.get(&id.0).cloned() {
-            self.insert_index(resource, index);
-        } else {
-            let mut index = self.archetype_len::<T>();
-            // index 0 is reserved for the global non-system resource
-            if index == 0 {
-                self.allocate_next::<T>();
-                index += 1;
-            }
-            self.insert_index(resource, index);
-            self.system_id_to_archetype_index.insert(id.0, index);
-        }
+        self.insert_resource(resource, ResourceIndex::System(id))
     }
 
-    fn insert_index<T: Resource>(&mut self, mut resource: T, index: u32) {
+    fn insert_resource<T: Resource>(&mut self, mut resource: T, resource_index: ResourceIndex) {
         let type_id = TypeId::of::<T>();
-        let archetype = self.resource_archetypes.entry(type_id).or_insert_with(|| {
+        let data = self.resource_data.entry(type_id).or_insert_with(|| {
             let mut types = Vec::new();
             types.push(TypeInfo::of::<T>());
-            Archetype::new(types)
+            ResourceData {
+                archetype: Archetype::new(types),
+                default_index: None,
+                system_id_to_archetype_index: HashMap::new(),
+            }
         });
+
+        let archetype = &mut data.archetype;
+
+        let index = match resource_index {
+            ResourceIndex::Global => *data.default_index.get_or_insert_with(|| archetype.len()),
+            ResourceIndex::System(id) => *data
+                .system_id_to_archetype_index
+                .entry(id.0)
+                .or_insert_with(|| archetype.len()),
+        };
 
         if index == archetype.len() {
             unsafe { archetype.allocate(index) };
@@ -86,40 +87,31 @@ impl Resources {
         }
     }
 
-    fn allocate_next<T: Resource>(&mut self) {
-        let type_id = TypeId::of::<T>();
-        let archetype = self.resource_archetypes.entry(type_id).or_insert_with(|| {
-            let mut types = Vec::new();
-            types.push(TypeInfo::of::<T>());
-            Archetype::new(types)
-        });
-
-        let index = archetype.len();
-        unsafe { archetype.allocate(index) };
-    }
-
-    fn get_index<T: Resource>(&self, index: u32) -> Result<Ref<'_, T>, ComponentError> {
-        self.resource_archetypes
+    fn get_resource<T: Resource>(&self, resource_index: ResourceIndex) -> Option<Ref<'_, T>> {
+        self.resource_data
             .get(&TypeId::of::<T>())
-            .ok_or_else(|| ComponentError::NoSuchEntity)
-            .and_then(|archetype| unsafe {
-                Ref::new(archetype, index).map_err(|err| ComponentError::MissingComponent(err))
+            .and_then(|data| unsafe {
+                let index = match resource_index {
+                    ResourceIndex::Global => data.default_index?,
+                    ResourceIndex::System(id) => *data.system_id_to_archetype_index.get(&id.0)?,
+                };
+                Ref::new(&data.archetype, index).ok()
             })
     }
 
-    fn get_index_mut<T: Resource>(&self, index: u32) -> Result<RefMut<'_, T>, ComponentError> {
-        self.resource_archetypes
+    fn get_resource_mut<T: Resource>(
+        &self,
+        resource_index: ResourceIndex,
+    ) -> Option<RefMut<'_, T>> {
+        self.resource_data
             .get(&TypeId::of::<T>())
-            .ok_or_else(|| ComponentError::NoSuchEntity)
-            .and_then(|archetype| unsafe {
-                RefMut::new(archetype, index).map_err(|err| ComponentError::MissingComponent(err))
+            .and_then(|data| unsafe {
+                let index = match resource_index {
+                    ResourceIndex::Global => data.default_index?,
+                    ResourceIndex::System(id) => *data.system_id_to_archetype_index.get(&id.0)?,
+                };
+                RefMut::new(&data.archetype, index).ok()
             })
-    }
-
-    fn archetype_len<T: Resource>(&self) -> u32 {
-        self.resource_archetypes
-            .get(&TypeId::of::<T>())
-            .map_or(0, |a| a.len())
     }
 
     pub fn query<Q: ResourceQuery>(&self) -> <Q::Fetch as FetchResource>::Item {
@@ -134,21 +126,45 @@ impl Resources {
     }
 
     #[inline]
-    pub unsafe fn get_res<T: Resource>(&self) -> Res<'_, T> {
-        let archetype = self
-            .resource_archetypes
+    pub unsafe fn get_unsafe_ref<T: Resource>(&self, resource_index: ResourceIndex) -> NonNull<T> {
+        self.resource_data
             .get(&TypeId::of::<T>())
-            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()));
-        Res::new(archetype, 0).expect("Resource does not exist")
+            .and_then(|data| {
+                let index = match resource_index {
+                    ResourceIndex::Global => data.default_index?,
+                    ResourceIndex::System(id) => {
+                        data.system_id_to_archetype_index.get(&id.0).cloned()?
+                    }
+                };
+                Some(NonNull::new_unchecked(
+                    data.archetype.get::<T>()?.as_ptr().add(index as usize),
+                ))
+            })
+            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
     }
 
-    #[inline]
-    pub unsafe fn get_res_mut<T: Resource>(&self) -> ResMut<'_, T> {
-        let archetype = self
-            .resource_archetypes
-            .get(&TypeId::of::<T>())
-            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()));
-        ResMut::new(archetype, 0).expect("Resource does not exist")
+    pub fn borrow<T: Resource>(&self) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+            data.archetype.borrow::<T>();
+        }
+    }
+
+    pub fn release<T: Resource>(&self) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+            data.archetype.release::<T>();
+        }
+    }
+
+    pub fn borrow_mut<T: Resource>(&self) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+            data.archetype.borrow_mut::<T>();
+        }
+    }
+
+    pub fn release_mut<T: Resource>(&self) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+            data.archetype.release_mut::<T>();
+        }
     }
 }
 
@@ -176,7 +192,7 @@ mod tests {
     #[test]
     fn resource() {
         let mut resources = Resources::default();
-        assert!(resources.get::<i32>().is_err());
+        assert!(resources.get::<i32>().is_none());
 
         resources.insert(123);
         assert_eq!(*resources.get::<i32>().expect("resource exists"), 123);
@@ -195,7 +211,7 @@ mod tests {
 
         assert_eq!(*resources.get::<f64>().expect("resource exists"), -1.0);
 
-        assert!(resources.get_local::<i32>(SystemId(0)).is_err());
+        assert!(resources.get_local::<i32>(SystemId(0)).is_none());
         resources.insert_local(SystemId(0), 111);
         assert_eq!(
             *resources

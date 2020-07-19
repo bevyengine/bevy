@@ -109,7 +109,7 @@ impl Node for PassNode {
 
         for (i, color_attachment) in self.descriptor.color_attachments.iter_mut().enumerate() {
             if self.default_clear_color_inputs.contains(&i) {
-                if let Ok(default_clear_color) = resources.get::<ClearColor>() {
+                if let Some(default_clear_color) = resources.get::<ClearColor>() {
                     color_attachment.ops.load = LoadOp::Clear(default_clear_color.0);
                 }
             }

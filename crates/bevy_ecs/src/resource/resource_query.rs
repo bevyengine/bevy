@@ -1,31 +1,26 @@
+use super::{FromResources, Resources};
 use crate::{
     system::{SystemId, TypeAccess},
+    ResourceIndex,
 };
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use hecs::{smaller_tuples_too, MissingComponent, Component, Archetype};
-use std::collections::HashMap;
-use super::{Resources, FromResources};
+use hecs::{smaller_tuples_too, Component};
+use std::marker::PhantomData;
+
 /// Shared borrow of an entity's component
 pub struct Res<'a, T: Component> {
-    archetype: &'a Archetype,
-    target: NonNull<T>,
+    value: &'a T,
 }
 
 impl<'a, T: Component> Res<'a, T> {
-    #[allow(missing_docs)]
-    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
-        let target = NonNull::new_unchecked(
-            archetype
-                .get::<T>()
-                .ok_or_else(MissingComponent::new::<T>)?
-                .as_ptr()
-                .add(index as usize),
-        );
-        Ok(Self { archetype, target })
+    pub unsafe fn new(value: NonNull<T>) -> Self {
+        Self {
+            value: &*value.as_ptr(),
+        }
     }
 }
 
@@ -33,22 +28,9 @@ pub trait UnsafeClone {
     unsafe fn unsafe_clone(&self) -> Self;
 }
 
-// TODO: this is unsafe. lets think of a better solution that allows us to clone internally
-impl<'a, T: Component> UnsafeClone for ResMut<'a, T> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            archetype: self.archetype,
-            target: self.target,
-        }
-    }
-}
-
 impl<'a, T: Component> UnsafeClone for Res<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            archetype: self.archetype,
-            target: self.target,
-        }
+        Self { value: self.value }
     }
 }
 
@@ -58,27 +40,22 @@ unsafe impl<T: Component> Sync for Res<'_, T> {}
 impl<'a, T: Component> Deref for Res<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
-        unsafe { self.target.as_ref() }
+        self.value
     }
 }
 
 /// Unique borrow of a resource
 pub struct ResMut<'a, T: Component> {
-    archetype: &'a Archetype,
-    target: NonNull<T>,
+    _marker: PhantomData<&'a T>,
+    value: *mut T,
 }
 
 impl<'a, T: Component> ResMut<'a, T> {
-    #[allow(missing_docs)]
-    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
-        let target = NonNull::new_unchecked(
-            archetype
-                .get::<T>()
-                .ok_or_else(MissingComponent::new::<T>)?
-                .as_ptr()
-                .add(index as usize),
-        );
-        Ok(Self { archetype, target })
+    pub unsafe fn new(value: NonNull<T>) -> Self {
+        Self {
+            value: value.as_ptr(),
+            _marker: Default::default(),
+        }
     }
 }
 
@@ -88,40 +65,35 @@ unsafe impl<T: Component> Sync for ResMut<'_, T> {}
 impl<'a, T: Component> Deref for ResMut<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
-        unsafe { self.target.as_ref() }
+        unsafe { &*self.value }
     }
 }
 
 impl<'a, T: Component> DerefMut for ResMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { self.target.as_mut() }
+        unsafe { &mut *self.value }
+    }
+}
+
+impl<'a, T: Component> UnsafeClone for ResMut<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self {
+            value: self.value,
+            _marker: Default::default(),
+        }
     }
 }
 
 pub struct Local<'a, T: Component + FromResources> {
-    archetype: &'a Archetype,
-    target: NonNull<T>,
-}
-
-impl<'a, T: Component + FromResources> Local<'a, T> {
-    #[allow(missing_docs)]
-    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
-        let target = NonNull::new_unchecked(
-            archetype
-                .get::<T>()
-                .ok_or_else(MissingComponent::new::<T>)?
-                .as_ptr()
-                .add(index as usize),
-        );
-        Ok(Self { archetype, target })
-    }
+    value: *mut T,
+    _marker: PhantomData<&'a T>,
 }
 
 impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
-            archetype: self.archetype,
-            target: self.target,
+            value: self.value,
+            _marker: Default::default(),
         }
     }
 }
@@ -129,13 +101,13 @@ impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
 impl<'a, T: Component + FromResources> Deref for Local<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
-        unsafe { self.target.as_ref() }
+        unsafe { &*self.value }
     }
 }
 
 impl<'a, T: Component + FromResources> DerefMut for Local<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { self.target.as_mut() }
+        unsafe { &mut *self.value }
     }
 }
 
@@ -152,8 +124,8 @@ pub trait FetchResource<'a>: Sized {
     type Item: UnsafeClone;
 
     fn access() -> TypeAccess;
-    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>);
-    fn release(resource_archetypes: &HashMap<TypeId, Archetype>);
+    fn borrow(resources: &Resources);
+    fn release(resources: &Resources);
 
     /// Construct a `Fetch` for `archetype` if it should be traversed
     ///
@@ -171,19 +143,17 @@ pub struct FetchResourceRead<T>(NonNull<T>);
 impl<'a, T: Component> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        resources.get_res::<T>()
+        Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
     }
 
-    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.borrow::<T>();
-        }
+    fn borrow(resources: &Resources) {
+        resources.borrow::<T>();
     }
-    fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.release::<T>();
-        }
+
+    fn release(resources: &Resources) {
+        resources.release::<T>();
     }
+
     fn access() -> TypeAccess {
         let mut access = TypeAccess::default();
         access.immutable.insert(TypeId::of::<T>());
@@ -200,19 +170,17 @@ pub struct FetchResourceWrite<T>(NonNull<T>);
 impl<'a, T: Component> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        resources.get_res_mut::<T>()
+        ResMut::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
     }
 
-    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.borrow_mut::<T>();
-        }
+    fn borrow(resources: &Resources) {
+        resources.borrow_mut::<T>();
     }
-    fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.release_mut::<T>();
-        }
+
+    fn release(resources: &Resources) {
+        resources.release_mut::<T>();
     }
+
     fn access() -> TypeAccess {
         let mut access = TypeAccess::default();
         access.mutable.insert(TypeId::of::<T>());
@@ -235,33 +203,23 @@ pub struct FetchResourceLocalMut<T>(NonNull<T>);
 impl<'a, T: Component + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
-        if let Some(system_id) = system_id {
-            let archetype = resources
-                .resource_archetypes
-                .get(&TypeId::of::<T>())
-                .unwrap_or_else(|| {
-                    panic!("Resource does not exist {}", std::any::type_name::<T>())
-                });
-            let index = resources
-                .system_id_to_archetype_index
-                .get(&system_id.0)
-                .expect("System does not have this resource");
-            Local::new(archetype, *index).expect("Resource does not exist")
-        } else {
-            panic!("Only Systems can use Local<T> resources");
+        let id = system_id.expect("Local<T> resources can only be used by systems");
+        Local {
+            value: resources
+                .get_unsafe_ref::<T>(ResourceIndex::System(id))
+                .as_ptr(),
+            _marker: Default::default(),
         }
     }
 
-    fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.borrow_mut::<T>();
-        }
+    fn borrow(resources: &Resources) {
+        resources.borrow_mut::<T>();
     }
-    fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
-        if let Some(archetype) = resource_archetypes.get(&TypeId::of::<T>()) {
-            archetype.release_mut::<T>();
-        }
+
+    fn release(resources: &Resources) {
+        resources.release_mut::<T>();
     }
+
     fn access() -> TypeAccess {
         let mut access = TypeAccess::default();
         access.mutable.insert(TypeId::of::<T>());
@@ -275,13 +233,13 @@ macro_rules! tuple_impl {
             type Item = ($($name::Item,)*);
 
             #[allow(unused_variables)]
-            fn borrow(resource_archetypes: &HashMap<TypeId, Archetype>) {
-                $($name::borrow(resource_archetypes);)*
+            fn borrow(resources: &Resources) {
+                $($name::borrow(resources);)*
             }
 
             #[allow(unused_variables)]
-            fn release(resource_archetypes: &HashMap<TypeId, Archetype>) {
-                $($name::release(resource_archetypes);)*
+            fn release(resources: &Resources) {
+                $($name::release(resources);)*
             }
 
             #[allow(unused_variables)]

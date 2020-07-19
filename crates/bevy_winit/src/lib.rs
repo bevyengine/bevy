@@ -52,7 +52,7 @@ pub fn winit_runner(mut app: App) {
             ControlFlow::Poll
         };
 
-        if let Ok(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+        if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {
                 *control_flow = ControlFlow::Exit;
             }
