@@ -6,7 +6,7 @@ use crate::{
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_window::{Window, WindowId};
+use bevy_window::Window;
 use std::{
     collections::HashMap,
     ops::Range,
@@ -35,7 +35,7 @@ impl HeadlessRenderResourceContext {
 
 impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_swap_chain(&self, _window: &Window) {}
-    fn next_swap_chain_texture(&self, _window_id: WindowId) -> TextureId {
+    fn next_swap_chain_texture(&self, _window: &Window) -> TextureId {
         TextureId::new()
     }
     fn drop_swap_chain_texture(&self, _render_resource: TextureId) {}

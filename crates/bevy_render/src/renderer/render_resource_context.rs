@@ -5,13 +5,13 @@ use crate::{
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_window::{Window, WindowId};
+use bevy_window::Window;
 use downcast_rs::{impl_downcast, Downcast};
 use std::ops::Range;
 
 pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn create_swap_chain(&self, window: &Window);
-    fn next_swap_chain_texture(&self, window_id: WindowId) -> TextureId;
+    fn next_swap_chain_texture(&self, window: &Window) -> TextureId;
     fn drop_swap_chain_texture(&self, resource: TextureId);
     fn drop_all_swap_chain_textures(&self);
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId;

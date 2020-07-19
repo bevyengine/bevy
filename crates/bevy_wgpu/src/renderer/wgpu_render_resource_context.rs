@@ -127,6 +127,17 @@ impl WgpuRenderResourceContext {
         let bind_group_layout = self.device.create_bind_group_layout(&wgpu_descriptor);
         bind_group_layouts.insert(descriptor.id, bind_group_layout);
     }
+
+    fn try_next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
+        let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
+
+        let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
+        let next_texture = window_swap_chain.get_next_frame().ok()?;
+        let id = TextureId::new();
+        swap_chain_outputs.insert(id, next_texture);
+        Some(id)
+    }
 }
 
 impl RenderResourceContext for WgpuRenderResourceContext {
@@ -252,16 +263,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         window_swap_chains.insert(window.id, swap_chain);
     }
 
-    fn next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> TextureId {
-        let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
-
-        let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
-        let next_texture = window_swap_chain.get_next_frame().unwrap();
-
-        let id = TextureId::new();
-        swap_chain_outputs.insert(id, next_texture);
-        id
+    fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> TextureId {
+        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
+            texture_id
+        } else {
+            self.resources.window_swap_chains.write().unwrap().remove(&window.id);
+            self.create_swap_chain(window);
+            self.try_next_swap_chain_texture(window.id).expect("Failed to acquire next swap chain texture!")
+        }
     }
 
     fn drop_swap_chain_texture(&self, texture: TextureId) {
