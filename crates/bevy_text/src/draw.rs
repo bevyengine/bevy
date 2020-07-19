@@ -114,7 +114,7 @@ impl<'a> Drawable for DrawableText<'a> {
             TextAlign::Center => {
                 *caret.x_mut() += self.container_size.x() / 2.0 - get_text_width(&self.text, &scaled_font) / 2.0
             }
-            TextAlign::Right => *caret.x_mut() = self.container_size.x() - get_text_width(&self.text, &scaled_font),
+            TextAlign::Right => *caret.x_mut() += self.container_size.x() - get_text_width(&self.text, &scaled_font),
         }
 
         let mut last_glyph: Option<Glyph> = None;
