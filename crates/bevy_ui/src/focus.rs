@@ -69,7 +69,7 @@ pub fn ui_focus_system(
     }
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _transform, click, _hover, _focus_policy) in &mut node_query.iter() {
+        for (_entity, _node, _transform, click, _hover, _focus_policy) in node_query.iter() {
             if let Some(mut click) = click {
                 if *click == Click::Pressed {
                     *click = Click::Released;
@@ -83,8 +83,9 @@ pub fn ui_focus_system(
     let mut hovered_entity = None;
 
     {
-        let mut query_iter = node_query.iter();
-        let mut moused_over_z_sorted_nodes = query_iter
+        // let mut query_iter = node_query.iter();
+        let mut moused_over_z_sorted_nodes = node_query
+            .iter()
             .iter()
             .filter_map(|(entity, node, transform, click, hover, focus_policy)| {
                 let position = transform.value.w_axis();

@@ -160,7 +160,7 @@ fn paddle_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&Paddle, &mut Translation)>,
 ) {
-    for (paddle, mut translation) in &mut query.iter() {
+    for (paddle, mut translation) in query.iter() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -175,13 +175,13 @@ fn paddle_movement_system(
 }
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
-    for (ball, mut translation) in &mut ball_query.iter() {
+    for (ball, mut translation) in ball_query.iter() {
         translation.0 += ball.velocity * time.delta_seconds;
     }
 }
 
 fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
-    for mut text in &mut query.iter() {
+    for mut text in query.iter() {
         text.value = format!("Score: {}", scoreboard.score);
     }
 }
@@ -194,13 +194,13 @@ fn ball_collision_system(
     mut brick_query: Query<(Entity, &Brick, &Translation, &Sprite)>,
     mut wall_query: Query<(&Wall, &Translation, &Sprite)>,
 ) {
-    for (mut ball, ball_translation, sprite) in &mut ball_query.iter() {
+    for (mut ball, ball_translation, sprite) in ball_query.iter() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
         let mut collision = None;
 
         // check collision with walls
-        for (_wall, translation, sprite) in &mut wall_query.iter() {
+        for (_wall, translation, sprite) in wall_query.iter() {
             if collision.is_some() {
                 break;
             }
@@ -209,7 +209,7 @@ fn ball_collision_system(
         }
 
         // check collision with paddle(s)
-        for (_paddle, translation, sprite) in &mut paddle_query.iter() {
+        for (_paddle, translation, sprite) in paddle_query.iter() {
             if collision.is_some() {
                 break;
             }
@@ -218,7 +218,7 @@ fn ball_collision_system(
         }
 
         // check collision with bricks
-        for (brick_entity, _brick, translation, sprite) in &mut brick_query.iter() {
+        for (brick_entity, _brick, translation, sprite) in brick_query.iter() {
             if collision.is_some() {
                 break;
             }

@@ -481,6 +481,7 @@ impl World {
     ///
     /// See `remove`.
     pub fn remove_one<T: Component>(&mut self, entity: Entity) -> Result<T, ComponentError> {
+        std::println!("reomve {} ", std::any::type_name::<T>());
         self.remove::<(T,)>(entity).map(|(x,)| x)
     }
 

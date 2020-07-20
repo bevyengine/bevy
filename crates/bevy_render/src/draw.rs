@@ -366,7 +366,7 @@ pub trait Drawable {
 }
 
 pub fn clear_draw_system(mut query: Query<&mut Draw>) {
-    for mut draw in &mut query.iter() {
+    for mut draw in query.iter() {
         draw.clear_render_commands();
     }
 }

@@ -27,7 +27,7 @@ pub fn active_cameras_system(
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {
         if let None = active_camera {
-            for (camera_entity, camera) in &mut query.iter() {
+            for (camera_entity, camera) in query.iter() {
                 if let Some(ref current_name) = camera.name {
                     if current_name == name {
                         *active_camera = Some(camera_entity);

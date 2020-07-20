@@ -59,7 +59,7 @@ pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines)>)
 where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (shader_defs, mut render_pipelines) in &mut query.iter() {
+    for (shader_defs, mut render_pipelines) in query.iter() {
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline
@@ -73,7 +73,7 @@ where
 }
 
 pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
-    for mut render_pipelines in &mut query.iter() {
+    for mut render_pipelines in query.iter() {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
             render_pipeline
                 .specialization
@@ -90,7 +90,7 @@ pub fn asset_shader_defs_system<T>(
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
-    for (asset_handle, mut render_pipelines) in &mut query.iter() {
+    for (asset_handle, mut render_pipelines) in query.iter() {
         let shader_defs = assets.get(&asset_handle).unwrap();
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {

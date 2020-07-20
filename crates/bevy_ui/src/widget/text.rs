@@ -24,7 +24,7 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut query: Query<&Text>,
 ) {
-    for text in &mut query.iter() {
+    for text in query.iter() {
         let font_atlases = font_atlas_sets
             .get_or_insert_with(Handle::from_id(text.font.id), || {
                 FontAtlasSet::new(text.font)
@@ -54,7 +54,7 @@ pub fn draw_text_system(
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     mut query: Query<(&mut Draw, &Text, &Node, &Transform)>,
 ) {
-    for (mut draw, text, node, transform) in &mut query.iter() {
+    for (mut draw, text, node, transform) in query.iter() {
         let position = transform.value.w_axis().truncate() - (node.size / 2.0).extend(0.0);
 
         let mut drawable_text = DrawableText {

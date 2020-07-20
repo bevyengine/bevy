@@ -321,7 +321,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
     /// Execute the query
     ///
     /// Must be called only once per query.
-    pub fn iter<'q>(&'q mut self) -> QueryIter<'q, 'w, Q> {
+    pub fn iter(mut self) -> QueryIter<'w, Q> {
         self.borrow();
         QueryIter {
             borrow: self,
@@ -434,9 +434,9 @@ impl<'w, Q: Query> Drop for QueryBorrow<'w, Q> {
     }
 }
 
-impl<'q, 'w, Q: Query> IntoIterator for &'q mut QueryBorrow<'w, Q> {
-    type Item = <Q::Fetch as Fetch<'q>>::Item;
-    type IntoIter = QueryIter<'q, 'w, Q>;
+impl<'w, Q: Query> IntoIterator for QueryBorrow<'w, Q> {
+    type Item = <Q::Fetch as Fetch<'w>>::Item;
+    type IntoIter = QueryIter<'w, Q>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -444,17 +444,17 @@ impl<'q, 'w, Q: Query> IntoIterator for &'q mut QueryBorrow<'w, Q> {
 }
 
 /// Iterator over the set of entities with the components in `Q`
-pub struct QueryIter<'q, 'w, Q: Query> {
-    borrow: &'q mut QueryBorrow<'w, Q>,
+pub struct QueryIter<'w, Q: Query> {
+    borrow: QueryBorrow<'w, Q>,
     archetype_index: u32,
     iter: Option<ChunkIter<Q>>,
 }
 
-unsafe impl<'q, 'w, Q: Query> Send for QueryIter<'q, 'w, Q> {}
-unsafe impl<'q, 'w, Q: Query> Sync for QueryIter<'q, 'w, Q> {}
+unsafe impl<'w, Q: Query> Send for QueryIter<'w, Q> {}
+unsafe impl<'w, Q: Query> Sync for QueryIter<'w, Q> {}
 
-impl<'q, 'w, Q: Query> Iterator for QueryIter<'q, 'w, Q> {
-    type Item = <Q::Fetch as Fetch<'q>>::Item;
+impl<'w, Q: Query> Iterator for QueryIter<'w, Q> {
+    type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -489,7 +489,7 @@ impl<'q, 'w, Q: Query> Iterator for QueryIter<'q, 'w, Q> {
     }
 }
 
-impl<'q, 'w, Q: Query> ExactSizeIterator for QueryIter<'q, 'w, Q> {
+impl<'w, Q: Query> ExactSizeIterator for QueryIter<'w, Q> {
     fn len(&self) -> usize {
         self.borrow
             .archetypes

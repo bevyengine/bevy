@@ -10,7 +10,7 @@ pub fn transform_propagate_system(
     mut children_query: Query<&Children>,
     mut local_transform_query: Query<&LocalTransform>,
 ) {
-    for (children, mut transform, local_transform) in &mut root_query.iter() {
+    for (children, mut transform, local_transform) in root_query.iter() {
         if let Some(local_transform) = local_transform {
             transform.value = local_transform.0;
         }

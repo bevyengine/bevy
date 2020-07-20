@@ -262,17 +262,6 @@ fn clear() {
 }
 
 #[test]
-#[should_panic(expected = "twice on the same borrow")]
-fn alias() {
-    let mut world = World::new();
-    world.spawn(("abc", 123));
-    world.spawn(("def", 456, true));
-    let mut q = world.query::<&mut i32>();
-    let _a = q.iter().collect::<Vec<_>>();
-    let _b = q.iter().collect::<Vec<_>>();
-}
-
-#[test]
 fn remove_missing() {
     let mut world = World::new();
     let e = world.spawn(("abc", 123));

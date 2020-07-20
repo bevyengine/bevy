@@ -62,7 +62,7 @@ pub fn camera_system<T: CameraProjection + Component>(
         }
     }
 
-    for (mut camera, mut camera_projection) in &mut query.iter() {
+    for (mut camera, mut camera_projection) in query.iter() {
         if let Some(window) = match camera.window {
             WindowReference::Id(id) => {
                 if changed_window_ids.contains(&id) {

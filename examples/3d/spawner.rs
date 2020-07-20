@@ -19,7 +19,7 @@ fn move_cubes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut query: Query<(&mut Translation, &Handle<StandardMaterial>)>,
 ) {
-    for (mut translation, material_handle) in &mut query.iter() {
+    for (mut translation, material_handle) in query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
         translation.0 += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo += Color::rgb(-time.delta_seconds, -time.delta_seconds, time.delta_seconds);
