@@ -8,18 +8,22 @@ pub use system::*;
 pub use window::*;
 pub use windows::*;
 
+pub mod prelude {
+    pub use crate::{CursorMoved, Window, WindowDescriptor, Windows};
+}
+
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 
 pub struct WindowPlugin {
-    pub primary_window: Option<WindowDescriptor>,
+    pub add_primary_window: bool,
     pub exit_on_close: bool,
 }
 
 impl Default for WindowPlugin {
     fn default() -> Self {
         WindowPlugin {
-            primary_window: Some(WindowDescriptor::default()),
+            add_primary_window: true,
             exit_on_close: true,
         }
     }
@@ -35,14 +39,16 @@ impl AppPlugin for WindowPlugin {
             .add_event::<CursorMoved>()
             .init_resource::<Windows>();
 
-        if let Some(ref primary_window_descriptor) = self.primary_window {
-            let mut create_window_event = app
-                .resources_mut()
-                .get_mut::<Events<CreateWindow>>()
-                .unwrap();
+        if self.add_primary_window {
+            let resources = app.resources();
+            let window_descriptor = resources
+                .get::<WindowDescriptor>()
+                .map(|descriptor| (*descriptor).clone())
+                .unwrap_or_else(|| WindowDescriptor::default());
+            let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::new(),
-                descriptor: primary_window_descriptor.clone(),
+                descriptor: window_descriptor.clone(),
             });
         }
 

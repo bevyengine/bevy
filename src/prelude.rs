@@ -14,6 +14,7 @@ pub use crate::{
     text::prelude::*,
     transform::prelude::*,
     type_registry::RegisterType,
+    window::prelude::*,
     ui::prelude::*,
     AddDefaultPlugins,
 };

@@ -203,3 +203,7 @@ path = "examples/window/clear_color.rs"
 [[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
+
+[[example]]
+name = "window_settings"
+path = "examples/window/window_settings.rs"
