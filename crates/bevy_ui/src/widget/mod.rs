@@ -1,5 +1,5 @@
 mod button;
-mod label;
+mod text;
 
 pub use button::*;
-pub use label::*;
+pub use text::*;

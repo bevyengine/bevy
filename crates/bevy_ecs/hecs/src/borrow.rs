@@ -17,7 +17,7 @@
 use core::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering}, fmt::Debug,
 };
 
 use crate::{archetype::Archetype, Component, MissingComponent};
@@ -101,6 +101,12 @@ impl<'a, T: Component> Deref for Ref<'a, T> {
     }
 }
 
+impl<'a, T: Component> Debug for Ref<'a,T> where T: Debug {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.deref().fmt(f)
+    }
+}
+
 /// Unique borrow of an entity's component
 pub struct RefMut<'a, T: Component> {
     archetype: &'a Archetype,
@@ -152,6 +158,12 @@ impl<'a, T: Component> DerefMut for RefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         *self.modified = true;
         unsafe { self.target.as_mut() }
+    }
+}
+
+impl<'a, T: Component> Debug for RefMut<'a,T> where T: Debug {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.deref().fmt(f)
     }
 }
 

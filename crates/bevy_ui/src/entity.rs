@@ -1,8 +1,8 @@
 use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
-    widget::{Button, Label},
-    Click, Hover, FocusPolicy,
+    widget::{Button, Text},
+    Click, FocusPolicy, Hover,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -12,7 +12,7 @@ use bevy_render::{
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
-use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
+use bevy_transform::{components::LocalTransform, prelude::Transform};
 
 #[derive(Bundle)]
 pub struct NodeComponents {
@@ -22,9 +22,7 @@ pub struct NodeComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub local_transform: LocalTransform,
 }
 
 impl Default for NodeComponents {
@@ -53,29 +51,25 @@ impl Default for NodeComponents {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            local_transform: Default::default(),
         }
     }
 }
 
 #[derive(Bundle)]
-pub struct LabelComponents {
+pub struct TextComponents {
     pub node: Node,
     pub draw: Draw,
-    pub label: Label,
+    pub text: Text,
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub local_transform: LocalTransform,
 }
 
-impl Default for LabelComponents {
+impl Default for TextComponents {
     fn default() -> Self {
-        LabelComponents {
-            label: Label::default(),
+        TextComponents {
+            text: Text::default(),
             node: Default::default(),
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
@@ -83,9 +77,7 @@ impl Default for LabelComponents {
                 ..Default::default()
             },
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            local_transform: Default::default(),
         }
     }
 }
@@ -102,9 +94,7 @@ pub struct ButtonComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub local_transform: LocalTransform,
 }
 
 impl Default for ButtonComponents {
@@ -137,9 +127,7 @@ impl Default for ButtonComponents {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            local_transform: Default::default(),
         }
     }
 }

@@ -3,7 +3,7 @@ use bevy_ecs::{Entity, Query, Res, Without};
 use bevy_math::Vec2;
 use bevy_transform::{
     hierarchy,
-    prelude::{Children, Parent, Translation},
+    prelude::{Children, LocalTransform, Parent},
 };
 use bevy_window::Windows;
 
@@ -17,8 +17,8 @@ pub struct Rect {
 
 pub fn ui_update_system(
     windows: Res<Windows>,
-    mut orphan_node_query: Query<Without<Parent, (Entity, &mut Node, &mut Translation)>>,
-    mut node_query: Query<(Entity, &mut Node, &mut Translation)>,
+    mut orphan_node_query: Query<Without<Parent, (Entity, &mut Node, &mut LocalTransform)>>,
+    mut node_query: Query<(Entity, &mut Node, &mut LocalTransform)>,
     children_query: Query<&Children>,
 ) {
     let window_size = if let Some(window) = windows.get_primary() {
@@ -53,21 +53,20 @@ pub fn ui_update_system(
 }
 
 fn update_node_entity(
-    node_query: &mut Query<(Entity, &mut Node, &mut Translation)>,
+    node_query: &mut Query<(Entity, &mut Node, &mut LocalTransform)>,
     entity: Entity,
     parent_rect: Option<&mut Rect>,
     previous_rect: Option<Rect>,
 ) -> Option<Rect> {
     if let Ok(mut node) = node_query.get_mut::<Node>(entity) {
-        if let Ok(mut translation) = node_query.get_mut::<Translation>(entity) {
+        if let Ok(mut local_transform) = node_query.get_mut::<LocalTransform>(entity) {
             let parent_rect = parent_rect.unwrap();
-            let mut z = parent_rect.z;
+            let mut z = UI_Z_STEP;
             if let Some(previous_rect) = previous_rect {
-                z = previous_rect.z
+                z += previous_rect.z
             };
 
-            z += UI_Z_STEP;
-            node.update(&mut translation, z + parent_rect.z, parent_rect.size);
+            node.update(&mut local_transform, z, parent_rect.size);
             return Some(Rect { size: node.size, z });
         }
     }

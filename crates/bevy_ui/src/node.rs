@@ -1,7 +1,7 @@
 use super::{Anchors, Margins};
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_render::renderer::RenderResources;
-use bevy_transform::prelude::Translation;
+use bevy_transform::components::LocalTransform;
 
 #[derive(Debug, Clone)]
 enum MarginGrowDirection {
@@ -38,7 +38,12 @@ impl Node {
         }
     }
 
-    pub fn update(&mut self, translation: &mut Translation, z_offset: f32, parent_size: Vec2) {
+    pub fn update(
+        &mut self,
+        local_transform: &mut LocalTransform,
+        z_offset: f32,
+        parent_size: Vec2,
+    ) {
         let (quad_x, quad_width) = Self::compute_dimension_properties(
             self.margins.left,
             self.margins.right,
@@ -55,8 +60,10 @@ impl Node {
         );
 
         self.size = Vec2::new(quad_width, quad_height);
-        translation.0 = self.position.extend(0.0) + Vec3::new(quad_x, quad_y, z_offset)
-            - (parent_size / 2.0).extend(0.0);
+        local_transform.0 = Mat4::from_translation(
+            self.position.extend(z_offset) + Vec3::new(quad_x, quad_y, z_offset)
+                - (parent_size / 2.0).extend(0.0),
+        );
     }
 
     fn compute_dimension_properties(

@@ -50,11 +50,11 @@ fn atlas_render_system(
     }
 }
 
-fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Label>) {
-    for mut label in &mut query.iter() {
+fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
+    for mut text in &mut query.iter() {
         state.timer.tick(time.delta_seconds);
         if state.timer.finished {
-            label.text = format!("{}", rand::random::<u8>() as char);
+            text.value = format!("{}", rand::random::<u8>() as char);
             state.timer.reset();
         }
     }
@@ -67,10 +67,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
         // 2d camera
         .spawn(Camera2dComponents::default())
         // texture
-        .spawn(LabelComponents {
+        .spawn(TextComponents {
             node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
-            label: Label {
-                text: "a".to_string(),
+            text: Text {
+                value: "a".to_string(),
                 font: font_handle,
                 style: TextStyle {
                     font_size: 60.0,

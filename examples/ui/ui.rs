@@ -39,10 +39,10 @@ fn setup(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(LabelComponents {
+                    parent.spawn(TextComponents {
                         node: Node::new(Anchors::TOP_LEFT, Margins::new(10.0, 200.0, 40.0, 10.0)),
-                        label: Label {
-                            text: "Text Label".to_string(),
+                        text: Text {
+                            value: "Text Example".to_string(),
                             font: font_handle,
                             style: TextStyle {
                                 font_size: 30.0,
@@ -121,6 +121,10 @@ fn setup(
                         Margins::new(0.0, 100.0, 0.0, 100.0),
                     ),
                     material: materials.add(Color::rgba(1.0, 0.9, 0.9, 0.4).into()),
+                    draw: Draw {
+                        is_transparent: true,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
                 // texture
@@ -130,6 +134,10 @@ fn setup(
                         Margins::new(-250.0, 250.0, 510.0 * aspect, 10.0),
                     ),
                     material: materials.add(ColorMaterial::texture(texture_handle)),
+                    draw: Draw {
+                        is_transparent: true,
+                        ..Default::default()
+                    },
                     ..Default::default()
                 });
         });

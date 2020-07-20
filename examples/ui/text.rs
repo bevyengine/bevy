@@ -12,11 +12,11 @@ fn main() {
         .run();
 }
 
-fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Label>) {
-    for mut label in &mut query.iter() {
+fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text>) {
+    for mut text in &mut query.iter() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
-                label.text = format!("FPS: {:.2}", average);
+                text.value = format!("FPS: {:.2}", average);
             }
         }
     }
@@ -28,10 +28,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // 2d camera
         .spawn(Camera2dComponents::default())
         // texture
-        .spawn(LabelComponents {
+        .spawn(TextComponents {
             node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
-            label: Label {
-                text: "FPS:".to_string(),
+            text: Text {
+                value: "FPS:".to_string(),
                 font: font_handle,
                 style: TextStyle {
                     font_size: 60.0,

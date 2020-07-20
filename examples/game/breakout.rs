@@ -64,10 +64,10 @@ fn setup(
             velocity: 400.0 * Vec3::new(0.5, -0.5, 0.0).normalize(),
         })
         // scoreboard
-        .spawn(LabelComponents {
-            label: Label {
+        .spawn(TextComponents {
+            text: Text {
                 font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
-                text: "Score:".to_string(),
+                value: "Score:".to_string(),
                 style: TextStyle {
                     color: Color::rgb(0.2, 0.2, 0.8).into(),
                     font_size: 40.0,
@@ -180,9 +180,9 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
     }
 }
 
-fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Label>) {
-    for mut label in &mut query.iter() {
-        label.text = format!("Score: {}", scoreboard.score);
+fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+    for mut text in &mut query.iter() {
+        text.value = format!("Score: {}", scoreboard.score);
     }
 }
 
