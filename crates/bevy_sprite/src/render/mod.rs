@@ -21,8 +21,8 @@ pub const SPRITE_SHEET_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
 pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Cw,
-            cull_mode: CullMode::None,
+            front_face: FrontFace::Ccw,
+            cull_mode: CullMode::Back,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
@@ -66,8 +66,8 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
 pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
-            front_face: FrontFace::Cw,
-            cull_mode: CullMode::None,
+            front_face: FrontFace::Ccw,
+            cull_mode: CullMode::Back,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,

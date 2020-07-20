@@ -74,7 +74,7 @@ pub enum FrontFace {
 
 impl Default for FrontFace {
     fn default() -> Self {
-        FrontFace::Cw
+        FrontFace::Ccw
     }
 }
 

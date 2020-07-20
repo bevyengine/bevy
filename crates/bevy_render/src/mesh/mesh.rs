@@ -273,14 +273,9 @@ pub mod shape {
             let vertices = if quad.flip {
                 [
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [south_east.x(), south_east.y(), 0.0],
                         [0.0, 0.0, 1.0],
-                        [0.0, 1.0],
-                    ),
-                    (
-                        [north_west.x(), north_west.y(), 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.0, 0.0],
+                        [1.0, 1.0],
                     ),
                     (
                         [north_east.x(), north_east.y(), 0.0],
@@ -288,22 +283,22 @@ pub mod shape {
                         [1.0, 0.0],
                     ),
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [north_west.x(), north_west.y(), 0.0],
                         [0.0, 0.0, 1.0],
-                        [1.0, 1.0],
+                        [0.0, 0.0],
+                    ),
+                    (
+                        [south_west.x(), south_west.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [0.0, 1.0],
                     ),
                 ]
             } else {
                 [
                     (
-                        [south_east.x(), south_east.y(), 0.0],
+                        [south_west.x(), south_west.y(), 0.0],
                         [0.0, 0.0, 1.0],
-                        [1.0, 1.0],
-                    ),
-                    (
-                        [north_east.x(), north_east.y(), 0.0],
-                        [0.0, 0.0, 1.0],
-                        [1.0, 0.0],
+                        [0.0, 1.0],
                     ),
                     (
                         [north_west.x(), north_west.y(), 0.0],
@@ -311,9 +306,14 @@ pub mod shape {
                         [0.0, 0.0],
                     ),
                     (
-                        [south_west.x(), south_west.y(), 0.0],
+                        [north_east.x(), north_east.y(), 0.0],
                         [0.0, 0.0, 1.0],
-                        [0.0, 1.0],
+                        [1.0, 0.0],
+                    ),
+                    (
+                        [south_east.x(), south_east.y(), 0.0],
+                        [0.0, 0.0, 1.0],
+                        [1.0, 1.0],
                     ),
                 ]
             };
