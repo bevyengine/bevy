@@ -4,21 +4,27 @@ use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
     mut commands: Commands,
-    // Entities with a `Children` and `Transform` but NOT a `Parent` (ie those that are
-    // roots of a hierarchy).
-    mut root_query: Query<Without<Parent, (&Children, &Transform)>>,
+    mut root_query: Query<
+        Without<Parent, (Option<&Children>, &mut Transform, Option<&LocalTransform>)>,
+    >,
     mut children_query: Query<&Children>,
     mut local_transform_query: Query<&LocalTransform>,
 ) {
-    for (children, local_to_world) in &mut root_query.iter() {
-        for child in children.0.iter() {
-            propagate_recursive(
-                *local_to_world,
-                &mut children_query,
-                &mut local_transform_query,
-                *child,
-                &mut commands,
-            );
+    for (children, mut transform, local_transform) in &mut root_query.iter() {
+        if let Some(local_transform) = local_transform {
+            transform.value = local_transform.0;
+        }
+
+        if let Some(children) = children {
+            for child in children.0.iter() {
+                propagate_recursive(
+                    *transform,
+                    &mut children_query,
+                    &mut local_transform_query,
+                    *child,
+                    &mut commands,
+                );
+            }
         }
     }
 }
