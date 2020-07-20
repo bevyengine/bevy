@@ -1,13 +1,15 @@
 mod bytes;
 mod float_ord;
 mod time;
+mod label;
 
 pub use bytes::*;
 pub use float_ord::*;
 pub use time::*;
+pub use label::*;
 
 pub mod prelude {
-    pub use crate::{Time, Timer};
+    pub use crate::{Time, Timer, Labels, EntityLabels};
 }
 
 use bevy_app::prelude::*;
@@ -21,6 +23,7 @@ pub struct CorePlugin;
 impl AppPlugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<Time>()
+            .init_resource::<EntityLabels>()
             .register_component::<Timer>()
             .register_property_type::<Vec2>()
             .register_property_type::<Vec3>()
