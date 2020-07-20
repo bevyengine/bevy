@@ -64,7 +64,7 @@ fn setup(
         // camera
         .spawn(Camera3dComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
-                Vec3::new(3.0, 5.0, -8.0),
+                Vec3::new(0.0, 150.0, -15.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             )),
