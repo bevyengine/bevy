@@ -476,7 +476,7 @@ mod tests {
             );
             assert_eq!(
                 executor.stages[2].system_dependents,
-                vec![vec![2], vec![2], vec![3], vec![]]
+                vec![vec![2, 3], vec![], vec![3], vec![]]
             );
 
             let stage_0_len = executor.stages[0].system_dependencies.len();
@@ -513,6 +513,7 @@ mod tests {
             let mut read_isize_write_f64_res_deps = FixedBitSet::with_capacity(stage_2_len);
             read_isize_write_f64_res_deps.insert(0);
             let mut write_f64_res_deps = FixedBitSet::with_capacity(stage_2_len);
+            write_f64_res_deps.insert(0);
             write_f64_res_deps.insert(2);
             assert_eq!(
                 executor.stages[2].system_dependencies,
