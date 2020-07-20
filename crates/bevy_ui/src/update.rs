@@ -37,7 +37,7 @@ pub fn ui_update_system(
     };
 
     let mut previous_sibling_result = Some(Rect {
-        z: 999.0,
+        z: 0.0,
         size: window_size,
     });
     for entity in orphan_nodes {
@@ -66,8 +66,8 @@ fn update_node_entity(
                 z = previous_rect.z
             };
 
-            z -= UI_Z_STEP;
-            node.update(&mut translation, z - parent_rect.z, parent_rect.size);
+            z += UI_Z_STEP;
+            node.update(&mut translation, z + parent_rect.z, parent_rect.size);
             return Some(Rect { size: node.size, z });
         }
     }

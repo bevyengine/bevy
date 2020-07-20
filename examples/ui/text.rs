@@ -26,7 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     commands
         // 2d camera
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         // texture
         .spawn(LabelComponents {
             node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),

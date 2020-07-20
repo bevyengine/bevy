@@ -92,7 +92,7 @@ fn setup(
 ) {
     commands
         // ui camera
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         .spawn(ButtonComponents {
             node: Node::new(Anchors::CENTER, Margins::new(-75.0, 75.0, -35.0, 35.0)),
             material: button_materials.normal,

@@ -14,7 +14,7 @@ fn setup(
 ) {
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
     commands
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         .spawn(SpriteComponents {
             material: materials.add(texture_handle.into()),
             ..Default::default()

@@ -23,7 +23,7 @@ fn setup(
 
     commands
         // ui camera
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         // root node
         .spawn(NodeComponents {
             node: Node::new(Anchors::FULL, Margins::default()),

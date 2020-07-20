@@ -27,7 +27,7 @@ fn setup(
     rpg_sprite_handles.handles = asset_server
         .load_asset_folder("assets/textures/rpg")
         .unwrap();
-    commands.spawn(OrthographicCameraComponents::default());
+    commands.spawn(Camera2dComponents::default());
 }
 
 #[derive(Default)]

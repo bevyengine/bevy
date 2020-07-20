@@ -37,7 +37,7 @@ fn setup(
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
             scale: Scale(6.0),

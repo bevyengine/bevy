@@ -22,7 +22,7 @@ fn placement_system(
 }
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
-    commands.spawn(OrthographicCameraComponents::default());
+    commands.spawn(Camera2dComponents::default());
 
     let mut prev = Vec2::default();
     let count = 1000;

@@ -40,7 +40,7 @@ fn setup(
     // Add the game's entities to our world
     commands
         // camera
-        .spawn(OrthographicCameraComponents::default())
+        .spawn(Camera2dComponents::default())
         // paddle
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),

@@ -106,8 +106,7 @@ pub fn ui_focus_system(
         })
         .collect::<Vec<_>>();
 
-    // TODO: sort by negative when we move back to a right handed coordinate system
-    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| *z);
+    moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
     for (focus_policy, click, hover, _) in moused_over_z_sorted_nodes {
         if mouse_clicked {
             // only consider nodes with ClickState "clickable"

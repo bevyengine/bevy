@@ -55,7 +55,7 @@ pub struct OrthographicProjection {
 
 impl CameraProjection for OrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
-        Mat4::orthographic_lh(
+        Mat4::orthographic_rh(
             self.left,
             self.right,
             self.bottom,

@@ -136,7 +136,7 @@ fn setup(
             ..Default::default()
         })
         // main camera
-        .spawn(PerspectiveCameraComponents {
+        .spawn(Camera3dComponents {
             transform: Transform::new_sync_disabled(Mat4::face_toward(
                 Vec3::new(0.0, 0.0, 6.0),
                 Vec3::new(0.0, 0.0, 0.0),
@@ -145,7 +145,7 @@ fn setup(
             ..Default::default()
         })
         // second window camera
-        .spawn(PerspectiveCameraComponents {
+        .spawn(Camera3dComponents {
             camera: Camera {
                 name: Some("Secondary".to_string()),
                 window: WindowReference::Id(window_id),

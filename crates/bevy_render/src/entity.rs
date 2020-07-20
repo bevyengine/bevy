@@ -20,7 +20,7 @@ pub struct MeshComponents {
 }
 
 #[derive(Bundle)]
-pub struct PerspectiveCameraComponents {
+pub struct Camera3dComponents {
     pub camera: Camera,
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
@@ -30,9 +30,9 @@ pub struct PerspectiveCameraComponents {
     pub scale: Scale,
 }
 
-impl Default for PerspectiveCameraComponents {
+impl Default for Camera3dComponents {
     fn default() -> Self {
-        PerspectiveCameraComponents {
+        Camera3dComponents {
             camera: Camera {
                 name: Some(base::camera::CAMERA3D.to_string()),
                 ..Default::default()
@@ -48,7 +48,7 @@ impl Default for PerspectiveCameraComponents {
 }
 
 #[derive(Bundle)]
-pub struct OrthographicCameraComponents {
+pub struct Camera2dComponents {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
@@ -58,17 +58,23 @@ pub struct OrthographicCameraComponents {
     pub scale: Scale,
 }
 
-impl Default for OrthographicCameraComponents {
+impl Default for Camera2dComponents {
     fn default() -> Self {
-        OrthographicCameraComponents {
+        // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
+        // the camera's translation by far and use a right handed coordinate system   
+        let far = 1000.0;
+        Camera2dComponents {
             camera: Camera {
                 name: Some(base::camera::CAMERA2D.to_string()),
                 ..Default::default()
             },
-            orthographic_projection: Default::default(),
+            orthographic_projection: OrthographicProjection {
+                far,
+                ..Default::default()
+            },
             visible_entities: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
+            translation: Translation::new(0.0, 0.0, far - 0.1),
             rotation: Default::default(),
             scale: Default::default(),
         }
