@@ -150,7 +150,6 @@ impl<T: Query> Query for Option<T> {
     type Fetch = TryFetch<T::Fetch>;
 }
 
-
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
     value: &'a mut T,
@@ -279,6 +278,61 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
     }
 }
 
+#[allow(missing_docs)]
+pub struct Added<'a, T> {
+    value: &'a T,
+}
+
+impl<'a, T: Component> Deref for Added<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: Component> Query for Added<'a, T> {
+    type Fetch = FetchAdded<T>;
+}
+
+#[doc(hidden)]
+pub struct FetchAdded<T>(NonNull<T>, NonNull<bool>);
+
+impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
+    type Item = Added<'a, T>;
+
+    fn access(archetype: &Archetype) -> Option<Access> {
+        if archetype.has::<T>() {
+            Some(Access::Read)
+        } else {
+            None
+        }
+    }
+
+    fn borrow(archetype: &Archetype) {
+        archetype.borrow::<T>();
+    }
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
+        let modified = NonNull::new_unchecked(archetype.get_added::<T>()?.as_ptr().add(offset));
+        Some(Self(components, modified))
+    }
+    fn release(archetype: &Archetype) {
+        archetype.release::<T>();
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        // skip if the current item wasn't changed
+        !*self.1.as_ref()
+    }
+
+    #[inline]
+    unsafe fn next(&mut self) -> Self::Item {
+        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
+        let value = self.0.as_ptr();
+        self.0 = NonNull::new_unchecked(value.add(1));
+        Added { value: &*value }
+    }
+}
 #[doc(hidden)]
 pub struct TryFetch<T>(Option<T>);
 
@@ -781,6 +835,38 @@ mod tests {
     struct A(usize);
     struct B(usize);
     struct C;
+
+    #[test]
+    fn added_trackers() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0),));
+
+        fn get_added<Com: Component>(world: &World) -> Vec<Entity> {
+            world
+                .query::<(Added<Com>, Entity)>()
+                .iter()
+                .map(|(_added, e)| e)
+                .collect::<Vec<Entity>>()
+        };
+
+        assert_eq!(get_added::<A>(&world), vec![e1]);
+        world.insert(e1, (B(0),)).unwrap();
+        assert_eq!(get_added::<A>(&world), vec![e1]);
+        assert_eq!(get_added::<B>(&world), vec![e1]);
+
+        world.clear_trackers();
+        assert!(get_added::<A>(&world).is_empty());
+        let e2 = world.spawn((A(1), B(1)));
+        assert_eq!(get_added::<A>(&world), vec![e2]);
+        assert_eq!(get_added::<B>(&world), vec![e2]);
+
+        let added = world
+            .query::<(Entity, Added<A>, Added<B>)>()
+            .iter()
+            .map(|a| a.0)
+            .collect::<Vec<Entity>>();
+        assert_eq!(added, vec![e2]);
+    }
 
     #[test]
     fn modified_trackers() {

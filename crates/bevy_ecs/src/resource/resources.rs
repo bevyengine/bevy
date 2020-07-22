@@ -65,13 +65,13 @@ impl Resources {
         });
 
         let archetype = &mut data.archetype;
-
+        let mut added = false;
         let index = match resource_index {
-            ResourceIndex::Global => *data.default_index.get_or_insert_with(|| archetype.len()),
+            ResourceIndex::Global => *data.default_index.get_or_insert_with(|| { added = true; archetype.len() }),
             ResourceIndex::System(id) => *data
                 .system_id_to_archetype_index
                 .entry(id.0)
-                .or_insert_with(|| archetype.len()),
+                .or_insert_with(|| { added = true; archetype.len() }),
         };
 
         if index == archetype.len() {
@@ -82,7 +82,7 @@ impl Resources {
 
         unsafe {
             let resource_ptr = (&mut resource as *mut T).cast::<u8>();
-            archetype.put_dynamic(resource_ptr, type_id, core::mem::size_of::<T>(), index);
+            archetype.put_dynamic(resource_ptr, type_id, core::mem::size_of::<T>(), index, added);
             std::mem::forget(resource);
         }
     }

@@ -106,7 +106,7 @@ impl World {
         unsafe {
             let index = archetype.allocate(entity.id());
             components.put(|ptr, ty, size| {
-                archetype.put_dynamic(ptr, ty, size, index);
+                archetype.put_dynamic(ptr, ty, size, index, true);
                 true
             });
             self.entities.insert(
@@ -371,7 +371,7 @@ impl World {
                 // Update components in the current archetype
                 let arch = &mut self.archetypes[loc.archetype as usize];
                 components.put(|ptr, ty, size| {
-                    arch.put_dynamic(ptr, ty, size, loc.index);
+                    arch.put_dynamic(ptr, ty, size, loc.index, false);
                     true
                 });
                 return Ok(());
@@ -386,14 +386,17 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             let old_index = mem::replace(&mut loc.index, target_index);
-            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, is_modified| {
-                target_arch.put_dynamic(ptr, ty, size, target_index);
-                target_arch.get_type_state_mut(ty).unwrap().modified_entities[target_index as usize] = is_modified;
+            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, is_added, is_modified| {
+                target_arch.put_dynamic(ptr, ty, size, target_index, false);
+                let type_state =  target_arch.get_type_state_mut(ty).unwrap();
+                type_state.added_entities[target_index as usize] = is_added;
+                type_state.modified_entities[target_index as usize] = is_modified;
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;
             }
+
             components.put(|ptr, ty, size| {
-                target_arch.put_dynamic(ptr, ty, size, target_index);
+                target_arch.put_dynamic(ptr, ty, size, target_index, true);
                 true
             });
         }
@@ -464,11 +467,13 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             loc.index = target_index;
-            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size, is_modified| {
+            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size, is_added, is_modified| {
                 // Only move the components present in the target archetype, i.e. the non-removed ones.
                 if let Some(dst) = target_arch.get_dynamic(ty, size, target_index) {
                     ptr::copy_nonoverlapping(src, dst.as_ptr(), size);
-                    target_arch.get_type_state_mut(ty).unwrap().modified_entities[target_index as usize] = is_modified;
+                    let state = target_arch.get_type_state_mut(ty).unwrap();
+                    state.added_entities[target_index as usize] = is_added;
+                    state.modified_entities[target_index as usize] = is_modified;
                 }
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;
@@ -746,7 +751,7 @@ where
         unsafe {
             let index = self.archetype.allocate(entity.id());
             components.put(|ptr, ty, size| {
-                self.archetype.put_dynamic(ptr, ty, size, index);
+                self.archetype.put_dynamic(ptr, ty, size, index, true);
                 true
             });
             self.entities.insert(
