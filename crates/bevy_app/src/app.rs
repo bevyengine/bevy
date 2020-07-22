@@ -1,15 +1,32 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
-#[derive(Default)]
 pub struct App {
     pub world: World,
     pub resources: Resources,
-    pub runner: Option<Box<dyn Fn(App)>>,
+    pub runner: Box<dyn Fn(App)>,
     pub schedule: Schedule,
     pub executor: ParallelExecutor,
     pub startup_schedule: Schedule,
     pub startup_executor: ParallelExecutor,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            world: Default::default(),
+            resources: Default::default(),
+            schedule: Default::default(),
+            executor: Default::default(),
+            startup_schedule: Default::default(),
+            startup_executor: Default::default(),
+            runner: Box::new(run_once),
+        }
+    }
+}
+
+fn run_once(mut app: App) {
+    app.update();
 }
 
 impl App {
@@ -30,9 +47,9 @@ impl App {
             &mut self.world,
             &mut self.resources,
         );
-        if let Some(run) = self.runner.take() {
-            run(self)
-        }
+
+        let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
+        (runner)(self);
     }
 }
 

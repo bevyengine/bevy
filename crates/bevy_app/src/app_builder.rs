@@ -202,7 +202,7 @@ impl AppBuilder {
     }
 
     pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
-        self.app.runner = Some(Box::new(run_fn));
+        self.app.runner = Box::new(run_fn);
         self
     }
 
