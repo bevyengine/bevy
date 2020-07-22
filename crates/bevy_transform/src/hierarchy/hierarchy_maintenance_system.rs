@@ -9,7 +9,7 @@ pub fn missing_previous_parent_system(
     mut query: Query<Without<PreviousParent, (Entity, &Parent)>>,
 ) {
     // Add missing `PreviousParent` components
-    for (entity, _parent) in query.iter() {
+    for (entity, _parent) in &mut query.iter() {
         log::trace!("Adding missing PreviousParent to {:?}", entity);
         commands.insert_one(entity, PreviousParent(None));
     }
@@ -24,7 +24,7 @@ pub fn parent_update_system(
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
     // them from the `Children` of the `PreviousParent`.
-    for (entity, previous_parent) in removed_parent_query.iter() {
+    for (entity, previous_parent) in &mut removed_parent_query.iter() {
         log::trace!("Parent was removed from {:?}", entity);
         if let Some(previous_parent_entity) = previous_parent.0 {
             if let Ok(mut previous_parent_children) =
@@ -40,7 +40,7 @@ pub fn parent_update_system(
     let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
-    for (entity, parent, mut previous_parent) in changed_parent_query.iter() {
+    for (entity, parent, mut previous_parent) in &mut changed_parent_query.iter() {
         log::trace!("Parent changed for {:?}", entity);
 
         // If the `PreviousParent` is not None.

@@ -44,7 +44,7 @@ fn button_system(
     )>,
     text_query: Query<&mut Text>,
 ) {
-    for (_button, hover, click, mut material, children) in hover_query.iter() {
+    for (_button, hover, click, mut material, children) in &mut hover_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *hover {
             Hover::Hovered => {
@@ -65,7 +65,7 @@ fn button_system(
         }
     }
 
-    for (_button, click, hover, mut material, children) in click_query.iter() {
+    for (_button, click, hover, mut material, children) in &mut click_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *click {
             Click::Pressed => {

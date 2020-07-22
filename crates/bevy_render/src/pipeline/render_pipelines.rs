@@ -106,7 +106,7 @@ pub fn draw_render_pipelines_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut query: Query<(&mut Draw, &mut RenderPipelines)>,
 ) {
-    for (mut draw, mut render_pipelines) in query.iter() {
+    for (mut draw, mut render_pipelines) in &mut query.iter() {
         let mut drawable = DrawableRenderPipelines {
             render_pipelines: &mut render_pipelines,
             render_resource_bindings: &mut render_resource_bindings,

@@ -26,13 +26,13 @@ pub fn visible_entities_system(
     mut draw_query: Query<(Entity, &Draw)>,
     draw_transform_query: Query<(&Draw, &Transform)>,
 ) {
-    for (_camera, camera_transform, mut visible_entities) in camera_query.iter() {
+    for (_camera, camera_transform, mut visible_entities) in &mut camera_query.iter() {
         visible_entities.value.clear();
         let camera_position = camera_transform.value.w_axis().truncate();
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
-        for (entity, draw) in draw_query.iter() {
+        for (entity, draw) in &mut draw_query.iter() {
             if !draw.is_visible {
                 continue;
             }

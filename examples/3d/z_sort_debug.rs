@@ -19,7 +19,7 @@ fn main() {
 
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Rotation)>) {
-    for (_rotator, mut rotation) in query.iter() {
+    for (_rotator, mut rotation) in &mut query.iter() {
         rotation.0 = rotation.0 * Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
@@ -29,7 +29,7 @@ fn camera_order_color_system(
     mut camera_query: Query<(&Camera, &VisibleEntities)>,
     material_query: Query<&Handle<StandardMaterial>>,
 ) {
-    for (_camera, visible_entities) in camera_query.iter() {
+    for (_camera, visible_entities) in &mut camera_query.iter() {
         for visible_entity in visible_entities.iter() {
             if let Ok(material_handle) =
                 material_query.get::<Handle<StandardMaterial>>(visible_entity.entity)

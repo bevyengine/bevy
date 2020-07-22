@@ -68,7 +68,7 @@ pub fn entity_labels_system(
     mut query: Query<(Entity, &Labels)>,
 ) {
     let entity_labels = entity_labels.deref_mut();
-    for (entity, labels) in query.iter() {
+    for (entity, labels) in &mut query.iter() {
         let current_labels = entity_labels
             .entity_labels
             .entry(entity)

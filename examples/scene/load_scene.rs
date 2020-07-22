@@ -93,7 +93,7 @@ fn load_scene_right_now_system(world: &mut World, resources: &mut Resources) {
 // You should immediately see the changes appear in the console.
 fn print_system(mut query: Query<(Entity, &ComponentA)>) {
     println!("Current World State:");
-    for (entity, component_a) in query.iter() {
+    for (entity, component_a) in &mut query.iter() {
         println!("  Entity({})", entity.id());
         println!(
             "    ComponentA: {{ x: {} y: {} }}\n",

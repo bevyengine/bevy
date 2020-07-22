@@ -23,7 +23,7 @@ pub fn sprite_system(
     textures: Res<Assets<Texture>>,
     mut query: Query<(&mut Sprite, &Handle<ColorMaterial>)>,
 ) {
-    for (mut sprite, handle) in query.iter() {
+    for (mut sprite, handle) in &mut query.iter() {
         let material = materials.get(&handle).unwrap();
         if let Some(texture_handle) = material.texture {
             if let Some(texture) = textures.get(&texture_handle) {

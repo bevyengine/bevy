@@ -479,7 +479,7 @@ pub fn mesh_resource_provider_system(
     }
 
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
-    for (handle, mut render_pipelines) in query.iter() {
+    for (handle, mut render_pipelines) in &mut query.iter() {
         if let Some(mesh) = meshes.get(&handle) {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
