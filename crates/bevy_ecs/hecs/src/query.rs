@@ -125,7 +125,6 @@ impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     fn borrow(archetype: &Archetype) {
         archetype.borrow::<T>();
     }
-    #[inline]
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
             .get::<T>()
@@ -149,6 +148,135 @@ impl<'a, T: Component> Query for &'a mut T {
 
 impl<T: Query> Query for Option<T> {
     type Fetch = TryFetch<T::Fetch>;
+}
+
+
+/// Unique borrow of an entity's component
+pub struct Mut<'a, T: Component> {
+    value: &'a mut T,
+    modified: &'a mut bool,
+}
+
+unsafe impl<T: Component> Send for Mut<'_, T> {}
+unsafe impl<T: Component> Sync for Mut<'_, T> {}
+
+impl<'a, T: Component> Deref for Mut<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: Component> DerefMut for Mut<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T {
+        *self.modified = true;
+        self.value
+    }
+}
+
+impl<'a, T: Component> Query for Mut<'a, T> {
+    type Fetch = FetchMut<T>;
+}
+#[doc(hidden)]
+pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
+
+impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
+    type Item = Mut<'a, T>;
+
+    fn access(archetype: &Archetype) -> Option<Access> {
+        if archetype.has::<T>() {
+            Some(Access::Write)
+        } else {
+            None
+        }
+    }
+
+    fn borrow(archetype: &Archetype) {
+        archetype.borrow_mut::<T>();
+    }
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        archetype
+            .get_with_modified::<T>()
+            .map(|(components, modified)| {
+                Self(
+                    NonNull::new_unchecked(components.as_ptr().add(offset)),
+                    NonNull::new_unchecked(modified.as_ptr().add(offset)),
+                )
+            })
+    }
+    fn release(archetype: &Archetype) {
+        archetype.release_mut::<T>();
+    }
+
+    #[inline]
+    unsafe fn next(&mut self) -> Mut<'a, T> {
+        let component = self.0.as_ptr();
+        let modified = self.1.as_ptr();
+        self.0 = NonNull::new_unchecked(component.add(1));
+        self.1 = NonNull::new_unchecked(modified.add(1));
+        Mut {
+            value: &mut *component,
+            modified: &mut *modified,
+        }
+    }
+}
+
+#[allow(missing_docs)]
+pub struct Changed<'a, T> {
+    value: &'a T,
+}
+
+impl<'a, T: Component> Deref for Changed<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: Component> Query for Changed<'a, T> {
+    type Fetch = FetchChanged<T>;
+}
+
+#[doc(hidden)]
+pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>);
+
+impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
+    type Item = Changed<'a, T>;
+
+    fn access(archetype: &Archetype) -> Option<Access> {
+        if archetype.has::<T>() {
+            Some(Access::Read)
+        } else {
+            None
+        }
+    }
+
+    fn borrow(archetype: &Archetype) {
+        archetype.borrow::<T>();
+    }
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
+        let modified = NonNull::new_unchecked(archetype.get_modified::<T>()?.as_ptr().add(offset));
+        Some(Self(components, modified))
+    }
+    fn release(archetype: &Archetype) {
+        archetype.release::<T>();
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        // skip if the current item wasn't changed
+        !*self.1.as_ref()
+    }
+
+    #[inline]
+    unsafe fn next(&mut self) -> Self::Item {
+        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
+        let value = self.0.as_ptr();
+        self.0 = NonNull::new_unchecked(value.add(1));
+        Changed { value: &*value }
+    }
 }
 
 #[doc(hidden)]
@@ -635,131 +763,6 @@ macro_rules! tuple_impl {
 
 //smaller_tuples_too!(tuple_impl, B, A);
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
-
-/// Unique borrow of an entity's component
-pub struct Mut<'a, T: Component> {
-    value: &'a mut T,
-    modified: &'a mut bool,
-}
-
-unsafe impl<T: Component> Send for Mut<'_, T> {}
-unsafe impl<T: Component> Sync for Mut<'_, T> {}
-
-impl<'a, T: Component> Deref for Mut<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: Component> DerefMut for Mut<'a, T> {
-    fn deref_mut(&mut self) -> &mut T {
-        *self.modified = true;
-        self.value
-    }
-}
-
-impl<'a, T: Component> Query for Mut<'a, T> {
-    type Fetch = FetchMut<T>;
-}
-#[doc(hidden)]
-pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
-
-impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
-    type Item = Mut<'a, T>;
-
-    fn access(archetype: &Archetype) -> Option<Access> {
-        if archetype.has::<T>() {
-            Some(Access::Write)
-        } else {
-            None
-        }
-    }
-
-    fn borrow(archetype: &Archetype) {
-        archetype.borrow_mut::<T>();
-    }
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_modified::<T>()
-            .map(|(components, modified)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(modified.as_ptr().add(offset)),
-                )
-            })
-    }
-    fn release(archetype: &Archetype) {
-        archetype.release_mut::<T>();
-    }
-
-    unsafe fn next(&mut self) -> Mut<'a, T> {
-        let component = self.0.as_ptr();
-        let modified = self.1.as_ptr();
-        self.0 = NonNull::new_unchecked(component.add(1));
-        self.1 = NonNull::new_unchecked(modified.add(1));
-        Mut {
-            value: &mut *component,
-            modified: &mut *modified,
-        }
-    }
-}
-
-#[allow(missing_docs)]
-pub struct Changed<'a, T> {
-    value: &'a T,
-}
-
-impl<'a, T: Component> Deref for Changed<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: Component> Query for Changed<'a, T> {
-    type Fetch = FetchChanged<T>;
-}
-
-#[doc(hidden)]
-pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>);
-
-impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
-    type Item = Changed<'a, T>;
-
-    fn access(archetype: &Archetype) -> Option<Access> {
-        if archetype.has::<T>() {
-            Some(Access::Read)
-        } else {
-            None
-        }
-    }
-
-    fn borrow(archetype: &Archetype) {
-        archetype.borrow::<T>();
-    }
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
-        let modified = NonNull::new_unchecked(archetype.get_modified::<T>()?.as_ptr().add(offset));
-        Some(Self(components, modified))
-    }
-    fn release(archetype: &Archetype) {
-        archetype.release::<T>();
-    }
-
-    unsafe fn should_skip(&self) -> bool {
-        // skip if the current item wasn't changed
-        !*self.1.as_ref()
-    }
-
-    #[inline]
-    unsafe fn next(&mut self) -> Self::Item {
-        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
-        let value = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(value.add(1));
-        Changed { value: &*value }
-    }
-}
 
 #[cfg(test)]
 mod tests {
