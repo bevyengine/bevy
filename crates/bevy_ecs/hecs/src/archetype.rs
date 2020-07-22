@@ -99,7 +99,6 @@ impl Archetype {
         self.state.contains_key(&id)
     }
 
-    // TODO: this should be unsafe i think
     #[allow(missing_docs)]
     #[inline]
     pub fn get<T: Component>(&self) -> Option<NonNull<T>> {
@@ -111,27 +110,25 @@ impl Archetype {
         })
     }
 
-    // TODO: this should be unsafe i think
     #[allow(missing_docs)]
     #[inline]
-    pub fn get_with_modified<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>)> {
+    pub fn get_with_mutated<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>)> {
         let state = self.state.get(&TypeId::of::<T>())?;
         Some(unsafe {
             (
                 NonNull::new_unchecked(
                     (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
                 ),
-                NonNull::new_unchecked(state.modified_entities.as_ptr() as *mut bool),
+                NonNull::new_unchecked(state.mutated_entities.as_ptr() as *mut bool),
             )
         })
     }
 
-    // TODO: this should be unsafe i think
     #[allow(missing_docs)]
     #[inline]
-    pub fn get_modified<T: Component>(&self) -> Option<NonNull<bool>> {
+    pub fn get_mutated<T: Component>(&self) -> Option<NonNull<bool>> {
         let state = self.state.get(&TypeId::of::<T>())?;
-        Some(unsafe { NonNull::new_unchecked(state.modified_entities.as_ptr() as *mut bool) })
+        Some(unsafe { NonNull::new_unchecked(state.mutated_entities.as_ptr() as *mut bool) })
     }
 
     #[allow(missing_docs)]
@@ -264,7 +261,7 @@ impl Archetype {
             self.entities = new_entities;
 
             for type_state in self.state.values_mut() {
-                type_state.modified_entities.resize_with(count, || false);
+                type_state.mutated_entities.resize_with(count, || false);
                 type_state.added_entities.resize_with(count, || false);
             }
 
@@ -325,7 +322,7 @@ impl Archetype {
                 );
 
                 let type_state = self.state.get_mut(&ty.id).unwrap();
-                type_state.modified_entities[index as usize] = type_state.modified_entities[last as usize]; 
+                type_state.mutated_entities[index as usize] = type_state.mutated_entities[last as usize]; 
                 type_state.added_entities[index as usize] = type_state.added_entities[last as usize]; 
             }
         }
@@ -352,8 +349,8 @@ impl Archetype {
                 .as_ptr();
             let type_state = self.state.get(&ty.id).unwrap();
             let is_added= type_state.added_entities[index as usize];
-            let is_modified = type_state.modified_entities[index as usize];
-            f(moved, ty.id(), ty.layout().size(), is_added, is_modified);
+            let is_mutated = type_state.mutated_entities[index as usize];
+            f(moved, ty.id(), ty.layout().size(), is_added, is_mutated);
             if index != last {
                 ptr::copy_nonoverlapping(
                     self.get_dynamic(ty.id, ty.layout.size(), last)
@@ -364,7 +361,7 @@ impl Archetype {
                 );
                 let type_state = self.state.get_mut(&ty.id).unwrap();
                 type_state.added_entities[index as usize] = type_state.added_entities[last as usize]; 
-                type_state.modified_entities[index as usize] = type_state.modified_entities[last as usize]; 
+                type_state.mutated_entities[index as usize] = type_state.mutated_entities[last as usize]; 
             }
         }
         self.len -= 1;
@@ -415,7 +412,7 @@ impl Drop for Archetype {
 pub struct TypeState {
     offset: usize,
     borrow: AtomicBorrow,
-    pub modified_entities: Vec<bool>,
+    pub mutated_entities: Vec<bool>,
     pub added_entities: Vec<bool>,
 }
 
@@ -424,14 +421,14 @@ impl TypeState {
         Self {
             offset: 0,
             borrow: AtomicBorrow::new(),
-            modified_entities: Vec::new(),
+            mutated_entities: Vec::new(),
             added_entities: Vec::new(),
         }
     }
 
     fn clear_trackers(&mut self) {
-        for modified in self.modified_entities.iter_mut() {
-            *modified = false;
+        for mutated in self.mutated_entities.iter_mut() {
+            *mutated = false;
         }
 
         for added in self.added_entities.iter_mut() {

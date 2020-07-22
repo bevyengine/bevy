@@ -386,11 +386,11 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             let old_index = mem::replace(&mut loc.index, target_index);
-            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, is_added, is_modified| {
+            if let Some(moved) = source_arch.move_to(old_index, |ptr, ty, size, is_added, is_mutated| {
                 target_arch.put_dynamic(ptr, ty, size, target_index, false);
                 let type_state =  target_arch.get_type_state_mut(ty).unwrap();
                 type_state.added_entities[target_index as usize] = is_added;
-                type_state.modified_entities[target_index as usize] = is_modified;
+                type_state.mutated_entities[target_index as usize] = is_mutated;
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;
             }
@@ -467,13 +467,13 @@ impl World {
             let target_index = target_arch.allocate(entity.id());
             loc.archetype = target;
             loc.index = target_index;
-            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size, is_added, is_modified| {
+            if let Some(moved) = source_arch.move_to(old_index, |src, ty, size, is_added, is_mutated| {
                 // Only move the components present in the target archetype, i.e. the non-removed ones.
                 if let Some(dst) = target_arch.get_dynamic(ty, size, target_index) {
                     ptr::copy_nonoverlapping(src, dst.as_ptr(), size);
                     let state = target_arch.get_type_state_mut(ty).unwrap();
                     state.added_entities[target_index as usize] = is_added;
-                    state.modified_entities[target_index as usize] = is_modified;
+                    state.mutated_entities[target_index as usize] = is_mutated;
                 }
             }) {
                 self.entities.get_mut(Entity::with_id(moved)).unwrap().index = old_index;
@@ -567,7 +567,7 @@ impl World {
         self.entities.get(entity).ok()
     }
 
-    /// Clears each entity's tracker state. For example, each entity's component "modified" state will be reset to `false`. 
+    /// Clears each entity's tracker state. For example, each entity's component "mutated" state will be reset to `false`. 
     pub fn clear_trackers(&mut self) {
         for archetype in self.archetypes.iter_mut() {
             archetype.clear_trackers();

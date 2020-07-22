@@ -153,7 +153,7 @@ impl<T: Query> Query for Option<T> {
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
     value: &'a mut T,
-    modified: &'a mut bool,
+    mutated: &'a mut bool,
 }
 
 unsafe impl<T: Component> Send for Mut<'_, T> {}
@@ -170,7 +170,7 @@ impl<'a, T: Component> Deref for Mut<'a, T> {
 impl<'a, T: Component> DerefMut for Mut<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut T {
-        *self.modified = true;
+        *self.mutated = true;
         self.value
     }
 }
@@ -197,11 +197,11 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
-            .get_with_modified::<T>()
-            .map(|(components, modified)| {
+            .get_with_mutated::<T>()
+            .map(|(components, mutated)| {
                 Self(
                     NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(modified.as_ptr().add(offset)),
+                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
                 )
             })
     }
@@ -212,37 +212,37 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     #[inline]
     unsafe fn next(&mut self) -> Mut<'a, T> {
         let component = self.0.as_ptr();
-        let modified = self.1.as_ptr();
+        let mutated = self.1.as_ptr();
         self.0 = NonNull::new_unchecked(component.add(1));
-        self.1 = NonNull::new_unchecked(modified.add(1));
+        self.1 = NonNull::new_unchecked(mutated.add(1));
         Mut {
             value: &mut *component,
-            modified: &mut *modified,
+            mutated: &mut *mutated,
         }
     }
 }
 
 #[allow(missing_docs)]
-pub struct Changed<'a, T> {
+pub struct Mutated<'a, T> {
     value: &'a T,
 }
 
-impl<'a, T: Component> Deref for Changed<'a, T> {
+impl<'a, T: Component> Deref for Mutated<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
         self.value
     }
 }
 
-impl<'a, T: Component> Query for Changed<'a, T> {
-    type Fetch = FetchChanged<T>;
+impl<'a, T: Component> Query for Mutated<'a, T> {
+    type Fetch = FetchMutated<T>;
 }
 
 #[doc(hidden)]
-pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>);
+pub struct FetchMutated<T>(NonNull<T>, NonNull<bool>);
 
-impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
-    type Item = Changed<'a, T>;
+impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
+    type Item = Mutated<'a, T>;
 
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
@@ -256,16 +256,21 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
         archetype.borrow::<T>();
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
-        let modified = NonNull::new_unchecked(archetype.get_modified::<T>()?.as_ptr().add(offset));
-        Some(Self(components, modified))
+        archetype
+            .get_with_mutated::<T>()
+            .map(|(components, mutated)| {
+                Self(
+                    NonNull::new_unchecked(components.as_ptr().add(offset)),
+                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
+                )
+            })
     }
     fn release(archetype: &Archetype) {
         archetype.release::<T>();
     }
 
     unsafe fn should_skip(&self) -> bool {
-        // skip if the current item wasn't changed
+        // skip if the current item wasn't mutated
         !*self.1.as_ref()
     }
 
@@ -274,7 +279,7 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
         self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
         let value = self.0.as_ptr();
         self.0 = NonNull::new_unchecked(value.add(1));
-        Changed { value: &*value }
+        Mutated { value: &*value }
     }
 }
 
@@ -313,8 +318,8 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
-        let modified = NonNull::new_unchecked(archetype.get_added::<T>()?.as_ptr().add(offset));
-        Some(Self(components, modified))
+        let added = NonNull::new_unchecked(archetype.get_added::<T>()?.as_ptr().add(offset));
+        Some(Self(components, added))
     }
     fn release(archetype: &Archetype) {
         archetype.release::<T>();
@@ -820,7 +825,7 @@ smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Changed, Entity, Mut, World};
+    use crate::{Entity, Mut, Mutated, World};
     use std::{vec, vec::Vec};
 
     use super::*;
@@ -869,7 +874,7 @@ mod tests {
     }
 
     #[test]
-    fn modified_trackers() {
+    fn mutated_trackers() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0)));
         let e2 = world.spawn((A(0), B(0)));
@@ -884,7 +889,7 @@ mod tests {
 
         fn get_changed_a(world: &World) -> Vec<Entity> {
             world
-                .query::<(Changed<A>, Entity)>()
+                .query::<(Mutated<A>, Entity)>()
                 .iter()
                 .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
@@ -892,12 +897,12 @@ mod tests {
 
         assert_eq!(get_changed_a(&world), vec![e1, e3]);
 
-        // ensure changing an entity's archetypes also moves its modified state
+        // ensure changing an entity's archetypes also moves its mutated state
         world.insert(e1, (C,)).unwrap();
 
         assert_eq!(get_changed_a(&world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
-        // spawning a new A entity should not change existing modified state
+        // spawning a new A entity should not change existing mutated state
         world.insert(e1, (A(0), B)).unwrap();
         assert_eq!(
             get_changed_a(&world),
@@ -905,7 +910,7 @@ mod tests {
             "changed entities list should not change"
         );
 
-        // removing an unchanged entity should not change modified state
+        // removing an unchanged entity should not change mutated state
         world.despawn(e2).unwrap();
         assert_eq!(
             get_changed_a(&world),
@@ -924,7 +929,7 @@ mod tests {
         world.clear_trackers();
 
         assert!(world
-            .query::<(Changed<A>, Entity)>()
+            .query::<(Mutated<A>, Entity)>()
             .iter()
             .map(|(_a, e)| e)
             .collect::<Vec<Entity>>()
@@ -947,10 +952,26 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query::<(Changed<A>, Changed<B>, Entity)>()
+            .query::<(Mutated<A>, Mutated<B>, Entity)>()
             .iter()
             .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_changed, vec![e2]);
+    }
+
+    #[test]
+    fn changed_or_added_query() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0)));
+
+        fn get_changed_or_added(world: &World) -> Vec<Entity> {
+            world
+                .query::<(Mutated<A>, Added<A>, Entity)>()
+                .iter()
+                .map(|(_a, _b, e)| e)
+                .collect::<Vec<Entity>>()
+        };
+        assert_eq!(get_changed_or_added(&world), vec![e1]);
+        world.clear_trackers();
     }
 }

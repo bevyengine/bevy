@@ -126,7 +126,7 @@ impl<'a, T: Component> RefMut<'a, T> {
         );
         archetype.borrow_mut::<T>();
         let modified = archetype
-            .get_modified::<T>()
+            .get_mutated::<T>()
             .unwrap()
             .as_ptr()
             .add(index as usize);

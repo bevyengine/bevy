@@ -30,14 +30,14 @@ fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut click_query: Query<(
         &Button,
-        Changed<Click>,
+        Mutated<Click>,
         Option<&Hover>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
     mut hover_query: Query<(
         &Button,
-        Changed<Hover>,
+        Mutated<Hover>,
         Option<&Click>,
         &mut Handle<ColorMaterial>,
         &Children,
