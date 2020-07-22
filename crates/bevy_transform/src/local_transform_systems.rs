@@ -1,6 +1,4 @@
-#![allow(dead_code)]
 use crate::components::*;
-
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Quat, Vec3};
 

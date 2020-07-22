@@ -1,14 +1,11 @@
-#![allow(dead_code)]
 use crate::components::*;
 use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
-    mut commands: Commands,
     mut root_query: Query<
         Without<Parent, (Option<&Children>, &mut Transform, Option<&LocalTransform>)>,
     >,
-    mut children_query: Query<&Children>,
-    mut local_transform_query: Query<&LocalTransform>,
+    mut local_transform_query: Query<(&mut Transform, &LocalTransform, Option<&Children>)>,
 ) {
     for (children, mut transform, local_transform) in &mut root_query.iter() {
         if let Some(local_transform) = local_transform {
@@ -17,13 +14,7 @@ pub fn transform_propagate_system(
 
         if let Some(children) = children {
             for child in children.0.iter() {
-                propagate_recursive(
-                    *transform,
-                    &mut children_query,
-                    &mut local_transform_query,
-                    *child,
-                    &mut commands,
-                );
+                propagate_recursive(*transform, &mut local_transform_query, *child);
             }
         }
     }
@@ -31,10 +22,8 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent_local_to_world: Transform,
-    children_query: &mut Query<&Children>,
-    local_transform_query: &mut Query<&LocalTransform>,
+    local_transform_query: &mut Query<(&mut Transform, &LocalTransform, Option<&Children>)>,
     entity: Entity,
-    commands: &mut Commands,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
     let local_transform = {
@@ -54,22 +43,19 @@ fn propagate_recursive(
         sync: true,
     };
 
-    commands.insert_one(entity, new_transform);
+    {
+        let mut transform = local_transform_query.get_mut::<Transform>(entity).unwrap();
+        transform.value = new_transform.value;
+    }
 
     // Collect children
-    let children = children_query
+    let children = local_transform_query
         .get::<Children>(entity)
         .map(|e| e.0.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 
     for child in children {
-        propagate_recursive(
-            new_transform,
-            children_query,
-            local_transform_query,
-            child,
-            commands,
-        );
+        propagate_recursive(new_transform, local_transform_query, child);
     }
 }
 

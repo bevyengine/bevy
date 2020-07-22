@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::components::*;
 use bevy_ecs::{Commands, Entity, IntoQuerySystem, Query, System, Without};
 use smallvec::SmallVec;
