@@ -16,6 +16,6 @@ pub mod prelude {
             Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
         },
         world::WorldBuilderSource,
-        Bundle, Mutated, Component, Entity, Ref, RefMut, With, Without, World,
+        Added, Bundle, Changed, Component, Entity, Mutated, Ref, RefMut, With, Without, World,
     };
 }

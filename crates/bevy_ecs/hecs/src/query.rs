@@ -229,6 +229,7 @@ pub struct Mutated<'a, T> {
 
 impl<'a, T: Component> Deref for Mutated<'a, T> {
     type Target = T;
+    #[inline]
     fn deref(&self) -> &T {
         self.value
     }
@@ -290,6 +291,7 @@ pub struct Added<'a, T> {
 
 impl<'a, T: Component> Deref for Added<'a, T> {
     type Target = T;
+    #[inline]
     fn deref(&self) -> &T {
         self.value
     }
@@ -352,6 +354,7 @@ pub struct Changed<'a, T> {
 
 impl<'a, T: Component> Deref for Changed<'a, T> {
     type Target = T;
+    #[inline]
     fn deref(&self) -> &T {
         self.value
     }
@@ -378,6 +381,7 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
     fn borrow(archetype: &Archetype) {
         archetype.borrow::<T>();
     }
+
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
             .get_with_added_and_mutated::<T>()

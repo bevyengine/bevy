@@ -80,7 +80,9 @@ pub use borrow::{EntityRef, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
-pub use query::{Access, BatchedIter, Query, QueryBorrow, QueryIter, With, Without, Mut, Mutated};
+pub use query::{
+    Access, Added, BatchedIter, Changed, Mut, Mutated, Query, QueryBorrow, QueryIter, With, Without,
+};
 pub use query_one::QueryOne;
 pub use world::{ArchetypesGeneration, Component, ComponentError, Iter, SpawnBatchIter, World};
 
