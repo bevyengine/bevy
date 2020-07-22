@@ -317,16 +317,21 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
         archetype.borrow::<T>();
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        let components = NonNull::new_unchecked(archetype.get::<T>()?.as_ptr().add(offset));
-        let added = NonNull::new_unchecked(archetype.get_added::<T>()?.as_ptr().add(offset));
-        Some(Self(components, added))
+        archetype
+            .get_with_added::<T>()
+            .map(|(components, added)| {
+                Self(
+                    NonNull::new_unchecked(components.as_ptr().add(offset)),
+                    NonNull::new_unchecked(added.as_ptr().add(offset)),
+                )
+            })
     }
     fn release(archetype: &Archetype) {
         archetype.release::<T>();
     }
 
     unsafe fn should_skip(&self) -> bool {
-        // skip if the current item wasn't changed
+        // skip if the current item wasn't added
         !*self.1.as_ref()
     }
 
@@ -338,6 +343,72 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
         Added { value: &*value }
     }
 }
+
+
+#[allow(missing_docs)]
+pub struct Changed<'a, T> {
+    value: &'a T,
+}
+
+impl<'a, T: Component> Deref for Changed<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: Component> Query for Changed<'a, T> {
+    type Fetch = FetchChanged<T>;
+}
+
+#[doc(hidden)]
+pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>, NonNull<bool>);
+
+impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
+    type Item = Changed<'a, T>;
+
+    fn access(archetype: &Archetype) -> Option<Access> {
+        if archetype.has::<T>() {
+            Some(Access::Read)
+        } else {
+            None
+        }
+    }
+
+    fn borrow(archetype: &Archetype) {
+        archetype.borrow::<T>();
+    }
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        archetype
+            .get_with_added_and_mutated::<T>()
+            .map(|(components, added, mutated)| {
+                Self(
+                    NonNull::new_unchecked(components.as_ptr().add(offset)),
+                    NonNull::new_unchecked(added.as_ptr().add(offset)),
+                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
+                )
+            })
+    }
+    fn release(archetype: &Archetype) {
+        archetype.release::<T>();
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        // skip if the current item wasn't added or mutated
+        !*self.1.as_ref() && !self.2.as_ref()
+    }
+
+    #[inline]
+    unsafe fn next(&mut self) -> Self::Item {
+        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
+        self.2 = NonNull::new_unchecked(self.2.as_ptr().add(1));
+        let value = self.0.as_ptr();
+        self.0 = NonNull::new_unchecked(value.add(1));
+        Changed { value: &*value }
+    }
+}
+
+
 #[doc(hidden)]
 pub struct TryFetch<T>(Option<T>);
 
@@ -842,7 +913,7 @@ mod tests {
     struct C;
 
     #[test]
-    fn added_trackers() {
+    fn added_queries() {
         let mut world = World::default();
         let e1 = world.spawn((A(0),));
 
@@ -937,7 +1008,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_changed_query() {
+    fn multiple_mutated_query() {
         let mut world = World::default();
         world.spawn((A(0), B(0)));
         let e2 = world.spawn((A(0), B(0)));
@@ -960,18 +1031,21 @@ mod tests {
     }
 
     #[test]
-    fn changed_or_added_query() {
+    fn changed_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0)));
 
-        fn get_changed_or_added(world: &World) -> Vec<Entity> {
+        fn get_changed(world: &World) -> Vec<Entity> {
             world
-                .query::<(Mutated<A>, Added<A>, Entity)>()
+                .query::<(Changed<A>, Entity)>()
                 .iter()
-                .map(|(_a, _b, e)| e)
+                .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
         };
-        assert_eq!(get_changed_or_added(&world), vec![e1]);
+        assert_eq!(get_changed(&world), vec![e1]);
         world.clear_trackers();
+        assert_eq!(get_changed(&world), vec![]);
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_changed(&world), vec![e1]);
     }
 }

@@ -112,6 +112,20 @@ impl Archetype {
 
     #[allow(missing_docs)]
     #[inline]
+    pub fn get_with_added<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>)> {
+        let state = self.state.get(&TypeId::of::<T>())?;
+        Some(unsafe {
+            (
+                NonNull::new_unchecked(
+                    (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
+                ),
+                NonNull::new_unchecked(state.added_entities.as_ptr() as *mut bool),
+            )
+        })
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
     pub fn get_with_mutated<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>)> {
         let state = self.state.get(&TypeId::of::<T>())?;
         Some(unsafe {
@@ -119,6 +133,21 @@ impl Archetype {
                 NonNull::new_unchecked(
                     (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
                 ),
+                NonNull::new_unchecked(state.mutated_entities.as_ptr() as *mut bool),
+            )
+        })
+    }
+
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn get_with_added_and_mutated<T: Component>(&self) -> Option<(NonNull<T>, NonNull<bool>, NonNull<bool>)> {
+        let state = self.state.get(&TypeId::of::<T>())?;
+        Some(unsafe {
+            (
+                NonNull::new_unchecked(
+                    (*self.data.get()).as_ptr().add(state.offset).cast::<T>() as *mut T
+                ),
+                NonNull::new_unchecked(state.added_entities.as_ptr() as *mut bool),
                 NonNull::new_unchecked(state.mutated_entities.as_ptr() as *mut bool),
             )
         })
