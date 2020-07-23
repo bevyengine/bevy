@@ -13,13 +13,12 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Design Goals
 
-* Provide a first class developer experience for both 2D and 3D games.
-* Easy for newbies to pick up, but infinitely flexible for power users.
-* Fast iterative compile times. Ideally less than 1 second for small to medium sized projects.
-* Data-first game development using ECS (Entity Component System)
-* Modular design: use only what you need ... replace what you don't like
-* High performance and parallel architecture
-* Use the latest and greatest rendering technologies and techniques
+* **Capable**: Offer a complete 2D _and_ 3D feature set 
+* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
+* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm 
+* **Modular**: Use only what you need ... replace what you don't like
+* **Fast**: App logic should run quickly, and when possible, in parallel
+* **Productive**: Changes should compile quickly ... waiting isn't fun
 
 ## About
 
