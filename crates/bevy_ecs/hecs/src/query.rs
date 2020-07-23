@@ -100,7 +100,7 @@ impl<'a> Fetch<'a> for EntityFetch {
     unsafe fn next(&mut self) -> Self::Item {
         let id = self.0.as_ptr();
         self.0 = NonNull::new_unchecked(id.add(1));
-        Entity::with_id(*id)
+        Entity::from_id(*id)
     }
 }
 

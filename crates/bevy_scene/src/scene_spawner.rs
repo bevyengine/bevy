@@ -100,7 +100,7 @@ impl SceneSpawner {
                     .entry(scene_entity.entity)
                     .or_insert_with(|| bevy_ecs::Entity::new())
             } else {
-                bevy_ecs::Entity::with_id(scene_entity.entity)
+                bevy_ecs::Entity::from_id(scene_entity.entity)
             };
             if !world.contains(entity) {
                 world.spawn_as_entity(entity, (1,));

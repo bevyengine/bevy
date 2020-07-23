@@ -20,5 +20,5 @@ fn deserialize_entity(
     _registry: &PropertyTypeRegistry,
 ) -> Result<Box<dyn Property>, erased_serde::Error> {
     let entity = private::Entity::deserialize(deserializer)?;
-    Ok(Box::new(Entity::with_id(entity.0)))
+    Ok(Box::new(Entity::from_id(entity.0)))
 }

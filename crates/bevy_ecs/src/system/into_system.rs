@@ -200,6 +200,10 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         }
     }
 
+    pub fn removed<C: Component>(&self) -> &[Entity] {
+        self.world.removed::<C>()
+    }
+
     /// Sets the entity's component to the given value. This will fail if the entity does not already have
     /// the given component type or if the given component type does not match this query.
     pub fn set<T: Component>(

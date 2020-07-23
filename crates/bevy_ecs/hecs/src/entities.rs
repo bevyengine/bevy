@@ -19,7 +19,7 @@ impl Entity {
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn with_id(id: u32) -> Self {
+    pub fn from_id(id: u32) -> Self {
         Self(id)
     }
 
