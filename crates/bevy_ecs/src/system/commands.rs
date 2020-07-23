@@ -206,24 +206,11 @@ impl Commands {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteWorld(Box::new(SpawnBatch {
-                components_iter,
-            })));
-        self
+        self.write_world(SpawnBatch { components_iter })
     }
 
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteWorld(Box::new(Despawn { entity })));
-
-        self
+        self.write_world(Despawn { entity })
     }
 
     pub fn with(&mut self, component: impl Component) -> &mut Self {
@@ -250,35 +237,15 @@ impl Commands {
         entity: Entity,
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteWorld(Box::new(Insert { entity, components })));
-        self
+        self.write_world(Insert { entity, components })
     }
 
     pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteWorld(Box::new(InsertOne {
-                entity,
-                component,
-            })));
-        self
+        self.write_world(InsertOne { entity, component })
     }
 
     pub fn insert_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteResources(Box::new(InsertResource {
-                resource,
-            })));
-        self
+        self.write_resources(InsertResource { resource })
     }
 
     pub fn insert_local_resource<T: Resource>(
@@ -286,14 +253,30 @@ impl Commands {
         system_id: SystemId,
         resource: T,
     ) -> &mut Self {
+        self.write_resources(InsertLocalResource {
+            system_id,
+            resource,
+        })
+    }
+
+    pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
         self.commands
             .lock()
             .unwrap()
             .commands
-            .push(Command::WriteResources(Box::new(InsertLocalResource {
-                system_id,
-                resource,
-            })));
+            .push(Command::WriteWorld(Box::new(world_writer)));
+        self
+    }
+
+    pub fn write_resources<W: ResourcesWriter + 'static>(
+        &mut self,
+        resources_writer: W,
+    ) -> &mut Self {
+        self.commands
+            .lock()
+            .unwrap()
+            .commands
+            .push(Command::WriteResources(Box::new(resources_writer)));
         self
     }
 
