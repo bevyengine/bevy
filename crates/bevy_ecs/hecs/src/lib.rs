@@ -33,7 +33,7 @@
 //! let a = world.spawn((123, true, "abc"));
 //! let b = world.spawn((42, false));
 //! // Systems can be simple for loops
-//! for (id, number, &flag) in &mut world.query::<(Entity, &mut i32, &bool)>() {
+//! for (id, mut number, &flag) in &mut world.query::<(Entity, &mut i32, &bool)>() {
 //!   if flag { *number *= 2; }
 //! }
 //! assert_eq!(*world.get::<i32>(a).unwrap(), 246);

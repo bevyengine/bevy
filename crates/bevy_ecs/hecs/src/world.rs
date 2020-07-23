@@ -272,7 +272,7 @@ impl World {
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
     /// let mut query = world.query_one::<(&mut i32, &bool)>(a).unwrap();
-    /// let (number, flag) = query.get().unwrap();
+    /// let (mut number, flag) = query.get().unwrap();
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
