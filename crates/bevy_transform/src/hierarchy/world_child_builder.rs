@@ -25,7 +25,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .spawn_as_entity(entity, components)
             .with_bundle((
                 Parent(parent_entity),
-                PreviousParent(None),
+                PreviousParent(Some(parent_entity)),
                 LocalTransform::default(),
             ));
         {

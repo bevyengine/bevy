@@ -39,6 +39,6 @@ impl AppPlugin for TransformPlugin {
             .register_component::<NonUniformScale>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_systems(transform_systems())
-            .add_systems(transform_systems());
+            .add_systems_to_stage(stage::POST_UPDATE, transform_systems());
     }
 }

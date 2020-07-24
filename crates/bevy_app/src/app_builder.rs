@@ -164,6 +164,15 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_system_to_stage_front(
+        &mut self,
+        stage_name: &'static str,
+        system: Box<dyn System>,
+    ) -> &mut Self {
+        self.app.schedule.add_system_to_stage_front(stage_name, system);
+        self
+    }
+
     pub fn add_systems_to_stage(
         &mut self,
         stage_name: &'static str,

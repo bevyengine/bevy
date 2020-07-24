@@ -36,7 +36,7 @@ pub fn parent_update_system(
     }
 
     // Tracks all newly created `Children` Components this frame.
-    let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::with_capacity(16);
+    let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::new();
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
     for (entity, parent, mut previous_parent) in &mut changed_parent_query.iter() {
@@ -108,7 +108,7 @@ pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::transform_systems;
+    use crate::{hierarchy::BuildChildren, transform_systems};
     use bevy_ecs::{Resources, Schedule, World};
 
     #[test]
@@ -123,26 +123,21 @@ mod test {
         }
 
         // Add parent entities
-        let parent = world.spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()));
-        let children = world
-            .spawn_batch(vec![
-                (
-                    Translation::new(0.0, 2.0, 0.0),
-                    LocalTransform::identity(),
-                    Transform::identity(),
-                    Parent(parent),
-                ),
-                (
-                    Translation::new(0.0, 0.0, 3.0),
-                    LocalTransform::identity(),
-                    Transform::identity(),
-                    Parent(parent),
-                ),
-            ])
-            .collect::<Vec<Entity>>();
-
-        schedule.run(&mut world, &mut resources);
-        // TODO: this should be in sync after one run
+        let mut commands = Commands::default();
+        let mut parent = None;
+        let mut children = Vec::new();
+        commands
+            .spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()))
+            .for_current_entity(|entity| parent = Some(entity))
+            .with_children(|parent| {
+                parent
+                    .spawn((Translation::new(0.0, 2.0, 0.0), Transform::identity()))
+                    .for_current_entity(|entity| children.push(entity))
+                    .spawn((Translation::new(0.0, 0.0, 3.0), Transform::identity()))
+                    .for_current_entity(|entity| children.push(entity));
+            });
+        let parent = parent.unwrap();
+        commands.apply(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(

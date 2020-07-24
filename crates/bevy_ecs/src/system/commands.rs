@@ -307,13 +307,13 @@ impl Commands {
         commands.current_entity
     }
 
-    pub fn for_current_entity(&mut self, mut func: impl FnMut(Entity)) -> &mut Self {
+    pub fn for_current_entity(&mut self, mut f: impl FnMut(Entity)) -> &mut Self {
         {
             let commands = self.commands.lock().unwrap();
             let current_entity = commands
                 .current_entity
                 .expect("The 'current entity' is not set. You should spawn an entity first.");
-            func(current_entity);
+            f(current_entity);
         }
         self
     }

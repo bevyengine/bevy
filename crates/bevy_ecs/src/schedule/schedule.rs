@@ -98,6 +98,30 @@ impl Schedule {
         self
     }
 
+    pub fn add_system_to_stage_front(
+        &mut self,
+        stage_name: impl Into<Cow<'static, str>>,
+        system: Box<dyn System>,
+    ) -> &mut Self {
+        let stage_name = stage_name.into();
+        let systems = self
+            .stages
+            .get_mut(&stage_name)
+            .unwrap_or_else(|| panic!("Stage does not exist: {}", stage_name));
+        if self.system_ids.contains(&system.id()) {
+            panic!(
+                "System with id {:?} ({}) already exists",
+                system.id(),
+                system.name()
+            );
+        }
+        self.system_ids.insert(system.id());
+        systems.insert(0, Arc::new(Mutex::new(system)));
+
+        self.generation += 1;
+        self
+    }
+
     pub fn run(&mut self, world: &mut World, resources: &mut Resources) {
         for stage_name in self.stage_order.iter() {
             if let Some(stage_systems) = self.stages.get_mut(stage_name) {

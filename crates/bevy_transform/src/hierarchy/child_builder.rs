@@ -16,7 +16,7 @@ impl WorldWriter for InsertChildren {
                     *child,
                     (
                         Parent(self.parent),
-                        PreviousParent(None),
+                        PreviousParent(Some(self.parent)),
                         LocalTransform::default(),
                     ),
                 )
@@ -57,7 +57,7 @@ impl WorldWriter for PushChildren {
                     *child,
                     (
                         Parent(self.parent),
-                        PreviousParent(None),
+                        PreviousParent(Some(self.parent)),
                         LocalTransform::default(),
                     ),
                 )
@@ -119,7 +119,7 @@ impl<'a> ChildBuilder<'a> {
 }
 
 pub trait BuildChildren {
-    fn with_children(&mut self, parent: impl FnMut(&mut ChildBuilder)) -> &mut Self;
+    fn with_children(&mut self, f: impl FnMut(&mut ChildBuilder)) -> &mut Self;
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self;
 }
@@ -252,11 +252,11 @@ mod tests {
 
         assert_eq!(
             *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
         assert_eq!(
             *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
 
         assert!(world.get::<LocalTransform>(child1).is_ok());
@@ -291,11 +291,11 @@ mod tests {
 
         assert_eq!(
             *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
         assert_eq!(
             *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
 
         assert!(world.get::<LocalTransform>(child1).is_ok());
@@ -313,11 +313,11 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(
             *world.get::<PreviousParent>(child3).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
         assert_eq!(
             *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(None)
+            PreviousParent(Some(parent))
         );
 
         assert!(world.get::<LocalTransform>(child3).is_ok());

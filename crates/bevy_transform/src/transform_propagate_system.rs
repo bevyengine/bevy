@@ -62,7 +62,7 @@ fn propagate_recursive(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::transform_systems;
+    use crate::{hierarchy::BuildChildren, transform_systems};
     use bevy_ecs::{Resources, Schedule, World};
     use bevy_math::{Mat4, Vec3};
 
@@ -95,11 +95,50 @@ mod test {
                 ),
             ])
             .collect::<Vec<Entity>>();
+        // we need to run the schedule three times because components need to be filled in
+        // to resolve this problem in code, just add the correct components, or use Commands
+        // which adds all of the components needed with the correct state (see next test)
+        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
+        schedule.run(&mut world, &mut resources);
 
-        // TODO: ideally we dont need three runs to keep transforms in sync.
-        // command buffers should be flushed in the appropriate places
-        schedule.run(&mut world, &mut resources);
-        schedule.run(&mut world, &mut resources);
+        assert_eq!(
+            world.get::<Transform>(children[0]).unwrap().value,
+            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
+        );
+
+        assert_eq!(
+            world.get::<Transform>(children[1]).unwrap().value,
+            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
+        );
+    }
+
+    #[test]
+    fn did_propagate_command_buffer() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        for system in transform_systems() {
+            schedule.add_system_to_stage("update", system);
+        }
+
+        // Root entity
+        let mut commands = Commands::default();
+        let mut children = Vec::new();
+        commands
+            .spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()))
+            .with_children(|parent| {
+                parent
+                    .spawn((Translation::new(0.0, 2.0, 0.0), Transform::identity()))
+                    .for_current_entity(|entity| children.push(entity))
+                    .spawn((Translation::new(0.0, 0.0, 3.0), Transform::identity()))
+                    .for_current_entity(|entity| children.push(entity));
+            });
+        commands.apply(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
