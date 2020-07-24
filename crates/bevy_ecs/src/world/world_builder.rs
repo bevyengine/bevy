@@ -14,7 +14,7 @@ impl WorldBuilderSource for World {
 }
 
 pub struct WorldBuilder<'a> {
-    world: &'a mut World,
+    pub world: &'a mut World,
     pub current_entity: Option<Entity>,
 }
 

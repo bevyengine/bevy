@@ -1,9 +1,83 @@
-use crate::prelude::{LocalTransform, Parent};
-use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity};
+use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity, WorldWriter};
+use smallvec::SmallVec;
+
+pub struct InsertChildren {
+    parent: Entity,
+    children: SmallVec<[Entity; 8]>,
+    index: usize,
+}
+
+impl WorldWriter for InsertChildren {
+    fn write(self: Box<Self>, world: &mut bevy_ecs::World) {
+        for child in self.children.iter() {
+            world
+                .insert(
+                    *child,
+                    (
+                        Parent(self.parent),
+                        PreviousParent(None),
+                        LocalTransform::default(),
+                    ),
+                )
+                .unwrap();
+        }
+        {
+            let mut added = false;
+            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
+                children.insert_from_slice(self.index, &self.children);
+                added = true;
+            }
+
+            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
+            if !added {
+                world
+                    .insert_one(self.parent, Children(SmallVec::from(self.children)))
+                    .unwrap();
+            }
+        }
+    }
+}
+
+pub struct PushChildren {
+    parent: Entity,
+    children: SmallVec<[Entity; 8]>,
+}
 
 pub struct ChildBuilder<'a> {
     commands: &'a mut CommandsInternal,
-    parent_entities: Vec<Entity>,
+    push_children: PushChildren,
+}
+
+impl WorldWriter for PushChildren {
+    fn write(self: Box<Self>, world: &mut bevy_ecs::World) {
+        for child in self.children.iter() {
+            world
+                .insert(
+                    *child,
+                    (
+                        Parent(self.parent),
+                        PreviousParent(None),
+                        LocalTransform::default(),
+                    ),
+                )
+                .unwrap();
+        }
+        {
+            let mut added = false;
+            if let Ok(mut children) = world.get_mut::<Children>(self.parent) {
+                children.extend(self.children.iter().cloned());
+                added = true;
+            }
+
+            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
+            if !added {
+                world
+                    .insert_one(self.parent, Children(SmallVec::from(self.children)))
+                    .unwrap();
+            }
+        }
+    }
 }
 
 impl<'a> ChildBuilder<'a> {
@@ -16,14 +90,8 @@ impl<'a> ChildBuilder<'a> {
         entity: Entity,
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
-        let parent_entity = self
-            .parent_entities
-            .last()
-            .cloned()
-            .expect("There should always be a parent at this point.");
-        self.commands
-            .spawn_as_entity(entity, components)
-            .with_bundle((Parent(parent_entity), LocalTransform::default()));
+        self.commands.spawn_as_entity(entity, components);
+        self.push_children.children.push(entity);
         self
     }
 
@@ -39,10 +107,21 @@ impl<'a> ChildBuilder<'a> {
         self.commands.with(component);
         self
     }
+
+    pub fn for_current_entity(&mut self, mut func: impl FnMut(Entity)) -> &mut Self {
+        let current_entity = self
+            .commands
+            .current_entity
+            .expect("The 'current entity' is not set. You should spawn an entity first.");
+        func(current_entity);
+        self
+    }
 }
 
 pub trait BuildChildren {
     fn with_children(&mut self, parent: impl FnMut(&mut ChildBuilder)) -> &mut Self;
+    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self;
+    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self;
 }
 
 impl BuildChildren for Commands {
@@ -50,12 +129,42 @@ impl BuildChildren for Commands {
         {
             let mut commands = self.commands.lock().unwrap();
             let current_entity = commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
-            let mut builder = ChildBuilder {
-                commands: &mut commands,
-                parent_entities: vec![current_entity],
+            commands.current_entity = None;
+            let push_children = {
+                let mut builder = ChildBuilder {
+                    commands: &mut commands,
+                    push_children: PushChildren {
+                        children: SmallVec::default(),
+                        parent: current_entity,
+                    },
+                };
+                parent(&mut builder);
+                builder.push_children
             };
 
-            parent(&mut builder);
+            commands.current_entity = Some(current_entity);
+            commands.write_world(push_children);
+        }
+        self
+    }
+    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
+        {
+            let mut commands = self.commands.lock().unwrap();
+            commands.write_world(PushChildren {
+                children: SmallVec::from(children),
+                parent,
+            });
+        }
+        self
+    }
+    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
+        {
+            let mut commands = self.commands.lock().unwrap();
+            commands.write_world(InsertChildren {
+                children: SmallVec::from(children),
+                index,
+                parent,
+            });
         }
         self
     }
@@ -63,16 +172,155 @@ impl BuildChildren for Commands {
 
 impl<'a> BuildChildren for ChildBuilder<'a> {
     fn with_children(&mut self, mut spawn_children: impl FnMut(&mut ChildBuilder)) -> &mut Self {
-        let current_entity = self
-            .commands
-            .current_entity
-            .expect("Cannot add children without a parent. Try creating an entity first.");
-        self.parent_entities.push(current_entity);
+        let current_entity = self.commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.current_entity = None;
+        let push_children = {
+            let mut builder = ChildBuilder {
+                commands: self.commands,
+                push_children: PushChildren {
+                    children: SmallVec::default(),
+                    parent: current_entity,
+                },
+            };
 
-        spawn_children(self);
+            spawn_children(&mut builder);
+            builder.push_children
+        };
 
-        self.commands.current_entity = self.parent_entities.pop();
+        self.commands.current_entity = Some(current_entity);
+        self.commands.write_world(push_children);
         self
+    }
+
+    fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
+        self.commands.write_world(PushChildren {
+            children: SmallVec::from(children),
+            parent,
+        });
+        self
+    }
+    fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
+        self.commands.write_world(InsertChildren {
+            children: SmallVec::from(children),
+            index,
+            parent,
+        });
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BuildChildren;
+    use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+    use bevy_ecs::{Commands, Entity, Resources, World};
+    use smallvec::{smallvec, SmallVec};
+
+    #[test]
+    fn build_children() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut commands = Commands::default();
+
+        let mut parent = None;
+        let mut child1 = None;
+        let mut child2 = None;
+
+        commands
+            .spawn((1,))
+            .for_current_entity(|e| parent = Some(e))
+            .with_children(|parent| {
+                parent
+                    .spawn((2,))
+                    .for_current_entity(|e| child1 = Some(e))
+                    .spawn((3,))
+                    .for_current_entity(|e| child2 = Some(e));
+            });
+
+        commands.apply(&mut world, &mut resources);
+        let parent = parent.expect("parent should exist");
+        let child1 = child1.expect("child1 should exist");
+        let child2 = child2.expect("child2 should exist");
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        assert_eq!(
+            *world.get::<PreviousParent>(child1).unwrap(),
+            PreviousParent(None)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child2).unwrap(),
+            PreviousParent(None)
+        );
+
+        assert!(world.get::<LocalTransform>(child1).is_ok());
+        assert!(world.get::<LocalTransform>(child2).is_ok());
+    }
+
+    #[test]
+    fn push_and_insert_children() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut commands = Commands::default();
+        let entities = world
+            .spawn_batch(vec![(1,), (2,), (3,), (4,), (5,)])
+            .collect::<Vec<Entity>>();
+
+        commands.push_children(entities[0], &entities[1..3]);
+        commands.apply(&mut world, &mut resources);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+        let child3 = entities[3];
+        let child4 = entities[4];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        assert_eq!(
+            *world.get::<PreviousParent>(child1).unwrap(),
+            PreviousParent(None)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child2).unwrap(),
+            PreviousParent(None)
+        );
+
+        assert!(world.get::<LocalTransform>(child1).is_ok());
+        assert!(world.get::<LocalTransform>(child2).is_ok());
+
+        commands.insert_children(parent, 1, &entities[3..]);
+        commands.apply(&mut world, &mut resources);
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child3, child4, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
+        assert_eq!(
+            *world.get::<PreviousParent>(child3).unwrap(),
+            PreviousParent(None)
+        );
+        assert_eq!(
+            *world.get::<PreviousParent>(child4).unwrap(),
+            PreviousParent(None)
+        );
+
+        assert!(world.get::<LocalTransform>(child3).is_ok());
+        assert!(world.get::<LocalTransform>(child4).is_ok());
     }
 }

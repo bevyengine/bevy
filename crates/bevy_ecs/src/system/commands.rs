@@ -177,6 +177,21 @@ impl CommandsInternal {
         })));
         self
     }
+
+    pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
+        self.commands
+            .push(Command::WriteWorld(Box::new(world_writer)));
+        self
+    }
+
+    pub fn write_resources<W: ResourcesWriter + 'static>(
+        &mut self,
+        resources_writer: W,
+    ) -> &mut Self {
+        self.commands
+            .push(Command::WriteResources(Box::new(resources_writer)));
+        self
+    }
 }
 
 #[derive(Default, Clone)]
@@ -260,11 +275,7 @@ impl Commands {
     }
 
     pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
-        self.commands
-            .lock()
-            .unwrap()
-            .commands
-            .push(Command::WriteWorld(Box::new(world_writer)));
+        self.commands.lock().unwrap().write_world(world_writer);
         self
     }
 
@@ -275,8 +286,7 @@ impl Commands {
         self.commands
             .lock()
             .unwrap()
-            .commands
-            .push(Command::WriteResources(Box::new(resources_writer)));
+            .write_resources(resources_writer);
         self
     }
 
@@ -290,6 +300,22 @@ impl Commands {
                 Command::WriteResources(writer) => writer.write(resources),
             }
         }
+    }
+
+    pub fn current_entity(&self) -> Option<Entity> {
+        let commands = self.commands.lock().unwrap();
+        commands.current_entity
+    }
+
+    pub fn for_current_entity(&mut self, mut func: impl FnMut(Entity)) -> &mut Self {
+        {
+            let commands = self.commands.lock().unwrap();
+            let current_entity = commands
+                .current_entity
+                .expect("The 'current entity' is not set. You should spawn an entity first.");
+            func(current_entity);
+        }
+        self
     }
 }
 

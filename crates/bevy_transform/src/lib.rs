@@ -11,7 +11,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
-use prelude::{Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation};
+use prelude::{Children, LocalTransform, NonUniformScale, Rotation, Scale, Transform, Translation, Parent};
 
 pub(crate) fn transform_systems() -> Vec<Box<dyn System>> {
     let mut systems = Vec::with_capacity(5);
@@ -30,6 +30,7 @@ pub struct TransformPlugin;
 impl AppPlugin for TransformPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.register_component::<Children>()
+            .register_component::<Parent>()
             .register_component::<LocalTransform>()
             .register_component::<Transform>()
             .register_component::<Translation>()

@@ -1,4 +1,4 @@
-use crate::prelude::{LocalTransform, Parent};
+use crate::prelude::{LocalTransform, Parent, PreviousParent, Children};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
 pub struct WorldChildBuilder<'a, 'b> {
@@ -23,7 +23,26 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .expect("There should always be a parent at this point.");
         self.world_builder
             .spawn_as_entity(entity, components)
-            .with_bundle((Parent(parent_entity), LocalTransform::default()));
+            .with_bundle((
+                Parent(parent_entity),
+                PreviousParent(None),
+                LocalTransform::default(),
+            ));
+        {
+            let world = &mut self.world_builder.world;
+            let mut added = false;
+            if let Ok(mut children) = world.get_mut::<Children>(parent_entity) {
+                children.push(entity);
+                added = true;
+            }
+
+            // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
+            if !added {
+                world
+                    .insert_one(parent_entity, Children(smallvec::smallvec![entity]))
+                    .unwrap();
+            }
+        }
         self
     }
 
