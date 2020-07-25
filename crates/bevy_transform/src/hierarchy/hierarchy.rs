@@ -5,9 +5,9 @@ pub fn run_on_hierarchy<T, S>(
     children_query: &Query<&Children>,
     state: &mut S,
     entity: Entity,
-    parent_result: Option<&mut T>,
+    parent_result: Option<T>,
     mut previous_result: Option<T>,
-    run: &mut dyn FnMut(&mut S, Entity, Option<&mut T>, Option<T>) -> Option<T>,
+    run: &mut dyn FnMut(&mut S, Entity, Option<T>, Option<T>) -> Option<T>,
 ) -> Option<T>
 where
     T: Clone,
@@ -25,7 +25,7 @@ where
         Err(_) => None,
     };
 
-    let mut parent_result = run(state, entity, parent_result, previous_result);
+    let parent_result = run(state, entity, parent_result, previous_result);
     previous_result = None;
     if let Some(children) = children {
         for child in children {
@@ -33,7 +33,7 @@ where
                 children_query,
                 state,
                 child,
-                parent_result.as_mut(),
+                parent_result.clone(),
                 previous_result,
                 run,
             );

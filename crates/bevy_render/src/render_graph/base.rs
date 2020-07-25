@@ -10,7 +10,7 @@ use crate::{
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
-use bevy_window::WindowReference;
+use bevy_window::WindowId;
 
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
@@ -71,7 +71,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
             self.add_node(
                 node::MAIN_DEPTH_TEXTURE,
                 WindowTextureNode::new(
-                    WindowReference::Primary,
+                    WindowId::primary(),
                     TextureDescriptor {
                         size: Extent3d {
                             depth: 1,
@@ -137,7 +137,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
 
         self.add_node(
             node::PRIMARY_SWAP_CHAIN,
-            WindowSwapChainNode::new(WindowReference::Primary),
+            WindowSwapChainNode::new(WindowId::primary()),
         );
 
         if config.connect_main_pass_to_swapchain {

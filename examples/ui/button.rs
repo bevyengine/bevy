@@ -87,30 +87,64 @@ fn button_system(
 
 fn setup(
     mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
     commands
         // ui camera
-        .spawn(Camera2dComponents::default())
-        .spawn(ButtonComponents {
-            node: Node::new(Anchors::CENTER, Margins::new(-75.0, 75.0, -35.0, 35.0)),
-            material: button_materials.normal,
+        .spawn(UiCameraComponents::default())
+        // wrapper component to center with flexbox
+        .spawn(NodeComponents {
+            flex: Flex {
+                size: Size {
+                    width: Dimension::Percent(1.0),
+                    height: Dimension::Percent(1.0),
+                },
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..Default::default()
+            },
+            material: materials.add(Color::NONE.into()),
             ..Default::default()
         })
         .with_children(|parent| {
-            parent.spawn(TextComponents {
-                node: Node::new(Anchors::FULL, Margins::new(0.0, 0.0, 12.0, 0.0)),
-                text: Text {
-                    value: "Button".to_string(),
-                    font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
-                    style: TextStyle {
-                        font_size: 40.0,
-                        color: Color::rgb(0.8, 0.8, 0.8),
-                        align: TextAlign::Center,
+            parent
+                .spawn(ButtonComponents {
+                    flex: Flex {
+                        size: Size {
+                            width: Dimension::Points(150.0),
+                            height: Dimension::Points(70.0),
+                        },
+                        ..Default::default()
                     },
-                },
-                ..Default::default()
-            });
+                    material: button_materials.normal,
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextComponents {
+                        flex: Flex {
+                            size: Size {
+                                width: Dimension::Percent(1.0),
+                                height: Dimension::Percent(1.0),
+                            },
+                            margin: Rect {
+                                top: Dimension::Points(10.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        text: Text {
+                            value: "Button".to_string(),
+                            font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
+                            style: TextStyle {
+                                font_size: 40.0,
+                                color: Color::rgb(0.8, 0.8, 0.8),
+                                align: TextAlign::Center,
+                            },
+                        },
+                        ..Default::default()
+                    });
+                });
         });
 }

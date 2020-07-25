@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn(Camera2dComponents::default())
         // texture
         .spawn(TextComponents {
-            node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
+            node: Node::default(),
             text: Text {
                 value: "FPS:".to_string(),
                 font: font_handle,

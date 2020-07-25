@@ -1,75 +1,59 @@
 use super::Node;
-use bevy_ecs::{Entity, Query, Res, Without};
-use bevy_math::Vec2;
+use crate::FlexSurfaceId;
+use bevy_ecs::{Entity, Query, With, Without};
 use bevy_transform::{
     hierarchy,
     prelude::{Children, LocalTransform, Parent},
 };
-use bevy_window::Windows;
 
 pub const UI_Z_STEP: f32 = 0.001;
 
-#[derive(Clone)]
-pub struct Rect {
-    pub z: f32,
-    pub size: Vec2,
-}
-
-pub fn ui_update_system(
-    windows: Res<Windows>,
-    mut orphan_node_query: Query<Without<Parent, (Entity, &mut Node, &mut LocalTransform)>>,
-    mut node_query: Query<(Entity, &mut Node, &mut LocalTransform)>,
+pub fn ui_z_system(
+    mut root_node_query: Query<With<Node, Without<Parent, (Entity, &FlexSurfaceId)>>>,
+    mut node_query: Query<(Entity, &Node, &mut FlexSurfaceId, &mut LocalTransform)>,
     children_query: Query<&Children>,
 ) {
-    let window_size = if let Some(window) = windows.get_primary() {
-        Vec2::new(window.width as f32, window.height as f32)
-    } else {
-        return;
-    };
-    let orphan_nodes = orphan_node_query
-        .iter()
-        .iter()
-        .map(|(e, _, _)| e)
-        .collect::<Vec<Entity>>();
-    let mut window_rect = Rect {
-        z: 0.0,
-        size: window_size,
-    };
+    let mut window_z = 0.0;
 
-    let mut previous_sibling_result = Some(Rect {
-        z: 0.0,
-        size: window_size,
-    });
-    for entity in orphan_nodes {
-        previous_sibling_result = hierarchy::run_on_hierarchy(
+    // PERF: we can probably avoid an allocation here by making root_node_query and node_query non-overlapping
+    let root_nodes = (&mut root_node_query.iter())
+        .iter()
+        .map(|(e, s)| (e, *s))
+        .collect::<Vec<(Entity, FlexSurfaceId)>>();
+
+    for (entity, flex_surface_id) in root_nodes {
+        if let Some(result) = hierarchy::run_on_hierarchy(
             &children_query,
             &mut node_query,
             entity,
-            Some(&mut window_rect),
-            previous_sibling_result,
+            Some((flex_surface_id, window_z)),
+            Some((flex_surface_id, window_z)),
             &mut update_node_entity,
-        );
+        ) {
+            window_z = result.1;
+        }
     }
 }
 
 fn update_node_entity(
-    node_query: &mut Query<(Entity, &mut Node, &mut LocalTransform)>,
+    node_query: &mut Query<(Entity, &Node, &mut FlexSurfaceId, &mut LocalTransform)>,
     entity: Entity,
-    parent_rect: Option<&mut Rect>,
-    previous_rect: Option<Rect>,
-) -> Option<Rect> {
-    if let Ok(mut node) = node_query.get_mut::<Node>(entity) {
-        if let Ok(mut local_transform) = node_query.get_mut::<LocalTransform>(entity) {
-            let parent_rect = parent_rect.unwrap();
-            let mut z = UI_Z_STEP;
-            if let Some(previous_rect) = previous_rect {
-                z += previous_rect.z
-            };
+    parent_result: Option<(FlexSurfaceId, f32)>,
+    previous_result: Option<(FlexSurfaceId, f32)>,
+) -> Option<(FlexSurfaceId, f32)> {
+    let mut surface_id = node_query.get_mut::<FlexSurfaceId>(entity).unwrap();
+    let mut transform = node_query.get_mut::<LocalTransform>(entity).unwrap();
+    let (parent_surface_id, _) = parent_result?;
+    let mut z = UI_Z_STEP;
+    if let Some((_, previous_z)) = previous_result {
+        z += previous_z;
+    };
 
-            node.update(&mut local_transform, z, parent_rect.size);
-            return Some(Rect { size: node.size, z });
-        }
-    }
+    let mut position = transform.w_axis();
+    position.set_z(z);
+    transform.set_w_axis(position);
 
-    None
+    *surface_id = parent_surface_id;
+
+    return Some((parent_surface_id, z));
 }

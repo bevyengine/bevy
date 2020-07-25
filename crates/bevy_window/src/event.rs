@@ -7,7 +7,6 @@ pub struct WindowResized {
     pub id: WindowId,
     pub width: usize,
     pub height: usize,
-    pub is_primary: bool,
 }
 
 /// An event that indicates that a new window should be created.
@@ -27,7 +26,6 @@ pub struct CloseWindow {
 #[derive(Debug, Clone)]
 pub struct WindowCreated {
     pub id: WindowId,
-    pub is_primary: bool,
 }
 
 /// An event that is sent whenever a close was requested for a window. For example: when the "close" button
@@ -35,7 +33,6 @@ pub struct WindowCreated {
 #[derive(Debug, Clone)]
 pub struct WindowCloseRequested {
     pub id: WindowId,
-    pub is_primary: bool,
 }
 
 #[derive(Debug, Clone)]

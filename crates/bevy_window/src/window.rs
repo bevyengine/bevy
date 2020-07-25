@@ -1,17 +1,5 @@
 use uuid::Uuid;
 
-#[derive(Debug)]
-pub enum WindowReference {
-    Primary,
-    Id(WindowId),
-}
-
-impl Default for WindowReference {
-    fn default() -> Self {
-        WindowReference::Primary
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
 
@@ -20,8 +8,22 @@ impl WindowId {
         WindowId(Uuid::new_v4())
     }
 
+    pub fn primary() -> Self {
+        WindowId(Uuid::from_u128(0))
+    }
+
+    pub fn is_primary(&self) -> bool {
+        *self == WindowId::primary() 
+    }
+
     pub fn to_string(&self) -> String {
         self.0.to_simple().to_string()
+    }
+}
+
+impl Default for WindowId {
+    fn default() -> Self {
+        WindowId::primary()
     }
 }
 

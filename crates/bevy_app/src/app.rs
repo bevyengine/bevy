@@ -19,7 +19,7 @@ impl Default for App {
             schedule: Default::default(),
             executor: Default::default(),
             startup_schedule: Default::default(),
-            startup_executor: Default::default(),
+            startup_executor: ParallelExecutor::without_tracker_clears(),
             runner: Box::new(run_once),
         }
     }

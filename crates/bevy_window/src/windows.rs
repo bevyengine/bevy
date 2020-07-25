@@ -4,15 +4,10 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct Windows {
     windows: HashMap<WindowId, Window>,
-    primary_window: Option<WindowId>,
 }
 
 impl Windows {
     pub fn add(&mut self, window: Window) {
-        if let None = self.primary_window {
-            self.primary_window = Some(window.id);
-        };
-
         self.windows.insert(window.id, window);
     }
 
@@ -25,14 +20,7 @@ impl Windows {
     }
 
     pub fn get_primary(&self) -> Option<&Window> {
-        self.primary_window
-            .and_then(|primary| self.windows.get(&primary))
-    }
-
-    pub fn is_primary(&self, window_id: WindowId) -> bool {
-        self.get_primary()
-            .map(|primary_window| primary_window.id == window_id)
-            .unwrap_or(false)
+        self.get(WindowId::primary())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Window> {

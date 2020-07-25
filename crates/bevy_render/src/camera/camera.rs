@@ -1,16 +1,16 @@
 use super::CameraProjection;
+use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Component, Local, Query, Res};
 use bevy_math::Mat4;
 use bevy_property::Properties;
-use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
-use bevy_app::prelude::{Events, EventReader};
+use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 
 #[derive(Default, Debug, Properties)]
 pub struct Camera {
     pub projection_matrix: Mat4,
     pub name: Option<String>,
     #[property(ignore)]
-    pub window: WindowReference,
+    pub window: WindowId,
 }
 
 #[derive(Default)]
@@ -27,7 +27,6 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut query: Query<(&mut Camera, &mut T)>,
 ) {
     let mut changed_window_ids = Vec::new();
-    let mut changed_primary_window_id = None;
     // handle resize events. latest events are handled first because we only want to resize each window once
     for event in state
         .window_resized_event_reader
@@ -38,11 +37,7 @@ pub fn camera_system<T: CameraProjection + Component>(
             continue;
         }
 
-        if event.is_primary {
-            changed_primary_window_id = Some(event.id);
-        } else {
-            changed_window_ids.push(event.id);
-        }
+        changed_window_ids.push(event.id);
     }
 
     // handle resize events. latest events are handled first because we only want to resize each window once
@@ -55,30 +50,11 @@ pub fn camera_system<T: CameraProjection + Component>(
             continue;
         }
 
-        if event.is_primary {
-            changed_primary_window_id = Some(event.id);
-        } else {
-            changed_window_ids.push(event.id);
-        }
+        changed_window_ids.push(event.id);
     }
 
     for (mut camera, mut camera_projection) in &mut query.iter() {
-        if let Some(window) = match camera.window {
-            WindowReference::Id(id) => {
-                if changed_window_ids.contains(&id) {
-                    windows.get(id)
-                } else {
-                    None
-                }
-            }
-            WindowReference::Primary => {
-                if let Some(id) = changed_primary_window_id {
-                    windows.get(id)
-                } else {
-                    None
-                }
-            }
-        } {
+        if let Some(window) = windows.get(camera.window) {
             camera_projection.update(window.width as usize, window.height as usize);
             camera.projection_matrix = camera_projection.get_projection_matrix();
         }

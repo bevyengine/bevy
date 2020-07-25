@@ -5,11 +5,11 @@ use crate::{
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Resources, World};
-use bevy_window::{WindowCreated, WindowReference, WindowResized, Windows};
+use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
 pub struct WindowTextureNode {
-    window_reference: WindowReference,
+    window_id: WindowId,
     descriptor: TextureDescriptor,
     window_created_event_reader: EventReader<WindowCreated>,
     window_resized_event_reader: EventReader<WindowResized>,
@@ -17,9 +17,9 @@ pub struct WindowTextureNode {
 
 impl WindowTextureNode {
     pub const OUT_TEXTURE: &'static str = "texture";
-    pub fn new(window_reference: WindowReference, descriptor: TextureDescriptor) -> Self {
+    pub fn new(window_id: WindowId, descriptor: TextureDescriptor) -> Self {
         WindowTextureNode {
-            window_reference,
+            window_id,
             descriptor,
             window_created_event_reader: Default::default(),
             window_resized_event_reader: Default::default(),
@@ -49,12 +49,9 @@ impl Node for WindowTextureNode {
         let window_resized_events = resources.get::<Events<WindowResized>>().unwrap();
         let windows = resources.get::<Windows>().unwrap();
 
-        let window = match self.window_reference {
-            WindowReference::Primary => windows.get_primary().expect("No primary window exists"),
-            WindowReference::Id(id) => windows
-                .get(id)
-                .expect("Received window resized event for non-existent window"),
-        };
+        let window = windows
+            .get(self.window_id)
+            .expect("Received window resized event for non-existent window");
 
         if self
             .window_created_event_reader

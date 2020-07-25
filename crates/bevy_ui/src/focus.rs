@@ -52,7 +52,6 @@ pub struct State {
 
 pub fn ui_focus_system(
     mut state: Local<State>,
-    windows: Res<Windows>,
     mouse_button_input: Res<Input<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     mut node_query: Query<(
@@ -79,7 +78,6 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left);
-    let window = windows.get_primary().unwrap();
     let mut hovered_entity = None;
 
     {
@@ -88,9 +86,7 @@ pub fn ui_focus_system(
             .iter()
             .filter_map(|(entity, node, transform, click, hover, focus_policy)| {
                 let position = transform.value.w_axis();
-                // TODO: ui transform is currently in world space, so we need to move it to ui space. we should make these transforms ui space
-                let ui_position = position.truncate().truncate()
-                    + Vec2::new(window.width as f32 / 2.0, window.height as f32 / 2.0);
+                let ui_position = position.truncate().truncate();
                 let extents = node.size / 2.0;
                 let min = ui_position - extents;
                 let max = ui_position + extents;

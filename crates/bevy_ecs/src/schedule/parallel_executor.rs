@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 pub struct ParallelExecutor {
     stages: Vec<ExecutorStage>,
     last_schedule_generation: usize,
+    clear_trackers: bool,
 }
 
 impl Default for ParallelExecutor {
@@ -19,11 +20,18 @@ impl Default for ParallelExecutor {
         Self {
             stages: Default::default(),
             last_schedule_generation: usize::MAX, // MAX forces prepare to run the first time
+            clear_trackers: true,
         }
     }
 }
 
 impl ParallelExecutor {
+    pub fn without_tracker_clears() -> Self {
+        Self {
+            clear_trackers: false,
+            ..Default::default()
+        }
+    }
     pub fn prepare(&mut self, schedule: &mut Schedule, world: &World) {
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule_generation != self.last_schedule_generation;
@@ -53,7 +61,9 @@ impl ParallelExecutor {
             }
         }
 
-        world.clear_trackers();
+        if self.clear_trackers {
+            world.clear_trackers();
+        }
     }
 }
 

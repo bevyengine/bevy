@@ -19,3 +19,5 @@ bevy_render = { path = "../bevy_render" }
 bevy_window = { path = "../bevy_window" }
 
 bevy_math = { path = "../bevy_math" }
+
+stretch = "0.3"

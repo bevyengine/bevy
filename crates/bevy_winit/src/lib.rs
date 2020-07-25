@@ -76,7 +76,6 @@ pub fn winit_runner(mut app: App) {
                     id: window_id,
                     height: window.height as usize,
                     width: window.width as usize,
-                    is_primary: windows.is_primary(window_id),
                 });
             }
             event::Event::WindowEvent {
@@ -94,7 +93,6 @@ pub fn winit_runner(mut app: App) {
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     window_close_requested_events.send(WindowCloseRequested {
                         id: window_id,
-                        is_primary: windows.is_primary(window_id),
                     });
                 }
                 WindowEvent::KeyboardInput { ref input, .. } => {
@@ -165,7 +163,6 @@ fn handle_create_window_events(
         windows.add(window);
         window_created_events.send(WindowCreated {
             id: window_id,
-            is_primary: windows.is_primary(window_id),
         });
     }
 }
