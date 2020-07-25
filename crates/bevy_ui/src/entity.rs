@@ -3,7 +3,7 @@ use crate::{
     prelude::Flex,
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Text},
-    Click, FlexSurfaceId, FocusPolicy, Hover,
+    Click, FocusPolicy, Hover,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -23,7 +23,6 @@ use bevy_transform::{
 pub struct NodeComponents {
     pub node: Node,
     pub flex: Flex,
-    pub flex_surface_id: FlexSurfaceId,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
@@ -55,7 +54,6 @@ impl Default for NodeComponents {
                 },
             )]),
             node: Default::default(),
-            flex_surface_id: Default::default(),
             flex: Flex::default(),
             material: Default::default(),
             draw: Default::default(),
@@ -69,7 +67,6 @@ impl Default for NodeComponents {
 pub struct TextComponents {
     pub node: Node,
     pub flex: Flex,
-    pub flex_surface_id: FlexSurfaceId,
     pub draw: Draw,
     pub text: Text,
     pub focus_policy: FocusPolicy,
@@ -83,7 +80,6 @@ impl Default for TextComponents {
             text: Text::default(),
             node: Default::default(),
             flex: Flex::default(),
-            flex_surface_id: Default::default(),
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
                 is_transparent: true,
@@ -100,7 +96,6 @@ pub struct ButtonComponents {
     pub node: Node,
     pub button: Button,
     pub flex: Flex,
-    pub flex_surface_id: FlexSurfaceId,
     pub click: Click,
     pub hover: Hover,
     pub focus_policy: FocusPolicy,
@@ -139,7 +134,6 @@ impl Default for ButtonComponents {
                 },
             )]),
             node: Default::default(),
-            flex_surface_id: Default::default(),
             flex: Flex::default(),
             material: Default::default(),
             draw: Default::default(),

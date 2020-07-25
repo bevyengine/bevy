@@ -38,15 +38,11 @@ pub struct UiPlugin;
 
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_resource::<FlexSurfaces>()
+        app.init_resource::<FlexSurface>()
             .add_system_to_stage(stage::PRE_UPDATE, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage_front(stage::POST_UPDATE, flex_node_system.system())
             .add_system_to_stage_front(stage::POST_UPDATE, ui_z_system.system())
-            .add_system_to_stage_front(
-                stage::POST_UPDATE,
-                primary_window_flex_surface_system.system(),
-            )
             .add_system_to_stage(stage::POST_UPDATE, widget::text_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
