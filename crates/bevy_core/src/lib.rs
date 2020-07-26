@@ -1,15 +1,15 @@
 mod bytes;
 mod float_ord;
-mod time;
 mod label;
+mod time;
 
 pub use bytes::*;
 pub use float_ord::*;
-pub use time::*;
 pub use label::*;
+pub use time::*;
 
 pub mod prelude {
-    pub use crate::{Time, Timer, Labels, EntityLabels};
+    pub use crate::{EntityLabels, Labels, Time, Timer};
 }
 
 use bevy_app::prelude::*;

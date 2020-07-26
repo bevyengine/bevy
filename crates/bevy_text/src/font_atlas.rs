@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
-use bevy_render::texture::Texture;
+use bevy_render::texture::{Texture, TextureFormat};
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use std::collections::HashMap;
 
@@ -16,7 +16,11 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         size: Vec2,
     ) -> FontAtlas {
-        let atlas_texture = textures.add(Texture::new_fill(size, &[0, 0, 0, 0]));
+        let atlas_texture = textures.add(Texture::new_fill(
+            size,
+            &[0, 0, 0, 0],
+            TextureFormat::Rgba8UnormSrgb,
+        ));
         let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),

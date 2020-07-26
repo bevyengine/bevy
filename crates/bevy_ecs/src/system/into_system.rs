@@ -157,10 +157,11 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
             if self
                 .archetype_access
                 .immutable
-                .contains(location.archetype as usize) || self
-                .archetype_access
-                .mutable
                 .contains(location.archetype as usize)
+                || self
+                    .archetype_access
+                    .mutable
+                    .contains(location.archetype as usize)
             {
                 self.world
                     .get(entity)

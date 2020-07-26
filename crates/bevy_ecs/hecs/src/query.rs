@@ -319,14 +319,12 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
         archetype.borrow::<T>();
     }
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_added::<T>()
-            .map(|(components, added)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(added.as_ptr().add(offset)),
-                )
-            })
+        archetype.get_with_added::<T>().map(|(components, added)| {
+            Self(
+                NonNull::new_unchecked(components.as_ptr().add(offset)),
+                NonNull::new_unchecked(added.as_ptr().add(offset)),
+            )
+        })
     }
     fn release(archetype: &Archetype) {
         archetype.release::<T>();
@@ -345,7 +343,6 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
         Added { value: &*value }
     }
 }
-
 
 #[allow(missing_docs)]
 pub struct Changed<'a, T> {
@@ -411,7 +408,6 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
         Changed { value: &*value }
     }
 }
-
 
 #[doc(hidden)]
 pub struct TryFetch<T>(Option<T>);

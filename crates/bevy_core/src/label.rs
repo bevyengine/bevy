@@ -2,7 +2,9 @@ use bevy_ecs::prelude::*;
 use bevy_property::Properties;
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet}, ops::{DerefMut, Deref}, fmt::Debug,
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    ops::{Deref, DerefMut},
 };
 
 #[derive(Default, Properties)]
@@ -21,15 +23,16 @@ impl Debug for Labels {
     }
 }
 
-impl<'a, T, L: Into<Cow<'static, str>>> From<T> for Labels where T: IntoIterator<Item=L> {
+impl<'a, T, L: Into<Cow<'static, str>>> From<T> for Labels
+where
+    T: IntoIterator<Item = L>,
+{
     fn from(value: T) -> Self {
         let mut labels = HashSet::new();
         for label in value {
             labels.insert(label.into());
         }
-        Self {
-            labels,
-        }
+        Self { labels }
     }
 }
 

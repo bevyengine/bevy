@@ -10,7 +10,6 @@ pub struct DynamicTextureAtlasBuilder {
     pub atlas_allocator: AtlasAllocator,
 }
 
-const FORMAT_SIZE: usize = 4; // TODO: get this from an actual format type
 impl DynamicTextureAtlasBuilder {
     pub fn new(size: Vec2) -> Self {
         Self {
@@ -70,12 +69,13 @@ impl DynamicTextureAtlasBuilder {
         let rect = allocation.rectangle;
         let atlas_width = atlas_texture.size.x() as usize;
         let rect_width = rect.width() as usize;
+        let format_size = atlas_texture.format.pixel_size();
 
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
-            let begin = (bound_y * atlas_width + rect.min.x as usize) * FORMAT_SIZE;
-            let end = begin + rect_width * FORMAT_SIZE;
-            let texture_begin = texture_y * rect_width * FORMAT_SIZE;
-            let texture_end = texture_begin + rect_width * FORMAT_SIZE;
+            let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;
+            let end = begin + rect_width * format_size;
+            let texture_begin = texture_y * rect_width * format_size;
+            let texture_end = texture_begin + rect_width * format_size;
             atlas_texture.data[begin..end]
                 .copy_from_slice(&texture.data[texture_begin..texture_end]);
         }

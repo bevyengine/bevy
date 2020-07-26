@@ -1,6 +1,10 @@
 use super::{App, AppBuilder};
+use crate::{
+    app::AppExit,
+    event::{EventReader, Events},
+    plugin::AppPlugin,
+};
 use std::{thread, time::Duration};
-use crate::{event::{Events, EventReader}, plugin::AppPlugin, app::AppExit};
 
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {

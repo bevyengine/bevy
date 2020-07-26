@@ -1,6 +1,6 @@
 use crate::Input;
-use bevy_ecs::{Res, ResMut};
 use bevy_app::prelude::*;
+use bevy_ecs::{Res, ResMut};
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {

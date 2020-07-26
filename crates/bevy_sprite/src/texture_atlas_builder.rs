@@ -1,7 +1,7 @@
 use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
-use bevy_render::texture::Texture;
+use bevy_render::texture::{Texture, TextureFormat};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
@@ -28,7 +28,6 @@ pub enum RectanglePackError {
     NotEnoughSpace,
 }
 
-const FORMAT_SIZE: usize = 4; // TODO: get this from an actual format type
 impl TextureAtlasBuilder {
     pub fn new(initial_size: Vec2, max_size: Vec2) -> Self {
         Self {
@@ -58,12 +57,13 @@ impl TextureAtlasBuilder {
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
         let atlas_width = atlas_texture.size.x() as usize;
+        let format_size = atlas_texture.format.pixel_size();
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
-            let begin = (bound_y * atlas_width + rect_x) * FORMAT_SIZE;
-            let end = begin + rect_width * FORMAT_SIZE;
-            let texture_begin = texture_y * rect_width * FORMAT_SIZE;
-            let texture_end = texture_begin + rect_width * FORMAT_SIZE;
+            let begin = (bound_y * atlas_width + rect_x) * format_size;
+            let end = begin + rect_width * format_size;
+            let texture_begin = texture_y * rect_width * format_size;
+            let texture_end = texture_begin + rect_width * format_size;
             atlas_texture.data[begin..end]
                 .copy_from_slice(&texture.data[texture_begin..texture_end]);
         }
@@ -93,6 +93,7 @@ impl TextureAtlasBuilder {
             atlas_texture = Texture::new_fill(
                 Vec2::new(current_width as f32, current_height as f32),
                 &[0, 0, 0, 0],
+                TextureFormat::Rgba8UnormSrgb,
             );
             rect_placements = match pack_rects(
                 &self.rects_to_place,

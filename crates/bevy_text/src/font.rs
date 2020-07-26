@@ -1,6 +1,9 @@
 use ab_glyph::{FontVec, Glyph, InvalidFont, OutlinedGlyph, Point, PxScale, ScaleFont};
 use bevy_math::Vec2;
-use bevy_render::{color::Color, texture::Texture};
+use bevy_render::{
+    color::Color,
+    texture::{Texture, TextureFormat},
+};
 
 pub struct Font {
     pub font: FontVec,
@@ -32,6 +35,7 @@ impl Font {
             (color.b * 255.0) as u8,
         ];
         Texture::new(
+            Vec2::new(width as f32, height as f32),
             alpha
                 .iter()
                 .map(|a| {
@@ -44,7 +48,7 @@ impl Font {
                 })
                 .flatten()
                 .collect::<Vec<u8>>(),
-            Vec2::new(width as f32, height as f32),
+            TextureFormat::Rgba8UnormSrgb,
         )
     }
 
@@ -96,6 +100,7 @@ impl Font {
         }
 
         Texture::new(
+            Vec2::new(width as f32, height as f32),
             alpha
                 .iter()
                 .map(|a| {
@@ -108,7 +113,7 @@ impl Font {
                 })
                 .flatten()
                 .collect::<Vec<u8>>(),
-            Vec2::new(width as f32, height as f32),
+            TextureFormat::Rgba8UnormSrgb,
         )
     }
 }

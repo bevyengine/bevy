@@ -1,4 +1,4 @@
-use bevy_math::{PerspectiveRh, Mat4};
+use bevy_math::{Mat4, PerspectiveRh};
 use bevy_property::{Properties, Property};
 use serde::{Deserialize, Serialize};
 

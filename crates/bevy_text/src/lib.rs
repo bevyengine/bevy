@@ -11,7 +11,7 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 
 pub mod prelude {
-    pub use crate::{Font, TextStyle, TextAlign};
+    pub use crate::{Font, TextAlign, TextStyle};
 }
 
 use bevy_app::prelude::*;

@@ -1,6 +1,9 @@
 use bevy_math::Mat4;
 use bevy_property::Properties;
-use std::{ops::{DerefMut, Deref}, fmt};
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct LocalTransform(pub Mat4);

@@ -336,7 +336,9 @@ impl World {
 
     #[allow(missing_docs)]
     pub fn removed<C: Component>(&self) -> &[Entity] {
-        self.removed_components.get(&TypeId::of::<C>()).map_or(&[], |entities| entities.as_slice())
+        self.removed_components
+            .get(&TypeId::of::<C>())
+            .map_or(&[], |entities| entities.as_slice())
     }
 
     /// Add `components` to `entity`
@@ -501,7 +503,8 @@ impl World {
                         state.added_entities[target_index as usize] = is_added;
                         state.mutated_entities[target_index as usize] = is_mutated;
                     } else {
-                        let removed_entities = removed_components.entry(ty).or_insert_with(|| Vec::new());
+                        let removed_entities =
+                            removed_components.entry(ty).or_insert_with(|| Vec::new());
                         removed_entities.push(entity);
                     }
                 })

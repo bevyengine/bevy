@@ -91,9 +91,7 @@ pub fn winit_runner(mut app: App) {
                     let windows = app.resources.get_mut::<Windows>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                    window_close_requested_events.send(WindowCloseRequested {
-                        id: window_id,
-                    });
+                    window_close_requested_events.send(WindowCloseRequested { id: window_id });
                 }
                 WindowEvent::KeyboardInput { ref input, .. } => {
                     let mut keyboard_input_events =
@@ -108,7 +106,7 @@ pub fn winit_runner(mut app: App) {
                     let window = winit_windows.get_window(window_id).unwrap();
                     let inner_size = window.inner_size();
                     // move origin to bottom left
-                    let y_position = inner_size.height as f32 - position.y as f32; 
+                    let y_position = inner_size.height as f32 - position.y as f32;
                     cursor_moved_events.send(CursorMoved {
                         id: window_id,
                         position: Vec2::new(position.x as f32, y_position as f32),
@@ -161,8 +159,6 @@ fn handle_create_window_events(
         winit_windows.create_window(event_loop, &window);
         let window_id = window.id;
         windows.add(window);
-        window_created_events.send(WindowCreated {
-            id: window_id,
-        });
+        window_created_events.send(WindowCreated { id: window_id });
     }
 }

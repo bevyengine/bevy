@@ -1,12 +1,13 @@
 use crate::{
-    system::{System, ThreadLocalExecution, SystemId}, resource::Resources,
+    resource::Resources,
+    system::{System, SystemId, ThreadLocalExecution},
 };
+use hecs::World;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
-use hecs::World;
 
 #[derive(Default)]
 pub struct Schedule {
