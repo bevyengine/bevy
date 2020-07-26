@@ -15,9 +15,10 @@
 // modified by Bevy contributors
 
 use core::{
+    fmt::Debug,
     ops::{Deref, DerefMut},
     ptr::NonNull,
-    sync::atomic::{AtomicUsize, Ordering}, fmt::Debug,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use crate::{archetype::Archetype, Component, MissingComponent};
@@ -101,7 +102,10 @@ impl<'a, T: Component> Deref for Ref<'a, T> {
     }
 }
 
-impl<'a, T: Component> Debug for Ref<'a,T> where T: Debug {
+impl<'a, T: Component> Debug for Ref<'a, T>
+where
+    T: Debug,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.deref().fmt(f)
     }
@@ -161,7 +165,10 @@ impl<'a, T: Component> DerefMut for RefMut<'a, T> {
     }
 }
 
-impl<'a, T: Component> Debug for RefMut<'a,T> where T: Debug {
+impl<'a, T: Component> Debug for RefMut<'a, T>
+where
+    T: Debug,
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.deref().fmt(f)
     }

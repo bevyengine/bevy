@@ -1,5 +1,8 @@
 use bevy_property::Properties;
-use std::{ops::{DerefMut, Deref}, fmt};
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct Scale(pub f32);

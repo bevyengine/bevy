@@ -1,6 +1,8 @@
 use crate::{
+    app::{App, AppExit},
+    event::Events,
     plugin::{load_plugin, AppPlugin},
-    stage, startup_stage, app::{AppExit, App}, event::Events
+    stage, startup_stage,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
@@ -169,7 +171,9 @@ impl AppBuilder {
         stage_name: &'static str,
         system: Box<dyn System>,
     ) -> &mut Self {
-        self.app.schedule.add_system_to_stage_front(stage_name, system);
+        self.app
+            .schedule
+            .add_system_to_stage_front(stage_name, system);
         self
     }
 

@@ -1,7 +1,7 @@
 use bevy_ecs::Entity;
 use bevy_property::Properties;
 use smallvec::SmallVec;
-use std::ops::{DerefMut, Deref};
+use std::ops::{Deref, DerefMut};
 
 #[derive(Default, Clone, Properties, Debug)]
 pub struct Children(pub SmallVec<[Entity; 8]>);

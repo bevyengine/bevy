@@ -239,6 +239,5 @@ fn setup(
         .spawn(NodeComponents {
             material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
             ..Default::default()
-        }) 
-        ;
+        });
 }

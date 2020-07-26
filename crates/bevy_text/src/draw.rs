@@ -1,7 +1,7 @@
 use crate::{Font, FontAtlasSet};
 use ab_glyph::{FontVec, Glyph, PxScale, PxScaleFont, ScaleFont};
 use bevy_asset::Assets;
-use bevy_math::{Mat4, Vec3, Vec2};
+use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
@@ -112,9 +112,12 @@ impl<'a> Drawable for DrawableText<'a> {
         match self.style.align {
             TextAlign::Left => { /* already aligned left by default */ }
             TextAlign::Center => {
-                *caret.x_mut() += self.container_size.x() / 2.0 - get_text_width(&self.text, &scaled_font) / 2.0
+                *caret.x_mut() +=
+                    self.container_size.x() / 2.0 - get_text_width(&self.text, &scaled_font) / 2.0
             }
-            TextAlign::Right => *caret.x_mut() += self.container_size.x() - get_text_width(&self.text, &scaled_font),
+            TextAlign::Right => {
+                *caret.x_mut() += self.container_size.x() - get_text_width(&self.text, &scaled_font)
+            }
         }
 
         let mut last_glyph: Option<Glyph> = None;

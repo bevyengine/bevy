@@ -343,24 +343,64 @@ fn remove_tracking() {
     let b = world.spawn(("abc", 123));
 
     world.despawn(a).unwrap();
-    assert_eq!(world.removed::<i32>(), &[a], "despawning results in 'removed component' state");
-    assert_eq!(world.removed::<&'static str>(), &[a], "despawning results in 'removed component' state");
+    assert_eq!(
+        world.removed::<i32>(),
+        &[a],
+        "despawning results in 'removed component' state"
+    );
+    assert_eq!(
+        world.removed::<&'static str>(),
+        &[a],
+        "despawning results in 'removed component' state"
+    );
 
     world.insert_one(b, 10.0).unwrap();
-    assert_eq!(world.removed::<i32>(), &[a], "archetype moves does not result in 'removed component' state");
+    assert_eq!(
+        world.removed::<i32>(),
+        &[a],
+        "archetype moves does not result in 'removed component' state"
+    );
 
     world.remove_one::<i32>(b).unwrap();
-    assert_eq!(world.removed::<i32>(), &[a, b], "removing a component results in a 'removed component' state");
+    assert_eq!(
+        world.removed::<i32>(),
+        &[a, b],
+        "removing a component results in a 'removed component' state"
+    );
 
     world.clear_trackers();
-    assert_eq!(world.removed::<i32>(), &[], "clearning trackers clears removals");
-    assert_eq!(world.removed::<&'static str>(), &[], "clearning trackers clears removals");
-    assert_eq!(world.removed::<f64>(), &[], "clearning trackers clears removals");
+    assert_eq!(
+        world.removed::<i32>(),
+        &[],
+        "clearning trackers clears removals"
+    );
+    assert_eq!(
+        world.removed::<&'static str>(),
+        &[],
+        "clearning trackers clears removals"
+    );
+    assert_eq!(
+        world.removed::<f64>(),
+        &[],
+        "clearning trackers clears removals"
+    );
 
     let c = world.spawn(("abc", 123));
     let d = world.spawn(("abc", 123));
     world.clear();
-    assert_eq!(world.removed::<i32>(), &[c, d], "world clears result in 'removed component' states");
-    assert_eq!(world.removed::<&'static str>(), &[c, d, b], "world clears result in 'removed component' states");
-    assert_eq!(world.removed::<f64>(), &[b], "world clears result in 'removed component' states");
+    assert_eq!(
+        world.removed::<i32>(),
+        &[c, d],
+        "world clears result in 'removed component' states"
+    );
+    assert_eq!(
+        world.removed::<&'static str>(),
+        &[c, d, b],
+        "world clears result in 'removed component' states"
+    );
+    assert_eq!(
+        world.removed::<f64>(),
+        &[b],
+        "world clears result in 'removed component' states"
+    );
 }

@@ -13,7 +13,7 @@ impl WindowId {
     }
 
     pub fn is_primary(&self) -> bool {
-        *self == WindowId::primary() 
+        *self == WindowId::primary()
     }
 
     pub fn to_string(&self) -> String {

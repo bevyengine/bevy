@@ -1,6 +1,6 @@
 use bevy_math::Vec3;
 use bevy_property::Properties;
-use std::ops::{DerefMut, Deref};
+use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, PartialEq, Copy, Clone, Properties)]
 pub struct Translation(pub Vec3);

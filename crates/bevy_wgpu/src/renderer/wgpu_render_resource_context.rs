@@ -267,9 +267,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
             texture_id
         } else {
-            self.resources.window_swap_chains.write().unwrap().remove(&window.id);
+            self.resources
+                .window_swap_chains
+                .write()
+                .unwrap()
+                .remove(&window.id);
             self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id).expect("Failed to acquire next swap chain texture!")
+            self.try_next_swap_chain_texture(window.id)
+                .expect("Failed to acquire next swap chain texture!")
         }
     }
 

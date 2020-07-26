@@ -1,4 +1,4 @@
-use crate::prelude::{LocalTransform, Parent, PreviousParent, Children};
+use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
 pub struct WorldChildBuilder<'a, 'b> {

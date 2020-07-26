@@ -100,9 +100,9 @@ impl TypeAccess {
 #[cfg(test)]
 mod tests {
     use super::{ArchetypeAccess, TypeAccess};
+    use crate::resource::{FetchResource, Res, ResMut, ResourceQuery};
     use hecs::World;
     use std::any::TypeId;
-    use crate::resource::{Res, ResourceQuery, ResMut, FetchResource};
 
     struct A;
     struct B;

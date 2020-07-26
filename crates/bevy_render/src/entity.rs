@@ -61,7 +61,7 @@ pub struct Camera2dComponents {
 impl Default for Camera2dComponents {
     fn default() -> Self {
         // we want 0 to be "closest" and +far to be "farthest" in 2d, so we offset
-        // the camera's translation by far and use a right handed coordinate system   
+        // the camera's translation by far and use a right handed coordinate system
         let far = 1000.0;
         Camera2dComponents {
             camera: Camera {
