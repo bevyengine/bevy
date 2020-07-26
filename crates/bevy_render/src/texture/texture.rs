@@ -67,7 +67,8 @@ impl Texture {
         self.size = size;
         let width = size.x() as usize;
         let height = size.y() as usize;
-        self.data.resize(width * height * self.format.pixel_size(), 0);
+        self.data
+            .resize(width * height * self.format.pixel_size(), 0);
     }
 
     pub fn texture_resource_system(

@@ -22,6 +22,7 @@ spirv-reflect = "0.2.3"
 glsl-to-spirv = { git = "https://github.com/cart/glsl-to-spirv" }
 # TODO: move this to its own crate
 png = "0.16.0"
+image = "0.23"
 
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
