@@ -14,7 +14,18 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window: &Window,
     ) {
+        #[cfg(target_os = "windows")]
+        let winit_window = {
+            use winit::platform::windows::WindowBuilderExtWindows;
+            winit::window::WindowBuilder::new()
+                .with_drag_and_drop(false)
+                .build(&event_loop)
+                .unwrap()
+        };
+
+        #[cfg(not(target_os = "windows"))]
         let winit_window = winit::window::Window::new(&event_loop).unwrap();
+
         self.window_id_to_winit.insert(window.id, winit_window.id());
         self.winit_to_window_id.insert(winit_window.id(), window.id);
 
