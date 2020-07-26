@@ -96,10 +96,10 @@ fn setup(
         .spawn(UiCameraComponents::default())
         // wrapper component to center with flexbox
         .spawn(NodeComponents {
-            flex: Flex {
+            style: Style {
                 size: Size {
-                    width: Dimension::Percent(1.0),
-                    height: Dimension::Percent(1.0),
+                    width: Val::Percent(1.0),
+                    height: Val::Percent(1.0),
                 },
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -111,10 +111,10 @@ fn setup(
         .with_children(|parent| {
             parent
                 .spawn(ButtonComponents {
-                    flex: Flex {
+                    style: Style {
                         size: Size {
-                            width: Dimension::Points(150.0),
-                            height: Dimension::Points(70.0),
+                            width: Val::Px(150.0),
+                            height: Val::Px(70.0),
                         },
                         ..Default::default()
                     },
@@ -123,13 +123,13 @@ fn setup(
                 })
                 .with_children(|parent| {
                     parent.spawn(TextComponents {
-                        flex: Flex {
+                        style: Style {
                             size: Size {
-                                width: Dimension::Percent(1.0),
-                                height: Dimension::Percent(1.0),
+                                width: Val::Percent(1.0),
+                                height: Val::Percent(1.0),
                             },
                             margin: Rect {
-                                top: Dimension::Points(10.0),
+                                top: Val::Px(10.0),
                                 ..Default::default()
                             },
                             ..Default::default()

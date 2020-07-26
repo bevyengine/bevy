@@ -68,7 +68,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
         .spawn(Camera2dComponents::default())
         // texture
         .spawn(TextComponents {
-            node: Node::new(Anchors::TOP_LEFT, Margins::new(0.0, 250.0, 0.0, 60.0)),
+            style: Style {
+                size: Size {
+                    width: Val::Px(250.0),
+                    height: Val::Px(60.0),
+                },
+                ..Default::default()
+            },
             text: Text {
                 value: "a".to_string(),
                 font: font_handle,

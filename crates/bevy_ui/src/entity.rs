@@ -1,9 +1,8 @@
 use super::Node;
 use crate::{
-    prelude::Flex,
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Text},
-    Click, FocusPolicy, Hover,
+    Click, FocusPolicy, Hover, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -22,7 +21,7 @@ use bevy_transform::{
 #[derive(Bundle)]
 pub struct NodeComponents {
     pub node: Node,
-    pub flex: Flex,
+    pub style: Style,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
@@ -54,7 +53,7 @@ impl Default for NodeComponents {
                 },
             )]),
             node: Default::default(),
-            flex: Flex::default(),
+            style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
@@ -66,7 +65,7 @@ impl Default for NodeComponents {
 #[derive(Bundle)]
 pub struct TextComponents {
     pub node: Node,
-    pub flex: Flex,
+    pub style: Style,
     pub draw: Draw,
     pub text: Text,
     pub focus_policy: FocusPolicy,
@@ -77,14 +76,14 @@ pub struct TextComponents {
 impl Default for TextComponents {
     fn default() -> Self {
         TextComponents {
-            text: Text::default(),
-            node: Default::default(),
-            flex: Flex::default(),
             focus_policy: FocusPolicy::Pass,
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
             },
+            text: Default::default(),
+            node: Default::default(),
+            style: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),
         }
@@ -95,7 +94,7 @@ impl Default for TextComponents {
 pub struct ButtonComponents {
     pub node: Node,
     pub button: Button,
-    pub flex: Flex,
+    pub style: Style,
     pub click: Click,
     pub hover: Hover,
     pub focus_policy: FocusPolicy,
@@ -111,9 +110,6 @@ impl Default for ButtonComponents {
     fn default() -> Self {
         ButtonComponents {
             button: Button,
-            click: Click::default(),
-            hover: Hover::default(),
-            focus_policy: FocusPolicy::default(),
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
@@ -133,8 +129,11 @@ impl Default for ButtonComponents {
                     ..Default::default()
                 },
             )]),
+            click: Default::default(),
+            hover: Default::default(),
+            focus_policy: Default::default(),
             node: Default::default(),
-            flex: Flex::default(),
+            style: Default::default(),
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
@@ -169,9 +168,9 @@ impl Default for UiCameraComponents {
                 window_origin: WindowOrigin::BottomLeft,
                 ..Default::default()
             },
+            translation: Translation::new(0.0, 0.0, far - 0.1),
             visible_entities: Default::default(),
             transform: Default::default(),
-            translation: Translation::new(0.0, 0.0, far - 0.1),
             rotation: Default::default(),
             scale: Default::default(),
         }

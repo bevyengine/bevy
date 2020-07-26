@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::{mouse::MouseButton, Input};
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_window::{CursorMoved, Windows};
+use bevy_window::CursorMoved;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Click {

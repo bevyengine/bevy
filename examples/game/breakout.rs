@@ -74,7 +74,9 @@ fn setup(
                     ..Default::default()
                 },
             },
-            node: Node::new(Anchors::TOP_LEFT, Margins::new(10.0, 50.0, 10.0, 50.0)),
+            style: Style {
+                ..Default::default()
+            },
             ..Default::default()
         });
 

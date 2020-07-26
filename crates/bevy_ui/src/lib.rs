@@ -18,13 +18,9 @@ pub use render::*;
 pub mod prelude {
     pub use crate::{
         entity::*,
+        node::*,
         widget::{Button, Text},
-        Anchors, Click, Hover, Margins, Node,
-    };
-
-    pub use stretch::{
-        geometry::{Point, Rect, Size},
-        style::{Style as Flex, *},
+        Anchors, Click, Hover, Margins,
     };
 }
 

@@ -1,15 +1,12 @@
-use crate::Node;
+mod convert;
+
+use crate::{Style, Node};
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, LocalTransform, Parent};
 use bevy_window::{Window, WindowId, Windows};
 use std::collections::HashMap;
-use stretch::{
-    geometry::Size,
-    result::Layout,
-    style::{Dimension, Style},
-    Stretch,
-};
+use stretch::Stretch;
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
@@ -34,16 +31,17 @@ impl FlexSurface {
         let mut added = false;
         let stretch = &mut self.stretch;
         let stretch_to_entity = &mut self.stretch_to_entity;
+        let stretch_style = style.into();
         let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
             added = true;
-            let stretch_node = stretch.new_node(style.clone(), Vec::new()).unwrap();
+            let stretch_node = stretch.new_node(stretch_style, Vec::new()).unwrap();
             stretch_to_entity.insert(stretch_node, entity);
             stretch_node
         });
 
         if !added {
             self.stretch
-                .set_style(*stretch_node, style.clone())
+                .set_style(*stretch_node, stretch_style)
                 .unwrap();
         }
     }
@@ -66,9 +64,7 @@ impl FlexSurface {
         let node = self.window_nodes.entry(window.id).or_insert_with(|| {
             stretch
                 .new_node(
-                    Style {
-                        ..Default::default()
-                    },
+                    stretch::style::Style::default(),
                     Vec::new(),
                 )
                 .unwrap()
@@ -77,10 +73,10 @@ impl FlexSurface {
         stretch
             .set_style(
                 *node,
-                Style {
-                    size: Size {
-                        width: Dimension::Points(window.width as f32),
-                        height: Dimension::Points(window.height as f32),
+                stretch::style::Style {
+                    size: stretch::geometry::Size {
+                        width: stretch::style::Dimension::Points(window.width as f32),
+                        height: stretch::style::Dimension::Points(window.height as f32),
                     },
                     ..Default::default()
                 },
@@ -110,7 +106,7 @@ impl FlexSurface {
         }
     }
 
-    pub fn get_layout(&self, entity: Entity) -> Result<&Layout, stretch::Error> {
+    pub fn get_layout(&self, entity: Entity) -> Result<&stretch::result::Layout, stretch::Error> {
         let stretch_node = self.entity_to_stretch.get(&entity).unwrap();
         self.stretch.layout(*stretch_node)
     }

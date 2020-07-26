@@ -6,7 +6,7 @@ use bevy::{
         render_graph::{CameraNode, PassNode, RenderGraph, WindowSwapChainNode, WindowTextureNode},
         texture::{TextureDescriptor, TextureFormat, TextureUsage},
     },
-    window::{CreateWindow, WindowDescriptor, WindowId, WindowReference},
+    window::{CreateWindow, WindowDescriptor, WindowId},
 };
 
 fn main() {
@@ -42,14 +42,14 @@ fn setup(
     // add a swapchain node for our new window
     render_graph.add_node(
         "second_window_swap_chain",
-        WindowSwapChainNode::new(WindowReference::Id(window_id)),
+        WindowSwapChainNode::new(window_id),
     );
 
     // add a new depth texture node for our new window
     render_graph.add_node(
         "second_window_depth_texture",
         WindowTextureNode::new(
-            WindowReference::Id(window_id),
+            window_id,
             TextureDescriptor {
                 format: TextureFormat::Depth32Float,
                 usage: TextureUsage::OUTPUT_ATTACHMENT,
@@ -148,7 +148,7 @@ fn setup(
         .spawn(Camera3dComponents {
             camera: Camera {
                 name: Some("Secondary".to_string()),
-                window: WindowReference::Id(window_id),
+                window: window_id,
                 ..Default::default()
             },
             transform: Transform::new_sync_disabled(Mat4::face_toward(
