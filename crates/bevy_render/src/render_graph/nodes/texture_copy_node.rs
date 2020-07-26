@@ -35,7 +35,7 @@ impl Node for TextureCopyNode {
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let width = texture.size.x() as usize;
                         let aligned_width = get_aligned(texture.size.x());
-                        let format_size = 4; // TODO: this will be incorrect for some formats
+                        let format_size = texture.format.pixel_size();
                         let mut aligned_data =
                             vec![0; format_size * aligned_width * texture.size.y() as usize];
                         texture

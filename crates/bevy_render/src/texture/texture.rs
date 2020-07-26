@@ -1,4 +1,4 @@
-use super::{SamplerDescriptor, TextureDescriptor};
+use super::{SamplerDescriptor, TextureDescriptor, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
@@ -11,22 +11,48 @@ use std::collections::HashSet;
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,
+    pub format: TextureFormat,
 }
 
-const FORMAT_SIZE: usize = 4; // TODO: get this from an actual format type
+impl Default for Texture {
+    fn default() -> Self {
+        Texture {
+            data: Default::default(),
+            size: Default::default(),
+            format: TextureFormat::Rgba8UnormSrgb,
+        }
+    }
+}
 
 impl Texture {
-    pub fn new(data: Vec<u8>, size: Vec2) -> Self {
-        Self { data, size }
+    pub fn new(size: Vec2, data: Vec<u8>, format: TextureFormat) -> Self {
+        debug_assert_eq!(
+            size.x() as usize * size.y() as usize * format.pixel_size(),
+            data.len(),
+            "Pixel data, size and format have to match",
+        );
+        Self { data, size, format }
     }
 
-    pub fn new_fill(size: Vec2, pixel: &[u8]) -> Self {
+    pub fn new_fill(size: Vec2, pixel: &[u8], format: TextureFormat) -> Self {
         let mut value = Self::default();
+        value.format = format;
         value.resize(size);
+
+        debug_assert_eq!(
+            pixel.len() % format.pixel_size(),
+            0,
+            "Must not have incomplete pixel data"
+        );
+        debug_assert!(
+            pixel.len() <= value.data.len(),
+            "Fill data must fit within pixel buffer"
+        );
+
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
             current_pixel.copy_from_slice(&pixel);
         }
@@ -41,7 +67,7 @@ impl Texture {
         self.size = size;
         let width = size.x() as usize;
         let height = size.y() as usize;
-        self.data.resize(width * height * FORMAT_SIZE, 0);
+        self.data.resize(width * height * self.format.pixel_size(), 0);
     }
 
     pub fn texture_resource_system(

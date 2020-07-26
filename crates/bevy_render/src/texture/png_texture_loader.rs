@@ -1,4 +1,4 @@
-use super::Texture;
+use super::{Texture, TextureFormat};
 use anyhow::Result;
 use bevy_asset::AssetLoader;
 use bevy_math::Vec2;
@@ -13,10 +13,11 @@ impl AssetLoader<Texture> for PngTextureLoader {
         let (info, mut reader) = decoder.read_info()?;
         let mut data = vec![0; info.buffer_size()];
         reader.next_frame(&mut data)?;
-        Ok(Texture {
+        Ok(Texture::new(
+            Vec2::new(info.width as f32, info.height as f32),
             data,
-            size: Vec2::new(info.width as f32, info.height as f32),
-        })
+            TextureFormat::Rgba8UnormSrgb,
+        ))
     }
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["png"];
