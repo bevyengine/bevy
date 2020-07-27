@@ -38,7 +38,7 @@ use render_graph::{
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
-use texture::{PngTextureLoader, TextureResourceSystemState};
+use texture::{HdrTextureLoader, ImageTextureLoader, TextureResourceSystemState};
 
 pub mod stage {
     /// Stage where render resources are set up
@@ -75,7 +75,8 @@ impl AppPlugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
-            .add_asset_loader::<Texture, PngTextureLoader>()
+            .add_asset_loader::<Texture, HdrTextureLoader>()
+            .add_asset_loader::<Texture, ImageTextureLoader>()
             .register_component::<Camera>()
             .register_component::<Draw>()
             .register_component::<RenderPipelines>()
