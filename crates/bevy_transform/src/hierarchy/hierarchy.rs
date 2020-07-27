@@ -100,7 +100,9 @@ mod tests {
         command_buffer
             .spawn_as_entity(parent_entity, (1u32, 2u64))
             .with_children(|parent| {
-                parent.spawn((1u32, 2u64));
+                parent.spawn((1u32, 2u64)).with_children(|parent| {
+                    parent.spawn((1u32, 2u64));
+                });
                 parent.spawn((1u32, 2u64));
             });
 
@@ -115,7 +117,7 @@ mod tests {
             .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
-        
+
         // parent_entity and its children should be deleted,
         // the (0, 0) tuples remaining.
         assert_eq!(results, vec![(0u32, 0u64), (0u32, 0u64), (0u32, 0u64)]);
