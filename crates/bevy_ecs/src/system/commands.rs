@@ -224,6 +224,7 @@ impl Commands {
         self.write_world(SpawnBatch { components_iter })
     }
 
+    /// Despawns only the specified entity, ignoring any other consideration.
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
         self.write_world(Despawn { entity })
     }
