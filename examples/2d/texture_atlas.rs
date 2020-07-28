@@ -20,15 +20,10 @@ pub struct RpgSpriteHandles {
     atlas_loaded: bool,
 }
 
-fn setup(
-    mut commands: Commands,
-    mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut rpg_sprite_handles: ResMut<RpgSpriteHandles>, asset_server: Res<AssetServer>) {
     rpg_sprite_handles.handles = asset_server
         .load_asset_folder("assets/textures/rpg")
         .unwrap();
-    commands.spawn(Camera2dComponents::default());
 }
 
 fn load_atlas(
@@ -63,6 +58,7 @@ fn load_atlas(
 
         // set up a scene to display our texture atlas
         commands
+            .spawn(Camera2dComponents::default())
             // draw a sprite from the atlas
             .spawn(SpriteSheetComponents {
                 scale: Scale(4.0),

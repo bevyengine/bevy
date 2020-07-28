@@ -1,8 +1,8 @@
+use crate::ArchetypeAccess;
 use hecs::{
-    Component, ComponentError, Entity, Query as HecsQuery, Ref, RefMut, World, Archetype, Access, Without, With, Fetch,
+    Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, Ref, RefMut, World,
 };
 use std::marker::PhantomData;
-use crate::ArchetypeAccess;
 
 pub struct Query<'a, Q: HecsQuery> {
     pub(crate) world: &'a World,
@@ -23,13 +23,13 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         Self {
             world,
             archetype_access,
-            _marker: PhantomData::default()
+            _marker: PhantomData::default(),
         }
     }
 
     #[inline]
     pub fn iter(&mut self) -> QueryBorrow<'_, Q> {
-        QueryBorrow::new(&self.world.archetypes)
+        QueryBorrow::new(&self.world.archetypes, self.archetype_access)
     }
 
     /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
@@ -105,15 +105,22 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
 /// Note that borrows are not released until this object is dropped.
 pub struct QueryBorrow<'w, Q: HecsQuery> {
     archetypes: &'w [Archetype],
-    borrowed: bool,
+    archetype_access: &'w ArchetypeAccess,
     _marker: PhantomData<Q>,
 }
 
 impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
-    pub(crate) fn new(archetypes: &'w [Archetype]) -> Self {
+    pub(crate) fn new(archetypes: &'w [Archetype], archetype_access: &'w ArchetypeAccess) -> Self {
+        for index in archetype_access.immutable.ones() {
+            Q::Fetch::borrow(&archetypes[index]);
+        }
+
+        for index in archetype_access.mutable.ones() {
+            Q::Fetch::borrow(&archetypes[index]);
+        }
         Self {
             archetypes,
-            borrowed: false,
+            archetype_access,
             _marker: PhantomData,
         }
     }
@@ -123,87 +130,11 @@ impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
     /// Must be called only once per query.
     #[inline]
     pub fn iter<'q>(&'q mut self) -> QueryIter<'q, 'w, Q> {
-        self.borrow();
         QueryIter {
             borrow: self,
             archetype_index: 0,
             iter: None,
         }
-    }
-
-    fn borrow(&mut self) {
-        if self.borrowed {
-            panic!(
-                "called QueryBorrow::iter twice on the same borrow; construct a new query instead"
-            );
-        }
-        for x in self.archetypes {
-            // TODO: Release prior borrows on failure?
-            if Q::Fetch::access(x) >= Some(Access::Read) {
-                Q::Fetch::borrow(x);
-            }
-        }
-        self.borrowed = true;
-    }
-
-    /// Transform the query into one that requires a certain component without borrowing it
-    ///
-    /// This can be useful when the component needs to be borrowed elsewhere and it isn't necessary
-    /// for the iterator to expose its data directly.
-    ///
-    /// Equivalent to using a query type wrapped in `With`.
-    ///
-    /// # Example
-    /// ```
-    /// # use hecs::*;
-    /// let mut world = World::new();
-    /// let a = world.spawn((123, true, "abc"));
-    /// let b = world.spawn((456, false));
-    /// let c = world.spawn((42, "def"));
-    /// let entities = world.query::<(Entity, &i32)>()
-    ///     .with::<bool>()
-    ///     .iter()
-    ///     .map(|(e, &i)| (e, i)) // Copy out of the world
-    ///     .collect::<Vec<_>>();
-    /// assert!(entities.contains(&(a, 123)));
-    /// assert!(entities.contains(&(b, 456)));
-    /// ```
-    pub fn with<T: Component>(self) -> QueryBorrow<'w, With<T, Q>> {
-        self.transform()
-    }
-
-    /// Transform the query into one that skips entities having a certain component
-    ///
-    /// Equivalent to using a query type wrapped in `Without`.
-    ///
-    /// # Example
-    /// ```
-    /// # use hecs::*;
-    /// let mut world = World::new();
-    /// let a = world.spawn((123, true, "abc"));
-    /// let b = world.spawn((456, false));
-    /// let c = world.spawn((42, "def"));
-    /// let entities = world.query::<(Entity, &i32)>()
-    ///     .without::<bool>()
-    ///     .iter()
-    ///     .map(|(e, &i)| (e, i)) // Copy out of the world
-    ///     .collect::<Vec<_>>();
-    /// assert_eq!(entities, &[(c, 42)]);
-    /// ```
-    pub fn without<T: Component>(self) -> QueryBorrow<'w, Without<T, Q>> {
-        self.transform()
-    }
-
-    /// Helper to change the type of the query
-    fn transform<R: HecsQuery>(mut self) -> QueryBorrow<'w, R> {
-        let x = QueryBorrow {
-            archetypes: self.archetypes,
-            borrowed: self.borrowed,
-            _marker: PhantomData,
-        };
-        // Ensure `Drop` won't fire redundantly
-        self.borrowed = false;
-        x
     }
 }
 
@@ -211,13 +142,14 @@ unsafe impl<'w, Q: HecsQuery> Send for QueryBorrow<'w, Q> {}
 unsafe impl<'w, Q: HecsQuery> Sync for QueryBorrow<'w, Q> {}
 
 impl<'w, Q: HecsQuery> Drop for QueryBorrow<'w, Q> {
+    #[inline]
     fn drop(&mut self) {
-        if self.borrowed {
-            for x in self.archetypes {
-                if Q::Fetch::access(x) >= Some(Access::Read) {
-                    Q::Fetch::release(x);
-                }
-            }
+        for index in self.archetype_access.immutable.ones() {
+            Q::Fetch::release(&self.archetypes[index]);
+        }
+
+        for index in self.archetype_access.mutable.ones() {
+            Q::Fetch::release(&self.archetypes[index]);
         }
     }
 }
