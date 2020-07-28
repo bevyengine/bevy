@@ -45,9 +45,6 @@ log = { version = "0.4", features = ["release_max_level_info"] }
 rand = "0.7.2"
 serde = { version = "1", features = ["derive"]}
 
-[profile.dev]
-opt-level = 3
-
 [[example]]
 name = "hello_world"
 path = "examples/hello_world.rs"
