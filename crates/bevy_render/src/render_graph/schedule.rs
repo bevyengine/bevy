@@ -300,6 +300,7 @@ mod tests {
         fn output(&self) -> &[ResourceSlotInfo] {
             &self.outputs
         }
+
         fn update(
             &mut self,
             _: &World,

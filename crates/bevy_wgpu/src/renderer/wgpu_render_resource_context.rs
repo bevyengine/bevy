@@ -496,6 +496,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     fn clear_bind_groups(&self) {
         self.resources.bind_groups.write().unwrap().clear();
     }
+
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
         self.resources
             .buffer_infos
@@ -504,6 +505,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .get(&buffer)
             .cloned()
     }
+
     fn write_mapped_buffer(
         &self,
         id: BufferId,
@@ -529,6 +531,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             panic!("failed to map buffer to host");
         }
     }
+
     fn unmap_buffer(&self, id: BufferId) {
         let buffers = self.resources.buffers.read().unwrap();
         let buffer = buffers.get(&id).unwrap();

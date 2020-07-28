@@ -47,6 +47,7 @@ impl fmt::Display for NonUniformScale {
 
 impl Deref for NonUniformScale {
     type Target = Vec3;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

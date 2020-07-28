@@ -43,6 +43,7 @@ impl Hash for FloatOrd {
 
 impl Neg for FloatOrd {
     type Output = FloatOrd;
+
     fn neg(self) -> Self::Output {
         FloatOrd(-self.0)
     }

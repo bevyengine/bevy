@@ -102,6 +102,7 @@ impl Bytes for Mat4 {
         let array = self.to_cols_array();
         array.write_bytes(buffer);
     }
+
     fn byte_len(&self) -> usize {
         std::mem::size_of::<Self>()
     }
@@ -123,6 +124,7 @@ where
             val.write_bytes(buffer)
         }
     }
+
     fn byte_len(&self) -> usize {
         self.as_ref().map_or(0, |val| val.byte_len())
     }
@@ -149,6 +151,7 @@ where
         let bytes = self.as_slice().as_bytes();
         buffer[0..self.byte_len()].copy_from_slice(bytes)
     }
+
     fn byte_len(&self) -> usize {
         self.as_slice().as_bytes().len()
     }

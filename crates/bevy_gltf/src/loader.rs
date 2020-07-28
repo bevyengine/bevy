@@ -17,6 +17,7 @@ impl AssetLoader<Mesh> for GltfLoader {
         let mesh = load_gltf(asset_path, bytes)?;
         Ok(mesh)
     }
+
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["gltf"];
         EXTENSIONS

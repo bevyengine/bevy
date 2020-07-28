@@ -17,6 +17,7 @@ impl Timer {
             ..Default::default()
         }
     }
+
     pub fn new(duration: Duration) -> Self {
         Timer {
             duration: duration.as_secs_f32(),

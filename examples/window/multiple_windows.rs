@@ -9,7 +9,7 @@ use bevy::{
     window::{CreateWindow, WindowDescriptor, WindowId},
 };
 
-/// This example creates a second window and draws a mesh from two different cameras. 
+/// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
         .add_default_plugins()

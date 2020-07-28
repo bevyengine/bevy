@@ -29,6 +29,7 @@ impl<'a> ShaderDefIterator<'a> {
 }
 impl<'a> Iterator for ShaderDefIterator<'a> {
     type Item = &'a str;
+
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if self.index == self.shader_defs.shader_defs_len() {

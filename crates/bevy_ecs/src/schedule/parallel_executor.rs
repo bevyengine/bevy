@@ -32,6 +32,7 @@ impl ParallelExecutor {
             ..Default::default()
         }
     }
+
     pub fn prepare(&mut self, schedule: &mut Schedule, world: &World) {
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule_generation != self.last_schedule_generation;

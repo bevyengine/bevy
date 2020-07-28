@@ -28,6 +28,7 @@ impl fmt::Display for LocalTransform {
 
 impl Deref for LocalTransform {
     type Target = Mat4;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

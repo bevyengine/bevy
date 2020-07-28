@@ -25,6 +25,7 @@ impl From<Quat> for Rotation {
 
 impl Deref for Rotation {
     type Target = Quat;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

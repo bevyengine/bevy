@@ -97,6 +97,7 @@ impl<'a, T: Component> Drop for Ref<'a, T> {
 
 impl<'a, T: Component> Deref for Ref<'a, T> {
     type Target = T;
+
     fn deref(&self) -> &T {
         unsafe { self.target.as_ref() }
     }
@@ -153,6 +154,7 @@ impl<'a, T: Component> Drop for RefMut<'a, T> {
 
 impl<'a, T: Component> Deref for RefMut<'a, T> {
     type Target = T;
+
     fn deref(&self) -> &T {
         unsafe { self.target.as_ref() }
     }

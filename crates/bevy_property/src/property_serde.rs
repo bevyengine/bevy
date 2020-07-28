@@ -223,6 +223,7 @@ impl<'a> DynamicPropertiesDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for DynamicPropertiesDeserializer<'a> {
     type Value = DynamicProperties;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -239,6 +240,7 @@ struct DynamicPropertiesVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisiter<'a> {
     type Value = DynamicProperties;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("dynamic property")
     }
@@ -261,6 +263,7 @@ pub struct PropertyDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
     type Value = Box<dyn Property>;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -283,6 +286,7 @@ pub struct SeqPropertyDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for SeqPropertyDeserializer<'a> {
     type Value = DynamicProperties;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -299,6 +303,7 @@ pub struct SeqPropertyVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for SeqPropertyVisiter<'a> {
     type Value = DynamicProperties;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("property value")
     }
@@ -330,6 +335,7 @@ impl<'a> MapPropertyDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for MapPropertyDeserializer<'a> {
     type Value = DynamicProperties;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -346,6 +352,7 @@ struct MapPropertyVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for MapPropertyVisiter<'a> {
     type Value = DynamicProperties;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("map value")
     }
@@ -373,6 +380,7 @@ struct AnyPropVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for AnyPropVisiter<'a> {
     type Value = Box<dyn Property>;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("property value")
     }

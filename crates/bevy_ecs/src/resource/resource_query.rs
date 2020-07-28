@@ -39,6 +39,7 @@ unsafe impl<T: Component> Sync for Res<'_, T> {}
 
 impl<'a, T: Component> Deref for Res<'a, T> {
     type Target = T;
+
     fn deref(&self) -> &T {
         self.value
     }
@@ -64,6 +65,7 @@ unsafe impl<T: Component> Sync for ResMut<'_, T> {}
 
 impl<'a, T: Component> Deref for ResMut<'a, T> {
     type Target = T;
+
     fn deref(&self) -> &T {
         unsafe { &*self.value }
     }
@@ -100,6 +102,7 @@ impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
 
 impl<'a, T: Component + FromResources> Deref for Local<'a, T> {
     type Target = T;
+
     fn deref(&self) -> &T {
         unsafe { &*self.value }
     }
@@ -142,6 +145,7 @@ pub struct FetchResourceRead<T>(NonNull<T>);
 
 impl<'a, T: Component> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
+
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
     }
@@ -169,6 +173,7 @@ pub struct FetchResourceWrite<T>(NonNull<T>);
 
 impl<'a, T: Component> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
+
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         ResMut::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
     }
@@ -202,6 +207,7 @@ pub struct FetchResourceLocalMut<T>(NonNull<T>);
 
 impl<'a, T: Component + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
+
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
         let id = system_id.expect("Local<T> resources can only be used by systems");
         Local {

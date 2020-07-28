@@ -14,6 +14,7 @@ impl Children {
 
 impl Deref for Children {
     type Target = SmallVec<[Entity; 8]>;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

@@ -69,12 +69,14 @@ impl dyn RenderResourceContext {
     {
         self.set_asset_resource_untyped(handle.into(), resource, index);
     }
+
     pub fn get_asset_resource<T>(&self, handle: Handle<T>, index: usize) -> Option<RenderResourceId>
     where
         T: 'static,
     {
         self.get_asset_resource_untyped(handle.into(), index)
     }
+
     pub fn remove_asset_resource<T>(&self, handle: Handle<T>, index: usize)
     where
         T: 'static,

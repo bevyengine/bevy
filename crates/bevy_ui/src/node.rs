@@ -1,6 +1,6 @@
 use bevy_math::{Rect, Size, Vec2};
 use bevy_render::renderer::RenderResources;
-use std::ops::{AddAssign, Add};
+use std::ops::{Add, AddAssign};
 
 #[derive(Debug, Clone, Default, RenderResources)]
 pub struct Node {
@@ -23,6 +23,7 @@ impl Default for Val {
 
 impl Add<f32> for Val {
     type Output = Val;
+
     fn add(self, rhs: f32) -> Self::Output {
         match self {
             Val::Undefined => Val::Undefined,
@@ -36,7 +37,7 @@ impl Add<f32> for Val {
 impl AddAssign<f32> for Val {
     fn add_assign(&mut self, rhs: f32) {
         match self {
-            Val::Undefined | Val::Auto => {},
+            Val::Undefined | Val::Auto => {}
             Val::Px(value) => *value += rhs,
             Val::Percent(value) => *value += rhs,
         }

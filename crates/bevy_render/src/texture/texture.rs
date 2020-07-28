@@ -147,10 +147,13 @@ impl RenderResource for Option<Handle<Texture>> {
     fn resource_type(&self) -> Option<RenderResourceType> {
         self.map(|_texture| RenderResourceType::Texture)
     }
+
     fn write_buffer_bytes(&self, _buffer: &mut [u8]) {}
+
     fn buffer_byte_len(&self) -> Option<usize> {
         None
     }
+
     fn texture(&self) -> Option<Handle<Texture>> {
         self.clone()
     }
@@ -160,10 +163,13 @@ impl RenderResource for Handle<Texture> {
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Texture)
     }
+
     fn write_buffer_bytes(&self, _buffer: &mut [u8]) {}
+
     fn buffer_byte_len(&self) -> Option<usize> {
         None
     }
+
     fn texture(&self) -> Option<Handle<Texture>> {
         Some(self.clone())
     }

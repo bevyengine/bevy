@@ -147,6 +147,7 @@ impl BuildChildren for Commands {
         }
         self
     }
+
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
         {
             let mut commands = self.commands.lock().unwrap();
@@ -157,6 +158,7 @@ impl BuildChildren for Commands {
         }
         self
     }
+
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
         {
             let mut commands = self.commands.lock().unwrap();
@@ -199,6 +201,7 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
         });
         self
     }
+
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
         self.commands.write_world(InsertChildren {
             children: SmallVec::from(children),

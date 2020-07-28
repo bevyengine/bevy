@@ -43,6 +43,7 @@ impl DynamicProperties {
             self.prop_indices.insert(cow_name, self.props.len() - 1);
         }
     }
+
     pub fn set<T: Property>(&mut self, name: &str, prop: T) {
         // TODO: validate map / seq operations
         if let Some(index) = self.prop_indices.get(name) {
@@ -51,6 +52,7 @@ impl DynamicProperties {
             self.push(Box::new(prop), Some(name));
         }
     }
+
     pub fn set_box(&mut self, name: &str, prop: Box<dyn Property>) {
         // TODO: validate map / seq operations
         if let Some(index) = self.prop_indices.get(name) {
@@ -122,14 +124,17 @@ impl Property for DynamicProperties {
     fn any(&self) -> &dyn Any {
         self
     }
+
     #[inline]
     fn any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.to_dynamic())
     }
+
     #[inline]
     fn set(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {

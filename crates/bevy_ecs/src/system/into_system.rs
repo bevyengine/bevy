@@ -70,6 +70,7 @@ where
     fn initialize(&mut self, resources: &mut Resources) {
         (self.init_func)(resources);
     }
+
     fn id(&self) -> SystemId {
         self.id
     }

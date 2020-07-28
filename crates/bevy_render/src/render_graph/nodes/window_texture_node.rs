@@ -17,6 +17,7 @@ pub struct WindowTextureNode {
 
 impl WindowTextureNode {
     pub const OUT_TEXTURE: &'static str = "texture";
+
     pub fn new(window_id: WindowId, descriptor: TextureDescriptor) -> Self {
         WindowTextureNode {
             window_id,

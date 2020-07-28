@@ -116,6 +116,7 @@ impl RenderContext for WgpuRenderContext {
     fn resources(&self) -> &dyn RenderResourceContext {
         &self.render_resource_context
     }
+
     fn resources_mut(&mut self) -> &mut dyn RenderResourceContext {
         &mut self.render_resource_context
     }

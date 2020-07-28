@@ -36,6 +36,7 @@ impl AssetLoader<Texture> for HdrTextureLoader {
             format,
         ))
     }
+
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["hdr"];
         EXTENSIONS

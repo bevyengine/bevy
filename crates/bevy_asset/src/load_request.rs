@@ -61,6 +61,7 @@ where
             .send(asset_result)
             .expect("loaded asset should have been sent");
     }
+
     fn extensions(&self) -> &[&str] {
         self.loader.extensions()
     }

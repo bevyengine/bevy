@@ -19,6 +19,7 @@ impl CameraProjection for PerspectiveProjection {
     fn get_projection_matrix(&self) -> Mat4 {
         Mat4::perspective_rh(self.fov, self.aspect_ratio, self.near, self.far)
     }
+
     fn update(&mut self, width: usize, height: usize) {
         self.aspect_ratio = width as f32 / height as f32;
     }
@@ -64,6 +65,7 @@ impl CameraProjection for OrthographicProjection {
             self.far,
         )
     }
+
     fn update(&mut self, width: usize, height: usize) {
         match self.window_origin {
             WindowOrigin::Center => {

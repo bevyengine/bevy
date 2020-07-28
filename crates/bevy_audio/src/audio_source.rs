@@ -22,6 +22,7 @@ impl AssetLoader<AudioSource> for Mp3Loader {
             bytes: Arc::new(bytes),
         })
     }
+
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["mp3"];
         EXTENSIONS

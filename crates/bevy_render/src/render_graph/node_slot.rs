@@ -86,6 +86,7 @@ impl ResourceSlots {
                 .ok_or_else(|| RenderGraphError::InvalidNodeSlot(label)),
         }
     }
+
     pub fn iter(&self) -> impl Iterator<Item = &ResourceSlot> {
         self.slots.iter()
     }

@@ -104,6 +104,7 @@ impl<'a> RenderResourceIterator<'a> {
 }
 impl<'a> Iterator for RenderResourceIterator<'a> {
     type Item = &'a dyn RenderResource;
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.render_resources.render_resources_len() {
             None
@@ -125,12 +126,15 @@ macro_rules! impl_render_resource_bytes {
             fn resource_type(&self) -> Option<RenderResourceType> {
                 Some(RenderResourceType::Buffer)
             }
+
             fn write_buffer_bytes(&self, buffer: &mut [u8]) {
                 self.write_bytes(buffer);
             }
+
             fn buffer_byte_len(&self) -> Option<usize> {
                 Some(self.byte_len())
             }
+
             fn texture(&self) -> Option<Handle<Texture>> {
                 None
             }
@@ -161,12 +165,15 @@ where
     fn resource_type(&self) -> Option<RenderResourceType> {
         Some(RenderResourceType::Buffer)
     }
+
     fn write_buffer_bytes(&self, buffer: &mut [u8]) {
         self.write_bytes(buffer);
     }
+
     fn buffer_byte_len(&self) -> Option<usize> {
         Some(self.byte_len())
     }
+
     fn texture(&self) -> Option<Handle<Texture>> {
         None
     }

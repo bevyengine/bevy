@@ -22,12 +22,12 @@ pub struct Color {
 unsafe impl Byteable for Color {}
 
 impl Color {
-    pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
     pub const BLACK: Color = Color::rgb(0.0, 0.0, 0.0);
-    pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
-    pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
     pub const BLUE: Color = Color::rgb(0.0, 0.0, 1.0);
+    pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
     pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
+    pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
+    pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
 
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
@@ -57,6 +57,7 @@ impl AddAssign<Color> for Color {
 
 impl Add<Color> for Color {
     type Output = Color;
+
     fn add(self, rhs: Color) -> Self::Output {
         Color {
             r: self.r + rhs.r,
@@ -69,6 +70,7 @@ impl Add<Color> for Color {
 
 impl Add<Vec4> for Color {
     type Output = Color;
+
     fn add(self, rhs: Vec4) -> Self::Output {
         Color {
             r: self.r + rhs.x(),
@@ -97,6 +99,7 @@ impl Into<[f32; 4]> for Color {
 }
 impl Mul<f32> for Color {
     type Output = Color;
+
     fn mul(self, rhs: f32) -> Self::Output {
         Color {
             r: self.r * rhs,
@@ -118,6 +121,7 @@ impl MulAssign<f32> for Color {
 
 impl Mul<Vec4> for Color {
     type Output = Color;
+
     fn mul(self, rhs: Vec4) -> Self::Output {
         Color {
             r: self.r * rhs.x(),
@@ -139,12 +143,13 @@ impl MulAssign<Vec4> for Color {
 
 impl Mul<Vec3> for Color {
     type Output = Color;
+
     fn mul(self, rhs: Vec3) -> Self::Output {
         Color {
             r: self.r * rhs.x(),
             g: self.g * rhs.y(),
             b: self.b * rhs.z(),
-            a: self.a
+            a: self.a,
         }
     }
 }
@@ -164,6 +169,7 @@ impl Bytes for ColorSource {
             ColorSource::Texture(_) => {} // Texture is not a uniform
         }
     }
+
     fn byte_len(&self) -> usize {
         match *self {
             ColorSource::Color(ref color) => color.byte_len(),

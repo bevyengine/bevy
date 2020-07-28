@@ -1,2 +1,4 @@
 merge_imports = true
 use_field_init_shorthand = true
+reorder_impl_items = true
+newline_style = "Unix"

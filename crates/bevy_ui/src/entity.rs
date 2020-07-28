@@ -1,8 +1,8 @@
 use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
-    widget::{Button, Text, Image},
-    FocusPolicy, Interaction, Style, CalculatedSize,
+    widget::{Button, Image, Text},
+    CalculatedSize, FocusPolicy, Interaction, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -109,7 +109,6 @@ impl Default for ImageComponents {
         }
     }
 }
-
 
 #[derive(Bundle)]
 pub struct TextComponents {

@@ -150,6 +150,7 @@ pub struct FetchDrawContext;
 // TODO: derive this impl
 impl<'a> FetchResource<'a> for FetchDrawContext {
     type Item = DrawContext<'a>;
+
     fn borrow(resources: &Resources) {
         resources.borrow_mut::<Assets<PipelineDescriptor>>();
         resources.borrow_mut::<Assets<Shader>>();
@@ -158,6 +159,7 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         resources.borrow::<VertexBufferDescriptors>();
         resources.borrow::<SharedBuffers>();
     }
+
     fn release(resources: &Resources) {
         resources.release_mut::<Assets<PipelineDescriptor>>();
         resources.release_mut::<Assets<Shader>>();
@@ -166,6 +168,7 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         resources.release::<VertexBufferDescriptors>();
         resources.release::<SharedBuffers>();
     }
+
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         DrawContext {
             pipelines: ResMut::new(

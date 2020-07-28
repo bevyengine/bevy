@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// This example illustrates how Properties work. Properties provide a way to dynamically interact with Rust struct fields using
 /// their names. Properties are a core part of Bevy and enable a number of interesting scenarios (like scenes). If you are
-/// familiar with "reflection" in other languages, Properties are very similar to that concept. 
+/// familiar with "reflection" in other languages, Properties are very similar to that concept.
 fn main() {
     App::build()
         .add_default_plugins()

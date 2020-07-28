@@ -1,8 +1,8 @@
-use std::ops::{Add, AddAssign};
 use glam::Vec2;
+use std::ops::{Add, AddAssign};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Size<T=f32> {
+pub struct Size<T = f32> {
     pub width: T,
     pub height: T,
 }
@@ -31,7 +31,10 @@ pub struct Rect<T> {
 }
 
 impl<T> Rect<T> {
-    pub fn all(value: T) -> Self where T: Clone{
+    pub fn all(value: T) -> Self
+    where
+        T: Clone,
+    {
         Rect {
             left: value.clone(),
             right: value.clone(),
@@ -52,8 +55,12 @@ impl<T: Default> Default for Rect<T> {
     }
 }
 
-impl<T> Add<Vec2> for Size<T> where T: Add<f32, Output=T> {
+impl<T> Add<Vec2> for Size<T>
+where
+    T: Add<f32, Output = T>,
+{
     type Output = Size<T>;
+
     fn add(self, rhs: Vec2) -> Self::Output {
         Self {
             width: self.width + rhs.x(),
@@ -62,7 +69,10 @@ impl<T> Add<Vec2> for Size<T> where T: Add<f32, Output=T> {
     }
 }
 
-impl<T> AddAssign<Vec2> for Size<T> where T: AddAssign<f32> {
+impl<T> AddAssign<Vec2> for Size<T>
+where
+    T: AddAssign<f32>,
+{
     fn add_assign(&mut self, rhs: Vec2) {
         self.width += rhs.x();
         self.height += rhs.y();

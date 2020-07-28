@@ -622,6 +622,7 @@ impl Default for World {
 impl<'a> IntoIterator for &'a World {
     type IntoIter = Iter<'a>;
     type Item = (Entity, EntityRef<'a>);
+
     fn into_iter(self) -> Iter<'a> {
         self.iter()
     }
@@ -700,6 +701,7 @@ unsafe impl Sync for Iter<'_> {}
 
 impl<'a> Iterator for Iter<'a> {
     type Item = (Entity, EntityRef<'a>);
+
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.current {

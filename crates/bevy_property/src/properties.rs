@@ -55,6 +55,7 @@ impl<'a> PropertyIter<'a> {
 
 impl<'a> Iterator for PropertyIter<'a> {
     type Item = &'a dyn Property;
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.props.prop_len() {
             let prop = self.props.prop_with_index(self.index).unwrap();
@@ -79,6 +80,7 @@ where
     fn prop_val<T: 'static>(&self, name: &str) -> Option<&T> {
         self.prop(name).and_then(|p| p.any().downcast_ref::<T>())
     }
+
     #[inline]
     fn set_prop_val<T: 'static>(&mut self, name: &str, value: T) {
         if let Some(prop) = self.prop_mut(name) {

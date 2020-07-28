@@ -63,8 +63,8 @@ pub struct VertexAttribute {
 }
 
 impl VertexAttribute {
-    pub const POSITION: &'static str = "Vertex_Position";
     pub const NORMAL: &'static str = "Vertex_Normal";
+    pub const POSITION: &'static str = "Vertex_Position";
     pub const UV: &'static str = "Vertex_Uv";
 
     pub fn position(positions: Vec<[f32; 3]>) -> Self {

@@ -186,6 +186,7 @@ where
             buffer_array_status.buffer = Some(buffer);
         }
     }
+
     fn update_staging_buffer(&mut self, render_resource_context: &dyn RenderResourceContext) {
         let mut size = 0;
         for dynamic_buffer_array_status in self.uniform_arrays.iter_mut() {

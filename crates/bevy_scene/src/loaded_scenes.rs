@@ -33,6 +33,7 @@ impl AssetLoader<Scene> for SceneLoader {
         let scene = scene_deserializer.deserialize(&mut deserializer)?;
         Ok(scene)
     }
+
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["scn"];
         EXTENSIONS

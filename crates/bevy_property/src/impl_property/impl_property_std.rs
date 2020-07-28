@@ -18,21 +18,27 @@ where
     fn prop(&self, _name: &str) -> Option<&dyn Property> {
         None
     }
+
     fn prop_mut(&mut self, _name: &str) -> Option<&mut dyn Property> {
         None
     }
+
     fn prop_with_index(&self, index: usize) -> Option<&dyn Property> {
         Some(&self[index])
     }
+
     fn prop_with_index_mut(&mut self, index: usize) -> Option<&mut dyn Property> {
         Some(&mut self[index])
     }
+
     fn prop_name(&self, _index: usize) -> Option<&str> {
         None
     }
+
     fn prop_len(&self) -> usize {
         self.len()
     }
+
     fn iter_props(&self) -> PropertyIter {
         PropertyIter::new(self)
     }
@@ -45,9 +51,11 @@ where
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
+
     fn any(&self) -> &dyn Any {
         self
     }
+
     fn any_mut(&mut self) -> &mut dyn Any {
         self
     }
@@ -55,6 +63,7 @@ where
     fn clone_prop(&self) -> Box<dyn Property> {
         Box::new(self.clone())
     }
+
     fn set(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {
             if properties.property_type() != self.property_type() {
@@ -71,6 +80,7 @@ where
             panic!("attempted to apply non-Properties type to Properties type");
         }
     }
+
     fn apply(&mut self, value: &dyn Property) {
         self.set(value);
     }

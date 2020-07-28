@@ -31,6 +31,7 @@ impl From<Vec3> for Translation {
 
 impl Deref for Translation {
     type Target = Vec3;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

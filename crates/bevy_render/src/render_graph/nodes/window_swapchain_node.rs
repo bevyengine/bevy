@@ -15,6 +15,7 @@ pub struct WindowSwapChainNode {
 
 impl WindowSwapChainNode {
     pub const OUT_TEXTURE: &'static str = "texture";
+
     pub fn new(window_id: WindowId) -> Self {
         WindowSwapChainNode {
             window_id,

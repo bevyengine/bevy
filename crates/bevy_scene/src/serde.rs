@@ -87,6 +87,7 @@ pub struct SceneDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     type Value = Scene;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -106,6 +107,7 @@ struct SceneEntitySeqVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
     type Value = Vec<Entity>;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("list of entities")
     }
@@ -131,6 +133,7 @@ pub struct SceneEntityDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     type Value = Entity;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -162,6 +165,7 @@ struct SceneEntityVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
     type Value = Entity;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("entities")
     }
@@ -212,6 +216,7 @@ pub struct ComponentVecDeserializer<'a> {
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
     type Value = Vec<DynamicProperties>;
+
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -228,6 +233,7 @@ struct ComponentSeqVisiter<'a> {
 
 impl<'a, 'de> Visitor<'de> for ComponentSeqVisiter<'a> {
     type Value = Vec<DynamicProperties>;
+
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("list of components")
     }

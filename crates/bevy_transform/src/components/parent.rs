@@ -20,6 +20,7 @@ pub struct PreviousParent(pub Option<Entity>);
 
 impl Deref for Parent {
     type Target = Entity;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }

@@ -35,6 +35,7 @@ impl fmt::Display for Scale {
 
 impl Deref for Scale {
     type Target = f32;
+
     fn deref(&self) -> &Self::Target {
         &self.0
     }
