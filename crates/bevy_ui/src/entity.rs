@@ -2,7 +2,7 @@ use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Text, Image},
-    Click, FocusPolicy, Hover, Style, CalculatedSize,
+    FocusPolicy, Interaction, Style, CalculatedSize,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -146,8 +146,7 @@ pub struct ButtonComponents {
     pub node: Node,
     pub button: Button,
     pub style: Style,
-    pub click: Click,
-    pub hover: Hover,
+    pub interaction: Interaction,
     pub focus_policy: FocusPolicy,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
@@ -180,8 +179,7 @@ impl Default for ButtonComponents {
                     ..Default::default()
                 },
             )]),
-            click: Default::default(),
-            hover: Default::default(),
+            interaction: Default::default(),
             focus_policy: Default::default(),
             node: Default::default(),
             style: Default::default(),

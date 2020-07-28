@@ -28,58 +28,28 @@ impl FromResources for ButtonMaterials {
 
 fn button_system(
     button_materials: Res<ButtonMaterials>,
-    mut click_query: Query<(
+    mut interaction_query: Query<(
         &Button,
-        Mutated<Click>,
-        Option<&Hover>,
-        &mut Handle<ColorMaterial>,
-        &Children,
-    )>,
-    mut hover_query: Query<(
-        &Button,
-        Mutated<Hover>,
-        Option<&Click>,
+        Mutated<Interaction>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
     text_query: Query<&mut Text>,
 ) {
-    for (_button, hover, click, mut material, children) in &mut hover_query.iter() {
+    for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
-        match *hover {
-            Hover::Hovered => {
-                if let Some(Click::Released) = click {
-                    text.value = "Hover".to_string();
-                    *material = button_materials.hovered;
-                }
-            }
-            Hover::NotHovered => {
-                if let Some(Click::Pressed) = click {
-                    text.value = "Press".to_string();
-                    *material = button_materials.pressed;
-                } else {
-                    text.value = "Button".to_string();
-                    *material = button_materials.normal;
-                }
-            }
-        }
-    }
-
-    for (_button, click, hover, mut material, children) in &mut click_query.iter() {
-        let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
-        match *click {
-            Click::Pressed => {
+        match *interaction {
+            Interaction::Clicked => {
                 text.value = "Press".to_string();
                 *material = button_materials.pressed;
             }
-            Click::Released => {
-                if let Some(Hover::Hovered) = hover {
-                    text.value = "Hover".to_string();
-                    *material = button_materials.hovered;
-                } else {
-                    text.value = "Button".to_string();
-                    *material = button_materials.normal;
-                }
+            Interaction::Hovered => {
+                text.value = "Hover".to_string();
+                *material = button_materials.hovered;
+            }
+            Interaction::None => {
+                text.value = "Button".to_string();
+                *material = button_materials.normal;
             }
         }
     }

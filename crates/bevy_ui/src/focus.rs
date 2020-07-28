@@ -8,26 +8,15 @@ use bevy_transform::components::Transform;
 use bevy_window::CursorMoved;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Click {
-    Released,
-    Pressed,
-}
-
-impl Default for Click {
-    fn default() -> Self {
-        Click::Released
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Hover {
+pub enum Interaction {
+    Clicked,
     Hovered,
-    NotHovered,
+    None,
 }
 
-impl Default for Hover {
+impl Default for Interaction {
     fn default() -> Self {
-        Hover::NotHovered
+        Interaction::None
     }
 }
 
@@ -58,8 +47,7 @@ pub fn ui_focus_system(
         Entity,
         &Node,
         &Transform,
-        Option<&mut Click>,
-        Option<&mut Hover>,
+        Option<&mut Interaction>,
         Option<&FocusPolicy>,
     )>,
 ) {
@@ -68,10 +56,10 @@ pub fn ui_focus_system(
     }
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _transform, click, _hover, _focus_policy) in &mut node_query.iter() {
-            if let Some(mut click) = click {
-                if *click == Click::Pressed {
-                    *click = Click::Released;
+        for (_entity, _node, _transform, interaction, _focus_policy) in &mut node_query.iter() {
+            if let Some(mut interaction) = interaction {
+                if *interaction == Interaction::Clicked {
+                    *interaction = Interaction::None;
                 }
             }
         }
@@ -84,7 +72,7 @@ pub fn ui_focus_system(
         let mut query_iter = node_query.iter();
         let mut moused_over_z_sorted_nodes = query_iter
             .iter()
-            .filter_map(|(entity, node, transform, click, hover, focus_policy)| {
+            .filter_map(|(entity, node, transform, interaction, focus_policy)| {
                 let position = transform.value.w_axis();
                 let ui_position = position.truncate().truncate();
                 let extents = node.size / 2.0;
@@ -94,11 +82,11 @@ pub fn ui_focus_system(
                 if (min.x()..max.x()).contains(&state.cursor_position.x())
                     && (min.y()..max.y()).contains(&state.cursor_position.y())
                 {
-                    Some((entity, focus_policy, click, hover, FloatOrd(position.z())))
+                    Some((entity, focus_policy, interaction, FloatOrd(position.z())))
                 } else {
-                    if let Some(mut hover) = hover {
-                        if *hover == Hover::Hovered {
-                            *hover = Hover::NotHovered;
+                    if let Some(mut interaction) = interaction {
+                        if *interaction == Interaction::Hovered {
+                            *interaction = Interaction::None;
                         }
                     }
                     None
@@ -106,24 +94,21 @@ pub fn ui_focus_system(
             })
             .collect::<Vec<_>>();
 
-        moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, _, z)| -*z);
-        for (entity, focus_policy, click, hover, _) in moused_over_z_sorted_nodes {
-            if mouse_clicked {
-                // only consider nodes with ClickState "clickable"
-                if let Some(mut click) = click {
-                    if *click == Click::Released {
-                        *click = Click::Pressed;
+        moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
+        for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
+            if let Some(mut interaction) = interaction {
+                if mouse_clicked {
+                    // only consider nodes with ClickState "clickable"
+                    if *interaction != Interaction::Clicked {
+                        *interaction = Interaction::Clicked;
                     }
+                } else if *interaction == Interaction::None {
+                    *interaction = Interaction::Hovered;
                 }
             }
-            // only consider nodes with Hover "hoverable"
-            if let Some(mut hover) = hover {
-                if *hover == Hover::NotHovered {
-                    *hover = Hover::Hovered;
-                }
 
-                hovered_entity = Some(entity);
-            }
+            hovered_entity = Some(entity);
+
             match focus_policy.cloned().unwrap_or(FocusPolicy::Block) {
                 FocusPolicy::Block => {
                     break;
@@ -137,9 +122,9 @@ pub fn ui_focus_system(
     if let Some(new_hovered_entity) = hovered_entity {
         if let Some(old_hovered_entity) = state.hovered_entity {
             if new_hovered_entity != old_hovered_entity {
-                if let Ok(mut hover) = node_query.get_mut(old_hovered_entity) {
-                    if *hover == Hover::Hovered {
-                        *hover = Hover::NotHovered;
+                if let Ok(mut interaction) = node_query.get_mut::<Interaction>(old_hovered_entity) {
+                    if *interaction == Interaction::Hovered {
+                        *interaction = Interaction::None;
                     }
                 }
                 state.hovered_entity = None;

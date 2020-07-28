@@ -20,7 +20,7 @@ pub mod prelude {
         entity::*,
         node::*,
         widget::{Button, Text},
-        Anchors, Click, Hover, Margins,
+        Anchors, Interaction, Margins,
     };
 }
 
