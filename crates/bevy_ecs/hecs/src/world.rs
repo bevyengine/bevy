@@ -40,7 +40,8 @@ pub struct World {
     entities: Entities,
     index: HashMap<Vec<TypeId>, u32>,
     removed_components: HashMap<TypeId, Vec<Entity>>,
-    archetypes: Vec<Archetype>,
+    #[allow(missing_docs)]
+    pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
 }
 

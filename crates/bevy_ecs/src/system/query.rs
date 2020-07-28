@@ -1,0 +1,315 @@
+use hecs::{
+    Component, ComponentError, Entity, Query as HecsQuery, Ref, RefMut, World, Archetype, Access, Without, With, Fetch,
+};
+use std::marker::PhantomData;
+use crate::ArchetypeAccess;
+
+pub struct Query<'a, Q: HecsQuery> {
+    pub(crate) world: &'a World,
+    pub(crate) archetype_access: &'a ArchetypeAccess,
+    _marker: PhantomData<Q>,
+}
+
+#[derive(Debug)]
+pub enum QueryComponentError {
+    CannotReadArchetype,
+    CannotWriteArchetype,
+    ComponentError(ComponentError),
+}
+
+impl<'a, Q: HecsQuery> Query<'a, Q> {
+    #[inline]
+    pub fn new(world: &'a World, archetype_access: &'a ArchetypeAccess) -> Self {
+        Self {
+            world,
+            archetype_access,
+            _marker: PhantomData::default()
+        }
+    }
+
+    #[inline]
+    pub fn iter(&mut self) -> QueryBorrow<'_, Q> {
+        QueryBorrow::new(&self.world.archetypes)
+    }
+
+    /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
+    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, QueryComponentError> {
+        if let Some(location) = self.world.get_entity_location(entity) {
+            if self
+                .archetype_access
+                .immutable
+                .contains(location.archetype as usize)
+                || self
+                    .archetype_access
+                    .mutable
+                    .contains(location.archetype as usize)
+            {
+                self.world
+                    .get(entity)
+                    .map_err(|err| QueryComponentError::ComponentError(err))
+            } else {
+                Err(QueryComponentError::CannotReadArchetype)
+            }
+        } else {
+            Err(QueryComponentError::ComponentError(
+                ComponentError::NoSuchEntity,
+            ))
+        }
+    }
+
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
+    pub fn get_mut<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<RefMut<'_, T>, QueryComponentError> {
+        if let Some(location) = self.world.get_entity_location(entity) {
+            if self
+                .archetype_access
+                .mutable
+                .contains(location.archetype as usize)
+            {
+                self.world
+                    .get_mut(entity)
+                    .map_err(|err| QueryComponentError::ComponentError(err))
+            } else {
+                Err(QueryComponentError::CannotWriteArchetype)
+            }
+        } else {
+            Err(QueryComponentError::ComponentError(
+                ComponentError::NoSuchEntity,
+            ))
+        }
+    }
+
+    pub fn removed<C: Component>(&self) -> &[Entity] {
+        self.world.removed::<C>()
+    }
+
+    /// Sets the entity's component to the given value. This will fail if the entity does not already have
+    /// the given component type or if the given component type does not match this query.
+    pub fn set<T: Component>(
+        &self,
+        entity: Entity,
+        component: T,
+    ) -> Result<(), QueryComponentError> {
+        let mut current = self.get_mut::<T>(entity)?;
+        *current = component;
+        Ok(())
+    }
+}
+
+/// A borrow of a `World` sufficient to execute the query `Q`
+///
+/// Note that borrows are not released until this object is dropped.
+pub struct QueryBorrow<'w, Q: HecsQuery> {
+    archetypes: &'w [Archetype],
+    borrowed: bool,
+    _marker: PhantomData<Q>,
+}
+
+impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
+    pub(crate) fn new(archetypes: &'w [Archetype]) -> Self {
+        Self {
+            archetypes,
+            borrowed: false,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Execute the query
+    ///
+    /// Must be called only once per query.
+    #[inline]
+    pub fn iter<'q>(&'q mut self) -> QueryIter<'q, 'w, Q> {
+        self.borrow();
+        QueryIter {
+            borrow: self,
+            archetype_index: 0,
+            iter: None,
+        }
+    }
+
+    fn borrow(&mut self) {
+        if self.borrowed {
+            panic!(
+                "called QueryBorrow::iter twice on the same borrow; construct a new query instead"
+            );
+        }
+        for x in self.archetypes {
+            // TODO: Release prior borrows on failure?
+            if Q::Fetch::access(x) >= Some(Access::Read) {
+                Q::Fetch::borrow(x);
+            }
+        }
+        self.borrowed = true;
+    }
+
+    /// Transform the query into one that requires a certain component without borrowing it
+    ///
+    /// This can be useful when the component needs to be borrowed elsewhere and it isn't necessary
+    /// for the iterator to expose its data directly.
+    ///
+    /// Equivalent to using a query type wrapped in `With`.
+    ///
+    /// # Example
+    /// ```
+    /// # use hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// let b = world.spawn((456, false));
+    /// let c = world.spawn((42, "def"));
+    /// let entities = world.query::<(Entity, &i32)>()
+    ///     .with::<bool>()
+    ///     .iter()
+    ///     .map(|(e, &i)| (e, i)) // Copy out of the world
+    ///     .collect::<Vec<_>>();
+    /// assert!(entities.contains(&(a, 123)));
+    /// assert!(entities.contains(&(b, 456)));
+    /// ```
+    pub fn with<T: Component>(self) -> QueryBorrow<'w, With<T, Q>> {
+        self.transform()
+    }
+
+    /// Transform the query into one that skips entities having a certain component
+    ///
+    /// Equivalent to using a query type wrapped in `Without`.
+    ///
+    /// # Example
+    /// ```
+    /// # use hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// let b = world.spawn((456, false));
+    /// let c = world.spawn((42, "def"));
+    /// let entities = world.query::<(Entity, &i32)>()
+    ///     .without::<bool>()
+    ///     .iter()
+    ///     .map(|(e, &i)| (e, i)) // Copy out of the world
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(entities, &[(c, 42)]);
+    /// ```
+    pub fn without<T: Component>(self) -> QueryBorrow<'w, Without<T, Q>> {
+        self.transform()
+    }
+
+    /// Helper to change the type of the query
+    fn transform<R: HecsQuery>(mut self) -> QueryBorrow<'w, R> {
+        let x = QueryBorrow {
+            archetypes: self.archetypes,
+            borrowed: self.borrowed,
+            _marker: PhantomData,
+        };
+        // Ensure `Drop` won't fire redundantly
+        self.borrowed = false;
+        x
+    }
+}
+
+unsafe impl<'w, Q: HecsQuery> Send for QueryBorrow<'w, Q> {}
+unsafe impl<'w, Q: HecsQuery> Sync for QueryBorrow<'w, Q> {}
+
+impl<'w, Q: HecsQuery> Drop for QueryBorrow<'w, Q> {
+    fn drop(&mut self) {
+        if self.borrowed {
+            for x in self.archetypes {
+                if Q::Fetch::access(x) >= Some(Access::Read) {
+                    Q::Fetch::release(x);
+                }
+            }
+        }
+    }
+}
+
+impl<'q, 'w, Q: HecsQuery> IntoIterator for &'q mut QueryBorrow<'w, Q> {
+    type IntoIter = QueryIter<'q, 'w, Q>;
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+/// Iterator over the set of entities with the components in `Q`
+pub struct QueryIter<'q, 'w, Q: HecsQuery> {
+    borrow: &'q mut QueryBorrow<'w, Q>,
+    archetype_index: u32,
+    iter: Option<ChunkIter<Q>>,
+}
+
+unsafe impl<'q, 'w, Q: HecsQuery> Send for QueryIter<'q, 'w, Q> {}
+unsafe impl<'q, 'w, Q: HecsQuery> Sync for QueryIter<'q, 'w, Q> {}
+
+impl<'q, 'w, Q: HecsQuery> Iterator for QueryIter<'q, 'w, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.iter {
+                None => {
+                    let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+                    self.archetype_index += 1;
+                    unsafe {
+                        self.iter = Q::Fetch::get(archetype, 0).map(|fetch| ChunkIter {
+                            fetch,
+                            len: archetype.len(),
+                        });
+                    }
+                }
+                Some(ref mut iter) => match unsafe { iter.next() } {
+                    None => {
+                        self.iter = None;
+                        continue;
+                    }
+                    Some(components) => {
+                        return Some(components);
+                    }
+                },
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.len();
+        (n, Some(n))
+    }
+}
+
+impl<'q, 'w, Q: HecsQuery> ExactSizeIterator for QueryIter<'q, 'w, Q> {
+    fn len(&self) -> usize {
+        self.borrow
+            .archetypes
+            .iter()
+            .filter(|&x| Q::Fetch::access(x).is_some())
+            .map(|x| x.len() as usize)
+            .sum()
+    }
+}
+
+struct ChunkIter<Q: HecsQuery> {
+    fetch: Q::Fetch,
+    len: u32,
+}
+
+impl<Q: HecsQuery> ChunkIter<Q> {
+    #[inline]
+    unsafe fn next<'a, 'w>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
+        loop {
+            if self.len == 0 {
+                return None;
+            }
+
+            self.len -= 1;
+            if self.fetch.should_skip() {
+                // we still need to progress the iterator
+                let _ = self.fetch.next();
+                continue;
+            }
+
+            break Some(self.fetch.next());
+        }
+    }
+}

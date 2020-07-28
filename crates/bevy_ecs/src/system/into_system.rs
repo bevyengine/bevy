@@ -1,12 +1,10 @@
+pub use super::Query;
 use super::TypeAccess;
 use crate::{
     resource::{FetchResource, ResourceQuery, Resources, UnsafeClone},
     system::{ArchetypeAccess, Commands, System, SystemId, ThreadLocalExecution},
 };
-use core::marker::PhantomData;
-use hecs::{
-    Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryBorrow, Ref, RefMut, World,
-};
+use hecs::{Fetch, Query as HecsQuery, World};
 use std::borrow::Cow;
 
 pub struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
@@ -133,92 +131,6 @@ macro_rules! impl_into_foreach_system {
     };
 }
 
-pub struct Query<'a, Q: HecsQuery> {
-    world: &'a World,
-    archetype_access: &'a ArchetypeAccess,
-    _marker: PhantomData<Q>,
-}
-
-#[derive(Debug)]
-pub enum QueryComponentError {
-    CannotReadArchetype,
-    CannotWriteArchetype,
-    ComponentError(ComponentError),
-}
-
-impl<'a, Q: HecsQuery> Query<'a, Q> {
-    pub fn iter(&mut self) -> QueryBorrow<'_, Q> {
-        self.world.query::<Q>()
-    }
-
-    /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
-    /// the given component type or if the given component type does not match this query.
-    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, QueryComponentError> {
-        if let Some(location) = self.world.get_entity_location(entity) {
-            if self
-                .archetype_access
-                .immutable
-                .contains(location.archetype as usize)
-                || self
-                    .archetype_access
-                    .mutable
-                    .contains(location.archetype as usize)
-            {
-                self.world
-                    .get(entity)
-                    .map_err(|err| QueryComponentError::ComponentError(err))
-            } else {
-                Err(QueryComponentError::CannotReadArchetype)
-            }
-        } else {
-            Err(QueryComponentError::ComponentError(
-                ComponentError::NoSuchEntity,
-            ))
-        }
-    }
-
-    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
-    /// the given component type or if the given component type does not match this query.
-    pub fn get_mut<T: Component>(
-        &self,
-        entity: Entity,
-    ) -> Result<RefMut<'_, T>, QueryComponentError> {
-        if let Some(location) = self.world.get_entity_location(entity) {
-            if self
-                .archetype_access
-                .mutable
-                .contains(location.archetype as usize)
-            {
-                self.world
-                    .get_mut(entity)
-                    .map_err(|err| QueryComponentError::ComponentError(err))
-            } else {
-                Err(QueryComponentError::CannotWriteArchetype)
-            }
-        } else {
-            Err(QueryComponentError::ComponentError(
-                ComponentError::NoSuchEntity,
-            ))
-        }
-    }
-
-    pub fn removed<C: Component>(&self) -> &[Entity] {
-        self.world.removed::<C>()
-    }
-
-    /// Sets the entity's component to the given value. This will fail if the entity does not already have
-    /// the given component type or if the given component type does not match this query.
-    pub fn set<T: Component>(
-        &self,
-        entity: Entity,
-        component: T,
-    ) -> Result<(), QueryComponentError> {
-        let mut current = self.get_mut::<T>(entity)?;
-        *current = component;
-        Ok(())
-    }
-}
-
 struct QuerySystemState {
     archetype_accesses: Vec<ArchetypeAccess>,
     commands: Commands,
@@ -265,11 +177,7 @@ macro_rules! impl_into_query_system {
                             let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
                             let mut i = 0;
                             $(
-                                let $query = Query::<$query> {
-                                    world,
-                                    archetype_access: &state.archetype_accesses[i],
-                                    _marker: PhantomData::default(),
-                                };
+                                let $query = Query::<$query>::new(world, &state.archetype_accesses[i]);
                                 i += 1;
                             )*
 
