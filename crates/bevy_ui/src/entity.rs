@@ -1,7 +1,7 @@
 use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
-    widget::{Button, Text},
+    widget::{Button, Text, Image},
     Click, FocusPolicy, Hover, Style, CalculatedSize,
 };
 use bevy_asset::Handle;
@@ -61,6 +61,55 @@ impl Default for NodeComponents {
         }
     }
 }
+
+#[derive(Bundle)]
+pub struct ImageComponents {
+    pub node: Node,
+    pub style: Style,
+    pub image: Image,
+    pub calculated_size: CalculatedSize,
+    pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
+    pub material: Handle<ColorMaterial>,
+    pub draw: Draw,
+    pub render_pipelines: RenderPipelines,
+    pub transform: Transform,
+    pub local_transform: LocalTransform,
+}
+
+impl Default for ImageComponents {
+    fn default() -> Self {
+        ImageComponents {
+            mesh: QUAD_HANDLE,
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+                UI_PIPELINE_HANDLE,
+                PipelineSpecialization {
+                    dynamic_bindings: vec![
+                        // Transform
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 0,
+                        },
+                        // Node_size
+                        DynamicBinding {
+                            bind_group: 1,
+                            binding: 1,
+                        },
+                    ],
+                    ..Default::default()
+                },
+            )]),
+            node: Default::default(),
+            image: Default::default(),
+            calculated_size: Default::default(),
+            style: Default::default(),
+            material: Default::default(),
+            draw: Default::default(),
+            transform: Default::default(),
+            local_transform: Default::default(),
+        }
+    }
+}
+
 
 #[derive(Bundle)]
 pub struct TextComponents {

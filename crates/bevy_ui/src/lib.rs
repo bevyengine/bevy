@@ -40,6 +40,7 @@ impl AppPlugin for UiPlugin {
             .add_system_to_stage_front(stage::POST_UPDATE, flex_node_system.system())
             .add_system_to_stage_front(stage::POST_UPDATE, ui_z_system.system())
             .add_system_to_stage_front(stage::POST_UPDATE, widget::text_system.system())
+            .add_system_to_stage_front(stage::POST_UPDATE, widget::image_node_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
         let resources = app.resources();

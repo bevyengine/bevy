@@ -6,7 +6,7 @@ use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, LocalTransform, Parent};
 use bevy_window::{Window, WindowId, Windows};
 use std::collections::HashMap;
-use stretch::Stretch;
+use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
@@ -43,40 +43,41 @@ impl FlexSurface {
     }
 
     pub fn upsert_leaf(&mut self, entity: Entity, style: &Style, calculated_size: CalculatedSize) {
-        let mut added = false;
         let stretch = &mut self.stretch;
         let stretch_style = style.into();
-        let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
-            added = true;
-            let stretch_node = stretch
-                .new_leaf(
-                    stretch_style,
-                    Box::new(move |_| {
-                        Ok(stretch::geometry::Size {
-                            width: calculated_size.size.width,
-                            height: calculated_size.size.height,
-                        })
-                    }),
-                )
-                .unwrap();
-            stretch_node
+        let measure = Box::new(move |constraints: stretch::geometry::Size<Number>| {
+            let mut size = stretch::geometry::Size {
+                width: calculated_size.size.width,
+                height: calculated_size.size.height,
+            };
+            match (constraints.width, constraints.height) {
+                (Number::Undefined, Number::Undefined) => {}
+                (Number::Defined(width), Number::Undefined) => {
+                    size.height = width * size.height / size.width;
+                    size.width = width;
+                }
+                (Number::Undefined, Number::Defined(height)) => {
+                    size.width = height * size.width / size.height;
+                    size.height = height;
+                }
+                (Number::Defined(width), Number::Defined(height)) => {
+                    size.width = width;
+                    size.height = height;
+                }
+            }
+            Ok(size)
         });
 
-        if !added {
+        if let Some(stretch_node) = self.entity_to_stretch.get(&entity) {
             self.stretch
                 .set_style(*stretch_node, stretch_style)
                 .unwrap();
             self.stretch
-                .set_measure(
-                    *stretch_node,
-                    Some(Box::new(move |_| {
-                        Ok(stretch::geometry::Size {
-                            width: calculated_size.size.width,
-                            height: calculated_size.size.height,
-                        })
-                    })),
-                )
+                .set_measure(*stretch_node, Some(measure))
                 .unwrap();
+        } else {
+            let stretch_node = stretch.new_leaf(stretch_style, measure).unwrap();
+            self.entity_to_stretch.insert(entity, stretch_node);
         }
     }
 

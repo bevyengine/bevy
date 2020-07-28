@@ -10,16 +10,8 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let texture_handle = asset_server
-        .load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png")
-        .unwrap();
-
-    let texture = textures.get(&texture_handle).unwrap();
-    let aspect = texture.aspect();
-
     commands
         // ui camera
         .spawn(UiCameraComponents::default())
@@ -87,7 +79,7 @@ fn setup(
                     material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
                     ..Default::default()
                 })
-                // Absolute positioning
+                // absolute positioning
                 .spawn(NodeComponents {
                     style: Style {
                         size: Size::new(Val::Px(200.0), Val::Px(200.0)),
@@ -222,12 +214,17 @@ fn setup(
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    parent.spawn(NodeComponents {
+                    parent.spawn(ImageComponents {
                         style: Style {
-                            min_size: Size::new(Val::Px(500.0), Val::Px(500.0 * aspect)),
+                            size: Size::new(Val::Px(500.0), Val::Auto),
                             ..Default::default()
                         },
-                        material: materials.add(ColorMaterial::texture(texture_handle)),
+                        material: materials.add(
+                            asset_server
+                                .load("assets/branding/bevy_logo_dark_big.png")
+                                .unwrap()
+                                .into(),
+                        ),
                         draw: Draw {
                             is_transparent: true,
                             ..Default::default()
