@@ -7,7 +7,7 @@ fn main() {
         .run();
 }
 
-/// set up a simple scene
+/// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

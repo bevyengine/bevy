@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// This example illustrates how to load and play an audio file
 fn main() {
     App::build()
         .add_default_plugins()

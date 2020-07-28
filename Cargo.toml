@@ -38,8 +38,6 @@ bevy_ui = { path = "crates/bevy_ui" }
 bevy_window = { path = "crates/bevy_window" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
 bevy_winit = { path = "crates/bevy_winit", optional = true }
-# other
-log = { version = "0.4", features = ["release_max_level_info"] }
 
 [dev-dependencies]
 rand = "0.7.2"
@@ -188,10 +186,6 @@ path = "examples/ui/font_atlas_debug.rs"
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
-
-[[example]]
-name = "ui_bench"
-path = "examples/ui/ui_bench.rs"
 
 [[example]]
 name = "clear_color"

@@ -4,10 +4,10 @@ use bevy::{
     sprite::TextureAtlasBuilder,
 };
 
+/// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
-        .init_resource::<State>()
         .add_default_plugins()
         .add_startup_system(setup.system())
         .add_system(load_atlas.system())
@@ -17,6 +17,7 @@ fn main() {
 #[derive(Default)]
 pub struct RpgSpriteHandles {
     handles: Vec<HandleId>,
+    atlas_loaded: bool,
 }
 
 fn setup(
@@ -27,24 +28,19 @@ fn setup(
     rpg_sprite_handles.handles = asset_server
         .load_asset_folder("assets/textures/rpg")
         .unwrap();
-    commands.spawn(Camera2dComponents::default());
-}
-
-#[derive(Default)]
-struct State {
-    atlas_loaded: bool,
+        commands
+            .spawn(Camera2dComponents::default());
 }
 
 fn load_atlas(
     mut commands: Commands,
-    mut state: ResMut<State>,
-    rpg_sprite_handles: Res<RpgSpriteHandles>,
+    mut rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    if state.atlas_loaded {
+    if rpg_sprite_handles.atlas_loaded {
         return;
     }
 
@@ -65,6 +61,8 @@ fn load_atlas(
             .unwrap();
         let vendor_index = texture_atlas.get_texture_index(vendor_handle).unwrap();
         let atlas_handle = texture_atlases.add(texture_atlas);
+
+        // set up a scene to display our texture atlas
         commands
             // draw a sprite from the atlas
             .spawn(SpriteSheetComponents {
@@ -81,6 +79,6 @@ fn load_atlas(
                 ..Default::default()
             });
 
-        state.atlas_loaded = true;
+        rpg_sprite_handles.atlas_loaded = true;
     }
 }

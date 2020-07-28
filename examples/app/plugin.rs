@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use std::time::Duration;
 
-// Plugins are the foundation of Bevy. They are scoped sets of components, resources, and systems
-// that provide a specific piece of functionality (generally the smaller the scope, the better).
+/// Plugins are the foundation of Bevy. They are scoped sets of components, resources, and systems
+/// that provide a specific piece of functionality (generally the smaller the scope, the better).
+/// This example illustrates how to create a simple plugin that prints out a message.
 fn main() {
     App::build()
         .add_default_plugins()

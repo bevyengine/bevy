@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// This example illustrates the various features of Bevy UI.
 fn main() {
     App::build()
         .add_default_plugins()

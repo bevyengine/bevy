@@ -6,8 +6,7 @@ use bevy::{
     },
 };
 
-struct Rotator;
-
+/// This example visualizes camera z-ordering by setting the material of rotating cubes to their distance from the camera
 fn main() {
     App::build()
         .add_default_plugins()
@@ -16,6 +15,8 @@ fn main() {
         .add_system(camera_order_color_system.system())
         .run();
 }
+
+struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Rotation)>) {
@@ -42,7 +43,6 @@ fn camera_order_color_system(
     }
 }
 
-/// set up a simple scene with a "parent" cube and a "child" cube
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

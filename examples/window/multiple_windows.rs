@@ -9,6 +9,7 @@ use bevy::{
     window::{CreateWindow, WindowDescriptor, WindowId},
 };
 
+/// This example creates a second window and draws a mesh from two different cameras. 
 fn main() {
     App::build()
         .add_default_plugins()
@@ -58,7 +59,7 @@ fn setup(
         ),
     );
 
-    // add a new depth texture node for our new window
+    // add a new camera node for our new window
     render_graph.add_system_node("secondary_camera", CameraNode::new("Secondary"));
 
     // add a new render pass for our new camera

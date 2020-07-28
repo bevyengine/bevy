@@ -5,10 +5,10 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core::{Byteable, Bytes};
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
 use bevy_property::Property;
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
@@ -93,6 +93,67 @@ impl From<Vec4> for Color {
 impl Into<[f32; 4]> for Color {
     fn into(self) -> [f32; 4] {
         [self.r, self.g, self.b, self.a]
+    }
+}
+impl Mul<f32> for Color {
+    type Output = Color;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Color {
+            r: self.r * rhs,
+            g: self.g * rhs,
+            b: self.b * rhs,
+            a: self.a * rhs,
+        }
+    }
+}
+
+impl MulAssign<f32> for Color {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.r *= rhs;
+        self.g *= rhs;
+        self.b *= rhs;
+        self.a *= rhs;
+    }
+}
+
+impl Mul<Vec4> for Color {
+    type Output = Color;
+    fn mul(self, rhs: Vec4) -> Self::Output {
+        Color {
+            r: self.r * rhs.x(),
+            g: self.g * rhs.y(),
+            b: self.b * rhs.z(),
+            a: self.a * rhs.w(),
+        }
+    }
+}
+
+impl MulAssign<Vec4> for Color {
+    fn mul_assign(&mut self, rhs: Vec4) {
+        self.r *= rhs.x();
+        self.g *= rhs.y();
+        self.b *= rhs.z();
+        self.a *= rhs.w();
+    }
+}
+
+impl Mul<Vec3> for Color {
+    type Output = Color;
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Color {
+            r: self.r * rhs.x(),
+            g: self.g * rhs.y(),
+            b: self.b * rhs.z(),
+            a: self.a
+        }
+    }
+}
+
+impl MulAssign<Vec3> for Color {
+    fn mul_assign(&mut self, rhs: Vec3) {
+        self.r *= rhs.x();
+        self.g *= rhs.y();
+        self.b *= rhs.z();
     }
 }
 

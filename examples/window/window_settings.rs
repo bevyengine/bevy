@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// This example illustrates how to customize the default window settings
 fn main() {
     App::build()
         .add_resource(WindowDescriptor {

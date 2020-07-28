@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// This example illustrates various ways to load assets
 fn main() {
     App::build()
         .add_default_plugins()

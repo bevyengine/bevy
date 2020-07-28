@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
 };
 
+/// This example illustrates how to create a custom diagnostic
 fn main() {
     App::build()
         .add_default_plugins()

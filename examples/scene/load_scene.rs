@@ -1,5 +1,6 @@
 use bevy::{prelude::*, type_registry::TypeRegistry};
 
+/// This example illustrates loading and saving scenes from files
 fn main() {
     App::build()
         .add_default_plugins()

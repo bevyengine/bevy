@@ -4,6 +4,7 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
 };
 
+/// An implementation of the classic game "Breakout"
 fn main() {
     App::build()
         .add_default_plugins()
