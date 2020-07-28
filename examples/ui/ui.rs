@@ -61,12 +61,7 @@ fn setup(
                             // text
                             parent.spawn(TextComponents {
                                 style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(30.0)),
-                                    margin: Rect {
-                                        left: Val::Px(5.0),
-                                        top: Val::Px(5.0),
-                                        ..Default::default()
-                                    },
+                                    margin: Rect::all(Val::Px(5.0)),
                                     ..Default::default()
                                 },
                                 text: Text {
@@ -77,7 +72,6 @@ fn setup(
                                     style: TextStyle {
                                         font_size: 30.0,
                                         color: Color::WHITE,
-                                        ..Default::default()
                                     },
                                 },
                                 ..Default::default()
@@ -103,7 +97,7 @@ fn setup(
                             bottom: Val::Px(10.0),
                             ..Default::default()
                         },
-                        border: Rect::all(Val::Px(10.0)),
+                        border: Rect::all(Val::Px(20.0)),
                         ..Default::default()
                     },
                     material: materials.add(Color::rgb(0.1, 0.1, 1.0).into()),

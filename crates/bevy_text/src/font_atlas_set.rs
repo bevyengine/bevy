@@ -1,5 +1,5 @@
 use crate::{Font, FontAtlas};
-use ab_glyph::ScaleFont;
+use ab_glyph::{Glyph, ScaleFont};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
@@ -49,24 +49,35 @@ impl FontAtlasSet {
         textures: &mut Assets<Texture>,
         font_size: f32,
         text: &str,
-    ) {
+    ) -> f32 {
         let font = fonts.get(&self.font).unwrap();
         let scaled_font = ab_glyph::Font::as_scaled(&font.font, font_size);
         let font_atlas = self
             .font_atlases
             .entry(FloatOrd(font_size))
             .or_insert_with(|| FontAtlas::new(textures, texture_atlases, Vec2::new(512.0, 512.0)));
+
+        let mut last_glyph: Option<Glyph> = None;
+        let mut width = 0.0;
         for character in text.chars() {
-            if character.is_control() || font_atlas.get_char_index(character).is_some() {
+            if character.is_control() {
                 continue;
             }
-
             let glyph = scaled_font.scaled_glyph(character);
-            if let Some(outlined_glyph) = scaled_font.outline_glyph(glyph) {
-                let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
-                font_atlas.add_char(textures, texture_atlases, character, &glyph_texture);
+            if let Some(last_glyph) = last_glyph.take() {
+                width += scaled_font.kern(last_glyph.id, glyph.id);
             }
+            if font_atlas.get_char_index(character).is_none() {
+                if let Some(outlined_glyph) = scaled_font.outline_glyph(glyph.clone()) {
+                    let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
+                    font_atlas.add_char(textures, texture_atlases, character, &glyph_texture);
+                }
+            }
+            width += scaled_font.h_advance(glyph.id);
+            last_glyph = Some(glyph);
         }
+
+        width
     }
 
     pub fn get_glyph_atlas_info(&self, font_size: f32, character: char) -> Option<GlyphAtlasInfo> {

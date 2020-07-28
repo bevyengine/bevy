@@ -26,17 +26,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     commands
         // 2d camera
-        .spawn(Camera2dComponents::default())
+        .spawn(UiCameraComponents::default())
         // texture
         .spawn(TextComponents {
-            node: Node::default(),
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                ..Default::default()
+            },
             text: Text {
                 value: "FPS:".to_string(),
                 font: font_handle,
                 style: TextStyle {
                     font_size: 60.0,
                     color: Color::WHITE,
-                    align: TextAlign::Left,
                 },
             },
             ..Default::default()

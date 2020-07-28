@@ -2,7 +2,7 @@ use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Text},
-    Click, FocusPolicy, Hover, Style,
+    Click, FocusPolicy, Hover, Style, CalculatedSize,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -68,6 +68,7 @@ pub struct TextComponents {
     pub style: Style,
     pub draw: Draw,
     pub text: Text,
+    pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub local_transform: LocalTransform,
@@ -83,6 +84,7 @@ impl Default for TextComponents {
             },
             text: Default::default(),
             node: Default::default(),
+            calculated_size: Default::default(),
             style: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),

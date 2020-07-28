@@ -81,7 +81,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
                 style: TextStyle {
                     font_size: 60.0,
                     color: Color::WHITE,
-                    ..Default::default()
                 },
             },
             ..Default::default()

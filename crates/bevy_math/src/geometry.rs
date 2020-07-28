@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign};
 use glam::Vec2;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub struct Size<T> {
+pub struct Size<T=f32> {
     pub width: T,
     pub height: T,
 }

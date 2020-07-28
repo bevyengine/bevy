@@ -41,7 +41,11 @@ impl AddAssign<f32> for Val {
             Val::Percent(value) => *value += rhs,
         }
     }
-    
+}
+
+#[derive(Default, Copy, Clone)]
+pub struct CalculatedSize {
+    pub size: Size,
 }
 
 #[derive(Clone, PartialEq, Debug)]

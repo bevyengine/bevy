@@ -1,6 +1,7 @@
-use crate::Node;
+use crate::{CalculatedSize, Node};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Query, Res, ResMut};
+use bevy_ecs::{Changed, Query, Res, ResMut};
+use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
@@ -22,9 +23,9 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut query: Query<&Text>,
+    mut query: Query<(Changed<Text>, &mut CalculatedSize)>,
 ) {
-    for text in &mut query.iter() {
+    for (text, mut calculated_size) in &mut query.iter() {
         let font_atlases = font_atlas_sets
             .get_or_insert_with(Handle::from_id(text.font.id), || {
                 FontAtlasSet::new(text.font)
@@ -35,13 +36,15 @@ pub fn text_system(
         // resource generation needs to happen AFTER the render graph systems. maybe draw systems should execute within the
         // render graph so ordering like this can be taken into account? Maybe the RENDER_GRAPH_SYSTEMS stage should be removed entirely
         // in favor of node.update()? Regardless, in the immediate short term the current approach is fine.
-        font_atlases.add_glyphs_to_atlas(
+        let width = font_atlases.add_glyphs_to_atlas(
             &fonts,
             &mut texture_atlases,
             &mut textures,
             text.style.font_size,
             &text.value,
         );
+
+        calculated_size.size = Size::new(width, text.style.font_size);
     }
 }
 
