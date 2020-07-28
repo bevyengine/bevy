@@ -9,10 +9,11 @@ where
     T: From<U>,
 {
     stretch::geometry::Rect {
-        start: rect.start.into(),
-        end: rect.end.into(),
-        top: rect.top.into(),
-        bottom: rect.bottom.into(),
+        start: rect.left.into(),
+        end: rect.right.into(),
+        // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
+        top: rect.bottom.into(),
+        bottom: rect.top.into(),
     }
 }
 
@@ -61,7 +62,7 @@ impl From<Val> for stretch::style::Dimension {
     fn from(val: Val) -> Self {
         match val {
             Val::Auto => stretch::style::Dimension::Auto,
-            Val::Percent(value) => stretch::style::Dimension::Percent(value),
+            Val::Percent(value) => stretch::style::Dimension::Percent(value / 100.0),
             Val::Px(value) => stretch::style::Dimension::Points(value),
             Val::Undefined => stretch::style::Dimension::Undefined,
         }

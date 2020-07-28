@@ -24,17 +24,28 @@ impl<T: Default> Default for Size<T> {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rect<T> {
-    pub start: T,
-    pub end: T,
+    pub left: T,
+    pub right: T,
     pub top: T,
     pub bottom: T,
+}
+
+impl<T> Rect<T> {
+    pub fn all(value: T) -> Self where T: Clone{
+        Rect {
+            left: value.clone(),
+            right: value.clone(),
+            top: value.clone(),
+            bottom: value,
+        }
+    }
 }
 
 impl<T: Default> Default for Rect<T> {
     fn default() -> Self {
         Self {
-            start: Default::default(),
-            end: Default::default(),
+            left: Default::default(),
+            right: Default::default(),
             top: Default::default(),
             bottom: Default::default(),
         }

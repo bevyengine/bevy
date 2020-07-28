@@ -88,7 +88,6 @@ pub fn winit_runner(mut app: App) {
                         .resources
                         .get_mut::<Events<WindowCloseRequested>>()
                         .unwrap();
-                    let windows = app.resources.get_mut::<Windows>().unwrap();
                     let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     window_close_requested_events.send(WindowCloseRequested { id: window_id });

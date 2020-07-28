@@ -87,64 +87,46 @@ fn button_system(
 
 fn setup(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {
     commands
         // ui camera
         .spawn(UiCameraComponents::default())
-        // wrapper component to center with flexbox
-        .spawn(NodeComponents {
+        .spawn(ButtonComponents {
             style: Style {
-                size: Size {
-                    width: Val::Percent(1.0),
-                    height: Val::Percent(1.0),
+                size: Size::new(Val::Px(150.0), Val::Px(70.0)),
+                align_self: AlignSelf::Center,
+                margin: Rect {
+                    left: Val::Auto,
+                    right: Val::Auto,
+                    ..Default::default()
                 },
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
                 ..Default::default()
             },
-            material: materials.add(Color::NONE.into()),
+            material: button_materials.normal,
             ..Default::default()
         })
         .with_children(|parent| {
-            parent
-                .spawn(ButtonComponents {
-                    style: Style {
-                        size: Size {
-                            width: Val::Px(150.0),
-                            height: Val::Px(70.0),
-                        },
+            parent.spawn(TextComponents {
+                style: Style {
+                    size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                    margin: Rect {
+                        bottom: Val::Px(10.0),
                         ..Default::default()
                     },
-                    material: button_materials.normal,
                     ..Default::default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(TextComponents {
-                        style: Style {
-                            size: Size {
-                                width: Val::Percent(1.0),
-                                height: Val::Percent(1.0),
-                            },
-                            margin: Rect {
-                                top: Val::Px(10.0),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        text: Text {
-                            value: "Button".to_string(),
-                            font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
-                            style: TextStyle {
-                                font_size: 40.0,
-                                color: Color::rgb(0.8, 0.8, 0.8),
-                                align: TextAlign::Center,
-                            },
-                        },
-                        ..Default::default()
-                    });
-                });
+                },
+                text: Text {
+                    value: "Button".to_string(),
+                    font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
+                    style: TextStyle {
+                        font_size: 40.0,
+                        color: Color::rgb(0.8, 0.8, 0.8),
+                        align: TextAlign::Center,
+                    },
+                },
+                ..Default::default()
+            });
         });
 }

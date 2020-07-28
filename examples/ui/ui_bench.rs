@@ -16,7 +16,7 @@ fn placement_system(
     for (mut style, material_handle) in &mut query.iter() {
         let material = materials.get(&material_handle).unwrap();
         if material.color.r > 0.2 {
-            style.position.start += 0.1 * time.delta_seconds;
+            style.position.left += 0.1 * time.delta_seconds;
         }
     }
 }
@@ -37,8 +37,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
                 },
                 position_type: PositionType::Absolute,
                 position: Rect {
-                    start: Val::Px(75.0 + cur.x()),
-                    top: Val::Px(75.0 + cur.y()),
+                    left: Val::Px(75.0 + cur.x()),
+                    bottom: Val::Px(75.0 + cur.y()),
                     ..Default::default()
                 },
                 ..Default::default()
