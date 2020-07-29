@@ -7,7 +7,7 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
-    prelude::Draw,
+    prelude::{Draw, MainPass},
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
@@ -16,6 +16,7 @@ pub struct SpriteComponents {
     pub sprite: Sprite,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
+    pub main_pass: MainPass,
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
@@ -51,6 +52,7 @@ impl Default for SpriteComponents {
                 ..Default::default()
             },
             sprite: Default::default(),
+            main_pass: MainPass,
             material: Default::default(),
             transform: Default::default(),
             translation: Default::default(),
@@ -66,6 +68,7 @@ pub struct SpriteSheetComponents {
     pub texture_atlas: Handle<TextureAtlas>,
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
+    pub main_pass: MainPass,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub transform: Transform,
     pub translation: Translation,
@@ -99,6 +102,7 @@ impl Default for SpriteSheetComponents {
                 ..Default::default()
             },
             mesh: QUAD_HANDLE,
+            main_pass: MainPass,
             sprite: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),

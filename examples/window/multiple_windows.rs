@@ -63,7 +63,7 @@ fn setup(
     render_graph.add_system_node("secondary_camera", CameraNode::new("Secondary"));
 
     // add a new render pass for our new camera
-    let mut second_window_pass = PassNode::new(PassDescriptor {
+    let mut second_window_pass = PassNode::<&MainPass>::new(PassDescriptor {
         color_attachments: vec![RenderPassColorAttachmentDescriptor {
             attachment: TextureAttachment::Input("color".to_string()),
             resolve_target: None,

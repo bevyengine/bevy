@@ -11,14 +11,15 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Resources, World};
+use bevy_ecs::{Resources, World, HecsQuery};
+use std::marker::PhantomData;
 
 struct CameraInfo {
     name: String,
     bind_group_id: Option<BindGroupId>,
 }
 
-pub struct PassNode {
+pub struct PassNode<Q: HecsQuery> {
     descriptor: PassDescriptor,
     inputs: Vec<ResourceSlotInfo>,
     cameras: Vec<CameraInfo>,
@@ -26,9 +27,10 @@ pub struct PassNode {
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
     camera_bind_group_descriptor: BindGroupDescriptor,
+    _marker: PhantomData<Q>,
 }
 
-impl PassNode {
+impl<Q: HecsQuery> PassNode<Q> {
     pub fn new(descriptor: PassDescriptor) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
@@ -75,6 +77,7 @@ impl PassNode {
             depth_stencil_attachment_input_index,
             default_clear_color_inputs: Vec::new(),
             camera_bind_group_descriptor,
+            _marker: PhantomData::default(),
         }
     }
 
@@ -90,7 +93,7 @@ impl PassNode {
     }
 }
 
-impl Node for PassNode {
+impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
     fn input(&self) -> &[ResourceSlotInfo] {
         &self.inputs
     }
@@ -167,6 +170,13 @@ impl Node for PassNode {
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
+                        if let Ok(mut query_one) = world.query_one::<Q>(visible_entity.entity) {
+                            if query_one.get().is_none() {
+                                // visible entity does not match the Pass query
+                                continue;
+                            }
+                        }
+
                         let draw = if let Ok(draw) = world.get::<Draw>(visible_entity.entity) {
                             draw
                         } else {

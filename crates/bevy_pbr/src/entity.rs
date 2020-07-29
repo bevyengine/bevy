@@ -4,7 +4,7 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines}, prelude::MainPass,
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
@@ -12,6 +12,7 @@ use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 pub struct PbrComponents {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
+    pub main_pass: MainPass,
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
@@ -43,6 +44,7 @@ impl Default for PbrComponents {
             )]),
             mesh: Default::default(),
             material: Default::default(),
+            main_pass: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
             translation: Default::default(),

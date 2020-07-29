@@ -1,6 +1,7 @@
 use crate::ArchetypeAccess;
 use hecs::{
-    Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, Ref, RefMut, World,
+    Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryOne, Ref, RefMut,
+    World,
 };
 use std::marker::PhantomData;
 
@@ -11,10 +12,11 @@ pub struct Query<'a, Q: HecsQuery> {
 }
 
 #[derive(Debug)]
-pub enum QueryComponentError {
+pub enum QueryError {
     CannotReadArchetype,
     CannotWriteArchetype,
     ComponentError(ComponentError),
+    NoSuchEntity,
 }
 
 impl<'a, Q: HecsQuery> Query<'a, Q> {
@@ -34,7 +36,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
 
     /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
     /// the given component type or if the given component type does not match this query.
-    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, QueryComponentError> {
+    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, QueryError> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
                 .archetype_access
@@ -47,23 +49,38 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
             {
                 self.world
                     .get(entity)
-                    .map_err(|err| QueryComponentError::ComponentError(err))
+                    .map_err(|err| QueryError::ComponentError(err))
             } else {
-                Err(QueryComponentError::CannotReadArchetype)
+                Err(QueryError::CannotReadArchetype)
             }
         } else {
-            Err(QueryComponentError::ComponentError(
-                ComponentError::NoSuchEntity,
-            ))
+            Err(QueryError::ComponentError(ComponentError::NoSuchEntity))
+        }
+    }
+
+    pub fn entity(&self, entity: Entity) -> Result<QueryOne<'_, Q>, QueryError> {
+        if let Some(location) = self.world.get_entity_location(entity) {
+            if self
+                .archetype_access
+                .immutable
+                .contains(location.archetype as usize)
+                || self
+                    .archetype_access
+                    .mutable
+                    .contains(location.archetype as usize)
+            {
+                Ok(self.world.query_one(entity).unwrap())
+            } else {
+                Err(QueryError::CannotReadArchetype)
+            }
+        } else {
+            Err(QueryError::NoSuchEntity)
         }
     }
 
     /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
     /// the given component type or if the given component type does not match this query.
-    pub fn get_mut<T: Component>(
-        &self,
-        entity: Entity,
-    ) -> Result<RefMut<'_, T>, QueryComponentError> {
+    pub fn get_mut<T: Component>(&self, entity: Entity) -> Result<RefMut<'_, T>, QueryError> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
                 .archetype_access
@@ -72,14 +89,12 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
             {
                 self.world
                     .get_mut(entity)
-                    .map_err(|err| QueryComponentError::ComponentError(err))
+                    .map_err(|err| QueryError::ComponentError(err))
             } else {
-                Err(QueryComponentError::CannotWriteArchetype)
+                Err(QueryError::CannotWriteArchetype)
             }
         } else {
-            Err(QueryComponentError::ComponentError(
-                ComponentError::NoSuchEntity,
-            ))
+            Err(QueryError::ComponentError(ComponentError::NoSuchEntity))
         }
     }
 
@@ -89,11 +104,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
 
     /// Sets the entity's component to the given value. This will fail if the entity does not already have
     /// the given component type or if the given component type does not match this query.
-    pub fn set<T: Component>(
-        &self,
-        entity: Entity,
-        component: T,
-    ) -> Result<(), QueryComponentError> {
+    pub fn set<T: Component>(&self, entity: Entity, component: T) -> Result<(), QueryError> {
         let mut current = self.get_mut::<T>(entity)?;
         *current = component;
         Ok(())

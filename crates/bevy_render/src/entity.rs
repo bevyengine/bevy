@@ -8,11 +8,15 @@ use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
 
+#[derive(Default)]
+pub struct MainPass;
+
 #[derive(Bundle, Default)]
 pub struct MeshComponents {
     pub mesh: Handle<Mesh>,
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
+    pub main_pass: MainPass,
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,

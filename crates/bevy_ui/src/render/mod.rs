@@ -4,9 +4,9 @@ use bevy_ecs::Resources;
 use bevy_render::{
     camera::ActiveCameras,
     pipeline::*,
-    render_graph::{base, CameraNode, PassNode, RenderGraph, RenderResourcesNode},
+    render_graph::{base, CameraNode, PassNode, RenderGraph, RenderResourcesNode, WindowSwapChainNode, WindowTextureNode},
     shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat,
+    texture::TextureFormat, prelude::{Color, MainPass}, pass::{RenderPassColorAttachmentDescriptor, PassDescriptor, TextureAttachment, LoadOp, Operations, RenderPassDepthStencilAttachmentDescriptor},
 };
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
@@ -60,6 +60,7 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 pub mod node {
     pub const UI_CAMERA: &'static str = "ui_camera";
     pub const NODE: &'static str = "node";
+    pub const UI_PASS: &'static str = "ui_pass";
 }
 
 pub mod camera {
@@ -76,16 +77,56 @@ impl UiRenderGraphBuilder for RenderGraph {
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
+        let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
+            color_attachments: vec![RenderPassColorAttachmentDescriptor {
+                attachment: TextureAttachment::Input("color".to_string()),
+                resolve_target: None,
+                ops: Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
+                attachment: TextureAttachment::Input("depth".to_string()),
+                depth_ops: Some(Operations {
+                    load: LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+            sample_count: 1,
+        });
+        ui_pass_node.add_camera(camera::UI_CAMERA);
+        self.add_node(node::UI_PASS, ui_pass_node);
+
+        self.add_slot_edge(
+            base::node::PRIMARY_SWAP_CHAIN,
+            WindowSwapChainNode::OUT_TEXTURE,
+            node::UI_PASS,
+            "color",
+        )
+        .unwrap();
+
+        self.add_slot_edge(
+            base::node::MAIN_DEPTH_TEXTURE,
+            WindowTextureNode::OUT_TEXTURE,
+            node::UI_PASS,
+            "depth",
+        )
+        .unwrap();
+
+        // ensure ui pass runs after main pass
+        self.add_node_edge(base::node::MAIN_PASS, node::UI_PASS)
+            .unwrap();
+
         // setup ui camera
         self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, base::node::MAIN_PASS)
+        self.add_node_edge(node::UI_CAMERA, node::UI_PASS)
             .unwrap();
         self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
-        self.add_node_edge(node::NODE, base::node::MAIN_PASS)
+        self.add_node_edge(node::NODE, node::UI_PASS)
             .unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
-        let main_pass_node: &mut PassNode = self.get_node_mut(base::node::MAIN_PASS).unwrap();
-        main_pass_node.add_camera(camera::UI_CAMERA);
         active_cameras.add(camera::UI_CAMERA);
         self
     }

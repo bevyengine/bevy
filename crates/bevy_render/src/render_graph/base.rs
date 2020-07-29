@@ -7,6 +7,7 @@ use crate::{
         LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
+    prelude::MainPass,
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
@@ -89,7 +90,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
         }
 
         if config.add_main_pass {
-            let mut main_pass_node = PassNode::new(PassDescriptor {
+            let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
                 color_attachments: vec![RenderPassColorAttachmentDescriptor {
                     attachment: TextureAttachment::Input("color".to_string()),
                     resolve_target: None,
