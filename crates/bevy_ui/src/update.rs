@@ -39,7 +39,7 @@ fn update_node_entity(
     parent_result: Option<f32>,
     previous_result: Option<f32>,
 ) -> Option<f32> {
-    let mut transform = node_query.get_mut::<LocalTransform>(entity).unwrap();
+    let mut transform = node_query.get_mut::<LocalTransform>(entity).ok()?;
     let mut z = UI_Z_STEP;
     let parent_global_z = parent_result.unwrap();
     if let Some(previous_global_z) = previous_result {

@@ -40,8 +40,9 @@ fn setup(
 ) {
     // Add the game's entities to our world
     commands
-        // camera
+        // cameras
         .spawn(Camera2dComponents::default())
+        .spawn(UiCameraComponents::default())
         // paddle
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
@@ -75,6 +76,12 @@ fn setup(
                 },
             },
             style: Style {
+                position_type: PositionType::Absolute,
+                position: Rect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             ..Default::default()

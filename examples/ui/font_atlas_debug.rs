@@ -41,9 +41,17 @@ fn atlas_render_system(
         for (_size, font_atlas) in set.iter() {
             state.added = true;
             let texture_atlas = texture_atlases.get(&font_atlas.texture_atlas).unwrap();
-            commands.spawn(SpriteComponents {
+            commands.spawn(ImageComponents {
                 material: materials.add(texture_atlas.texture.into()),
-                translation: Vec3::new(-300.0, 0., 0.0).into(),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    position: Rect {
+                        top: Val::Px(0.0),
+                        left: Val::Px(0.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
                 ..Default::default()
             });
             break;
@@ -65,15 +73,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
     state.handle = font_handle;
     commands
-        // 2d camera
-        .spawn(Camera2dComponents::default())
-        // texture
+        .spawn(UiCameraComponents::default())
         .spawn(TextComponents {
             style: Style {
-                size: Size {
-                    width: Val::Px(250.0),
-                    height: Val::Px(60.0),
-                },
+                size: Size::new(Val::Px(250.0), Val::Px(60.0)),
                 ..Default::default()
             },
             text: Text {
