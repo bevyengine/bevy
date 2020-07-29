@@ -32,15 +32,20 @@ use update::ui_z_system;
 #[derive(Default)]
 pub struct UiPlugin;
 
+pub mod stage {
+    pub const UI: &'static str = "ui";
+}
+
 impl AppPlugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
-            .add_system_to_stage(stage::PRE_UPDATE, ui_focus_system.system())
+            .add_stage_before(bevy_app::stage::POST_UPDATE, stage::UI)
+            .add_system_to_stage(bevy_app::stage::PRE_UPDATE, ui_focus_system.system())
             // add these stages to front because these must run before transform update systems
-            .add_system_to_stage_front(stage::POST_UPDATE, flex_node_system.system())
-            .add_system_to_stage_front(stage::POST_UPDATE, ui_z_system.system())
-            .add_system_to_stage_front(stage::POST_UPDATE, widget::text_system.system())
-            .add_system_to_stage_front(stage::POST_UPDATE, widget::image_node_system.system())
+            .add_system_to_stage(stage::UI, widget::text_system.system())
+            .add_system_to_stage(stage::UI, widget::image_node_system.system())
+            .add_system_to_stage(stage::UI, ui_z_system.system())
+            .add_system_to_stage(stage::UI, flex_node_system.system())
             .add_system_to_stage(bevy_render::stage::DRAW, widget::draw_text_system.system());
 
         let resources = app.resources();

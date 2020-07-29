@@ -3,10 +3,17 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
 use bevy_render::{
     camera::ActiveCameras,
+    pass::{
+        LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
+        RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
+    },
     pipeline::*,
-    render_graph::{base, CameraNode, PassNode, RenderGraph, RenderResourcesNode, WindowSwapChainNode, WindowTextureNode},
+    render_graph::{
+        base, CameraNode, PassNode, RenderGraph, RenderResourcesNode, WindowSwapChainNode,
+        WindowTextureNode,
+    },
     shader::{Shader, ShaderStage, ShaderStages},
-    texture::TextureFormat, prelude::{Color, MainPass}, pass::{RenderPassColorAttachmentDescriptor, PassDescriptor, TextureAttachment, LoadOp, Operations, RenderPassDepthStencilAttachmentDescriptor},
+    texture::TextureFormat,
 };
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
@@ -121,11 +128,9 @@ impl UiRenderGraphBuilder for RenderGraph {
 
         // setup ui camera
         self.add_system_node(node::UI_CAMERA, CameraNode::new(camera::UI_CAMERA));
-        self.add_node_edge(node::UI_CAMERA, node::UI_PASS)
-            .unwrap();
+        self.add_node_edge(node::UI_CAMERA, node::UI_PASS).unwrap();
         self.add_system_node(node::NODE, RenderResourcesNode::<Node>::new(true));
-        self.add_node_edge(node::NODE, node::UI_PASS)
-            .unwrap();
+        self.add_node_edge(node::NODE, node::UI_PASS).unwrap();
         let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
         active_cameras.add(camera::UI_CAMERA);
         self
