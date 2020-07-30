@@ -1,10 +1,11 @@
 use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
-    draw::{Draw, DrawContext, DrawError, Drawable},
-    renderer::RenderResourceBindings, prelude::Msaa,
+    draw::{Draw, DrawContext},
+    prelude::Msaa,
+    renderer::RenderResourceBindings,
 };
 use bevy_asset::Handle;
-use bevy_ecs::{Query, ResMut, Res};
+use bevy_ecs::{Query, Res, ResMut};
 use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
@@ -70,37 +71,6 @@ impl Default for RenderPipelines {
     }
 }
 
-pub struct DrawableRenderPipelines<'a> {
-    pub render_pipelines: &'a mut RenderPipelines,
-    pub render_resource_bindings: &'a mut RenderResourceBindings,
-}
-
-impl<'a> Drawable for DrawableRenderPipelines<'a> {
-    fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
-        for render_pipeline in self.render_pipelines.pipelines.iter() {
-            context.set_pipeline(
-                draw,
-                render_pipeline.pipeline,
-                &render_pipeline.specialization,
-            )?;
-            context.set_bind_groups_from_bindings(
-                draw,
-                &mut [
-                    &mut self.render_pipelines.bindings,
-                    self.render_resource_bindings,
-                ],
-            )?;
-            let indices = context
-                .set_vertex_buffers_from_bindings(draw, &[&self.render_pipelines.bindings])?;
-            if let Some(indices) = indices {
-                draw.draw_indexed(indices, 0, 0..1);
-            }
-        }
-
-        Ok(())
-    }
-}
-
 pub fn draw_render_pipelines_system(
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
@@ -108,14 +78,34 @@ pub fn draw_render_pipelines_system(
     mut query: Query<(&mut Draw, &mut RenderPipelines)>,
 ) {
     for (mut draw, mut render_pipelines) in &mut query.iter() {
+        let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
         }
 
-        let mut drawable = DrawableRenderPipelines {
-            render_pipelines: &mut render_pipelines,
-            render_resource_bindings: &mut render_resource_bindings,
-        };
-        drawable.draw(&mut draw, &mut draw_context).unwrap();
+        for render_pipeline in render_pipelines.pipelines.iter() {
+            draw_context
+                .set_pipeline(
+                    &mut draw,
+                    render_pipeline.pipeline,
+                    &render_pipeline.specialization,
+                )
+                .unwrap();
+            draw_context
+                .set_bind_groups_from_bindings(
+                    &mut draw,
+                    &mut [
+                        &mut render_pipelines.bindings,
+                        &mut render_resource_bindings,
+                    ],
+                )
+                .unwrap();
+            let indices = draw_context
+                .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
+                .unwrap();
+            if let Some(indices) = indices {
+                draw.draw_indexed(indices, 0, 0..1);
+            }
+        }
     }
 }
