@@ -19,8 +19,29 @@ pub struct Msaa {
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self {
-            samples: 4,
+        Self { samples: 4 }
+    }
+}
+
+impl Msaa {
+    pub fn color_attachment_descriptor(
+        &self,
+        attachment: TextureAttachment,
+        resolve_target: TextureAttachment,
+        ops: Operations<Color>,
+    ) -> RenderPassColorAttachmentDescriptor {
+        if self.samples > 1 {
+            RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target: Some(resolve_target),
+                ops,
+            }
+        } else {
+            RenderPassColorAttachmentDescriptor {
+                attachment,
+                resolve_target: None,
+                ops,
+            }
         }
     }
 }
@@ -103,29 +124,15 @@ impl BaseRenderGraphBuilder for RenderGraph {
         }
 
         if config.add_main_pass {
-            let color_attachment = if msaa.samples > 1 {
-                RenderPassColorAttachmentDescriptor {
-                    attachment: TextureAttachment::Input("color_attachment".to_string()),
-                    resolve_target: Some(TextureAttachment::Input(
-                        "color_resolve_target".to_string(),
-                    )),
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
-                        store: true,
-                    },
-                }
-            } else {
-                RenderPassColorAttachmentDescriptor {
-                    attachment: TextureAttachment::Input("color_attachment".to_string()),
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
-                        store: true,
-                    },
-                }
-            };
             let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
-                color_attachments: vec![color_attachment],
+                color_attachments: vec![msaa.color_attachment_descriptor(
+                    TextureAttachment::Input("color_attachment".to_string()),
+                    TextureAttachment::Input("color_resolve_target".to_string()),
+                    Operations {
+                        load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
+                        store: true,
+                    },
+                )],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
                     attachment: TextureAttachment::Input("depth".to_string()),
                     depth_ops: Some(Operations {

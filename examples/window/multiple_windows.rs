@@ -8,6 +8,7 @@ use bevy::{
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
 };
+use bevy_render::texture::{Extent3d, TextureDimension};
 
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
@@ -24,6 +25,7 @@ fn setup(
     mut render_graph: ResMut<RenderGraph>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    msaa: Res<Msaa>,
 ) {
     let window_id = WindowId::new();
 
@@ -54,6 +56,7 @@ fn setup(
             TextureDescriptor {
                 format: TextureFormat::Depth32Float,
                 usage: TextureUsage::OUTPUT_ATTACHMENT,
+                sample_count: msaa.samples,
                 ..Default::default()
             },
         ),
@@ -62,16 +65,16 @@ fn setup(
     // add a new camera node for our new window
     render_graph.add_system_node("secondary_camera", CameraNode::new("Secondary"));
 
-    // add a new render pass for our new camera
+    // add a new render pass for our new window / camera
     let mut second_window_pass = PassNode::<&MainPass>::new(PassDescriptor {
-        color_attachments: vec![RenderPassColorAttachmentDescriptor {
-            attachment: TextureAttachment::Input("color".to_string()),
-            resolve_target: None,
-            ops: Operations {
-                load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.1)),
+        color_attachments: vec![msaa.color_attachment_descriptor(
+            TextureAttachment::Input("color_attachment".to_string()),
+            TextureAttachment::Input("color_resolve_target".to_string()),
+            Operations {
+                load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.3)),
                 store: true,
             },
-        }],
+        )],
         depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
             attachment: TextureAttachment::Input("depth".to_string()),
             depth_ops: Some(Operations {
@@ -80,7 +83,7 @@ fn setup(
             }),
             stencil_ops: None,
         }),
-        sample_count: 1,
+        sample_count: msaa.samples,
     });
 
     second_window_pass.add_camera("Secondary");
@@ -93,7 +96,11 @@ fn setup(
             "second_window_swap_chain",
             WindowSwapChainNode::OUT_TEXTURE,
             "second_window_pass",
-            "color",
+            if msaa.samples > 1 {
+                "color_resolve_target"
+            } else {
+                "color_attachment"
+            },
         )
         .unwrap();
 
@@ -109,6 +116,36 @@ fn setup(
     render_graph
         .add_node_edge("secondary_camera", "second_window_pass")
         .unwrap();
+
+    if msaa.samples > 1 {
+        render_graph.add_node(
+            "second_multi_sampled_color_attachment",
+            WindowTextureNode::new(
+                window_id,
+                TextureDescriptor {
+                    size: Extent3d {
+                        depth: 1,
+                        width: 1,
+                        height: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: TextureFormat::Bgra8UnormSrgb,
+                    usage: TextureUsage::OUTPUT_ATTACHMENT,
+                },
+            ),
+        );
+
+        render_graph
+            .add_slot_edge(
+                "second_multi_sampled_color_attachment",
+                WindowSwapChainNode::OUT_TEXTURE,
+                "second_window_pass",
+                "color_attachment",
+            )
+            .unwrap();
+    }
 
     // SETUP SCENE
 

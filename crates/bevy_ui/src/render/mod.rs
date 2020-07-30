@@ -4,8 +4,8 @@ use bevy_ecs::Resources;
 use bevy_render::{
     camera::ActiveCameras,
     pass::{
-        LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
-        RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
+        LoadOp, Operations, PassDescriptor, RenderPassDepthStencilAttachmentDescriptor,
+        TextureAttachment,
     },
     pipeline::*,
     prelude::Msaa,
@@ -86,28 +86,15 @@ impl UiRenderGraphBuilder for RenderGraph {
         let msaa = resources.get::<Msaa>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
-        let color_attachment = if msaa.samples > 1 {
-            RenderPassColorAttachmentDescriptor {
-                attachment: TextureAttachment::Input("color_attachment".to_string()),
-                resolve_target: Some(TextureAttachment::Input("color_resolve_target".to_string())),
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }
-        } else {
-            RenderPassColorAttachmentDescriptor {
-                attachment: TextureAttachment::Input("color_attachment".to_string()),
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }
-        };
-
         let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
-            color_attachments: vec![color_attachment],
+            color_attachments: vec![msaa.color_attachment_descriptor(
+                TextureAttachment::Input("color_attachment".to_string()),
+                TextureAttachment::Input("color_resolve_target".to_string()),
+                Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                },
+            )],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
                 attachment: TextureAttachment::Input("depth".to_string()),
                 depth_ops: Some(Operations {
@@ -118,6 +105,7 @@ impl UiRenderGraphBuilder for RenderGraph {
             }),
             sample_count: msaa.samples,
         });
+
         ui_pass_node.add_camera(camera::UI_CAMERA);
         self.add_node(node::UI_PASS, ui_pass_node);
 
@@ -150,7 +138,6 @@ impl UiRenderGraphBuilder for RenderGraph {
             )
             .unwrap();
         }
-
 
         // ensure ui pass runs after main pass
         self.add_node_edge(base::node::MAIN_PASS, node::UI_PASS)
