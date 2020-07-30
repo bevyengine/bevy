@@ -3,7 +3,7 @@ use fixedbitset::FixedBitSet;
 use hecs::{Access, Query, World};
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ThreadLocalExecution {
     Immediate,
     NextFlush,
