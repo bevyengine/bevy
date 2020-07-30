@@ -1,20 +1,19 @@
 use crate::{Rect, TextureAtlas};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_math::Vec2;
 use bevy_render::texture::Texture;
-use guillotiere::{size2, AllocId, Allocation, AtlasAllocator};
-use std::collections::HashMap;
+use guillotiere::{size2, Allocation, AtlasAllocator};
 
 pub struct DynamicTextureAtlasBuilder {
-    pub allocation_textures: HashMap<AllocId, Handle<Texture>>,
     pub atlas_allocator: AtlasAllocator,
+    pub padding: i32,
 }
 
 impl DynamicTextureAtlasBuilder {
-    pub fn new(size: Vec2) -> Self {
+    pub fn new(size: Vec2, padding: i32) -> Self {
         Self {
-            allocation_textures: Default::default(),
             atlas_allocator: AtlasAllocator::new(to_size2(size)),
+            padding,
         }
     }
 
@@ -24,13 +23,17 @@ impl DynamicTextureAtlasBuilder {
         textures: &mut Assets<Texture>,
         texture: &Texture,
     ) -> Option<u32> {
-        let allocation = self
-            .atlas_allocator
-            .allocate(size2(texture.size.x() as i32, texture.size.y() as i32));
+        let allocation = self.atlas_allocator.allocate(size2(
+            texture.size.x() as i32 + self.padding,
+            texture.size.y() as i32 + self.padding,
+        ));
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
             self.place_texture(atlas_texture, allocation, texture);
-            texture_atlas.add_texture(allocation.rectangle.into());
+            let mut rect: Rect = allocation.rectangle.into();
+            *rect.max.x_mut() -= self.padding as f32;
+            *rect.max.y_mut() -= self.padding as f32;
+            texture_atlas.add_texture(rect);
             Some((texture_atlas.len() - 1) as u32)
         } else {
             None
@@ -66,7 +69,9 @@ impl DynamicTextureAtlasBuilder {
         allocation: Allocation,
         texture: &Texture,
     ) {
-        let rect = allocation.rectangle;
+        let mut rect = allocation.rectangle;
+        rect.max.x -= self.padding;
+        rect.max.y -= self.padding;
         let atlas_width = atlas_texture.size.x() as usize;
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.format.pixel_size();

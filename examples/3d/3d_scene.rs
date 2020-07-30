@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
+        .add_resource(Msaa { samples: 4 })
         .add_default_plugins()
         .add_startup_system(setup.system())
         .run();

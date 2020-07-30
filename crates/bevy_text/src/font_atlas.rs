@@ -25,7 +25,7 @@ impl FontAtlas {
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),
             glyph_to_index: HashMap::new(),
-            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size),
+            dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
         }
     }
 
