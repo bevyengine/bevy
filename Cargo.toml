@@ -64,6 +64,10 @@ name = "load_model"
 path = "examples/3d/load_model.rs"
 
 [[example]]
+name = "msaa"
+path = "examples/3d/msaa.rs"
+
+[[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 

@@ -8,6 +8,7 @@ use bevy_render::{
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
     pipeline::*,
+    prelude::Msaa,
     render_graph::{
         base, CameraNode, PassNode, RenderGraph, RenderResourcesNode, WindowSwapChainNode,
         WindowTextureNode,
@@ -82,17 +83,31 @@ impl UiRenderGraphBuilder for RenderGraph {
     fn add_ui_graph(&mut self, resources: &Resources) -> &mut Self {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
+        let msaa = resources.get::<Msaa>().unwrap();
         pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
-        let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
-            color_attachments: vec![RenderPassColorAttachmentDescriptor {
-                attachment: TextureAttachment::Input("color".to_string()),
+        let color_attachment = if msaa.samples > 1 {
+            RenderPassColorAttachmentDescriptor {
+                attachment: TextureAttachment::Input("color_attachment".to_string()),
+                resolve_target: Some(TextureAttachment::Input("color_resolve_target".to_string())),
+                ops: Operations {
+                    load: LoadOp::Load,
+                    store: true,
+                },
+            }
+        } else {
+            RenderPassColorAttachmentDescriptor {
+                attachment: TextureAttachment::Input("color_attachment".to_string()),
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,
                     store: true,
                 },
-            }],
+            }
+        };
+
+        let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
+            color_attachments: vec![color_attachment],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachmentDescriptor {
                 attachment: TextureAttachment::Input("depth".to_string()),
                 depth_ops: Some(Operations {
@@ -101,7 +116,7 @@ impl UiRenderGraphBuilder for RenderGraph {
                 }),
                 stencil_ops: None,
             }),
-            sample_count: 1,
+            sample_count: msaa.samples,
         });
         ui_pass_node.add_camera(camera::UI_CAMERA);
         self.add_node(node::UI_PASS, ui_pass_node);
@@ -110,7 +125,11 @@ impl UiRenderGraphBuilder for RenderGraph {
             base::node::PRIMARY_SWAP_CHAIN,
             WindowSwapChainNode::OUT_TEXTURE,
             node::UI_PASS,
-            "color",
+            if msaa.samples > 1 {
+                "color_resolve_target"
+            } else {
+                "color_attachment"
+            },
         )
         .unwrap();
 
@@ -121,6 +140,17 @@ impl UiRenderGraphBuilder for RenderGraph {
             "depth",
         )
         .unwrap();
+
+        if msaa.samples > 1 {
+            self.add_slot_edge(
+                base::node::MAIN_SAMPLED_COLOR_ATTACHMENT,
+                WindowSwapChainNode::OUT_TEXTURE,
+                node::UI_PASS,
+                "color_attachment",
+            )
+            .unwrap();
+        }
+
 
         // ensure ui pass runs after main pass
         self.add_node_edge(base::node::MAIN_PASS, node::UI_PASS)

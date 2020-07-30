@@ -10,7 +10,7 @@ use bevy_render::{
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
-    },
+    }, prelude::Msaa,
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 
@@ -38,6 +38,7 @@ pub struct DrawableText<'a> {
     pub container_size: Vec2,
     pub style: &'a TextStyle,
     pub text: &'a str,
+    pub msaa: &'a Msaa,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -45,8 +46,10 @@ impl<'a> Drawable for DrawableText<'a> {
         context.set_pipeline(
             draw,
             bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
-            // TODO: remove this shader def specialization when its easier to manually bind global render resources to specific bind groups
-            &PipelineSpecialization::default(),
+            &PipelineSpecialization {
+                sample_count: self.msaa.samples,
+                ..Default::default()
+            },
         )?;
 
         let render_resource_context = &**context.render_resource_context;

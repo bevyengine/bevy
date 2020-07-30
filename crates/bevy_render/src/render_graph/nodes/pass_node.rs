@@ -24,6 +24,7 @@ pub struct PassNode<Q: HecsQuery> {
     inputs: Vec<ResourceSlotInfo>,
     cameras: Vec<CameraInfo>,
     color_attachment_input_indices: Vec<Option<usize>>,
+    color_resolve_target_indices: Vec<Option<usize>>,
     depth_stencil_attachment_input_index: Option<usize>,
     default_clear_color_inputs: Vec<usize>,
     camera_bind_group_descriptor: BindGroupDescriptor,
@@ -34,26 +35,37 @@ impl<Q: HecsQuery> PassNode<Q> {
     pub fn new(descriptor: PassDescriptor) -> Self {
         let mut inputs = Vec::new();
         let mut color_attachment_input_indices = Vec::new();
+        let mut color_resolve_target_indices = Vec::new();
         for color_attachment in descriptor.color_attachments.iter() {
             if let TextureAttachment::Input(ref name) = color_attachment.attachment {
+                color_attachment_input_indices.push(Some(inputs.len()));
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
                     RenderResourceType::Texture,
                 ));
-                color_attachment_input_indices.push(Some(inputs.len() - 1));
             } else {
                 color_attachment_input_indices.push(None);
+            }
+
+            if let Some(TextureAttachment::Input(ref name)) = color_attachment.resolve_target {
+                color_resolve_target_indices.push(Some(inputs.len()));
+                inputs.push(ResourceSlotInfo::new(
+                    name.to_string(),
+                    RenderResourceType::Texture,
+                ));
+            } else {
+                color_resolve_target_indices.push(None);
             }
         }
 
         let mut depth_stencil_attachment_input_index = None;
         if let Some(ref depth_stencil_attachment) = descriptor.depth_stencil_attachment {
             if let TextureAttachment::Input(ref name) = depth_stencil_attachment.attachment {
+                depth_stencil_attachment_input_index = Some(inputs.len());
                 inputs.push(ResourceSlotInfo::new(
                     name.to_string(),
                     RenderResourceType::Texture,
                 ));
-                depth_stencil_attachment_input_index = Some(inputs.len() - 1);
             }
         }
 
@@ -74,6 +86,7 @@ impl<Q: HecsQuery> PassNode<Q> {
             inputs,
             cameras: Vec::new(),
             color_attachment_input_indices,
+            color_resolve_target_indices,
             depth_stencil_attachment_input_index,
             default_clear_color_inputs: Vec::new(),
             camera_bind_group_descriptor,
@@ -119,6 +132,10 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
             if let Some(input_index) = self.color_attachment_input_indices[i] {
                 color_attachment.attachment =
                     TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
+            }
+            if let Some(input_index) = self.color_resolve_target_indices[i] {
+                color_attachment.resolve_target =
+                    Some(TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap()));
             }
         }
 

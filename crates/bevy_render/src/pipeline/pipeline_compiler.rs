@@ -7,11 +7,23 @@ use bevy_asset::{Assets, Handle};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: Vec<DynamicBinding>,
+    pub sample_count: u32,
+}
+
+impl Default for PipelineSpecialization {
+    fn default() -> Self {
+        Self {
+            sample_count: 1,
+            shader_specialization: Default::default(),
+            primitive_topology: Default::default(),
+            dynamic_bindings: Default::default(),
+        }
+    }
 }
 
 impl PipelineSpecialization {
@@ -145,6 +157,8 @@ impl PipelineCompiler {
             Some(vertex_buffer_descriptors),
             &pipeline_specialization.dynamic_bindings,
         );
+
+        specialized_descriptor.sample_count = pipeline_specialization.sample_count;
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);

@@ -5,7 +5,7 @@ use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
-    texture::Texture,
+    texture::Texture, prelude::Msaa,
 };
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
@@ -51,6 +51,7 @@ pub fn text_system(
 pub fn draw_text_system(
     mut draw_context: DrawContext,
     fonts: Res<Assets<Font>>,
+    msaa: Res<Msaa>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
@@ -69,6 +70,7 @@ pub fn draw_text_system(
             render_resource_bindings: &mut render_resource_bindings,
             asset_render_resource_bindings: &mut asset_render_resource_bindings,
             position,
+            msaa: &msaa,
             style: &text.style,
             text: &text.value,
             container_size: node.size,

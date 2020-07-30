@@ -15,6 +15,7 @@ pub use once_cell;
 
 pub mod prelude {
     pub use crate::{
+        base::Msaa,
         color::Color,
         draw::Draw,
         entity::*,
@@ -26,6 +27,7 @@ pub mod prelude {
 }
 
 use crate::prelude::*;
+use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
@@ -131,10 +133,15 @@ impl AppPlugin for RenderPlugin {
                 shader::clear_shader_defs_system.system(),
             );
 
+        if app.resources().get::<Msaa>().is_none() {
+            app.init_resource::<Msaa>();
+        }
+
         if let Some(ref config) = self.base_render_graph_config {
             let resources = app.resources();
             let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-            render_graph.add_base_graph(config);
+            let msaa = resources.get::<Msaa>().unwrap();
+            render_graph.add_base_graph(config, &msaa);
             let mut active_cameras = resources.get_mut::<ActiveCameras>().unwrap();
             if config.add_3d_camera {
                 active_cameras.add(base::camera::CAMERA3D);

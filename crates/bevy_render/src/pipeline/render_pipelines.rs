@@ -1,10 +1,10 @@
 use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext, DrawError, Drawable},
-    renderer::RenderResourceBindings,
+    renderer::RenderResourceBindings, prelude::Msaa,
 };
 use bevy_asset::Handle;
-use bevy_ecs::{Query, ResMut};
+use bevy_ecs::{Query, ResMut, Res};
 use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
@@ -104,9 +104,14 @@ impl<'a> Drawable for DrawableRenderPipelines<'a> {
 pub fn draw_render_pipelines_system(
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
+    msaa: Res<Msaa>,
     mut query: Query<(&mut Draw, &mut RenderPipelines)>,
 ) {
     for (mut draw, mut render_pipelines) in &mut query.iter() {
+        for pipeline in render_pipelines.pipelines.iter_mut() {
+            pipeline.specialization.sample_count = msaa.samples;
+        }
+
         let mut drawable = DrawableRenderPipelines {
             render_pipelines: &mut render_pipelines,
             render_resource_bindings: &mut render_resource_bindings,
