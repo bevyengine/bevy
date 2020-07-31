@@ -18,14 +18,16 @@ impl AddDefaultPlugins for AppBuilder {
         self.add_plugin(bevy_sprite::SpritePlugin::default());
         self.add_plugin(bevy_pbr::PbrPlugin::default());
         self.add_plugin(bevy_ui::UiPlugin::default());
-        self.add_plugin(bevy_gltf::GltfPlugin::default());
         self.add_plugin(bevy_text::TextPlugin::default());
+
+        #[cfg(feature = "bevy_audio")]
         self.add_plugin(bevy_audio::AudioPlugin::default());
+
+        #[cfg(feature = "bevy_gltf")]
+        self.add_plugin(bevy_gltf::GltfPlugin::default());
 
         #[cfg(feature = "bevy_winit")]
         self.add_plugin(bevy_winit::WinitPlugin::default());
-        #[cfg(not(feature = "bevy_winit"))]
-        self.add_plugin(bevy_app::schedule_runner::ScheduleRunnerPlugin::default());
 
         #[cfg(feature = "bevy_wgpu")]
         self.add_plugin(bevy_wgpu::WgpuPlugin::default());

@@ -43,11 +43,9 @@ pub mod prelude;
 pub use add_default_plugins::*;
 pub use bevy_app as app;
 pub use bevy_asset as asset;
-pub use bevy_audio as audio;
 pub use bevy_core as core;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
-pub use bevy_gltf as gltf;
 pub use bevy_input as input;
 pub use bevy_math as math;
 pub use bevy_pbr as pbr;
@@ -59,8 +57,16 @@ pub use bevy_text as text;
 pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;
 pub use bevy_ui as ui;
-#[cfg(feature = "bevy_wgpu")]
-pub use bevy_wgpu as wgpu;
 pub use bevy_window as window;
+
+#[cfg(feature = "bevy_audio")]
+pub use bevy_audio as audio;
+
+#[cfg(feature = "bevy_gltf")]
+pub use bevy_gltf as gltf;
+
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
+
+#[cfg(feature = "bevy_wgpu")]
+pub use bevy_wgpu as wgpu;
