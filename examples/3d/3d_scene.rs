@@ -14,32 +14,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // create a cube and a plane mesh
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-    let plane_handle = meshes.add(Mesh::from(shape::Plane { size: 10.0 }));
-
-    // create materials for our cube and plane
-    let cube_material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.4, 0.3),
-        ..Default::default()
-    });
-    let plane_material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.1, 0.2, 0.1),
-        ..Default::default()
-    });
-
     // add entities to the world
     commands
         // plane
         .spawn(PbrComponents {
-            mesh: plane_handle,
-            material: plane_material_handle,
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+            material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
             ..Default::default()
         })
         // cube
         .spawn(PbrComponents {
-            mesh: cube_handle,
-            material: cube_material_handle,
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
             translation: Translation::new(0.0, 1.0, 0.0),
             ..Default::default()
         })

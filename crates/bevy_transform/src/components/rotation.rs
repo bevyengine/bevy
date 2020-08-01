@@ -9,6 +9,31 @@ impl Rotation {
     pub fn identity() -> Self {
         Self(Quat::identity())
     }
+
+    #[inline(always)]
+    pub fn from_rotation_yxz(yaw: f32, pitch: f32, roll: f32) -> Self {
+        Self(Quat::from_rotation_ypr(yaw, pitch, roll))
+    }
+
+    #[inline(always)]
+    pub fn from_rotation_xyz(x: f32, y: f32, z: f32) -> Self {
+        Self(Quat::from_rotation_ypr(y, x, z))
+    }
+
+    #[inline(always)]
+    pub fn from_rotation_x(x: f32) -> Self {
+        Self(Quat::from_rotation_x(x))
+    }
+
+    #[inline(always)]
+    pub fn from_rotation_y(y: f32) -> Self {
+        Self(Quat::from_rotation_y(y))
+    }
+
+    #[inline(always)]
+    pub fn from_rotation_z(z: f32) -> Self {
+        Self(Quat::from_rotation_z(z))
+    }
 }
 
 impl Default for Rotation {

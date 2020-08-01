@@ -13,23 +13,14 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // load the mesh
-    let mesh_handle = asset_server
-        .load("assets/models/monkey/Monkey.gltf")
-        .unwrap();
-
-    // create a material for the mesh
-    let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.4, 0.3),
-        ..Default::default()
-    });
-
     // add entities to the world
     commands
         // mesh
         .spawn(PbrComponents {
-            mesh: mesh_handle,
-            material: material_handle,
+            // load the mesh
+            mesh: asset_server.load("assets/models/monkey/Monkey.gltf").unwrap(),
+            // create a material for the mesh
+            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
             ..Default::default()
         })
         // light

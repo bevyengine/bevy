@@ -36,7 +36,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     commands
         // light
         .spawn(LightComponents {
@@ -54,6 +53,7 @@ fn setup(
         });
 
     let mut rng = StdRng::from_entropy();
+    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
     for _ in 0..10000 {
         commands.spawn(PbrComponents {
             mesh: cube_handle,

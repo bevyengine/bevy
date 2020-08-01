@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-struct Rotator;
-
+/// This example illustrates how to create parent->child relationships between entities how parent transforms
+/// are propagated to their descendants
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
@@ -10,6 +10,9 @@ fn main() {
         .add_system(rotator_system.system())
         .run();
 }
+
+/// this component indicates what entities should rotate
+struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Rotation)>) {

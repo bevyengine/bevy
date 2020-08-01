@@ -68,7 +68,7 @@ fn setup(
         AssetRenderResourcesNode::<MyMaterial>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass 
     render_graph
         .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();
@@ -78,14 +78,11 @@ fn setup(
         color: Color::rgb(0.0, 0.8, 0.0),
     });
 
-    // Create a cube mesh which will use our material
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
-
     // Setup our world
     commands
         // cube
         .spawn(MeshComponents {
-            mesh: cube_handle,
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 pipeline_handle,
                 // NOTE: in the future you wont need to manually declare dynamic bindings

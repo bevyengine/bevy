@@ -20,3 +20,21 @@ impl Default for StandardMaterial {
         }
     }
 }
+
+impl From<Color> for StandardMaterial {
+    fn from(color: Color) -> Self {
+        StandardMaterial {
+            albedo: color,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<Handle<Texture>> for StandardMaterial {
+    fn from(texture: Handle<Texture>) -> Self {
+        StandardMaterial {
+            albedo_texture: Some(texture),
+            ..Default::default()
+        }
+    }
+}

@@ -80,7 +80,7 @@ fn setup(
         AssetRenderResourcesNode::<MyMaterial>::new(true),
     );
 
-    // Add a Render Graph edge connecting our new "my_material" node to the main pass node
+    // Add a Render Graph edge connecting our new "my_material" node to the main pass node. This ensures "my_material" runs before the main pass 
     render_graph
         .add_node_edge("my_material", base::node::MAIN_PASS)
         .unwrap();

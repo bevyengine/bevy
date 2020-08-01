@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+/// This example shows various ways to configure texture materials in 3D
 fn main() {
     App::build()
         .add_default_plugins()
@@ -15,7 +16,7 @@ fn setup(
     mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // load a texture
+    // load a texture and retrieve its aspect ratio
     let texture_handle = asset_server
         .load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png")
         .unwrap();
