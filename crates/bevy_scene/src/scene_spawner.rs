@@ -39,7 +39,7 @@ pub enum SceneSpawnError {
 }
 
 impl SceneSpawner {
-    pub fn spawn(&mut self, scene_handle: Handle<Scene>) {
+    pub fn instance(&mut self, scene_handle: Handle<Scene>) {
         self.scenes_to_spawn.push(scene_handle);
     }
 

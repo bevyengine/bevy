@@ -55,15 +55,15 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
         .load("assets/scenes/load_scene_example.scn")
         .unwrap();
 
-    // SceneSpawner can "spawn" scenes. "spawning" a scene creates a new instance of the scene in the World with new entity ids.
+    // SceneSpawner can "instance" scenes. "instancing" a scene creates a new instance of the scene in the World with new entity ids.
     // This guarantees that it will not overwrite existing entities.
-    scene_spawner.spawn(scene_handle);
+    scene_spawner.instance(scene_handle);
 
     // SceneSpawner can also "load" scenes. "loading" a scene preserves the entity ids in the scene.
-    // In general, you should "spawn" scenes when you are dynamically composing your World and "load" scenes for things like game saves.
+    // In general, you should "instance" scenes when you are dynamically composing your World and "load" scenes for things like game saves.
     scene_spawner.load(scene_handle);
 
-    // we have now loaded `scene_handle` AND spawned it, which means our World now has one set of entities with the Scene's ids and
+    // we have now loaded `scene_handle` AND instanced it, which means our World now has one set of entities with the Scene's ids and
     // one set of entities with new ids
 
     // This tells the AssetServer to watch for changes to assets.
@@ -71,10 +71,10 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
     asset_server.watch_for_changes().unwrap();
 }
 
-// Using SceneSpawner spawn() and load() queues them up to be added to the World at the beginning of the next update. However if
+// Using SceneSpawner instance() and load() queues them up to be added to the World at the beginning of the next update. However if
 // you need scenes to load immediately, you can use the following approach. But be aware that this takes full control of the ECS world
 // and therefore blocks other parallel systems from executing until it finishes. In most cases you should use the SceneSpawner
-// spawn() and load() methods.
+// instance() and load() methods.
 #[allow(dead_code)]
 fn load_scene_right_now_system(world: &mut World, resources: &mut Resources) {
     let scene_handle: Handle<Scene> = {
