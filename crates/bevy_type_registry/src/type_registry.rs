@@ -73,6 +73,7 @@ impl ComponentRegistry {
 pub struct ComponentRegistration {
     pub ty: TypeId,
     component_add_fn: fn(&mut World, resources: &Resources, Entity, &dyn Property),
+    component_apply_fn: fn(&mut World, Entity, &dyn Property),
     component_properties_fn: fn(&Archetype, usize) -> &dyn Properties,
     pub short_name: String,
     pub long_name: &'static str,
@@ -90,6 +91,10 @@ impl ComponentRegistration {
                 let mut component = T::from_resources(resources);
                 component.apply(property);
                 world.insert_one(entity, component).unwrap();
+            },
+            component_apply_fn: |world: &mut World, entity: Entity, property: &dyn Property| {
+                let mut component = world.get_mut::<T>(entity).unwrap();
+                component.apply(property);
             },
             component_properties_fn: |archetype: &Archetype, index: usize| {
                 // the type has been looked up by the caller, so this is safe
@@ -115,6 +120,15 @@ impl ComponentRegistration {
         property: &dyn Property,
     ) {
         (self.component_add_fn)(world, resources, entity, property);
+    }
+
+    pub fn apply_component_to_entity(
+        &self,
+        world: &mut World,
+        entity: Entity,
+        property: &dyn Property,
+    ) {
+        (self.component_apply_fn)(world, entity, property);
     }
 
     pub fn get_component_properties<'a>(

@@ -3,6 +3,7 @@ use crate::Draw;
 use bevy_core::FloatOrd;
 use bevy_ecs::{Entity, Query};
 use bevy_transform::prelude::Transform;
+use bevy_property::Properties;
 
 #[derive(Debug)]
 pub struct VisibleEntity {
@@ -10,8 +11,9 @@ pub struct VisibleEntity {
     pub order: FloatOrd,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Properties)]
 pub struct VisibleEntities {
+    #[property(ignore)]
     pub value: Vec<VisibleEntity>,
 }
 

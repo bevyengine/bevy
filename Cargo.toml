@@ -156,8 +156,8 @@ name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
-name = "load_scene"
-path = "examples/scene/load_scene.rs"
+name = "scene"
+path = "examples/scene/scene.rs"
 
 [[example]]
 name = "properties"

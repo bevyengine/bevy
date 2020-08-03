@@ -13,6 +13,6 @@ pub struct TypeRegistryPlugin;
 impl AppPlugin for TypeRegistryPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<TypeRegistry>()
-            .register_property_type::<DynamicProperties>();
+            .register_property::<DynamicProperties>();
     }
 }

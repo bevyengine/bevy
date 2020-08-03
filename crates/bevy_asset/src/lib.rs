@@ -33,7 +33,7 @@ impl AppPlugin for AssetPlugin {
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
             .init_resource::<AssetServer>()
-            .register_property_type::<HandleId>();
+            .register_property::<HandleId>();
 
         #[cfg(feature = "filesystem_watcher")]
         app.add_system_to_stage(

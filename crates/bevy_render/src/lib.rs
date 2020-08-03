@@ -32,8 +32,8 @@ use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
 use bevy_type_registry::RegisterType;
-use camera::{ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection};
-use pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors};
+use camera::{ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities};
+use pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors, ShaderSpecialization, PipelineSpecialization, DynamicBinding, PrimitiveTopology};
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
     RenderGraph,
@@ -84,8 +84,14 @@ impl AppPlugin for RenderPlugin {
             .register_component::<RenderPipelines>()
             .register_component::<OrthographicProjection>()
             .register_component::<PerspectiveProjection>()
-            .register_property_type::<Color>()
-            .register_property_type::<Range<f32>>()
+            .register_component::<MainPass>()
+            .register_component::<VisibleEntities>()
+            .register_property::<Color>()
+            .register_property::<Range<f32>>()
+            .register_property::<ShaderSpecialization>()
+            .register_property::<DynamicBinding>()
+            .register_property::<PrimitiveTopology>()
+            .register_properties::<PipelineSpecialization>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()

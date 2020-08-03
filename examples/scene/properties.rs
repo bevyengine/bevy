@@ -13,9 +13,9 @@ fn main() {
     App::build()
         .add_default_plugins()
         // If you need to deserialize custom property types, register them like this:
-        .register_property_type::<Test>()
-        .register_property_type::<Nested>()
-        .register_property_type::<CustomProperty>()
+        .register_property::<Test>()
+        .register_property::<Nested>()
+        .register_property::<CustomProperty>()
         .add_startup_system(setup.system())
         .run();
 }
@@ -58,7 +58,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     patch.set::<usize>("a", 4);
 
     // You can "apply" Properties on top of other Properties. This will only set properties with the same name and type.
-    // You can use this to "patch" your components with new values.
+    // You can use this to "patch" your properties with new values.
     test.apply(&patch);
     assert_eq!(test.a, 4);
 

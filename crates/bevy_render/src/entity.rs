@@ -7,8 +7,9 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
+use bevy_property::Properties;
 
-#[derive(Default)]
+#[derive(Default, Properties)]
 pub struct MainPass;
 
 #[derive(Bundle, Default)]

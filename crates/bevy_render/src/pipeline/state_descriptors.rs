@@ -1,4 +1,6 @@
 use crate::texture::TextureFormat;
+use serde::{Serialize, Deserialize};
+use bevy_property::Property;
 
 #[derive(Clone, Debug)]
 pub struct DepthStencilStateDescriptor {
@@ -51,7 +53,7 @@ pub enum CompareFunction {
     Always = 7,
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Property)]
 pub enum PrimitiveTopology {
     PointList = 0,
     LineList = 1,

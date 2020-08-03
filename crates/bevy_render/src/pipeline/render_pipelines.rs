@@ -10,7 +10,6 @@ use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
-    #[property(ignore)]
     pub specialization: PipelineSpecialization,
 }
 

@@ -25,11 +25,12 @@ impl AppPlugin for CorePlugin {
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
             .register_component::<Timer>()
-            .register_property_type::<Vec2>()
-            .register_property_type::<Vec3>()
-            .register_property_type::<Mat3>()
-            .register_property_type::<Mat4>()
-            .register_property_type::<Quat>()
+            .register_property::<Vec2>()
+            .register_property::<Vec3>()
+            .register_property::<Mat3>()
+            .register_property::<Mat4>()
+            .register_property::<Quat>()
+            .register_property::<Option<String>>()
             .add_system_to_stage(stage::FIRST, time_system.system())
             .add_system_to_stage(stage::FIRST, timer_system.system());
     }

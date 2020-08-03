@@ -102,16 +102,28 @@ impl SceneSpawner {
             } else {
                 bevy_ecs::Entity::from_id(scene_entity.entity)
             };
-            if !world.contains(entity) {
+            if world.contains(entity) {
+                for component in scene_entity.components.iter() {
+                    let component_registration = component_registry
+                        .get_with_name(&component.type_name)
+                        .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                            type_name: component.type_name.to_string(),
+                        })?;
+                    if component.type_name != "Camera" {
+                        component_registration.apply_component_to_entity(world, entity, component);
+                    }
+                }
+
+            } else {
                 world.spawn_as_entity(entity, (1,));
-            }
-            for component in scene_entity.components.iter() {
-                let component_registration = component_registry
-                    .get_with_name(&component.type_name)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
-                        type_name: component.type_name.to_string(),
-                    })?;
-                component_registration.add_component_to_entity(world, resources, entity, component);
+                for component in scene_entity.components.iter() {
+                    let component_registration = component_registry
+                        .get_with_name(&component.type_name)
+                        .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                            type_name: component.type_name.to_string(),
+                        })?;
+                    component_registration.add_component_to_entity(world, resources, entity, component);
+                }
             }
         }
         Ok(())
@@ -196,6 +208,7 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
             }
         }
     }
+
 
     scene_spawner.load_queued_scenes(world, resources).unwrap();
     scene_spawner.spawn_queued_scenes(world, resources).unwrap();

@@ -6,8 +6,9 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
-
-#[derive(Clone, Eq, PartialEq, Debug)]
+use bevy_property::{Properties, Property};
+use serde::{Serialize, Deserialize};
+#[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
@@ -34,7 +35,7 @@ impl PipelineSpecialization {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Property, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }
@@ -49,7 +50,7 @@ struct SpecializedPipeline {
     specialization: PipelineSpecialization,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, Property)]
 pub struct DynamicBinding {
     pub bind_group: u32,
     pub binding: u32,
