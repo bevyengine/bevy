@@ -22,7 +22,7 @@
 //!}
 //! ```
 
-//! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevyengine.org/learn/book/introduction/features/)
+//! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevyengine.org)
 //! and it gets more powerful every day!
 //!
 //! ### This Crate
