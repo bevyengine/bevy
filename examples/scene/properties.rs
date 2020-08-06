@@ -47,6 +47,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
     // You can set a property value like this. The type must match exactly or this will fail.
     test.set_prop_val::<usize>("a", 2);
     assert_eq!(test.a, 2);
+    assert_eq!(*test.prop_val::<usize>("a").unwrap(), 2);
 
     // You can also set properties dynamically. set_prop accepts any type that implements Property
     let x: u32 = 3;

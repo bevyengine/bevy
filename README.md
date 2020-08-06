@@ -13,10 +13,10 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Design Goals
 
-* **Capable**: Offer a complete 2D _and_ 3D feature set 
+* **Capable**: Offer a complete 2D and 3D feature set 
 * **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
 * **Data Focused**: Data-oriented architecture using the Entity Component System paradigm 
-* **Modular**: Use only what you need ... replace what you don't like
+* **Modular**: Use only what you need. Replace what you don't like
 * **Fast**: App logic should run quickly, and when possible, in parallel
 * **Productive**: Changes should compile quickly ... waiting isn't fun
 
@@ -41,12 +41,7 @@ cargo run --example scene
 
 ### Fast Compiles
 
-Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should use nightly Rust and rename [.cargo/config_fast_builds](.cargo/config_fast_builds) to `.cargo/config`. This enables the following:
-* Shared Generics: This feature shares generic monomorphization between crates, which significantly reduces the amount of redundant code generated (which gives a nice speed boost).
-* LLD linker: Rust spends a lot of time linking, and LLD is _much_ faster. This config swaps in LLD as the linker on Windows and Linux (sorry MacOS users ... LLD currently does not support MacOS). You must have lld installed, which is part of llvm distributions:
-    * Ubuntu: `sudo apt-get install lld`
-    * Arch: `sudo pacman -S lld`
-    * Windows (using scoop package manager): `scoop install llvm`
+Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
 
 ## Libraries Used
 
@@ -60,4 +55,4 @@ Bevy is only possible because of the hard work put into these foundational techn
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
 
 
-Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others. 
+Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others. 
