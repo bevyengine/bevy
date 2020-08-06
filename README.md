@@ -48,10 +48,8 @@ Bevy can be built just fine using default configuration on stable Rust. However 
 Bevy is only possible because of the hard work put into these foundational technologies:
 
 * [wgpu-rs](https://github.com/gfx-rs/wgpu-rs): modern / low-level / cross platform graphics library inspired by Vulkan
-* [legion](https://github.com/TomGillen/legion): a feature rich high performance ECS library
 * [glam-rs](https://github.com/bitshifter/glam-rs): a simple and fast 3D math library for games and graphics
 * [winit](https://github.com/rust-windowing/winit): cross platform window creation and management in Rust
-* [legion_transform](https://github.com/AThilenius/legion_transform): A hierarchical space transform system, implemented using Legion ECS
 * [spirv-reflect](https://github.com/gwihlidal/spirv-reflect-rs): Reflection API in rust for SPIR-V shader byte code
 
 
