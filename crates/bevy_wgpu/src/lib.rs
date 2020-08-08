@@ -17,7 +17,7 @@ use renderer::WgpuRenderResourceContext;
 #[derive(Default)]
 pub struct WgpuPlugin;
 
-impl AppPlugin for WgpuPlugin {
+impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let render_system = wgpu_render_system(app.resources_mut());
         app.add_system_to_stage(

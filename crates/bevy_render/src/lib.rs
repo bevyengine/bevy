@@ -66,7 +66,7 @@ impl Default for RenderPlugin {
     }
 }
 
-impl AppPlugin for RenderPlugin {
+impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)

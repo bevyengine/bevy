@@ -20,7 +20,7 @@ use bevy_type_registry::RegisterType;
 #[derive(Default)]
 pub struct CorePlugin;
 
-impl AppPlugin for CorePlugin {
+impl Plugin for CorePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()

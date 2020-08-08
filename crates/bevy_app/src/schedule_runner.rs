@@ -2,7 +2,7 @@ use super::{App, AppBuilder};
 use crate::{
     app::AppExit,
     event::{EventReader, Events},
-    plugin::AppPlugin,
+    plugin::Plugin,
 };
 use std::{thread, time::Duration};
 
@@ -39,7 +39,7 @@ impl ScheduleRunnerPlugin {
     }
 }
 
-impl AppPlugin for ScheduleRunnerPlugin {
+impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {

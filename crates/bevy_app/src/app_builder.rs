@@ -1,7 +1,7 @@
 use crate::{
     app::{App, AppExit},
     event::Events,
-    plugin::{load_plugin, AppPlugin},
+    plugin::{load_plugin, Plugin},
     stage, startup_stage,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
@@ -228,7 +228,7 @@ impl AppBuilder {
 
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
-        T: AppPlugin,
+        T: Plugin,
     {
         log::debug!("added plugin: {}", plugin.name());
         plugin.build(self);

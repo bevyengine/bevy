@@ -22,7 +22,7 @@ pub struct PrintMessagePlugin {
     message: String,
 }
 
-impl AppPlugin for PrintMessagePlugin {
+impl Plugin for PrintMessagePlugin {
     // this is where we set up our plugin
     fn build(&self, app: &mut AppBuilder) {
         let state = PrintMessageState {

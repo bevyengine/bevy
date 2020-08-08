@@ -36,7 +36,7 @@ pub mod stage {
     pub const UI: &'static str = "ui";
 }
 
-impl AppPlugin for UiPlugin {
+impl Plugin for UiPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<FlexSurface>()
             .add_stage_before(bevy_app::stage::POST_UPDATE, stage::UI)

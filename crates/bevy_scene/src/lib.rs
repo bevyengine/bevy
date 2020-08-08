@@ -20,7 +20,7 @@ pub struct ScenePlugin;
 
 pub const SCENE_STAGE: &str = "scene";
 
-impl AppPlugin for ScenePlugin {
+impl Plugin for ScenePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<Scene>()
             .add_asset_loader::<Scene, SceneLoader>()

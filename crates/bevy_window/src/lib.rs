@@ -29,7 +29,7 @@ impl Default for WindowPlugin {
     }
 }
 
-impl AppPlugin for WindowPlugin {
+impl Plugin for WindowPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<WindowResized>()
             .add_event::<CreateWindow>()

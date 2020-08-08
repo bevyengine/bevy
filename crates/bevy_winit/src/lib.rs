@@ -22,7 +22,7 @@ use winit::{
 #[derive(Default)]
 pub struct WinitPlugin;
 
-impl AppPlugin for WinitPlugin {
+impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
             // TODO: It would be great to provide a raw winit WindowEvent here, but the lifetime on it is

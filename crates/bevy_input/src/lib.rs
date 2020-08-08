@@ -20,7 +20,7 @@ use bevy_ecs::IntoQuerySystem;
 #[derive(Default)]
 pub struct InputPlugin;
 
-impl AppPlugin for InputPlugin {
+impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<KeyboardInput>()
             .add_event::<MouseButtonInput>()

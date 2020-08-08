@@ -40,7 +40,7 @@ pub struct SpritePlugin;
 
 pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013514540294236421);
 
-impl AppPlugin for SpritePlugin {
+impl Plugin for SpritePlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<ColorMaterial>()
             .add_asset::<TextureAtlas>()

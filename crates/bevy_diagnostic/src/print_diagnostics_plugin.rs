@@ -25,7 +25,7 @@ impl Default for PrintDiagnosticsPlugin {
     }
 }
 
-impl AppPlugin for PrintDiagnosticsPlugin {
+impl Plugin for PrintDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
         app.add_resource(PrintDiagnosticsState {
             timer: Timer::new(self.wait_duration),

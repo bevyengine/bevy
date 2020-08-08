@@ -22,7 +22,7 @@ use render_graph::ForwardPbrRenderGraphBuilder;
 #[derive(Default)]
 pub struct PbrPlugin;
 
-impl AppPlugin for PbrPlugin {
+impl Plugin for PbrPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<StandardMaterial>()
             .register_component::<Light>()

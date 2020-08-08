@@ -20,7 +20,7 @@ use bevy_asset::AddAsset;
 #[derive(Default)]
 pub struct TextPlugin;
 
-impl AppPlugin for TextPlugin {
+impl Plugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()

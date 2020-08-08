@@ -9,7 +9,7 @@ mod startup_stage;
 
 pub use app::*;
 pub use app_builder::*;
-pub use bevy_derive::DynamicAppPlugin;
+pub use bevy_derive::DynamicPlugin;
 pub use event::*;
 pub use plugin::*;
 pub use schedule_runner::*;
@@ -20,7 +20,7 @@ pub mod prelude {
         app::App,
         app_builder::AppBuilder,
         event::{EventReader, Events},
-        plugin::AppPlugin,
-        stage, DynamicAppPlugin,
+        plugin::Plugin,
+        stage, DynamicPlugin,
     };
 }

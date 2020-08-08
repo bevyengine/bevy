@@ -15,7 +15,7 @@ use bevy_ecs::IntoQuerySystem;
 #[derive(Default)]
 pub struct AudioPlugin;
 
-impl AppPlugin for AudioPlugin {
+impl Plugin for AudioPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<AudioOutput>()
             .add_asset::<AudioSource>()

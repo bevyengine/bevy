@@ -29,7 +29,7 @@ pub(crate) fn transform_systems() -> Vec<Box<dyn System>> {
 #[derive(Default)]
 pub struct TransformPlugin;
 
-impl AppPlugin for TransformPlugin {
+impl Plugin for TransformPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.register_component::<Children>()
             .register_component::<Parent>()

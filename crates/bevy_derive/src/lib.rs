@@ -41,7 +41,7 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     as_vertex_buffer_descriptor::derive_as_vertex_buffer_descriptor(input)
 }
 
-#[proc_macro_derive(DynamicAppPlugin)]
+#[proc_macro_derive(DynamicPlugin)]
 pub fn derive_app_plugin(input: TokenStream) -> TokenStream {
-    app_plugin::derive_dynamic_app_plugin(input)
+    app_plugin::derive_dynamic_plugin(input)
 }

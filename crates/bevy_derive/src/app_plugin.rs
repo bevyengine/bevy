@@ -2,13 +2,13 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
-pub fn derive_dynamic_app_plugin(input: TokenStream) -> TokenStream {
+pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
         #[no_mangle]
-        pub extern "C" fn _create_plugin() -> *mut bevy::app::AppPlugin {
+        pub extern "C" fn _create_plugin() -> *mut bevy::app::Plugin {
             // TODO: without this the assembly does nothing. why is that the case?
             print!("");
             // make sure the constructor is the correct type.

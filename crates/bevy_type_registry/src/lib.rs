@@ -10,7 +10,7 @@ use bevy_property::DynamicProperties;
 #[derive(Default)]
 pub struct TypeRegistryPlugin;
 
-impl AppPlugin for TypeRegistryPlugin {
+impl Plugin for TypeRegistryPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<TypeRegistry>()
             .register_property::<DynamicProperties>();

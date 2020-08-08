@@ -14,7 +14,7 @@ pub struct PrintDiagnostics {}
 #[derive(Default)]
 pub struct DiagnosticsPlugin;
 
-impl AppPlugin for DiagnosticsPlugin {
+impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<Diagnostics>();
         #[cfg(feature = "profiler")]

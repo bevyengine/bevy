@@ -21,14 +21,14 @@ pub mod prelude {
     pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 }
 
-use bevy_app::{prelude::AppPlugin, AppBuilder};
+use bevy_app::{prelude::Plugin, AppBuilder};
 use bevy_ecs::IntoQuerySystem;
 use bevy_type_registry::RegisterType;
 
 #[derive(Default)]
 pub struct AssetPlugin;
 
-impl AppPlugin for AssetPlugin {
+impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
