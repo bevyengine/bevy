@@ -5,7 +5,7 @@
 
 ## What is Bevy?
 
-Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity and performance.
+Bevy is a refreshingly simple data-driven game engine built in Rust. It is free and open-source forever!
 
 ## WARNING
 
@@ -35,8 +35,8 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial. You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
-# Runs the "scene" example
-cargo run --example scene
+# Runs the "breakout" example
+cargo run --example breakout
 ```
 
 ### Fast Compiles
