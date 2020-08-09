@@ -20,6 +20,7 @@ struct SystemProfiles {
     current_start: Option<Instant>,
 }
 
+/// Profiles systems by recording their run duration as diagnostics.
 #[derive(Default)]
 pub struct SystemProfiler {
     system_profiles: Arc<RwLock<HashMap<Cow<'static, str>, SystemProfiles>>>,

@@ -27,13 +27,18 @@ pub mod prelude {
 }
 
 use crate::prelude::*;
-use base::Msaa;
+use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
 use bevy_type_registry::RegisterType;
-use camera::{ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities};
-use pipeline::{PipelineCompiler, PipelineDescriptor, VertexBufferDescriptors, ShaderSpecialization, PipelineSpecialization, DynamicBinding, PrimitiveTopology};
+use camera::{
+    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+};
+use pipeline::{
+    DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
+    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
+};
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
     RenderGraph,
@@ -42,6 +47,7 @@ use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
 use texture::{HdrTextureLoader, ImageTextureLoader, TextureResourceSystemState};
 
+/// The names of "render" App stages
 pub mod stage {
     /// Stage where render resources are set up
     pub static RENDER_RESOURCE: &str = "render_resource";
@@ -53,6 +59,7 @@ pub mod stage {
     pub static POST_RENDER: &str = "post_render";
 }
 
+/// Adds core render types and systems to an App
 pub struct RenderPlugin {
     /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,

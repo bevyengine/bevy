@@ -13,6 +13,7 @@ use bevy_render::{
 };
 use bevy_transform::prelude::*;
 
+/// A Render Graph [Node] that write light data from the ECS to GPU buffers
 #[derive(Default)]
 pub struct LightsNode {
     command_queue: CommandQueue,
@@ -43,7 +44,7 @@ impl Node for LightsNode {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct LightCount {
+struct LightCount {
     pub num_lights: [u32; 4],
 }
 
@@ -65,6 +66,7 @@ impl SystemNode for LightsNode {
     }
 }
 
+/// Local "lights node system" state
 #[derive(Default)]
 pub struct LightsNodeSystemState {
     light_buffer: Option<BufferId>,

@@ -7,7 +7,7 @@ use crate::{
 use hecs::{Fetch, Query as HecsQuery, World};
 use std::borrow::Cow;
 
-pub struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
+pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
 where
     F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
@@ -74,7 +74,7 @@ where
     }
 }
 
-#[doc(hidden)]
+/// Converts `Self` into a For-Each system
 pub trait IntoForEachSystem<CommandBuffer, R, C> {
     fn system(self) -> Box<dyn System>;
 }
@@ -136,6 +136,7 @@ struct QuerySystemState {
     commands: Commands,
 }
 
+/// Converts `Self` into a Query System
 pub trait IntoQuerySystem<Commands, R, Q> {
     fn system(self) -> Box<dyn System>;
 }
@@ -298,6 +299,7 @@ impl_into_systems!(Ra,Rb,Rc,Rd,Re,Rf,Rg,Rh,Ri);
 #[rustfmt::skip]
 impl_into_systems!(Ra,Rb,Rc,Rd,Re,Rf,Rg,Rh,Ri,Rj);
 
+/// Converts `Self` into a thread local system
 pub trait IntoThreadLocalSystem {
     fn thread_local_system(self) -> Box<dyn System>;
 }
@@ -324,6 +326,7 @@ where
     }
 }
 
+/// A thread local system function
 pub trait ThreadLocalSystemFn: Send + Sync + 'static {
     fn run(&mut self, world: &mut World, resource: &mut Resources);
 }

@@ -17,6 +17,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 
+/// Adds core functionality to Apps.
 #[derive(Default)]
 pub struct CorePlugin;
 
@@ -32,6 +33,7 @@ impl Plugin for CorePlugin {
             .register_property::<Quat>()
             .register_property::<Option<String>>()
             .add_system_to_stage(stage::FIRST, time_system.system())
-            .add_system_to_stage(stage::FIRST, timer_system.system());
+            .add_system_to_stage(stage::FIRST, timer_system.system())
+            .add_system_to_stage(stage::PRE_UPDATE, entity_labels_system.system());
     }
 }

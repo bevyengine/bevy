@@ -12,6 +12,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// Executes each schedule stage in parallel by analyzing system dependencies.
+/// System execution order is undefined except under the following conditions:
+/// * systems in earlier stages run before systems in later stages
+/// * in a given stage, systems that mutate archetype X cannot run before systems registered before them that read/write archetype X
+/// * in a given stage, systems the read archetype X cannot run before systems registered before them that write archetype X
+/// * in a given stage, systems that mutate resource Y cannot run before systems registered before them that read/write resource Y
+/// * in a given stage, systems the read resource Y cannot run before systems registered before them that write resource Y
+
 #[derive(Debug)]
 pub struct ParallelExecutor {
     stages: Vec<ExecutorStage>,

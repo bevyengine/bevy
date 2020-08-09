@@ -3,16 +3,18 @@ use crate::resource::{Resource, Resources};
 use hecs::{Bundle, Component, DynamicBundle, Entity, World};
 use std::sync::{Arc, Mutex};
 
+/// A queued command to mutate the current [World] or [Resources] 
 pub enum Command {
     WriteWorld(Box<dyn WorldWriter>),
     WriteResources(Box<dyn ResourcesWriter>),
 }
 
+/// A [World] mutation
 pub trait WorldWriter: Send + Sync {
     fn write(self: Box<Self>, world: &mut World);
 }
 
-pub struct Spawn<T>
+pub(crate) struct Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
@@ -28,7 +30,7 @@ where
     }
 }
 
-pub struct SpawnAsEntity<T>
+pub(crate) struct SpawnAsEntity<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
@@ -45,7 +47,7 @@ where
     }
 }
 
-pub struct SpawnBatch<I>
+pub(crate) struct SpawnBatch<I>
 where
     I: IntoIterator,
     I::Item: Bundle,
@@ -63,7 +65,7 @@ where
     }
 }
 
-pub struct Despawn {
+pub(crate) struct Despawn {
     entity: Entity,
 }
 
@@ -90,7 +92,7 @@ where
     }
 }
 
-pub struct InsertOne<T>
+pub(crate) struct InsertOne<T>
 where
     T: Component,
 {
@@ -121,7 +123,7 @@ impl<T: Resource> ResourcesWriter for InsertResource<T> {
     }
 }
 
-pub struct InsertLocalResource<T: Resource> {
+pub(crate) struct InsertLocalResource<T: Resource> {
     resource: T,
     system_id: SystemId,
 }
@@ -194,6 +196,7 @@ impl CommandsInternal {
     }
 }
 
+/// A queue of [Command]s to run on the current [World] and [Resources]
 #[derive(Default, Clone)]
 pub struct Commands {
     pub commands: Arc<Mutex<CommandsInternal>>,

@@ -1,6 +1,7 @@
 use super::Texture;
 use crate::pipeline::CompareFunction;
 
+/// Describes a sampler
 #[derive(Copy, Clone)]
 pub struct SamplerDescriptor {
     pub address_mode_u: AddressMode,
@@ -49,6 +50,7 @@ impl From<&Texture> for SamplerDescriptor {
     }
 }
 
+/// How edges should be handled in texture addressing.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum AddressMode {
     ClampToEdge = 0,
@@ -62,6 +64,7 @@ impl Default for AddressMode {
     }
 }
 
+/// Texel mixing mode when sampling between texels.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum FilterMode {
     Nearest = 0,

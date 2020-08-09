@@ -11,7 +11,8 @@ use bevy_render::{
 
 pub const FORWARD_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::from_u128(131483623140127713893804825450360211204);
-pub fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
+
+pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,

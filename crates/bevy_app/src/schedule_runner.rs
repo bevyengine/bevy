@@ -6,6 +6,7 @@ use crate::{
 };
 use std::{thread, time::Duration};
 
+/// Determines the method used to run an [App]'s `Schedule`
 #[derive(Copy, Clone, Debug)]
 pub enum RunMode {
     Loop { wait: Option<Duration> },
@@ -18,6 +19,7 @@ impl Default for RunMode {
     }
 }
 
+/// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin {
     pub run_mode: RunMode,

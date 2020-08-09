@@ -1,7 +1,7 @@
+#[cfg(feature = "filesystem_watcher")]
+mod filesystem_watcher;
 mod asset_server;
 mod assets;
-#[cfg(feature = "filesystem_watcher")]
-pub mod filesystem_watcher;
 mod handle;
 mod load_request;
 mod loader;
@@ -12,6 +12,7 @@ pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
 
+/// The names of asset stages in an App Schedule
 pub mod stage {
     pub const LOAD_ASSETS: &str = "load_assets";
     pub const ASSET_EVENTS: &str = "asset_events";
@@ -25,6 +26,8 @@ use bevy_app::{prelude::Plugin, AppBuilder};
 use bevy_ecs::IntoQuerySystem;
 use bevy_type_registry::RegisterType;
 
+/// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
+/// Examples of assets: textures, sounds, 3d models, maps, scenes
 #[derive(Default)]
 pub struct AssetPlugin;
 

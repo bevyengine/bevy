@@ -2,6 +2,8 @@ use super::ShaderLayout;
 use bevy_asset::Handle;
 use glsl_to_spirv::compile;
 use std::{io::Read, marker::Copy};
+
+/// The stage of a shader
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 pub enum ShaderStage {
     Vertex,
@@ -19,7 +21,7 @@ impl Into<glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
-pub fn glsl_to_spirv(
+fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
@@ -41,6 +43,7 @@ fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
     words
 }
 
+/// The full "source" of a shader
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub enum ShaderSource {
     Spirv(Vec<u32>),
@@ -53,11 +56,11 @@ impl ShaderSource {
     }
 }
 
+/// A shader, as defined by its [ShaderSource] and [ShaderStage] 
 #[derive(Clone, Debug)]
 pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
-    // TODO: add "precompile" flag?
 }
 
 impl Shader {
@@ -98,6 +101,7 @@ impl Shader {
     }
 }
 
+/// All stages in a shader program
 #[derive(Clone, Debug)]
 pub struct ShaderStages {
     pub vertex: Handle<Shader>,

@@ -1,9 +1,12 @@
-pub mod entity;
-pub mod light;
-pub mod material;
-pub mod nodes;
-pub mod pipelines;
 pub mod render_graph;
+
+mod entity;
+mod light;
+mod material;
+
+pub use entity::*;
+pub use light::*;
+pub use material::*;
 
 pub mod prelude {
     pub use crate::{entity::*, light::Light, material::StandardMaterial};
@@ -16,7 +19,7 @@ use bevy_render::{render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
 use light::Light;
 use material::StandardMaterial;
-use render_graph::ForwardPbrRenderGraphBuilder;
+use render_graph::add_pbr_graph;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
 #[derive(Default)]
@@ -32,6 +35,6 @@ impl Plugin for PbrPlugin {
             );
         let resources = app.resources();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
-        render_graph.add_pbr_graph(resources);
+        add_pbr_graph(&mut render_graph, resources);
     }
 }

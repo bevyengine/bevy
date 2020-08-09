@@ -1,5 +1,6 @@
 use std::{collections::HashSet, hash::Hash};
 
+/// A "press-able" input of type `T`
 pub struct Input<T> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,

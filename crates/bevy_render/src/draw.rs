@@ -18,6 +18,7 @@ use bevy_property::Properties;
 use std::{any::TypeId, ops::Range, sync::Arc};
 use thiserror::Error;
 
+/// A queued command for the renderer
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderCommand {
     SetPipeline {
@@ -44,6 +45,7 @@ pub enum RenderCommand {
     },
 }
 
+/// A component that indicates how to draw an entity.
 #[derive(Properties)]
 pub struct Draw {
     pub is_visible: bool,

@@ -4,6 +4,7 @@ use bevy_asset::AssetLoader;
 use bevy_math::Vec2;
 use std::path::Path;
 
+/// Loads HDR textures as Texture assets 
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 

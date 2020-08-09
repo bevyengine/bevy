@@ -1,11 +1,12 @@
 use crate::{
     app::{App, AppExit},
     event::Events,
-    plugin::{load_plugin, Plugin},
+    plugin::{dynamically_load_plugin, Plugin},
     stage, startup_stage,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
+/// Configure [App]s using the builder pattern
 pub struct AppBuilder {
     pub app: App,
 }
@@ -220,7 +221,7 @@ impl AppBuilder {
     }
 
     pub fn load_plugin(&mut self, path: &str) -> &mut Self {
-        let (_lib, plugin) = load_plugin(path);
+        let (_lib, plugin) = dynamically_load_plugin(path);
         log::debug!("loaded plugin: {}", plugin.name());
         plugin.build(self);
         self

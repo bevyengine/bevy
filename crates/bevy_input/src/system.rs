@@ -5,11 +5,13 @@ use bevy_app::{
 };
 use bevy_ecs::{Local, Res, ResMut};
 
+/// Local "exit on escape" system state
 #[derive(Default)]
 pub struct ExitOnEscapeState {
     reader: EventReader<KeyboardInput>,
 }
 
+/// Sends the AppExit event whenever the "esc" key is pressed.
 pub fn exit_on_esc_system(
     mut state: Local<ExitOnEscapeState>,
     keyboard_input_events: Res<Events<KeyboardInput>>,

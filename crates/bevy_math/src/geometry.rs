@@ -1,6 +1,7 @@
 use glam::Vec2;
 use std::ops::{Add, AddAssign};
 
+/// A two dimensional "size" as defined by a width and height
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Size<T = f32> {
     pub width: T,
@@ -22,6 +23,7 @@ impl<T: Default> Default for Size<T> {
     }
 }
 
+/// A rect, as defined by its "side" locations
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Rect<T> {
     pub left: T,

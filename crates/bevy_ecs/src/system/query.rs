@@ -5,12 +5,14 @@ use hecs::{
 };
 use std::marker::PhantomData;
 
+/// Provides scoped access to a World according to a given [HecsQuery]
 pub struct Query<'a, Q: HecsQuery> {
     pub(crate) world: &'a World,
     pub(crate) archetype_access: &'a ArchetypeAccess,
     _marker: PhantomData<Q>,
 }
 
+/// An error that occurs when using a [Query]
 #[derive(Debug)]
 pub enum QueryError {
     CannotReadArchetype,

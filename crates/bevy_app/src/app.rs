@@ -1,6 +1,26 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
+/// Containers of app logic and data
+///
+/// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function of the App, which
+/// by default executes the App schedule once. Apps are constructed using the builder pattern.
+///
+/// ## Example
+/// Here is a simple "Hello World" Bevy app:
+/// ```
+///use bevy::prelude::*;
+///
+///fn main() {
+///    App::build()
+///        .add_system(hello_world_system.system())
+///        .run();
+///}
+///
+///fn hello_world_system() {
+///    println!("hello world");
+///}
+/// ```
 pub struct App {
     pub world: World,
     pub resources: Resources,

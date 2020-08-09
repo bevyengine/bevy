@@ -1,7 +1,8 @@
 use crate::Input;
 use bevy_app::prelude::*;
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::{Res, ResMut, Local};
 
+/// A key input event from a keyboard device
 #[derive(Debug, Clone)]
 pub struct KeyboardInput {
     pub scan_code: u32,
@@ -9,6 +10,7 @@ pub struct KeyboardInput {
     pub state: ElementState,
 }
 
+/// The current "press" state of an element
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ElementState {
     Pressed,
@@ -24,13 +26,15 @@ impl ElementState {
     }
 }
 
+/// State used by the keyboard input system
 #[derive(Default)]
 pub struct KeyboardInputState {
     keyboard_input_event_reader: EventReader<KeyboardInput>,
 }
 
+/// Updates the Input<KeyCode> resource with the latest KeyboardInput events
 pub fn keyboard_input_system(
-    mut state: ResMut<KeyboardInputState>,
+    mut state: Local<KeyboardInputState>,
     mut keyboard_input: ResMut<Input<KeyCode>>,
     keyboard_input_events: Res<Events<KeyboardInput>>,
 ) {
@@ -53,6 +57,7 @@ pub fn keyboard_input_system(
     }
 }
 
+/// The key code of a keyboard input.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
 pub enum KeyCode {

@@ -1,13 +1,15 @@
-use crate::{light::Light, material::StandardMaterial, pipelines::FORWARD_PIPELINE_HANDLE};
+use crate::{light::Light, material::StandardMaterial, render_graph::FORWARD_PIPELINE_HANDLE};
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines}, prelude::MainPass,
+    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
+/// A component bundle for "pbr mesh" entities
 #[derive(Bundle)]
 pub struct PbrComponents {
     pub mesh: Handle<Mesh>,
@@ -54,6 +56,7 @@ impl Default for PbrComponents {
     }
 }
 
+/// A component bundle for "light" entities
 #[derive(Bundle, Default)]
 pub struct LightComponents {
     pub light: Light,

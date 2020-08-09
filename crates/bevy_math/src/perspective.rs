@@ -1,7 +1,9 @@
 use crate::Mat4;
 use glam::Vec4;
 
+/// Produces a "right handed" perspective matrix
 pub trait PerspectiveRh {
+    /// Produces a "right handed" perspective matrix
     fn perspective_rh(fov_y_radians: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Self;
 }
 

@@ -2,7 +2,7 @@ use crossbeam_channel::Receiver;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Result, Watcher};
 use std::path::Path;
 
-/// Watches for changes to assets on the filesystem and informs the `AssetServer` to reload them
+/// Watches for changes to assets on the filesystem. This is used by the `AssetServer` to reload them
 pub struct FilesystemWatcher {
     pub watcher: RecommendedWatcher,
     pub receiver: Receiver<Result<Event>>,

@@ -3,6 +3,7 @@ use fixedbitset::FixedBitSet;
 use hecs::{Access, Query, World};
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
+/// Determines the strategy used to run the `run_thread_local` function in a [System]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ThreadLocalExecution {
     Immediate,
@@ -18,6 +19,7 @@ impl SystemId {
     }
 }
 
+/// An ECS system that can be added to a [Schedule](crate::Schedule) 
 pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
@@ -30,13 +32,14 @@ pub trait System: Send + Sync {
     fn initialize(&mut self, _resources: &mut Resources) {}
 }
 
-// credit to Ratysz from the Yaks codebase
+/// Provides information about the archetypes a [System] reads and writes
 #[derive(Default)]
 pub struct ArchetypeAccess {
     pub immutable: FixedBitSet,
     pub mutable: FixedBitSet,
 }
 
+// credit to Ratysz from the Yaks codebase
 impl ArchetypeAccess {
     pub fn is_compatible(&self, other: &ArchetypeAccess) -> bool {
         self.mutable.is_disjoint(&other.mutable)
@@ -73,6 +76,7 @@ impl ArchetypeAccess {
     }
 }
 
+/// Provides information about the types a [System] reads and writes
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct TypeAccess {
     pub immutable: HashSet<TypeId>,

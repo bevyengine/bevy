@@ -12,6 +12,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::IntoQuerySystem;
 
+/// Adds support for audio playback to an App
 #[derive(Default)]
 pub struct AudioPlugin;
 

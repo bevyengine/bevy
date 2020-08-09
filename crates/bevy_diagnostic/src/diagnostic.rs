@@ -4,6 +4,7 @@ use std::{
 };
 use uuid::Uuid;
 
+/// Unique identifier for a [Diagnostic]
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct DiagnosticId(pub Uuid);
 
@@ -19,12 +20,15 @@ impl Default for DiagnosticId {
     }
 }
 
+/// A single measurement of a [Diagnostic]
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
     pub time: SystemTime,
     pub value: f64,
 }
 
+/// A timeline of [DiagnosticMeasurement]s of a specific type.
+/// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
 pub struct Diagnostic {
     pub id: DiagnosticId,
@@ -97,6 +101,7 @@ impl Diagnostic {
     }
 }
 
+/// A collection of [Diagnostic]s
 #[derive(Default)]
 pub struct Diagnostics {
     diagnostics: HashMap<DiagnosticId, Diagnostic>,

@@ -1,22 +1,22 @@
 use super::{FromResources, Resources};
 use crate::{
     system::{SystemId, TypeAccess},
-    ResourceIndex,
+    Resource, ResourceIndex,
 };
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use hecs::{smaller_tuples_too, Component};
+use hecs::smaller_tuples_too;
 use std::marker::PhantomData;
 
-/// Shared borrow of an entity's component
-pub struct Res<'a, T: Component> {
+/// Shared borrow of a Resource
+pub struct Res<'a, T: Resource> {
     value: &'a T,
 }
 
-impl<'a, T: Component> Res<'a, T> {
+impl<'a, T: Resource> Res<'a, T> {
     pub unsafe fn new(value: NonNull<T>) -> Self {
         Self {
             value: &*value.as_ptr(),
@@ -24,20 +24,21 @@ impl<'a, T: Component> Res<'a, T> {
     }
 }
 
+/// A clone that is unsafe to perform. You probably shouldn't use this.
 pub trait UnsafeClone {
     unsafe fn unsafe_clone(&self) -> Self;
 }
 
-impl<'a, T: Component> UnsafeClone for Res<'a, T> {
+impl<'a, T: Resource> UnsafeClone for Res<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self { value: self.value }
     }
 }
 
-unsafe impl<T: Component> Send for Res<'_, T> {}
-unsafe impl<T: Component> Sync for Res<'_, T> {}
+unsafe impl<T: Resource> Send for Res<'_, T> {}
+unsafe impl<T: Resource> Sync for Res<'_, T> {}
 
-impl<'a, T: Component> Deref for Res<'a, T> {
+impl<'a, T: Resource> Deref for Res<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -45,13 +46,13 @@ impl<'a, T: Component> Deref for Res<'a, T> {
     }
 }
 
-/// Unique borrow of a resource
-pub struct ResMut<'a, T: Component> {
+/// Unique borrow of a Resource
+pub struct ResMut<'a, T: Resource> {
     _marker: PhantomData<&'a T>,
     value: *mut T,
 }
 
-impl<'a, T: Component> ResMut<'a, T> {
+impl<'a, T: Resource> ResMut<'a, T> {
     pub unsafe fn new(value: NonNull<T>) -> Self {
         Self {
             value: value.as_ptr(),
@@ -60,10 +61,10 @@ impl<'a, T: Component> ResMut<'a, T> {
     }
 }
 
-unsafe impl<T: Component> Send for ResMut<'_, T> {}
-unsafe impl<T: Component> Sync for ResMut<'_, T> {}
+unsafe impl<T: Resource> Send for ResMut<'_, T> {}
+unsafe impl<T: Resource> Sync for ResMut<'_, T> {}
 
-impl<'a, T: Component> Deref for ResMut<'a, T> {
+impl<'a, T: Resource> Deref for ResMut<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -71,13 +72,13 @@ impl<'a, T: Component> Deref for ResMut<'a, T> {
     }
 }
 
-impl<'a, T: Component> DerefMut for ResMut<'a, T> {
+impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value }
     }
 }
 
-impl<'a, T: Component> UnsafeClone for ResMut<'a, T> {
+impl<'a, T: Resource> UnsafeClone for ResMut<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
             value: self.value,
@@ -86,12 +87,14 @@ impl<'a, T: Component> UnsafeClone for ResMut<'a, T> {
     }
 }
 
-pub struct Local<'a, T: Component + FromResources> {
+/// Local<T> resources are unique per-system. Two instances of the same system will each have their own resource.
+/// Local resources are automatically initialized using the FromResources trait.
+pub struct Local<'a, T: Resource + FromResources> {
     value: *mut T,
     _marker: PhantomData<&'a T>,
 }
 
-impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
+impl<'a, T: Resource + FromResources> UnsafeClone for Local<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
             value: self.value,
@@ -100,7 +103,7 @@ impl<'a, T: Component + FromResources> UnsafeClone for Local<'a, T> {
     }
 }
 
-impl<'a, T: Component + FromResources> Deref for Local<'a, T> {
+impl<'a, T: Resource + FromResources> Deref for Local<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -108,20 +111,20 @@ impl<'a, T: Component + FromResources> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: Component + FromResources> DerefMut for Local<'a, T> {
+impl<'a, T: Resource + FromResources> DerefMut for Local<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value }
     }
 }
 
-/// A collection of component types to fetch from a `World`
+/// A collection of resource types fetch from a `Resources` collection
 pub trait ResourceQuery {
     type Fetch: for<'a> FetchResource<'a>;
 
     fn initialize(_resources: &mut Resources, _system_id: Option<SystemId>) {}
 }
 
-/// Streaming iterators over contiguous homogeneous ranges of components
+/// Streaming iterators over contiguous homogeneous ranges of resources
 pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
     type Item: UnsafeClone;
@@ -130,20 +133,17 @@ pub trait FetchResource<'a>: Sized {
     fn borrow(resources: &Resources);
     fn release(resources: &Resources);
 
-    /// Construct a `Fetch` for `archetype` if it should be traversed
-    ///
-    /// # Safety
-    /// `offset` must be in bounds of `archetype`
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
 }
 
-impl<'a, T: Component> ResourceQuery for Res<'a, T> {
+impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
     type Fetch = FetchResourceRead<T>;
 }
 
+/// Fetches a shared resource reference
 pub struct FetchResourceRead<T>(NonNull<T>);
 
-impl<'a, T: Component> FetchResource<'a> for FetchResourceRead<T> {
+impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
@@ -165,13 +165,14 @@ impl<'a, T: Component> FetchResource<'a> for FetchResourceRead<T> {
     }
 }
 
-impl<'a, T: Component> ResourceQuery for ResMut<'a, T> {
+impl<'a, T: Resource> ResourceQuery for ResMut<'a, T> {
     type Fetch = FetchResourceWrite<T>;
 }
 
+/// Fetches a unique resource reference
 pub struct FetchResourceWrite<T>(NonNull<T>);
 
-impl<'a, T: Component> FetchResource<'a> for FetchResourceWrite<T> {
+impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
@@ -193,7 +194,7 @@ impl<'a, T: Component> FetchResource<'a> for FetchResourceWrite<T> {
     }
 }
 
-impl<'a, T: Component + FromResources> ResourceQuery for Local<'a, T> {
+impl<'a, T: Resource + FromResources> ResourceQuery for Local<'a, T> {
     type Fetch = FetchResourceLocalMut<T>;
 
     fn initialize(resources: &mut Resources, id: Option<SystemId>) {
@@ -203,9 +204,10 @@ impl<'a, T: Component + FromResources> ResourceQuery for Local<'a, T> {
     }
 }
 
+/// Fetches a `Local<T>` resource reference
 pub struct FetchResourceLocalMut<T>(NonNull<T>);
 
-impl<'a, T: Component + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
+impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
 
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {

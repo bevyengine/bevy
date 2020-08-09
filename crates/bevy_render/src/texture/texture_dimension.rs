@@ -1,5 +1,6 @@
 // NOTE: These are currently just copies of the wgpu types, but they might change in the future
 
+/// Dimensions of a particular texture view.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureViewDimension {
     D1,
@@ -10,6 +11,7 @@ pub enum TextureViewDimension {
     D3,
 }
 
+/// Dimensionality of a texture.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum TextureDimension {
     D1,
@@ -25,6 +27,7 @@ pub struct Extent3d {
     pub depth: u32,
 }
 
+/// Type of data shaders will read from a texture.
 #[derive(Copy, Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureComponentType {
     Float,
@@ -37,6 +40,10 @@ pub struct PixelInfo {
     pub num_components: usize,
 }
 
+/// Underlying texture data format.
+///
+/// If there is a conversion in the format (such as srgb -> linear), The conversion listed is for
+/// loading from texture in a shader. When writing to the texture, the opposite conversion takes place.
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TextureFormat {
     // Normal 8 bit formats

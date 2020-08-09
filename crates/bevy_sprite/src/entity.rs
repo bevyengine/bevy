@@ -7,7 +7,8 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
-    prelude::{Draw, MainPass},
+    prelude::Draw,
+    render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 

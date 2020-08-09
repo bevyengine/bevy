@@ -7,6 +7,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// A collection of labels
 #[derive(Default, Properties)]
 pub struct Labels {
     labels: HashSet<Cow<'static, str>>,
@@ -50,6 +51,7 @@ impl Labels {
     }
 }
 
+/// Maintains a mapping from [Entity](bevy_ecs::prelude::Entity) ids to entity labels and entity labels to [Entities](bevy_ecs::prelude::Entity).
 #[derive(Default)]
 pub struct EntityLabels {
     label_entities: HashMap<Cow<'static, str>, Vec<Entity>>,
@@ -64,7 +66,7 @@ impl EntityLabels {
     }
 }
 
-pub fn entity_labels_system(
+pub(crate) fn entity_labels_system(
     mut entity_labels: ResMut<EntityLabels>,
     // TODO: use change tracking when add/remove events are added
     // mut query: Query<(Entity, Changed<Labels>)>,

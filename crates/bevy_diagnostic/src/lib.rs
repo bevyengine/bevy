@@ -9,8 +9,7 @@ pub use print_diagnostics_plugin::PrintDiagnosticsPlugin;
 
 use bevy_app::prelude::*;
 
-pub struct PrintDiagnostics {}
-
+/// Adds core diagnostics resources to an App.
 #[derive(Default)]
 pub struct DiagnosticsPlugin;
 

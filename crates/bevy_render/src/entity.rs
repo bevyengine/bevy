@@ -4,14 +4,12 @@ use crate::{
     render_graph::base,
     Draw, Mesh,
 };
+use base::MainPass;
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
-use bevy_property::Properties;
 
-#[derive(Default, Properties)]
-pub struct MainPass;
-
+/// A component bundle for "mesh" entities
 #[derive(Bundle, Default)]
 pub struct MeshComponents {
     pub mesh: Handle<Mesh>,
@@ -24,6 +22,7 @@ pub struct MeshComponents {
     pub scale: Scale,
 }
 
+/// A component bundle for "3d camera" entities
 #[derive(Bundle)]
 pub struct Camera3dComponents {
     pub camera: Camera,
@@ -52,6 +51,7 @@ impl Default for Camera3dComponents {
     }
 }
 
+/// A component bundle for "2d camera" entities
 #[derive(Bundle)]
 pub struct Camera2dComponents {
     pub camera: Camera,

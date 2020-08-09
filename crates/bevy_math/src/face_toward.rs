@@ -1,6 +1,8 @@
 use crate::{Mat4, Vec3};
 
+/// Generates a translation / rotation matrix that faces a given target
 pub trait FaceToward {
+    /// Generates a translation / rotation matrix that faces a given target
     fn face_toward(eye: Vec3, center: Vec3, up: Vec3) -> Self;
 }
 

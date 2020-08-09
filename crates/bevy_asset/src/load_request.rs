@@ -5,6 +5,7 @@ use fs::File;
 use io::Read;
 use std::{fs, io, path::PathBuf};
 
+/// A request from an [AssetServer](crate::AssetServer) to load an asset.
 #[derive(Debug)]
 pub struct LoadRequest {
     pub path: PathBuf,
@@ -13,12 +14,13 @@ pub struct LoadRequest {
     pub version: AssetVersion,
 }
 
+/// Handles load requests from an AssetServer
 pub trait AssetLoadRequestHandler: Send + Sync + 'static {
     fn handle_request(&self, load_request: &LoadRequest);
     fn extensions(&self) -> &[&str];
 }
 
-pub struct ChannelAssetHandler<TLoader, TAsset>
+pub(crate) struct ChannelAssetHandler<TLoader, TAsset>
 where
     TLoader: AssetLoader<TAsset>,
     TAsset: 'static,

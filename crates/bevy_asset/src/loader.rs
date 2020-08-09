@@ -10,6 +10,7 @@ use std::{
 };
 use thiserror::Error;
 
+/// Errors that occur while loading assets
 #[derive(Error, Debug)]
 pub enum AssetLoadError {
     #[error("Encountered an io error while loading asset.")]
@@ -18,6 +19,7 @@ pub enum AssetLoadError {
     LoaderError(#[from] anyhow::Error),
 }
 
+/// A loader for a given asset of type `T`
 pub trait AssetLoader<T>: Send + Sync + 'static {
     fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<T, anyhow::Error>;
     fn extensions(&self) -> &[&str];
@@ -30,6 +32,7 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
     }
 }
 
+/// The result of loading an asset of type `T`
 pub struct AssetResult<T: 'static> {
     pub result: Result<T, AssetLoadError>,
     pub handle: Handle<T>,
@@ -37,6 +40,7 @@ pub struct AssetResult<T: 'static> {
     pub version: AssetVersion,
 }
 
+/// A channel to send and receive [AssetResult]s
 pub struct AssetChannel<T: 'static> {
     pub sender: Sender<AssetResult<T>>,
     pub receiver: Receiver<AssetResult<T>>,
@@ -49,6 +53,7 @@ impl<T> AssetChannel<T> {
     }
 }
 
+/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly 
 pub fn update_asset_storage_system<T: Resource>(
     asset_channel: Res<AssetChannel<T>>,
     asset_server: Res<AssetServer>,

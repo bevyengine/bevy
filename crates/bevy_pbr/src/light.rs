@@ -8,6 +8,7 @@ use bevy_render::{
 use bevy_transform::components::Translation;
 use std::ops::Range;
 
+/// A point light
 #[derive(Properties)]
 pub struct Light {
     pub color: Color,
@@ -27,7 +28,7 @@ impl Default for Light {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct LightRaw {
+pub(crate) struct LightRaw {
     pub proj: [[f32; 4]; 4],
     pub pos: [f32; 4],
     pub color: [f32; 4],

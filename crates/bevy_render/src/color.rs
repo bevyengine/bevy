@@ -10,6 +10,7 @@ use bevy_property::Property;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
+/// A RGBA color
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
 pub struct Color {
@@ -178,6 +179,7 @@ impl Bytes for ColorSource {
     }
 }
 
+/// A source of color
 pub enum ColorSource {
     Color(Color),
     Texture(Handle<Texture>),

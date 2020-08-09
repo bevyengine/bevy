@@ -3,6 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_property::Properties;
 use std::time::Duration;
 
+/// Tracks elapsed time. Enters the finished state once `duration` is reached.
 #[derive(Clone, Debug, Default, Properties)]
 pub struct Timer {
     pub elapsed: f32,
@@ -11,16 +12,16 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn from_seconds(seconds: f32) -> Self {
+    pub fn new(duration: Duration) -> Self {
         Timer {
-            duration: seconds,
+            duration: duration.as_secs_f32(),
             ..Default::default()
         }
     }
 
-    pub fn new(duration: Duration) -> Self {
+    pub fn from_seconds(seconds: f32) -> Self {
         Timer {
-            duration: duration.as_secs_f32(),
+            duration: seconds,
             ..Default::default()
         }
     }
@@ -38,7 +39,7 @@ impl Timer {
     }
 }
 
-pub fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
+pub(crate) fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
     for mut timer in &mut query.iter() {
         timer.tick(time.delta_seconds);
     }

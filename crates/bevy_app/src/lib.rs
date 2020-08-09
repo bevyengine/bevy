@@ -1,11 +1,13 @@
+/// The names of the default App stages
 pub mod stage;
+/// The names of the default App startup stages
+pub mod startup_stage;
 
 mod app;
 mod app_builder;
 mod event;
 mod plugin;
 mod schedule_runner;
-mod startup_stage;
 
 pub use app::*;
 pub use app_builder::*;
@@ -13,7 +15,6 @@ pub use bevy_derive::DynamicPlugin;
 pub use event::*;
 pub use plugin::*;
 pub use schedule_runner::*;
-pub use startup_stage::*;
 
 pub mod prelude {
     pub use crate::{

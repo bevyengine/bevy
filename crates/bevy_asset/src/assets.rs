@@ -7,12 +7,14 @@ use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
 use bevy_type_registry::RegisterType;
 use std::collections::HashMap;
 
+/// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Resource> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
     Removed { handle: Handle<T> },
 }
 
+/// Stores Assets of a given type and tracks changes to them.
 pub struct Assets<T: Resource> {
     assets: HashMap<Handle<T>, T>,
     events: Events<AssetEvent<T>>,
@@ -108,6 +110,7 @@ impl<T: Resource> Assets<T> {
     }
 }
 
+/// [AppBuilder] extension methods for adding new asset types
 pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where

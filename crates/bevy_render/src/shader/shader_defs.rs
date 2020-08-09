@@ -4,16 +4,19 @@ use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
 use bevy_ecs::{Query, Res};
 
+/// Something that can either be "defined" or "not defined". This is used to determine if a "shader def" should be considered "defined"
 pub trait ShaderDef {
     fn is_defined(&self) -> bool;
 }
 
+/// A collection of "shader defs", which define compile time definitions for shaders.
 pub trait ShaderDefs {
     fn shader_defs_len(&self) -> usize;
     fn get_shader_def(&self, index: usize) -> Option<&str>;
     fn iter_shader_defs(&self) -> ShaderDefIterator;
 }
 
+/// Iterates over all [ShaderDef] items in [ShaderDefs]
 pub struct ShaderDefIterator<'a> {
     shader_defs: &'a dyn ShaderDefs,
     index: usize,
@@ -56,6 +59,7 @@ impl ShaderDef for Option<Handle<Texture>> {
     }
 }
 
+/// Updates [RenderPipelines] with the latest [ShaderDefs]
 pub fn shader_defs_system<T>(mut query: Query<(&T, &mut RenderPipelines)>)
 where
     T: ShaderDefs + Send + Sync + 'static,
@@ -73,6 +77,7 @@ where
     }
 }
 
+/// Clears each [RenderPipelines]' shader defs collection
 pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
     for mut render_pipelines in &mut query.iter() {
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
@@ -85,6 +90,7 @@ pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
     }
 }
 
+/// Updates [RenderPipelines] with the latest [ShaderDefs] from a given asset type
 pub fn asset_shader_defs_system<T>(
     assets: Res<Assets<T>>,
     mut query: Query<(&Handle<T>, &mut RenderPipelines)>,

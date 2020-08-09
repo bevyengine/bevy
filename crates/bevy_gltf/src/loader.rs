@@ -9,6 +9,9 @@ use gltf::{buffer::Source, iter, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
+/// Loads meshes from GLTF files into Mesh assets
+///
+/// NOTE: eventually this will loading into Scenes instead of Meshes
 #[derive(Default)]
 pub struct GltfLoader;
 
@@ -24,6 +27,7 @@ impl AssetLoader<Mesh> for GltfLoader {
     }
 }
 
+/// An error that occurs when loading a GLTF file
 #[derive(Error, Debug)]
 pub enum GltfError {
     #[error("Unsupported primitive mode.")]

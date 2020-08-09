@@ -8,10 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::{any::TypeId, marker::PhantomData};
 use uuid::Uuid;
 
+/// The ID of the "default" asset
+pub(crate) const DEFAULT_HANDLE_ID: HandleId =
+    HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
+
+/// A unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, Property)]
 pub struct HandleId(pub Uuid);
-pub const DEFAULT_HANDLE_ID: HandleId =
-    HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
 
 impl HandleId {
     pub fn new() -> HandleId {
@@ -19,6 +22,9 @@ impl HandleId {
     }
 }
 
+/// A handle into a specific Asset of type `T`
+///
+/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection. 
 #[derive(Properties)]
 pub struct Handle<T>
 where
@@ -156,6 +162,9 @@ impl<T> Copy for Handle<T> {}
 unsafe impl<T> Send for Handle<T> {}
 unsafe impl<T> Sync for Handle<T> {}
 
+/// A non-generic version of [Handle]
+///
+/// This allows handles to be mingled in a cross asset context. For example, storing `Handle<A>` and `Handle<B>` in the same `HashSet<HandleUntyped>`.
 #[derive(Hash, Copy, Clone, Eq, PartialEq, Debug)]
 pub struct HandleUntyped {
     pub id: HandleId,

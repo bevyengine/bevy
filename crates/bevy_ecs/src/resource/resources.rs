@@ -4,10 +4,11 @@ use core::any::TypeId;
 use hecs::{Archetype, Ref, RefMut, TypeInfo};
 use std::{collections::HashMap, ptr::NonNull};
 
+/// A Resource type
 pub trait Resource: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Resource for T {}
 
-pub struct ResourceData {
+pub(crate) struct ResourceData {
     archetype: Archetype,
     default_index: Option<u32>,
     system_id_to_archetype_index: HashMap<u32, u32>,
@@ -18,6 +19,7 @@ pub enum ResourceIndex {
     System(SystemId),
 }
 
+/// A collection of resource instances identified by their type. 
 #[derive(Default)]
 pub struct Resources {
     pub(crate) resource_data: HashMap<TypeId, ResourceData>,
@@ -183,7 +185,9 @@ impl Resources {
 unsafe impl Send for Resources {}
 unsafe impl Sync for Resources {}
 
+/// Creates `Self` using data from the `Resources` collection
 pub trait FromResources {
+    /// Creates `Self` using data from the `Resources` collection
     fn from_resources(resources: &Resources) -> Self;
 }
 

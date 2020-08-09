@@ -15,6 +15,7 @@ use spirv_reflect::{
 };
 use std::collections::HashSet;
 
+/// Defines the memory layout of a shader
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShaderLayout {
     pub bind_groups: Vec<BindGroupDescriptor>,

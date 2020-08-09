@@ -1,5 +1,6 @@
 use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
 
+/// Describes a texture
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct TextureDescriptor {
     pub size: Extent3d,

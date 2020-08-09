@@ -4,6 +4,7 @@ use bevy_ecs::Res;
 use rodio::{Decoder, Device, Sink};
 use std::{collections::VecDeque, io::Cursor, sync::RwLock};
 
+/// Used to play audio on the current "audio device"
 pub struct AudioOutput {
     device: Device,
     queue: RwLock<VecDeque<Handle<AudioSource>>>,
@@ -46,7 +47,8 @@ impl AudioOutput {
     }
 }
 
-pub fn play_queued_audio_system(
+/// Plays audio currently queued in the [AudioOutput] resource
+pub(crate) fn play_queued_audio_system(
     audio_sources: Res<Assets<AudioSource>>,
     audio_output: Res<AudioOutput>,
 ) {

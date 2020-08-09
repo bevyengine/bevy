@@ -14,7 +14,10 @@ use std::{
 };
 use thiserror::Error;
 
+/// The type used for asset versioning
 pub type AssetVersion = usize;
+
+/// Errors that occur while loading assets with an AssetServer
 #[derive(Error, Debug)]
 pub enum AssetServerError {
     #[error("Asset folder path is not a directory.")]
@@ -39,13 +42,15 @@ struct LoaderThread {
     requests: Arc<RwLock<Vec<LoadRequest>>>,
 }
 
+/// Info about a specific asset, such as its path and its current load state
 #[derive(Clone, Debug)]
 pub struct AssetInfo {
-    handle_id: HandleId,
-    path: PathBuf,
-    load_state: LoadState,
+    pub handle_id: HandleId,
+    pub path: PathBuf,
+    pub load_state: LoadState,
 }
 
+/// The load state of an asset
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LoadState {
     Loading(AssetVersion),
@@ -63,6 +68,7 @@ impl LoadState {
     }
 }
 
+/// Loads assets from the filesystem on background threads
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
     loader_threads: RwLock<Vec<LoaderThread>>,

@@ -82,6 +82,7 @@ fn map_instance_event<T>(event_instance: &EventInstance<T>) -> &T {
     &event_instance.event
 }
 
+/// Reads events of type `T` in order and tracks which events have already been read. 
 pub struct EventReader<T> {
     last_event_count: usize,
     _marker: PhantomData<T>,

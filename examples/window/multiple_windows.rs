@@ -3,12 +3,14 @@ use bevy::{
     render::{
         camera::{ActiveCameras, Camera},
         pass::*,
-        render_graph::{CameraNode, PassNode, RenderGraph, WindowSwapChainNode, WindowTextureNode},
-        texture::{TextureDescriptor, TextureFormat, TextureUsage},
+        render_graph::{
+            base::MainPass, CameraNode, PassNode, RenderGraph, WindowSwapChainNode,
+            WindowTextureNode,
+        },
+        texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     },
     window::{CreateWindow, WindowDescriptor, WindowId},
 };
-use bevy_render::texture::{Extent3d, TextureDimension};
 
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {

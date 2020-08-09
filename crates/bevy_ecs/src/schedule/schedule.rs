@@ -9,6 +9,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// An ordered collection of stages, which each contain an ordered list of [System]s.
+/// Schedules are essentially the "execution plan" for an App's systems.
+/// They are run on a given [World] and [Resources] reference.
 #[derive(Default)]
 pub struct Schedule {
     pub(crate) stages: HashMap<Cow<'static, str>, Vec<Arc<Mutex<Box<dyn System>>>>>,

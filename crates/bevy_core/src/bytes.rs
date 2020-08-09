@@ -2,11 +2,16 @@ use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 
 pub use bevy_derive::Bytes;
 
+/// Converts the implementing type to bytes by writing them to a given buffer
 pub trait Bytes {
+    /// Converts the implementing type to bytes by writing them to a given buffer
     fn write_bytes(&self, buffer: &mut [u8]);
+
+    /// The number of bytes that will be written when calling `write_bytes`
     fn byte_len(&self) -> usize;
 }
 
+/// A trait that indicates that it is safe to cast the type to a byte array reference.
 pub unsafe trait Byteable
 where
     Self: Sized,
@@ -27,11 +32,15 @@ where
     }
 }
 
+/// Reads the implementing type as a byte array reference
 pub trait AsBytes {
+    /// Reads the implementing type as a byte array reference
     fn as_bytes(&self) -> &[u8];
 }
 
+/// Converts a byte array to `Self`
 pub trait FromBytes {
+    /// Converts a byte array to `Self`
     fn from_bytes(bytes: &[u8]) -> Self;
 }
 

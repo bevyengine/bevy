@@ -7,11 +7,15 @@ use crate::{
         LoadOp, Operations, PassDescriptor, RenderPassColorAttachmentDescriptor,
         RenderPassDepthStencilAttachmentDescriptor, TextureAttachment,
     },
-    prelude::MainPass,
     texture::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsage},
     Color,
 };
+use bevy_property::Properties;
 use bevy_window::WindowId;
+
+/// A component that indicates that an entity should be drawn in the "main pass"
+#[derive(Default, Properties)]
+pub struct MainPass;
 
 pub struct Msaa {
     pub samples: u32,

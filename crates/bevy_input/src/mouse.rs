@@ -1,15 +1,17 @@
 use super::keyboard::ElementState;
 use crate::Input;
 use bevy_app::prelude::{EventReader, Events};
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::{Res, ResMut, Local};
 use bevy_math::Vec2;
 
+/// A mouse button input event
 #[derive(Debug, Clone)]
 pub struct MouseButtonInput {
     pub button: MouseButton,
     pub state: ElementState,
 }
 
+/// A button on a mouse device
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum MouseButton {
     Left,
@@ -18,18 +20,21 @@ pub enum MouseButton {
     Other(u8),
 }
 
+/// A mouse motion event
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
     pub delta: Vec2,
 }
 
+/// State used by the mouse button input system
 #[derive(Default)]
 pub struct MouseButtonInputState {
     mouse_button_input_event_reader: EventReader<MouseButtonInput>,
 }
 
+/// Updates the Input<MouseButton> resource with the latest MouseButtonInput events
 pub fn mouse_button_input_system(
-    mut state: ResMut<MouseButtonInputState>,
+    mut state: Local<MouseButtonInputState>,
     mut mouse_button_input: ResMut<Input<MouseButton>>,
     mouse_button_input_events: Res<Events<MouseButtonInput>>,
 ) {

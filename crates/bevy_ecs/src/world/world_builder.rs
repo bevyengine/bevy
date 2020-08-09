@@ -1,5 +1,6 @@
 use hecs::{Bundle, Component, DynamicBundle, Entity, World};
 
+/// Converts a reference to `Self` to a [WorldBuilder]
 pub trait WorldBuilderSource {
     fn build(&mut self) -> WorldBuilder;
 }
@@ -13,6 +14,7 @@ impl WorldBuilderSource for World {
     }
 }
 
+/// Modify a [World] using the builder pattern
 pub struct WorldBuilder<'a> {
     pub world: &'a mut World,
     pub current_entity: Option<Entity>,
