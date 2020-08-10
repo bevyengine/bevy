@@ -1,6 +1,6 @@
 use crate::resource::Resources;
 use fixedbitset::FixedBitSet;
-use hecs::{Access, Query, World};
+use bevy_hecs::{Access, Query, World};
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
@@ -105,7 +105,7 @@ impl TypeAccess {
 mod tests {
     use super::{ArchetypeAccess, TypeAccess};
     use crate::resource::{FetchResource, Res, ResMut, ResourceQuery};
-    use hecs::World;
+    use bevy_hecs::World;
     use std::any::TypeId;
 
     struct A;

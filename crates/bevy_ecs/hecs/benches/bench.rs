@@ -15,7 +15,7 @@
 // modified by Bevy contributors
 
 use bencher::{benchmark_group, benchmark_main, Bencher};
-use hecs::*;
+use bevy_hecs::*;
 
 struct Position(f32);
 struct Velocity(f32);

@@ -1,6 +1,6 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
-use hecs::{Bundle, Component, DynamicBundle, Entity, World};
+use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
 use std::sync::{Arc, Mutex};
 
 /// A queued command to mutate the current [World] or [Resources] 
@@ -327,7 +327,7 @@ impl Commands {
 mod tests {
     use super::Commands;
     use crate::resource::Resources;
-    use hecs::World;
+    use bevy_hecs::World;
 
     #[test]
     fn command_buffer() {

@@ -299,7 +299,6 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
     })
 }
 
-#[derive(Debug)]
 struct PropertyDef {
     type_name: Ident,
     generics: Generics,

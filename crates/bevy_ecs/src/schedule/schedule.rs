@@ -2,7 +2,7 @@ use crate::{
     resource::Resources,
     system::{System, SystemId, ThreadLocalExecution},
 };
-use hecs::World;
+use bevy_hecs::World;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},

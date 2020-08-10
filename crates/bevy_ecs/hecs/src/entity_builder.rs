@@ -35,7 +35,7 @@ use crate::{archetype::TypeInfo, Component, DynamicBundle};
 /// Prefer reusing the same builder over creating new ones repeatedly.
 ///
 /// ```
-/// # use hecs::*;
+/// # use bevy_hecs::*;
 /// let mut world = World::new();
 /// let mut builder = EntityBuilder::new();
 /// builder.add(123).add("abc");

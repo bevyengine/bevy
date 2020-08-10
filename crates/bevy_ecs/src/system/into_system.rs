@@ -4,7 +4,7 @@ use crate::{
     resource::{FetchResource, ResourceQuery, Resources, UnsafeClone},
     system::{ArchetypeAccess, Commands, System, SystemId, ThreadLocalExecution},
 };
-use hecs::{Fetch, Query as HecsQuery, World};
+use bevy_hecs::{Fetch, Query as HecsQuery, World};
 use std::borrow::Cow;
 
 pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
@@ -347,7 +347,7 @@ mod tests {
         resource::{ResMut, Resources},
         schedule::Schedule,
     };
-    use hecs::{Entity, With, World};
+    use bevy_hecs::{Entity, With, World};
 
     struct A;
     struct B;

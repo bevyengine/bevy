@@ -1,4 +1,4 @@
-use hecs::{Bundle, Component, DynamicBundle, Entity, World};
+use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
 
 /// Converts a reference to `Self` to a [WorldBuilder]
 pub trait WorldBuilderSource {

@@ -1,5 +1,5 @@
 use crate::ArchetypeAccess;
-use hecs::{
+use bevy_hecs::{
     Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryOne, Ref, RefMut,
     World,
 };

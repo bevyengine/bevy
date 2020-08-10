@@ -1,4 +1,4 @@
-pub use hecs::{Query as HecsQuery, *};
+pub use bevy_hecs::{Query as HecsQuery, *};
 mod resource;
 mod schedule;
 mod system;

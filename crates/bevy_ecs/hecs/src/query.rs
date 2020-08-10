@@ -463,7 +463,7 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
 ///
 /// # Example
 /// ```
-/// # use hecs::*;
+/// # use bevy_hecs::*;
 /// let mut world = World::new();
 /// let a = world.spawn((123, true, "abc"));
 /// let b = world.spawn((456, false));
@@ -524,7 +524,7 @@ impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
 ///
 /// # Example
 /// ```
-/// # use hecs::*;
+/// # use bevy_hecs::*;
 /// let mut world = World::new();
 /// let a = world.spawn((123, true, "abc"));
 /// let b = world.spawn((456, false));
@@ -648,7 +648,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
     ///
     /// # Example
     /// ```
-    /// # use hecs::*;
+    /// # use bevy_hecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// let b = world.spawn((456, false));
@@ -671,7 +671,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
     ///
     /// # Example
     /// ```
-    /// # use hecs::*;
+    /// # use bevy_hecs::*;
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// let b = world.spawn((456, false));

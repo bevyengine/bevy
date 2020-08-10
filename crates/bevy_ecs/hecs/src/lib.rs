@@ -27,7 +27,7 @@
 //! - exclusion of externally-implementable functionality
 //!
 //! ```
-//! # use hecs::*;
+//! # use bevy_hecs::*;
 //! let mut world = World::new();
 //! // Nearly any type can be used as a component with zero boilerplate
 //! let a = world.spawn((123, true, "abc"));
@@ -96,4 +96,4 @@ pub use lazy_static;
 pub use query::Fetch;
 
 #[cfg(feature = "macros")]
-pub use hecs_macros::Bundle;
+pub use bevy_hecs_macros::Bundle;

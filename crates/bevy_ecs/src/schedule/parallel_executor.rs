@@ -5,7 +5,7 @@ use crate::{
 };
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use hecs::{ArchetypesGeneration, World};
+use bevy_hecs::{ArchetypesGeneration, World};
 use rayon::ScopeFifo;
 use std::{
     ops::Range,
@@ -396,7 +396,7 @@ mod tests {
         Commands,
     };
     use fixedbitset::FixedBitSet;
-    use hecs::{Entity, World};
+    use bevy_hecs::{Entity, World};
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]

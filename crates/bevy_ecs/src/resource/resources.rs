@@ -1,7 +1,7 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use core::any::TypeId;
-use hecs::{Archetype, Ref, RefMut, TypeInfo};
+use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
 use std::{collections::HashMap, ptr::NonNull};
 
 /// A Resource type

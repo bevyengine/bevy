@@ -8,7 +8,7 @@ use core::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use hecs::smaller_tuples_too;
+use bevy_hecs::smaller_tuples_too;
 use std::marker::PhantomData;
 
 /// Shared borrow of a Resource

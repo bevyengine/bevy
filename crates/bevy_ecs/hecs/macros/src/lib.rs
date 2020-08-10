@@ -50,7 +50,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     } else if crate_name("bevy_ecs").is_ok() {
         "bevy_ecs"
     } else {
-        "hecs"
+        "bevy_hecs"
     };
 
     let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
