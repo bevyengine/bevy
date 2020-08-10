@@ -24,6 +24,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 * **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
 * **[Roadmap](https://github.com/bevyengine/bevy/projects/1):** The Bevy team's development plan.
+* **[Introducing Bevy](https://bevyengine.org/news/introducing-bevy/)**: A blog post covering some of Bevy's features
 
 ## Docs
 
