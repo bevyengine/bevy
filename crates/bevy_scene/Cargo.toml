@@ -19,7 +19,7 @@ bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 
 # other
 serde = { version = "1.0", features = ["derive"]}
-ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14" }
+bevy_ron = { path = "../bevy_ron", version = "0.1.0" }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 anyhow = "1.0"
 thiserror = "1.0"
