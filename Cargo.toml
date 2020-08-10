@@ -1,8 +1,15 @@
 [package]
 name = "bevy"
 version = "0.1.0"
-authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
+authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+description = "A refreshingly simple data-driven game engine and app framework"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
+categories = ["game-engines", "graphics", "gui", "rendering"]
+readme = "README.md"
 
 [features]
 default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit"]

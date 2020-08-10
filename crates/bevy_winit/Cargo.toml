@@ -1,8 +1,13 @@
 [package]
 name = "bevy_winit"
 version = "0.1.0"
-authors = ["Carter Anderson <mcanders1@gmail.com>"]
 edition = "2018"
+authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+description = "A winit window and input backend for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
 
 [dependencies]
 bevy_app = { path = "../bevy_app" }
