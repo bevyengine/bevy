@@ -18,5 +18,6 @@ bevy_math = { path = "../bevy_math", version = "0.1" }
 bevy_window = { path = "../bevy_window", version = "0.1" }
 
 # other
-winit = { git = "https://github.com/rust-windowing/winit/", default-features = false, features = ["x11"] }
+# TODO: when winit gets a new version, disable wayland feature to cut dependencies
+winit = "0.22.2"
 log = { version = "0.4", features = ["release_max_level_info"] }
