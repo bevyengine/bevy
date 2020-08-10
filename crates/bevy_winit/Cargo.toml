@@ -10,11 +10,13 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_input = { path = "../bevy_input" }
-bevy_window = { path = "../bevy_window" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_input = { path = "../bevy_input", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_window = { path = "../bevy_window", version = "0.1" }
 
+# other
 winit = { git = "https://github.com/rust-windowing/winit/", default-features = false, features = ["x11"] }
-bevy_math = { path = "../bevy_math" }
 log = { version = "0.4", features = ["release_max_level_info"] }

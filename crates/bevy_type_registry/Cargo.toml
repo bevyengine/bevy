@@ -10,7 +10,10 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_property = { path = "../bevy_property" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_property = { path = "../bevy_property", version = "0.1" }
+
+# other
 serde = { version = "1", features = ["derive"] }

@@ -11,15 +11,16 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_core = { path = "../bevy_core" }
-bevy_derive = { path = "../bevy_derive" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_property = { path = "../bevy_property" }
-bevy_transform = { path = "../bevy_transform" }
-bevy_window = { path = "../bevy_window" }
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_core = { path = "../bevy_core", version = "0.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_property = { path = "../bevy_property", version = "0.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
+bevy_window = { path = "../bevy_window", version = "0.1" }
 
 # rendering
 spirv-reflect = "0.2.3"
@@ -29,7 +30,6 @@ image = { version = "0.23", default-features = false, features = ["png", "hdr"] 
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
-bevy_math = { path = "../bevy_math" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.0"
 smallvec = "1.4.0"

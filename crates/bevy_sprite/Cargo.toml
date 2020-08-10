@@ -10,15 +10,17 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_core = { path = "../bevy_core" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_render = { path = "../bevy_render" }
-bevy_transform = { path = "../bevy_transform" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_core = { path = "../bevy_core", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_render = { path = "../bevy_render", version = "0.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 
-bevy_math = { path = "../bevy_math" }
+# other
 rectangle-pack = "0.1"
 thiserror = "1.0"
 guillotiere = "0.5.2"

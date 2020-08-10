@@ -10,19 +10,20 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_core = { path = "../bevy_core" }
-bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_derive = { path = "../bevy_derive" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_input = { path = "../bevy_input" }
-bevy_sprite = { path = "../bevy_sprite" }
-bevy_text = { path = "../bevy_text" }
-bevy_transform = { path = "../bevy_transform" }
-bevy_render = { path = "../bevy_render" }
-bevy_window = { path = "../bevy_window" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_core = { path = "../bevy_core", version = "0.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_input = { path = "../bevy_input", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_render = { path = "../bevy_render", version = "0.1" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.1" }
+bevy_text = { path = "../bevy_text", version = "0.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
+bevy_window = { path = "../bevy_window", version = "0.1" }
 
-bevy_math = { path = "../bevy_math" }
-
+# other
 stretch = "0.3"

@@ -10,12 +10,14 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_property = { path = "../bevy_property" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_property = { path = "../bevy_property", version = "0.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 
+# other
 serde = { version = "1.0", features = ["derive"]}
 ron = { git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14" }
 uuid = { version = "0.8", features = ["v4", "serde"] }

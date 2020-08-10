@@ -10,9 +10,12 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_ecs = {path = "../bevy_ecs"}
-bevy_math = {path = "../bevy_math"}
-bevy_property_derive = {path = "bevy_property_derive"}
+# bevy
+bevy_ecs = {path = "../bevy_ecs", version = "0.1"}
+bevy_math = {path = "../bevy_math", version = "0.1"}
+bevy_property_derive = {path = "bevy_property_derive", version = "0.1"}
+
+# other
 erased-serde = "0.3"
 ron = {git = "https://github.com/ron-rs/ron", rev = "35355ba7eb495f07282162826c29873154c2fa14"}
 serde = "1"

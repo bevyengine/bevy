@@ -23,28 +23,29 @@ members = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "crates/bevy_app" }
-bevy_asset = { path = "crates/bevy_asset" }
-bevy_type_registry = { path = "crates/bevy_type_registry" }
-bevy_core = { path = "crates/bevy_core" }
-bevy_diagnostic = { path = "crates/bevy_diagnostic" }
-bevy_ecs = { path = "crates/bevy_ecs" }
-bevy_input = { path = "crates/bevy_input" }
-bevy_math = { path = "crates/bevy_math" }
-bevy_pbr = { path = "crates/bevy_pbr" }
-bevy_property = { path = "crates/bevy_property" }
-bevy_render = { path = "crates/bevy_render" }
-bevy_scene = { path = "crates/bevy_scene" }
-bevy_sprite = { path = "crates/bevy_sprite" }
-bevy_transform = { path = "crates/bevy_transform" }
-bevy_text = { path = "crates/bevy_text" }
-bevy_ui = { path = "crates/bevy_ui" }
-bevy_window = { path = "crates/bevy_window" }
+bevy_app = { path = "crates/bevy_app", version = "0.1" }
+bevy_asset = { path = "crates/bevy_asset", version = "0.1" }
+bevy_type_registry = { path = "crates/bevy_type_registry", version = "0.1" }
+bevy_core = { path = "crates/bevy_core", version = "0.1" }
+bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.1" }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.1" }
+bevy_input = { path = "crates/bevy_input", version = "0.1" }
+bevy_math = { path = "crates/bevy_math", version = "0.1" }
+bevy_pbr = { path = "crates/bevy_pbr", version = "0.1" }
+bevy_property = { path = "crates/bevy_property", version = "0.1" }
+bevy_render = { path = "crates/bevy_render", version = "0.1" }
+bevy_scene = { path = "crates/bevy_scene", version = "0.1" }
+bevy_sprite = { path = "crates/bevy_sprite", version = "0.1" }
+bevy_transform = { path = "crates/bevy_transform", version = "0.1" }
+bevy_text = { path = "crates/bevy_text", version = "0.1" }
+bevy_ui = { path = "crates/bevy_ui", version = "0.1" }
+bevy_window = { path = "crates/bevy_window", version = "0.1" }
 
-bevy_audio = { path = "crates/bevy_audio", optional = true }
-bevy_gltf = { path = "crates/bevy_gltf", optional = true }
-bevy_wgpu = { path = "crates/bevy_wgpu", optional = true }
-bevy_winit = { path = "crates/bevy_winit", optional = true }
+# bevy (optional)
+bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.1" }
+bevy_gltf = { path = "crates/bevy_gltf", optional = true, version = "0.1" }
+bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.1" }
+bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
 
 [dev-dependencies]
 rand = "0.7.2"

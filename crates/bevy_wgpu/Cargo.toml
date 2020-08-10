@@ -14,18 +14,17 @@ default = ["bevy_winit"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_core = { path = "../bevy_core" }
-bevy_diagnostic = { path = "../bevy_diagnostic" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_render = { path = "../bevy_render" }
-bevy_window = { path = "../bevy_window" }
-bevy_winit = { path = "../bevy_winit", optional = true }
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_core = { path = "../bevy_core", version = "0.1" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_render = { path = "../bevy_render", version = "0.1" }
+bevy_window = { path = "../bevy_window", version = "0.1" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.1" }
 
-# render
+# other
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs.git", rev = "8c4d814607a303458ad9453da59dfc3a9951d7a3" }
-
 pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 crossbeam-channel = "0.4.2"

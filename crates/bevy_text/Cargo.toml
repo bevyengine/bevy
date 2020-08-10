@@ -10,12 +10,14 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_core = { path = "../bevy_core" }
-bevy_asset = { path = "../bevy_asset" }
-bevy_render = { path = "../bevy_render" }
-bevy_sprite = { path = "../bevy_sprite" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+bevy_core = { path = "../bevy_core", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_render = { path = "../bevy_render", version = "0.1" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.1" }
 
+# other
 ab_glyph = "0.2.2"
-bevy_math = { path = "../bevy_math" }
 anyhow = "1.0"

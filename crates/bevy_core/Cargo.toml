@@ -10,9 +10,9 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_derive = { path = "../bevy_derive" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_property = { path = "../bevy_property" }
-bevy_type_registry = { path = "../bevy_type_registry" }
-bevy_math = { path = "../bevy_math" }
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_property = { path = "../bevy_property", version = "0.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }

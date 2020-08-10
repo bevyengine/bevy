@@ -10,6 +10,6 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app" }
-bevy_ecs = { path = "../bevy_ecs" }
-bevy_math = { path = "../bevy_math" }
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+bevy_math = { path = "../bevy_math", version = "0.1" }

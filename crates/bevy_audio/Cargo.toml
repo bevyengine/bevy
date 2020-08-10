@@ -10,8 +10,11 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_app = {path = "../bevy_app"}
-bevy_asset = {path = "../bevy_asset"}
-bevy_ecs = {path = "../bevy_ecs"}
+# bevy
+bevy_app = {path = "../bevy_app", version = "0.1"}
+bevy_asset = {path = "../bevy_asset", version = "0.1"}
+bevy_ecs = {path = "../bevy_ecs", version = "0.1"}
+
+# other
 anyhow = "1.0"
 rodio = {version = "0.11", default-features = false, features = ["mp3"]}
