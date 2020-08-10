@@ -24,7 +24,7 @@ bevy_window = { path = "../bevy_window", version = "0.1" }
 
 # rendering
 spirv-reflect = "0.2.3"
-glsl-to-spirv = { git = "https://github.com/cart/glsl-to-spirv" }
+bevy-glsl-to-spirv = "0.1.7"
 image = { version = "0.23", default-features = false, features = ["png", "hdr"] }
 
 # misc

@@ -1,6 +1,6 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
-use glsl_to_spirv::compile;
+use bevy_glsl_to_spirv::compile;
 use std::{io::Read, marker::Copy};
 
 /// The stage of a shader
@@ -11,12 +11,12 @@ pub enum ShaderStage {
     Compute,
 }
 
-impl Into<glsl_to_spirv::ShaderType> for ShaderStage {
-    fn into(self) -> glsl_to_spirv::ShaderType {
+impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
+    fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
-            ShaderStage::Vertex => glsl_to_spirv::ShaderType::Vertex,
-            ShaderStage::Fragment => glsl_to_spirv::ShaderType::Fragment,
-            ShaderStage::Compute => glsl_to_spirv::ShaderType::Compute,
+            ShaderStage::Vertex => bevy_glsl_to_spirv::ShaderType::Vertex,
+            ShaderStage::Fragment => bevy_glsl_to_spirv::ShaderType::Fragment,
+            ShaderStage::Compute => bevy_glsl_to_spirv::ShaderType::Compute,
         }
     }
 }
