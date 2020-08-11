@@ -17,4 +17,10 @@ bevy_ecs = {path = "../bevy_ecs", version = "0.1"}
 
 # other
 anyhow = "1.0"
-rodio = {version = "0.11", default-features = false, features = ["mp3"]}
+rodio = {version = "0.11", default-features = false}
+
+[features]
+mp3 = ["rodio/mp3"]
+flac = ["rodio/flac"]
+wav = ["rodio/wav"]
+vorbis = ["rodio/vorbis"]

@@ -25,7 +25,7 @@ bevy_window = { path = "../bevy_window", version = "0.1" }
 # rendering
 spirv-reflect = "0.2.3"
 bevy-glsl-to-spirv = "0.1.7"
-image = { version = "0.23", default-features = false, features = ["png", "hdr"] }
+image = { version = "0.23", default-features = false }
 
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
@@ -38,3 +38,7 @@ once_cell = "1.4.0"
 downcast-rs = "1.1.1"
 thiserror = "1.0"
 anyhow = "1.0"
+
+[features]
+png = ["image/png"]
+hdr = ["image/hdr"]
