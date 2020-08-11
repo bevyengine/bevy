@@ -52,7 +52,7 @@ struct Pretty {
 /// # Examples
 ///
 /// ```
-/// use ron::ser::PrettyConfig;
+/// use bevy_ron::ser::PrettyConfig;
 ///
 /// let my_config = PrettyConfig::new()
 ///     .depth_limit(4)

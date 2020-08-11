@@ -167,7 +167,7 @@ impl Number {
     /// # Example
     ///
     /// ```
-    /// # use ron::value::Number;
+    /// # use bevy_ron::value::Number;
     /// let i = Number::new(5);
     /// let f = Number::new(2.0);
     /// assert_eq!(i.into_f64(), 5.0);
@@ -182,7 +182,7 @@ impl Number {
     /// # Example
     ///
     /// ```
-    /// # use ron::value::Number;
+    /// # use bevy_ron::value::Number;
     /// let i = Number::new(5);
     /// let f = Number::new(2.0);
     /// assert_eq!(i.as_f64(), None);
@@ -197,7 +197,7 @@ impl Number {
     /// # Example
     ///
     /// ```
-    /// # use ron::value::Number;
+    /// # use bevy_ron::value::Number;
     /// let i = Number::new(5);
     /// let f = Number::new(2.0);
     /// assert_eq!(i.as_i64(), Some(5));
@@ -212,7 +212,7 @@ impl Number {
     /// # Example
     ///
     /// ```
-    /// # use ron::value::Number;
+    /// # use bevy_ron::value::Number;
     /// let i = Number::new(5);
     /// let f = Number::new(2.0);
     /// assert!(i.map_to(|i| i > 3, |f| f > 3.0));
@@ -288,7 +288,7 @@ impl Hash for Float {
 /// wrapped in `Number` are equals to each other and are less then any other
 /// floating value. It is not the case for the underlying `f64` values themselves.
 /// ```
-/// use ron::value::Number;
+/// use bevy_ron::value::Number;
 /// assert!(Number::new(std::f64::NAN) < Number::new(std::f64::NEG_INFINITY));
 /// assert_eq!(Number::new(std::f64::NAN), Number::new(std::f64::NAN));
 /// ```
