@@ -45,7 +45,11 @@ use render_graph::{
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
-use texture::{HdrTextureLoader, ImageTextureLoader, TextureResourceSystemState};
+#[cfg(feature = "hdr")]
+use texture::HdrTextureLoader;
+#[cfg(feature = "png")]
+use texture::ImageTextureLoader;
+use texture::TextureResourceSystemState;
 
 /// The names of "render" App stages
 pub mod stage {
@@ -75,6 +79,15 @@ impl Default for RenderPlugin {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        #[cfg(feature = "png")]
+        {
+            app.add_asset_loader::<Texture, ImageTextureLoader>();
+        }
+        #[cfg(feature = "hdr")]
+        {
+            app.add_asset_loader::<Texture, HdrTextureLoader>();
+        }
+
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
@@ -84,8 +97,6 @@ impl Plugin for RenderPlugin {
             .add_asset::<Texture>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
-            .add_asset_loader::<Texture, HdrTextureLoader>()
-            .add_asset_loader::<Texture, ImageTextureLoader>()
             .register_component::<Camera>()
             .register_component::<Draw>()
             .register_component::<RenderPipelines>()
