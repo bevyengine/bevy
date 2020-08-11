@@ -13,8 +13,18 @@ readme = "README.md"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 
 [features]
-default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit"]
+default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit", "png", "hdr", "mp3"]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
+
+# Image format support for texture loading (PNG and HDR are enabled by default)
+png = ["bevy_render/png"]
+hdr = ["bevy_render/hdr"]
+
+# Audio format support (MP3 is enabled by default)
+mp3 = ["bevy_audio/mp3"]
+flac = ["bevy_audio/flac"]
+wav = ["bevy_audio/wav"]
+vorbis = ["bevy_audio/vorbis"]
 
 [workspace]
 members = [
