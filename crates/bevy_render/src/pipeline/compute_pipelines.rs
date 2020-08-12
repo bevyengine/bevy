@@ -1,11 +1,10 @@
 use super::{ComputePipelineDescriptor, PipelineSpecialization};
 use crate::{
-    draw::{Draw, DrawContext},
-    prelude::Msaa,
+    draw::{DrawContext, Dispatch},
     renderer::RenderResourceBindings,
 };
 use bevy_asset::Handle;
-use bevy_ecs::{Query, Res, ResMut};
+use bevy_ecs::{Query, ResMut};
 use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct ComputePipeline {
@@ -73,12 +72,32 @@ impl Default for ComputePipelines {
 pub fn draw_compute_pipelines_system(
     mut _draw_context: DrawContext,
     mut _render_resource_bindings: ResMut<RenderResourceBindings>,
-    _msaa: Res<Msaa>,
-    mut query: Query<(&mut Draw, &mut ComputePipelines)>,
+    mut query: Query<(&mut Dispatch, &mut ComputePipelines)>,
 ) {
-    // TODO: Compute doesn't have a concept of "drawing" here.
-    // We likely want a "ComputeCommand" type
-    for (mut _draw, mut _render_pipelines) in &mut query.iter() {
-       todo!();
+    for (mut _dispatch, mut compute_pipelines) in &mut query.iter() {
+        let compute_pipelines = &mut *compute_pipelines;
+
+        for _compute_pipeline in compute_pipelines.pipelines.iter() {
+            // TODO: I think we need a compute_context here or allow draw_context to accept either a compute pipeline or a render pipeline..
+
+            // draw_context
+            //     .set_pipeline(
+            //         &mut dispatch,
+            //         compute_pipeline.pipeline,
+            //         &compute_pipeline.specialization,
+            //     )
+            //     .unwrap();
+            // draw_context
+            //     .set_bind_groups_from_bindings(
+            //         &mut dispatch,
+            //         &mut [
+            //             &mut compute_pipelines.bindings,
+            //             &mut render_resource_bindings,
+            //         ],
+            //     )
+            //     .unwrap();
+
+            todo!();
+        }
     }
 }
