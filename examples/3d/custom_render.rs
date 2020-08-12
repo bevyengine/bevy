@@ -62,10 +62,49 @@ impl SystemNode for MyMeshNode {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+struct MyMeshBuffers {
+    vertex: BufferId,
+    index: BufferId,
+    vertex_staging: BufferId,
+    index_staging: BufferId,
+}
+
+impl MyMeshBuffers {
+    pub fn new(
+        render_resource_context: &dyn RenderResourceContext,
+        vertex: BufferInfo,
+        index: BufferInfo,
+    ) -> Self {
+        Self {
+            vertex: render_resource_context.create_buffer(BufferInfo {
+                buffer_usage: vertex.buffer_usage | BufferUsage::COPY_DST,
+                mapped_at_creation: false,
+                ..vertex
+            }),
+            index: render_resource_context.create_buffer(BufferInfo {
+                buffer_usage: index.buffer_usage | BufferUsage::COPY_DST,
+                mapped_at_creation: false,
+                ..index
+            }),
+            vertex_staging: render_resource_context.create_buffer(BufferInfo {
+                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                size: vertex.size,
+                mapped_at_creation: false,
+            }),
+            index_staging: render_resource_context.create_buffer(BufferInfo {
+                buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
+                size: index.size,
+                mapped_at_creation: false,
+            }),
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct MyMeshNodeState {
     command_queue: CommandQueue,
-    buffers: Option<(BufferId, BufferId)>,
+    buffers: Option<MyMeshBuffers>,
 }
 
 #[derive(RenderResources, Default)]
@@ -183,44 +222,70 @@ pub fn my_mesh_node_system(
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     handle: &Handle<MyMesh>,
 ) {
+    let vertices = [5f32, 0., -5., 5., 0., 5., -5., 0., 5., -5., 0., -5.].as_bytes();
+    let indices = [0i32, 2, 1, 0, 3, 2].as_bytes();
     let render_resource_context = &**render_resource_context;
 
-    let (vertex_buffer, index_buffer) = if let Some(buffers) = state.buffers {
+    let buffers = if let Some(buffers) = state.buffers {
         buffers
     } else {
-        let vertices = [5f32, 0., -5., 5., 0., 5., -5., 0., 5., -5., 0., -5.].as_bytes();
-        let indices = [0i32, 2, 1, 0, 3, 2].as_bytes();
-
-        let vertex_buffer = render_resource_context.create_buffer_with_data(
+        let buffers = MyMeshBuffers::new(
+            render_resource_context,
             BufferInfo {
                 size: vertices.len(),
                 buffer_usage: BufferUsage::VERTEX,
                 ..Default::default()
             },
-            vertices,
-        );
-
-        let index_buffer = render_resource_context.create_buffer_with_data(
             BufferInfo {
                 size: indices.len(),
                 buffer_usage: BufferUsage::INDEX,
                 ..Default::default()
             },
-            indices,
         );
 
-        state.buffers = Some((vertex_buffer, index_buffer));
-        (vertex_buffer, index_buffer)
+        state.buffers = Some(buffers);
+        buffers
     };
-    
+
+    render_resource_context.map_buffer(buffers.vertex_staging);
+    render_resource_context.write_mapped_buffer(
+        buffers.vertex_staging,
+        0..vertices.len() as u64,
+        &mut |data, _renderer| data[0..vertices.len()].copy_from_slice(vertices),
+    );
+    render_resource_context.unmap_buffer(buffers.vertex_staging);
+
+    render_resource_context.map_buffer(buffers.index_staging);
+    render_resource_context.write_mapped_buffer(
+        buffers.index_staging,
+        0..indices.len() as u64,
+        &mut |data, _renderer| data[0..indices.len()].copy_from_slice(indices),
+    );
+    render_resource_context.unmap_buffer(buffers.index_staging);
+
     render_resource_context.set_asset_resource(
         *handle,
-        RenderResourceId::Buffer(vertex_buffer),
+        RenderResourceId::Buffer(buffers.vertex),
         VERTEX_BUFFER_ASSET_INDEX,
     );
     render_resource_context.set_asset_resource(
         *handle,
-        RenderResourceId::Buffer(index_buffer),
+        RenderResourceId::Buffer(buffers.index),
         INDEX_BUFFER_ASSET_INDEX,
+    );
+
+    state.command_queue.copy_buffer_to_buffer(
+        buffers.vertex_staging,
+        0,
+        buffers.vertex,
+        0,
+        vertices.len() as u64,
+    );
+    state.command_queue.copy_buffer_to_buffer(
+        buffers.index_staging,
+        0,
+        buffers.index,
+        0,
+        indices.len() as u64,
     );
 }
