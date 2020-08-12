@@ -12,7 +12,7 @@ use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::Resources;
 use bevy_math::Vec2;
 use bevy_window::{
-    CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    CreateWindow, CursorMoved, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
 use event::Event;
 use winit::{
@@ -231,8 +231,7 @@ fn handle_create_window_events(
     let create_window_events = resources.get::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = resources.get_mut::<Events<WindowCreated>>().unwrap();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
-        let window = Window::new(create_window_event.id, &create_window_event.descriptor);
-        winit_windows.create_window(event_loop, &window);
+        let window = winit_windows.create_window(event_loop, &create_window_event);
         let window_id = window.id;
         windows.add(window);
         window_created_events.send(WindowCreated { id: window_id });

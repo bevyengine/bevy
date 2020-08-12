@@ -1,4 +1,7 @@
-use bevy_window::{Window, WindowId, WindowMode};
+use bevy_window::{
+    BevyRawWindowHandle, CreateWindow, Window, WindowDescriptor, WindowId, WindowMode,
+};
+use raw_window_handle::HasRawWindowHandle;
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -12,8 +15,8 @@ impl WinitWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        window: &Window,
-    ) {
+        window_event: &CreateWindow,
+    ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
@@ -23,30 +26,39 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window.mode {
+        let window_descriptor = &window_event.descriptor;
+        winit_window_builder = match window_descriptor.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
             WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(&event_loop.primary_monitor(), &window),
+                    true => get_fitting_videomode(&event_loop.primary_monitor(), window_descriptor),
                     false => get_best_videomode(&event_loop.primary_monitor()),
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable),
+                .with_inner_size(winit::dpi::PhysicalSize::new(
+                    window_descriptor.width,
+                    window_descriptor.height,
+                ))
+                .with_resizable(window_descriptor.resizable),
         };
 
         let winit_window = winit_window_builder
-            .with_title(&window.title)
+            .with_title(&window_descriptor.title)
             .build(&event_loop)
             .unwrap();
 
-        self.window_id_to_winit.insert(window.id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window.id);
+        self.window_id_to_winit
+            .insert(window_event.id, winit_window.id());
+        self.winit_to_window_id
+            .insert(winit_window.id(), window_event.id);
 
+        let raw_window_handle = BevyRawWindowHandle(winit_window.raw_window_handle());
         self.windows.insert(winit_window.id(), winit_window);
+
+        Window::new(window_event.id, raw_window_handle, &window_event.descriptor)
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {
@@ -61,7 +73,7 @@ impl WinitWindows {
 }
 fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
-    window: &Window,
+    window_descriptor: &WindowDescriptor,
 ) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
@@ -74,10 +86,12 @@ fn get_fitting_videomode(
 
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
-        match abs_diff(a.size().width, window.width).cmp(&abs_diff(b.size().width, window.width)) {
+        match abs_diff(a.size().width, window_descriptor.width)
+            .cmp(&abs_diff(b.size().width, window_descriptor.width))
+        {
             Equal => {
-                match abs_diff(a.size().height, window.height)
-                    .cmp(&abs_diff(b.size().height, window.height))
+                match abs_diff(a.size().height, window_descriptor.height)
+                    .cmp(&abs_diff(b.size().height, window_descriptor.height))
                 {
                     Equal => b.refresh_rate().cmp(&a.refresh_rate()),
                     default => default,
