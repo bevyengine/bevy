@@ -37,7 +37,7 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for ComputeNode<Q> {
         
         render_context.begin_compute_pass(
             &mut |compute_pass| {
-                // each Draw component contains an ordered list of render commands. we turn those into actual render commands here
+                // TODO: Figure out how to expose this to the end user..
                 let compute_commands = Vec::<ComputeCommand>::new();
                 let mut compute_state = ComputeState::default();
                 for compute_command in compute_commands.iter() {

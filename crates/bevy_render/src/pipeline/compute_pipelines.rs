@@ -68,6 +68,7 @@ impl Default for ComputePipelines {
     }
 }
 
+// TODO: Not sure this currently makes sense.
 pub fn dispatch_compute_pipelines_system(
     mut compute_context: ComputeContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
@@ -95,8 +96,6 @@ pub fn dispatch_compute_pipelines_system(
                 )
                 .unwrap();
 
-            // TODO: Not sure this currently makes sense.
-            todo!();
         }
     }
 }
