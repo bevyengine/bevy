@@ -215,11 +215,11 @@ fn ball_collision_system(
         let velocity = &mut ball.velocity;
 
         // check collision with walls
-        for (collider_entity, _collider, translation, sprite) in &mut collider_query.iter() {
+        for (collider_entity, collider, translation, sprite) in &mut collider_query.iter() {
             let collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
             if let Some(collision) = collision {
                 // scorable colliders should be despawned and increment the scoreboard on collision
-                if let &Collider::Scorable = _collider {
+                if let &Collider::Scorable = collider {
                     scoreboard.score += 1;
                     commands.despawn(collider_entity);
                 }
