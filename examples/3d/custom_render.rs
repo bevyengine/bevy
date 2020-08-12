@@ -2,23 +2,25 @@ use bevy::{
     core::AsBytes,
     prelude::*,
     render::{
+        mesh::{INDEX_BUFFER_ASSET_INDEX, VERTEX_BUFFER_ASSET_INDEX},
         pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
         render_graph::{
             base, AssetRenderResourcesNode, CommandQueue, Node, RenderGraph, ResourceSlots,
             SystemNode,
         },
         renderer::{
-            BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
-            RenderResourceBindings, RenderResourceContext, RenderResourceId, RenderResources,
+            BufferId, BufferInfo, BufferUsage, RenderContext, RenderResourceBindings,
+            RenderResourceContext, RenderResourceId, RenderResources,
         },
         shader::{ShaderStage, ShaderStages},
     },
 };
 
-/// This example illustrates how to create a custom material asset and a shader that uses that uses that material
+/// This example illustrates how to create a custom material and mesh asset and a shader that uses that uses those assets
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_asset::<MyMesh>()
         .add_asset::<MyMaterial>()
         .add_startup_system(setup.system())
         .run();
@@ -211,6 +213,17 @@ pub fn my_mesh_node_system(
         (vertex_buffer, index_buffer)
     };
 
-    render_resource_context.set_asset_resource(*handle, RenderResourceId::Buffer(buffers.0), 0);
-    render_resource_context.set_asset_resource(*handle, RenderResourceId::Buffer(buffers.1), 1);
+    let vertex_buffer = buffers.0;
+    let index_buffer = buffers.1;
+
+    render_resource_context.set_asset_resource(
+        *handle,
+        RenderResourceId::Buffer(vertex_buffer),
+        VERTEX_BUFFER_ASSET_INDEX,
+    );
+    render_resource_context.set_asset_resource(
+        *handle,
+        RenderResourceId::Buffer(index_buffer),
+        INDEX_BUFFER_ASSET_INDEX,
+    );
 }
