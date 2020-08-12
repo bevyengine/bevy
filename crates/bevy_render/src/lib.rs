@@ -2,6 +2,7 @@ pub mod batch;
 pub mod camera;
 pub mod color;
 pub mod draw;
+pub mod dispatch;
 pub mod mesh;
 pub mod pass;
 pub mod pipeline;

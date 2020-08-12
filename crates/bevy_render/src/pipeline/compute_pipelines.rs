@@ -1,7 +1,6 @@
 use super::{ComputePipelineDescriptor, PipelineSpecialization};
 use crate::{
-    draw::{DrawContext, Dispatch},
-    renderer::RenderResourceBindings,
+    renderer::RenderResourceBindings, dispatch::{ComputeContext, Dispatch},
 };
 use bevy_asset::Handle;
 use bevy_ecs::{Query, ResMut};
@@ -70,7 +69,7 @@ impl Default for ComputePipelines {
 }
 
 pub fn draw_compute_pipelines_system(
-    mut _draw_context: DrawContext,
+    mut _draw_context: ComputeContext,
     mut _render_resource_bindings: ResMut<RenderResourceBindings>,
     mut query: Query<(&mut Dispatch, &mut ComputePipelines)>,
 ) {
