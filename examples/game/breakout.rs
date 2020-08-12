@@ -190,8 +190,11 @@ fn paddle_movement_system(
 }
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
+    // clamp the timestep to stop the ball from escaping when the game starts
+    let delta_seconds = f32::min(0.2, time.delta_seconds);
+
     for (ball, mut translation) in &mut ball_query.iter() {
-        translation.0 += ball.velocity * time.delta_seconds;
+        translation.0 += ball.velocity * delta_seconds;
     }
 }
 
