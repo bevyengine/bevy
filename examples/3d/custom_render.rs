@@ -185,7 +185,7 @@ pub fn my_mesh_node_system(
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let buffers = if let Some(buffers) = state.buffers {
+    let (vertex_buffer, index_buffer) = if let Some(buffers) = state.buffers {
         buffers
     } else {
         let vertices = [5f32, 0., -5., 5., 0., 5., -5., 0., 5., -5., 0., -5.].as_bytes();
@@ -212,10 +212,7 @@ pub fn my_mesh_node_system(
         state.buffers = Some((vertex_buffer, index_buffer));
         (vertex_buffer, index_buffer)
     };
-
-    let vertex_buffer = buffers.0;
-    let index_buffer = buffers.1;
-
+    
     render_resource_context.set_asset_resource(
         *handle,
         RenderResourceId::Buffer(vertex_buffer),
