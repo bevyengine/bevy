@@ -53,6 +53,8 @@ pub mod stage {
     pub static RENDER_RESOURCE: &str = "render_resource";
     /// Stage where Render Graph systems are run. In general you shouldn't add systems to this stage manually.
     pub static RENDER_GRAPH_SYSTEMS: &str = "render_graph_systems";
+    /// Compute stage where compute systems are executed.
+    pub static COMPUTE: &str = "compute";
     // Stage where draw systems are executed. This is generally where Draw components are setup
     pub static DRAW: &str = "draw";
     pub static RENDER: &str = "render";
