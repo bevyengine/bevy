@@ -197,18 +197,14 @@ impl ComputePipelineDescriptor {
 
     /// Reflects the pipeline layout from its shaders.
     ///
-    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
-    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
-    ///
     /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
     pub fn reflect_layout(
         &mut self,
         shaders: &Assets<Shader>,
-        bevy_conventions: bool,
         dynamic_bindings: &[DynamicBinding],
     ) {
         let compute_spirv = shaders.get(&self.shader_stages.compute).unwrap();
-        let mut layouts = vec![compute_spirv.reflect_layout(bevy_conventions).unwrap()];        
+        let mut layouts = vec![compute_spirv.reflect_layout(false).unwrap()];        
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
 
         if !dynamic_bindings.is_empty() {
