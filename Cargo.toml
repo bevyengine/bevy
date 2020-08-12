@@ -96,6 +96,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "custom_render"
+path = "examples/3d/custom_render.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 
