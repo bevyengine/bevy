@@ -1,6 +1,6 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor, ComputePipelineDescriptor},
     renderer::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
@@ -44,6 +44,8 @@ pub struct WgpuResourcesReadLock<'a> {
     pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
+    pub compute_pipelines:
+        RwLockReadGuard<'a, HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>,
     pub bind_groups: RwLockReadGuard<'a, HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>,
 }
 
@@ -54,6 +56,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
             textures: &self.textures,
             swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
+            compute_pipelines: &self.compute_pipelines,
             bind_groups: &self.bind_groups,
         }
     }
@@ -65,6 +68,7 @@ pub struct WgpuResourceRefs<'a> {
     pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
+    pub compute_pipelines: &'a HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
 }
 
@@ -81,6 +85,7 @@ pub struct WgpuResources {
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
+    pub compute_pipelines: Arc<RwLock<HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
     pub bind_group_layouts: Arc<RwLock<HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,
@@ -93,6 +98,7 @@ impl WgpuResources {
             textures: self.texture_views.read().unwrap(),
             swap_chain_frames: self.swap_chain_frames.read().unwrap(),
             render_pipelines: self.render_pipelines.read().unwrap(),
+            compute_pipelines: self.compute_pipelines.read().unwrap(),
             bind_groups: self.bind_groups.read().unwrap(),
         }
     }

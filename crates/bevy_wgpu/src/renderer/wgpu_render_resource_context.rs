@@ -418,6 +418,65 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         render_pipelines.insert(pipeline_handle, render_pipeline);
     }
 
+    fn create_compute_pipeline(
+        &self,
+        pipeline_handle: Handle<bevy_render::pipeline::ComputePipelineDescriptor>,
+        pipeline_descriptor: &bevy_render::pipeline::ComputePipelineDescriptor,
+        shaders: &Assets<Shader>,
+    ) {
+        if self
+            .resources
+            .compute_pipelines
+            .read()
+            .unwrap()
+            .get(&pipeline_handle)
+            .is_some()
+        {
+            return;
+        }
+
+        let layout = pipeline_descriptor.get_layout().unwrap();
+        for bind_group_descriptor in layout.bind_groups.iter() {
+            self.create_bind_group_layout(&bind_group_descriptor);
+        }
+
+        let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
+        // setup and collect bind group layouts
+        let bind_group_layouts = layout
+            .bind_groups
+            .iter()
+            .map(|bind_group| bind_group_layouts.get(&bind_group.id).unwrap())
+            .collect::<Vec<&wgpu::BindGroupLayout>>();
+
+        let pipeline_layout = self
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: bind_group_layouts.as_slice(),
+            });
+
+        self.create_shader_module(pipeline_descriptor.shader_stages.compute, shaders);
+
+        let shader_modules = self.resources.shader_modules.read().unwrap();
+        let compute_shader_module = shader_modules
+            .get(&pipeline_descriptor.shader_stages.compute)
+            .unwrap();
+
+        
+        let compute_pipeline_descriptor = wgpu::ComputePipelineDescriptor {
+            layout: &pipeline_layout,
+            compute_stage: wgpu::ProgrammableStageDescriptor {
+                module: &compute_shader_module,
+                entry_point: "main",
+            },
+        };
+
+        let compute_pipeline = self
+            .device
+            .create_compute_pipeline(&compute_pipeline_descriptor);
+        let mut compute_pipelines = self.resources.compute_pipelines.write().unwrap();
+        compute_pipelines.insert(pipeline_handle, compute_pipeline);
+    }
+
     fn bind_group_descriptor_exists(
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,

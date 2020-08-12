@@ -172,6 +172,7 @@ impl PipelineDescriptor {
 }
 
 /// Compute pipeline descriptor
+#[derive(Clone, Debug)]
 pub struct ComputePipelineDescriptor {
     pub name: Option<String>,
     pub layout: Option<PipelineLayout>,

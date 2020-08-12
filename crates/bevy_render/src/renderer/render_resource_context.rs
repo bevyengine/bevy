@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor, ComputePipelineDescriptor},
     renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -50,6 +50,12 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
+        shaders: &Assets<Shader>,
+    );
+    fn create_compute_pipeline(
+        &self,
+        pipeline_handle: Handle<ComputePipelineDescriptor>,
+        pipeline_descriptor: &ComputePipelineDescriptor,
         shaders: &Assets<Shader>,
     );
     fn bind_group_descriptor_exists(&self, bind_group_descriptor_id: BindGroupDescriptorId)

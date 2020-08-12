@@ -1,4 +1,4 @@
-use super::{ComputePipelineDescriptor, PipelineSpecialization};
+use super::{ComputePipelineDescriptor, ComputePipelineSpecialization};
 use crate::{
     renderer::RenderResourceBindings, dispatch::{ComputeContext, Dispatch},
 };
@@ -8,7 +8,7 @@ use bevy_property::Properties;
 #[derive(Properties, Default, Clone)]
 pub struct ComputePipeline {
     pub pipeline: Handle<ComputePipelineDescriptor>,
-    pub specialization: PipelineSpecialization,
+    pub specialization: ComputePipelineSpecialization,
 }
 
 impl ComputePipeline {
@@ -21,7 +21,7 @@ impl ComputePipeline {
 
     pub fn specialized(
         pipeline: Handle<ComputePipelineDescriptor>,
-        specialization: PipelineSpecialization,
+        specialization: ComputePipelineSpecialization,
     ) -> Self {
         ComputePipeline {
             pipeline,

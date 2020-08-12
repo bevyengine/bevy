@@ -1,28 +1,28 @@
 use crate::{
     pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VertexBufferDescriptors, ComputePipelineDescriptor,
+        PipelineCompiler, PipelineDescriptor, PipelineLayout,
+        ComputePipelineDescriptor, ComputePipelineCompiler, ComputePipelineSpecialization,
     },
     renderer::{
-        BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
+        BindGroup, BindGroupId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
     },
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
-    FetchResource, Query, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
+    FetchResource, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
     TypeAccess, UnsafeClone,
 };
 use bevy_property::Properties;
-use std::{any::TypeId, ops::Range, sync::Arc};
+use std::{any::TypeId, sync::Arc};
 use thiserror::Error;
 
 /// A queued command for the compute renderer
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ComputeCommand {
     SetPipeline {
-        pipeline: Handle<PipelineDescriptor>,
+        pipeline: Handle<ComputePipelineDescriptor>,
     },
     SetBindGroup {
         index: u32,
@@ -56,7 +56,7 @@ impl Dispatch {
         self.compute_commands.clear();
     }
 
-    pub fn set_pipeline(&mut self, pipeline: Handle<PipelineDescriptor>) {
+    pub fn set_pipeline(&mut self, pipeline: Handle<ComputePipelineDescriptor>) {
         self.compute_command(ComputeCommand::SetPipeline { pipeline });
     }
 
@@ -99,7 +99,7 @@ pub enum ComputeError {
 pub struct ComputeContext<'a> {
     pub pipelines: ResMut<'a, Assets<ComputePipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
-    pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
+    pub pipeline_compiler: ResMut<'a, ComputePipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: Res<'a, SharedBuffers>,
     pub current_pipeline: Option<Handle<ComputePipelineDescriptor>>,
@@ -131,18 +131,16 @@ impl<'a> FetchResource<'a> for FetchComputeContext {
     fn borrow(resources: &Resources) {
         resources.borrow_mut::<Assets<PipelineDescriptor>>();
         resources.borrow_mut::<Assets<Shader>>();
-        resources.borrow_mut::<PipelineCompiler>();
+        resources.borrow_mut::<ComputePipelineCompiler>();
         resources.borrow::<Box<dyn RenderResourceContext>>();
-        resources.borrow::<VertexBufferDescriptors>();
         resources.borrow::<SharedBuffers>();
     }
 
     fn release(resources: &Resources) {
         resources.release_mut::<Assets<PipelineDescriptor>>();
         resources.release_mut::<Assets<Shader>>();
-        resources.release_mut::<PipelineCompiler>();
+        resources.release_mut::<ComputePipelineCompiler>();
         resources.release::<Box<dyn RenderResourceContext>>();
-        resources.release::<VertexBufferDescriptors>();
         resources.release::<SharedBuffers>();
     }
 
@@ -153,7 +151,7 @@ impl<'a> FetchResource<'a> for FetchComputeContext {
             ),
             shaders: ResMut::new(resources.get_unsafe_ref::<Assets<Shader>>(ResourceIndex::Global)),
             pipeline_compiler: ResMut::new(
-                resources.get_unsafe_ref::<PipelineCompiler>(ResourceIndex::Global),
+                resources.get_unsafe_ref::<ComputePipelineCompiler>(ResourceIndex::Global),
             ),
             render_resource_context: Res::new(
                 resources.get_unsafe_ref::<Box<dyn RenderResourceContext>>(ResourceIndex::Global),
@@ -200,29 +198,27 @@ impl<'a> ComputeContext<'a> {
 
     pub fn set_pipeline(
         &mut self,
-        _dispatch: &mut Dispatch,
-        _pipeline_handle: Handle<ComputePipelineDescriptor>,
-        _specialization: &PipelineSpecialization,
+        dispatch: &mut Dispatch,
+        pipeline_handle: Handle<ComputePipelineDescriptor>,
+        specialization: &ComputePipelineSpecialization,
     ) -> Result<(), ComputeError> {
-        todo!();
-        // let specialized_pipeline = if let Some(specialized_pipeline) = self
-        //     .pipeline_compiler
-        //     .get_specialized_pipeline(pipeline_handle, specialization)
-        // {
-        //     specialized_pipeline
-        // } else {
-        //     self.pipeline_compiler.compile_pipeline(
-        //         &**self.render_resource_context,
-        //         &mut self.pipelines,
-        //         &mut self.shaders,
-        //         pipeline_handle,
-        //         &self.vertex_buffer_descriptors,
-        //         specialization,
-        //     )
-        // };
+        let specialized_pipeline = if let Some(specialized_pipeline) = self
+            .pipeline_compiler
+            .get_specialized_pipeline(pipeline_handle, specialization)
+        {
+            specialized_pipeline
+        } else {
+            self.pipeline_compiler.compile_pipeline(
+                &**self.render_resource_context,
+                &mut self.pipelines,
+                &mut self.shaders,
+                pipeline_handle,
+                specialization,
+            )
+        };
 
-        // dispatch.set_pipeline(specialized_pipeline);
-        // self.current_pipeline = Some(specialized_pipeline);
+        dispatch.set_pipeline(specialized_pipeline);
+        self.current_pipeline = Some(specialized_pipeline);
         Ok(())
     }
 
@@ -256,8 +252,7 @@ impl<'a> ComputeContext<'a> {
             .get_layout()
             .ok_or_else(|| ComputeError::PipelineHasNoLayout)?;
         for bindings in render_resource_bindings.iter_mut() {
-            todo!();
-            //bindings.update_bind_groups(pipeline_descriptor, &**self.render_resource_context);
+            bindings.update_bind_groups(pipeline_descriptor.get_layout().unwrap(), &**self.render_resource_context);
         }
         for bind_group_descriptor in layout.bind_groups.iter() {
             for bindings in render_resource_bindings.iter_mut() {

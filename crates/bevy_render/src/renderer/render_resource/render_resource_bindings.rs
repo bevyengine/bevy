@@ -1,6 +1,6 @@
 use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
 use crate::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineLayout},
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Handle, HandleUntyped};
@@ -169,10 +169,9 @@ impl RenderResourceBindings {
 
     pub fn update_bind_groups(
         &mut self,
-        pipeline: &PipelineDescriptor,
+        layout: &PipelineLayout,
         render_resource_context: &dyn RenderResourceContext,
     ) {
-        let layout = pipeline.get_layout().unwrap();
         for bind_group_descriptor in layout.bind_groups.iter() {
             match self.update_bind_group(bind_group_descriptor) {
                 BindGroupStatus::Changed(id) => {
