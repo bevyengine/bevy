@@ -27,4 +27,31 @@ jobs:
         run: cargo check
       - name: Run tests
         run: cargo test --workspace
-
+  build_windows:
+    name: build and unit test on windows
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target=x86_64-pc-windows-msvc --release --all-features
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --target=x86_64-pc-windows-msvc --release --all-features
