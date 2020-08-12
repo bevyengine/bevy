@@ -200,9 +200,9 @@ impl<'a> ComputeContext<'a> {
 
     pub fn set_pipeline(
         &mut self,
-        dispatch: &mut Dispatch,
-        pipeline_handle: Handle<PipelineDescriptor>,
-        specialization: &PipelineSpecialization,
+        _dispatch: &mut Dispatch,
+        _pipeline_handle: Handle<ComputePipelineDescriptor>,
+        _specialization: &PipelineSpecialization,
     ) -> Result<(), ComputeError> {
         todo!();
         // let specialized_pipeline = if let Some(specialized_pipeline) = self

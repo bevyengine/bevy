@@ -68,34 +68,34 @@ impl Default for ComputePipelines {
     }
 }
 
-pub fn draw_compute_pipelines_system(
-    mut _draw_context: ComputeContext,
-    mut _render_resource_bindings: ResMut<RenderResourceBindings>,
+pub fn dispatch_compute_pipelines_system(
+    mut compute_context: ComputeContext,
+    mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut query: Query<(&mut Dispatch, &mut ComputePipelines)>,
 ) {
-    for (mut _dispatch, mut compute_pipelines) in &mut query.iter() {
+    for (mut dispatch, mut compute_pipelines) in &mut query.iter() {
         let compute_pipelines = &mut *compute_pipelines;
 
-        for _compute_pipeline in compute_pipelines.pipelines.iter() {
-            // TODO: I think we need a compute_context here or allow draw_context to accept either a compute pipeline or a render pipeline..
+        for compute_pipeline in compute_pipelines.pipelines.iter() {
+            
+            compute_context
+                .set_pipeline(
+                    &mut dispatch,
+                    compute_pipeline.pipeline,
+                    &compute_pipeline.specialization,
+                )
+                .unwrap();
+            compute_context
+                .set_bind_groups_from_bindings(
+                    &mut dispatch,
+                    &mut [
+                        &mut compute_pipelines.bindings,
+                        &mut render_resource_bindings,
+                    ],
+                )
+                .unwrap();
 
-            // draw_context
-            //     .set_pipeline(
-            //         &mut dispatch,
-            //         compute_pipeline.pipeline,
-            //         &compute_pipeline.specialization,
-            //     )
-            //     .unwrap();
-            // draw_context
-            //     .set_bind_groups_from_bindings(
-            //         &mut dispatch,
-            //         &mut [
-            //             &mut compute_pipelines.bindings,
-            //             &mut render_resource_bindings,
-            //         ],
-            //     )
-            //     .unwrap();
-
+            // TODO: Not sure this currently makes sense.
             todo!();
         }
     }
