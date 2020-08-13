@@ -1,10 +1,10 @@
 use super::{ComputePipelineDescriptor, ComputePipelineSpecialization};
 use crate::{
-    renderer::RenderResourceBindings, dispatch::{ComputeContext, Dispatch},
+    renderer::RenderResourceBindings,
 };
 use bevy_asset::Handle;
-use bevy_ecs::{Query, ResMut};
 use bevy_property::Properties;
+
 #[derive(Properties, Default, Clone)]
 pub struct ComputePipeline {
     pub pipeline: Handle<ComputePipelineDescriptor>,
@@ -64,38 +64,6 @@ impl Default for ComputePipelines {
         Self {
             bindings: Default::default(),
             pipelines: vec![ComputePipeline::default()],
-        }
-    }
-}
-
-// TODO: Not sure this currently makes sense.
-pub fn dispatch_compute_pipelines_system(
-    mut compute_context: ComputeContext,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut query: Query<(&mut Dispatch, &mut ComputePipelines)>,
-) {
-    for (mut dispatch, mut compute_pipelines) in &mut query.iter() {
-        let compute_pipelines = &mut *compute_pipelines;
-
-        for compute_pipeline in compute_pipelines.pipelines.iter() {
-            
-            compute_context
-                .set_pipeline(
-                    &mut dispatch,
-                    compute_pipeline.pipeline,
-                    &compute_pipeline.specialization,
-                )
-                .unwrap();
-            compute_context
-                .set_bind_groups_from_bindings(
-                    &mut dispatch,
-                    &mut [
-                        &mut compute_pipelines.bindings,
-                        &mut render_resource_bindings,
-                    ],
-                )
-                .unwrap();
-
         }
     }
 }

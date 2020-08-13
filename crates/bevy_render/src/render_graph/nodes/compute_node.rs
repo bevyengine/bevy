@@ -5,7 +5,7 @@ use crate::{
     render_graph::{Node, ResourceSlots},
     renderer::{
         BindGroupId, RenderContext,
-    }, dispatch::ComputeCommand,
+    }, dispatch::{DispatchResource, ComputeCommand},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World, HecsQuery};
@@ -34,13 +34,13 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for ComputeNode<Q> {
         _output: &mut ResourceSlots,
     ) {
         let pipelines = resources.get::<Assets<ComputePipelineDescriptor>>().unwrap();
+        let dispatch_resource = resources.get::<DispatchResource>().unwrap();
         
         render_context.begin_compute_pass(
             &mut |compute_pass| {
                 // TODO: Figure out how to expose this to the end user..
-                let compute_commands = Vec::<ComputeCommand>::new();
                 let mut compute_state = ComputeState::default();
-                for compute_command in compute_commands.iter() {
+                for compute_command in dispatch_resource.compute_commands.iter() {
                     match compute_command {
                         ComputeCommand::SetPipeline { pipeline } => {
                             // TODO: Filter pipelines

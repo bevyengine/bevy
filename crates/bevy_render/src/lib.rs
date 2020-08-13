@@ -47,6 +47,7 @@ use render_graph::{
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
 use texture::{HdrTextureLoader, ImageTextureLoader, TextureResourceSystemState};
+use dispatch::DispatchResource;
 
 /// The names of "render" App stages
 pub mod stage {
@@ -113,9 +114,10 @@ impl Plugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
+            .init_resource::<DispatchResource>()
             .add_system_to_stage(
                 bevy_app::stage::PRE_UPDATE,
-                draw::clear_draw_system.system(),
+                dispatch::clear_compute_commands.system(),
             )
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
@@ -147,8 +149,11 @@ impl Plugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph::render_graph_schedule_executor_system.thread_local_system(),
             )
-            .add_system_to_stage(stage::COMPUTE, pipeline::dispatch_compute_pipelines_system.system())
             .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
+            .add_system_to_stage(
+                stage::POST_RENDER,
+                draw::clear_draw_system.system(),
+            )
             .add_system_to_stage(
                 stage::POST_RENDER,
                 shader::clear_shader_defs_system.system(),
