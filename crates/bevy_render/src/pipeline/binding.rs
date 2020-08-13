@@ -9,7 +9,6 @@ bitflags::bitflags! {
     }
 }
 
-
 #[derive(Hash, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BindingDescriptor {
     pub name: String,
