@@ -37,7 +37,6 @@ impl Entity {
 #[derive(Default)]
 pub(crate) struct Entities {
     pub entity_locations: HashMap<Entity, Location>,
-    pub current: u32,
 }
 
 impl Entities {
