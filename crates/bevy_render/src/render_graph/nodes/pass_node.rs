@@ -13,6 +13,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World, HecsQuery};
 use std::marker::PhantomData;
+use thiserror::Error;
 
 struct CameraInfo {
     name: String,
@@ -232,14 +233,17 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                                     indices,
                                     instances,
                                 } => {
-                                    if draw_state.can_draw_indexed() {
-                                        render_pass.draw_indexed(
-                                            indices.clone(),
-                                            *base_vertex,
-                                            instances.clone(),
-                                        );
-                                    } else {
-                                        log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                    match draw_state.can_draw_indexed() {
+                                        Ok(_) => {
+                                            render_pass.draw_indexed(
+                                                indices.clone(),
+                                                *base_vertex,
+                                                instances.clone(),
+                                            );
+                                        },
+                                        Err(e) => {
+                                            log::warn!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}. Error: {:?}", draw_state.pipeline, e);
+                                        }
                                     }
                                 }
                                 RenderCommand::SetVertexBuffer {
@@ -290,6 +294,16 @@ struct DrawState {
     index_buffer: Option<BufferId>,
 }
 
+#[derive(Error, Debug)]
+pub enum DrawStateError {
+    #[error("Missing uniform bind group")]
+    MissingBindGroup { index: usize },
+    #[error("Missing vertex buffer")]
+    MissingVertexBuffer { index: usize },
+    #[error("Missing index buffer")]
+    MissingIndexBuffer,
+}
+
 impl DrawState {
     pub fn set_bind_group(&mut self, index: u32, bind_group: BindGroupId) {
         self.bind_groups[index as usize] = Some(bind_group);
@@ -303,10 +317,24 @@ impl DrawState {
         self.index_buffer = Some(buffer);
     }
 
-    pub fn can_draw_indexed(&self) -> bool {
-        self.bind_groups.iter().all(|b| b.is_some())
-            && self.vertex_buffers.iter().all(|v| v.is_some())
-            && self.index_buffer.is_some()
+    pub fn can_draw_indexed(&self) -> Result<(), DrawStateError> {
+        for (index, group) in self.bind_groups.iter().enumerate() {
+            if group.is_none() {
+                return Err(DrawStateError::MissingBindGroup { index });
+            }
+        }
+
+        for (index, buffer) in self.vertex_buffers.iter().enumerate() {
+            if buffer.is_none() {
+                return Err(DrawStateError::MissingVertexBuffer { index });
+            }
+        }
+
+        if self.index_buffer.is_none() {
+            return Err(DrawStateError::MissingIndexBuffer);
+        }
+
+        Ok(())
     }
 
     pub fn set_pipeline(
