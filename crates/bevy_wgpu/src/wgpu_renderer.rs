@@ -21,11 +21,11 @@ impl WgpuRenderer {
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: None,
             })
             .await
-            .unwrap();
+            .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
         let (device, queue) = adapter
             .request_device(
