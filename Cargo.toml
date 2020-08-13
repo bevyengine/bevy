@@ -192,6 +192,10 @@ name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
 [[example]]
+name = "shader_custom_vertex"
+path = "examples/shader/shader_custom_vertex.rs"
+
+[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 

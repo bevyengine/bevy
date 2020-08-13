@@ -130,6 +130,7 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: Handle<PipelineDescriptor>,
+        // TODO: not needed when descriptors are reflected
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
@@ -155,7 +156,9 @@ impl PipelineCompiler {
         specialized_descriptor.reflect_layout(
             shaders,
             true,
-            Some(vertex_buffer_descriptors),
+            // TODO: does this parameter need to exist if vertex buffer descriptors are being
+            // reflected?
+            None,
             &pipeline_specialization.dynamic_bindings,
         );
 

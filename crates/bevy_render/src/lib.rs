@@ -35,6 +35,7 @@ use bevy_type_registry::RegisterType;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
+use mesh::LoadingMeshes;
 use pipeline::{
     DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
     PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
@@ -114,6 +115,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()
             .init_resource::<VertexBufferDescriptors>()
+            .init_resource::<LoadingMeshes>()
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()

@@ -1,7 +1,6 @@
-use super::Vertex;
 use crate::{
     pipeline::{
-        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
+        IndexFormat, PipelineCompiler, PipelineDescriptor, PrimitiveTopology, RenderPipelines,
         VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
@@ -11,7 +10,10 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -115,6 +117,18 @@ impl Mesh {
             attributes: Vec::new(),
             indices: None,
         }
+    }
+
+    fn is_compatible_with_vertex_buffer_descriptor(
+        &self,
+        vertex_buffer_descriptor: &VertexBufferDescriptor,
+    ) -> bool {
+        vertex_buffer_descriptor.attributes.iter().all(|vb_attr| {
+            self.attributes
+                .iter()
+                .find(|mesh_attr| mesh_attr.name == vb_attr.name)
+                .is_some()
+        })
     }
 
     pub fn get_vertex_buffer_bytes(
@@ -472,51 +486,85 @@ fn remove_current_mesh_resources(
 #[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
-    vertex_buffer_descriptor: Option<&'static VertexBufferDescriptor>,
+}
+
+// HACK: this is used to work around the fact that pipelines get compiled lazily during the DRAW
+// stage, but we need to use the layout in order to create a vertex buffer for meshes created before
+// the DRAW stage
+#[derive(Default)]
+pub struct LoadingMeshes {
+    meshes: HashSet<Handle<Mesh>>,
 }
 
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
+    pipeline_compiler: Res<PipelineCompiler>,
+    pipeline_descriptors: Res<Assets<PipelineDescriptor>>,
+    mut loading_meshes: ResMut<LoadingMeshes>,
+    // TODO: not needed when descriptors are reflected
     mut vertex_buffer_descriptors: ResMut<VertexBufferDescriptors>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    let vertex_buffer_descriptor = match state.vertex_buffer_descriptor {
-        Some(value) => value,
-        None => {
-            // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
-            let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
-            vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-            state.vertex_buffer_descriptor = Some(vertex_buffer_descriptor);
-            vertex_buffer_descriptor
+    // Find the vertex buffer descriptor that should be used for each mesh.
+    // TODO: support multiple descriptors for a single mesh; this would require changes to the
+    // RenderResourceContext to allow storing a resource per (asset, T) where T is some kind of
+    // buffer descriptor ID.
+    let mut mesh_buffer_descriptors = HashMap::new();
+    for (mesh_handle, render_pipelines) in &mut query.iter() {
+        if let Some(mesh) = meshes.get(mesh_handle) {
+            'pipes: for pipeline in render_pipelines.pipelines.iter() {
+                if let Some(specialized_descriptor_handle) = pipeline_compiler
+                    .get_specialized_pipeline(pipeline.pipeline, &pipeline.specialization)
+                {
+                    if let Some(pipeline_descriptor) =
+                        pipeline_descriptors.get(&specialized_descriptor_handle)
+                    {
+                        if let Some(layout) = pipeline_descriptor.layout.as_ref() {
+                            // Find the first compatible vertex buffer descriptor.
+                            for vb_descriptor in layout.vertex_buffer_descriptors.iter() {
+                                if mesh.is_compatible_with_vertex_buffer_descriptor(vb_descriptor) {
+                                    // Record the descriptor for when we load the buffer.
+                                    mesh_buffer_descriptors.insert(*mesh_handle, vb_descriptor);
+                                    break 'pipes;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-    };
-    let mut changed_meshes = HashSet::new();
+    }
+
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
             AssetEvent::Created { handle } => {
-                changed_meshes.insert(*handle);
+                loading_meshes.meshes.insert(*handle);
             }
             AssetEvent::Modified { handle } => {
-                changed_meshes.insert(*handle);
+                loading_meshes.meshes.insert(*handle);
                 remove_current_mesh_resources(render_resource_context, *handle);
             }
             AssetEvent::Removed { handle } => {
                 remove_current_mesh_resources(render_resource_context, *handle);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
-                changed_meshes.remove(handle);
+                loading_meshes.meshes.remove(handle);
             }
         }
     }
 
-    for changed_mesh_handle in changed_meshes.iter() {
-        if let Some(mesh) = meshes.get(changed_mesh_handle) {
+    let mut loaded_meshes = Vec::new();
+    for changed_mesh_handle in loading_meshes.meshes.iter() {
+        if let (Some(mesh), Some(vertex_buffer_descriptor)) = (
+            meshes.get(changed_mesh_handle),
+            mesh_buffer_descriptors.get(changed_mesh_handle),
+        ) {
             let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                .get_vertex_buffer_bytes(vertex_buffer_descriptor)
                 .unwrap();
             // TODO: use a staging buffer here
             let vertex_buffer = render_resource_context.create_buffer_with_data(
@@ -527,6 +575,7 @@ pub fn mesh_resource_provider_system(
                 &vertex_bytes,
             );
 
+            // TODO: support optional index buffers
             let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
@@ -546,7 +595,13 @@ pub fn mesh_resource_provider_system(
                 RenderResourceId::Buffer(index_buffer),
                 INDEX_BUFFER_ASSET_INDEX,
             );
+
+            loaded_meshes.push(*changed_mesh_handle);
         }
+    }
+
+    for mesh in loaded_meshes.iter() {
+        loading_meshes.meshes.remove(mesh);
     }
 
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
@@ -579,8 +634,11 @@ pub fn mesh_resource_provider_system(
 
 #[cfg(test)]
 mod tests {
-    use super::{AsVertexBufferDescriptor, Mesh, VertexAttribute};
-    use crate::{mesh::Vertex, pipeline::PrimitiveTopology};
+    use super::{Mesh, VertexAttribute};
+    use crate::{
+        mesh::Vertex,
+        pipeline::{AsVertexBufferDescriptor, PrimitiveTopology},
+    };
     use bevy_core::AsBytes;
 
     #[test]

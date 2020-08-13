@@ -76,8 +76,8 @@ impl PipelineLayout {
                 continue;
             } else {
                 panic!(
-                    "Encountered unsupported Vertex Buffer: {}",
-                    vertex_buffer_descriptor.name
+                    "Encountered unsupported Vertex Buffer: {:?}\nTried to sync with {:?}",
+                    vertex_buffer_descriptor, vertex_buffer_descriptors,
                 );
             }
         }
