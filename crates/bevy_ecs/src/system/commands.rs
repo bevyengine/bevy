@@ -1,9 +1,12 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
-use std::sync::{Arc, Mutex};
+use std::{
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
-/// A queued command to mutate the current [World] or [Resources] 
+/// A queued command to mutate the current [World] or [Resources]
 pub enum Command {
     WriteWorld(Box<dyn WorldWriter>),
     WriteResources(Box<dyn ResourcesWriter>),
@@ -106,6 +109,25 @@ where
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.insert(self.entity, (self.component,)).unwrap();
+    }
+}
+
+pub(crate) struct RemoveOne<T>
+where
+    T: Component,
+{
+    entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> WorldWriter for RemoveOne<T>
+where
+    T: Component,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        if world.get::<T>(self.entity).is_ok() {
+            world.remove_one::<T>(self.entity).unwrap();
+        }
     }
 }
 
@@ -320,6 +342,16 @@ impl Commands {
             f(current_entity);
         }
         self
+    }
+
+    pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Component,
+    {
+        self.write_world(RemoveOne::<T> {
+            entity,
+            phantom: PhantomData,
+        })
     }
 }
 
