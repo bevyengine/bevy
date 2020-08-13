@@ -1,0 +1,19 @@
+[package]
+name = "bevy_config"
+version = "0.1.0"
+edition = "2018"
+authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.1" }
+
+# other
+serde = { version = "1", features = ["derive"] }
+toml = "0.5.6"
+anyhow = "1.0"
