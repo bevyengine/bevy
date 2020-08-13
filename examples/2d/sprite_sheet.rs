@@ -12,11 +12,10 @@ fn animate_sprite_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in &mut query.iter() {
+    for (timer, mut sprite, texture_atlas_handle) in &mut query.iter() {
         if timer.finished {
             let texture_atlas = texture_atlases.get(&texture_atlas_handle).unwrap();
             sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
-            timer.reset();
         }
     }
 }
@@ -43,5 +42,5 @@ fn setup(
             scale: Scale(6.0),
             ..Default::default()
         })
-        .with(Timer::from_seconds(0.1));
+        .with(Timer::from_seconds(0.1, true));
 }

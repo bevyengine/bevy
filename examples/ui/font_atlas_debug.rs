@@ -22,7 +22,7 @@ impl Default for State {
         Self {
             added: false,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05),
+            timer: Timer::from_seconds(0.05, true),
         }
     }
 }
