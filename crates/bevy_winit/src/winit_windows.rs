@@ -15,7 +15,7 @@ impl WinitWindows {
         window: &Window,
     ) {
         #[cfg(target_os = "windows")]
-        let winit_window_builder = {
+        let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
             winit::window::WindowBuilder::new().with_drag_and_drop(false)
         };
@@ -23,33 +23,25 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = winit_window_builder.with_title(&window.title);
-
-        let winit_window = match window.mode {
-            WindowMode::BorderlessFullscreen => {
-                let winit_window = winit_window_builder.build(&event_loop).unwrap();
-                winit_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
-                    winit_window.current_monitor(),
-                )));
-                winit_window
-            }
-            WindowMode::Fullscreen { use_size } => {
-                let winit_window = winit_window_builder.build(&event_loop).unwrap();
-
-                winit_window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    match use_size {
-                        true => get_fitting_videomode(&winit_window.current_monitor(), &window),
-                        false => get_best_videomode(&winit_window.current_monitor()),
-                    },
-                )));
-                winit_window
-            }
+        winit_window_builder = match window.mode {
+            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
+            )),
+            WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Exclusive(match use_size {
+                    true => get_fitting_videomode(&event_loop.primary_monitor(), &window),
+                    false => get_best_videomode(&event_loop.primary_monitor()),
+                }),
+            )),
             _ => winit_window_builder
                 .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable)
-                .build(&event_loop)
-                .unwrap(),
+                .with_resizable(window.resizable),
         };
+
+        let winit_window = winit_window_builder
+            .with_title(&window.title)
+            .build(&event_loop)
+            .unwrap();
 
         self.window_id_to_winit.insert(window.id, winit_window.id());
         self.winit_to_window_id.insert(winit_window.id(), window.id);
