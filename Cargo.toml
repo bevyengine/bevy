@@ -93,6 +93,10 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
+name = "compute"
+path = "examples/3d/compute.rs"
+
+[[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
