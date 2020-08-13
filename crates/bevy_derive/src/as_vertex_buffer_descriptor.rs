@@ -41,12 +41,12 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
                         || VertexAttributes::default(),
                         |a| {
                             syn::custom_keyword!(ignore);
+                            syn::custom_keyword!(instance_rate);
+
                             let mut vertex_attributes = VertexAttributes::default();
                             a.parse_args_with(|input: ParseStream| {
-                                if let Some(_) = input.parse::<Option<ignore>>()? {
-                                    vertex_attributes.ignore = true;
-                                    return Ok(());
-                                }
+                                vertex_attributes.ignore = input.parse::<Option<ignore>>()?.is_some();
+                                vertex_attributes.instance = input.parse::<Option<instance_rate>>()?.is_some();
                                 Ok(())
                             })
                             .expect("invalid 'vertex' attribute format");

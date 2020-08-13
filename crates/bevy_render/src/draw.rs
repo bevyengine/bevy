@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VertexBufferDescriptors,
+        VertexBufferDescriptors, InputStepMode,
     },
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
@@ -327,8 +327,9 @@ impl<'a> DrawContext<'a> {
         &self,
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
-    ) -> Result<Option<Range<u32>>, DrawError> {
+    ) -> Result<(Option<Range<u32>>, Range<u32>), DrawError> {
         let mut indices = None;
+        let mut instances = 0..1;
         let pipeline = self
             .current_pipeline
             .ok_or_else(|| DrawError::NoPipelineSet)?;
@@ -350,6 +351,7 @@ impl<'a> DrawContext<'a> {
                         if let Some(buffer_info) =
                             self.render_resource_context.get_buffer_info(index_buffer)
                         {
+                            // Index buffer is u16 so divide by 2 to get bytes
                             indices = Some(0..(buffer_info.size / 2) as u32);
                         } else {
                             panic!("expected buffer type");
@@ -357,12 +359,21 @@ impl<'a> DrawContext<'a> {
                         draw.set_index_buffer(index_buffer, 0);
                     }
 
+                    // Calculate instance count from buffer size if such exists
+                    if vertex_buffer_descriptor.step_mode == InputStepMode::Instance {
+                        if let Some(buffer_info) =
+                            self.render_resource_context.get_buffer_info(vertex_buffer)
+                        {
+                            instances = 0..((buffer_info.size as u32) / (vertex_buffer_descriptor.stride as u32));
+                        }
+                    }
+
                     break;
                 }
             }
         }
 
-        Ok(indices)
+        Ok((indices, instances))
     }
 }
 

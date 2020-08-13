@@ -99,11 +99,11 @@ pub fn draw_render_pipelines_system(
                     ],
                 )
                 .unwrap();
-            let indices = draw_context
+            let (indices, instances) = draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
             if let Some(indices) = indices {
-                draw.draw_indexed(indices, 0, 0..1);
+                draw.draw_indexed(indices, 0, instances);
             }
         }
     }
