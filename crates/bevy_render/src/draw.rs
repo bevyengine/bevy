@@ -351,7 +351,7 @@ impl<'a> DrawContext<'a> {
                         if let Some(buffer_info) =
                             self.render_resource_context.get_buffer_info(index_buffer)
                         {
-                            // Index buffer is u16 so divide by 2 to get bytes
+                            // Index buffer is u16 so divide by 2 to get indice count
                             indices = Some(0..(buffer_info.size / 2) as u32);
                         } else {
                             panic!("expected buffer type");
