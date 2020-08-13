@@ -3,7 +3,7 @@ use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-        RasterizationStateDescriptor, StencilStateFaceDescriptor,
+        RasterizationStateDescriptor, StencilStateFaceDescriptor, StencilStateDescriptor,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
@@ -20,15 +20,18 @@ pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDe
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
+            clamp_depth: false,
         }),
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil_front: StencilStateFaceDescriptor::IGNORE,
-            stencil_back: StencilStateFaceDescriptor::IGNORE,
-            stencil_read_mask: 0,
-            stencil_write_mask: 0,
+            stencil: StencilStateDescriptor {
+                front: StencilStateFaceDescriptor::IGNORE,
+                back: StencilStateFaceDescriptor::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
         }),
         color_states: vec![ColorStateDescriptor {
             format: TextureFormat::Bgra8UnormSrgb,

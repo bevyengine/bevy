@@ -6,7 +6,7 @@ use bevy_render::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
         StencilStateFaceDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
-        VertexFormat,
+        VertexFormat, StencilStateDescriptor,
     },
     renderer::BufferUsage,
     texture::{
@@ -322,16 +322,24 @@ impl WgpuFrom<TextureUsage> for wgpu::TextureUsage {
     }
 }
 
+impl WgpuFrom<&StencilStateDescriptor> for wgpu::StencilStateDescriptor {
+    fn from(val: &StencilStateDescriptor) -> Self {
+        wgpu::StencilStateDescriptor {
+            back: (&val.back).wgpu_into(),
+            front: (&val.front).wgpu_into(),
+            read_mask: val.read_mask,
+            write_mask: val.write_mask,
+        }
+    }
+}
+
 impl WgpuFrom<&DepthStencilStateDescriptor> for wgpu::DepthStencilStateDescriptor {
     fn from(val: &DepthStencilStateDescriptor) -> Self {
         wgpu::DepthStencilStateDescriptor {
             depth_compare: val.depth_compare.wgpu_into(),
             depth_write_enabled: val.depth_write_enabled,
             format: val.format.wgpu_into(),
-            stencil_back: (&val.stencil_back).wgpu_into(),
-            stencil_front: (&val.stencil_front).wgpu_into(),
-            stencil_read_mask: val.stencil_read_mask,
-            stencil_write_mask: val.stencil_write_mask,
+            stencil: (&val.stencil).wgpu_into(),
         }
     }
 }
@@ -440,6 +448,7 @@ impl WgpuFrom<&RasterizationStateDescriptor> for wgpu::RasterizationStateDescrip
             depth_bias: val.depth_bias,
             depth_bias_slope_scale: val.depth_bias_slope_scale,
             depth_bias_clamp: val.depth_bias_clamp,
+            clamp_depth: val.clamp_depth,
         }
     }
 }

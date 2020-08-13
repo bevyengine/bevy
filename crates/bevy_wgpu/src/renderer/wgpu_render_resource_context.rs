@@ -16,7 +16,8 @@ use bevy_render::{
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_window::{Window, WindowId};
-use std::{ops::Range, sync::Arc};
+use std::{ops::Range, sync::Arc, borrow::Cow};
+use wgpu::util::DeviceExt;
 
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
@@ -111,7 +112,7 @@ impl WgpuRenderResourceContext {
 
         let mut bind_group_layouts = self.resources.bind_group_layouts.write();
         // TODO: consider re-checking existence here
-        let bind_group_layout_binding = descriptor
+        let bind_group_layout_entries = descriptor
             .bindings
             .iter()
             .map(|binding| {
@@ -126,15 +127,16 @@ impl WgpuRenderResourceContext {
                 } else {
                     panic!("Invalid binding shader stage.")
                 };
-                wgpu::BindGroupLayoutEntry::new(
-                    binding.index,
-                    shader_stage,
-                    (&binding.bind_type).wgpu_into(),
-                )
+                wgpu::BindGroupLayoutEntry {
+                    binding: binding.index,
+                    visibility: shader_stage,
+                    ty: (&binding.bind_type).wgpu_into(),
+                    count: None,
+                }
             })
             .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
         let wgpu_descriptor = wgpu::BindGroupLayoutDescriptor {
-            bindings: bind_group_layout_binding.as_slice(),
+            entries: bind_group_layout_entries.as_slice(),
             label: None,
         };
         let bind_group_layout = self.device.create_bind_group_layout(&wgpu_descriptor);
@@ -146,7 +148,7 @@ impl WgpuRenderResourceContext {
         let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
-        let next_texture = window_swap_chain.get_next_frame().ok()?;
+        let next_texture = window_swap_chain.get_current_frame().ok()?;
         let id = TextureId::new();
         swap_chain_outputs.insert(id, next_texture);
         Some(id)
@@ -172,7 +174,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
-        let texture_view = texture.create_default_view();
+        let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let id = TextureId::new();
         texture_descriptors.insert(id, texture_descriptor);
@@ -207,7 +209,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         buffer_info.size = data.len();
         let buffer = self
             .device
-            .create_buffer_with_data(data, buffer_info.buffer_usage.wgpu_into());
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                contents: data,
+                label: None,
+                usage: buffer_info.buffer_usage.wgpu_into(),
+            });
 
         let id = BufferId::new();
         buffer_infos.insert(id, buffer_info);
@@ -240,9 +246,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write();
+        let spirv: Cow<[u32]> = shader.get_spirv(None).into();
         let shader_module = self
             .device
-            .create_shader_module(wgpu::ShaderModuleSource::SpirV(&shader.get_spirv(None)));
+            .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
         shader_modules.insert(shader_handle, shader_module);
     }
 
@@ -352,7 +359,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let pipeline_layout = self
             .device
             .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
                 bind_group_layouts: bind_group_layouts.as_slice(),
+                push_constant_ranges: &[],
             });
 
         let owned_vertex_buffer_descriptors = layout
@@ -384,7 +393,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         };
 
         let render_pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-            layout: &pipeline_layout,
+            label: None,
+            layout: Some(&pipeline_layout),
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vertex_shader_module,
                 entry_point: "main",
@@ -452,11 +462,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             let bind_group_layouts = self.resources.bind_group_layouts.read();
             let mut bind_groups = self.resources.bind_groups.write();
 
-            let bindings = bind_group
+            let entries = bind_group
                 .indexed_bindings
                 .iter()
                 .map(|indexed_binding| {
-                    let wgpu_resource = match &indexed_binding.binding {
+                    let wgpu_resource = match &indexed_binding.entry {
                         RenderResourceBinding::Texture(resource) => {
                             let texture_view = texture_views
                                 .get(&resource)
@@ -472,18 +482,18 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                             wgpu::BindingResource::Buffer(wgpu_buffer.slice(range.clone()))
                         }
                     };
-                    wgpu::Binding {
+                    wgpu::BindGroupEntry {
                         binding: indexed_binding.index,
                         resource: wgpu_resource,
                     }
                 })
-                .collect::<Vec<wgpu::Binding>>();
+                .collect::<Vec<wgpu::BindGroupEntry>>();
 
             let bind_group_layout = bind_group_layouts.get(&bind_group_descriptor_id).unwrap();
             let wgpu_bind_group_descriptor = wgpu::BindGroupDescriptor {
                 label: None,
                 layout: bind_group_layout,
-                bindings: bindings.as_slice(),
+                entries: entries.as_slice(),
             };
             let wgpu_bind_group = self.device.create_bind_group(&wgpu_bind_group_descriptor);
 
