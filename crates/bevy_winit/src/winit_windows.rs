@@ -15,22 +15,23 @@ impl WinitWindows {
         window: &Window,
     ) {
         #[cfg(target_os = "windows")]
-        let winit_window = {
+        let winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
             winit::window::WindowBuilder::new()
                 .with_drag_and_drop(false)
-                .build(&event_loop)
-                .unwrap()
         };
 
         #[cfg(not(target_os = "windows"))]
-        let winit_window = winit::window::Window::new(&event_loop).unwrap();
+        let winit_window_builder = winit::window::WindowBuilder::new();
+
+        let winit_window = winit_window_builder
+            .with_title(&window.title)
+            .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
+            .build(&event_loop)
+            .unwrap();
 
         self.window_id_to_winit.insert(window.id, winit_window.id());
         self.winit_to_window_id.insert(winit_window.id(), window.id);
-
-        winit_window.set_title(&window.title);
-        winit_window.set_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height));
 
         self.windows.insert(winit_window.id(), winit_window);
     }
