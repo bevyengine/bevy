@@ -4,6 +4,7 @@ use crate::{
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, PipelineDescriptor, UniformProperty,
+        BindingShaderStage,
     },
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
@@ -78,6 +79,7 @@ impl<Q: HecsQuery> PassNode<Q> {
                     dynamic: false,
                     properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
                 },
+                shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
             }],
         );
 
