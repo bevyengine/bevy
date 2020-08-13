@@ -21,7 +21,7 @@ impl WgpuRenderer {
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 compatible_surface: None,
             })
             .await
