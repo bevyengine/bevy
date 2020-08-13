@@ -29,6 +29,13 @@ fn setup(
             translation: Translation::new(0.0, 1.0, 0.0),
             ..Default::default()
         })
+        // sphere
+        .spawn(PbrComponents {
+            mesh: meshes.add(Mesh::from(shape::Icosphere { subdivisions: 4, radius: 0.5 })),
+            material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
+            translation: Translation::new(1.5, 1.5, 1.5),
+            ..Default::default()
+        })
         // light
         .spawn(LightComponents {
             translation: Translation::new(4.0, 8.0, 4.0),

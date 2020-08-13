@@ -38,6 +38,7 @@ once_cell = "1.4.0"
 downcast-rs = "1.1.1"
 thiserror = "1.0"
 anyhow = "1.0"
+hexasphere = "0.1.5"
 
 [features]
 png = ["image/png"]
