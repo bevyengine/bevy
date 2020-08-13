@@ -13,7 +13,7 @@ struct State {
     event_reader: EventReader<KeyboardInput>,
 }
 
-/// This system prints out all mouse events as they come in
+/// This system prints out all keyboard events as they come in
 fn print_keyboard_event_system(
     mut state: ResMut<State>,
     keyboard_input_events: Res<Events<KeyboardInput>>,

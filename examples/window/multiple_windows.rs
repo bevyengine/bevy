@@ -39,6 +39,7 @@ fn setup(
             height: 600,
             vsync: false,
             title: "second window".to_string(),
+            ..Default::default()
         },
     });
 

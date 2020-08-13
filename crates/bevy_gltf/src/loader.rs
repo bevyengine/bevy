@@ -38,6 +38,10 @@ pub enum GltfError {
     Io(#[from] io::Error),
     #[error("Binary buffers not supported yet.")]
     BinaryBuffersUnsupported,
+    #[error("Failed to decode base64 mesh data.")]
+    Base64Decode(#[from] base64::DecodeError),
+    #[error("Unsupported buffer format.")]
+    BufferFormatUnsupported,
 }
 
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
@@ -111,11 +115,18 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
 }
 
 fn load_buffers(buffers: iter::Buffers, asset_path: &Path) -> Result<Vec<Vec<u8>>, GltfError> {
+    const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
+
     let mut buffer_data = Vec::new();
     for buffer in buffers {
         match buffer.source() {
             Source::Uri(uri) => {
                 if uri.starts_with("data:") {
+                    if uri.starts_with(OCTET_STREAM_URI) {
+                        buffer_data.push(base64::decode(&uri[OCTET_STREAM_URI.len()..])?);
+                    } else {
+                        return Err(GltfError::BufferFormatUnsupported);
+                    }
                 } else {
                     let buffer_path = asset_path.parent().unwrap().join(uri);
                     let buffer_bytes = fs::read(buffer_path)?;

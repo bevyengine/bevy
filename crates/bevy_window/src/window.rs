@@ -34,6 +34,20 @@ pub struct Window {
     pub height: u32,
     pub title: String,
     pub vsync: bool,
+    pub resizable: bool,
+    pub mode: WindowMode,
+}
+
+/// Defines the way a window is displayed
+/// The use_size option that is used in the Fullscreen variant
+/// defines whether a videomode is chosen that best fits the width and height
+/// in the Window structure, or if these are ignored.
+/// E.g. when use_size is set to false the best video mode possible is chosen.
+#[derive(Debug, Clone, Copy)]
+pub enum WindowMode {
+    Windowed,
+    BorderlessFullscreen,
+    Fullscreen { use_size: bool },
 }
 
 impl Window {
@@ -44,6 +58,8 @@ impl Window {
             width: window_descriptor.width,
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
+            resizable: window_descriptor.resizable,
+            mode: window_descriptor.mode,
         }
     }
 }
@@ -54,6 +70,8 @@ pub struct WindowDescriptor {
     pub height: u32,
     pub title: String,
     pub vsync: bool,
+    pub resizable: bool,
+    pub mode: WindowMode,
 }
 
 impl Default for WindowDescriptor {
@@ -63,6 +81,8 @@ impl Default for WindowDescriptor {
             width: 1280,
             height: 720,
             vsync: true,
+            resizable: true,
+            mode: WindowMode::Windowed,
         }
     }
 }

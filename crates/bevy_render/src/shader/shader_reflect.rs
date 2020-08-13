@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, InputStepMode, UniformProperty,
-        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, BindingShaderStage,
     },
     texture::{TextureComponentType, TextureViewDimension},
 };
@@ -204,6 +204,8 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
         index: binding.binding,
         bind_type,
         name: name.to_string(),
+        // TODO: We should be able to detect which shader program the binding is being used in..
+        shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
     }
 }
 
@@ -414,6 +416,7 @@ mod tests {
                                     UniformProperty::Mat4
                                 ])],
                             },
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                     BindGroupDescriptor::new(
@@ -426,6 +429,7 @@ mod tests {
                                 dimension: TextureViewDimension::D2,
                                 component_type: TextureComponentType::Float,
                             },
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                 ]

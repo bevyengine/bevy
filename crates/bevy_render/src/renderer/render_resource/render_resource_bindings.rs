@@ -260,7 +260,7 @@ impl Default for RenderResourceBindingsId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{BindType, BindingDescriptor, UniformProperty};
+    use crate::pipeline::{BindType, BindingDescriptor, UniformProperty, BindingShaderStage};
 
     #[test]
     fn test_bind_groups() {
@@ -274,6 +274,7 @@ mod tests {
                         dynamic: false,
                         properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
                     },
+                    shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },
                 BindingDescriptor {
                     index: 1,
@@ -282,6 +283,7 @@ mod tests {
                         dynamic: false,
                         properties: vec![UniformProperty::Float],
                     },
+                    shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },
             ],
         );

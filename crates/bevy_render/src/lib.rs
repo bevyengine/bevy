@@ -46,7 +46,12 @@ use render_graph::{
 };
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
-use texture::{HdrTextureLoader, ImageTextureLoader, TextureResourceSystemState};
+
+#[cfg(feature = "hdr")]
+use texture::HdrTextureLoader;
+#[cfg(feature = "png")]
+use texture::ImageTextureLoader;
+use texture::TextureResourceSystemState;
 use dispatch::DispatchResource;
 
 /// The names of "render" App stages
@@ -79,6 +84,15 @@ impl Default for RenderPlugin {
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        #[cfg(feature = "png")]
+        {
+            app.add_asset_loader::<Texture, ImageTextureLoader>();
+        }
+        #[cfg(feature = "hdr")]
+        {
+            app.add_asset_loader::<Texture, HdrTextureLoader>();
+        }
+
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::COMPUTE)
