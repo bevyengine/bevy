@@ -30,8 +30,10 @@ struct Scoreboard {
     score: usize,
 }
 
-struct Brick;
-struct Wall;
+enum Collider {
+    Solid,
+    Scorable,
+}
 
 fn setup(
     mut commands: Commands,
@@ -46,17 +48,18 @@ fn setup(
         // paddle
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
-            translation: Translation(Vec3::new(0.0, -250.0, 0.0)),
+            translation: Translation(Vec3::new(0.0, -215.0, 0.0)),
             sprite: Sprite {
                 size: Vec2::new(120.0, 30.0),
             },
             ..Default::default()
         })
         .with(Paddle { speed: 500.0 })
+        .with(Collider::Solid)
         // ball
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
-            translation: Translation(Vec3::new(0.0, -100.0, 1.0)),
+            translation: Translation(Vec3::new(0.0, -50.0, 1.0)),
             sprite: Sprite {
                 size: Vec2::new(30.0, 30.0),
             },
@@ -102,7 +105,7 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(Wall)
+        .with(Collider::Solid)
         // right
         .spawn(SpriteComponents {
             material: wall_material,
@@ -112,7 +115,7 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(Wall)
+        .with(Collider::Solid)
         // bottom
         .spawn(SpriteComponents {
             material: wall_material,
@@ -122,7 +125,7 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(Wall)
+        .with(Collider::Solid)
         // top
         .spawn(SpriteComponents {
             material: wall_material,
@@ -132,7 +135,7 @@ fn setup(
             },
             ..Default::default()
         })
-        .with(Wall);
+        .with(Collider::Solid);
 
     // Add bricks
     let brick_rows = 4;
@@ -159,7 +162,7 @@ fn setup(
                     translation: Translation(brick_position),
                     ..Default::default()
                 })
-                .with(Brick);
+                .with(Collider::Scorable);
         }
     }
 }
@@ -180,12 +183,18 @@ fn paddle_movement_system(
         }
 
         *translation.0.x_mut() += time.delta_seconds * direction * paddle.speed;
+
+        // bound the paddle within the walls
+        *translation.0.x_mut() = f32::max(-380.0, f32::min(380.0, translation.0.x()));
     }
 }
 
 fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
+    // clamp the timestep to stop the ball from escaping when the game starts
+    let delta_seconds = f32::min(0.2, time.delta_seconds);
+
     for (ball, mut translation) in &mut ball_query.iter() {
-        translation.0 += ball.velocity * time.delta_seconds;
+        translation.0 += ball.velocity * delta_seconds;
     }
 }
 
@@ -199,67 +208,46 @@ fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     mut ball_query: Query<(&mut Ball, &Translation, &Sprite)>,
-    mut paddle_query: Query<(&Paddle, &Translation, &Sprite)>,
-    mut brick_query: Query<(Entity, &Brick, &Translation, &Sprite)>,
-    mut wall_query: Query<(&Wall, &Translation, &Sprite)>,
+    mut collider_query: Query<(Entity, &Collider, &Translation, &Sprite)>,
 ) {
     for (mut ball, ball_translation, sprite) in &mut ball_query.iter() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
-        let mut collision = None;
 
         // check collision with walls
-        for (_wall, translation, sprite) in &mut wall_query.iter() {
-            if collision.is_some() {
+        for (collider_entity, collider, translation, sprite) in &mut collider_query.iter() {
+            let collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
+            if let Some(collision) = collision {
+                // scorable colliders should be despawned and increment the scoreboard on collision
+                if let &Collider::Scorable = collider {
+                    scoreboard.score += 1;
+                    commands.despawn(collider_entity);
+                }
+
+                // reflect the ball when it collides
+                let mut reflect_x = false;
+                let mut reflect_y = false;
+
+                // only reflect if the ball's velocity is going in the opposite direction of the collision
+                match collision {
+                    Collision::Left => reflect_x = velocity.x() > 0.0,
+                    Collision::Right => reflect_x = velocity.x() < 0.0,
+                    Collision::Top => reflect_y = velocity.y() < 0.0,
+                    Collision::Bottom => reflect_y = velocity.y() > 0.0,
+                }
+
+                // reflect velocity on the x-axis if we hit something on the x-axis
+                if reflect_x {
+                    *velocity.x_mut() = -velocity.x();
+                }
+
+                // reflect velocity on the y-axis if we hit something on the y-axis
+                if reflect_y {
+                    *velocity.y_mut() = -velocity.y();
+                }
+
                 break;
             }
-
-            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
-        }
-
-        // check collision with paddle(s)
-        for (_paddle, translation, sprite) in &mut paddle_query.iter() {
-            if collision.is_some() {
-                break;
-            }
-
-            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
-        }
-
-        // check collision with bricks
-        for (brick_entity, _brick, translation, sprite) in &mut brick_query.iter() {
-            if collision.is_some() {
-                break;
-            }
-
-            collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
-            if collision.is_some() {
-                scoreboard.score += 1;
-                commands.despawn(brick_entity);
-            }
-        }
-
-        // reflect the ball when it collides
-        let mut reflect_x = false;
-        let mut reflect_y = false;
-
-        // only reflect if the ball's velocity is going in the opposite direction of the collision
-        match collision {
-            Some(Collision::Left) => reflect_x = velocity.x() > 0.0,
-            Some(Collision::Right) => reflect_x = velocity.x() < 0.0,
-            Some(Collision::Top) => reflect_y = velocity.y() < 0.0,
-            Some(Collision::Bottom) => reflect_y = velocity.y() > 0.0,
-            None => {}
-        }
-
-        // reflect velocity on the x-axis if we hit something on the x-axis
-        if reflect_x {
-            *velocity.x_mut() = -velocity.x();
-        }
-
-        // reflect velocity on the y-axis if we hit something on the y-axis
-        if reflect_y {
-            *velocity.y_mut() = -velocity.y();
         }
     }
 }
