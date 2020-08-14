@@ -2,6 +2,7 @@ pub mod batch;
 pub mod camera;
 pub mod color;
 pub mod draw;
+pub mod fly_camera;
 pub mod mesh;
 pub mod pass;
 pub mod pipeline;
@@ -19,6 +20,7 @@ pub mod prelude {
         color::Color,
         draw::Draw,
         entity::*,
+        fly_camera::{CameraFlyingComponents, CameraFlyingOptions},
         mesh::{shape, Mesh},
         pipeline::RenderPipelines,
         shader::Shader,

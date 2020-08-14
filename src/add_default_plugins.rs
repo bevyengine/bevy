@@ -19,6 +19,7 @@ impl AddDefaultPlugins for AppBuilder {
         self.add_plugin(bevy_pbr::PbrPlugin::default());
         self.add_plugin(bevy_ui::UiPlugin::default());
         self.add_plugin(bevy_text::TextPlugin::default());
+        self.add_plugin(bevy_render::fly_camera::CameraFlyingPlugin);
 
         #[cfg(feature = "bevy_audio")]
         self.add_plugin(bevy_audio::AudioPlugin::default());
