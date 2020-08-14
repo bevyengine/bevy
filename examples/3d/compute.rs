@@ -11,12 +11,7 @@ use bevy_render::{dispatch::DispatchResource, renderer::{
 fn main() {
     App::build()
         .add_resource::<ComputeState>(ComputeState::default())
-        .add_plugin(bevy_type_registry::TypeRegistryPlugin::default())
-        .add_plugin(bevy_asset::AssetPlugin::default())
-        .add_plugin(bevy_window::WindowPlugin::default())
-        .add_plugin(bevy_render::RenderPlugin::default())
-        .add_plugin(bevy_winit::WinitPlugin::default())
-        .add_plugin(bevy_wgpu::WgpuPlugin::default())
+        .add_default_plugins()
         .add_startup_system(setup.system())
         .add_startup_system(dispatch_system.system())
         .run();
@@ -143,7 +138,6 @@ fn dispatch_system(
         .get_layout().unwrap();
     
     render_resource_bindings.update_bind_groups(pipeline_descriptor.get_layout().unwrap(), render_resource_context);
-    dbg!(&layout.bind_groups);
     for bind_group_descriptor in layout.bind_groups.iter() {
         if let Some(bind_group) =
         render_resource_bindings.get_descriptor_bind_group(bind_group_descriptor.id)
