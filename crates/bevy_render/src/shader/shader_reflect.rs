@@ -416,7 +416,7 @@ mod tests {
                                     UniformProperty::Mat4
                                 ])],
                             },
-                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT | BindingShaderStage::COMPUTE,
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                     BindGroupDescriptor::new(
@@ -429,7 +429,7 @@ mod tests {
                                 dimension: TextureViewDimension::D2,
                                 component_type: TextureComponentType::Float,
                             },
-                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT | BindingShaderStage::COMPUTE,
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                 ]
