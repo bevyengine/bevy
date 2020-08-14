@@ -43,8 +43,7 @@ A basic flying camera for 3D scenes.
 | `Space`         | Move upward                     |
 | `Shift`         | Move downward                   |
 
-```rust
-use bevy::prelude::*;
+```ignore
 
 fn setup(mut commands: Commands) {
     commands.spawn(CameraFlyingComponents::default());
