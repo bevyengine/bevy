@@ -52,7 +52,7 @@ impl AtomicBorrow {
 
         // If the previous counter had all of the immutable borrow bits set,
         // the immutable borrow counter overflowed.
-        if prev_value == usize::max_value() {
+        if prev_value & BORROW_COUNTER_MASK == BORROW_COUNTER_MASK {
             core::panic!("immutable borrow counter overflowed")
         }
 
