@@ -18,7 +18,7 @@ fn main() {
         .add_plugin(bevy_winit::WinitPlugin::default())
         .add_plugin(bevy_wgpu::WgpuPlugin::default())
         .add_startup_system(setup.system())
-        .add_system(dispatch_system.system())
+        .add_startup_system(dispatch_system.system())
         .run();
 }
 
