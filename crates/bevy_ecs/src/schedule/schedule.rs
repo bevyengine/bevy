@@ -1,5 +1,6 @@
 use crate::{
     resource::Resources,
+    schedule::ParallelExecutorOptions,
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
@@ -168,6 +169,15 @@ impl Schedule {
         if self.last_initialize_generation == self.generation {
             return;
         }
+
+        let thread_pool_builder = resources
+            .get::<ParallelExecutorOptions>()
+            .map(|options| (*options).clone())
+            .unwrap_or_else(|| ParallelExecutorOptions::default())
+            .create_builder();
+        // For now, bevy_ecs only uses the global thread pool so it is sufficient to configure it once here.
+        // Dont call .unwrap() as the function is called twice..
+        let _ = thread_pool_builder.build_global();
 
         for stage in self.stages.values_mut() {
             for system in stage.iter_mut() {

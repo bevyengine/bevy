@@ -123,6 +123,10 @@ name = "plugin"
 path = "examples/app/plugin.rs"
 
 [[example]]
+name = "thread_pool_resources"
+path = "examples/app/thread_pool_resources.rs"
+
+[[example]]
 name = "hot_asset_reloading"
 path = "examples/asset/hot_asset_reloading.rs"
 
