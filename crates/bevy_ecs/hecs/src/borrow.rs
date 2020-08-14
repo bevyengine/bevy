@@ -23,6 +23,21 @@ use core::{
 
 use crate::{archetype::Archetype, Component, MissingComponent};
 
+/// A bit mask used to signal the `AtomicBorrow` has an active mutable borrow.
+const BORROW_MUT_BIT: usize = !(usize::max_value() >> 1);
+
+const BORROW_COUNTER_MASK: usize = usize::max_value() >> 1;
+
+/// An atomic integer used to dynamicaly enforce borrowing rules
+///
+/// The most significant bit is used to track mutable borrow, and the rest is a
+/// counter for immutable borrows.
+///
+/// It has four possible states:
+///  - `0b00000000...` the counter isn't mut borrowed, and ready for borrowing
+///  - `0b0_______...` the counter isn't mut borrowed, and currently borrowed
+///  - `0b10000000...` the counter is mut borrowed
+///  - `0b1_______...` the counter is mut borrowed, and some other thread is trying to borrow
 pub struct AtomicBorrow(AtomicUsize);
 
 impl AtomicBorrow {
@@ -30,13 +45,19 @@ impl AtomicBorrow {
         Self(AtomicUsize::new(0))
     }
 
+    /// Try to register an immutable borrow. Returns whether borrowing succeeded.
     pub fn borrow(&self) -> bool {
-        let value = self.0.fetch_add(1, Ordering::Acquire).wrapping_add(1);
-        if value == 0 {
-            // Wrapped, this borrow is invalid!
-            core::panic!()
+        // Add one to the borrow counter
+        let prev_value = self.0.fetch_add(1, Ordering::Acquire);
+
+        // If the previous counter had all of the immutable borrow bits set,
+        // the immutable borrow counter overflowed.
+        if prev_value == usize::max_value() {
+            core::panic!("immutable borrow counter overflowed")
         }
-        if value & UNIQUE_BIT != 0 {
+
+        // If the mutable borrow bit is set, immutable borrow can't occur. Roll back.
+        if prev_value & BORROW_MUT_BIT != 0 {
             self.0.fetch_sub(1, Ordering::Release);
             false
         } else {
@@ -44,25 +65,62 @@ impl AtomicBorrow {
         }
     }
 
+    /// Try to register a mutable borrow. Returns whether borrowing succeeded.
     pub fn borrow_mut(&self) -> bool {
         self.0
-            .compare_exchange(0, UNIQUE_BIT, Ordering::Acquire, Ordering::Relaxed)
+            .compare_exchange(0, BORROW_MUT_BIT, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
     }
 
+    /// Release an immutable borrow.
     pub fn release(&self) {
-        let value = self.0.fetch_sub(1, Ordering::Release);
-        debug_assert!(value != 0, "unbalanced release");
-        debug_assert!(value & UNIQUE_BIT == 0, "shared release of unique borrow");
+        let prev_value = self.0.fetch_sub(1, Ordering::Release);
+        debug_assert!(prev_value != 0, "unbalanced release");
+        debug_assert!(prev_value & BORROW_MUT_BIT == 0, "shared release of unique borrow");
     }
 
+    /// Release a mutable borrow.
     pub fn release_mut(&self) {
-        let value = self.0.fetch_and(!UNIQUE_BIT, Ordering::Release);
-        debug_assert_ne!(value & UNIQUE_BIT, 0, "unique release of shared borrow");
+        let prev_value = self.0.fetch_and(!BORROW_MUT_BIT, Ordering::Release);
+        debug_assert_ne!(prev_value & BORROW_MUT_BIT, 0, "unique release of shared borrow");
     }
 }
 
-const UNIQUE_BIT: usize = !(usize::max_value() >> 1);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "immutable borrow counter overflowed")]
+    fn test_borrow_counter_overflow() {
+        let counter = AtomicBorrow(AtomicUsize::new(BORROW_COUNTER_MASK));
+        counter.borrow();
+    }
+
+    #[test]
+    #[should_panic(expected = "immutable borrow counter overflowed")]
+    fn test_mut_borrow_counter_overflow() {
+        let counter = AtomicBorrow(AtomicUsize::new(BORROW_COUNTER_MASK | BORROW_MUT_BIT));
+        counter.borrow();
+    }
+
+    #[test]
+    fn test_borrow() {
+        let counter = AtomicBorrow::new();
+        assert!(counter.borrow());
+        assert!(counter.borrow());
+        assert!(!counter.borrow_mut());
+        counter.release();
+        counter.release();
+
+        assert!(counter.borrow_mut());
+        assert!(!counter.borrow());
+        counter.release_mut();
+        assert!(counter.borrow());
+    }
+}
+
 
 /// Shared borrow of an entity's component
 #[derive(Clone)]
