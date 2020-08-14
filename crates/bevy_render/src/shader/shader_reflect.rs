@@ -205,7 +205,7 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
         bind_type,
         name: name.to_string(),
         // TODO: We should be able to detect which shader program the binding is being used in..
-        shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+        shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT | BindingShaderStage::COMPUTE,
     }
 }
 

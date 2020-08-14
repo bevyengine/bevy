@@ -8,23 +8,19 @@ use crate::{
     }, dispatch::{DispatchResource, ComputeCommand},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Resources, World, HecsQuery};
-use std::marker::PhantomData;
+use bevy_ecs::{Resources, World};
 
 
-pub struct ComputeNode<Q: HecsQuery> {
-    _marker: PhantomData<Q>,
-}
+pub struct ComputeNode;
 
-impl<Q: HecsQuery> ComputeNode<Q> {
+impl ComputeNode {
     pub fn new() -> Self {
         ComputeNode {
-            _marker: PhantomData::default(),
         }
     }
 }
 
-impl<Q: HecsQuery + Send + Sync + 'static> Node for ComputeNode<Q> {
+impl Node for ComputeNode {
     fn update(
         &mut self,
         _world: &World,

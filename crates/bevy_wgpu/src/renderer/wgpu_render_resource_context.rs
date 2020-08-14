@@ -113,12 +113,16 @@ impl WgpuRenderResourceContext {
             .bindings
             .iter()
             .map(|binding| {
-                let shader_stage = if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT {
+                let shader_stage = if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT | BindingShaderStage::COMPUTE {
+                    wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT | wgpu::ShaderStage::COMPUTE
+                } else if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT {
                     wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT
                 } else if binding.shader_stage == BindingShaderStage::VERTEX {
                     wgpu::ShaderStage::VERTEX
                 } else if binding.shader_stage == BindingShaderStage::FRAGMENT {
                     wgpu::ShaderStage::FRAGMENT
+                } else if binding.shader_stage == BindingShaderStage::COMPUTE {
+                    wgpu::ShaderStage::COMPUTE
                 } else {
                     panic!("Invalid binding shader stage.")
                 };
