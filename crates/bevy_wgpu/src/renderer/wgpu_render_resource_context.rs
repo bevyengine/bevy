@@ -133,6 +133,7 @@ impl WgpuRenderResourceContext {
             bindings: bind_group_layout_binding.as_slice(),
             label: None,
         };
+        dbg!(&wgpu_descriptor);
         let bind_group_layout = self.device.create_bind_group_layout(&wgpu_descriptor);
         bind_group_layouts.insert(descriptor.id, bind_group_layout);
     }

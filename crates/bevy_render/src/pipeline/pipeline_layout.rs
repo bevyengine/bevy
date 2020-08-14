@@ -16,6 +16,7 @@ impl PipelineLayout {
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
+        dbg!(&shader_layouts);
         let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
         let mut vertex_buffer_descriptors = Vec::new();
         for shader_layout in shader_layouts.iter_mut() {
@@ -25,10 +26,15 @@ impl PipelineLayout {
                         for shader_binding in shader_bind_group.bindings.iter() {
                             if let Some(binding) = bind_group
                                 .bindings
-                                .iter()
+                                .iter_mut()
                                 .find(|binding| binding.index == shader_binding.index)
                             {
-                                if binding != shader_binding {
+                                binding.shader_stage |= shader_binding.shader_stage;
+                                // Not sure we need to panic anymore here..
+                                if binding.bind_type != shader_binding.bind_type
+                                    || binding.name != shader_binding.name
+                                    || binding.index != shader_binding.index
+                                {
                                     panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
                                 }
                             } else {
@@ -42,6 +48,7 @@ impl PipelineLayout {
                 }
             }
         }
+        dbg!(&bind_groups);
 
         for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
             vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
@@ -55,6 +62,8 @@ impl PipelineLayout {
         // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
         // TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
+
+        dbg!(&bind_groups_result);
 
         PipelineLayout {
             bind_groups: bind_groups_result,
