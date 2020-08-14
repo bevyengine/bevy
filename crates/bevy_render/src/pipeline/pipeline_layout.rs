@@ -30,7 +30,6 @@ impl PipelineLayout {
                                 .find(|binding| binding.index == shader_binding.index)
                             {
                                 binding.shader_stage |= shader_binding.shader_stage;
-                                // Not sure we need to panic anymore here..
                                 if binding.bind_type != shader_binding.bind_type
                                     || binding.name != shader_binding.name
                                     || binding.index != shader_binding.index

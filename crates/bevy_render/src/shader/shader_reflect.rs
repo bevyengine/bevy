@@ -205,7 +205,7 @@ fn reflect_binding(binding: &ReflectDescriptorBinding, shader_stage: ReflectShad
         ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
         ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
         ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
-        _ => panic!("Only one specified shader stage is support.")
+        _ => panic!("Only one specified shader stage is supported.")
     };
 
     BindingDescriptor {
