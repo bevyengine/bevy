@@ -201,17 +201,23 @@ fn reflect_binding(binding: &ReflectDescriptorBinding, shader_stage: ReflectShad
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
-    let shader_stage = match shader_stage {
+    let mut shader_stage = match shader_stage {
         ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
         ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
         ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
         _ => panic!("Only one specified shader stage is supported.")
     };
 
+    let name = name.to_string();
+
+    if name == "Camera" {
+        shader_stage = BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT;
+    }
+
     BindingDescriptor {
         index: binding.binding,
         bind_type,
-        name: name.to_string(),
+        name,
         shader_stage,
     }
 }
