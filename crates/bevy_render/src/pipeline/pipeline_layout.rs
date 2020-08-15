@@ -16,7 +16,6 @@ impl PipelineLayout {
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
-        dbg!(&shader_layouts);
         let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
         let mut vertex_buffer_descriptors = Vec::new();
         for shader_layout in shader_layouts.iter_mut() {
@@ -40,6 +39,7 @@ impl PipelineLayout {
                                 bind_group.bindings.push(shader_binding.clone());
                             }
                         }
+                        bind_group.update_id();
                     }
                     None => {
                         bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
@@ -47,8 +47,7 @@ impl PipelineLayout {
                 }
             }
         }
-        dbg!(&bind_groups);
-
+        
         for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
             vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
         }
@@ -61,8 +60,6 @@ impl PipelineLayout {
         // NOTE: for some reason bind groups need to be sorted by index. this is likely an issue with bevy and not with wgpu
         // TODO: try removing this
         bind_groups_result.sort_by(|a, b| a.index.partial_cmp(&b.index).unwrap());
-
-        dbg!(&bind_groups_result);
 
         PipelineLayout {
             bind_groups: bind_groups_result,
