@@ -1,6 +1,6 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
-use std::{marker::Copy};
+use std::marker::Copy;
 
 #[cfg(feature = "bevy-glsl-to-spirv")]
 use bevy_glsl_to_spirv::compile;
@@ -43,11 +43,17 @@ fn glsl_to_spirv(
     #[cfg(feature = "naga-glsl")]
     {
         // TODO: Add support to glsl-new for inserting definitions.
-        assert!(shader_defs.is_none(), "shader definitions not supported with naga yet");
+        assert!(
+            shader_defs.is_none(),
+            "shader definitions not supported with naga yet"
+        );
         // The `glsl_new` naga frontend is still a work-in-progress.
-        let module = naga::front::glsl_new::parse_str(glsl_source, "main".to_string(), stage.into()).unwrap();
+        let module =
+            naga::front::glsl_new::parse_str(glsl_source, "main".to_string(), stage.into())
+                .unwrap();
         println!("{:#?}", module);
-        let mut writer = naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
+        let mut writer =
+            naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
         writer.write(&module)
     }
     #[cfg(feature = "bevy-glsl-to-spirv")]
