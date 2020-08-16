@@ -245,6 +245,13 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                                         log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
+                                RenderCommand::Draw { vertices, instances } => {
+                                    if draw_state.can_draw() {
+                                        render_pass.draw(vertices.clone(), instances.clone());
+                                    } else {
+                                        log::info!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                    }
+                                }
                                 RenderCommand::SetVertexBuffer {
                                     buffer,
                                     offset,
@@ -304,6 +311,11 @@ impl DrawState {
 
     pub fn set_index_buffer(&mut self, buffer: BufferId) {
         self.index_buffer = Some(buffer);
+    }
+
+    pub fn can_draw(&self) -> bool {
+        self.bind_groups.iter().all(|b| b.is_some())
+            && self.vertex_buffers.iter().all(|v| v.is_some())
     }
 
     pub fn can_draw_indexed(&self) -> bool {

@@ -43,6 +43,10 @@ pub enum RenderCommand {
         base_vertex: i32,
         instances: Range<u32>,
     },
+    Draw {
+        vertices: Range<u32>,
+        instances: Range<u32>,
+    },
 }
 
 /// A component that indicates how to draw an entity.
