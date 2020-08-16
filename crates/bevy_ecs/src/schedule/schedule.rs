@@ -131,9 +131,9 @@ impl Schedule {
         for stage_name in self.stage_order.iter() {
             if let Some(stage_systems) = self.stages.get_mut(stage_name) {
                 for system in stage_systems.iter_mut() {
-                    #[cfg(feature = "profiler")]
-                    crate::profiler::profiler_start(resources, system.name().clone());
                     let mut system = system.lock().unwrap();
+                    #[cfg(feature = "profiler")]
+                    crate::profiler_start(resources, system.name().clone());
                     system.update_archetype_access(world);
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => system.run(world, resources),
@@ -144,7 +144,7 @@ impl Schedule {
                         }
                     }
                     #[cfg(feature = "profiler")]
-                    crate::profiler::profiler_stop(resources, system.name().clone());
+                    crate::profiler_stop(resources, system.name().clone());
                 }
 
                 // "flush"

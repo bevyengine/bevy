@@ -1,5 +1,5 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
-use bevy_ecs::{profiler::Profiler, Res, ResMut};
+use bevy_ecs::{Profiler, Res, ResMut};
 use std::{
     borrow::Cow,
     collections::HashMap,

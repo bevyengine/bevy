@@ -11,13 +11,13 @@ pub trait Profiler: Downcast + Send + Sync + 'static {
 }
 
 pub fn profiler_start(resources: &Resources, scope: Cow<'static, str>) {
-    if let Ok(profiler) = resources.get::<Box<dyn Profiler>>() {
+    if let Some(profiler) = resources.get::<Box<dyn Profiler>>() {
         profiler.start(scope);
     }
 }
 
 pub fn profiler_stop(resources: &Resources, scope: Cow<'static, str>) {
-    if let Ok(profiler) = resources.get::<Box<dyn Profiler>>() {
+    if let Some(profiler) = resources.get::<Box<dyn Profiler>>() {
         profiler.stop(scope);
     }
 }
