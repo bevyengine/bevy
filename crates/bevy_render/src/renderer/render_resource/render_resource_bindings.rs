@@ -11,7 +11,7 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
     Buffer {
         buffer: BufferId,
@@ -44,6 +44,34 @@ impl RenderResourceBinding {
             Some(*sampler)
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for RenderResourceBinding {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                RenderResourceBinding::Buffer {
+                    buffer: self_buffer,
+                    range: self_range,
+                    dynamic_index: _,
+                },
+                RenderResourceBinding::Buffer {
+                    buffer: other_buffer,
+                    range: other_range,
+                    dynamic_index: _,
+                },
+            ) => self_buffer == other_buffer && self_range == other_range,
+            (
+                RenderResourceBinding::Texture(self_texture),
+                RenderResourceBinding::Texture(other_texture),
+            ) => RenderResourceId::from(*self_texture) == RenderResourceId::from(*other_texture),
+            (
+                RenderResourceBinding::Sampler(self_sampler),
+                RenderResourceBinding::Sampler(other_sampler),
+            ) => RenderResourceId::from(*self_sampler) == RenderResourceId::from(*other_sampler),
+            _ => false,
         }
     }
 }
