@@ -85,7 +85,7 @@ impl SceneSpawner {
         mut instance_info: Option<&mut InstanceInfo>,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read().unwrap();
+        let component_registry = type_registry.component.read();
         let scenes = resources.get::<Assets<Scene>>().unwrap();
         let scene = scenes
             .get(&scene_handle)

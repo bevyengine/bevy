@@ -22,8 +22,8 @@ impl RegisterType for AppBuilder {
     {
         {
             let type_registry = self.app.resources.get::<TypeRegistry>().unwrap();
-            type_registry.component.write().unwrap().register::<T>();
-            type_registry.property.write().unwrap().register::<T>();
+            type_registry.component.write().register::<T>();
+            type_registry.property.write().register::<T>();
         }
         self
     }
@@ -34,7 +34,7 @@ impl RegisterType for AppBuilder {
     {
         {
             let type_registry = self.app.resources.get::<TypeRegistry>().unwrap();
-            type_registry.property.write().unwrap().register::<T>();
+            type_registry.property.write().register::<T>();
         }
         self
     }
@@ -45,7 +45,7 @@ impl RegisterType for AppBuilder {
     {
         {
             let type_registry = self.app.resources.get::<TypeRegistry>().unwrap();
-            type_registry.property.write().unwrap().register::<T>();
+            type_registry.property.write().register::<T>();
         }
         self
     }

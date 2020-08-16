@@ -3,8 +3,9 @@ use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyType
 use std::{
     any::TypeId,
     collections::{HashMap, HashSet},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
+use parking_lot::RwLock;
 
 #[derive(Clone, Default)]
 pub struct TypeRegistry {

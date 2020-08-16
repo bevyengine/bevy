@@ -28,3 +28,4 @@ anyhow = "1.0"
 thiserror = "1.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 notify = { version = "5.0.0-pre.2", optional = true }
+parking_lot = "0.10.2"

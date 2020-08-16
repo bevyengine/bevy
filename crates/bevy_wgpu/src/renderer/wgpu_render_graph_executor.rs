@@ -6,8 +6,9 @@ use bevy_render::{
 };
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
+use parking_lot::RwLock;
 
 pub struct WgpuRenderGraphExecutor {
     pub max_thread_count: usize,
@@ -56,7 +57,7 @@ impl WgpuRenderGraphExecutor {
                                 ..
                             } = node_state.edges.get_input_slot_edge(i).unwrap()
                             {
-                                let node_outputs = node_outputs.read().unwrap();
+                                let node_outputs = node_outputs.read();
                                 let outputs = if let Some(outputs) = node_outputs.get(output_node) {
                                     outputs
                                 } else {
@@ -80,7 +81,6 @@ impl WgpuRenderGraphExecutor {
 
                         node_outputs
                             .write()
-                            .unwrap()
                             .insert(node_state.id, node_state.output_slots.clone());
                     }
                 }

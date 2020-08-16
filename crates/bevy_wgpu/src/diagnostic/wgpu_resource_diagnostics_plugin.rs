@@ -95,7 +95,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .window_surfaces
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -105,7 +104,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .window_swap_chains
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -115,7 +113,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .swap_chain_frames
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -125,7 +122,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .buffers
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -135,7 +131,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .textures
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -145,7 +140,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .texture_views
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -155,7 +149,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .samplers
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -165,7 +158,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .bind_groups
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -174,7 +166,6 @@ impl WgpuResourceDiagnosticsPlugin {
             .resources
             .bind_groups
             .read()
-            .unwrap()
             .values()
         {
             bind_group_count += bind_group.bind_groups.len();
@@ -188,7 +179,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .bind_group_layouts
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -198,7 +188,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .shader_modules
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -208,7 +197,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .render_pipelines
                 .read()
-                .unwrap()
                 .len() as f64,
         );
     }

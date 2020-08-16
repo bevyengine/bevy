@@ -3,9 +3,10 @@ use bevy_ecs::{Profiler, Res, ResMut};
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::Arc,
     time::Instant,
 };
+use parking_lot::RwLock;
 
 #[derive(Debug)]
 struct SystemRunInfo {

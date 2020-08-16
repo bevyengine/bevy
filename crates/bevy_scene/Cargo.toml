@@ -23,3 +23,4 @@ bevy_ron = { path = "../bevy_ron", version = "0.1.0" }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 anyhow = "1.0"
 thiserror = "1.0"
+parking_lot = "0.10.2"
