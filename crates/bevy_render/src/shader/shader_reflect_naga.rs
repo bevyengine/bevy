@@ -5,16 +5,8 @@ use crate::{
     },
     texture::{TextureComponentType, TextureViewDimension},
 };
-use spirv_reflect::{
-    types::{
-        ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectTypeDescription, ReflectTypeFlags,
-    },
-    ShaderModule,
-};
 use smallvec::SmallVec;
 use bevy_core::AsBytes;
-use std::collections::HashSet;
 
 /// Defines the memory layout of a shader
 #[derive(Debug, Clone, PartialEq, Eq)]
