@@ -109,10 +109,10 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
 }
 
 pub mod node {
-    pub const COLOR_MATERIAL: &'static str = "color_material";
-    pub const SPRITE: &'static str = "sprite";
-    pub const SPRITE_SHEET: &'static str = "sprite_sheet";
-    pub const SPRITE_SHEET_SPRITE: &'static str = "sprite_sheet_sprite";
+    pub const COLOR_MATERIAL: &str = "color_material";
+    pub const SPRITE: &str = "sprite";
+    pub const SPRITE_SHEET: &str = "sprite_sheet";
+    pub const SPRITE_SHEET_SPRITE: &str = "sprite_sheet_sprite";
 }
 
 pub trait SpriteRenderGraphBuilder {

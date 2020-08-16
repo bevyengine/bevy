@@ -14,6 +14,7 @@ pub struct Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ErrorCode {
     Io(String),
     Message(String),
@@ -54,9 +55,6 @@ pub enum ErrorCode {
 
     Utf8Error(Utf8Error),
     TrailingCharacters,
-
-    #[doc(hidden)]
-    __Nonexhaustive,
 }
 
 impl fmt::Display for Error {
@@ -108,7 +106,6 @@ impl fmt::Display for ErrorCode {
             ErrorCode::UnderscoreAtBeginning => f.write_str("Found underscore at the beginning"),
             ErrorCode::UnexpectedByte(_) => f.write_str("Unexpected byte"),
             ErrorCode::TrailingCharacters => f.write_str("Non-whitespace trailing characters"),
-            _ => f.write_str("Unknown ErrorCode"),
         }
     }
 }

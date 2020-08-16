@@ -73,7 +73,7 @@ impl SceneSpawner {
         let spawned = self
             .spawned_scenes
             .entry(scene_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         spawned.push(instance_id);
         Ok(())
     }
@@ -98,7 +98,7 @@ impl SceneSpawner {
                 *instance_info
                     .entity_map
                     .entry(scene_entity.entity)
-                    .or_insert_with(|| bevy_ecs::Entity::new())
+                    .or_insert_with(bevy_ecs::Entity::new)
             } else {
                 bevy_ecs::Entity::from_id(scene_entity.entity)
             };

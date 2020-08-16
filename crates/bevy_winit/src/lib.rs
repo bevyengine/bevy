@@ -115,22 +115,21 @@ pub fn winit_runner(mut app: App) {
                     let mut mouse_button_input_events =
                         app.resources.get_mut::<Events<MouseButtonInput>>().unwrap();
                     mouse_button_input_events.send(MouseButtonInput {
-                        button: converters::convert_mouse_button(button.into()),
+                        button: converters::convert_mouse_button(button),
                         state: converters::convert_element_state(state),
                     });
                 }
                 _ => {}
             },
-            event::Event::DeviceEvent { ref event, .. } => match event {
-                DeviceEvent::MouseMotion { delta } => {
+            event::Event::DeviceEvent { ref event, .. } => {
+                if let DeviceEvent::MouseMotion { delta } = event {
                     let mut mouse_motion_events =
                         app.resources.get_mut::<Events<MouseMotion>>().unwrap();
                     mouse_motion_events.send(MouseMotion {
                         delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                     });
                 }
-                _ => {}
-            },
+            }
             event::Event::MainEventsCleared => {
                 handle_create_window_events(
                     &mut app.resources,

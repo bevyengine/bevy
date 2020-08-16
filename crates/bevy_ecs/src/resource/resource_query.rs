@@ -17,6 +17,10 @@ pub struct Res<'a, T: Resource> {
 }
 
 impl<'a, T: Resource> Res<'a, T> {
+    /// Creates a reference cell to a Resource from a pointer
+    ///
+    /// # Safety
+    /// The pointer must have correct lifetime / storage
     pub unsafe fn new(value: NonNull<T>) -> Self {
         Self {
             value: &*value.as_ptr(),
@@ -26,6 +30,7 @@ impl<'a, T: Resource> Res<'a, T> {
 
 /// A clone that is unsafe to perform. You probably shouldn't use this.
 pub trait UnsafeClone {
+    #[allow(clippy::missing_safety_doc)]
     unsafe fn unsafe_clone(&self) -> Self;
 }
 
@@ -53,6 +58,10 @@ pub struct ResMut<'a, T: Resource> {
 }
 
 impl<'a, T: Resource> ResMut<'a, T> {
+    /// Creates a mutable reference cell to a Resource from a pointer
+    ///
+    /// # Safety
+    /// The pointer must have correct lifetime / storage / ownership
     pub unsafe fn new(value: NonNull<T>) -> Self {
         Self {
             value: value.as_ptr(),
@@ -133,6 +142,7 @@ pub trait FetchResource<'a>: Sized {
     fn borrow(resources: &Resources);
     fn release(resources: &Resources);
 
+    #[allow(clippy::missing_safety_doc)]
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
 }
 

@@ -11,6 +11,7 @@ use std::{
 #[derive(Debug, Copy, Clone, PartialOrd)]
 pub struct FloatOrd(pub f32);
 
+#[allow(clippy::derive_ord_xor_partial_ord)]
 impl Ord for FloatOrd {
     fn cmp(&self, other: &Self) -> Ordering {
         self.0.partial_cmp(&other.0).unwrap_or_else(|| {
