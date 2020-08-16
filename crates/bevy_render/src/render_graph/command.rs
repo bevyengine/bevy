@@ -2,8 +2,8 @@ use crate::{
     renderer::{BufferId, RenderContext, TextureId},
     texture::Extent3d,
 };
-use std::sync::Arc;
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Command {

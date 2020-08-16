@@ -6,12 +6,9 @@ use crate::{
 use bevy_hecs::{ArchetypesGeneration, World};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use rayon::ScopeFifo;
-use std::{
-    ops::Range,
-    sync::Arc,
-};
 use parking_lot::Mutex;
+use rayon::ScopeFifo;
+use std::{ops::Range, sync::Arc};
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
@@ -446,8 +443,8 @@ mod tests {
     };
     use bevy_hecs::{Entity, World};
     use fixedbitset::FixedBitSet;
-    use std::sync::Arc;
     use parking_lot::Mutex;
+    use std::sync::Arc;
 
     #[derive(Default)]
     struct Counter {

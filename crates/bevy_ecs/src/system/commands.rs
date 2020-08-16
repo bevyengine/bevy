@@ -1,11 +1,8 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
-use std::{
-    marker::PhantomData,
-    sync::Arc,
-};
 use parking_lot::Mutex;
+use std::{marker::PhantomData, sync::Arc};
 
 /// A queued command to mutate the current [World] or [Resources]
 pub enum Command {
@@ -310,9 +307,7 @@ impl Commands {
         &mut self,
         resources_writer: W,
     ) -> &mut Self {
-        self.commands
-            .lock()
-            .write_resources(resources_writer);
+        self.commands.lock().write_resources(resources_writer);
         self
     }
 
