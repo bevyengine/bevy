@@ -2,74 +2,101 @@ use crate::Color;
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum VertexFormat {
-    Uchar2 = 1,
-    Uchar4 = 3,
-    Char2 = 5,
-    Char4 = 7,
-    Uchar2Norm = 9,
-    Uchar4Norm = 11,
-    Char2Norm = 14,
-    Char4Norm = 16,
-    Ushort2 = 18,
-    Ushort4 = 20,
-    Short2 = 22,
-    Short4 = 24,
-    Ushort2Norm = 26,
-    Ushort4Norm = 28,
-    Short2Norm = 30,
-    Short4Norm = 32,
-    Half2 = 34,
-    Half4 = 36,
-    Float = 37,
-    Float2 = 38,
-    Float3 = 39,
-    Float4 = 40,
-    Uint = 41,
-    Uint2 = 42,
-    Uint3 = 43,
-    Uint4 = 44,
-    Int = 45,
-    Int2 = 46,
-    Int3 = 47,
-    Int4 = 48,
+    /// Two unsigned bytes (u8). `uvec2` in shaders.
+    Uchar2,
+    /// Four unsigned bytes (u8). `uvec4` in shaders.
+    Uchar4,
+    /// Two signed bytes (i8). `ivec2` in shaders.
+    Char2,
+    /// Four signed bytes (i8). `ivec4` in shaders.
+    Char4,
+    /// Two unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec2` in shaders.
+    Uchar2Norm,
+    /// Four unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec4` in shaders.
+    Uchar4Norm,
+    /// Two signed bytes (i8). [-127, 127] converted to float [-1, 1] `vec2` in shaders.
+    Char2Norm,
+    /// Four signed bytes (i8). [-127, 127] converted to float [-1, 1] `vec4` in shaders.
+    Char4Norm,
+    /// Two unsigned shorts (u16). `uvec2` in shaders.
+    Ushort2,
+    /// Four unsigned shorts (u16). `uvec4` in shaders.
+    Ushort4,
+    /// Two unsigned shorts (i16). `ivec2` in shaders.
+    Short2,
+    /// Four unsigned shorts (i16). `ivec4` in shaders.
+    Short4,
+    /// Two unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec2` in shaders.
+    Ushort2Norm,
+    /// Four unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec4` in shaders.
+    Ushort4Norm,
+    /// Two signed shorts (i16). [-32767, 32767] converted to float [-1, 1] `vec2` in shaders.
+    Short2Norm,
+    /// Four signed shorts (i16). [-32767, 32767] converted to float [-1, 1] `vec4` in shaders.
+    Short4Norm,
+    /// Two half-precision floats (no Rust equiv). `vec2` in shaders.
+    Half2,
+    /// Four half-precision floats (no Rust equiv). `vec4` in shaders.
+    Half4,
+    /// One single-precision float (f32). `float` in shaders.
+    Float,
+    /// Two single-precision floats (f32). `vec2` in shaders.
+    Float2,
+    /// Three single-precision floats (f32). `vec3` in shaders.
+    Float3,
+    /// Four single-precision floats (f32). `vec4` in shaders.
+    Float4,
+    /// One unsigned int (u32). `uint` in shaders.
+    Uint,
+    /// Two unsigned ints (u32). `uvec2` in shaders.
+    Uint2,
+    /// Three unsigned ints (u32). `uvec3` in shaders.
+    Uint3,
+    /// Four unsigned ints (u32). `uvec4` in shaders.
+    Uint4,
+    /// One signed int (i32). `int` in shaders.
+    Int,
+    /// Two signed ints (i32). `ivec2` in shaders.
+    Int2,
+    /// Three signed ints (i32). `ivec3` in shaders.
+    Int3,
+    /// Four signed ints (i32). `ivec4` in shaders.
+    Int4,
 }
 
 impl VertexFormat {
     pub fn get_size(&self) -> u64 {
-        match *self {
-            VertexFormat::Uchar2 => 2,
-            VertexFormat::Uchar4 => 4,
-            VertexFormat::Char2 => 2,
-            VertexFormat::Char4 => 4,
-            VertexFormat::Uchar2Norm => 2,
-            VertexFormat::Uchar4Norm => 4,
-            VertexFormat::Char2Norm => 2,
-            VertexFormat::Char4Norm => 4,
-            VertexFormat::Ushort2 => 2 * 2,
-            VertexFormat::Ushort4 => 2 * 4,
-            VertexFormat::Short2 => 2 * 2,
-            VertexFormat::Short4 => 2 * 4,
-            VertexFormat::Ushort2Norm => 2 * 2,
-            VertexFormat::Ushort4Norm => 2 * 4,
-            VertexFormat::Short2Norm => 2 * 2,
-            VertexFormat::Short4Norm => 2 * 4,
-            VertexFormat::Half2 => 2 * 2,
-            VertexFormat::Half4 => 2 * 4,
-            VertexFormat::Float => 4,
-            VertexFormat::Float2 => 4 * 2,
-            VertexFormat::Float3 => 4 * 3,
-            VertexFormat::Float4 => 4 * 4,
-            VertexFormat::Uint => 4,
-            VertexFormat::Uint2 => 4 * 2,
-            VertexFormat::Uint3 => 4 * 3,
-            VertexFormat::Uint4 => 4 * 4,
-            VertexFormat::Int => 4,
-            VertexFormat::Int2 => 4 * 2,
-            VertexFormat::Int3 => 4 * 3,
-            VertexFormat::Int4 => 4 * 4,
+        match self {
+            VertexFormat::Uchar2
+            | VertexFormat::Char2
+            | VertexFormat::Uchar2Norm
+            | VertexFormat::Char2Norm => 2,
+            VertexFormat::Uchar4
+            | VertexFormat::Char4
+            | VertexFormat::Uchar4Norm
+            | VertexFormat::Char4Norm
+            | VertexFormat::Ushort2
+            | VertexFormat::Short2
+            | VertexFormat::Ushort2Norm
+            | VertexFormat::Short2Norm
+            | VertexFormat::Half2
+            | VertexFormat::Float
+            | VertexFormat::Uint
+            | VertexFormat::Int => 4,
+            VertexFormat::Ushort4
+            | VertexFormat::Short4
+            | VertexFormat::Ushort4Norm
+            | VertexFormat::Short4Norm
+            | VertexFormat::Half4
+            | VertexFormat::Float2
+            | VertexFormat::Uint2
+            | VertexFormat::Int2 => 8,
+            VertexFormat::Float3 | VertexFormat::Uint3 | VertexFormat::Int3 => 12,
+            VertexFormat::Float4 | VertexFormat::Uint4 | VertexFormat::Int4 => 16,
         }
     }
 }
+
 
 pub trait AsVertexFormats {
     fn as_vertex_formats() -> &'static [VertexFormat];

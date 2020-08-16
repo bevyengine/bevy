@@ -12,6 +12,7 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
+use smallvec::SmallVec;
 use bevy_core::AsBytes;
 use std::collections::HashSet;
 
@@ -38,38 +39,137 @@ impl ShaderLayout {
         let entry_point = &module.entry_points[0];
 
         let mut bind_groups = Vec::new();
+        let mut vertex_buffer_descriptors = Vec::new();
 
         for (_handle, global) in module.global_variables.iter() {
             if let Some(binding) = &global.binding {
                 match binding {
-                    naga::Binding::Descriptor { set, binding } => {
-                        let bind_group = if let Some(bind_group) = bind_groups
+                    &naga::Binding::Descriptor { set, binding } => {
+                        let bindings = if let Some(bind_group) = bind_groups
                             .iter_mut()
-                            .find(|bind_group: &&mut BindGroupDescriptor| bind_group.index == *set) {
-                                bind_group
+                            .find(|bind_group: &&mut BindGroupDescriptor| bind_group.index == set) {
+                                &mut bind_group.bindings
                             } else {
-                                bind_groups.push(BindGroupDescriptor::new(*set, vec![]));
-                                bind_groups.last_mut().unwrap()
+                                bind_groups.push(BindGroupDescriptor::new(set, vec![]));
+                                &mut bind_groups.last_mut().unwrap().bindings
                             };
                             
-                        bind_group.bindings.push(reflect_binding_descriptor(
+                        bindings.push(reflect_binding_descriptor(
                             &module,
                             global,
-                            *binding,
+                            binding,
                             entry_point.stage
                         ));
+                    }
+                    &naga::Binding::Location(shader_location) if global.class == naga::StorageClass::Input => {
+                        let (buffer_name, step_mode) = if bevy_conventions {
+                            let name = global.name.as_ref().unwrap();
+                            let split: SmallVec<[_; 3]> = name.split('_').collect();
 
+                            match &split[..] {
+                                &["I", buffer_name, _] => {
+                                    (buffer_name, InputStepMode::Instance)
+                                }
+                                &[buffer_name, _] => {
+                                    (buffer_name, InputStepMode::Vertex)
+                                }
+                                _ => panic!("Vertex attributes must follow the form (I_)BUFFERNAME_PROPERTYNAME. For example: Vertex_Position or I_TestInstancing_Property"),
+                            }
+                        } else {
+                            ("DefaultVertex", InputStepMode::Vertex)
+                        };
+
+                        let buffer_desc = if let Some(buffer_desc) = vertex_buffer_descriptors
+                            .iter_mut()
+                            .find(|buffer_desc: &&mut VertexBufferDescriptor| buffer_desc.name.as_ref() == buffer_name)
+                        {
+                            buffer_desc
+                        } else {
+                            vertex_buffer_descriptors.push(VertexBufferDescriptor {
+                                name: buffer_name.to_owned().into(),
+                                stride: 0, // to be filled in later on
+                                step_mode,
+                                attributes: vec![],
+                            });
+                            vertex_buffer_descriptors.last_mut().unwrap()
+                        };
+
+                        buffer_desc.attributes.push(reflect_vertex_attribute_desc(&module, global, shader_location));
                     }
                     _ => {},
                 }
             }
         }
 
+        // Sort the bind groups and attributes by set, binding, and location.
+        bind_groups.sort_unstable_by_key(|desc| desc.index);
+        
+        for binding_desc in bind_groups.iter_mut().map(|desc| &mut desc.bindings[..]) {
+            binding_desc.sort_unstable_by_key(|desc| desc.index);
+        }
+
+        for buf_desc in vertex_buffer_descriptors.iter_mut() {
+            buf_desc.attributes.sort_unstable_by_key(|desc| desc.shader_location);
+
+            // Accumulate offsets and stride.
+            buf_desc.stride = buf_desc.attributes.iter_mut().fold(0, |offset, attr_desc| {
+                attr_desc.offset = offset;
+                offset + attr_desc.format.get_size()
+            });
+        }
+
         ShaderLayout {
             bind_groups,
-            vertex_buffer_descriptors: vec![],
+            vertex_buffer_descriptors,
             entry_point: entry_point.name.clone(),
         }
+    }
+}
+
+fn reflect_vertex_attribute_desc(module: &naga::Module, global: &naga::GlobalVariable, shader_location: u32) -> VertexAttributeDescriptor {
+    use naga::{TypeInner::*, ScalarKind::*, VectorSize::*};
+
+    let ty = &module.types[global.ty];
+
+    let format = match ty.inner {
+        Scalar { kind, width } => match (kind, width) {
+            (Uint, 4) => VertexFormat::Uint,
+            (Sint, 4) =>  VertexFormat::Int,
+            (Float, 4) => VertexFormat::Float,
+            _ => unimplemented!(),
+        },
+        Vector { size, kind, width } => match (size, kind, width) {
+            (Bi, Uint, 1) => VertexFormat::Uchar2,
+            (Bi, Sint, 1) => VertexFormat::Char2,
+            (Bi, Uint, 2) => VertexFormat::Ushort2,
+            (Bi, Sint, 2) => VertexFormat::Short2,
+            (Bi, Float, 2) => VertexFormat::Half2,
+            (Bi, Uint, 4) => VertexFormat::Uint2,
+            (Bi, Sint, 4) => VertexFormat::Int2,
+            (Bi, Float, 4) => VertexFormat::Float2,
+
+            (Tri, Uint, 4) => VertexFormat::Uint3,
+            (Tri, Sint, 4) => VertexFormat::Int3,
+            (Tri, Float, 4) => VertexFormat::Float3,
+
+            (Quad, Uint, 1) => VertexFormat::Uchar4,
+            (Quad, Sint, 1) => VertexFormat::Char4,
+            (Quad, Uint, 2) => VertexFormat::Ushort4,
+            (Quad, Sint, 2) => VertexFormat::Short4,
+            (Quad, Float, 2) => VertexFormat::Half4,
+            (Quad, Uint, 4) => VertexFormat::Uint4,
+            (Quad, Sint, 4) => VertexFormat::Int4,
+            (Quad, Float, 4) => VertexFormat::Float4,
+            _ => unimplemented!(),
+        }
+        _ => unimplemented!()
+    };
+
+    VertexAttributeDescriptor {
+        name: global.name.as_ref().unwrap().to_owned().into(),
+        offset: 0, // too be filled in later
+        format,
+        shader_location,
     }
 }
 
@@ -152,18 +252,18 @@ fn reflect_uniform_type(module: &naga::Module, ty: &naga::Type) -> UniformProper
         }
         TypeInner::Vector { size, kind, width } => {
             match (size, kind, width) {
-                (VectorSize::Bi, ScalarKind::Sint, 8) => Some(UniformProperty::IVec2),
-                (VectorSize::Bi, ScalarKind::Float, 8) => Some(UniformProperty::Vec2),
-                (VectorSize::Tri, ScalarKind::Float, 12) => Some(UniformProperty::Vec3),
-                (VectorSize::Quad, ScalarKind::Uint, 16) => Some(UniformProperty::UVec4),
-                (VectorSize::Quad, ScalarKind::Float, 16) => Some(UniformProperty::Vec4),
+                (VectorSize::Bi, ScalarKind::Sint, 4) => Some(UniformProperty::IVec2),
+                (VectorSize::Bi, ScalarKind::Float, 4) => Some(UniformProperty::Vec2),
+                (VectorSize::Tri, ScalarKind::Float, 4) => Some(UniformProperty::Vec3),
+                (VectorSize::Quad, ScalarKind::Uint, 4) => Some(UniformProperty::UVec4),
+                (VectorSize::Quad, ScalarKind::Float, 4) => Some(UniformProperty::Vec4),
                 _ => None,
             }
         }
         TypeInner::Matrix { columns, rows, kind, width } => {
             match (columns, rows, kind, width) {
-                (VectorSize::Tri, VectorSize::Tri, ScalarKind::Float, 36) => Some(UniformProperty::Mat3),
-                (VectorSize::Quad, VectorSize::Quad, ScalarKind::Float, 64) => Some(UniformProperty::Mat4),
+                (VectorSize::Tri, VectorSize::Tri, ScalarKind::Float, 4) => Some(UniformProperty::Mat3),
+                (VectorSize::Quad, VectorSize::Quad, ScalarKind::Float, 4) => Some(UniformProperty::Mat4),
                 _ => None,
             }
         }
@@ -180,13 +280,14 @@ fn reflect_uniform_type(module: &naga::Module, ty: &naga::Type) -> UniformProper
 mod tests {
     use super::*;
     use crate::shader::{Shader, ShaderStage};
+    use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_reflection() {
+    fn test_reflection_compare() {
         let vertex_shader = Shader::from_glsl(
             ShaderStage::Vertex,
             r#"
-            #version 450
+            #version 440 // TODO: until we're using naga to compile from glsl to spirv, keep this as 440, not 450
             layout(location = 0) in vec4 Vertex_Position;
             layout(location = 1) in uvec4 Vertex_Normal;
             layout(location = 2) in uvec4 I_TestInstancing_Property;
@@ -281,7 +382,7 @@ mod tests {
         let vertex_shader = Shader::from_glsl(
             ShaderStage::Vertex,
             r#"
-            #version 450
+            #version 440 // TODO: until we're using naga to compile from glsl to spirv, keep this as 440, not 450
             layout(location = 0) in vec4 Vertex_Position;
             layout(location = 1) in uvec4 Other_Property;
             layout(location = 2) in uvec4 Vertex_Normal;

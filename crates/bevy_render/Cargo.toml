@@ -46,9 +46,14 @@ parking_lot = "0.10"
 git = "https://github.com/gfx-rs/naga.git"
 rev = "7f780e8efcdfe475d8bd57d9d77edeedab8ecc39"
 optional = true
-features = ["glsl", "spirv"]
+features = ["glsl-new", "spirv"]
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"
 
 [features]
-default = ["naga"]
+default = ["naga-reflect"]
 png = ["image/png"]
 hdr = ["image/hdr"]
+naga-glsl = ["naga"] # Enable this when 
+naga-reflect = ["naga"]

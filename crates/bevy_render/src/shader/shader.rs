@@ -2,7 +2,7 @@ use super::ShaderLayout;
 use bevy_asset::Handle;
 use std::{marker::Copy};
 
-#[cfg(not(feature = "naga"))]
+#[cfg(not(feature = "naga-glsl"))]
 use bevy_glsl_to_spirv::compile;
 
 /// The stage of a shader
@@ -13,7 +13,7 @@ pub enum ShaderStage {
     Compute,
 }
 
-#[cfg(feature = "naga")]
+#[cfg(feature = "naga-glsl")]
 impl Into<naga::ShaderStage> for ShaderStage {
     fn into(self) -> naga::ShaderStage {
         match self {
@@ -24,7 +24,7 @@ impl Into<naga::ShaderStage> for ShaderStage {
     }
 }
 
-#[cfg(not(feature = "naga"))]
+#[cfg(not(feature = "naga-glsl"))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -40,16 +40,17 @@ fn glsl_to_spirv(
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
-    #[cfg(feature = "naga")]
+    #[cfg(feature = "naga-glsl")]
     {
         // TODO: Add support to glsl-new for inserting definitions.
         assert!(shader_defs.is_none(), "shader definitions not supported with naga yet");
-        let module = naga::front::glsl::parse_str(glsl_source, "main".to_string(), stage.into()).unwrap();
+        // The `glsl_new` naga frontend is still a work-in-progress.
+        let module = naga::front::glsl_new::parse_str(glsl_source, "main".to_string(), stage.into()).unwrap();
         println!("{:#?}", module);
         let mut writer = naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
         writer.write(&module)
     }
-    #[cfg(not(feature = "naga"))]
+    #[cfg(not(feature = "naga-glsl"))]
     {
         use std::io::Read;
 
