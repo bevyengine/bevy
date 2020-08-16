@@ -20,7 +20,7 @@ pub mod prelude {
         color::Color,
         draw::Draw,
         entity::*,
-        fly_camera::{CameraFlyingComponents, CameraFlyingOptions},
+        fly_camera::CameraFlying,
         mesh::{shape, Mesh},
         pipeline::RenderPipelines,
         shader::Shader,

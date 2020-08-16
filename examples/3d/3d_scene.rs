@@ -45,12 +45,12 @@ fn setup(
             ..Default::default()
         })
         // camera
-        .spawn(CameraFlyingComponents {
-            options: CameraFlyingOptions {
-                pitch: 25.0,
-                ..Default::default()
-            },
+        .spawn(Camera3dComponents {
             translation: Translation::new(0.0, 4.0, 8.0),
+            ..Default::default()
+        })
+        .with(CameraFlying {
+            pitch: 25.0,
             ..Default::default()
         });
 }

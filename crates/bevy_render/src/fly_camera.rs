@@ -11,31 +11,9 @@ use bevy_math::{Quat, Vec2, Vec3};
 use bevy_transform::components::{Rotation, Scale, Transform, Translation};
 
 /**
-Used in [CameraFlyingComponents](struct.CameraFlyingComponents.html)
-**/
-pub struct CameraFlyingOptions {
-    /// The camera's flying speed
-    pub speed: f32,
-    /// The camera's mouse sensitivity
-    pub sensitivity: f32,
-    /// The vertical pitch of the camera, constrained between `89.9f32` and `-89.9f32`. This value is kept up-to-date by the [CameraFlyingPlugin](struct.CameraFlyingPlugin.html) plugin, and can be mutated to adjust the camera's angle
-    pub pitch: f32,
-    /// The horizontal yaw of the camera. This value is kept up-to-date by the [CameraFlyingPlugin](struct.CameraFlyingPlugin.html) plugin, and can be mutated to adjust the camera's angle
-    pub yaw: f32,
-}
-impl Default for CameraFlyingOptions {
-    fn default() -> Self {
-        Self {
-            speed: 10.0,
-            sensitivity: 10.0,
-            pitch: 0.0,
-            yaw: 0.0,
-        }
-    }
-}
+A component to enable a (Camera3dComponents)(struct.Camera3dComponents.html) to be controlled by keyboard and mouse.
 
-/**
-A basic flying camera for 3D scenes.
+This is useful for development and testing in 3d scenes, before you create your own movement system.
 
 | Keybind         | Action                          |
 |-----------------|---------------------------------|
@@ -46,7 +24,9 @@ A basic flying camera for 3D scenes.
 ```ignore
 
 fn setup(mut commands: Commands) {
-    commands.spawn(CameraFlyingComponents::default());
+    commands
+        .spawn(Camera3dComponents::default())
+        .with(CameraFlying::default());
 }
 
 fn main () {
@@ -59,32 +39,23 @@ fn main () {
 ```
 
 **/
-#[derive(Bundle)]
-pub struct CameraFlyingComponents {
-    pub options: CameraFlyingOptions,
-    pub camera: Camera,
-    pub perspective_projection: PerspectiveProjection,
-    pub visible_entities: VisibleEntities,
-    pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+pub struct CameraFlying {
+    /// The camera's flying speed
+    pub speed: f32,
+    /// The camera's mouse sensitivity
+    pub sensitivity: f32,
+    /// The vertical pitch of the camera, constrained between `89.9f32` and `-89.9f32`. This value is kept up-to-date by the [CameraFlyingPlugin](struct.CameraFlyingPlugin.html) plugin, and can be mutated to adjust the camera's angle
+    pub pitch: f32,
+    /// The horizontal yaw of the camera. This value is kept up-to-date by the [CameraFlyingPlugin](struct.CameraFlyingPlugin.html) plugin, and can be mutated to adjust the camera's angle
+    pub yaw: f32,
 }
-
-impl Default for CameraFlyingComponents {
+impl Default for CameraFlying {
     fn default() -> Self {
         Self {
-            options: CameraFlyingOptions::default(),
-            camera: Camera {
-                name: Some(base::camera::CAMERA3D.to_string()),
-                ..Default::default()
-            },
-            perspective_projection: Default::default(),
-            visible_entities: Default::default(),
-            transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            speed: 10.0,
+            sensitivity: 10.0,
+            pitch: 0.0,
+            yaw: 0.0,
         }
     }
 }
@@ -120,7 +91,7 @@ fn movement_axis(input: &Res<Input<KeyCode>>, plus: KeyCode, minus: KeyCode) -> 
 fn camera_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&CameraFlyingOptions, &mut Translation, &Rotation)>,
+    mut query: Query<(&CameraFlying, &mut Translation, &Rotation)>,
 ) {
     let axis_h = movement_axis(&keyboard_input, KeyCode::D, KeyCode::A);
     let axis_v = movement_axis(&keyboard_input, KeyCode::S, KeyCode::W);
@@ -147,7 +118,7 @@ fn mouse_motion_system(
     time: Res<Time>,
     mut state: ResMut<State>,
     mouse_motion_events: Res<Events<MouseMotion>>,
-    mut query: Query<(&mut CameraFlyingOptions, &mut Rotation)>,
+    mut query: Query<(&mut CameraFlying, &mut Rotation)>,
 ) {
     let mut delta: Vec2 = Vec2::zero();
     for event in state.mouse_motion_event_reader.iter(&mouse_motion_events) {
