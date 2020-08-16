@@ -1,7 +1,9 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
+use std::{marker::Copy};
+
+#[cfg(not(feature = "naga"))]
 use bevy_glsl_to_spirv::compile;
-use std::{io::Read, marker::Copy};
 
 /// The stage of a shader
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -11,6 +13,18 @@ pub enum ShaderStage {
     Compute,
 }
 
+#[cfg(feature = "naga")]
+impl Into<naga::ShaderStage> for ShaderStage {
+    fn into(self) -> naga::ShaderStage {
+        match self {
+            ShaderStage::Vertex => naga::ShaderStage::Vertex,
+            ShaderStage::Fragment => naga::ShaderStage::Fragment,
+            ShaderStage::Compute => naga::ShaderStage::Compute,
+        }
+    }
+}
+
+#[cfg(not(feature = "naga"))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -26,10 +40,24 @@ fn glsl_to_spirv(
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
-    let mut output = compile(glsl_source, stage.into(), shader_defs).unwrap();
-    let mut spv_bytes = Vec::new();
-    output.read_to_end(&mut spv_bytes).unwrap();
-    bytes_to_words(&spv_bytes)
+    #[cfg(feature = "naga")]
+    {
+        // TODO: Add support to glsl-new for inserting definitions.
+        assert!(shader_defs.is_none(), "shader definitions not supported with naga yet");
+        let module = naga::front::glsl::parse_str(glsl_source, "main".to_string(), stage.into()).unwrap();
+        println!("{:#?}", module);
+        let mut writer = naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
+        writer.write(&module)
+    }
+    #[cfg(not(feature = "naga"))]
+    {
+        use std::io::Read;
+
+        let mut output = compile(glsl_source, stage.into(), shader_defs).unwrap();
+        let mut spv_bytes = Vec::new();
+        output.read_to_end(&mut spv_bytes).unwrap();
+        bytes_to_words(&spv_bytes)
+    }
 }
 
 fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {
