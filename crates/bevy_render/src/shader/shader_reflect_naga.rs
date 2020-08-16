@@ -217,11 +217,13 @@ fn reflect_binding_descriptor(
             ),
             _ => {
                 let bind_type = match ty.inner {
-                    naga::TypeInner::Image { base, dim, flags } => {
-                        assert!(
-                            flags.contains(naga::ImageFlags::SAMPLED),
-                            "image must be sampled"
-                        );
+                    naga::TypeInner::Image { base, dim, flags }
+                        if flags.contains(naga::ImageFlags::SAMPLED) =>
+                    {
+                        // assert!(
+                        //     flags.contains(naga::ImageFlags::SAMPLED),
+                        //     "image must be sampled"
+                        // );
 
                         let component_type = match &module.types[base].inner {
                             naga::TypeInner::Scalar { kind, width: 4 } => match kind {

@@ -24,7 +24,7 @@ impl Into<naga::ShaderStage> for ShaderStage {
     }
 }
 
-#[cfg(not(feature = "naga-glsl"))]
+#[cfg(feature = "bevy-glsl-to-spirv")]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
