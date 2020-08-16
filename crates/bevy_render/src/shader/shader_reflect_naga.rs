@@ -302,6 +302,14 @@ fn reflect_uniform_type(module: &naga::Module, ty: &naga::Type) -> Result<Unifor
                 .map(|member| reflect_uniform_type(module, &module.types[member.ty]))
                 .collect::<Result<_, _>>()?,
         ),
+        &TypeInner::Array {
+            base,
+            size: naga::ArraySize::Static(size),
+            ..
+        } => UniformProperty::Array(
+            Box::new(reflect_uniform_type(module, &module.types[base])?),
+            size as usize,
+        ),
         _ => return Err(()),
     };
 
