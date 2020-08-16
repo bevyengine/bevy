@@ -77,6 +77,9 @@ pub fn draw_render_pipelines_system(
     mut query: Query<(&mut Draw, &mut RenderPipelines)>,
 ) {
     for (mut draw, mut render_pipelines) in &mut query.iter() {
+        if !draw.is_visible {
+            continue;
+        }
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
