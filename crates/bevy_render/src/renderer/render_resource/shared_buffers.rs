@@ -4,8 +4,8 @@ use crate::{
     renderer::{BufferUsage, RenderResourceContext},
 };
 use bevy_ecs::Res;
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
 // TODO: Instead of allocating small "exact size" buffers each frame, this should use multiple large shared buffers and probably
 // a long-living "cpu mapped" staging buffer. Im punting that for now because I don't know the best way to use wgpu's new async

@@ -4,12 +4,9 @@ use bevy_asset::AssetLoader;
 use bevy_ecs::{FromResources, Resources};
 use bevy_property::PropertyTypeRegistry;
 use bevy_type_registry::TypeRegistry;
-use serde::de::DeserializeSeed;
-use std::{
-    path::Path,
-    sync::Arc,
-};
 use parking_lot::RwLock;
+use serde::de::DeserializeSeed;
+use std::{path::Path, sync::Arc};
 
 pub struct SceneLoader {
     property_type_registry: Arc<RwLock<PropertyTypeRegistry>>,

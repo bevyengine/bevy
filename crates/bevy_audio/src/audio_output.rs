@@ -1,9 +1,9 @@
 use crate::AudioSource;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
+use parking_lot::RwLock;
 use rodio::{Decoder, Device, Sink};
 use std::{collections::VecDeque, io::Cursor};
-use parking_lot::RwLock;
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput {

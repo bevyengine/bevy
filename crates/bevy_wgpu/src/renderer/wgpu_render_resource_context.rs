@@ -279,10 +279,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
             texture_id
         } else {
-            self.resources
-                .window_swap_chains
-                .write()
-                .remove(&window.id);
+            self.resources.window_swap_chains.write().remove(&window.id);
             self.create_swap_chain(window);
             self.try_next_swap_chain_texture(window.id)
                 .expect("Failed to acquire next swap chain texture!")
@@ -508,11 +505,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.resources
-            .buffer_infos
-            .read()
-            .get(&buffer)
-            .cloned()
+        self.resources.buffer_infos.read().get(&buffer).cloned()
     }
 
     fn write_mapped_buffer(

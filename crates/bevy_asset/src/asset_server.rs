@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
 use crossbeam_channel::TryRecvError;
+use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
     env, fs, io,
@@ -13,7 +14,6 @@ use std::{
     thread,
 };
 use thiserror::Error;
-use parking_lot::RwLock;
 
 /// The type used for asset versioning
 pub type AssetVersion = usize;

@@ -122,9 +122,7 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
     // Scenes can be serialized like this:
     println!(
         "{}",
-        scene
-            .serialize_ron(&type_registry.property.read())
-            .unwrap()
+        scene.serialize_ron(&type_registry.property.read()).unwrap()
     );
 
     // TODO: save scene

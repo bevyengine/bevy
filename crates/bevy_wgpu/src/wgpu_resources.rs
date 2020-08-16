@@ -6,11 +6,8 @@ use bevy_render::{
     texture::TextureDescriptor,
 };
 use bevy_window::WindowId;
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
 use parking_lot::{RwLock, RwLockReadGuard};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Default)]
 pub struct WgpuBindGroupInfo {
@@ -103,11 +100,7 @@ impl WgpuResources {
         bind_group_descriptor_id: BindGroupDescriptorId,
         bind_group_id: BindGroupId,
     ) -> bool {
-        if let Some(bind_group_info) = self
-            .bind_groups
-            .read()
-            .get(&bind_group_descriptor_id)
-        {
+        if let Some(bind_group_info) = self.bind_groups.read().get(&bind_group_descriptor_id) {
             bind_group_info.bind_groups.get(&bind_group_id).is_some()
         } else {
             false
