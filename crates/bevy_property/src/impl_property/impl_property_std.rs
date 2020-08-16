@@ -68,7 +68,7 @@ where
         if let Some(properties) = value.as_properties() {
             let len = properties.prop_len();
             self.resize_with(len, || T::default());
-            
+
             if properties.property_type() != self.property_type() {
                 panic!(
                     "Properties type mismatch. This type is {:?} but the applied type is {:?}",

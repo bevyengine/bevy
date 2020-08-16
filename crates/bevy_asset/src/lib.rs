@@ -1,7 +1,7 @@
-#[cfg(feature = "filesystem_watcher")]
-mod filesystem_watcher;
 mod asset_server;
 mod assets;
+#[cfg(feature = "filesystem_watcher")]
+mod filesystem_watcher;
 mod handle;
 mod load_request;
 mod loader;
