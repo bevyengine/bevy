@@ -1,7 +1,7 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
-use core::any::TypeId;
 use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
+use core::any::TypeId;
 use std::{collections::HashMap, ptr::NonNull};
 
 /// A Resource type
@@ -19,7 +19,7 @@ pub enum ResourceIndex {
     System(SystemId),
 }
 
-/// A collection of resource instances identified by their type. 
+/// A collection of resource instances identified by their type.
 #[derive(Default)]
 pub struct Resources {
     pub(crate) resource_data: HashMap<TypeId, ResourceData>,

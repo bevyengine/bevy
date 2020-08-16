@@ -1,7 +1,7 @@
+use super::DepthCalculation;
 use bevy_math::Mat4;
 use bevy_property::{Properties, Property};
 use serde::{Deserialize, Serialize};
-use super::DepthCalculation;
 
 pub trait CameraProjection {
     fn get_projection_matrix(&self) -> Mat4;

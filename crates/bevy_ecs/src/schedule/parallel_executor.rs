@@ -3,9 +3,9 @@ use crate::{
     resource::Resources,
     system::{ArchetypeAccess, System, ThreadLocalExecution, TypeAccess},
 };
+use bevy_hecs::{ArchetypesGeneration, World};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use bevy_hecs::{ArchetypesGeneration, World};
 use rayon::ScopeFifo;
 use std::{
     ops::Range,
@@ -67,7 +67,6 @@ impl ParallelExecutor {
         self.last_schedule_generation = schedule_generation;
     }
 }
-
 
 /// This can be added as an app resource to control the global `rayon::ThreadPool` used by ecs.
 // Dev internal note: We cannot directly expose a ThreadPoolBuilder here as it does not implement Send and Sync.
@@ -360,19 +359,22 @@ impl ExecutorStage {
         self.running_systems.clear();
 
         let mut run_ready_result = RunReadyResult::Ok;
-        let run_ready_system_index_range = if let Some(index) = self
-            .thread_local_system_indices
-            .get(0)
-        {
-            // if there is an upcoming thread local system, run up to (and including) it
-            0..(*index + 1)
-        } else {
-            // if there are no upcoming thread local systems, run everything right now
-            0..systems.len()
-        };
+        let run_ready_system_index_range =
+            if let Some(index) = self.thread_local_system_indices.get(0) {
+                // if there is an upcoming thread local system, run up to (and including) it
+                0..(*index + 1)
+            } else {
+                // if there are no upcoming thread local systems, run everything right now
+                0..systems.len()
+            };
         rayon::scope_fifo(|scope| {
-            run_ready_result =
-                self.run_ready_systems(systems, RunReadyType::Range(run_ready_system_index_range), scope, world, resources);
+            run_ready_result = self.run_ready_systems(
+                systems,
+                RunReadyType::Range(run_ready_system_index_range),
+                scope,
+                world,
+                resources,
+            );
         });
         loop {
             // if all systems in the stage are finished, break out of the loop
@@ -442,8 +444,8 @@ mod tests {
         system::{IntoQuerySystem, IntoThreadLocalSystem, Query},
         Commands,
     };
-    use fixedbitset::FixedBitSet;
     use bevy_hecs::{Entity, World};
+    use fixedbitset::FixedBitSet;
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]

@@ -16,6 +16,7 @@ pub mod uniform {
     pub const LIGHTS: &str = "Lights";
 }
 
+use crate::prelude::StandardMaterial;
 use bevy_asset::Assets;
 use bevy_ecs::Resources;
 use bevy_render::{
@@ -24,7 +25,6 @@ use bevy_render::{
     shader::Shader,
 };
 use bevy_transform::prelude::Transform;
-use crate::prelude::StandardMaterial;
 
 pub(crate) fn add_pbr_graph(graph: &mut RenderGraph, resources: &Resources) {
     graph.add_system_node(node::TRANSFORM, RenderResourcesNode::<Transform>::new(true));
@@ -41,10 +41,13 @@ pub(crate) fn add_pbr_graph(graph: &mut RenderGraph, resources: &Resources) {
     );
 
     // TODO: replace these with "autowire" groups
-    graph.add_node_edge(node::STANDARD_MATERIAL, base::node::MAIN_PASS)
+    graph
+        .add_node_edge(node::STANDARD_MATERIAL, base::node::MAIN_PASS)
         .unwrap();
-    graph.add_node_edge(node::TRANSFORM, base::node::MAIN_PASS)
+    graph
+        .add_node_edge(node::TRANSFORM, base::node::MAIN_PASS)
         .unwrap();
-    graph.add_node_edge(node::LIGHTS, base::node::MAIN_PASS)
+    graph
+        .add_node_edge(node::LIGHTS, base::node::MAIN_PASS)
         .unwrap();
 }
