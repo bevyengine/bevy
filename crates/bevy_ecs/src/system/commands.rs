@@ -3,8 +3,9 @@ use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
 use std::{
     marker::PhantomData,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
+use parking_lot::Mutex;
 
 /// A queued command to mutate the current [World] or [Resources]
 pub enum Command {
@@ -235,7 +236,7 @@ impl Commands {
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             commands.spawn_as_entity(entity, components);
         }
         self
@@ -256,7 +257,7 @@ impl Commands {
 
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             commands.with(component);
         }
         self
@@ -267,7 +268,7 @@ impl Commands {
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             commands.with_bundle(components);
         }
         self
@@ -301,7 +302,7 @@ impl Commands {
     }
 
     pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
-        self.commands.lock().unwrap().write_world(world_writer);
+        self.commands.lock().write_world(world_writer);
         self
     }
 
@@ -311,13 +312,12 @@ impl Commands {
     ) -> &mut Self {
         self.commands
             .lock()
-            .unwrap()
             .write_resources(resources_writer);
         self
     }
 
     pub fn apply(&self, world: &mut World, resources: &mut Resources) {
-        let mut commands = self.commands.lock().unwrap();
+        let mut commands = self.commands.lock();
         for command in commands.commands.drain(..) {
             match command {
                 Command::WriteWorld(writer) => {
@@ -329,13 +329,13 @@ impl Commands {
     }
 
     pub fn current_entity(&self) -> Option<Entity> {
-        let commands = self.commands.lock().unwrap();
+        let commands = self.commands.lock();
         commands.current_entity
     }
 
     pub fn for_current_entity(&mut self, mut f: impl FnMut(Entity)) -> &mut Self {
         {
-            let commands = self.commands.lock().unwrap();
+            let commands = self.commands.lock();
             let current_entity = commands
                 .current_entity
                 .expect("The 'current entity' is not set. You should spawn an entity first.");
