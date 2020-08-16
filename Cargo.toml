@@ -15,6 +15,7 @@ exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 [features]
 default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit", "png", "hdr", "mp3"]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
+wgpu_trace = ["bevy_wgpu/trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 png = ["bevy_render/png"]
