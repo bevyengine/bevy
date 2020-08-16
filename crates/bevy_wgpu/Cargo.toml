@@ -11,6 +11,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["bevy_winit"]
+trace = ["wgpu/trace"]
 
 [dependencies]
 # bevy
