@@ -63,6 +63,17 @@ pub mod stage {
     pub static POST_RENDER: &str = "post_render";
 }
 
+#[cfg(any(
+    all(feature = "naga-glsl", feature = "bevy-glsl-to-spirv"),
+    all(not(feature = "naga-glsl"), not(feature = "bevy-glsl-to-spirv")),
+))]
+compile_error!("must enable either the `naga-glsl` or the `bevy-glsl-to-spirv` feature");
+#[cfg(any(
+    all(feature = "naga-reflect", feature = "spirv-reflect"),
+    all(not(feature = "naga-reflect"), not(feature = "spirv-reflect")),
+))]
+compile_error!("must enable either the 'naga-reflect` or the `spirv-reflect` feature");
+
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
     /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  

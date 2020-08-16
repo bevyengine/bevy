@@ -26,6 +26,7 @@ impl ShaderLayout {
         // Right now, we only support a single entry-point per shader.
         // TODO: Change this down the road
 
+        assert!(module.entry_points.len() > 0, "shaders must have at least one entry point");
         assert_eq!(module.entry_points.len(), 1, "shaders with multiple entry points are not supported yet");
 
         let entry_point = &module.entry_points[0];
@@ -33,7 +34,9 @@ impl ShaderLayout {
         let mut bind_groups = Vec::new();
         let mut vertex_buffer_descriptors = Vec::new();
 
-        for (_handle, global) in module.global_variables.iter() {
+        let mut current_buffer_desc_name = None;
+
+        for (_, global) in module.global_variables.iter() {
             if let Some(binding) = &global.binding {
                 match binding {
                     &naga::Binding::Descriptor { set, binding } => {
@@ -45,18 +48,17 @@ impl ShaderLayout {
                                 bind_groups.push(BindGroupDescriptor::new(set, vec![]));
                                 &mut bind_groups.last_mut().unwrap().bindings
                             };
-                            
+
                         bindings.push(reflect_binding_descriptor(
                             &module,
                             global,
                             binding,
                             entry_point.stage
-                        ));
+                        ).expect("unable to reflect binding descriptors"));
                     }
                     &naga::Binding::Location(shader_location) if global.class == naga::StorageClass::Input => {
                         let (buffer_name, step_mode) = if bevy_conventions {
-                            let name = global.name.as_ref().unwrap();
-                            let split: SmallVec<[_; 3]> = name.split('_').collect();
+                            let split: SmallVec<[_; 3]> = global.name.as_ref().unwrap().split('_').collect();
 
                             match &split[..] {
                                 &["I", buffer_name, _] => {
@@ -75,6 +77,10 @@ impl ShaderLayout {
                             .iter_mut()
                             .find(|buffer_desc: &&mut VertexBufferDescriptor| buffer_desc.name.as_ref() == buffer_name)
                         {
+                            if current_buffer_desc_name.unwrap() != buffer_desc.name {
+                                panic!("vertex attribute buffer names must be consecutive")
+                            }
+                            
                             buffer_desc
                         } else {
                             vertex_buffer_descriptors.push(VertexBufferDescriptor {
@@ -86,7 +92,13 @@ impl ShaderLayout {
                             vertex_buffer_descriptors.last_mut().unwrap()
                         };
 
-                        buffer_desc.attributes.push(reflect_vertex_attribute_desc(&module, global, shader_location));
+                        current_buffer_desc_name = Some(buffer_desc.name.to_owned());
+
+                        buffer_desc.attributes.push(reflect_vertex_attribute_desc(
+                            &module,
+                            global,
+                            shader_location
+                        ).expect("unable to reflect vertex attributes"));
                     }
                     _ => {},
                 }
@@ -118,7 +130,7 @@ impl ShaderLayout {
     }
 }
 
-fn reflect_vertex_attribute_desc(module: &naga::Module, global: &naga::GlobalVariable, shader_location: u32) -> VertexAttributeDescriptor {
+fn reflect_vertex_attribute_desc(module: &naga::Module, global: &naga::GlobalVariable, shader_location: u32) -> Result<VertexAttributeDescriptor, ()> {
     use naga::{TypeInner::*, ScalarKind::*, VectorSize::*};
 
     let ty = &module.types[global.ty];
@@ -128,7 +140,7 @@ fn reflect_vertex_attribute_desc(module: &naga::Module, global: &naga::GlobalVar
             (Uint, 4) => VertexFormat::Uint,
             (Sint, 4) =>  VertexFormat::Int,
             (Float, 4) => VertexFormat::Float,
-            _ => unimplemented!(),
+            _ => return Err(()),
         },
         Vector { size, kind, width } => match (size, kind, width) {
             (Bi, Uint, 1) => VertexFormat::Uchar2,
@@ -152,20 +164,20 @@ fn reflect_vertex_attribute_desc(module: &naga::Module, global: &naga::GlobalVar
             (Quad, Uint, 4) => VertexFormat::Uint4,
             (Quad, Sint, 4) => VertexFormat::Int4,
             (Quad, Float, 4) => VertexFormat::Float4,
-            _ => unimplemented!(),
+            _ => return Err(()),
         }
-        _ => unimplemented!()
+        _ => return Err(()),
     };
 
-    VertexAttributeDescriptor {
+    Ok(VertexAttributeDescriptor {
         name: global.name.as_ref().unwrap().to_owned().into(),
         offset: 0, // too be filled in later
         format,
         shader_location,
-    }
+    })
 }
 
-fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariable, binding: u32, shader_stage: naga::ShaderStage) -> BindingDescriptor {
+fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariable, binding: u32, shader_stage: naga::ShaderStage) -> Result<BindingDescriptor, ()> {
     let (name, bind_type) = {
         let ty = &module.types[global.ty];
         match global.class {
@@ -173,7 +185,7 @@ fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariab
                 ty.name.as_ref().unwrap().clone(),
                 BindType::Uniform {
                     dynamic: false,
-                    properties: vec![reflect_uniform_type(&module, &module.types[global.ty])],
+                    properties: vec![reflect_uniform_type(&module, &module.types[global.ty])?],
                 }
             ),
             naga::StorageClass::StorageBuffer => (
@@ -193,9 +205,9 @@ fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariab
                                 naga::ScalarKind::Sint => TextureComponentType::Sint,
                                 naga::ScalarKind::Uint => TextureComponentType::Uint,
                                 naga::ScalarKind::Float => TextureComponentType::Float,
-                                naga::ScalarKind::Bool => unimplemented!(),
+                                naga::ScalarKind::Bool => return Err(()),
                             },
-                            _ => unimplemented!(),
+                            _ => return Err(()),
                         };
 
                         BindType::SampledTexture {
@@ -210,7 +222,8 @@ fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariab
                         }
                     }
                     naga::TypeInner::Sampler { comparison } => BindType::Sampler { comparison },
-                    _ => unimplemented!("unsupported bind type: {:?}", ty),
+                    // _ => unimplemented!("unsupported bind type: {:?}", ty),
+                    _ => return Err(()),
                 };
 
                 (global.name.as_ref().unwrap().clone(), bind_type)
@@ -218,7 +231,7 @@ fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariab
         }
     };
 
-    BindingDescriptor {
+    Ok(BindingDescriptor {
         name,
         index: binding,
         bind_type,
@@ -227,45 +240,49 @@ fn reflect_binding_descriptor(module: &naga::Module, global: &naga::GlobalVariab
             naga::ShaderStage::Fragment => BindingShaderStage::FRAGMENT,
             naga::ShaderStage::Compute => BindingShaderStage::COMPUTE,
         },
-    }
+    })
 }
 
-fn reflect_uniform_type(module: &naga::Module, ty: &naga::Type) -> UniformProperty {
+fn reflect_uniform_type(module: &naga::Module, ty: &naga::Type) -> Result<UniformProperty, ()> {
     use naga::{TypeInner, ScalarKind, VectorSize};
-    
-    if let Some(prop) = match &ty.inner {
+
+    let prop = match &ty.inner {
         TypeInner::Scalar { kind, width: 4 } => {
             match kind {
-                ScalarKind::Sint => Some(UniformProperty::Int),
-                ScalarKind::Uint => Some(UniformProperty::UInt),
-                ScalarKind::Float => Some(UniformProperty::Float),
-                ScalarKind::Bool => None,
+                ScalarKind::Sint => UniformProperty::Int,
+                ScalarKind::Uint => UniformProperty::UInt,
+                ScalarKind::Float => UniformProperty::Float,
+                ScalarKind::Bool => return Err(()),
             }
         }
         TypeInner::Vector { size, kind, width } => {
             match (size, kind, width) {
-                (VectorSize::Bi, ScalarKind::Sint, 4) => Some(UniformProperty::IVec2),
-                (VectorSize::Bi, ScalarKind::Float, 4) => Some(UniformProperty::Vec2),
-                (VectorSize::Tri, ScalarKind::Float, 4) => Some(UniformProperty::Vec3),
-                (VectorSize::Quad, ScalarKind::Uint, 4) => Some(UniformProperty::UVec4),
-                (VectorSize::Quad, ScalarKind::Float, 4) => Some(UniformProperty::Vec4),
-                _ => None,
+                (VectorSize::Bi, ScalarKind::Sint, 4) => UniformProperty::IVec2,
+                (VectorSize::Bi, ScalarKind::Float, 4) => UniformProperty::Vec2,
+                (VectorSize::Tri, ScalarKind::Float, 4) => UniformProperty::Vec3,
+                (VectorSize::Quad, ScalarKind::Uint, 4) => UniformProperty::UVec4,
+                (VectorSize::Quad, ScalarKind::Float, 4) => UniformProperty::Vec4,
+                _ => return Err(()),
             }
         }
         TypeInner::Matrix { columns, rows, kind, width } => {
             match (columns, rows, kind, width) {
-                (VectorSize::Tri, VectorSize::Tri, ScalarKind::Float, 4) => Some(UniformProperty::Mat3),
-                (VectorSize::Quad, VectorSize::Quad, ScalarKind::Float, 4) => Some(UniformProperty::Mat4),
-                _ => None,
+                (VectorSize::Tri, VectorSize::Tri, ScalarKind::Float, 4) => UniformProperty::Mat3,
+                (VectorSize::Quad, VectorSize::Quad, ScalarKind::Float, 4) => UniformProperty::Mat4,
+                _ => return Err(()),
             }
         }
-        TypeInner::Struct { members } => Some(UniformProperty::Struct(
+        TypeInner::Struct { members } => UniformProperty::Struct(
             members.iter().map(|member| {
                 reflect_uniform_type(module, &module.types[member.ty])
-            }).collect()
-        )),
-        _ => None,
-    } { prop } else { panic!("unexpected uniform property format: {:?}", ty.inner) }
+            }).collect::<Result<_, _>>()?
+        ),
+        _ => return Err(()),
+    };
+
+    // panic!("unexpected uniform property format: {:?}", ty.inner)
+
+    Ok(prop)
 }
 
 #[cfg(test)]
@@ -369,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Vertex attribute buffer names must be consecutive.")]
+    #[should_panic(expected = "vertex attribute buffer names must be consecutive")]
     fn test_reflection_consecutive_buffer_validation() {
         let vertex_shader = Shader::from_glsl(
             ShaderStage::Vertex,

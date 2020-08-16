@@ -2,7 +2,7 @@ use super::ShaderLayout;
 use bevy_asset::Handle;
 use std::{marker::Copy};
 
-#[cfg(not(feature = "naga-glsl"))]
+#[cfg(feature = "bevy-glsl-to-spirv")]
 use bevy_glsl_to_spirv::compile;
 
 /// The stage of a shader
@@ -50,7 +50,7 @@ fn glsl_to_spirv(
         let mut writer = naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
         writer.write(&module)
     }
-    #[cfg(not(feature = "naga-glsl"))]
+    #[cfg(feature = "bevy-glsl-to-spirv")]
     {
         use std::io::Read;
 
