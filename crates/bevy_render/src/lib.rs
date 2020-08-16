@@ -130,10 +130,6 @@ impl Plugin for RenderPlugin {
             .init_resource::<ActiveCameras>()
             .init_resource::<DispatchResource>()
             .add_system_to_stage(
-                bevy_app::stage::PRE_UPDATE,
-                dispatch::clear_compute_commands.system(),
-            )
-            .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::active_cameras_system.system(),
             )
@@ -167,6 +163,10 @@ impl Plugin for RenderPlugin {
             .add_system_to_stage(
                 stage::POST_RENDER,
                 draw::clear_draw_system.system(),
+            )
+            .add_system_to_stage(
+                stage::POST_RENDER,
+                dispatch::clear_compute_commands.system(),
             )
             .add_system_to_stage(
                 stage::POST_RENDER,

@@ -31,7 +31,6 @@ impl Node for ComputeNode {
     ) {
         let pipelines = resources.get::<Assets<ComputePipelineDescriptor>>().unwrap();
         let dispatch_resource = resources.get::<DispatchResource>().unwrap();
-        
         render_context.begin_compute_pass(
             &mut |compute_pass| {
                 // TODO: Figure out how to expose this to the end user..
@@ -63,6 +62,7 @@ impl Node for ComputeNode {
                             compute_state.set_bind_group(*index, *bind_group);
                         }
                         ComputeCommand::Dispatch { x, y, z } => {
+                            dbg!("Dispatching!");
                             compute_pass.dispatch(*x, *y, *z);
                         }
                     }

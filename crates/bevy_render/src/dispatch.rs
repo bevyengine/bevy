@@ -72,6 +72,7 @@ impl DispatchResource {
 
     #[inline]
     pub fn compute_command(&mut self, compute_command: ComputeCommand) {
+        dbg!("Adding compute command!");
         self.compute_commands.push(compute_command);
     }
 }
