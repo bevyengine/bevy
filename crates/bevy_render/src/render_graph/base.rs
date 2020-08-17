@@ -128,6 +128,15 @@ impl BaseRenderGraphBuilder for RenderGraph {
             );
         }
 
+        self.add_node(
+            node::COMPUTE_PASS,
+            ComputeNode::new()
+        );
+        self.add_node_edge(node::TEXTURE_COPY, node::COMPUTE_PASS)
+            .unwrap();
+        self.add_node_edge(node::SHARED_BUFFERS, node::COMPUTE_PASS)
+            .unwrap();
+
         if config.add_main_pass {
             let mut main_pass_node = PassNode::<&MainPass>::new(PassDescriptor {
                 color_attachments: vec![msaa.color_attachment_descriptor(
@@ -174,11 +183,6 @@ impl BaseRenderGraphBuilder for RenderGraph {
                 self.add_node_edge(node::CAMERA2D, node::MAIN_PASS).unwrap();
             }
         }
-
-        self.add_node(
-            node::COMPUTE_PASS,
-            ComputeNode::new()
-        );
 
         self.add_node(
             node::PRIMARY_SWAP_CHAIN,

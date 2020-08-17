@@ -1,17 +1,21 @@
 use bevy::prelude::*;
-use bevy_core::{AsBytes};
-use bevy_render::pipeline::{ ComputePipelineDescriptor, ComputePipelineCompiler, ComputePipelineSpecialization };
+use bevy_core::Byteable;
+use bevy_render::pipeline::{
+    ComputePipelineCompiler, ComputePipelineDescriptor, ComputePipelineSpecialization,
+    DynamicBinding,
+};
 use bevy_render::shader::{ComputeShaderStages, ShaderStage};
-use bevy_render::{dispatch::DispatchResource, renderer::{
-    BufferId,
-    RenderResourceContext,
-    RenderResourceBindings, RenderResourceBinding, BufferUsage, BufferInfo
-}};
+use bevy_render::{
+    dispatch::DispatchResource,
+    render_graph::{base::node::COMPUTE_PASS, AssetRenderResourcesNode, RenderGraph},
+    renderer::{RenderResource, RenderResourceBindings, RenderResourceContext, RenderResources},
+};
 
 fn main() {
     App::build()
         .add_resource::<ComputeState>(ComputeState::default())
         .add_default_plugins()
+        .add_asset::<PrimeIndices>()
         .add_startup_system(setup.system())
         .add_startup_system(dispatch_system.system())
         .run();
@@ -19,7 +23,6 @@ fn main() {
 
 #[derive(Default)]
 struct ComputeState {
-    storage_buffer: Option<BufferId>,
     pipeline_handle: Handle<ComputePipelineDescriptor>,
     shader: Handle<Shader>,
 }
@@ -28,7 +31,7 @@ const COMPUTE_SHADER: &str = r#"
 #version 450
 layout(local_size_x = 1) in;
 
-layout(set = 0, binding = 0) buffer PrimeIndices {
+layout(set = 0, binding = 0) buffer PrimeIndices_indices {
     uint[] indices;
 }; // this is used as both input and output for convenience
 
@@ -58,6 +61,16 @@ void main() {
 }
 "#;
 
+#[repr(C)]
+#[derive(Default, RenderResources, RenderResource)]
+#[render_resources(from_self)]
+struct PrimeIndices {
+    indices: Vec<u32>,
+}
+
+// SAFE: sprite is repr(C) and only consists of byteables
+unsafe impl Byteable for PrimeIndices {}
+
 /// set up a simple 3D scene
 fn setup(
     mut compute_state: ResMut<ComputeState>,
@@ -65,18 +78,17 @@ fn setup(
     mut shaders: ResMut<Assets<Shader>>,
     mut pipeline_compiler: ResMut<ComputePipelineCompiler>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut render_resource_bindings: ResMut<RenderResourceBindings>,
+    mut render_graph: ResMut<RenderGraph>,
+    mut prime_indices: ResMut<Assets<PrimeIndices>>,
 ) {
     let render_resource_context = &**render_resource_context;
 
     let compute = shaders.add(Shader::from_glsl(ShaderStage::Compute, COMPUTE_SHADER));
 
     // Create pipeline..
-    let pipeline = ComputePipelineDescriptor::new(
-        ComputeShaderStages {
-            compute: compute.clone(),
-        }
-    );
+    let pipeline = ComputePipelineDescriptor::new(ComputeShaderStages {
+        compute: compute.clone(),
+    });
     let pipeline_handle = pipelines.add(pipeline);
     compute_state.shader = compute;
 
@@ -85,40 +97,34 @@ fn setup(
         &mut pipelines,
         &mut shaders,
         pipeline_handle,
-        &ComputePipelineSpecialization::default(),
+        &ComputePipelineSpecialization {
+            dynamic_bindings: vec![
+                // PrimeIndices
+                DynamicBinding {
+                    bind_group: 0,
+                    binding: 0,
+                },
+            ],
+            ..Default::default()
+        },
     );
 
     compute_state.pipeline_handle = pipeline_handle;
 
-    // Some prime data
-    let prime_data: [u32; 4] = [0, 1, 7, 2];
-
-    // Create Buffer
-    let size = prime_data.len() * std::mem::size_of::<u32>();
-    let storage_buffer = render_resource_context.create_buffer(BufferInfo {
-        size,
-        buffer_usage: BufferUsage::STORAGE | BufferUsage::COPY_SRC | BufferUsage::COPY_DST,
-        mapped_at_creation: true,
-    });
-
-    // Setup shader bindings for buffer.
-    render_resource_bindings.set(
-        "PrimeIndices",
-        RenderResourceBinding::Buffer {
-            buffer: storage_buffer,
-            range: 0..size as u64,
-            dynamic_index: None,
-        },
+    render_graph.add_system_node(
+        "prime_indices",
+        AssetRenderResourcesNode::<PrimeIndices>::new(true),
     );
+    render_graph
+        .add_node_edge("prime_indices", COMPUTE_PASS)
+        .unwrap();
 
-    render_resource_context.write_mapped_buffer(
-        storage_buffer,
-        0..size as u64,
-        &mut |data, _renderer| {
-        data.copy_from_slice(prime_data.as_bytes());
+    // Some prime data
+    let prime_data = vec![0, 1, 7, 2];
+
+    prime_indices.add(PrimeIndices {
+        indices: prime_data,
     });
-
-    compute_state.storage_buffer = Some(storage_buffer);
 }
 
 fn dispatch_system(
@@ -132,15 +138,16 @@ fn dispatch_system(
     dispatch.set_pipeline(compute_state.pipeline_handle);
 
     // TODO: Move this out of here. We need to wrap a lot of this code to make it more user friendly.
-    let pipeline_descriptor = pipelines
-        .get(&compute_state.pipeline_handle).unwrap();
-    let layout = pipeline_descriptor
-        .get_layout().unwrap();
-    
-    render_resource_bindings.update_bind_groups(pipeline_descriptor.get_layout().unwrap(), render_resource_context);
+    let pipeline_descriptor = pipelines.get(&compute_state.pipeline_handle).unwrap();
+    let layout = pipeline_descriptor.get_layout().unwrap();
+
+    render_resource_bindings.update_bind_groups(
+        pipeline_descriptor.get_layout().unwrap(),
+        render_resource_context,
+    );
     for bind_group_descriptor in layout.bind_groups.iter() {
         if let Some(bind_group) =
-        render_resource_bindings.get_descriptor_bind_group(bind_group_descriptor.id)
+            render_resource_bindings.get_descriptor_bind_group(bind_group_descriptor.id)
         {
             dispatch.set_bind_group(bind_group_descriptor.index, bind_group);
             break;
