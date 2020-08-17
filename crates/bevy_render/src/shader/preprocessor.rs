@@ -48,6 +48,14 @@ fn preprocess_internal(
                         });
                         None
                     }
+                    ("ifndef", Some(definition)) => {
+                        stack.push(match runtime_defines.get(definition) {
+                            Some(None) => true,
+                            None if macros(definition).is_none() => true,
+                            Some(Some(_)) | None => false,
+                        });
+                        None
+                    }
                     ("else", None) => {
                         if let Some(if_true) = stack.last_mut() {
                             *if_true = !*if_true;
