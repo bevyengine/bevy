@@ -240,6 +240,48 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
+pub struct Either<Q1, Q2>(PhantomData<(Q1, Q2)>);
+
+impl<Q1: Query, Q2: Query> Query for Either<Q1, Q2> {
+    type Fetch = FetchEither<Q1::Fetch, Q2::Fetch>;
+}
+
+#[doc(hidden)]
+pub struct FetchEither<F1, F2>(F1, F2);
+
+impl<'a, F1: Fetch<'a>, F2: Fetch<'a>> Fetch<'a> for FetchEither<F1, F2> {
+    type Item = (F1::Item, F2::Item);
+
+    fn access(archetype: &Archetype) -> Option<Access> {
+        F1::access(archetype).and(F2::access(archetype))
+    }
+
+    fn borrow(archetype: &Archetype) {
+        F1::borrow(archetype);
+        F2::borrow(archetype);
+    }
+
+    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+        Some(Self(
+            F1::get(archetype, offset)?,
+            F2::get(archetype, offset)?,
+        ))
+    }
+
+    fn release(archetype: &Archetype) {
+        F1::release(archetype);
+        F2::release(archetype);
+    }
+
+    unsafe fn next(&mut self) -> Self::Item {
+        (self.0.next(), self.1.next())
+    }
+
+    unsafe fn should_skip(&self) -> bool {
+        self.0.should_skip() && self.1.should_skip()
+    }
+}
+
 /// Query transformer that skips entities that have a `T` component that has
 /// not been mutated since the last pass of the system. This does not include
 /// components that were added in since the last pass.
@@ -1061,6 +1103,25 @@ mod tests {
             .query::<(Mutated<A>, Mutated<B>, Entity)>()
             .iter()
             .map(|(_a, _b, e)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed, vec![e2]);
+    }
+
+    #[test]
+    fn either_mutated_query() {
+        let mut world = World::default();
+        world.spawn((A(0), B(0)));
+        let e2 = world.spawn((A(0), B(0)));
+        world.spawn((A(0), B(0)));
+
+        for mut b in world.query::<Mut<B>>().iter().skip(1).take(1) {
+            b.0 += 1;
+        }
+
+        let a_b_changed = world
+            .query::<(Either<Mutated<A>, Mutated<B>>, Entity)>()
+            .iter()
+            .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_changed, vec![e2]);
     }
