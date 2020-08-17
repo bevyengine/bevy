@@ -84,6 +84,10 @@ name = "load_model"
 path = "examples/3d/load_model.rs"
 
 [[example]]
+name = "mmo_camera"
+path = "examples/3d/mmo_camera.rs"
+
+[[example]]
 name = "msaa"
 path = "examples/3d/msaa.rs"
 
