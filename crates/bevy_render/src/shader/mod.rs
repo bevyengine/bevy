@@ -1,4 +1,7 @@
 #[allow(clippy::module_inception)]
+
+#[cfg(feature = "naga-glsl")]
+mod preprocessor;
 mod shader;
 mod shader_defs;
 #[cfg(feature = "spirv-reflect")]

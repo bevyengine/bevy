@@ -2,6 +2,8 @@ use super::ShaderLayout;
 use bevy_asset::Handle;
 use std::marker::Copy;
 
+#[cfg(feature = "naga-glsl")]
+use super::preprocessor;
 #[cfg(feature = "bevy-glsl-to-spirv")]
 use bevy_glsl_to_spirv::compile;
 
@@ -42,11 +44,17 @@ fn glsl_to_spirv(
 ) -> Vec<u32> {
     #[cfg(feature = "naga-glsl")]
     {
-        // TODO: Add support to glsl-new for inserting definitions.
-        assert!(
-            shader_defs.is_none(),
-            "shader definitions not supported with naga yet"
-        );
+        let source = preprocessor::preprocess(
+            glsl_source,
+            |_include_path| Err(()), // bevy doesn't expose includes yet
+            |found_definition| {
+                shader_defs
+                    .and_then(|defs| defs.find(|def| *def == found_definition))
+                    .map(|def| if def.len() == 0 { None } else { Some(def) })
+            },
+        )
+        .expect("unable to preprocess shader");
+
         // The `glsl_new` naga frontend is still a work-in-progress.
         let module =
             naga::front::glsl_new::parse_str(glsl_source, "main".to_string(), stage.into())
