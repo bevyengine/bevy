@@ -421,9 +421,7 @@ pub mod shape {
 
             let points = raw_points
                 .iter()
-                .map(|&p| {
-                    (p * sphere.radius).into()
-                })
+                .map(|&p| (p * sphere.radius).into())
                 .collect::<Vec<[f32; 3]>>();
 
             let normals = raw_points
@@ -447,7 +445,7 @@ pub mod shape {
                     VertexAttribute::normal(normals),
                     VertexAttribute::uv(uvs),
                 ],
-                indices: Some(indices)
+                indices: Some(indices),
             }
         }
     }

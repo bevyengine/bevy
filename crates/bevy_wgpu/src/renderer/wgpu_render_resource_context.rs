@@ -5,7 +5,9 @@ use crate::{
 
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor},
+    pipeline::{
+        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
+    },
     renderer::{
         BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
         RenderResourceId, SamplerId, TextureId,
@@ -113,7 +115,9 @@ impl WgpuRenderResourceContext {
             .bindings
             .iter()
             .map(|binding| {
-                let shader_stage = if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT {
+                let shader_stage = if binding.shader_stage
+                    == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT
+                {
                     wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT
                 } else if binding.shader_stage == BindingShaderStage::VERTEX {
                     wgpu::ShaderStage::VERTEX

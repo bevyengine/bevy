@@ -2,8 +2,8 @@ use super::{Camera, DepthCalculation};
 use crate::Draw;
 use bevy_core::FloatOrd;
 use bevy_ecs::{Entity, Query};
-use bevy_transform::prelude::Transform;
 use bevy_property::Properties;
+use bevy_transform::prelude::Transform;
 
 #[derive(Debug)]
 pub struct VisibleEntity {

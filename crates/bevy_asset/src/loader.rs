@@ -53,7 +53,7 @@ impl<T> AssetChannel<T> {
     }
 }
 
-/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly 
+/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly
 pub fn update_asset_storage_system<T: Resource>(
     asset_channel: Res<AssetChannel<T>>,
     asset_server: Res<AssetServer>,

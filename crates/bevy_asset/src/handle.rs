@@ -24,7 +24,7 @@ impl HandleId {
 
 /// A handle into a specific Asset of type `T`
 ///
-/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection. 
+/// Handles contain a unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
 #[derive(Properties)]
 pub struct Handle<T>
 where

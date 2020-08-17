@@ -11,9 +11,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{
-    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion,
-};
+use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion};
 
 use bevy_ecs::IntoQuerySystem;
 
