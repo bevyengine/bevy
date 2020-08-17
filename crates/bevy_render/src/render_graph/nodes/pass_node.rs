@@ -319,9 +319,7 @@ impl DrawState {
     }
 
     pub fn can_draw_indexed(&self) -> bool {
-        self.bind_groups.iter().all(|b| b.is_some())
-            && self.vertex_buffers.iter().all(|v| v.is_some())
-            && self.index_buffer.is_some()
+        self.can_draw() && self.index_buffer.is_some()
     }
 
     pub fn set_pipeline(
