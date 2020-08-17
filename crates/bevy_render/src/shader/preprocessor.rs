@@ -1,3 +1,5 @@
+use std::{borrow::Cow, collections::HashMap};
+
 #[derive(Debug, Copy, Clone)]
 pub enum IncludePath<'a> {
     Absolute(&'a str),

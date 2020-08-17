@@ -52,7 +52,8 @@ features = ["glsl-new", "spirv"]
 pretty_assertions = "0.6.1"
 
 [features]
-default = ["naga-reflect", "bevy-glsl-to-spirv"]
+# default = ["bevy-glsl-to-spirv", "spirv-reflect"]
+default = ["naga-glsl", "naga-reflect"]
 png = ["image/png"]
 hdr = ["image/hdr"]
 naga-glsl = ["naga"] # Enable this when the glsl-new (or glsl) naga frontends are more mature

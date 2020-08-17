@@ -49,16 +49,21 @@ fn glsl_to_spirv(
             |_include_path| Err(()), // bevy doesn't expose includes yet
             |found_definition| {
                 shader_defs
-                    .and_then(|defs| defs.find(|def| *def == found_definition))
-                    .map(|def| if def.len() == 0 { None } else { Some(def) })
+                    .and_then(|defs| defs.iter().find(|def| *def == found_definition))
+                    .map(|def| {
+                        if def.len() == 0 {
+                            None
+                        } else {
+                            Some(def.to_string())
+                        }
+                    })
             },
         )
         .expect("unable to preprocess shader");
 
         // The `glsl_new` naga frontend is still a work-in-progress.
         let module =
-            naga::front::glsl_new::parse_str(glsl_source, "main".to_string(), stage.into())
-                .unwrap();
+            naga::front::glsl_new::parse_str(&source, "main".to_string(), stage.into()).unwrap();
         println!("{:#?}", module);
         let mut writer =
             naga::back::spv::Writer::new(&module.header, naga::back::spv::WriterFlags::NONE);
