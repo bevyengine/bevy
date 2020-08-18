@@ -425,7 +425,7 @@ fn render_resources_node_system<T: RenderResources>(
     // update uniforms info
     for (uniforms, draw, _render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
-            return;
+            continue;
         }
 
         state
@@ -441,7 +441,7 @@ fn render_resources_node_system<T: RenderResources>(
 
     for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
-            return;
+            continue;
         }
 
         setup_uniform_texture_resources::<T>(
@@ -459,7 +459,7 @@ fn render_resources_node_system<T: RenderResources>(
             &mut |mut staging_buffer, _render_resource_context| {
                 for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
-                        return;
+                        continue;
                     }
 
                     state.uniform_buffer_arrays.setup_uniform_buffer_resources(
@@ -482,7 +482,7 @@ fn render_resources_node_system<T: RenderResources>(
         let mut staging_buffer: [u8; 0] = [];
         for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
             if !draw.is_visible {
-                return;
+                continue;
             }
 
             state.uniform_buffer_arrays.setup_uniform_buffer_resources(
