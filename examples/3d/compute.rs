@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use bevy_render::pipeline::{
-    ComputePipeline, ComputePipelineDescriptor, ComputePipelineSpecialization, ComputePipelines,
-};
-use bevy_render::shader::{ComputeShaderStages, ShaderStage};
 use bevy_render::{
     dispatch::Dispatch,
+    pipeline::{
+        ComputePipeline, ComputePipelineDescriptor, ComputePipelineSpecialization, ComputePipelines,
+    },
     render_graph::{base::node::COMPUTE_PASS, AssetRenderResourcesNode, RenderGraph},
     renderer::RenderResources,
+    shader::{ComputeShaderStages, ShaderStage},
 };
 
 fn main() {
