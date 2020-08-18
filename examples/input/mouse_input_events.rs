@@ -1,9 +1,8 @@
 use bevy::{
-    input::mouse::{MouseButtonInput, MouseMotion},
+    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
     prelude::*,
     window::CursorMoved,
 };
-use bevy_input::mouse::MouseWheel;
 
 fn main() {
     App::build()
