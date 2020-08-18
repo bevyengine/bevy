@@ -268,12 +268,12 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn set(&mut self, value: &dyn #bevy_property_path::Property) {
-                let value = value.any();
+            fn set(&mut self, property: &dyn #bevy_property_path::Property) {
+                let value = property.any();
                 if let Some(prop) = value.downcast_ref::<Self>() {
                     *self = prop.clone();
                 } else {
-                    panic!("prop value is not {}", std::any::type_name::<Self>());
+                    panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
                 }
             }
 
@@ -400,12 +400,12 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
             }
 
             #[inline]
-            fn set(&mut self, value: &dyn #bevy_property_path::Property) {
-                let value = value.any();
+            fn set(&mut self, property: &dyn #bevy_property_path::Property) {
+                let value = property.any();
                 if let Some(prop) = value.downcast_ref::<Self>() {
                     *self = prop.clone();
                 } else {
-                    panic!("prop value is not {}", std::any::type_name::<Self>());
+                    panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
                 }
             }
 

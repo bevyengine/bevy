@@ -139,12 +139,12 @@ impl Property for String {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = prop.clone();
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -179,12 +179,12 @@ impl Property for bool {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -219,8 +219,8 @@ impl Property for usize {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<u64>() {
@@ -242,7 +242,7 @@ impl Property for usize {
         } else if let Some(prop) = value.downcast_ref::<i8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -277,8 +277,8 @@ impl Property for u64 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<usize>() {
@@ -300,7 +300,7 @@ impl Property for u64 {
         } else if let Some(prop) = value.downcast_ref::<i8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -335,8 +335,8 @@ impl Property for u32 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<u64>() {
@@ -358,7 +358,7 @@ impl Property for u32 {
         } else if let Some(prop) = value.downcast_ref::<i8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -393,8 +393,8 @@ impl Property for u16 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<u64>() {
@@ -416,7 +416,7 @@ impl Property for u16 {
         } else if let Some(prop) = value.downcast_ref::<i8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -451,8 +451,8 @@ impl Property for u8 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<u64>() {
@@ -474,7 +474,7 @@ impl Property for u8 {
         } else if let Some(prop) = value.downcast_ref::<i8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -509,8 +509,8 @@ impl Property for isize {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<i64>() {
@@ -532,7 +532,7 @@ impl Property for isize {
         } else if let Some(prop) = value.downcast_ref::<u8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -567,8 +567,8 @@ impl Property for i64 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<isize>() {
@@ -590,7 +590,7 @@ impl Property for i64 {
         } else if let Some(prop) = value.downcast_ref::<u8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -625,8 +625,8 @@ impl Property for i32 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<i64>() {
@@ -648,7 +648,7 @@ impl Property for i32 {
         } else if let Some(prop) = value.downcast_ref::<u8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -683,8 +683,8 @@ impl Property for i16 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<i64>() {
@@ -706,7 +706,7 @@ impl Property for i16 {
         } else if let Some(prop) = value.downcast_ref::<u8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -741,8 +741,8 @@ impl Property for i8 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<i64>() {
@@ -764,7 +764,7 @@ impl Property for i8 {
         } else if let Some(prop) = value.downcast_ref::<u8>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -799,14 +799,14 @@ impl Property for f32 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<f64>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
@@ -841,14 +841,14 @@ impl Property for f64 {
         self.set(value);
     }
 
-    fn set(&mut self, value: &dyn Property) {
-        let value = value.any();
+    fn set(&mut self, property: &dyn Property) {
+        let value = property.any();
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else if let Some(prop) = value.downcast_ref::<f32>() {
             *self = *prop as Self;
         } else {
-            panic!("prop value is not {}", std::any::type_name::<Self>());
+            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
         }
     }
 
