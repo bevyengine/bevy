@@ -144,7 +144,11 @@ impl Property for String {
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = prop.clone();
         } else {
-            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
+            panic!(
+                "prop value is not {}, but {}",
+                std::any::type_name::<Self>(),
+                property.type_name()
+            );
         }
     }
 
@@ -184,7 +188,11 @@ impl Property for bool {
         if let Some(prop) = value.downcast_ref::<Self>() {
             *self = *prop;
         } else {
-            panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
+            panic!(
+                "prop value is not {}, but {}",
+                std::any::type_name::<Self>(),
+                property.type_name()
+            );
         }
     }
 
@@ -195,7 +203,7 @@ impl Property for bool {
 
 macro_rules! set_integer {
     ($this:expr, $value:expr, $else_body:expr) => {{
-        if let Some(prop) = ($value).downcast_ref::<Self>() {
+        if let Some(prop) = ($value).downcast_ref::<usize>() {
             *($this) = *prop as Self;
         } else if let Some(prop) = ($value).downcast_ref::<u64>() {
             *($this) = *prop as Self;
@@ -251,8 +259,11 @@ macro_rules! integer_property {
 
             fn set(&mut self, property: &dyn Property) {
                 let value = property.any();
-                set_integer!(self, value,
-                    panic!("prop value is not {}, but {}",
+                set_integer!(
+                    self,
+                    value,
+                    panic!(
+                        "prop value is not {}, but {}",
                         std::any::type_name::<Self>(),
                         property.type_name()
                     )
@@ -301,7 +312,11 @@ macro_rules! float_property {
                 } else if let Some(prop) = value.downcast_ref::<f64>() {
                     *self = *prop as Self;
                 } else {
-                    panic!("prop value is not {}, but {}", std::any::type_name::<Self>(), property.type_name());
+                    panic!(
+                        "prop value is not {}, but {}",
+                        std::any::type_name::<Self>(),
+                        property.type_name()
+                    );
                 }
             }
 
@@ -309,7 +324,7 @@ macro_rules! float_property {
                 Serializable::Borrowed(self)
             }
         }
-    }
+    };
 }
 
 integer_property!(usize);
