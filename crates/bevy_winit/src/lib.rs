@@ -11,7 +11,8 @@ use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::Resources;
 use bevy_math::Vec2;
 use bevy_window::{
-    CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    CreateWindow, Cursor, CursorMoved, Motion, Window, WindowCloseRequested, WindowCreated,
+    WindowResized, Windows,
 };
 use winit::{
     event,
@@ -107,8 +108,12 @@ pub fn winit_runner(mut app: App) {
                     // move origin to bottom left
                     let y_position = inner_size.height as f32 - position.y as f32;
                     cursor_moved_events.send(CursorMoved {
-                        id: window_id,
-                        position: Vec2::new(position.x as f32, y_position as f32),
+                        id: Cursor::Horizontal(window_id),
+                        position: position.x as f32,
+                    });
+                    cursor_moved_events.send(CursorMoved {
+                        id: Cursor::Vertical(window_id),
+                        position: y_position,
                     });
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
@@ -129,7 +134,14 @@ pub fn winit_runner(mut app: App) {
                         delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                     });
                 }
-                _ => {}
+                DeviceEvent::Motion { axis, value } => {
+                    let mut axis_events = app.resources.get_mut::<Events<Motion>>().unwrap();
+                    axis_events.send(Motion {
+                        axis: *axis,
+                        value: *value as f32,
+                    });
+                }
+                _ => (),
             },
             event::Event::MainEventsCleared => {
                 handle_create_window_events(

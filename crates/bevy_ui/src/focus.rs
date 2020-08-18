@@ -5,7 +5,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::{mouse::MouseButton, Input};
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
-use bevy_window::CursorMoved;
+use bevy_window::{Cursor, CursorMoved};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
@@ -52,7 +52,10 @@ pub fn ui_focus_system(
     )>,
 ) {
     if let Some(cursor_moved) = state.cursor_moved_event_reader.latest(&cursor_moved_events) {
-        state.cursor_position = cursor_moved.position;
+        match cursor_moved.id {
+            Cursor::Horizontal(_) => state.cursor_position.set_x(cursor_moved.position),
+            Cursor::Vertical(_) => state.cursor_position.set_y(cursor_moved.position),
+        }
     }
 
     if mouse_button_input.just_released(MouseButton::Left) {
