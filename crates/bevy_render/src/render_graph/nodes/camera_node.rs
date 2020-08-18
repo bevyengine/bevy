@@ -77,20 +77,22 @@ pub fn camera_node_system(
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let (camera, transform) = if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
-        (
-            query.get::<Camera>(camera_entity).unwrap(),
-            query.get::<Transform>(camera_entity).unwrap(),
-        )
-    } else {
-        return;
-    };
+    let (camera, transform, translation) =
+        if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
+            (
+                query.get::<Camera>(camera_entity).unwrap(),
+                query.get::<Transform>(camera_entity).unwrap(),
+                query.get::<Translation>(camera_entity).unwrap(),
+            )
+        } else {
+            return;
+        };
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 4]>();
+        let size = std::mem::size_of::<[[f32; 4]; 4]>() + std::mem::size_of::<[f32; 4]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
@@ -117,14 +119,18 @@ pub fn camera_node_system(
     };
 
     let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
+    let position_size = std::mem::size_of::<[f32; 4]>();
+    let uniform_size = matrix_size + position_size;
     let camera_matrix: [f32; 16] =
         (camera.projection_matrix * transform.value.inverse()).to_cols_array();
+    let position: [f32; 4] = translation.0.extend(1.0).into();
 
     render_resource_context.write_mapped_buffer(
         staging_buffer,
-        0..matrix_size as u64,
+        0..uniform_size as u64,
         &mut |data, _renderer| {
             data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
+            data[matrix_size..uniform_size].copy_from_slice(position.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);
@@ -135,6 +141,6 @@ pub fn camera_node_system(
         0,
         camera_buffer,
         0,
-        matrix_size as u64,
+        uniform_size as u64,
     );
 }
