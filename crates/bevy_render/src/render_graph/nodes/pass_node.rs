@@ -3,8 +3,8 @@ use crate::{
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, PipelineDescriptor, UniformProperty,
-        BindingShaderStage,
+        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, PipelineDescriptor,
+        UniformProperty,
     },
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Resources, World, HecsQuery};
+use bevy_ecs::{HecsQuery, Resources, World};
 use std::marker::PhantomData;
 
 struct CameraInfo {
@@ -136,8 +136,9 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                     TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
             }
             if let Some(input_index) = self.color_resolve_target_indices[i] {
-                color_attachment.resolve_target =
-                    Some(TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap()));
+                color_attachment.resolve_target = Some(TextureAttachment::Id(
+                    input.get(input_index).unwrap().get_texture().unwrap(),
+                ));
             }
         }
 

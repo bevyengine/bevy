@@ -5,7 +5,9 @@ use crate::{
 
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor},
+    pipeline::{
+        BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
+    },
     renderer::{
         BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
         RenderResourceId, SamplerId, TextureId,

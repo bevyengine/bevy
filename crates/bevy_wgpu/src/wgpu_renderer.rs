@@ -27,6 +27,11 @@ impl WgpuRenderer {
             .await
             .expect("Unable to find a GPU! Make sure you have installed required drivers!");
 
+        #[cfg(feature = "trace")]
+        let trace_path = Some(std::path::Path::new("wgpu_trace"));
+        #[cfg(not(feature = "trace"))]
+        let trace_path = None;
+
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -34,7 +39,7 @@ impl WgpuRenderer {
                     limits: wgpu::Limits::default(),
                     shader_validation: true,
                 },
-                None,
+                trace_path,
             )
             .await
             .unwrap();

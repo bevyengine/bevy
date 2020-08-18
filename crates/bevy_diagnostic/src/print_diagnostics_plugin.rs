@@ -4,7 +4,7 @@ use bevy_core::{Time, Timer};
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use std::time::Duration;
 
-/// An App Plugin that prints diagnostics to the console 
+/// An App Plugin that prints diagnostics to the console
 pub struct PrintDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,

@@ -4,10 +4,10 @@ use crate::{
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
 use bevy_property::{Properties, Property};
-use serde::{Serialize, Deserialize};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,

@@ -56,7 +56,7 @@ impl ShaderSource {
     }
 }
 
-/// A shader, as defined by its [ShaderSource] and [ShaderStage] 
+/// A shader, as defined by its [ShaderSource] and [ShaderStage]
 #[derive(Clone, Debug)]
 pub struct Shader {
     pub source: ShaderSource,

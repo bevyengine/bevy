@@ -7,10 +7,11 @@ use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     pipeline::PipelineSpecialization,
+    prelude::Msaa,
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
-    }, prelude::Msaa,
+    },
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 

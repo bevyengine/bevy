@@ -113,7 +113,6 @@ impl SceneSpawner {
                         component_registration.apply_component_to_entity(world, entity, component);
                     }
                 }
-
             } else {
                 world.spawn_as_entity(entity, (1,));
                 for component in scene_entity.components.iter() {
@@ -122,7 +121,8 @@ impl SceneSpawner {
                         .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
                             type_name: component.type_name.to_string(),
                         })?;
-                    component_registration.add_component_to_entity(world, resources, entity, component);
+                    component_registration
+                        .add_component_to_entity(world, resources, entity, component);
                 }
             }
         }
@@ -208,7 +208,6 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
             }
         }
     }
-
 
     scene_spawner.load_queued_scenes(world, resources).unwrap();
     scene_spawner.spawn_queued_scenes(world, resources).unwrap();

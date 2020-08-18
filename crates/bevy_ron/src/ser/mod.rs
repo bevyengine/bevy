@@ -1,8 +1,10 @@
 use serde::{ser, Deserialize, Serialize};
 use std::io;
 
-use crate::error::{Error, Result};
-use crate::extensions::Extensions;
+use crate::{
+    error::{Error, Result},
+    extensions::Extensions,
+};
 
 mod value;
 

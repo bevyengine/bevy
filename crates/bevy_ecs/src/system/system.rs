@@ -1,6 +1,6 @@
 use crate::resource::Resources;
-use fixedbitset::FixedBitSet;
 use bevy_hecs::{Access, Query, World};
+use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
@@ -19,7 +19,7 @@ impl SystemId {
     }
 }
 
-/// An ECS system that can be added to a [Schedule](crate::Schedule) 
+/// An ECS system that can be added to a [Schedule](crate::Schedule)
 pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
