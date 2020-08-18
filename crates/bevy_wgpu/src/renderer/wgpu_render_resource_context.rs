@@ -115,9 +115,17 @@ impl WgpuRenderResourceContext {
             .bindings
             .iter()
             .map(|binding| {
-                let shader_stage = if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT | BindingShaderStage::COMPUTE {
-                    wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT | wgpu::ShaderStage::COMPUTE
-                } else if binding.shader_stage == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT {
+                let shader_stage = if binding.shader_stage
+                    == BindingShaderStage::VERTEX
+                        | BindingShaderStage::FRAGMENT
+                        | BindingShaderStage::COMPUTE
+                {
+                    wgpu::ShaderStage::VERTEX
+                        | wgpu::ShaderStage::FRAGMENT
+                        | wgpu::ShaderStage::COMPUTE
+                } else if binding.shader_stage
+                    == BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT
+                {
                     wgpu::ShaderStage::VERTEX | wgpu::ShaderStage::FRAGMENT
                 } else if binding.shader_stage == BindingShaderStage::VERTEX {
                     wgpu::ShaderStage::VERTEX
@@ -476,7 +484,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .get(&pipeline_descriptor.shader_stages.compute)
             .unwrap();
 
-        
         let compute_pipeline_descriptor = wgpu::ComputePipelineDescriptor {
             layout: &pipeline_layout,
             compute_stage: wgpu::ProgrammableStageDescriptor {

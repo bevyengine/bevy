@@ -1,4 +1,5 @@
 use crate::{
+    dispatch::Dispatch,
     draw::Draw,
     pipeline::{ComputePipelines, RenderPipelines},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
@@ -7,7 +8,7 @@ use crate::{
         RenderResourceBindings, RenderResourceBindingsId, RenderResourceContext,
         RenderResourceHints,
     },
-    texture, dispatch::Dispatch,
+    texture,
 };
 
 use bevy_asset::{Assets, Handle};
@@ -418,7 +419,7 @@ fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<T>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&T, &Draw, &mut RenderPipelines)>,
-    mut query2: Query<(&T, &Dispatch, &mut ComputePipelines)>
+    mut query2: Query<(&T, &Dispatch, &mut ComputePipelines)>,
 ) {
     let state = state.deref_mut();
     let render_resource_context = &**render_resource_context;

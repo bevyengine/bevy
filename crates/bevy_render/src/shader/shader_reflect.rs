@@ -9,7 +9,8 @@ use bevy_core::AsBytes;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectTypeDescription, ReflectTypeFlags, ReflectShaderStageFlags
+        ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
+        ReflectTypeFlags,
     },
     ShaderModule,
 };
@@ -151,7 +152,10 @@ fn reflect_vertex_attribute_descriptor(
     }
 }
 
-fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet, shader_stage: ReflectShaderStageFlags) -> BindGroupDescriptor {
+fn reflect_bind_group(
+    descriptor_set: &ReflectDescriptorSet,
+    shader_stage: ReflectShaderStageFlags,
+) -> BindGroupDescriptor {
     let mut bindings = Vec::new();
     for descriptor_binding in descriptor_set.bindings.iter() {
         let binding = reflect_binding(descriptor_binding, shader_stage);
@@ -171,7 +175,10 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
     }
 }
 
-fn reflect_binding(binding: &ReflectDescriptorBinding, shader_stage: ReflectShaderStageFlags) -> BindingDescriptor {
+fn reflect_binding(
+    binding: &ReflectDescriptorBinding,
+    shader_stage: ReflectShaderStageFlags,
+) -> BindingDescriptor {
     let type_description = binding.type_description.as_ref().unwrap();
     let (name, bind_type) = match binding.descriptor_type {
         ReflectDescriptorType::UniformBuffer => (
@@ -205,7 +212,7 @@ fn reflect_binding(binding: &ReflectDescriptorBinding, shader_stage: ReflectShad
         ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
         ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
         ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
-        _ => panic!("Only one specified shader stage is supported.")
+        _ => panic!("Only one specified shader stage is supported."),
     };
 
     let name = name.to_string();

@@ -1,8 +1,8 @@
 pub mod batch;
 pub mod camera;
 pub mod color;
-pub mod draw;
 pub mod dispatch;
+pub mod draw;
 pub mod mesh;
 pub mod pass;
 pub mod pipeline;
@@ -37,8 +37,9 @@ use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    ComputePipelineCompiler, DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors, ComputePipelineSpecialization, ComputePipelineDescriptor, ComputePipelines,
+    ComputePipelineCompiler, ComputePipelineDescriptor, ComputePipelineSpecialization,
+    ComputePipelines, DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
+    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
@@ -47,12 +48,12 @@ use render_graph::{
 use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
 use std::ops::Range;
 
+use dispatch::Dispatch;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 use texture::TextureResourceSystemState;
-use dispatch::Dispatch;
 
 /// The names of "render" App stages
 pub mod stage {
@@ -160,12 +161,12 @@ impl Plugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph::render_graph_schedule_executor_system.thread_local_system(),
             )
-            .add_system_to_stage(stage::COMPUTE, pipeline::dispatch_compute_pipelines_system.system())
-            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
             .add_system_to_stage(
-                stage::POST_RENDER,
-                draw::clear_draw_system.system(),
+                stage::COMPUTE,
+                pipeline::dispatch_compute_pipelines_system.system(),
             )
+            .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
+            .add_system_to_stage(stage::POST_RENDER, draw::clear_draw_system.system())
             .add_system_to_stage(
                 stage::POST_RENDER,
                 dispatch::clear_compute_commands.system(),

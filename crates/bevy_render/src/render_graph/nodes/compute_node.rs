@@ -1,22 +1,17 @@
 use crate::{
-    pipeline::{
-        ComputePipelineDescriptor,
-    },
+    dispatch::{ComputeCommand, Dispatch},
+    pipeline::ComputePipelineDescriptor,
     render_graph::{Node, ResourceSlots},
-    renderer::{
-        BindGroupId, RenderContext,
-    }, dispatch::{ComputeCommand, Dispatch},
+    renderer::{BindGroupId, RenderContext},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Resources, World};
-
 
 pub struct ComputeNode;
 
 impl ComputeNode {
     pub fn new() -> Self {
-        ComputeNode {
-        }
+        ComputeNode {}
     }
 }
 
@@ -29,48 +24,48 @@ impl Node for ComputeNode {
         _input: &ResourceSlots,
         _output: &mut ResourceSlots,
     ) {
-        let pipelines = resources.get::<Assets<ComputePipelineDescriptor>>().unwrap();
-        render_context.begin_compute_pass(
-            &mut |compute_pass| {
-                let mut compute_state = ComputeState::default();
+        let pipelines = resources
+            .get::<Assets<ComputePipelineDescriptor>>()
+            .unwrap();
+        render_context.begin_compute_pass(&mut |compute_pass| {
+            let mut compute_state = ComputeState::default();
 
-                let mut entities = world.query::<&Dispatch>();
+            let mut entities = world.query::<&Dispatch>();
 
-                for dispatch in entities.iter() {
-                    for compute_command in dispatch.compute_commands.iter() {
-                        match compute_command {
-                            ComputeCommand::SetPipeline { pipeline } => {
-                                // TODO: Filter pipelines
-                                compute_pass.set_pipeline(*pipeline);
-                                let descriptor = pipelines.get(pipeline).unwrap();
-                                compute_state.set_pipeline(*pipeline, descriptor);
-                            },
-                            ComputeCommand::SetBindGroup {
-                                index,
-                                bind_group,
-                                dynamic_uniform_indices,
-                            } => {
-                                let pipeline = pipelines.get(&compute_state.pipeline.unwrap()).unwrap();
-                                let layout = pipeline.get_layout().unwrap();
-                                let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
-                                compute_pass.set_bind_group(
-                                    *index,
-                                    bind_group_descriptor.id,
-                                    *bind_group,
-                                    dynamic_uniform_indices
-                                        .as_ref()
-                                        .map(|indices| indices.as_slice()),
-                                );
-                                compute_state.set_bind_group(*index, *bind_group);
-                            }
-                            ComputeCommand::Dispatch { x, y, z } => {
-                                compute_pass.dispatch(*x, *y, *z);
-                            }
+            for dispatch in entities.iter() {
+                for compute_command in dispatch.compute_commands.iter() {
+                    match compute_command {
+                        ComputeCommand::SetPipeline { pipeline } => {
+                            // TODO: Filter pipelines
+                            compute_pass.set_pipeline(*pipeline);
+                            let descriptor = pipelines.get(pipeline).unwrap();
+                            compute_state.set_pipeline(*pipeline, descriptor);
+                        }
+                        ComputeCommand::SetBindGroup {
+                            index,
+                            bind_group,
+                            dynamic_uniform_indices,
+                        } => {
+                            let pipeline = pipelines.get(&compute_state.pipeline.unwrap()).unwrap();
+                            let layout = pipeline.get_layout().unwrap();
+                            let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
+                            compute_pass.set_bind_group(
+                                *index,
+                                bind_group_descriptor.id,
+                                *bind_group,
+                                dynamic_uniform_indices
+                                    .as_ref()
+                                    .map(|indices| indices.as_slice()),
+                            );
+                            compute_state.set_bind_group(*index, *bind_group);
+                        }
+                        ComputeCommand::Dispatch { x, y, z } => {
+                            compute_pass.dispatch(*x, *y, *z);
                         }
                     }
                 }
             }
-        );
+        });
     }
 }
 

@@ -1,6 +1,6 @@
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_render::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor, ComputePipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, ComputePipelineDescriptor, PipelineDescriptor},
     renderer::{BindGroupId, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::Shader,
     texture::TextureDescriptor,
@@ -85,7 +85,8 @@ pub struct WgpuResources {
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
-    pub compute_pipelines: Arc<RwLock<HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>>,
+    pub compute_pipelines:
+        Arc<RwLock<HashMap<Handle<ComputePipelineDescriptor>, wgpu::ComputePipeline>>>,
     pub bind_groups: Arc<RwLock<HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>>>,
     pub bind_group_layouts: Arc<RwLock<HashMap<BindGroupDescriptorId, wgpu::BindGroupLayout>>>,
     pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,

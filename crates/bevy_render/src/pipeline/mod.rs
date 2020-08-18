@@ -1,7 +1,7 @@
 mod bind_group;
 mod binding;
-mod compute_pipelines;
 mod compute_pipeline_compiler;
+mod compute_pipelines;
 mod pipeline;
 mod pipeline_compiler;
 mod pipeline_layout;
@@ -12,8 +12,8 @@ mod vertex_format;
 
 pub use bind_group::*;
 pub use binding::*;
-pub use compute_pipelines::*;
 pub use compute_pipeline_compiler::*;
+pub use compute_pipelines::*;
 pub use pipeline::*;
 pub use pipeline_compiler::*;
 pub use pipeline_layout::*;

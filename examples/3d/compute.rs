@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use bevy_render::pipeline::{
-    ComputePipeline, ComputePipelineDescriptor,
-    ComputePipelineSpecialization, ComputePipelines,
+    ComputePipeline, ComputePipelineDescriptor, ComputePipelineSpecialization, ComputePipelines,
 };
 use bevy_render::shader::{ComputeShaderStages, ShaderStage};
 use bevy_render::{
+    dispatch::Dispatch,
     render_graph::{base::node::COMPUTE_PASS, AssetRenderResourcesNode, RenderGraph},
-    renderer::{RenderResources}, dispatch::Dispatch,
+    renderer::RenderResources,
 };
 
 fn main() {
@@ -73,7 +73,6 @@ fn setup(
     mut render_graph: ResMut<RenderGraph>,
     mut prime_indices: ResMut<Assets<PrimeIndices>>,
 ) {
-
     let compute = shaders.add(Shader::from_glsl(ShaderStage::Compute, COMPUTE_SHADER));
 
     // Create pipeline..

@@ -1,10 +1,11 @@
 use super::{ComputePipelineDescriptor, ComputePipelineSpecialization};
 use crate::{
-    renderer::RenderResourceBindings, dispatch::{Dispatch, DispatchContext},
+    dispatch::{Dispatch, DispatchContext},
+    renderer::RenderResourceBindings,
 };
 use bevy_asset::Handle;
+use bevy_ecs::{Query, ResMut};
 use bevy_property::Properties;
-use bevy_ecs::{ResMut, Query};
 
 #[derive(Properties, Default, Clone)]
 pub struct ComputePipeline {
@@ -76,7 +77,7 @@ pub fn dispatch_compute_pipelines_system(
 ) {
     for (mut dispatch, mut render_pipelines) in &mut query.iter() {
         let render_pipelines = &mut *render_pipelines;
-        
+
         for render_pipeline in render_pipelines.pipelines.iter() {
             dispatch_context
                 .set_pipeline(
@@ -85,7 +86,7 @@ pub fn dispatch_compute_pipelines_system(
                     &render_pipeline.specialization,
                 )
                 .unwrap();
-                dispatch_context
+            dispatch_context
                 .set_bind_groups_from_bindings(
                     &mut dispatch,
                     &mut [

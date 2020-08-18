@@ -1,6 +1,6 @@
 use super::{
-    CameraNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
-    WindowTextureNode, ComputeNode,
+    CameraNode, ComputeNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode,
+    WindowSwapChainNode, WindowTextureNode,
 };
 use crate::{
     pass::{
@@ -128,10 +128,7 @@ impl BaseRenderGraphBuilder for RenderGraph {
             );
         }
 
-        self.add_node(
-            node::COMPUTE_PASS,
-            ComputeNode::new()
-        );
+        self.add_node(node::COMPUTE_PASS, ComputeNode::new());
         self.add_node_edge(node::TEXTURE_COPY, node::COMPUTE_PASS)
             .unwrap();
         self.add_node_edge(node::SHARED_BUFFERS, node::COMPUTE_PASS)

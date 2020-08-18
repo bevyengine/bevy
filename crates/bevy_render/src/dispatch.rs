@@ -5,14 +5,14 @@ use crate::{
     },
     renderer::{
         BindGroup, BindGroupId, BufferUsage, RenderResource, RenderResourceBinding,
-        RenderResourceContext, SharedBuffers, RenderResourceBindings,
+        RenderResourceBindings, RenderResourceContext, SharedBuffers,
     },
     shader::Shader,
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
-    FetchResource, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId, TypeAccess,
-    UnsafeClone, Query,
+    FetchResource, Query, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
+    TypeAccess, UnsafeClone,
 };
 use bevy_property::Properties;
 use std::{any::TypeId, sync::Arc};
@@ -82,7 +82,11 @@ impl Dispatch {
     /// Dispatches compute work operations.
     /// x, y and z denote the number of work groups to dispatch in each dimension.
     pub fn dispatch(&mut self) {
-        self.compute_command(ComputeCommand::Dispatch { x: self.work_group_size_x, y: self.work_group_size_y, z: self.work_group_size_z });
+        self.compute_command(ComputeCommand::Dispatch {
+            x: self.work_group_size_x,
+            y: self.work_group_size_y,
+            z: self.work_group_size_z,
+        });
         if self.only_once {
             self.has_run = true;
         }

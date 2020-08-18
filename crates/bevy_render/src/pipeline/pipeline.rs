@@ -7,7 +7,7 @@ use super::{
     BindType, DynamicBinding, PipelineLayout, VertexBufferDescriptors,
 };
 use crate::{
-    shader::{Shader, ShaderStages, ComputeShaderStages},
+    shader::{ComputeShaderStages, Shader, ShaderStages},
     texture::TextureFormat,
 };
 use bevy_asset::Assets;
@@ -205,7 +205,7 @@ impl ComputePipelineDescriptor {
         dynamic_bindings: &[DynamicBinding],
     ) {
         let compute_spirv = shaders.get(&self.shader_stages.compute).unwrap();
-        let mut layouts = vec![compute_spirv.reflect_layout(false).unwrap()];        
+        let mut layouts = vec![compute_spirv.reflect_layout(false).unwrap()];
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
 
         if !dynamic_bindings.is_empty() {

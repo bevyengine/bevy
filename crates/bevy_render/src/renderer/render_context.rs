@@ -1,6 +1,6 @@
 use super::RenderResourceContext;
 use crate::{
-    pass::{PassDescriptor, RenderPass, ComputePass},
+    pass::{ComputePass, PassDescriptor, RenderPass},
     renderer::{BufferId, RenderResourceBindings, TextureId},
     texture::Extent3d,
 };
@@ -33,8 +33,5 @@ pub trait RenderContext {
         run_pass: &mut dyn Fn(&mut dyn RenderPass),
     );
 
-    fn begin_compute_pass(
-        &mut self,
-        run_pass: &mut dyn Fn(&mut dyn ComputePass),
-    );
+    fn begin_compute_pass(&mut self, run_pass: &mut dyn Fn(&mut dyn ComputePass));
 }

@@ -1,12 +1,12 @@
-use super::{ComputePipelineDescriptor, ShaderSpecialization, SpecializedShader, DynamicBinding};
+use super::{ComputePipelineDescriptor, DynamicBinding, ShaderSpecialization, SpecializedShader};
 use crate::{
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
+use bevy_property::Properties;
 use once_cell::sync::Lazy;
-use std::collections::{HashMap};
-use bevy_property::{Properties};
+use std::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct ComputePipelineSpecialization {
@@ -39,11 +39,11 @@ struct ComputeSpecializedPipeline {
 #[derive(Default)]
 pub struct ComputePipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
-    specialized_pipelines: HashMap<Handle<ComputePipelineDescriptor>, Vec<ComputeSpecializedPipeline>>,
+    specialized_pipelines:
+        HashMap<Handle<ComputePipelineDescriptor>, Vec<ComputeSpecializedPipeline>>,
 }
 
 impl ComputePipelineCompiler {
-
     // TODO: Share some of this with PipelineCompiler.
     fn compile_shader(
         &mut self,
@@ -121,11 +121,8 @@ impl ComputePipelineCompiler {
             &specialized_descriptor.shader_stages.compute,
             &pipeline_specialization.shader_specialization,
         );
-        
-        specialized_descriptor.reflect_layout(
-            shaders,
-            &pipeline_specialization.dynamic_bindings,
-        );
+
+        specialized_descriptor.reflect_layout(shaders, &pipeline_specialization.dynamic_bindings);
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_compute_pipeline(
@@ -161,7 +158,9 @@ impl ComputePipelineCompiler {
         }
     }
 
-    pub fn iter_all_compiled_pipelines(&self) -> impl Iterator<Item = &Handle<ComputePipelineDescriptor>> {
+    pub fn iter_all_compiled_pipelines(
+        &self,
+    ) -> impl Iterator<Item = &Handle<ComputePipelineDescriptor>> {
         self.specialized_pipelines
             .values()
             .map(|compiled_pipelines| {

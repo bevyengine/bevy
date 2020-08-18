@@ -117,7 +117,6 @@ impl ShaderStages {
     }
 }
 
-
 /// Compute stages in a shader program
 #[derive(Clone, Debug)]
 pub struct ComputeShaderStages {
