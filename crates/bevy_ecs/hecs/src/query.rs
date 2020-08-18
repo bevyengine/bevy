@@ -240,6 +240,26 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
+/// Query transformer performing a logical or on a pair of queries
+///
+/// Intended to be used on Mutated or Changed queries.
+///
+/// # Example
+/// ```
+/// # use bevy_hecs::*;
+/// let mut world = World::new();
+/// world.spawn((123, true));
+/// world.spawn((456, false));
+/// for mut b in world.query::<Mut<i32>>().iter().skip(1).take(1) {
+///     *b += 1;
+/// }
+/// let components = world
+///     .query::<Either<Mutated<bool>, Mutated<i32>>>()
+///     .iter()
+///     .map(|(b, i)| (*b, *i))
+///     .collect::<Vec<_>>();
+/// assert_eq!(components, &[(false, 457)]);
+/// ```
 pub struct Either<Q1, Q2>(PhantomData<(Q1, Q2)>);
 
 impl<Q1: Query, Q2: Query> Query for Either<Q1, Q2> {
