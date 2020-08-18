@@ -177,7 +177,7 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
             &type_description.type_name,
             BindType::Uniform {
                 dynamic: false,
-                properties: vec![reflect_uniform(type_description)],
+                property: reflect_uniform(type_description),
             },
         ),
         ReflectDescriptorType::SampledImage => (
@@ -412,9 +412,9 @@ mod tests {
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 dynamic: false,
-                                properties: vec![UniformProperty::Struct(vec![
+                                property: UniformProperty::Struct(vec![
                                     UniformProperty::Mat4
-                                ])],
+                                ]),
                             },
                             shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]

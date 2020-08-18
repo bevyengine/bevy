@@ -273,7 +273,7 @@ mod tests {
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
+                        property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },
@@ -282,7 +282,7 @@ mod tests {
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty::Float],
+                        property: UniformProperty::Float,
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },

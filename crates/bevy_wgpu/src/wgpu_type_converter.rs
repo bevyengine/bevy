@@ -182,7 +182,7 @@ impl WgpuFrom<&BindType> for wgpu::BindingType {
         match bind_type {
             BindType::Uniform {
                 dynamic,
-                properties: _properties,
+                ..
             } => wgpu::BindingType::UniformBuffer {
                 dynamic: *dynamic,
                 min_binding_size: bind_type
