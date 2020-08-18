@@ -1,13 +1,13 @@
 use crate::{
     draw::Draw,
-    pipeline::RenderPipelines,
+    pipeline::{ComputePipelines, RenderPipelines},
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
         RenderResourceBindings, RenderResourceBindingsId, RenderResourceContext,
         RenderResourceHints,
     },
-    texture,
+    texture, dispatch::Dispatch,
 };
 
 use bevy_asset::{Assets, Handle};
@@ -418,6 +418,7 @@ fn render_resources_node_system<T: RenderResources>(
     mut state: Local<RenderResourcesNodeState<T>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&T, &Draw, &mut RenderPipelines)>,
+    mut query2: Query<(&T, &Dispatch, &mut ComputePipelines)>
 ) {
     let state = state.deref_mut();
     let render_resource_context = &**render_resource_context;
@@ -432,6 +433,14 @@ fn render_resources_node_system<T: RenderResources>(
             .uniform_buffer_arrays
             .increment_changed_item_counts(&uniforms);
     }
+
+    // update uniforms info
+    for (uniforms, _dispatch, _compute_pipelines) in &mut query2.iter() {
+        state
+            .uniform_buffer_arrays
+            .increment_changed_item_counts(&uniforms);
+    }
+
     state
         .uniform_buffer_arrays
         .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
@@ -563,6 +572,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&Handle<T>, &Draw, &mut RenderPipelines)>,
+    mut query2: Query<(&Handle<T>, &Dispatch, &mut ComputePipelines)>,
 ) {
     let state = state.deref_mut();
     let render_resource_context = &**render_resource_context;
@@ -661,6 +671,12 @@ fn asset_render_resources_node_system<T: RenderResources>(
     for (asset_handle, _draw, mut render_pipelines) in &mut query.iter() {
         if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
             render_pipelines.bindings.extend(asset_bindings);
+        }
+    }
+
+    for (asset_handle, _dispatch, mut compute_pipelines) in &mut query2.iter() {
+        if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
+            compute_pipelines.bindings.extend(asset_bindings);
         }
     }
 }

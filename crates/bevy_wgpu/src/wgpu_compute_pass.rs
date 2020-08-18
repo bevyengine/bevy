@@ -29,13 +29,11 @@ impl<'a> ComputePass for WgpuComputePass<'a> {
         bind_group: BindGroupId,
         dynamic_uniform_indices: Option<&[u32]>,
     ) {
-        dbg!("Trying to set bind_group!");
         if let Some(bind_group_info) = self
             .wgpu_resources
             .bind_groups
             .get(&bind_group_descriptor_id)
         {
-            dbg!("setting bind_group!");
             if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&bind_group) {
                 const EMPTY: &'static [u32] = &[];
                 let dynamic_uniform_indices =

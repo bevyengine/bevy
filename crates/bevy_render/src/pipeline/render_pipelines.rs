@@ -1,8 +1,8 @@
-use super::{PipelineDescriptor, PipelineSpecialization};
+use super::{PipelineDescriptor, PipelineSpecialization, ComputePipelines};
 use crate::{
     draw::{Draw, DrawContext},
     prelude::Msaa,
-    renderer::RenderResourceBindings,
+    renderer::RenderResourceBindings, dispatch::{Dispatch, DispatchContext},
 };
 use bevy_asset::Handle;
 use bevy_ecs::{Query, Res, ResMut};

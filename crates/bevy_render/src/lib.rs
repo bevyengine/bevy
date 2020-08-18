@@ -38,7 +38,7 @@ use camera::{
 };
 use pipeline::{
     ComputePipelineCompiler, DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors, ComputePipelineSpecialization, ComputePipelineDescriptor,
+    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors, ComputePipelineSpecialization, ComputePipelineDescriptor, ComputePipelines,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
@@ -52,7 +52,7 @@ use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
 use texture::TextureResourceSystemState;
-use dispatch::DispatchResource;
+use dispatch::Dispatch;
 
 /// The names of "render" App stages
 pub mod stage {
@@ -108,7 +108,9 @@ impl Plugin for RenderPlugin {
             .add_asset_loader::<Texture, ImageTextureLoader>()
             .register_component::<Camera>()
             .register_component::<Draw>()
+            .register_component::<Dispatch>()
             .register_component::<RenderPipelines>()
+            .register_component::<ComputePipelines>()
             .register_component::<OrthographicProjection>()
             .register_component::<PerspectiveProjection>()
             .register_component::<MainPass>()
@@ -128,7 +130,6 @@ impl Plugin for RenderPlugin {
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
-            .init_resource::<DispatchResource>()
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::active_cameras_system.system(),
@@ -159,6 +160,7 @@ impl Plugin for RenderPlugin {
                 stage::RENDER_GRAPH_SYSTEMS,
                 render_graph::render_graph_schedule_executor_system.thread_local_system(),
             )
+            .add_system_to_stage(stage::COMPUTE, pipeline::dispatch_compute_pipelines_system.system())
             .add_system_to_stage(stage::DRAW, pipeline::draw_render_pipelines_system.system())
             .add_system_to_stage(
                 stage::POST_RENDER,
