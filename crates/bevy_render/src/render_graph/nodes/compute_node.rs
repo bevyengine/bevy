@@ -8,7 +8,7 @@ use crate::{
     }, dispatch::{ComputeCommand, Dispatch},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Resources, World, Query};
+use bevy_ecs::{Resources, World};
 
 
 pub struct ComputeNode;

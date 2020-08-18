@@ -1,28 +1,20 @@
 use bevy::prelude::*;
-use bevy_core::Byteable;
 use bevy_render::pipeline::{
-    ComputePipeline, ComputePipelineCompiler, ComputePipelineDescriptor,
-    ComputePipelineSpecialization, ComputePipelines, DynamicBinding,
+    ComputePipeline, ComputePipelineDescriptor,
+    ComputePipelineSpecialization, ComputePipelines,
 };
 use bevy_render::shader::{ComputeShaderStages, ShaderStage};
 use bevy_render::{
     render_graph::{base::node::COMPUTE_PASS, AssetRenderResourcesNode, RenderGraph},
-    renderer::{RenderResource, RenderResourceContext, RenderResources}, dispatch::Dispatch,
+    renderer::{RenderResources}, dispatch::Dispatch,
 };
 
 fn main() {
     App::build()
-        .add_resource::<ComputeState>(ComputeState::default())
         .add_default_plugins()
         .add_asset::<PrimeIndices>()
         .add_startup_system(setup.system())
         .run();
-}
-
-#[derive(Default)]
-struct ComputeState {
-    pipeline_handle: Handle<ComputePipelineDescriptor>,
-    shader: Handle<Shader>,
 }
 
 const COMPUTE_SHADER: &str = r#"
@@ -41,6 +33,9 @@ layout(set = 0, binding = 0) buffer PrimeIndices_indices {
 // This function returns how many times this recurrence needs to be applied to reach 1.
 uint collatz_iterations(uint n) {
     uint i = 0;
+    if (n == 0) {
+        return n;
+    }
     while(n != 1) {
         if (mod(n, 2) == 0) {
             n = n / 2;
@@ -55,7 +50,7 @@ uint collatz_iterations(uint n) {
 
 void main() {
     uint index = gl_GlobalInvocationID.x;
-    // indices[index] = collatz_iterations(indices[index]);
+    indices[index] = collatz_iterations(indices[index]);
 }
 "#;
 #[derive(Default, RenderResources)]
@@ -96,7 +91,7 @@ fn setup(
         .unwrap();
 
     // Some prime data
-    let prime_data = vec![0, 1, 7, 2];
+    let prime_data = vec![1, 2, 3, 4];
     let data_count = prime_data.len();
 
     let primes_handle = prime_indices.add(PrimeIndices {
@@ -108,20 +103,13 @@ fn setup(
             compute_pipelines: ComputePipelines::from_pipelines(vec![
                 ComputePipeline::specialized(
                     pipeline_handle,
-                    // NOTE: in the future you wont need to manually declare dynamic bindings
                     ComputePipelineSpecialization {
-                        // dynamic_bindings: vec![
-                        //     // MyMaterial_color
-                        //     DynamicBinding {
-                        //         bind_group: 0,
-                        //         binding: 0,
-                        //     },
-                        // ],
                         ..Default::default()
                     },
                 ),
             ]),
             dispatch: Dispatch {
+                only_once: false,
                 work_group_size_x: data_count as u32,
                 ..Default::default()
             },

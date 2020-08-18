@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
         ComputePipelineCompiler, ComputePipelineDescriptor, ComputePipelineSpecialization,
-        PipelineDescriptor, PipelineLayout,
+        PipelineLayout,
     },
     renderer::{
         BindGroup, BindGroupId, BufferUsage, RenderResource, RenderResourceBinding,
@@ -83,7 +83,9 @@ impl Dispatch {
     /// x, y and z denote the number of work groups to dispatch in each dimension.
     pub fn dispatch(&mut self) {
         self.compute_command(ComputeCommand::Dispatch { x: self.work_group_size_x, y: self.work_group_size_y, z: self.work_group_size_z });
-        self.has_run = true;
+        if self.only_once {
+            self.has_run = true;
+        }
     }
 
     #[inline]
