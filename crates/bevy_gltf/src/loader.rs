@@ -1,5 +1,5 @@
 use bevy_render::{
-    mesh::{Mesh, VertexAttribute, VertexAttributeValues},
+    mesh::{Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
 };
 
@@ -77,26 +77,17 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             let mut mesh = Mesh::new(primitive_topology);
             reader
                 .read_positions()
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Position".into(),
-                    values: VertexAttributeValues::Float3(v.collect()),
-                })
+                .map(|v| VertexAttribute::position(v.collect()))
                 .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
 
             reader
                 .read_normals()
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Normal".into(),
-                    values: VertexAttributeValues::Float3(v.collect()),
-                })
+                .map(|v| VertexAttribute::normal(v.collect()))
                 .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
 
             reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Uv".into(),
-                    values: VertexAttributeValues::Float2(v.into_f32().collect()),
-                })
+                .map(|v| VertexAttribute::uv(v.into_f32().collect()))
                 .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
 
             reader.read_indices().map(|indices| {
