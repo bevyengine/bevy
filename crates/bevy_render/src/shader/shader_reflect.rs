@@ -82,7 +82,7 @@ impl ShaderLayout {
                     };
 
                     if let Some(current) = current_descriptor.as_mut() {
-                        if &current.name == &current_buffer_name {
+                        if current.name == current_buffer_name {
                             current.attributes.push(vertex_attribute_descriptor);
                             continue;
                         } else {
