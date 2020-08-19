@@ -40,6 +40,11 @@ impl Default for PbrComponents {
                             bind_group: 3,
                             binding: 0,
                         },
+                        // StandardMaterial_pbr
+                        DynamicBinding {
+                            bind_group: 3,
+                            binding: 3,
+                        },
                     ],
                     ..Default::default()
                 },

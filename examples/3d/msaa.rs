@@ -21,13 +21,13 @@ fn setup(
     commands
         // cube
         .spawn(PbrComponents {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            mesh: meshes.add(Mesh::from(shape::Icosphere { radius: 1.0, subdivisions: 32, })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, 8.0, 4.0),
+            translation: Translation::new(40.0, 80.0, 40.0),
             ..Default::default()
         })
         // camera

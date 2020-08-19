@@ -73,14 +73,19 @@ pub fn camera_node_system(
     // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
     // with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    query: Query<(&Camera, &Transform)>,
+    query: Query<(&Camera, &Transform, &Translation)>,
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let (camera, transform) = if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
+    let (camera, transform, translation) = if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
+        let camera = query.get::<Camera>(camera_entity).unwrap();
+        let transform = query.get::<Transform>(camera_entity).unwrap();
+        let translation = query.get::<Translation>(camera_entity).unwrap();
+
         (
-            query.get::<Camera>(camera_entity).unwrap(),
-            query.get::<Transform>(camera_entity).unwrap(),
+            camera,
+            transform,
+            translation,
         )
     } else {
         return;
@@ -90,7 +95,7 @@ pub fn camera_node_system(
         render_resource_context.map_buffer(staging_buffer);
         staging_buffer
     } else {
-        let size = std::mem::size_of::<[[f32; 4]; 4]>();
+        let size = std::mem::size_of::<[[f32; 4]; 5]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
             buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
@@ -116,15 +121,16 @@ pub fn camera_node_system(
         staging_buffer
     };
 
-    let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
-    let camera_matrix: [f32; 16] =
-        (camera.projection_matrix * transform.value.inverse()).to_cols_array();
+    let matrix_size = std::mem::size_of::<[[f32; 4]; 5]>();
+    let mut camera_matrix_array: Vec<f32> = (camera.projection_matrix * transform.value.inverse()).to_cols_array().to_vec();
+    camera_matrix_array.extend_from_slice(&[translation.x(), translation.y(), translation.z(), 1.0]);
+    let camera_gpu_data = camera_matrix_array.as_slice();
 
     render_resource_context.write_mapped_buffer(
         staging_buffer,
         0..matrix_size as u64,
         &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
+            data[0..matrix_size].copy_from_slice(camera_gpu_data.as_bytes());
         },
     );
     render_resource_context.unmap_buffer(staging_buffer);

@@ -77,7 +77,7 @@ impl<Q: HecsQuery> PassNode<Q> {
                 index: 0,
                 bind_type: BindType::Uniform {
                     dynamic: false,
-                    properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
+                    properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4, UniformProperty::Vec4])],
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
             }],
