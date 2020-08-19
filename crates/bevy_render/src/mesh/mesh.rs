@@ -1,12 +1,12 @@
 use super::Vertex;
 use crate::{
-    PipelineCompiler, PipelineSpecialization, Shader,
     draw::DrawError,
     pipeline::{
-        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
-        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat, PipelineDescriptor,
+        AsVertexBufferDescriptor, IndexFormat, PipelineDescriptor, PrimitiveTopology,
+        RenderPipelines, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
+    PipelineCompiler, PipelineSpecialization, Shader,
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -485,22 +485,19 @@ fn prepare_pipeline<'a>(
     pipeline_handle: Handle<PipelineDescriptor>,
     specialization: &PipelineSpecialization,
 ) -> Result<Handle<PipelineDescriptor>, DrawError> {
-    if let Some(specialized_pipeline) = pipeline_compiler
-        .get_specialized_pipeline(pipeline_handle, specialization)
+    if let Some(specialized_pipeline) =
+        pipeline_compiler.get_specialized_pipeline(pipeline_handle, specialization)
     {
         Ok(specialized_pipeline)
     } else {
-        Ok(
-            pipeline_compiler
-                .prepare_pipeline(
-                    &**render_resource_context,
-                    pipelines,
-                    shaders,
-                    pipeline_handle,
-                    vertex_buffer_descriptors,
-                    specialization,
-                )
-        )
+        Ok(pipeline_compiler.prepare_pipeline(
+            &**render_resource_context,
+            pipelines,
+            shaders,
+            pipeline_handle,
+            vertex_buffer_descriptors,
+            specialization,
+        ))
     }
 }
 
@@ -551,12 +548,13 @@ pub fn mesh_resource_provider_system(
                             pipeline.pipeline,
                             &pipeline.specialization,
                         )
-                            .unwrap();
+                        .unwrap();
                         pipeline.pipeline = specialized_pipeline_descriptor;
                         if let Some(pipeline) = pipeline_descriptors.get(&pipeline.pipeline) {
                             if let Some(layout) = &pipeline.layout {
                                 for vertex_buffer_descriptor in &layout.vertex_buffer_descriptors {
-                                    mesh_vertex_buffer_descriptor = Some(vertex_buffer_descriptor.clone());
+                                    mesh_vertex_buffer_descriptor =
+                                        Some(vertex_buffer_descriptor.clone());
                                     break 'outer;
                                 }
                             }
@@ -564,7 +562,7 @@ pub fn mesh_resource_provider_system(
                     }
                 }
             }
-                 
+
             let vertex_bytes = mesh
                 .get_vertex_buffer_bytes(
                     mesh_vertex_buffer_descriptor
