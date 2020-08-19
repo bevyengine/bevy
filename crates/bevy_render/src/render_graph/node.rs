@@ -14,6 +14,12 @@ impl NodeId {
     }
 }
 
+impl Default for NodeId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait Node: Downcast + Send + Sync + 'static {
     fn input(&self) -> &[ResourceSlotInfo] {
         &[]

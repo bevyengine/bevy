@@ -9,6 +9,12 @@ impl BufferId {
     }
 }
 
+impl Default for BufferId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BufferInfo {
     pub size: usize,
