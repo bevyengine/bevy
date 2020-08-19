@@ -156,10 +156,6 @@ void main() {
 
         float NdotL = clampNoV(dot(N, L));
         float NdotV = clampNoV(dot(N, V));
-        float NdotH = clampNoV(dot(N, H));
-        float LdotH = clampNoV(dot(L, H));
-        float VdotH = clampNoV(dot(V, H));
-
         float NoL = saturate(NdotL);
         float NoH = saturate(dot(N, H));
         float LoH = saturate(dot(L, H));
