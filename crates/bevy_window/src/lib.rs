@@ -48,7 +48,7 @@ impl Plugin for WindowPlugin {
             let mut create_window_event = resources.get_mut::<Events<CreateWindow>>().unwrap();
             create_window_event.send(CreateWindow {
                 id: WindowId::primary(),
-                descriptor: window_descriptor.clone(),
+                descriptor: window_descriptor,
             });
         }
 

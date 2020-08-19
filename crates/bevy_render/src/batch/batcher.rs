@@ -123,7 +123,7 @@ where
                 .find(|(_i, is_index)| is_index(&key))
                 .map(|(i, _)| i);
             if let Some(key_index) = key_index {
-                key_state.set(key_index, key.clone());
+                key_state.set(key_index, key);
                 key_state.finish()
             } else {
                 return false;

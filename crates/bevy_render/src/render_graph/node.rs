@@ -48,7 +48,7 @@ pub struct Edges {
 impl Edges {
     pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_input_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+            return Err(RenderGraphError::EdgeAlreadyExists(edge));
         }
         self.input_edges.push(edge);
         Ok(())
@@ -56,7 +56,7 @@ impl Edges {
 
     pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_output_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+            return Err(RenderGraphError::EdgeAlreadyExists(edge));
         }
         self.output_edges.push(edge);
         Ok(())

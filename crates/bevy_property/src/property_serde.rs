@@ -511,7 +511,7 @@ where
                     .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
                 let mut dynamic_properties =
                     map.next_value_seed(MapPropertyDeserializer { registry })?;
-                dynamic_properties.type_name = type_name.to_string();
+                dynamic_properties.type_name = type_name;
                 return Ok(DynamicPropertiesOrProperty::DynamicProperties(
                     dynamic_properties,
                 ));
