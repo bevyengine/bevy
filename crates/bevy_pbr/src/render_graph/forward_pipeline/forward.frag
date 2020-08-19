@@ -42,21 +42,24 @@ layout(set = 3, binding = 2) uniform sampler StandardMaterial_albedo_texture_sam
 
 # ifdef STANDARDMATERIAL_SHADED
 
-const float PI = 3.141592653589793;
-
 #define saturate(x)        clamp(x, 0.0, 1.0)
+const float PI = 3.141592653589793;
 
 float pow5(float x) {
     float x2 = x * x;
     return x2 * x2 * x;
 }
 
-float getRangeAttenuation(float range, float distance)
-{
-    if (range <= 0.0) {
-        return 1.0;
-    }
-    return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+float getSquareFalloffAttenuation(float distanceSquare, float falloff) {
+    float factor = distanceSquare * falloff;
+    float smoothFactor = saturate(1.0 - factor * factor);
+    return smoothFactor * smoothFactor;
+}
+
+float getDistanceAttenuation(const highp vec3 posToLight, float falloff) {
+    float distanceSquare = dot(posToLight, posToLight);
+    float attenuation = getSquareFalloffAttenuation(distanceSquare, falloff);
+    return attenuation * 1.0 / max(distanceSquare, 1e-4);
 }
 
 float D_GGX(float roughness, float NoH, const vec3 h) {
@@ -144,7 +147,7 @@ void main() {
         vec3 lightDir = light.pos.xyz - v_Position.xyz;
         vec3 L = normalize(lightDir);
 
-        float rangeAttenuation = getRangeAttenuation(light.attenuation, length(lightDir));
+        float rangeAttenuation = getDistanceAttenuation(lightDir, light.attenuation);
         
         vec3 H = normalize(L + V);
 
@@ -161,7 +164,7 @@ void main() {
         vec3 specular = isotropicLobe(F0, roughness, H, NdotV, NoL, NoH, LoH);
         vec3 diffuse = diffuseColor * Fd_Burley(roughness, NdotV, NoL, LoH);
 
-        light_accum += (diffuse + specular) * NdotL; //((diffuse + specular) * light.color.xyz) * (light.color.w * rangeAttenuation * NdotL);
+        light_accum += ((diffuse + specular) * light.color.xyz) * (light.color.w * NdotL);
     }
 
     output_color.xyz = light_accum;
