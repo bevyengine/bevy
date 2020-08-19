@@ -139,7 +139,7 @@ where
             batch.add(value);
         }
 
-        return true;
+        true
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Batch<TKey, TValue, TData>> {
