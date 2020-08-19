@@ -38,7 +38,7 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
                         a.path.get_ident().as_ref().unwrap().to_string() == VERTEX_ATTRIBUTE_NAME
                     })
                     .map_or_else(
-                        || VertexAttributes::default(),
+                        VertexAttributes::default,
                         |a| {
                             syn::custom_keyword!(ignore);
                             let mut vertex_attributes = VertexAttributes::default();

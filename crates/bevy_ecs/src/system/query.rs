@@ -51,7 +51,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
             {
                 self.world
                     .get(entity)
-                    .map_err(|err| QueryError::ComponentError(err))
+                    .map_err(QueryError::ComponentError)
             } else {
                 Err(QueryError::CannotReadArchetype)
             }
@@ -91,7 +91,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
             {
                 self.world
                     .get_mut(entity)
-                    .map_err(|err| QueryError::ComponentError(err))
+                    .map_err(QueryError::ComponentError)
             } else {
                 Err(QueryError::CannotWriteArchetype)
             }

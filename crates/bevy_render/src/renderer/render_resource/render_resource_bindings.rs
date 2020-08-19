@@ -241,7 +241,7 @@ impl AssetRenderResourceBindings {
     pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
         self.bindings
             .entry(HandleUntyped::from(handle))
-            .or_insert_with(|| RenderResourceBindings::default())
+            .or_insert_with(RenderResourceBindings::default)
     }
 
     pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {

@@ -173,7 +173,7 @@ impl Schedule {
         let thread_pool_builder = resources
             .get::<ParallelExecutorOptions>()
             .map(|options| (*options).clone())
-            .unwrap_or_else(|| ParallelExecutorOptions::default())
+            .unwrap_or_else(ParallelExecutorOptions::default)
             .create_builder();
         // For now, bevy_ecs only uses the global thread pool so it is sufficient to configure it once here.
         // Dont call .unwrap() as the function is called twice..

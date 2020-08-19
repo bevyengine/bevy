@@ -30,7 +30,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
             a.path.get_ident().as_ref().unwrap().to_string() == RENDER_RESOURCE_ATTRIBUTE_NAME
         })
         .map_or_else(
-            || RenderResourceAttributes::default(),
+            RenderResourceAttributes::default,
             |a| {
                 syn::custom_keyword!(from_self);
                 let mut attributes = RenderResourceAttributes::default();
@@ -97,7 +97,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                                 == RENDER_RESOURCE_ATTRIBUTE_NAME
                         })
                         .map_or_else(
-                            || RenderResourceFieldAttributes::default(),
+                            RenderResourceFieldAttributes::default,
                             |a| {
                                 syn::custom_keyword!(ignore);
                                 syn::custom_keyword!(buffer);

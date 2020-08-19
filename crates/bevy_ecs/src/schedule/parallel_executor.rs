@@ -51,7 +51,7 @@ impl ParallelExecutor {
         if schedule_changed {
             self.stages.clear();
             self.stages
-                .resize_with(schedule.stage_order.len(), || ExecutorStage::default());
+                .resize_with(schedule.stage_order.len(), ExecutorStage::default);
         }
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {

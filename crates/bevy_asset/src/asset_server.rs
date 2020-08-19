@@ -172,7 +172,7 @@ impl AssetServer {
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
 
-        let _ = filesystem_watcher.get_or_insert_with(|| FilesystemWatcher::default());
+        let _ = filesystem_watcher.get_or_insert_with(FilesystemWatcher::default);
         // watch current files
         let asset_info_paths = self.asset_info_paths.read().unwrap();
         for asset_path in asset_info_paths.keys() {
@@ -245,7 +245,7 @@ impl AssetServer {
     // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
     pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
         self.load_untyped(path)
-            .map(|handle_id| Handle::from(handle_id))
+            .map(Handle::from)
     }
 
     pub fn load_sync<T: Resource, P: AsRef<Path>>(
