@@ -27,8 +27,7 @@ impl RenderPipeline {
     ) -> Self {
         RenderPipeline {
             pipeline,
-            specialization,
-            ..Default::default()
+            specialization
         }
     }
 }
