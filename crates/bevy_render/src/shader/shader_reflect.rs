@@ -436,7 +436,7 @@ mod tests {
                                     UniformProperty::Mat4
                                 ])],
                             },
-                            shader_stage: BindingShaderStage::VERTEX,
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                     BindGroupDescriptor::new(
