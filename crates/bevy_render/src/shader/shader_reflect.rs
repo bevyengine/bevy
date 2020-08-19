@@ -412,9 +412,7 @@ mod tests {
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 dynamic: false,
-                                property: UniformProperty::Struct(vec![
-                                    UniformProperty::Mat4
-                                ]),
+                                property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                             },
                             shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
