@@ -39,7 +39,7 @@ impl AppBuilder {
     }
 
     pub fn run(&mut self) {
-        let app = std::mem::replace(&mut self.app, App::default());
+        let app = std::mem::take(&mut self.app);
         app.run();
     }
 
