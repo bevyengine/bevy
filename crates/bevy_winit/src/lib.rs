@@ -1,11 +1,12 @@
 mod converters;
+mod winit_config;
 mod winit_windows;
-pub use winit_windows::*;
-
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
+pub use winit_config::*;
+pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::Resources;
@@ -13,6 +14,7 @@ use bevy_math::Vec2;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
+use event::Event;
 use winit::{
     event,
     event::{DeviceEvent, WindowEvent},
@@ -33,8 +35,51 @@ impl Plugin for WinitPlugin {
     }
 }
 
+fn run<F>(event_loop: EventLoop<()>, event_handler: F) -> !
+where
+    F: 'static + FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+{
+    event_loop.run(event_handler)
+}
+
+// TODO: It may be worth moving this cfg into a procedural macro so that it can be referenced by
+// a single name instead of being copied around.
+// https://gist.github.com/jakerr/231dee4a138f7a5f25148ea8f39b382e seems to work.
+#[cfg(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+where
+    F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+{
+    use winit::platform::desktop::EventLoopExtDesktop;
+    event_loop.run_return(event_handler)
+}
+
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+)))]
+fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+where
+    F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
+{
+    panic!("Run return is not supported on this platform!")
+}
+
 pub fn winit_runner(mut app: App) {
-    let event_loop = EventLoop::new();
+    let mut event_loop = EventLoop::new();
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
@@ -45,7 +90,15 @@ pub fn winit_runner(mut app: App) {
     );
 
     log::debug!("Entering winit event loop");
-    event_loop.run(move |event, event_loop, control_flow| {
+
+    let should_return_from_run = app
+        .resources
+        .get::<WinitConfig>()
+        .map_or(false, |config| config.return_from_run);
+
+    let event_handler = move |event: Event<()>,
+                              event_loop: &EventLoopWindowTarget<()>,
+                              control_flow: &mut ControlFlow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
         } else {
@@ -160,7 +213,12 @@ pub fn winit_runner(mut app: App) {
             }
             _ => (),
         }
-    });
+    };
+    if should_return_from_run {
+        run_return(&mut event_loop, event_handler);
+    } else {
+        run(event_loop, event_handler);
+    }
 }
 
 fn handle_create_window_events(

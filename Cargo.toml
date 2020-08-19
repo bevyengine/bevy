@@ -124,6 +124,10 @@ name = "plugin"
 path = "examples/app/plugin.rs"
 
 [[example]]
+name = "return_after_run"
+path = "examples/app/return_after_run.rs"
+
+[[example]]
 name = "thread_pool_resources"
 path = "examples/app/thread_pool_resources.rs"
 
