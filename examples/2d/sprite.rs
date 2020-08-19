@@ -13,7 +13,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
-    
+
     let sprite_material: ColorMaterial = texture_handle.into();
     // You can flip sprites by using:
     // sprite_material.flip_horz = 1.0;
