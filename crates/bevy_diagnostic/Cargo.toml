@@ -10,7 +10,7 @@ license = "MIT"
 keywords = ["bevy"]
 
 [features]
-profiler = []
+profiler = ["bevy_ecs/profiler"]
 
 [dependencies]
 # bevy

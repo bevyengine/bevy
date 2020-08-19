@@ -3,9 +3,9 @@ use crate::{
     resource::Resources,
     system::{ArchetypeAccess, System, ThreadLocalExecution, TypeAccess},
 };
+use bevy_hecs::{ArchetypesGeneration, World};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use bevy_hecs::{ArchetypesGeneration, World};
 use rayon::ScopeFifo;
 use std::{
     ops::Range,
@@ -65,6 +65,52 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
+    }
+}
+
+/// This can be added as an app resource to control the global `rayon::ThreadPool` used by ecs.
+// Dev internal note: We cannot directly expose a ThreadPoolBuilder here as it does not implement Send and Sync.
+#[derive(Debug, Default, Clone)]
+pub struct ParallelExecutorOptions {
+    /// If some value, we'll set up the thread pool to use at most n threads. See `rayon::ThreadPoolBuilder::num_threads`.
+    num_threads: Option<usize>,
+    /// If some value, we'll set up the thread pool's' workers to the given stack size. See `rayon::ThreadPoolBuilder::stack_size`.
+    stack_size: Option<usize>,
+    // TODO: Do we also need/want to expose other features (*_handler, etc.)
+}
+
+impl ParallelExecutorOptions {
+    /// Creates a new ParallelExecutorOptions instance
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the num_threads option, using the builder pattern
+    pub fn with_num_threads(mut self, num_threads: Option<usize>) -> Self {
+        self.num_threads = num_threads;
+        self
+    }
+
+    /// Sets the stack_size option, using the builder pattern. WARNING: Only use this if you know what you're doing,
+    /// otherwise your application may run into stability and performance issues.
+    pub fn with_stack_size(mut self, stack_size: Option<usize>) -> Self {
+        self.stack_size = stack_size;
+        self
+    }
+
+    /// Creates a new ThreadPoolBuilder based on the current options.
+    pub(crate) fn create_builder(&self) -> rayon::ThreadPoolBuilder {
+        let mut builder = rayon::ThreadPoolBuilder::new();
+
+        if let Some(num_threads) = self.num_threads {
+            builder = builder.num_threads(num_threads);
+        }
+
+        if let Some(stack_size) = self.stack_size {
+            builder = builder.stack_size(stack_size);
+        }
+
+        builder
     }
 }
 
@@ -313,19 +359,22 @@ impl ExecutorStage {
         self.running_systems.clear();
 
         let mut run_ready_result = RunReadyResult::Ok;
-        let run_ready_system_index_range = if let Some(index) = self
-            .thread_local_system_indices
-            .get(0)
-        {
-            // if there is an upcoming thread local system, run up to (and including) it
-            0..(*index + 1)
-        } else {
-            // if there are no upcoming thread local systems, run everything right now
-            0..systems.len()
-        };
+        let run_ready_system_index_range =
+            if let Some(index) = self.thread_local_system_indices.get(0) {
+                // if there is an upcoming thread local system, run up to (and including) it
+                0..(*index + 1)
+            } else {
+                // if there are no upcoming thread local systems, run everything right now
+                0..systems.len()
+            };
         rayon::scope_fifo(|scope| {
-            run_ready_result =
-                self.run_ready_systems(systems, RunReadyType::Range(run_ready_system_index_range), scope, world, resources);
+            run_ready_result = self.run_ready_systems(
+                systems,
+                RunReadyType::Range(run_ready_system_index_range),
+                scope,
+                world,
+                resources,
+            );
         });
         loop {
             // if all systems in the stage are finished, break out of the loop
@@ -395,8 +444,8 @@ mod tests {
         system::{IntoQuerySystem, IntoThreadLocalSystem, Query},
         Commands,
     };
-    use fixedbitset::FixedBitSet;
     use bevy_hecs::{Entity, World};
+    use fixedbitset::FixedBitSet;
     use std::sync::{Arc, Mutex};
 
     #[derive(Default)]

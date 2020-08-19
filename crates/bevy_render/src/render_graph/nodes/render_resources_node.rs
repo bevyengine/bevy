@@ -658,7 +658,10 @@ fn asset_render_resources_node_system<T: RenderResources>(
         }
     }
 
-    for (asset_handle, _draw, mut render_pipelines) in &mut query.iter() {
+    for (asset_handle, draw, mut render_pipelines) in &mut query.iter() {
+        if !draw.is_visible {
+            continue;
+        }
         if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
             render_pipelines.bindings.extend(asset_bindings);
         }

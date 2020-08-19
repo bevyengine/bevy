@@ -13,6 +13,7 @@ fn main() {
         .register_component::<ComponentB>()
         .add_startup_system(save_scene_system.thread_local_system())
         .add_startup_system(load_scene_system.system())
+        .add_startup_system(infotext_system.system())
         .add_system(print_system.system())
         .run();
 }
@@ -127,4 +128,26 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
     );
 
     // TODO: save scene
+}
+
+// This is only necessary for the info message in the UI. See examples/ui/text.rs for a standalone text example.
+fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
+    commands
+        .spawn(UiCameraComponents::default())
+        .spawn(TextComponents {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                ..Default::default()
+            },
+            text: Text {
+                value: "Nothing to see in this window! Check the console output!".to_string(),
+                font: font_handle,
+                style: TextStyle {
+                    font_size: 50.0,
+                    color: Color::WHITE,
+                },
+            },
+            ..Default::default()
+        });
 }

@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, InputStepMode, UniformProperty,
-        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat, BindingShaderStage,
+        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
+        UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
     texture::{TextureComponentType, TextureViewDimension},
 };

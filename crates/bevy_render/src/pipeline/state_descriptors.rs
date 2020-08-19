@@ -1,6 +1,6 @@
 use crate::texture::TextureFormat;
-use serde::{Serialize, Deserialize};
 use bevy_property::Property;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
 pub struct DepthStencilStateDescriptor {

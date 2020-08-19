@@ -165,12 +165,16 @@ impl Mesh {
     }
 }
 
+/// Generation for some primitive shape meshes.
 pub mod shape {
     use super::{Mesh, VertexAttribute};
     use crate::pipeline::PrimitiveTopology;
     use bevy_math::*;
+    use hexasphere::Hexasphere;
 
+    /// A cube.
     pub struct Cube {
+        /// Half the side length of the cube.
         pub size: f32,
     }
 
@@ -246,8 +250,11 @@ pub mod shape {
         }
     }
 
+    /// A rectangle on the XY plane.
     pub struct Quad {
+        /// Full width and height of the rectangle.
         pub size: Vec2,
+        /// Flips the texture coords of the resulting vertices.
         pub flip: bool,
     }
 
@@ -341,7 +348,9 @@ pub mod shape {
         }
     }
 
+    /// A square on the XZ plane.
     pub struct Plane {
+        /// The total side length of the square.
         pub size: f32,
     }
 
@@ -371,6 +380,68 @@ pub mod shape {
                 primitive_topology: PrimitiveTopology::TriangleList,
                 attributes: vec![
                     VertexAttribute::position(positions),
+                    VertexAttribute::normal(normals),
+                    VertexAttribute::uv(uvs),
+                ],
+                indices: Some(indices),
+            }
+        }
+    }
+
+    /// A sphere made from a subdivided Icosahedron.
+    pub struct Icosphere {
+        /// The radius of the sphere.
+        pub radius: f32,
+        /// The number of subdivisions applied.
+        pub subdivisions: usize,
+    }
+
+    impl Default for Icosphere {
+        fn default() -> Self {
+            Self {
+                radius: 1.0,
+                subdivisions: 5,
+            }
+        }
+    }
+
+    impl From<Icosphere> for Mesh {
+        fn from(sphere: Icosphere) -> Self {
+            let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
+                let inclination = point.z().acos();
+                let azumith = point.y().atan2(point.x());
+
+                let norm_inclination = 1.0 - (inclination / std::f32::consts::PI);
+                let norm_azumith = (azumith / std::f32::consts::PI) * 0.5;
+
+                [norm_inclination, norm_azumith]
+            });
+
+            let raw_points = hexasphere.raw_points();
+
+            let points = raw_points
+                .iter()
+                .map(|&p| (p * sphere.radius).into())
+                .collect::<Vec<[f32; 3]>>();
+
+            let normals = raw_points
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect::<Vec<[f32; 3]>>();
+
+            let uvs = hexasphere.raw_data().to_owned();
+
+            let mut indices = Vec::with_capacity(hexasphere.indices_per_main_triangle() * 20);
+
+            for i in 0..20 {
+                hexasphere.get_indices(i, &mut indices);
+            }
+
+            Mesh {
+                primitive_topology: PrimitiveTopology::TriangleList,
+                attributes: vec![
+                    VertexAttribute::position(points),
                     VertexAttribute::normal(normals),
                     VertexAttribute::uv(uvs),
                 ],

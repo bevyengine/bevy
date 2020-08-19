@@ -182,6 +182,12 @@ impl<'a, T: Component> DerefMut for Mut<'a, T> {
     }
 }
 
+impl<'a, T: Component + core::fmt::Debug> core::fmt::Debug for Mut<'a, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
 impl<'a, T: Component> Query for Mut<'a, T> {
     type Fetch = FetchMut<T>;
 }

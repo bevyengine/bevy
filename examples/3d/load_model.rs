@@ -18,7 +18,9 @@ fn setup(
         // mesh
         .spawn(PbrComponents {
             // load the mesh
-            mesh: asset_server.load("assets/models/monkey/Monkey.gltf").unwrap(),
+            mesh: asset_server
+                .load("assets/models/monkey/Monkey.gltf")
+                .unwrap(),
             // create a material for the mesh
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
             ..Default::default()

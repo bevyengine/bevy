@@ -3,12 +3,12 @@ use crate::{
     system::{SystemId, TypeAccess},
     Resource, ResourceIndex,
 };
+use bevy_hecs::smaller_tuples_too;
 use core::{
     any::TypeId,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use bevy_hecs::smaller_tuples_too;
 use std::marker::PhantomData;
 
 /// Shared borrow of a Resource

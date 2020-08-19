@@ -6,3 +6,6 @@ If you don't see your distro present in the list, feel free to add the instructi
 
 ## Ubuntu 20.04
 `sudo apt-get install libx11-dev libasound2-dev`
+
+## Fedora 32
+`sudo dnf install gcc-c++ libX11-devel alsa-lib-devel`
