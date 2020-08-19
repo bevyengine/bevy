@@ -151,7 +151,7 @@ impl<T> Default for Handle<T> {
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Handle {
-            id: self.id.clone(),
+            id: self.id,
             marker: PhantomData,
         }
     }

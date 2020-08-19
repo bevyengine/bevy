@@ -224,9 +224,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             let indices = vec![
@@ -331,9 +331,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {
@@ -371,9 +371,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {

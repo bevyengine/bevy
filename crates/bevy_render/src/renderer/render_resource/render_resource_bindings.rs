@@ -117,7 +117,7 @@ impl RenderResourceBindings {
 
         for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
         {
-            self.set_vertex_buffer(name, *vertex_buffer, index_buffer.clone());
+            self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
         }
     }
 

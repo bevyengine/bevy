@@ -17,7 +17,7 @@ impl ActiveCameras {
     }
 
     pub fn get(&self, name: &str) -> Option<Entity> {
-        self.cameras.get(name).and_then(|e| e.clone())
+        self.cameras.get(name).and_then(|e| *e)
     }
 }
 

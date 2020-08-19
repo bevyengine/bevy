@@ -171,7 +171,7 @@ impl Property for bool {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -211,7 +211,7 @@ impl Property for usize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -269,7 +269,7 @@ impl Property for u64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -327,7 +327,7 @@ impl Property for u32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -385,7 +385,7 @@ impl Property for u16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -443,7 +443,7 @@ impl Property for u8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -501,7 +501,7 @@ impl Property for isize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -559,7 +559,7 @@ impl Property for i64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -617,7 +617,7 @@ impl Property for i32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -675,7 +675,7 @@ impl Property for i16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -733,7 +733,7 @@ impl Property for i8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -791,7 +791,7 @@ impl Property for f32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -833,7 +833,7 @@ impl Property for f64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
