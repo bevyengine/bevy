@@ -15,7 +15,7 @@ pub fn exit_on_window_close_system(
     mut app_exit_events: ResMut<Events<AppExit>>,
     window_close_requested_events: Res<Events<WindowCloseRequested>>,
 ) {
-    if let Some(_) = state.event_reader.iter(&window_close_requested_events).next() {
+    if state.event_reader.iter(&window_close_requested_events).next().is_some() {
         app_exit_events.send(AppExit);
     }
 }

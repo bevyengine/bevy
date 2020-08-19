@@ -55,7 +55,7 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                         syn::custom_keyword!(ignore);
                         let mut attribute_args = PropAttributeArgs { ignore: None };
                         a.parse_args_with(|input: ParseStream| {
-                            if let Some(_) = input.parse::<Option<ignore>>()? {
+                            if input.parse::<Option<ignore>>()?.is_some() {
                                 attribute_args.ignore = Some(true);
                                 return Ok(());
                             }
