@@ -24,6 +24,7 @@ _This section is based on the [Rust Code of Conduct](https://www.rust-lang.org/p
 * Please keep unstructured critique to a minimum. If you have solid ideas you want to experiment with, make a fork and see how it works.
 * We will exclude you from interaction if you insult, demean or harass anyone. That is not welcome behavior. Please read our definition of [Harassment](#harassment). In particular, we don’t tolerate behavior that excludes people in socially marginalized groups.
 * Private harassment is also unacceptable. No matter who you are, if you feel you have been or are being harassed or made uncomfortable by a community member, please contact the maintainers immediately. Whether you’re a regular contributor or a newcomer, we care about making this community a safe place for you and we’ve got your back.
+* Please do not try to present "reverse-ism" versions of the above violations that apply specifically to underrepresented groups. Examples of reverse-isms are "reverse racism", "reverse sexism", "heterophobia", and "cisphobia".
 * Do not make casual mention of slavery or indentured servitude and/or false comparisons of one's occupation or situation to slavery. Please consider using or asking about alternate terminology when referring to such metaphors in technology.
 * Likewise any spamming, trolling, flaming, baiting or other attention-stealing behavior is not welcome.
 
@@ -49,7 +50,6 @@ The following behaviors are considered harassment and are unacceptable within ou
 * Deliberate intimidation, stalking or following (online or in person).
 * Making light of/making mocking comments about trigger warnings and content warnings.
 * Any of the above behaviour even when presented as "ironic" or "joking".
-* Any attempt to present "reverse-ism" versions of the above as violations. Examples of reverse-isms are "reverse racism", "reverse sexism", "heterophobia", and "cisphobia".
 * Advocating for, or encouraging, any of the above behavior.
 * Sustained disruption of community events, including talks and presentations.
 
