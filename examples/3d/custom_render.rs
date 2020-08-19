@@ -16,7 +16,7 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a custom material and mesh asset and a shader that uses that uses those assets
+/// This example illustrates how to create a custom material and mesh asset and a shader that uses those assets
 fn main() {
     App::build()
         .add_default_plugins()
