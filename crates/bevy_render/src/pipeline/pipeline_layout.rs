@@ -116,7 +116,7 @@ impl UniformProperty {
             UniformProperty::Struct(properties) => properties
                 .iter()
                 .map(|p| p.get_size())
-                .fold(0, |total, size| total + size),
+                .sum(),
             UniformProperty::Array(property, length) => property.get_size() * *length as u64,
         }
     }
