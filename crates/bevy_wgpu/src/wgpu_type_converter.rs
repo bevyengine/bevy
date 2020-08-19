@@ -180,10 +180,7 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform {
-                dynamic,
-                ..
-            } => wgpu::BindingType::UniformBuffer {
+            BindType::Uniform { dynamic, .. } => wgpu::BindingType::UniformBuffer {
                 dynamic: *dynamic,
                 min_binding_size: bind_type
                     .get_uniform_size()
