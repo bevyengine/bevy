@@ -159,7 +159,7 @@ impl RenderGraphStager for DependentNodeStager {
         // get all nodes without input. this intentionally includes nodes with no outputs
         let output_only_nodes = render_graph
             .iter_nodes()
-            .filter(|node| node.input_slots.len() == 0);
+            .filter(|node| node.input_slots.is_empty());
         let mut stages = vec![Stage::default()];
         let mut node_stages = HashMap::new();
         for output_only_node in output_only_nodes {
