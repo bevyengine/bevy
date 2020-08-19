@@ -32,6 +32,8 @@ layout(set = 2, binding = 0) uniform Transform {
 
 layout(set = 2, binding = 1) uniform TextureAtlasSprite {
     vec4 TextureAtlasSprite_color;
+    float flip_horz;
+    float flip_vert;
     uint TextureAtlasSprite_index;
 };
 
@@ -46,6 +48,7 @@ void main() {
         sprite_rect.end
     );
     v_Uv = (atlas_positions[gl_VertexIndex] + vec2(0.01, 0.01)) / AtlasSize;
+    v_Uv = vec2(flip_horz == 1 ? 1.0 - v_Uv.x : v_Uv.x, flip_vert == 1 ? 1.0 - v_Uv.y : v_Uv.y);
     v_Color = TextureAtlasSprite_color;
     gl_Position = ViewProj * SpriteTransform * vec4(ceil(vertex_position), 1.0);
 }

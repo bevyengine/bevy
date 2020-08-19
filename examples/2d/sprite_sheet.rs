@@ -36,10 +36,17 @@ fn setup(
     let texture = textures.get(&texture_handle).unwrap();
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+    let sprite = TextureAtlasSprite::default();
+    // You can flip sprite atlases by using:
+    // sprite.flip_horz = 1.0;
+    // sprite.flip_vert = 1.0;
+
     commands
         .spawn(Camera2dComponents::default())
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
+            sprite,
             scale: Scale(6.0),
             ..Default::default()
         })

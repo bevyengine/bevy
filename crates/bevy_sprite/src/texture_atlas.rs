@@ -26,6 +26,8 @@ pub struct TextureAtlas {
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub color: Color,
+    pub flip_horz: f32,
+    pub flip_vert: f32,
     pub index: u32,
 }
 
@@ -34,6 +36,8 @@ impl Default for TextureAtlasSprite {
         Self {
             index: 0,
             color: Color::WHITE,
+            flip_horz: 0.0,
+            flip_vert: 0.0,
         }
     }
 }

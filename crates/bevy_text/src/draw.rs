@@ -125,6 +125,7 @@ impl<'a> Drawable for DrawableText<'a> {
                     let sprite = TextureAtlasSprite {
                         index: glyph_atlas_info.char_index,
                         color: self.style.color,
+                        ..Default::default()
                     };
 
                     let transform_buffer = context

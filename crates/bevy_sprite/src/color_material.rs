@@ -4,6 +4,8 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 #[derive(RenderResources, ShaderDefs)]
 pub struct ColorMaterial {
     pub color: Color,
+    pub flip_horz: f32,
+    pub flip_vert: f32,
     #[shader_def]
     pub texture: Option<Handle<Texture>>,
 }
@@ -13,6 +15,7 @@ impl ColorMaterial {
         ColorMaterial {
             color,
             texture: None,
+            ..Default::default()
         }
     }
 
@@ -20,6 +23,7 @@ impl ColorMaterial {
         ColorMaterial {
             color: Color::WHITE,
             texture: Some(texture),
+            ..Default::default()
         }
     }
 
@@ -27,6 +31,7 @@ impl ColorMaterial {
         ColorMaterial {
             color,
             texture: Some(texture),
+            ..Default::default()
         }
     }
 }
@@ -36,6 +41,8 @@ impl Default for ColorMaterial {
         ColorMaterial {
             color: Color::rgb(1.0, 1.0, 1.0),
             texture: None,
+            flip_horz: 0.0,
+            flip_vert: 0.0,
         }
     }
 }

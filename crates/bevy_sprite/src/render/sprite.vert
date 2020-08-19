@@ -17,8 +17,16 @@ layout(set = 2, binding = 1) uniform Sprite {
     vec2 Sprite_size;
 };
 
+layout(set = 1, binding = 1) uniform ColorMaterial_flip_horz {
+    float flip_x;
+};
+
+layout(set = 1, binding = 2) uniform ColorMaterial_flip_vert {
+    float flip_y;
+};
+
 void main() {
-    v_Uv = Vertex_Uv;
+    v_Uv = vec2(flip_x == -1 ? 1.0 - Vertex_Uv.x : Vertex_Uv.x, flip_y == -1 ? 1.0 - Vertex_Uv.y : Vertex_Uv.y);
     vec3 position = Vertex_Position * vec3(Sprite_size, 1.0);
     gl_Position = ViewProj * Model * vec4(position, 1.0);
 }
