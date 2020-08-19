@@ -61,7 +61,7 @@ impl ShaderLayout {
                             } else {
                                 let parts = vertex_attribute_descriptor
                                     .name
-                                    .splitn(3, "_")
+                                    .splitn(3, '_')
                                     .collect::<Vec<&str>>();
                                 if parts.len() == 3 {
                                     if parts[0] == "I" {
