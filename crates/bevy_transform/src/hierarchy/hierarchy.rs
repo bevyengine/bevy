@@ -18,7 +18,7 @@ where
         children
             .0
             .iter()
-            .map(|entity| *entity)
+            .copied()
             .collect::<Vec<Entity>>()
     });
 
@@ -51,7 +51,7 @@ fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
         children
             .0
             .iter()
-            .map(|entity| *entity)
+            .copied()
             .collect::<Vec<Entity>>()
     }) {
         for e in children {
