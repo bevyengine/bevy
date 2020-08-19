@@ -13,22 +13,9 @@ When reporting, please include any relevant details, links, screenshots, context
 
 The maintainers will prioritize the well-being and comfort of the recipients of the violation over the comfort of the violator.
 
-## Moderation
-
-These are the policies for upholding our community’s standards of [Conduct](#conduct). If you feel that a thread needs moderation, please contact the maintainers.
-
-1. Remarks that violate the community standards of conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed. (Cursing is allowed, but never targeting another user, and never in a hateful manner).
-2. Remarks that moderators find inappropriate, whether listed in the code of conduct or not, are also not allowed.
-3. Moderators will first respond to such remarks with a warning.
-4. If the warning is unheeded, the user will be “kicked,” i.e., kicked out of the communication channel to cool off.
-5. If the user comes back and continues to make trouble, they will be banned, i.e., indefinitely excluded.
-6. Moderators may choose at their discretion to un-ban the user if it was a first offense and they offer the offended party a genuine apology.
-7. If a moderator bans someone and you think it was unjustified, please take it up with that moderator, or with a different moderator, in private. Complaints about bans in-channel are not allowed.
-8. Moderators are held to a higher standard than other community members. If a moderator creates an inappropriate situation, they should expect less leeway than others.
-
-The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
-
 ## Conduct
+
+_This section is based on the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct)._
 
 * We are committed to providing a friendly, safe and harassment-free environment for all, regardless of level of experience, gender identity and expression, sexual orientation, disability, personal appearance, body size, race, ethnicity, age, religion, nationality, or other similar characteristic.
 * Please avoid using overtly sexual aliases or other nicknames that might detract from a friendly, safe and welcoming environment for all.
@@ -65,6 +52,23 @@ The following behaviors are considered harassment and are unacceptable within ou
 * Any attempt to present "reverse-ism" versions of the above as violations. Examples of reverse-isms are "reverse racism", "reverse sexism", "heterophobia", and "cisphobia".
 * Advocating for, or encouraging, any of the above behavior.
 * Sustained disruption of community events, including talks and presentations.
+
+## Moderation
+
+_This section is based on the [Rust Code of Conduct](https://www.rust-lang.org/policies/code-of-conduct)._
+
+These are the policies for upholding our community’s standards of [Conduct](#conduct). If you feel that a thread needs moderation, please contact the maintainers.
+
+1. Remarks that violate the community standards of conduct, including hateful, hurtful, oppressive, or exclusionary remarks, are not allowed. (Cursing is allowed, but never targeting another user, and never in a hateful manner).
+2. Remarks that moderators find inappropriate, whether listed in the code of conduct or not, are also not allowed.
+3. Moderators will first respond to such remarks with a warning.
+4. If the warning is unheeded, the user will be “kicked,” i.e., kicked out of the communication channel to cool off.
+5. If the user comes back and continues to make trouble, they will be banned, i.e., indefinitely excluded.
+6. Moderators may choose at their discretion to un-ban the user if it was a first offense and they offer the offended party a genuine apology.
+7. If a moderator bans someone and you think it was unjustified, please take it up with that moderator, or with a different moderator, in private. Complaints about bans in-channel are not allowed.
+8. Moderators are held to a higher standard than other community members. If a moderator creates an inappropriate situation, they should expect less leeway than others.
+
+The enforcement policies in the code of conduct apply to all official venues, including Discord channels, GitHub repositories, the Twitter community and all other forums.
 
 ## Attribution
 
