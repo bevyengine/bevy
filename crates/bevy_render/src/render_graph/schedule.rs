@@ -190,8 +190,7 @@ fn stage_node(
             .edges
             .input_edges
             .iter()
-            .find(|e| !node_stages_and_jobs.contains_key(&e.get_output_node()))
-            .is_some()
+            .any(|e| !node_stages_and_jobs.contains_key(&e.get_output_node()))
     {
         return;
     }
