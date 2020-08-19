@@ -4,7 +4,10 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use std::{thread, time::Duration, time::Instant};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 /// Determines the method used to run an [App]'s `Schedule`
 #[derive(Copy, Clone, Debug)]
