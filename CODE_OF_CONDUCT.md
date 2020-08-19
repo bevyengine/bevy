@@ -44,7 +44,7 @@ The following behaviors are considered harassment and are unacceptable within ou
 * Personal insults, particularly those related to gender, sexual orientation, race, religion, or disability.
 * Inappropriate photography or recording.
 * Inappropriate physical contact. You should have someone's consent before touching them.
-* Unwelcome sexual attention, including when simulated online. This includes, sexualized comments or jokes; inappropriate touching, groping, and unwelcomed sexual advances.
+* Unwelcome sexual attention. This includes, sexualized comments or jokes; inappropriate touching, groping, and unwelcomed sexual advances, including when simulated online.
 * The use of sexualized language or imagery. The only exception to sexual topics is channels/spaces specifically for topics of sexual identity.
 * Deliberate intimidation, stalking or following (online or in person).
 * Making light of/making mocking comments about trigger warnings and content warnings.
