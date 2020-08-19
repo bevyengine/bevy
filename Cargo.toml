@@ -222,3 +222,7 @@ path = "examples/window/multiple_windows.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[[example]]
+name = "gng"
+path = "examples/game/gng.rs"

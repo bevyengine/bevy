@@ -1,0 +1,32 @@
+[
+  (
+    entity: 328997855,
+    components: [
+      {
+        "type": "ComponentA",
+        "map": {
+          "x": 3.0,
+          "y": 4.0,
+        },
+      },
+    ],
+  ),
+  (
+    entity: 404566393,
+    components: [
+      {
+        "type": "ComponentA",
+        "map": {
+          "x": 1.0,
+          "y": 2.0,
+        },
+      },
+      {
+        "type": "ComponentB",
+        "map": {
+          "value": "hello",
+        },
+      },
+    ],
+  ),
+]
