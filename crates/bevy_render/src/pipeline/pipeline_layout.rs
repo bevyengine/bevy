@@ -62,6 +62,20 @@ impl PipelineLayout {
         }
     }
 
+    pub fn prepare_vertex_buffer_descriptors(
+        &self,
+        vertex_buffer_descriptors: &mut VertexBufferDescriptors,
+    ) {
+        for vertex_buffer_descriptor in self.vertex_buffer_descriptors.iter() {
+            if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
+                // GL_VERTEX_INDEX is a special attribute set on our behalf
+                continue;
+            } else {
+                vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
+            }
+        }
+    }
+
     pub fn sync_vertex_buffer_descriptors(
         &mut self,
         vertex_buffer_descriptors: &VertexBufferDescriptors,

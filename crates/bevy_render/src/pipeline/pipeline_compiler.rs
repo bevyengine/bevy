@@ -124,6 +124,63 @@ impl PipelineCompiler {
             .map(|specialized_pipeline| specialized_pipeline.pipeline)
     }
 
+    pub fn prepare_pipeline(
+        &mut self,
+        render_resource_context: &dyn RenderResourceContext,
+        pipelines: &mut Assets<PipelineDescriptor>,
+        shaders: &mut Assets<Shader>,
+        source_pipeline: Handle<PipelineDescriptor>,
+        vertex_buffer_descriptors: &mut VertexBufferDescriptors,
+        pipeline_specialization: &PipelineSpecialization,
+    ) -> Handle<PipelineDescriptor> {
+        let source_descriptor = pipelines.get(&source_pipeline).unwrap();
+        let mut specialized_descriptor = source_descriptor.clone();
+        specialized_descriptor.shader_stages.vertex = self.compile_shader(
+            shaders,
+            &specialized_descriptor.shader_stages.vertex,
+            &pipeline_specialization.shader_specialization,
+        );
+        specialized_descriptor.shader_stages.fragment = specialized_descriptor
+            .shader_stages
+            .fragment
+            .as_ref()
+            .map(|fragment| {
+                self.compile_shader(
+                    shaders,
+                    fragment,
+                    &pipeline_specialization.shader_specialization,
+                )
+            });
+
+        specialized_descriptor.prepare_layout(
+            shaders,
+            true,
+            vertex_buffer_descriptors,
+            &pipeline_specialization.dynamic_bindings,
+        );
+
+        specialized_descriptor.sample_count = pipeline_specialization.sample_count;
+        specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
+
+        let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
+        render_resource_context.create_render_pipeline(
+            specialized_pipeline_handle,
+            pipelines.get(&specialized_pipeline_handle).unwrap(),
+            &shaders,
+        );
+
+        let specialized_pipelines = self
+            .specialized_pipelines
+            .entry(source_pipeline)
+            .or_insert_with(|| Vec::new());
+        specialized_pipelines.push(SpecializedPipeline {
+            pipeline: specialized_pipeline_handle,
+            specialization: pipeline_specialization.clone(),
+        });
+
+        specialized_pipeline_handle
+    }
+
     pub fn compile_pipeline(
         &mut self,
         render_resource_context: &dyn RenderResourceContext,
