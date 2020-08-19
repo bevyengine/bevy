@@ -9,6 +9,10 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
+[features]
+wayland = ["winit/wayland"]
+x11 = ["winit/x11"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.1" }
@@ -18,5 +22,5 @@ bevy_math = { path = "../bevy_math", version = "0.1" }
 bevy_window = { path = "../bevy_window", version = "0.1" }
 
 # other
-winit = { version = "0.22.2", package = "cart-tmp-winit", default-features = false, features = ["x11"] }
+winit = { version = "0.22.2", package = "cart-tmp-winit", default-features = false}
 log = { version = "0.4", features = ["release_max_level_info"] }
