@@ -42,6 +42,9 @@ We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/intr
 # Runs the "breakout" example
 cargo run --example breakout
 ```
+### Linux Dependencies
+
+Bevy requires some additional dependencies when running on a linux based OS, listed [here](https://github.com/bevyengine/bevy/blob/master/docs/linux_dependencies.md).
 
 ### Fast Compiles
 
