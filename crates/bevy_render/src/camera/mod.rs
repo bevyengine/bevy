@@ -1,4 +1,5 @@
 mod active_cameras;
+#[allow(clippy::module_inception)]
 mod camera;
 mod projection;
 mod visible_entities;

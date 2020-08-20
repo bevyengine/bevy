@@ -59,10 +59,8 @@ impl ComponentRegistry {
         let mut registration = self.get_with_short_name(type_name);
         if registration.is_none() {
             registration = self.get_with_full_name(type_name);
-            if registration.is_none() {
-                if self.ambigous_names.contains(type_name) {
-                    panic!("Type name is ambiguous: {}", type_name);
-                }
+            if registration.is_none() && self.ambigous_names.contains(type_name) {
+                panic!("Type name is ambiguous: {}", type_name);
             }
         }
         registration
@@ -99,11 +97,7 @@ impl ComponentRegistration {
             component_properties_fn: |archetype: &Archetype, index: usize| {
                 // the type has been looked up by the caller, so this is safe
                 unsafe {
-                    let ptr = archetype
-                        .get::<T>()
-                        .unwrap()
-                        .as_ptr()
-                        .offset(index as isize);
+                    let ptr = archetype.get::<T>().unwrap().as_ptr().add(index);
                     ptr.as_ref().unwrap()
                 }
             },

@@ -16,6 +16,7 @@ pub trait RenderContext {
         destination_offset: u64,
         size: u64,
     );
+    #[allow(clippy::too_many_arguments)]
     fn copy_buffer_to_texture(
         &mut self,
         source_buffer: BufferId,

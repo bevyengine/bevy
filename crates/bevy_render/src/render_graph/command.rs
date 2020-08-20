@@ -54,6 +54,7 @@ impl CommandQueue {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn copy_buffer_to_texture(
         &mut self,
         source_buffer: BufferId,

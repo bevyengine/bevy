@@ -49,9 +49,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
                     .mutable
                     .contains(location.archetype as usize)
             {
-                self.world
-                    .get(entity)
-                    .map_err(|err| QueryError::ComponentError(err))
+                self.world.get(entity).map_err(QueryError::ComponentError)
             } else {
                 Err(QueryError::CannotReadArchetype)
             }
@@ -83,20 +81,21 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
     /// the given component type or if the given component type does not match this query.
     pub fn get_mut<T: Component>(&self, entity: Entity) -> Result<RefMut<'_, T>, QueryError> {
-        if let Some(location) = self.world.get_entity_location(entity) {
-            if self
-                .archetype_access
-                .mutable
-                .contains(location.archetype as usize)
-            {
-                self.world
-                    .get_mut(entity)
-                    .map_err(|err| QueryError::ComponentError(err))
-            } else {
-                Err(QueryError::CannotWriteArchetype)
-            }
+        let location = match self.world.get_entity_location(entity) {
+            None => return Err(QueryError::ComponentError(ComponentError::NoSuchEntity)),
+            Some(location) => location,
+        };
+
+        if self
+            .archetype_access
+            .mutable
+            .contains(location.archetype as usize)
+        {
+            self.world
+                .get_mut(entity)
+                .map_err(QueryError::ComponentError)
         } else {
-            Err(QueryError::ComponentError(ComponentError::NoSuchEntity))
+            Err(QueryError::CannotWriteArchetype)
         }
     }
 
@@ -241,7 +240,7 @@ struct ChunkIter<Q: HecsQuery> {
 
 impl<Q: HecsQuery> ChunkIter<Q> {
     #[inline]
-    unsafe fn next<'a, 'w>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
+    unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
             if self.len == 0 {
                 return None;

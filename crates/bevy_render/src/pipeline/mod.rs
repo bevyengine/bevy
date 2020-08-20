@@ -1,5 +1,6 @@
 mod bind_group;
 mod binding;
+#[allow(clippy::module_inception)]
 mod pipeline;
 mod pipeline_compiler;
 mod pipeline_layout;

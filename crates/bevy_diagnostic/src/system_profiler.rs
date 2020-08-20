@@ -31,7 +31,7 @@ impl Profiler for SystemProfiler {
         let mut system_profiles = self.system_profiles.write().unwrap();
         let profiles = system_profiles
             .entry(scope.clone())
-            .or_insert_with(|| SystemProfiles::default());
+            .or_insert_with(SystemProfiles::default);
 
         profiles.current_start = Some(Instant::now());
     }

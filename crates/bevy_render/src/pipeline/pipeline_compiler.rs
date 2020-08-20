@@ -29,8 +29,7 @@ impl Default for PipelineSpecialization {
 
 impl PipelineSpecialization {
     pub fn empty() -> &'static PipelineSpecialization {
-        pub static EMPTY: Lazy<PipelineSpecialization> =
-            Lazy::new(|| PipelineSpecialization::default());
+        pub static EMPTY: Lazy<PipelineSpecialization> = Lazy::new(PipelineSpecialization::default);
         &EMPTY
     }
 }
@@ -72,7 +71,7 @@ impl PipelineCompiler {
         let specialized_shaders = self
             .specialized_shaders
             .entry(*shader_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
 
         let shader = shaders.get(shader_handle).unwrap();
 
@@ -172,7 +171,7 @@ impl PipelineCompiler {
         let specialized_pipelines = self
             .specialized_pipelines
             .entry(source_pipeline)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         specialized_pipelines.push(SpecializedPipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),

@@ -85,7 +85,7 @@ impl SharedBuffers {
 
     pub fn reset_command_queue(&self) -> CommandQueue {
         let mut command_queue = self.command_queue.write().unwrap();
-        std::mem::replace(&mut *command_queue, CommandQueue::default())
+        std::mem::take(&mut *command_queue)
     }
 }
 

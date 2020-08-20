@@ -67,7 +67,7 @@ where
     fn set(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {
             let len = properties.prop_len();
-            self.resize_with(len, || T::default());
+            self.resize_with(len, T::default);
 
             if properties.property_type() != self.property_type() {
                 panic!(
@@ -77,7 +77,9 @@ where
                 );
             }
             for (i, prop) in properties.iter_props().enumerate() {
-                self.prop_with_index_mut(i).map(|p| p.apply(prop));
+                if let Some(p) = self.prop_with_index_mut(i) {
+                    p.apply(prop)
+                }
             }
         } else {
             panic!("attempted to apply non-Properties type to Properties type");
@@ -171,7 +173,7 @@ impl Property for bool {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -211,7 +213,7 @@ impl Property for usize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -269,7 +271,7 @@ impl Property for u64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -327,7 +329,7 @@ impl Property for u32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -385,7 +387,7 @@ impl Property for u16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -443,7 +445,7 @@ impl Property for u8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -501,7 +503,7 @@ impl Property for isize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -559,7 +561,7 @@ impl Property for i64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -617,7 +619,7 @@ impl Property for i32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -675,7 +677,7 @@ impl Property for i16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -733,7 +735,7 @@ impl Property for i8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -791,7 +793,7 @@ impl Property for f32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -833,7 +835,7 @@ impl Property for f64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]

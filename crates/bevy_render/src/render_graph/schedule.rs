@@ -75,7 +75,7 @@ impl Stages {
             node_borrows.push((node, indices));
         }
 
-        node_borrows.sort_by_key(|(_node, indices)| indices.clone());
+        node_borrows.sort_by_key(|(_node, indices)| <&NodeIndices>::clone(indices));
         let mut last_stage = usize::MAX;
         let mut last_job = usize::MAX;
         for (node, indices) in node_borrows.drain(..) {
@@ -159,7 +159,7 @@ impl RenderGraphStager for DependentNodeStager {
         // get all nodes without input. this intentionally includes nodes with no outputs
         let output_only_nodes = render_graph
             .iter_nodes()
-            .filter(|node| node.input_slots.len() == 0);
+            .filter(|node| node.input_slots.is_empty());
         let mut stages = vec![Stage::default()];
         let mut node_stages = HashMap::new();
         for output_only_node in output_only_nodes {
@@ -190,8 +190,7 @@ fn stage_node(
             .edges
             .input_edges
             .iter()
-            .find(|e| !node_stages_and_jobs.contains_key(&e.get_output_node()))
-            .is_some()
+            .any(|e| !node_stages_and_jobs.contains_key(&e.get_output_node()))
     {
         return;
     }
