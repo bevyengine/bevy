@@ -24,7 +24,7 @@ pub struct SystemProfiler {
 
 impl Profiler for SystemProfiler {
     fn start(&self, scope: Cow<'static, str>) {
-        let mut system_profiles = self.system_profiles.write().unwrap();
+        let mut system_profiles = self.system_profiles.write();
         let profiles = system_profiles
             .entry(scope.clone())
             .or_insert_with(SystemProfiles::default);
@@ -34,7 +34,7 @@ impl Profiler for SystemProfiler {
 
     fn stop(&self, scope: Cow<'static, str>) {
         let now = Instant::now();
-        let mut system_profiles = self.system_profiles.write().unwrap();
+        let mut system_profiles = self.system_profiles.write();
         let profiles = system_profiles.get_mut(&scope).unwrap();
         if let Some(current_start) = profiles.current_start.take() {
             profiles.history.push(SystemRunInfo {
@@ -50,7 +50,7 @@ pub fn profiler_diagnostic_system(
     system_profiler: Res<Box<dyn Profiler>>,
 ) {
     let system_profiler = system_profiler.downcast_ref::<SystemProfiler>().unwrap();
-    let mut system_profiles = system_profiler.system_profiles.write().unwrap();
+    let mut system_profiles = system_profiler.system_profiles.write();
     for (scope, profiles) in system_profiles.iter_mut() {
         if diagnostics.get(profiles.diagnostic_id).is_none() {
             diagnostics.add(Diagnostic::new(profiles.diagnostic_id, &scope, 20))
