@@ -203,7 +203,7 @@ pub fn create_render_pass<'a, 'b>(
     })
 }
 
-pub fn create_compute_pass<'a, 'b>(encoder: &'a mut wgpu::CommandEncoder) -> wgpu::ComputePass<'a> {
+pub fn create_compute_pass(encoder: &mut wgpu::CommandEncoder) -> wgpu::ComputePass {
     encoder.begin_compute_pass()
 }
 

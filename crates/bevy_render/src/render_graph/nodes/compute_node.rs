@@ -15,6 +15,12 @@ impl ComputeNode {
     }
 }
 
+impl Default for ComputeNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Node for ComputeNode {
     fn update(
         &mut self,

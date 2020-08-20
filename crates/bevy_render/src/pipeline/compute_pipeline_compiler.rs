@@ -26,7 +26,7 @@ impl Default for ComputePipelineSpecialization {
 impl ComputePipelineSpecialization {
     pub fn empty() -> &'static ComputePipelineSpecialization {
         pub static EMPTY: Lazy<ComputePipelineSpecialization> =
-            Lazy::new(|| ComputePipelineSpecialization::default());
+            Lazy::new(ComputePipelineSpecialization::default);
         &EMPTY
     }
 }
@@ -54,7 +54,7 @@ impl ComputePipelineCompiler {
         let specialized_shaders = self
             .specialized_shaders
             .entry(*shader_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
 
         let shader = shaders.get(shader_handle).unwrap();
 
@@ -134,7 +134,7 @@ impl ComputePipelineCompiler {
         let specialized_pipelines = self
             .specialized_pipelines
             .entry(source_pipeline)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         specialized_pipelines.push(ComputeSpecializedPipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),

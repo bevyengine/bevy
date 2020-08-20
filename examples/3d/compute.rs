@@ -77,7 +77,7 @@ fn setup(
 
     // Create pipeline..
     let pipeline = ComputePipelineDescriptor::new(ComputeShaderStages {
-        compute: compute.clone(),
+        compute,
     });
     let pipeline_handle = pipelines.add(pipeline);
 
@@ -112,7 +112,6 @@ fn setup(
                 work_group_size_x: data_count as u32,
                 ..Default::default()
             },
-            ..Default::default()
         })
         .with(primes_handle);
 }

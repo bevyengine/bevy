@@ -129,7 +129,7 @@ impl<'a> UnsafeClone for DispatchContext<'a> {
             pipeline_compiler: self.pipeline_compiler.unsafe_clone(),
             render_resource_context: self.render_resource_context.unsafe_clone(),
             shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline.clone(),
+            current_pipeline: self.current_pipeline,
         }
     }
 }

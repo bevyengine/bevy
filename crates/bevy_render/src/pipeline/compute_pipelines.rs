@@ -28,7 +28,6 @@ impl ComputePipeline {
         ComputePipeline {
             pipeline,
             specialization,
-            ..Default::default()
         }
     }
 }
