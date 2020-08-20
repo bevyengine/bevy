@@ -187,9 +187,7 @@ impl AssetServer {
         use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::new();
 
-        while let Some(filesystem_watcher) =
-            asset_server.filesystem_watcher.read().as_ref()
-        {
+        while let Some(filesystem_watcher) = asset_server.filesystem_watcher.read().as_ref() {
             let result = match filesystem_watcher.receiver.try_recv() {
                 Ok(result) => result,
                 Err(TryRecvError::Empty) => {
