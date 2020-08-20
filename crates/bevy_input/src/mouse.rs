@@ -29,8 +29,8 @@ pub struct MouseMotion {
 /// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
 #[derive(Debug, Clone)]
 pub struct MouseWheel {
-    pub x: f64,
-    pub y: f64,
+    pub x: f32,
+    pub y: f32,
 }
 
 /// State used by the mouse button input system

@@ -123,15 +123,15 @@ pub fn winit_runner(mut app: App) {
                     event::MouseScrollDelta::LineDelta(x, y) => {
                         let mut mouse_wheel_input_events =
                             app.resources.get_mut::<Events<MouseWheel>>().unwrap();
-                        mouse_wheel_input_events.send(MouseWheel {
-                            x: x as f64,
-                            y: y as f64,
-                        });
+                        mouse_wheel_input_events.send(MouseWheel { x, y });
                     }
                     event::MouseScrollDelta::PixelDelta(p) => {
                         let mut mouse_wheel_input_events =
                             app.resources.get_mut::<Events<MouseWheel>>().unwrap();
-                        mouse_wheel_input_events.send(MouseWheel { x: p.x, y: p.y });
+                        mouse_wheel_input_events.send(MouseWheel {
+                            x: p.x as f32,
+                            y: p.y as f32,
+                        });
                     }
                 },
                 _ => {}
