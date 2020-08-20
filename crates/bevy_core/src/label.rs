@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 use bevy_property::Properties;
+use hashbrown::{HashMap, HashSet};
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{Deref, DerefMut},
 };

@@ -17,3 +17,4 @@ bevy_math = { path = "../bevy_math", version = "0.1" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }

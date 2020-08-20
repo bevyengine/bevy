@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 

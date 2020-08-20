@@ -5,8 +5,8 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
 use crossbeam_channel::TryRecvError;
+use hashbrown::{HashMap, HashSet};
 use std::{
-    collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},

@@ -39,6 +39,7 @@ downcast-rs = "1.1.1"
 thiserror = "1.0"
 anyhow = "1.0"
 hexasphere = "0.1.5"
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }
 
 [features]
 png = ["image/png"]

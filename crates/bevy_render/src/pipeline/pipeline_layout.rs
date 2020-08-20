@@ -1,6 +1,7 @@
 use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
 use crate::shader::{ShaderLayout, GL_VERTEX_INDEX};
-use std::{collections::HashMap, hash::Hash};
+use hashbrown::HashMap;
+use std::hash::Hash;
 
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {

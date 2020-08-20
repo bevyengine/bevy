@@ -1,5 +1,5 @@
 use super::{NodeId, NodeState, RenderGraph, RenderGraphError};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

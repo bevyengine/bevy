@@ -2,11 +2,11 @@ use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::{Texture, TextureFormat};
+use hashbrown::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
-use std::collections::HashMap;
 use thiserror::Error;
 
 pub struct TextureAtlasBuilder {
@@ -88,7 +88,7 @@ impl TextureAtlasBuilder {
                 rect_placements = None;
                 break;
             }
-            let mut target_bins = HashMap::new();
+            let mut target_bins = std::collections::HashMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             atlas_texture = Texture::new_fill(
                 Vec2::new(current_width as f32, current_height as f32),
@@ -97,7 +97,7 @@ impl TextureAtlasBuilder {
             );
             rect_placements = match pack_rects(
                 &self.rects_to_place,
-                target_bins,
+                target_bins.into(),
                 &volume_heuristic,
                 &contains_smallest_box,
             ) {

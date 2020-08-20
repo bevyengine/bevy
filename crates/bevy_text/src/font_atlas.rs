@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::{Texture, TextureFormat};
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,

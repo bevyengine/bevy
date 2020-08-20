@@ -1,8 +1,8 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_ecs::{Profiler, Res, ResMut};
+use hashbrown::HashMap;
 use std::{
     borrow::Cow,
-    collections::HashMap,
     sync::{Arc, RwLock},
     time::Instant,
 };

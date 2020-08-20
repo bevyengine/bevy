@@ -4,9 +4,9 @@ use crate::{
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
+use hashbrown::{HashMap, HashSet};
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 

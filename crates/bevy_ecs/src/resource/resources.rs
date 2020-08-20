@@ -2,7 +2,8 @@ use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
 use core::any::TypeId;
-use std::{collections::HashMap, ptr::NonNull};
+use hashbrown::HashMap;
+use std::ptr::NonNull;
 
 /// A Resource type
 pub trait Resource: Send + Sync + 'static {}

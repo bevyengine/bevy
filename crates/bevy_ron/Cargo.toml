@@ -26,6 +26,7 @@ base64 = "0.12"
 bitflags = "1.0.4"
 indexmap = { version = "1.0.2", features = ["serde-1"], optional = true }
 serde = { version = "1.0.60", features = ["serde_derive"] }
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }
 
 [dev-dependencies]
 serde_bytes = "0.11"

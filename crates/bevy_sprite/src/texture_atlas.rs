@@ -7,7 +7,7 @@ use bevy_render::{
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(RenderResources)]
 pub struct TextureAtlas {

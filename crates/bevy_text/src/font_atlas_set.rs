@@ -5,7 +5,7 @@ use bevy_core::FloatOrd;
 use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 // work around rust's f32 order/hash limitations
 type FontSizeKey = FloatOrd;

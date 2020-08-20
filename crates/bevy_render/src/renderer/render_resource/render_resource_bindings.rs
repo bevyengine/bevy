@@ -4,11 +4,8 @@ use crate::{
     renderer::RenderResourceContext,
 };
 use bevy_asset::{Handle, HandleUntyped};
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-    ops::Range,
-};
+use hashbrown::{HashMap, HashSet};
+use std::{hash::Hash, ops::Range};
 use uuid::Uuid;
 
 #[derive(Clone, Eq, Debug)]

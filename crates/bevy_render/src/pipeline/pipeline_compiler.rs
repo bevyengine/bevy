@@ -5,9 +5,9 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_property::{Properties, Property};
+use hashbrown::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,

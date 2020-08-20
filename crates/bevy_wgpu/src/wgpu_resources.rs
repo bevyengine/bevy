@@ -6,10 +6,8 @@ use bevy_render::{
     texture::TextureDescriptor,
 };
 use bevy_window::WindowId;
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
+use hashbrown::HashMap;
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 #[derive(Default)]
 pub struct WgpuBindGroupInfo {

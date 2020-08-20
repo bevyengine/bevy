@@ -12,8 +12,9 @@ use crate::{
 
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use hashbrown::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
+use std::{marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]

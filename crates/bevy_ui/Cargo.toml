@@ -27,3 +27,4 @@ bevy_window = { path = "../bevy_window", version = "0.1" }
 
 # other
 stretch = "0.3"
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }

@@ -1,7 +1,7 @@
 use crate::components::*;
 use bevy_ecs::{Commands, Entity, IntoQuerySystem, Query, System, Without};
+use hashbrown::HashMap;
 use smallvec::SmallVec;
-use std::collections::HashMap;
 
 pub fn missing_previous_parent_system(
     mut commands: Commands,

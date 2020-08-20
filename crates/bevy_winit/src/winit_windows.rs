@@ -1,5 +1,5 @@
 use bevy_window::{Window, WindowId, WindowMode};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 #[derive(Default)]
 pub struct WinitWindows {

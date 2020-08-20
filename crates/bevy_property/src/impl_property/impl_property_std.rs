@@ -3,13 +3,9 @@ use crate::{
     property_serde::{SeqSerializer, Serializable},
     Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry,
 };
+use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
-use std::{
-    any::Any,
-    collections::{BTreeMap, HashMap, HashSet},
-    hash::Hash,
-    ops::Range,
-};
+use std::{any::Any, collections::BTreeMap, hash::Hash, ops::Range};
 
 impl<T> Properties for Vec<T>
 where

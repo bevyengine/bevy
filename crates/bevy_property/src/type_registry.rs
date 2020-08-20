@@ -1,8 +1,6 @@
 use crate::{DeserializeProperty, Property};
-use std::{
-    any::TypeId,
-    collections::{HashMap, HashSet},
-};
+use hashbrown::{HashMap, HashSet};
+use std::any::TypeId;
 
 #[derive(Default)]
 pub struct PropertyTypeRegistry {

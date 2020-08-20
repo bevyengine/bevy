@@ -23,3 +23,4 @@ bevy_ron = { path = "../bevy_ron", version = "0.1.0" }
 uuid = { version = "0.8", features = ["v4", "serde"] }
 anyhow = "1.0"
 thiserror = "1.0"
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }

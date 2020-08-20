@@ -7,8 +7,8 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::Window;
+use hashbrown::HashMap;
 use std::{
-    collections::HashMap,
     ops::Range,
     sync::{Arc, RwLock},
 };

@@ -21,3 +21,4 @@ bevy_sprite = { path = "../bevy_sprite", version = "0.1" }
 # other
 ab_glyph = "0.2.2"
 anyhow = "1.0"
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }

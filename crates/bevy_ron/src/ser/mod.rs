@@ -958,7 +958,7 @@ mod tests {
 
     #[test]
     fn test_map() {
-        use std::collections::HashMap;
+        use hashbrown::HashMap;
 
         let mut map = HashMap::new();
         map.insert((true, false), 4);

@@ -10,9 +10,13 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
+# bevy
 bevy_app = { path = "../bevy_app", version = "0.1" }
 bevy_derive = { path = "../bevy_derive", version = "0.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 bevy_property = { path = "../bevy_property", version = "0.1" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 bevy_math = { path = "../bevy_math", version = "0.1" }
+
+# other
+hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }

@@ -83,7 +83,7 @@ fn test_array() {
 
 #[test]
 fn test_map() {
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
 
     let mut map = HashMap::new();
     map.insert((true, false), 4);
@@ -159,7 +159,7 @@ fn err<T>(kind: ErrorCode, line: usize, col: usize) -> Result<T> {
 #[test]
 fn test_err_wrong_value() {
     use self::ErrorCode::*;
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
 
     assert_eq!(from_str::<f32>("'c'"), err(ExpectedFloat, 1, 1));
     assert_eq!(from_str::<String>("'c'"), err(ExpectedString, 1, 1));

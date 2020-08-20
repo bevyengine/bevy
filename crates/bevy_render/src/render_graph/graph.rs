@@ -1,6 +1,7 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
 use bevy_ecs::{Commands, Schedule};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug};
+use hashbrown::HashMap;
+use std::{borrow::Cow, fmt::Debug};
 
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,

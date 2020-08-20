@@ -1,5 +1,6 @@
 use super::VertexFormat;
-use std::{borrow::Cow, collections::HashMap};
+use hashbrown::HashMap;
+use std::borrow::Cow;
 
 pub use bevy_derive::AsVertexBufferDescriptor;
 
