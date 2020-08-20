@@ -301,7 +301,8 @@ mod tests {
         renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
-    use std::{collections::HashSet, iter::FromIterator};
+    use hashbrown::HashSet;
+    use std::iter::FromIterator;
 
     #[derive(Debug)]
     struct TestNode {

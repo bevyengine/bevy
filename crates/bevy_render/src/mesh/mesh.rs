@@ -11,7 +11,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use hashbrown::HashSet;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;

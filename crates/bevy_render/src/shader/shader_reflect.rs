@@ -6,6 +6,7 @@ use crate::{
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
+use hashbrown::HashSet;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
@@ -13,7 +14,6 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
-use std::collections::HashSet;
 
 /// Defines the memory layout of a shader
 #[derive(Debug, Clone, PartialEq, Eq)]
