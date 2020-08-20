@@ -9,7 +9,8 @@ use bevy_core::AsBytes;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectTypeDescription, ReflectTypeFlags,
+        ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
+        ReflectTypeFlags,
     },
     ShaderModule,
 };
@@ -30,9 +31,10 @@ impl ShaderLayout {
         match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
             Ok(ref mut module) => {
                 let entry_point_name = module.get_entry_point_name();
+                let shader_stage = module.get_shader_stage();
                 let mut bind_groups = Vec::new();
                 for descriptor_set in module.enumerate_descriptor_sets(None).unwrap() {
-                    let bind_group = reflect_bind_group(&descriptor_set);
+                    let bind_group = reflect_bind_group(&descriptor_set, shader_stage);
                     bind_groups.push(bind_group);
                 }
 
@@ -148,10 +150,13 @@ fn reflect_vertex_attribute_descriptor(
     }
 }
 
-fn reflect_bind_group(descriptor_set: &ReflectDescriptorSet) -> BindGroupDescriptor {
+fn reflect_bind_group(
+    descriptor_set: &ReflectDescriptorSet,
+    shader_stage: ReflectShaderStageFlags,
+) -> BindGroupDescriptor {
     let mut bindings = Vec::new();
     for descriptor_binding in descriptor_set.bindings.iter() {
-        let binding = reflect_binding(descriptor_binding);
+        let binding = reflect_binding(descriptor_binding, shader_stage);
         bindings.push(binding);
     }
 
@@ -168,7 +173,10 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
     }
 }
 
-fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
+fn reflect_binding(
+    binding: &ReflectDescriptorBinding,
+    shader_stage: ReflectShaderStageFlags,
+) -> BindingDescriptor {
     let type_description = binding.type_description.as_ref().unwrap();
     let (name, bind_type) = match binding.descriptor_type {
         ReflectDescriptorType::UniformBuffer => (
@@ -198,12 +206,24 @@ fn reflect_binding(binding: &ReflectDescriptorBinding) -> BindingDescriptor {
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
+    let mut shader_stage = match shader_stage {
+        ReflectShaderStageFlags::COMPUTE => BindingShaderStage::COMPUTE,
+        ReflectShaderStageFlags::VERTEX => BindingShaderStage::VERTEX,
+        ReflectShaderStageFlags::FRAGMENT => BindingShaderStage::FRAGMENT,
+        _ => panic!("Only one specified shader stage is supported."),
+    };
+
+    let name = name.to_string();
+
+    if name == "Camera" {
+        shader_stage = BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT;
+    }
+
     BindingDescriptor {
         index: binding.binding,
         bind_type,
-        name: name.to_string(),
-        // TODO: We should be able to detect which shader program the binding is being used in..
-        shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+        name,
+        shader_stage,
     }
 }
 
@@ -425,7 +445,7 @@ mod tests {
                                 dimension: TextureViewDimension::D2,
                                 component_type: TextureComponentType::Float,
                             },
-                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
+                            shader_stage: BindingShaderStage::VERTEX,
                         }]
                     ),
                 ]

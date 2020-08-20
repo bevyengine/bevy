@@ -25,16 +25,21 @@ impl PipelineLayout {
                         for shader_binding in shader_bind_group.bindings.iter() {
                             if let Some(binding) = bind_group
                                 .bindings
-                                .iter()
+                                .iter_mut()
                                 .find(|binding| binding.index == shader_binding.index)
                             {
-                                if binding != shader_binding {
+                                binding.shader_stage |= shader_binding.shader_stage;
+                                if binding.bind_type != shader_binding.bind_type
+                                    || binding.name != shader_binding.name
+                                    || binding.index != shader_binding.index
+                                {
                                     panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
                                 }
                             } else {
                                 bind_group.bindings.push(shader_binding.clone());
                             }
                         }
+                        bind_group.update_id();
                     }
                     None => {
                         bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
