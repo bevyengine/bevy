@@ -97,7 +97,7 @@ impl TextureAtlasBuilder {
             );
             rect_placements = match pack_rects(
                 &self.rects_to_place,
-                target_bins.into(),
+                target_bins,
                 &volume_heuristic,
                 &contains_smallest_box,
             ) {
