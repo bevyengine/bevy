@@ -30,7 +30,7 @@ pub struct MouseMotion {
 #[derive(Debug, Clone)]
 pub enum MouseScrollUnit {
     Line,
-    Pixel
+    Pixel,
 }
 
 /// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
