@@ -16,7 +16,7 @@ struct RenderResourceAttributes {
     pub from_self: bool,
 }
 
-static RENDER_RESOURCE_ATTRIBUTE_NAME: &'static str = "render_resources";
+static RENDER_RESOURCE_ATTRIBUTE_NAME: &str = "render_resources";
 
 pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -26,25 +26,20 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
     let attributes = ast
         .attrs
         .iter()
-        .find(|a| {
-            a.path.get_ident().as_ref().unwrap().to_string() == RENDER_RESOURCE_ATTRIBUTE_NAME
-        })
-        .map_or_else(
-            || RenderResourceAttributes::default(),
-            |a| {
-                syn::custom_keyword!(from_self);
-                let mut attributes = RenderResourceAttributes::default();
-                a.parse_args_with(|input: ParseStream| {
-                    if let Some(_) = input.parse::<Option<from_self>>()? {
-                        attributes.from_self = true;
-                    }
-                    Ok(())
-                })
-                .expect("invalid 'render_resources' attribute format");
+        .find(|a| *a.path.get_ident().as_ref().unwrap() == RENDER_RESOURCE_ATTRIBUTE_NAME)
+        .map_or_else(RenderResourceAttributes::default, |a| {
+            syn::custom_keyword!(from_self);
+            let mut attributes = RenderResourceAttributes::default();
+            a.parse_args_with(|input: ParseStream| {
+                if input.parse::<Option<from_self>>()?.is_some() {
+                    attributes.from_self = true;
+                }
+                Ok(())
+            })
+            .expect("invalid 'render_resources' attribute format");
 
-                attributes
-            },
-        );
+            attributes
+        });
     let struct_name = &ast.ident;
     let struct_name_string = struct_name.to_string();
 
@@ -93,28 +88,24 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                         .attrs
                         .iter()
                         .find(|a| {
-                            a.path.get_ident().as_ref().unwrap().to_string()
-                                == RENDER_RESOURCE_ATTRIBUTE_NAME
+                            *a.path.get_ident().as_ref().unwrap() == RENDER_RESOURCE_ATTRIBUTE_NAME
                         })
-                        .map_or_else(
-                            || RenderResourceFieldAttributes::default(),
-                            |a| {
-                                syn::custom_keyword!(ignore);
-                                syn::custom_keyword!(buffer);
-                                let mut attributes = RenderResourceFieldAttributes::default();
-                                a.parse_args_with(|input: ParseStream| {
-                                    if let Some(_) = input.parse::<Option<ignore>>()? {
-                                        attributes.ignore = true;
-                                    } else if let Some(_) = input.parse::<Option<buffer>>()? {
-                                        attributes.buffer = true;
-                                    }
-                                    Ok(())
-                                })
-                                .expect("invalid 'render_resources' attribute format");
+                        .map_or_else(RenderResourceFieldAttributes::default, |a| {
+                            syn::custom_keyword!(ignore);
+                            syn::custom_keyword!(buffer);
+                            let mut attributes = RenderResourceFieldAttributes::default();
+                            a.parse_args_with(|input: ParseStream| {
+                                if input.parse::<Option<ignore>>()?.is_some() {
+                                    attributes.ignore = true;
+                                } else if input.parse::<Option<buffer>>()?.is_some() {
+                                    attributes.buffer = true;
+                                }
+                                Ok(())
+                            })
+                            .expect("invalid 'render_resources' attribute format");
 
-                                attributes
-                            },
-                        ),
+                            attributes
+                        }),
                 )
             })
             .collect::<Vec<(&Field, RenderResourceFieldAttributes)>>();

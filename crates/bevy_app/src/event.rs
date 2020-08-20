@@ -159,7 +159,7 @@ impl<T> EventReader<T> {
         events: &'a Events<T>,
         predicate: impl FnMut(&&T) -> bool,
     ) -> Option<&'a T> {
-        self.iter(events).rev().filter(predicate).next()
+        self.iter(events).rev().find(predicate)
     }
 
     /// Retrieves the earliest event in `events` that this reader hasn't seen yet. This updates the EventReader's

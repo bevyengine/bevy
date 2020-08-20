@@ -13,7 +13,7 @@ impl AssetLoader<Texture> for HdrTextureLoader {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(
             format.pixel_size(),
-            4 * 4 * 1,
+            4 * 4,
             "Format should have 32bit x 4 size"
         );
 

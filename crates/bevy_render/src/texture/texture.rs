@@ -155,7 +155,7 @@ impl RenderResource for Option<Handle<Texture>> {
     }
 
     fn texture(&self) -> Option<Handle<Texture>> {
-        self.clone()
+        *self
     }
 }
 
@@ -171,6 +171,6 @@ impl RenderResource for Handle<Texture> {
     }
 
     fn texture(&self) -> Option<Handle<Texture>> {
-        Some(self.clone())
+        Some(*self)
     }
 }

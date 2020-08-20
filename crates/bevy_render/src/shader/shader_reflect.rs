@@ -61,7 +61,7 @@ impl ShaderLayout {
                             } else {
                                 let parts = vertex_attribute_descriptor
                                     .name
-                                    .splitn(3, "_")
+                                    .splitn(3, '_')
                                     .collect::<Vec<&str>>();
                                 if parts.len() == 3 {
                                     if parts[0] == "I" {
@@ -82,13 +82,11 @@ impl ShaderLayout {
                     };
 
                     if let Some(current) = current_descriptor.as_mut() {
-                        if &current.name == &current_buffer_name {
+                        if current.name == current_buffer_name {
                             current.attributes.push(vertex_attribute_descriptor);
                             continue;
-                        } else {
-                            if visited_buffer_descriptors.contains(&current_buffer_name) {
-                                panic!("Vertex attribute buffer names must be consecutive.")
-                            }
+                        } else if visited_buffer_descriptors.contains(&current_buffer_name) {
+                            panic!("Vertex attribute buffer names must be consecutive.")
                         }
                     }
 

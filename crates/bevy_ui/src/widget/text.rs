@@ -49,6 +49,7 @@ pub fn text_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_text_system(
     mut draw_context: DrawContext,
     fonts: Res<Assets<Font>>,

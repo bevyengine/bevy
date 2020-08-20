@@ -91,7 +91,7 @@ impl PropertyTypeRegistration {
     }
 
     pub fn get_short_name(full_name: &str) -> String {
-        let mut split = full_name.splitn(2, "<");
+        let mut split = full_name.splitn(2, '<');
 
         // main type
         let mut short_name = split
@@ -104,7 +104,7 @@ impl PropertyTypeRegistration {
 
         // process generics if they exist
         if let Some(generics) = split.next() {
-            if !generics.ends_with(">") {
+            if !generics.ends_with('>') {
                 panic!("should end with closing carrot")
             }
 

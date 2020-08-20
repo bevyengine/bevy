@@ -47,6 +47,7 @@ pub struct AssetChannel<T: 'static> {
 }
 
 impl<T> AssetChannel<T> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetChannel { sender, receiver }

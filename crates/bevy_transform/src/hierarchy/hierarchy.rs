@@ -14,13 +14,10 @@ where
 {
     // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocations?
     // TODO: the problem above might be resolvable with world splitting
-    let children = children_query.get::<Children>(entity).ok().map(|children| {
-        children
-            .0
-            .iter()
-            .map(|entity| *entity)
-            .collect::<Vec<Entity>>()
-    });
+    let children = children_query
+        .get::<Children>(entity)
+        .ok()
+        .map(|children| children.0.iter().cloned().collect::<Vec<Entity>>());
 
     let parent_result = run(state, entity, parent_result, previous_result);
     previous_result = None;
@@ -47,13 +44,11 @@ pub struct DespawnRecursive {
 }
 
 fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
-    if let Some(children) = world.get::<Children>(entity).ok().map(|children| {
-        children
-            .0
-            .iter()
-            .map(|entity| *entity)
-            .collect::<Vec<Entity>>()
-    }) {
+    if let Some(children) = world
+        .get::<Children>(entity)
+        .ok()
+        .map(|children| children.0.iter().cloned().collect::<Vec<Entity>>())
+    {
         for e in children {
             despawn_with_children_recursive(world, e);
         }

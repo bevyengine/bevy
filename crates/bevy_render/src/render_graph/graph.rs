@@ -276,7 +276,7 @@ impl RenderGraph {
     }
 
     pub fn take_commands(&mut self) -> Commands {
-        std::mem::replace(&mut self.commands, Commands::default())
+        std::mem::take(&mut self.commands)
     }
 }
 

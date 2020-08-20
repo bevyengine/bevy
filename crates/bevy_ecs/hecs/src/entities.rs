@@ -11,6 +11,7 @@ use std::error::Error;
 #[derive(Debug, Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Entity(u32);
 
+#[allow(clippy::new_without_default)]
 impl Entity {
     #[allow(missing_docs)]
     pub fn new() -> Self {

@@ -32,7 +32,7 @@ impl WorldWriter for InsertChildren {
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
                 world
-                    .insert_one(self.parent, Children(SmallVec::from(self.children)))
+                    .insert_one(self.parent, Children(self.children))
                     .unwrap();
             }
         }
@@ -73,7 +73,7 @@ impl WorldWriter for PushChildren {
             // NOTE: ideally this is just an else statement, but currently that _incorrectly_ fails borrow-checking
             if !added {
                 world
-                    .insert_one(self.parent, Children(SmallVec::from(self.children)))
+                    .insert_one(self.parent, Children(self.children))
                     .unwrap();
             }
         }

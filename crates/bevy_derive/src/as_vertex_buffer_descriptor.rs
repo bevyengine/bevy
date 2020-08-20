@@ -12,7 +12,7 @@ struct VertexAttributes {
     pub instance: bool,
 }
 
-static VERTEX_ATTRIBUTE_NAME: &'static str = "vertex";
+static VERTEX_ATTRIBUTE_NAME: &str = "vertex";
 
 pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -34,26 +34,21 @@ pub fn derive_as_vertex_buffer_descriptor(input: TokenStream) -> TokenStream {
                 field
                     .attrs
                     .iter()
-                    .find(|a| {
-                        a.path.get_ident().as_ref().unwrap().to_string() == VERTEX_ATTRIBUTE_NAME
-                    })
-                    .map_or_else(
-                        || VertexAttributes::default(),
-                        |a| {
-                            syn::custom_keyword!(ignore);
-                            let mut vertex_attributes = VertexAttributes::default();
-                            a.parse_args_with(|input: ParseStream| {
-                                if let Some(_) = input.parse::<Option<ignore>>()? {
-                                    vertex_attributes.ignore = true;
-                                    return Ok(());
-                                }
-                                Ok(())
-                            })
-                            .expect("invalid 'vertex' attribute format");
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == VERTEX_ATTRIBUTE_NAME)
+                    .map_or_else(VertexAttributes::default, |a| {
+                        syn::custom_keyword!(ignore);
+                        let mut vertex_attributes = VertexAttributes::default();
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                vertex_attributes.ignore = true;
+                                return Ok(());
+                            }
+                            Ok(())
+                        })
+                        .expect("invalid 'vertex' attribute format");
 
-                            vertex_attributes
-                        },
-                    ),
+                        vertex_attributes
+                    }),
             )
         })
         .collect::<Vec<(&Field, VertexAttributes)>>();
