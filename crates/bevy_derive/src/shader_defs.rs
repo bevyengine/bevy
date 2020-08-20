@@ -5,7 +5,7 @@ use proc_macro2::Ident;
 use quote::quote;
 use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields, Path};
 
-static SHADER_DEF_ATTRIBUTE_NAME: &'static str = "shader_def";
+static SHADER_DEF_ATTRIBUTE_NAME: &str = "shader_def";
 
 pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -25,10 +25,7 @@ pub fn derive_shader_defs(input: TokenStream) -> TokenStream {
         .filter(|f| {
             f.attrs
                 .iter()
-                .find(|a| {
-                    a.path.get_ident().as_ref().unwrap().to_string() == SHADER_DEF_ATTRIBUTE_NAME
-                })
-                .is_some()
+                .any(|a| *a.path.get_ident().as_ref().unwrap() == SHADER_DEF_ATTRIBUTE_NAME)
         })
         .map(|f| f.ident.as_ref().unwrap())
         .collect::<Vec<&Ident>>();

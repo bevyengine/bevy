@@ -180,21 +180,14 @@ where
 impl WgpuFrom<&BindType> for wgpu::BindingType {
     fn from(bind_type: &BindType) -> Self {
         match bind_type {
-            BindType::Uniform {
-                dynamic,
-                properties: _properties,
-            } => wgpu::BindingType::UniformBuffer {
+            BindType::Uniform { dynamic, .. } => wgpu::BindingType::UniformBuffer {
                 dynamic: *dynamic,
-                min_binding_size: bind_type
-                    .get_uniform_size()
-                    .and_then(|size| wgpu::BufferSize::new(size)),
+                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
             BindType::StorageBuffer { dynamic, readonly } => wgpu::BindingType::StorageBuffer {
                 dynamic: *dynamic,
                 readonly: *readonly,
-                min_binding_size: bind_type
-                    .get_uniform_size()
-                    .and_then(|size| wgpu::BufferSize::new(size)),
+                min_binding_size: bind_type.get_uniform_size().and_then(wgpu::BufferSize::new),
             },
             BindType::SampledTexture {
                 dimension,
@@ -532,7 +525,7 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_min_clamp: sampler_descriptor.lod_min_clamp,
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
-            anisotropy_clamp: sampler_descriptor.anisotropy_clamp.clone(),
+            anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
             ..Default::default()
         }
     }

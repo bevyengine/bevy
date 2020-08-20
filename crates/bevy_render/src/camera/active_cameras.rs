@@ -17,7 +17,7 @@ impl ActiveCameras {
     }
 
     pub fn get(&self, name: &str) -> Option<Entity> {
-        self.cameras.get(name).and_then(|e| e.clone())
+        self.cameras.get(name).and_then(|e| *e)
     }
 }
 
@@ -26,7 +26,7 @@ pub fn active_cameras_system(
     mut query: Query<(Entity, &Camera)>,
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {
-        if let None = active_camera {
+        if active_camera.is_none() {
             for (camera_entity, camera) in &mut query.iter() {
                 if let Some(ref current_name) = camera.name {
                     if current_name == name {

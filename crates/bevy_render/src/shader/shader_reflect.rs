@@ -63,7 +63,7 @@ impl ShaderLayout {
                             } else {
                                 let parts = vertex_attribute_descriptor
                                     .name
-                                    .splitn(3, "_")
+                                    .splitn(3, '_')
                                     .collect::<Vec<&str>>();
                                 if parts.len() == 3 {
                                     if parts[0] == "I" {
@@ -84,13 +84,11 @@ impl ShaderLayout {
                     };
 
                     if let Some(current) = current_descriptor.as_mut() {
-                        if &current.name == &current_buffer_name {
+                        if current.name == current_buffer_name {
                             current.attributes.push(vertex_attribute_descriptor);
                             continue;
-                        } else {
-                            if visited_buffer_descriptors.contains(&current_buffer_name) {
-                                panic!("Vertex attribute buffer names must be consecutive.")
-                            }
+                        } else if visited_buffer_descriptors.contains(&current_buffer_name) {
+                            panic!("Vertex attribute buffer names must be consecutive.")
                         }
                     }
 
@@ -185,7 +183,7 @@ fn reflect_binding(
             &type_description.type_name,
             BindType::Uniform {
                 dynamic: false,
-                properties: vec![reflect_uniform(type_description)],
+                property: reflect_uniform(type_description),
             },
         ),
         ReflectDescriptorType::SampledImage => (
@@ -432,11 +430,9 @@ mod tests {
                             name: "Camera".into(),
                             bind_type: BindType::Uniform {
                                 dynamic: false,
-                                properties: vec![UniformProperty::Struct(vec![
-                                    UniformProperty::Mat4
-                                ])],
+                                property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                             },
-                            shader_stage: BindingShaderStage::VERTEX,
+                            shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                         }]
                     ),
                     BindGroupDescriptor::new(

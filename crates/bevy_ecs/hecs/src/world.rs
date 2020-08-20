@@ -165,7 +165,7 @@ impl World {
             let removed_entities = self
                 .removed_components
                 .entry(ty.id())
-                .or_insert_with(|| Vec::new());
+                .or_insert_with(Vec::new);
             removed_entities.push(entity);
         }
         Ok(())
@@ -202,7 +202,7 @@ impl World {
                 let removed_entities = self
                     .removed_components
                     .entry(ty.id())
-                    .or_insert_with(|| Vec::new());
+                    .or_insert_with(Vec::new);
                 removed_entities.extend(archetype.iter_entities().map(|id| Entity::from_id(*id)));
             }
             archetype.clear();
@@ -505,7 +505,7 @@ impl World {
                         state.mutated_entities[target_index as usize] = is_mutated;
                     } else {
                         let removed_entities =
-                            removed_components.entry(ty).or_insert_with(|| Vec::new());
+                            removed_components.entry(ty).or_insert_with(Vec::new);
                         removed_entities.push(entity);
                     }
                 })

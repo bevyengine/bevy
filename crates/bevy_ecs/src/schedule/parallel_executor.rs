@@ -51,7 +51,7 @@ impl ParallelExecutor {
         if schedule_changed {
             self.stages.clear();
             self.stages
-                .resize_with(schedule.stage_order.len(), || ExecutorStage::default());
+                .resize_with(schedule.stage_order.len(), ExecutorStage::default);
         }
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {
@@ -208,9 +208,10 @@ impl ExecutorStage {
                     ThreadLocalExecution::NextFlush => {
                         let resource_access = system.resource_access();
                         // if any system before this one conflicts, check all systems that came before for compatibility
-                        if current_archetype_access.is_compatible(archetype_access) == false
-                            || current_resource_access.is_compatible(resource_access) == false
+                        if !current_archetype_access.is_compatible(archetype_access)
+                            || !current_resource_access.is_compatible(resource_access)
                         {
+                            #[allow(clippy::needless_range_loop)]
                             for earlier_system_index in
                                 prepare_system_index_range.start..system_index
                             {
@@ -223,14 +224,12 @@ impl ExecutorStage {
                                 );
 
                                 // if earlier system is incompatible, make the current system dependent
-                                if earlier_system
+                                if !earlier_system
                                     .archetype_access()
                                     .is_compatible(archetype_access)
-                                    == false
-                                    || earlier_system
+                                    || !earlier_system
                                         .resource_access()
                                         .is_compatible(resource_access)
-                                        == false
                                 {
                                     self.system_dependents[earlier_system_index].push(system_index);
                                     self.system_dependencies[system_index]

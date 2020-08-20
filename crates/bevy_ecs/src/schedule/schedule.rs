@@ -25,7 +25,7 @@ pub struct Schedule {
 impl Schedule {
     pub fn add_stage(&mut self, stage: impl Into<Cow<'static, str>>) {
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         } else {
             self.stages.insert(stage.clone(), Vec::new());
@@ -40,7 +40,7 @@ impl Schedule {
     ) {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         }
 
@@ -63,7 +63,7 @@ impl Schedule {
     ) {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         }
 
@@ -173,7 +173,7 @@ impl Schedule {
         let thread_pool_builder = resources
             .get::<ParallelExecutorOptions>()
             .map(|options| (*options).clone())
-            .unwrap_or_else(|| ParallelExecutorOptions::default())
+            .unwrap_or_else(ParallelExecutorOptions::default)
             .create_builder();
         // For now, bevy_ecs only uses the global thread pool so it is sufficient to configure it once here.
         // Dont call .unwrap() as the function is called twice..

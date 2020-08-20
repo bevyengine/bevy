@@ -1,5 +1,6 @@
 mod compute_pass;
 mod ops;
+#[allow(clippy::module_inception)]
 mod pass;
 mod render_pass;
 

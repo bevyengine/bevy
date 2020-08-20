@@ -39,7 +39,7 @@ impl AppBuilder {
     }
 
     pub fn run(&mut self) {
-        let app = std::mem::replace(&mut self.app, App::default());
+        let app = std::mem::take(&mut self.app);
         app.run();
     }
 
@@ -209,7 +209,7 @@ impl AppBuilder {
     where
         R: FromResources + Send + Sync + 'static,
     {
-        let resource = R::from_resources(&mut self.app.resources);
+        let resource = R::from_resources(&self.app.resources);
         self.app.resources.insert(resource);
 
         self

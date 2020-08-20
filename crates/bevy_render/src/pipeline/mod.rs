@@ -1,9 +1,10 @@
 mod bind_group;
 mod binding;
-mod compute_pipeline_compiler;
-mod compute_pipelines;
+#[allow(clippy::module_inception)]
 mod pipeline;
 mod pipeline_compiler;
+mod compute_pipelines;
+mod compute_pipeline_compiler;
 mod pipeline_layout;
 mod render_pipelines;
 mod state_descriptors;

@@ -66,13 +66,13 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 }
 
 pub mod node {
-    pub const UI_CAMERA: &'static str = "ui_camera";
-    pub const NODE: &'static str = "node";
-    pub const UI_PASS: &'static str = "ui_pass";
+    pub const UI_CAMERA: &str = "ui_camera";
+    pub const NODE: &str = "node";
+    pub const UI_PASS: &str = "ui_pass";
 }
 
 pub mod camera {
-    pub const UI_CAMERA: &'static str = "UiCamera";
+    pub const UI_CAMERA: &str = "UiCamera";
 }
 
 pub trait UiRenderGraphBuilder {

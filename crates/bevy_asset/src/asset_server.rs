@@ -172,7 +172,7 @@ impl AssetServer {
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
         let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
 
-        let _ = filesystem_watcher.get_or_insert_with(|| FilesystemWatcher::default());
+        let _ = filesystem_watcher.get_or_insert_with(FilesystemWatcher::default);
         // watch current files
         let asset_info_paths = self.asset_info_paths.read().unwrap();
         for asset_path in asset_info_paths.keys() {
@@ -186,44 +186,37 @@ impl AssetServer {
     pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
         use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::new();
-        loop {
-            let result = if let Some(filesystem_watcher) =
-                asset_server.filesystem_watcher.read().unwrap().as_ref()
-            {
-                match filesystem_watcher.receiver.try_recv() {
-                    Ok(result) => result,
-                    Err(TryRecvError::Empty) => {
-                        break;
-                    }
-                    Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
+
+        while let Some(filesystem_watcher) =
+            asset_server.filesystem_watcher.read().unwrap().as_ref()
+        {
+            let result = match filesystem_watcher.receiver.try_recv() {
+                Ok(result) => result,
+                Err(TryRecvError::Empty) => {
+                    break;
                 }
-            } else {
-                break;
+                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
             };
 
             let event = result.unwrap();
-            match event {
-                Event {
-                    kind: EventKind::Modify(ModifyKind::Data(_)),
-                    paths,
-                    ..
-                } => {
-                    for path in paths.iter() {
-                        if !changed.contains(path) {
-                            let root_path = asset_server.get_root_path().unwrap();
-                            let relative_path = path.strip_prefix(root_path).unwrap();
-                            match asset_server.load_untyped(relative_path) {
-                                Ok(_) => {}
-                                Err(AssetServerError::AssetLoadError(error)) => {
-                                    panic!("{:?}", error)
-                                }
-                                Err(_) => {}
-                            }
+            if let Event {
+                kind: EventKind::Modify(ModifyKind::Data(_)),
+                paths,
+                ..
+            } = event
+            {
+                for path in paths.iter() {
+                    if !changed.contains(path) {
+                        let root_path = asset_server.get_root_path().unwrap();
+                        let relative_path = path.strip_prefix(root_path).unwrap();
+                        match asset_server.load_untyped(relative_path) {
+                            Ok(_) => {}
+                            Err(AssetServerError::AssetLoadError(error)) => panic!("{:?}", error),
+                            Err(_) => {}
                         }
                     }
-                    changed.extend(paths);
                 }
-                _ => {}
+                changed.extend(paths);
             }
         }
     }
@@ -244,8 +237,7 @@ impl AssetServer {
 
     // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
     pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
-        self.load_untyped(path)
-            .map(|handle_id| Handle::from(handle_id))
+        self.load_untyped(path).map(Handle::from)
     }
 
     pub fn load_sync<T: Resource, P: AsRef<Path>>(
@@ -338,15 +330,11 @@ impl AssetServer {
     }
 
     pub fn set_load_state(&self, handle_id: HandleId, load_state: LoadState) {
-        self.asset_info
-            .write()
-            .unwrap()
-            .get_mut(&handle_id)
-            .map(|asset_info| {
-                if load_state.get_version() >= asset_info.load_state.get_version() {
-                    asset_info.load_state = load_state;
-                }
-            });
+        if let Some(asset_info) = self.asset_info.write().unwrap().get_mut(&handle_id) {
+            if load_state.get_version() >= asset_info.load_state.get_version() {
+                asset_info.load_state = load_state;
+            }
+        }
     }
 
     pub fn get_load_state_untyped(&self, handle_id: HandleId) -> Option<LoadState> {
@@ -453,7 +441,7 @@ impl AssetServer {
                 ) {
                     Ok(handle) => handle,
                     Err(AssetServerError::MissingAssetHandler) => continue,
-                    Err(err) => Err(err)?,
+                    Err(err) => return Err(err),
                 };
 
                 handle_ids.push(handle);
