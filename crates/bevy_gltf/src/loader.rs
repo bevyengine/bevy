@@ -76,15 +76,24 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             let primitive_topology = get_primitive_topology(primitive.mode())?;
             let mut mesh = Mesh::new(primitive_topology);
 
-            if let Some(vertex_attribute) = reader.read_positions().map(|v| VertexAttribute::position(v.collect())) {
+            if let Some(vertex_attribute) = reader
+                .read_positions()
+                .map(|v| VertexAttribute::position(v.collect()))
+            {
                 mesh.attributes.push(vertex_attribute);
             }
 
-            if let Some(vertex_attribute) = reader.read_normals().map(|v| VertexAttribute::normal(v.collect())) {
+            if let Some(vertex_attribute) = reader
+                .read_normals()
+                .map(|v| VertexAttribute::normal(v.collect()))
+            {
                 mesh.attributes.push(vertex_attribute);
             }
 
-            if let Some(vertex_attribute) = reader.read_tex_coords(0).map(|v| VertexAttribute::uv(v.into_f32().collect())) {
+            if let Some(vertex_attribute) = reader
+                .read_tex_coords(0)
+                .map(|v| VertexAttribute::uv(v.into_f32().collect()))
+            {
                 mesh.attributes.push(vertex_attribute);
             }
 
