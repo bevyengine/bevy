@@ -65,7 +65,7 @@ impl LoadStatus {
     }
 }
 
-/// Loads assets from the filesystem on background threads
+/// Asynchronously loads assets from the filesystem on background threads!
 pub struct AssetServer {
     threadpool: ThreadPool,
     asset_folders: RwLock<Vec<PathBuf>>,
@@ -145,7 +145,7 @@ impl AssetServer {
             .into())
     }
 
-    /// Synch\ronously load an asset of type `T` from the specified path.
+    /// Synchronously load an asset of type `T` from the specified path.
     /// This will block until the asset has been fully loaded.
     pub fn load_sync<T: Resource, P: AsRef<Path>>(
         &self,
