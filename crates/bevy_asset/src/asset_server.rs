@@ -44,23 +44,23 @@ pub enum AssetServerError {
 struct AssetInfo {
     handle_id: HandleId,
     path: PathBuf,
-    load_state: LoadState,
+    load_state: LoadStatus,
 }
 
 /// The load state of an asset
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum LoadState {
+pub enum LoadStatus {
     Loading(AssetVersion),
     Loaded(AssetVersion),
     Failed(AssetVersion),
 }
 
-impl LoadState {
+impl LoadStatus {
     pub fn get_version(&self) -> AssetVersion {
         match *self {
-            LoadState::Loaded(version) => version,
-            LoadState::Loading(version) => version,
-            LoadState::Failed(version) => version,
+            LoadStatus::Loaded(version) => version,
+            LoadStatus::Loading(version) => version,
+            LoadStatus::Failed(version) => version,
         }
     }
 }
@@ -98,7 +98,10 @@ impl Default for AssetServer {
 }
 
 impl AssetServer {
-    /// Only loads items that are loaded into an asset of type `T`.
+    /// Asynchronously load assets of type `T` from the
+    /// specified folder.
+    /// # Note:
+    /// Only loads assets of type `T`.
     /// All other items are ignored.
     pub fn load_folder<T, P: AsRef<Path>>(
         &self,
@@ -117,6 +120,9 @@ impl AssetServer {
         Ok(handles)
     }
 
+    /// Asynchronously load all assets in the specified folder.
+    /// The returned handles can be cast into `Handle<T>`
+    /// later on.
     pub fn load_folder_all<P: AsRef<Path>>(
         &self,
         path: P,
@@ -128,6 +134,9 @@ impl AssetServer {
         Ok(handles)
     }
 
+    /// Asynchronously load an asset of type `T` from the specified path.
+    /// If the the asset cannot be loaded as a `T`, then `AssetServerError::IncorrectType`
+    /// will be returned.
     pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
         let path = path.as_ref();
         Ok(self
@@ -136,6 +145,8 @@ impl AssetServer {
             .into())
     }
 
+    /// Synch\ronously load an asset of type `T` from the specified path.
+    /// This will block until the asset has been fully loaded.
     pub fn load_sync<T: Resource, P: AsRef<Path>>(
         &self,
         assets: &mut Assets<T>,
@@ -162,10 +173,15 @@ impl AssetServer {
         }
     }
 
+    /// Load an asset of any type from the specified path.
+    /// The returned handle can be cast into `Handle<T>` later
+    /// on.
     pub fn load_any<P: AsRef<Path>>(&self, path: P) -> Result<HandleUntyped, AssetServerError> {
         self.load_any_internal(path, None)
     }
 
+    /// Attempt to get the handle to a loaded asset of type `T`.
+    /// If the asset has not finished loading, `None` will be returned.
     /// TODO: Check handle type?
     pub fn get_handle<T, P: AsRef<Path>>(&self, path: P) -> Option<Handle<T>> {
         self.asset_info_paths
@@ -173,6 +189,21 @@ impl AssetServer {
             .unwrap()
             .get(path.as_ref())
             .map(|handle_id| Handle::from(*handle_id))
+    }
+
+    /// Start watching for changes to already registered files and directories.
+    #[cfg(feature = "filesystem_watcher")]
+    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
+        let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
+
+        let _ = filesystem_watcher.get_or_insert_with(FilesystemWatcher::default);
+        // watch current files
+        let asset_info_paths = self.asset_info_paths.read().unwrap();
+        for asset_path in asset_info_paths.keys() {
+            Self::watch_path_for_changes(&mut filesystem_watcher, asset_path)?;
+        }
+
+        Ok(())
     }
 
     #[cfg(feature = "filesystem_watcher")]
@@ -192,21 +223,7 @@ impl AssetServer {
     }
 
     #[cfg(feature = "filesystem_watcher")]
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
-
-        let _ = filesystem_watcher.get_or_insert_with(FilesystemWatcher::default);
-        // watch current files
-        let asset_info_paths = self.asset_info_paths.read().unwrap();
-        for asset_path in asset_info_paths.keys() {
-            Self::watch_path_for_changes(&mut filesystem_watcher, asset_path)?;
-        }
-
-        Ok(())
-    }
-
-    #[cfg(feature = "filesystem_watcher")]
-    pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+    pub(crate) fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
         use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::new();
 
@@ -258,7 +275,7 @@ impl AssetServer {
         }
     }
 
-    pub(crate) fn set_load_state(&self, handle_id: HandleId, load_state: LoadState) {
+    pub(crate) fn set_load_status(&self, handle_id: HandleId, load_state: LoadStatus) {
         if let Some(asset_info) = self.asset_info.write().unwrap().get_mut(&handle_id) {
             if load_state.get_version() >= asset_info.load_state.get_version() {
                 asset_info.load_state = load_state;
@@ -266,7 +283,8 @@ impl AssetServer {
         }
     }
 
-    pub fn get_load_state<H>(&self, handle: H) -> Option<LoadState>
+    /// Get the current load status of an asset indicated by `handle`.
+    pub fn get_load_status<H>(&self, handle: H) -> Option<LoadStatus>
     where
         H: Into<HandleId>,
     {
@@ -277,19 +295,20 @@ impl AssetServer {
             .map(|asset_info| asset_info.load_state.clone())
     }
 
-    pub fn get_group_load_state<I>(&self, handles: I) -> Option<LoadState>
+    /// Check the least-common-denominator load status of a group of asset handles.
+    pub fn get_group_load_status<I>(&self, handles: I) -> Option<LoadStatus>
     where
         I: IntoIterator,
         I::Item: Into<HandleId>,
     {
-        let mut load_state = LoadState::Loaded(0);
+        let mut load_state = LoadStatus::Loaded(0);
         for handle in handles.into_iter() {
-            match self.get_load_state(handle) {
-                Some(LoadState::Loaded(_)) => continue,
-                Some(LoadState::Loading(_)) => {
-                    load_state = LoadState::Loading(0);
+            match self.get_load_status(handle) {
+                Some(LoadStatus::Loaded(_)) => continue,
+                Some(LoadStatus::Loading(_)) => {
+                    load_state = LoadStatus::Loading(0);
                 }
-                Some(LoadState::Failed(_)) => return Some(LoadState::Failed(0)),
+                Some(LoadStatus::Failed(_)) => return Some(LoadStatus::Failed(0)),
                 None => return None,
             }
         }
@@ -364,11 +383,12 @@ impl AssetServer {
                 .get(path)
                 .and_then(|handle_id| asset_info.get_mut(&handle_id))
             {
-                asset_info.load_state = if let LoadState::Loaded(_version) = asset_info.load_state {
+                asset_info.load_state = if let LoadStatus::Loaded(_version) = asset_info.load_state
+                {
                     version += 1;
-                    LoadState::Loading(version)
+                    LoadStatus::Loading(version)
                 } else {
-                    LoadState::Loading(version)
+                    LoadStatus::Loading(version)
                 };
                 asset_info.handle_id
             } else {
@@ -378,7 +398,7 @@ impl AssetServer {
                     AssetInfo {
                         handle_id,
                         path: path.to_owned(),
-                        load_state: LoadState::Loading(version),
+                        load_state: LoadStatus::Loading(version),
                     },
                 );
                 asset_info_paths.insert(path.to_owned(), handle_id);

@@ -1,4 +1,4 @@
-use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
+use bevy::{asset::LoadStatus, prelude::*, sprite::TextureAtlasBuilder};
 
 /// In this example we generate a new texture atlas (sprite sheet) from a folder containing individual sprites
 fn main() {
@@ -33,8 +33,8 @@ fn load_atlas(
     }
 
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
-    if let Some(LoadState::Loaded(_)) =
-        asset_server.get_group_load_state(&rpg_sprite_handles.handles)
+    if let Some(LoadStatus::Loaded(_)) =
+        asset_server.get_group_load_status(&rpg_sprite_handles.handles)
     {
         for &handle in rpg_sprite_handles.handles.iter() {
             let texture = textures.get(&handle).unwrap();

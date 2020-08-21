@@ -1,4 +1,4 @@
-use crate::{AssetServer, AssetVersion, Assets, Handle, HandleId, LoadState};
+use crate::{AssetServer, AssetVersion, Assets, Handle, HandleId, LoadStatus};
 use anyhow::Result;
 use bevy_ecs::{Res, ResMut, Resource};
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
@@ -115,11 +115,11 @@ pub(crate) fn update_asset_storage_system<T: Resource>(
                 Ok(asset) => {
                     assets.set(result.handle, asset);
                     asset_server
-                        .set_load_state(result.handle.id, LoadState::Loaded(result.version));
+                        .set_load_status(result.handle.id, LoadStatus::Loaded(result.version));
                 }
                 Err(err) => {
                     asset_server
-                        .set_load_state(result.handle.id, LoadState::Failed(result.version));
+                        .set_load_status(result.handle.id, LoadStatus::Failed(result.version));
                     log::error!("Failed to load asset: {:?}", err);
                 }
             },

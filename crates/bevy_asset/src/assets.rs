@@ -102,7 +102,7 @@ impl<T: Resource> Assets<T> {
         self.assets.remove(&handle)
     }
 
-    pub fn asset_event_system(
+    pub(crate) fn asset_event_system(
         mut events: ResMut<Events<AssetEvent<T>>>,
         mut assets: ResMut<Assets<T>>,
     ) {
