@@ -5,7 +5,7 @@ use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
 
 /// A mouse button input event
-#[derive(Debug, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct MouseButtonInput {
     pub button: MouseButton,
     pub state: ElementState,
@@ -21,20 +21,20 @@ pub enum MouseButton {
 }
 
 /// A mouse motion event
-#[derive(Debug, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct MouseMotion {
     pub delta: Vec2,
 }
 
 /// Unit of scroll
-#[derive(Debug, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum MouseScrollUnit {
     Line,
     Pixel,
 }
 
 /// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
-#[derive(Debug, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,
     pub x: f32,
