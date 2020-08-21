@@ -47,6 +47,12 @@ where
         self.just_released.contains(&input)
     }
 
+    pub fn reset(&mut self, input: T) {
+        self.pressed.remove(&input);
+        self.just_pressed.remove(&input);
+        self.just_released.remove(&input);
+    }
+
     pub fn update(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();

@@ -38,6 +38,10 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
         if: ${{ runner.os == 'Linux' }}
 
+      - name: Install udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libudev-dev
+        if: ${{ runner.os == 'Linux' }}
+
       - name: Build
         run: cargo check
         env:
@@ -64,6 +68,9 @@ jobs:
           
       - name: Install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
+
+      - name: Install udev
+        run: sudo apt-get install --no-install-recommends libudev-dev
 
       - name: Check the format
         run: cargo +nightly fmt --all -- --check
