@@ -299,8 +299,8 @@ mod tests {
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
         renderer::{RenderContext, RenderResourceType},
     };
-    use bevy_ecs::{Resources, World};
     use ahash::RandomState;
+    use bevy_ecs::{Resources, World};
     use std::{collections::HashSet, iter::FromIterator};
 
     #[derive(Debug)]
