@@ -30,3 +30,4 @@ pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 crossbeam-channel = "0.4.2"
 crossbeam-utils = "0.7.2"
+parking_lot = "0.10.2"

@@ -127,7 +127,7 @@ pub trait BuildChildren {
 impl BuildChildren for Commands {
     fn with_children(&mut self, mut parent: impl FnMut(&mut ChildBuilder)) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             let current_entity = commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
             commands.current_entity = None;
             let push_children = {
@@ -150,7 +150,7 @@ impl BuildChildren for Commands {
 
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             commands.write_world(PushChildren {
                 children: SmallVec::from(children),
                 parent,
@@ -161,7 +161,7 @@ impl BuildChildren for Commands {
 
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
         {
-            let mut commands = self.commands.lock().unwrap();
+            let mut commands = self.commands.lock();
             commands.write_world(InsertChildren {
                 children: SmallVec::from(children),
                 index,

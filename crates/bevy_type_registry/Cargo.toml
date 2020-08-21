@@ -17,3 +17,4 @@ bevy_property = { path = "../bevy_property", version = "0.1" }
 
 # other
 serde = { version = "1", features = ["derive"] }
+parking_lot = "0.10.2"

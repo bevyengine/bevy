@@ -33,7 +33,7 @@ impl WgpuRenderResourceContext {
     }
 
     pub fn set_window_surface(&self, window_id: WindowId, surface: wgpu::Surface) {
-        let mut window_surfaces = self.resources.window_surfaces.write().unwrap();
+        let mut window_surfaces = self.resources.window_surfaces.write();
         window_surfaces.insert(window_id, surface);
     }
 
@@ -46,7 +46,7 @@ impl WgpuRenderResourceContext {
         destination_offset: u64,
         size: u64,
     ) {
-        let buffers = self.resources.buffers.read().unwrap();
+        let buffers = self.resources.buffers.read();
 
         let source = buffers.get(&source_buffer).unwrap();
         let destination = buffers.get(&destination_buffer).unwrap();
@@ -71,8 +71,8 @@ impl WgpuRenderResourceContext {
         destination_mip_level: u32,
         size: Extent3d,
     ) {
-        let buffers = self.resources.buffers.read().unwrap();
-        let textures = self.resources.textures.read().unwrap();
+        let buffers = self.resources.buffers.read();
+        let textures = self.resources.textures.read();
 
         let source = buffers.get(&source_buffer).unwrap();
         let destination = textures.get(&destination_texture).unwrap();
@@ -103,14 +103,13 @@ impl WgpuRenderResourceContext {
             .resources
             .bind_group_layouts
             .read()
-            .unwrap()
             .get(&descriptor.id)
             .is_some()
         {
             return;
         }
 
-        let mut bind_group_layouts = self.resources.bind_group_layouts.write().unwrap();
+        let mut bind_group_layouts = self.resources.bind_group_layouts.write();
         // TODO: consider re-checking existence here
         let bind_group_layout_binding = descriptor
             .bindings
@@ -143,8 +142,8 @@ impl WgpuRenderResourceContext {
     }
 
     fn try_next_swap_chain_texture(&self, window_id: bevy_window::WindowId) -> Option<TextureId> {
-        let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
+        let mut window_swap_chains = self.resources.window_swap_chains.write();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
         let next_texture = window_swap_chain.get_next_frame().ok()?;
@@ -156,7 +155,7 @@ impl WgpuRenderResourceContext {
 
 impl RenderResourceContext for WgpuRenderResourceContext {
     fn create_sampler(&self, sampler_descriptor: &SamplerDescriptor) -> SamplerId {
-        let mut samplers = self.resources.samplers.write().unwrap();
+        let mut samplers = self.resources.samplers.write();
 
         let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).wgpu_into();
         let sampler = self.device.create_sampler(&descriptor);
@@ -167,9 +166,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
-        let mut textures = self.resources.textures.write().unwrap();
-        let mut texture_views = self.resources.texture_views.write().unwrap();
-        let mut texture_descriptors = self.resources.texture_descriptors.write().unwrap();
+        let mut textures = self.resources.textures.write();
+        let mut texture_views = self.resources.texture_views.write();
+        let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
         let texture = self.device.create_texture(&descriptor);
@@ -184,8 +183,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_buffer(&self, buffer_info: BufferInfo) -> BufferId {
         // TODO: consider moving this below "create" for efficiency
-        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
-        let mut buffers = self.resources.buffers.write().unwrap();
+        let mut buffer_infos = self.resources.buffer_infos.write();
+        let mut buffers = self.resources.buffers.write();
 
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -202,8 +201,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_buffer_with_data(&self, mut buffer_info: BufferInfo, data: &[u8]) -> BufferId {
         // TODO: consider moving this below "create" for efficiency
-        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
-        let mut buffers = self.resources.buffers.write().unwrap();
+        let mut buffer_infos = self.resources.buffer_infos.write();
+        let mut buffers = self.resources.buffers.write();
 
         buffer_info.size = data.len();
         let buffer = self
@@ -217,17 +216,17 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn remove_buffer(&self, buffer: BufferId) {
-        let mut buffers = self.resources.buffers.write().unwrap();
-        let mut buffer_infos = self.resources.buffer_infos.write().unwrap();
+        let mut buffers = self.resources.buffers.write();
+        let mut buffer_infos = self.resources.buffer_infos.write();
 
         buffers.remove(&buffer);
         buffer_infos.remove(&buffer);
     }
 
     fn remove_texture(&self, texture: TextureId) {
-        let mut textures = self.resources.textures.write().unwrap();
-        let mut texture_views = self.resources.texture_views.write().unwrap();
-        let mut texture_descriptors = self.resources.texture_descriptors.write().unwrap();
+        let mut textures = self.resources.textures.write();
+        let mut texture_views = self.resources.texture_views.write();
+        let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         textures.remove(&texture);
         texture_views.remove(&texture);
@@ -235,12 +234,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn remove_sampler(&self, sampler: SamplerId) {
-        let mut samplers = self.resources.samplers.write().unwrap();
+        let mut samplers = self.resources.samplers.write();
         samplers.remove(&sampler);
     }
 
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
-        let mut shader_modules = self.resources.shader_modules.write().unwrap();
+        let mut shader_modules = self.resources.shader_modules.write();
         let shader_module = self
             .device
             .create_shader_module(wgpu::ShaderModuleSource::SpirV(&shader.get_spirv(None)));
@@ -252,7 +251,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .resources
             .shader_modules
             .read()
-            .unwrap()
             .get(&shader_handle)
             .is_some()
         {
@@ -263,8 +261,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn create_swap_chain(&self, window: &Window) {
-        let surfaces = self.resources.window_surfaces.read().unwrap();
-        let mut window_swap_chains = self.resources.window_swap_chains.write().unwrap();
+        let surfaces = self.resources.window_surfaces.read();
+        let mut window_swap_chains = self.resources.window_swap_chains.write();
 
         let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
         let surface = surfaces
@@ -281,11 +279,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
             texture_id
         } else {
-            self.resources
-                .window_swap_chains
-                .write()
-                .unwrap()
-                .remove(&window.id);
+            self.resources.window_swap_chains.write().remove(&window.id);
             self.create_swap_chain(window);
             self.try_next_swap_chain_texture(window.id)
                 .expect("Failed to acquire next swap chain texture!")
@@ -293,12 +287,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn drop_swap_chain_texture(&self, texture: TextureId) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
         swap_chain_outputs.remove(&texture);
     }
 
     fn drop_all_swap_chain_textures(&self) {
-        let mut swap_chain_outputs = self.resources.swap_chain_frames.write().unwrap();
+        let mut swap_chain_outputs = self.resources.swap_chain_frames.write();
         swap_chain_outputs.clear();
     }
 
@@ -308,7 +302,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         render_resource: RenderResourceId,
         index: usize,
     ) {
-        let mut asset_resources = self.resources.asset_resources.write().unwrap();
+        let mut asset_resources = self.resources.asset_resources.write();
         asset_resources.insert((handle, index), render_resource);
     }
 
@@ -317,12 +311,12 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         handle: HandleUntyped,
         index: usize,
     ) -> Option<RenderResourceId> {
-        let asset_resources = self.resources.asset_resources.read().unwrap();
+        let asset_resources = self.resources.asset_resources.read();
         asset_resources.get(&(handle, index)).cloned()
     }
 
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
-        let mut asset_resources = self.resources.asset_resources.write().unwrap();
+        let mut asset_resources = self.resources.asset_resources.write();
         asset_resources.remove(&(handle, index));
     }
 
@@ -336,7 +330,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .resources
             .render_pipelines
             .read()
-            .unwrap()
             .get(&pipeline_handle)
             .is_some()
         {
@@ -348,7 +341,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             self.create_bind_group_layout(&bind_group_descriptor);
         }
 
-        let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
+        let bind_group_layouts = self.resources.bind_group_layouts.read();
         // setup and collect bind group layouts
         let bind_group_layouts = layout
             .bind_groups
@@ -380,7 +373,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             self.create_shader_module(fragment_handle, shaders);
         }
 
-        let shader_modules = self.resources.shader_modules.read().unwrap();
+        let shader_modules = self.resources.shader_modules.read();
         let vertex_shader_module = shader_modules
             .get(&pipeline_descriptor.shader_stages.vertex)
             .unwrap();
@@ -428,7 +421,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let render_pipeline = self
             .device
             .create_render_pipeline(&render_pipeline_descriptor);
-        let mut render_pipelines = self.resources.render_pipelines.write().unwrap();
+        let mut render_pipelines = self.resources.render_pipelines.write();
         render_pipelines.insert(pipeline_handle, render_pipeline);
     }
 
@@ -436,7 +429,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         &self,
         bind_group_descriptor_id: BindGroupDescriptorId,
     ) -> bool {
-        let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
+        let bind_group_layouts = self.resources.bind_group_layouts.read();
         bind_group_layouts.get(&bind_group_descriptor_id).is_some()
     }
 
@@ -453,11 +446,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 "start creating bind group for RenderResourceSet {:?}",
                 bind_group.id
             );
-            let texture_views = self.resources.texture_views.read().unwrap();
-            let samplers = self.resources.samplers.read().unwrap();
-            let buffers = self.resources.buffers.read().unwrap();
-            let bind_group_layouts = self.resources.bind_group_layouts.read().unwrap();
-            let mut bind_groups = self.resources.bind_groups.write().unwrap();
+            let texture_views = self.resources.texture_views.read();
+            let samplers = self.resources.samplers.read();
+            let buffers = self.resources.buffers.read();
+            let bind_group_layouts = self.resources.bind_group_layouts.read();
+            let mut bind_groups = self.resources.bind_groups.write();
 
             let bindings = bind_group
                 .indexed_bindings
@@ -508,16 +501,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn clear_bind_groups(&self) {
-        self.resources.bind_groups.write().unwrap().clear();
+        self.resources.bind_groups.write().clear();
     }
 
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.resources
-            .buffer_infos
-            .read()
-            .unwrap()
-            .get(&buffer)
-            .cloned()
+        self.resources.buffer_infos.read().get(&buffer).cloned()
     }
 
     fn write_mapped_buffer(
@@ -527,7 +515,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) {
         let buffer = {
-            let buffers = self.resources.buffers.read().unwrap();
+            let buffers = self.resources.buffers.read();
             buffers.get(&id).unwrap().clone()
         };
         let buffer_slice = buffer.slice(range);
@@ -536,7 +524,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn map_buffer(&self, id: BufferId) {
-        let buffers = self.resources.buffers.read().unwrap();
+        let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         let buffer_slice = buffer.slice(..);
         let data = buffer_slice.map_async(wgpu::MapMode::Write);
@@ -547,7 +535,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn unmap_buffer(&self, id: BufferId) {
-        let buffers = self.resources.buffers.read().unwrap();
+        let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         buffer.unmap();
     }

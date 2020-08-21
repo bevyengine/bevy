@@ -1,9 +1,10 @@
 use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
+use parking_lot::RwLock;
 use std::{
     any::TypeId,
     collections::{HashMap, HashSet},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 #[derive(Clone, Default)]
