@@ -72,17 +72,6 @@ impl<T> Handle<T> {
             marker: PhantomData,
         }
     }
-
-    pub fn from_untyped(untyped_handle: HandleUntyped) -> Option<Handle<T>>
-    where
-        T: 'static,
-    {
-        if TypeId::of::<T>() == untyped_handle.type_id {
-            Some(Handle::from_id(untyped_handle.id))
-        } else {
-            None
-        }
-    }
 }
 
 impl<T> From<HandleId> for Handle<T> {
@@ -114,22 +103,6 @@ impl<T> Into<HandleId> for &'_ Handle<T> {
         self.id
     }
 }
-
-// impl<T> From<HandleUntyped> for Handle<T>
-// where
-//     T: 'static,
-// {
-//     fn from(handle: HandleUntyped) -> Self {
-//         if TypeId::of::<T>() == handle.type_id {
-//             Handle {
-//                 id: handle.id,
-//                 marker: PhantomData::default(),
-//             }
-//         } else {
-//             panic!("attempted to convert untyped handle to incorrect typed handle")
-//         }
-//     }
-// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct HandleUpcastError(());
