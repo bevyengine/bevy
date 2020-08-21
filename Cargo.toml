@@ -104,10 +104,6 @@ name = "texture"
 path = "examples/3d/texture.rs"
 
 [[example]]
-name = "compute"
-path = "examples/3d/compute.rs"
-
-[[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
@@ -198,6 +194,10 @@ path = "examples/shader/shader_custom_material.rs"
 [[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
+
+[[example]]
+name = "compute"
+path = "examples/shader/compute.rs"
 
 [[example]]
 name = "button"

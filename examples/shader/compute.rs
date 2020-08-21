@@ -65,7 +65,7 @@ struct ComputeComponents {
     dispatch: Dispatch,
 }
 
-/// set up a simple 3D scene
+// Setup our compute pipeline and a "dispatch" component/entity that will dispatch the shader.
 fn setup(
     mut commands: Commands,
     mut pipelines: ResMut<Assets<ComputePipelineDescriptor>>,
