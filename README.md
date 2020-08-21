@@ -32,7 +32,8 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
 
 ## Community
-* Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)**
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)**
+
 * **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
 
@@ -40,7 +41,7 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
 
-Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is setup up correctly.
+Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is setup correctly.
 Once setup, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
