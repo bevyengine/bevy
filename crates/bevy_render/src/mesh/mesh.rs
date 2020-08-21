@@ -535,8 +535,9 @@ pub fn mesh_resource_provider_system(
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
             let mut mesh_vertex_buffer_descriptor = None;
+            let mut mesh_index_format = None;
 
-            'outer: for (mesh, mut pipelines) in &mut query.iter() {
+            for (mesh, mut pipelines) in &mut query.iter() {
                 if mesh == changed_mesh_handle {
                     for pipeline in &mut pipelines.pipelines {
                         let specialized_pipeline_descriptor = prepare_pipeline(
@@ -551,11 +552,19 @@ pub fn mesh_resource_provider_system(
                         .unwrap();
                         pipeline.pipeline = specialized_pipeline_descriptor;
                         if let Some(pipeline) = pipeline_descriptors.get(&pipeline.pipeline) {
+                            // sanity check
+                            if let Some(format) = &mesh_index_format {
+                                debug_assert_eq!(format, &pipeline.index_format);
+                            }
+                            mesh_index_format = Some(pipeline.index_format);
                             if let Some(layout) = &pipeline.layout {
                                 for vertex_buffer_descriptor in &layout.vertex_buffer_descriptors {
+                                    // sanity check
+                                    if let Some(descriptor) = &mesh_vertex_buffer_descriptor {
+                                        debug_assert_eq!(descriptor, vertex_buffer_descriptor);
+                                    }
                                     mesh_vertex_buffer_descriptor =
                                         Some(vertex_buffer_descriptor.clone());
-                                    break 'outer;
                                 }
                             }
                         }
@@ -579,7 +588,12 @@ pub fn mesh_resource_provider_system(
                 &vertex_bytes,
             );
 
-            let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
+            let index_bytes = mesh
+                .get_index_buffer_bytes(
+                    mesh_index_format
+                        .unwrap_or_default(),
+                )
+                .unwrap();
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
