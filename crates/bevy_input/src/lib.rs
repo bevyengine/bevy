@@ -11,7 +11,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion};
+use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 
 use bevy_ecs::IntoQuerySystem;
 
@@ -24,6 +24,7 @@ impl Plugin for InputPlugin {
         app.add_event::<KeyboardInput>()
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
+            .add_event::<MouseWheel>()
             .init_resource::<Input<KeyCode>>()
             .add_system_to_stage(
                 bevy_app::stage::EVENT_UPDATE,

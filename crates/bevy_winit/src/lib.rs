@@ -4,7 +4,7 @@ pub use winit_windows::*;
 
 use bevy_input::{
     keyboard::KeyboardInput,
-    mouse::{MouseButtonInput, MouseMotion},
+    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 
 use bevy_app::{prelude::*, AppExit};
@@ -119,6 +119,26 @@ pub fn winit_runner(mut app: App) {
                         state: converters::convert_element_state(state),
                     });
                 }
+                WindowEvent::MouseWheel { delta, .. } => match delta {
+                    event::MouseScrollDelta::LineDelta(x, y) => {
+                        let mut mouse_wheel_input_events =
+                            app.resources.get_mut::<Events<MouseWheel>>().unwrap();
+                        mouse_wheel_input_events.send(MouseWheel {
+                            unit: MouseScrollUnit::Line,
+                            x,
+                            y,
+                        });
+                    }
+                    event::MouseScrollDelta::PixelDelta(p) => {
+                        let mut mouse_wheel_input_events =
+                            app.resources.get_mut::<Events<MouseWheel>>().unwrap();
+                        mouse_wheel_input_events.send(MouseWheel {
+                            unit: MouseScrollUnit::Pixel,
+                            x: p.x as f32,
+                            y: p.y as f32,
+                        });
+                    }
+                },
                 _ => {}
             },
             event::Event::DeviceEvent { ref event, .. } => {
