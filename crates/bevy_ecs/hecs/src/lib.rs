@@ -89,8 +89,6 @@ pub use world::{ArchetypesGeneration, Component, ComponentError, Iter, SpawnBatc
 // Unstable implementation details needed by the macros
 #[doc(hidden)]
 pub use archetype::TypeInfo;
-#[doc(hidden)]
-pub use hashbrown;
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub use lazy_static;

@@ -20,14 +20,14 @@ use crate::alloc::{
     vec,
     vec::Vec,
 };
+use ahash::RandomState;
 use core::{
     any::{type_name, TypeId},
     cell::UnsafeCell,
     mem,
     ptr::{self, NonNull},
 };
-
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 
@@ -37,7 +37,7 @@ use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 /// go through the `World`.
 pub struct Archetype {
     types: Vec<TypeInfo>,
-    state: HashMap<TypeId, TypeState>,
+    state: HashMap<TypeId, TypeState, RandomState>,
     len: u32,
     entities: Box<[u32]>,
     // UnsafeCell allows unique references into `data` to be constructed while shared references
@@ -59,7 +59,7 @@ impl Archetype {
             types.windows(2).all(|x| x[0] < x[1]),
             "type info unsorted or contains duplicates"
         );
-        let mut state = HashMap::with_capacity(types.len());
+        let mut state = HashMap::with_capacity_and_hasher(types.len(), RandomState::new());
         for ty in &types {
             state.insert(ty.id, TypeState::new());
         }

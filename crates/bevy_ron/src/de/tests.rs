@@ -83,9 +83,10 @@ fn test_array() {
 
 #[test]
 fn test_map() {
-    use hashbrown::HashMap;
+    use ahash::RandomState;
+    use std::collections::HashMap;
 
-    let mut map = HashMap::new();
+    let mut map = HashMap::with_hasher(RandomState::new());
     map.insert((true, false), 4);
     map.insert((false, false), 123);
 
@@ -159,11 +160,15 @@ fn err<T>(kind: ErrorCode, line: usize, col: usize) -> Result<T> {
 #[test]
 fn test_err_wrong_value() {
     use self::ErrorCode::*;
-    use hashbrown::HashMap;
+    use ahash::RandomState;
+    use std::collections::HashMap;
 
     assert_eq!(from_str::<f32>("'c'"), err(ExpectedFloat, 1, 1));
     assert_eq!(from_str::<String>("'c'"), err(ExpectedString, 1, 1));
-    assert_eq!(from_str::<HashMap<u32, u32>>("'c'"), err(ExpectedMap, 1, 1));
+    assert_eq!(
+        from_str::<HashMap<u32, u32, RandomState>>("'c'"),
+        err(ExpectedMap, 1, 1)
+    );
     assert_eq!(from_str::<[u8; 5]>("'c'"), err(ExpectedArray, 1, 1));
     assert_eq!(from_str::<Vec<u32>>("'c'"), err(ExpectedArray, 1, 1));
     assert_eq!(from_str::<MyEnum>("'c'"), err(ExpectedIdentifier, 1, 1));

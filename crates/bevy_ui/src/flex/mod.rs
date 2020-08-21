@@ -1,16 +1,17 @@
 mod convert;
 
 use crate::{CalculatedSize, Node, Style};
+use ahash::RandomState;
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, LocalTransform, Parent};
 use bevy_window::{Window, WindowId, Windows};
-use hashbrown::HashMap;
+use std::collections::HashMap;
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
-    entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, stretch::node::Node>,
+    entity_to_stretch: HashMap<Entity, stretch::node::Node, RandomState>,
+    window_nodes: HashMap<WindowId, stretch::node::Node, RandomState>,
     stretch: Stretch,
 }
 

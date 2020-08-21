@@ -3,9 +3,13 @@ use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
+use ahash::RandomState;
 use bevy_asset::{Handle, HandleUntyped};
-use hashbrown::{HashMap, HashSet};
-use std::{hash::Hash, ops::Range};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+    ops::Range,
+};
 use uuid::Uuid;
 
 #[derive(Clone, Eq, Debug)]
@@ -106,12 +110,12 @@ pub enum BindGroupStatus {
 pub struct RenderResourceBindings {
     // TODO: remove this. it shouldn't be needed anymore
     pub id: RenderResourceBindingsId,
-    bindings: HashMap<String, RenderResourceBinding>,
+    bindings: HashMap<String, RenderResourceBinding, RandomState>,
     // TODO: remove this
-    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
-    bind_groups: HashMap<BindGroupId, BindGroup>,
-    bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
-    dirty_bind_groups: HashSet<BindGroupId>,
+    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>), RandomState>,
+    bind_groups: HashMap<BindGroupId, BindGroup, RandomState>,
+    bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>, RandomState>,
+    dirty_bind_groups: HashSet<BindGroupId, RandomState>,
 }
 
 impl RenderResourceBindings {
@@ -255,7 +259,7 @@ impl RenderResourceBindings {
 
 #[derive(Default)]
 pub struct AssetRenderResourceBindings {
-    pub bindings: HashMap<HandleUntyped, RenderResourceBindings>,
+    pub bindings: HashMap<HandleUntyped, RenderResourceBindings, RandomState>,
 }
 
 impl AssetRenderResourceBindings {

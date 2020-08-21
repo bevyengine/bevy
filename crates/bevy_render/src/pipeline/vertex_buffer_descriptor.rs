@@ -1,6 +1,6 @@
 use super::VertexFormat;
-use hashbrown::HashMap;
-use std::borrow::Cow;
+use ahash::RandomState;
+use std::{borrow::Cow, collections::HashMap};
 
 pub use bevy_derive::AsVertexBufferDescriptor;
 
@@ -48,7 +48,7 @@ pub struct VertexAttributeDescriptor {
 
 #[derive(Default)]
 pub struct VertexBufferDescriptors {
-    pub descriptors: HashMap<String, VertexBufferDescriptor>,
+    pub descriptors: HashMap<String, VertexBufferDescriptor, RandomState>,
 }
 
 impl VertexBufferDescriptors {

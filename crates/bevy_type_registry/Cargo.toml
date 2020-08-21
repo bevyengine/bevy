@@ -17,4 +17,4 @@ bevy_property = { path = "../bevy_property", version = "0.1" }
 
 # other
 serde = { version = "1", features = ["derive"] }
-hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }
+ahash = "0.4.4"

@@ -19,4 +19,4 @@ bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 bevy_math = { path = "../bevy_math", version = "0.1" }
 
 # other
-hashbrown = { version = "0.8.0", default-features = false, features = ["ahash", "inline-more"] }
+ahash = "0.4.4"

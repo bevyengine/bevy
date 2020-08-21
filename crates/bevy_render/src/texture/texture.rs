@@ -2,11 +2,12 @@ use super::{SamplerDescriptor, TextureDescriptor, TextureFormat};
 use crate::renderer::{
     RenderResource, RenderResourceContext, RenderResourceId, RenderResourceType,
 };
+use ahash::RandomState;
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;
-use hashbrown::HashSet;
+use std::collections::HashSet;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
@@ -78,7 +79,7 @@ impl Texture {
         texture_events: Res<Events<AssetEvent<Texture>>>,
     ) {
         let render_resource_context = &**render_resource_context;
-        let mut changed_textures = HashSet::new();
+        let mut changed_textures = HashSet::with_hasher(RandomState::new());
         for event in state.event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } => {

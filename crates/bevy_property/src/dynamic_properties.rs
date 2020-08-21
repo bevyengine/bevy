@@ -2,15 +2,15 @@ use crate::{
     property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer, Serializable},
     DeserializeProperty, Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry,
 };
-use hashbrown::HashMap;
+use ahash::RandomState;
 use serde::de::DeserializeSeed;
-use std::{any::Any, borrow::Cow};
+use std::{any::Any, borrow::Cow, collections::HashMap};
 
 pub struct DynamicProperties {
     pub type_name: String,
     pub props: Vec<Box<dyn Property>>,
     pub prop_names: Vec<Cow<'static, str>>,
-    pub prop_indices: HashMap<Cow<'static, str>, usize>,
+    pub prop_indices: HashMap<Cow<'static, str>, usize, RandomState>,
     pub property_type: PropertyType,
 }
 

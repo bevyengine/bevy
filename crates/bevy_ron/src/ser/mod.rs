@@ -958,9 +958,10 @@ mod tests {
 
     #[test]
     fn test_map() {
-        use hashbrown::HashMap;
+        use ahash::RandomState;
+        use std::collections::HashMap;
 
-        let mut map = HashMap::new();
+        let mut map = HashMap::with_hasher(RandomState::new());
         map.insert((true, false), 4);
         map.insert((false, false), 123);
 

@@ -1,9 +1,10 @@
 use super::{Window, WindowId};
-use hashbrown::HashMap;
+use ahash::RandomState;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct Windows {
-    windows: HashMap<WindowId, Window>,
+    windows: HashMap<WindowId, Window, RandomState>,
 }
 
 impl Windows {

@@ -1,8 +1,9 @@
+use ahash::RandomState;
 use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
-use hashbrown::{HashMap, HashSet};
 use std::{
     any::TypeId,
+    collections::{HashMap, HashSet},
     sync::{Arc, RwLock},
 };
 
@@ -14,10 +15,10 @@ pub struct TypeRegistry {
 
 #[derive(Default)]
 pub struct ComponentRegistry {
-    pub registrations: HashMap<TypeId, ComponentRegistration>,
-    pub short_names: HashMap<String, TypeId>,
-    pub full_names: HashMap<String, TypeId>,
-    pub ambigous_names: HashSet<String>,
+    pub registrations: HashMap<TypeId, ComponentRegistration, RandomState>,
+    pub short_names: HashMap<String, TypeId, RandomState>,
+    pub full_names: HashMap<String, TypeId, RandomState>,
+    pub ambigous_names: HashSet<String, RandomState>,
 }
 
 impl ComponentRegistry {

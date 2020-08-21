@@ -2,11 +2,12 @@ use crate::{
     filesystem_watcher::FilesystemWatcher, AssetLoadError, AssetLoadRequestHandler, AssetLoader,
     Assets, Handle, HandleId, LoadRequest,
 };
+use ahash::RandomState;
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
 use crossbeam_channel::TryRecvError;
-use hashbrown::{HashMap, HashSet};
 use std::{
+    collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
@@ -76,10 +77,10 @@ pub struct AssetServer {
     asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
     // TODO: this is a hack to enable retrieving generic AssetLoader<T>s. there must be a better way!
     loaders: Vec<Resources>,
-    extension_to_handler_index: HashMap<String, usize>,
-    extension_to_loader_index: HashMap<String, usize>,
-    asset_info: RwLock<HashMap<HandleId, AssetInfo>>,
-    asset_info_paths: RwLock<HashMap<PathBuf, HandleId>>,
+    extension_to_handler_index: HashMap<String, usize, RandomState>,
+    extension_to_loader_index: HashMap<String, usize, RandomState>,
+    asset_info: RwLock<HashMap<HandleId, AssetInfo, RandomState>>,
+    asset_info_paths: RwLock<HashMap<PathBuf, HandleId, RandomState>>,
     #[cfg(feature = "filesystem_watcher")]
     filesystem_watcher: Arc<RwLock<Option<FilesystemWatcher>>>,
 }
