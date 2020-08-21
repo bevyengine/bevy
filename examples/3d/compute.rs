@@ -76,9 +76,7 @@ fn setup(
     let compute = shaders.add(Shader::from_glsl(ShaderStage::Compute, COMPUTE_SHADER));
 
     // Create pipeline..
-    let pipeline = ComputePipelineDescriptor::new(ComputeShaderStages {
-        compute,
-    });
+    let pipeline = ComputePipelineDescriptor::new(ComputeShaderStages { compute });
     let pipeline_handle = pipelines.add(pipeline);
 
     render_graph.add_system_node(
