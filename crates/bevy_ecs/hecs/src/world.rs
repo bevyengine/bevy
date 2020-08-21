@@ -17,10 +17,12 @@
 use crate::alloc::vec::Vec;
 use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
 
+use ahash::RandomState;
 #[cfg(feature = "std")]
-use std::error::Error;
-
-use hashbrown::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+};
 
 use crate::{
     archetype::Archetype,
@@ -38,8 +40,8 @@ use crate::{
 /// runs, allowing for extremely fast, cache-friendly iteration.
 pub struct World {
     entities: Entities,
-    index: HashMap<Vec<TypeId>, u32>,
-    removed_components: HashMap<TypeId, Vec<Entity>>,
+    index: HashMap<Vec<TypeId>, u32, RandomState>,
+    removed_components: HashMap<TypeId, Vec<Entity>, RandomState>,
     #[allow(missing_docs)]
     pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
@@ -363,7 +365,7 @@ impl World {
         entity: Entity,
         components: impl DynamicBundle,
     ) -> Result<(), NoSuchEntity> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
@@ -461,11 +463,12 @@ impl World {
     /// assert_eq!(*world.get::<bool>(e).unwrap(), true);
     /// ```
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
-            let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+            let removed =
+                T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_, RandomState>>());
             let info = self.archetypes[loc.archetype as usize]
                 .types()
                 .iter()

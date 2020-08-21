@@ -10,11 +10,11 @@ use crate::{
     texture,
 };
 
+use ahash::RandomState;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
-use hashbrown::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{marker::PhantomData, ops::DerefMut};
+use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 #[derive(Debug)]
@@ -35,7 +35,7 @@ struct BufferArrayStatus {
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     current_item_count: usize,
     current_item_capacity: usize,
-    indices: HashMap<RenderResourceBindingsId, usize>,
+    indices: HashMap<RenderResourceBindingsId, usize, RandomState>,
     current_index: usize,
     // TODO: this is a hack to workaround RenderResources without a fixed length
     changed_size: usize,
@@ -122,7 +122,7 @@ where
                             current_index: 0,
                             current_item_count: 0,
                             current_item_capacity: 0,
-                            indices: HashMap::new(),
+                            indices: HashMap::with_hasher(RandomState::new()),
                             changed_size: size,
                             current_offset: 0,
                         },

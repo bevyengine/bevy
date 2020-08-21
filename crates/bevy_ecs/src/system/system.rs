@@ -1,8 +1,8 @@
 use crate::resource::Resources;
+use ahash::RandomState;
 use bevy_hecs::{Access, Query, World};
 use fixedbitset::FixedBitSet;
-use hashbrown::HashSet;
-use std::{any::TypeId, borrow::Cow};
+use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -81,8 +81,8 @@ impl ArchetypeAccess {
 /// Provides information about the types a [System] reads and writes
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 pub struct TypeAccess {
-    pub immutable: HashSet<TypeId>,
-    pub mutable: HashSet<TypeId>,
+    pub immutable: HashSet<TypeId, RandomState>,
+    pub mutable: HashSet<TypeId, RandomState>,
 }
 
 impl TypeAccess {

@@ -1,11 +1,12 @@
 use crate::{Font, FontAtlas};
 use ab_glyph::{Glyph, ScaleFont};
+use ahash::RandomState;
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 // work around rust's f32 order/hash limitations
 type FontSizeKey = FloatOrd;
@@ -13,7 +14,7 @@ type FontSizeKey = FloatOrd;
 #[derive(Default)]
 pub struct FontAtlasSet {
     font: Handle<Font>,
-    font_atlases: HashMap<FontSizeKey, FontAtlas>,
+    font_atlases: HashMap<FontSizeKey, FontAtlas, RandomState>,
 }
 
 #[derive(Debug)]
@@ -26,7 +27,7 @@ impl FontAtlasSet {
     pub fn new(font: Handle<Font>) -> Self {
         Self {
             font,
-            font_atlases: HashMap::new(),
+            font_atlases: HashMap::with_hasher(RandomState::new()),
         }
     }
 

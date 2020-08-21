@@ -1,10 +1,11 @@
 use super::Camera;
+use ahash::RandomState;
 use bevy_ecs::{Entity, Query, ResMut};
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct ActiveCameras {
-    pub cameras: HashMap<String, Option<Entity>>,
+    pub cameras: HashMap<String, Option<Entity>, RandomState>,
 }
 
 impl ActiveCameras {

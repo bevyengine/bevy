@@ -1,12 +1,15 @@
 use crate::{DeserializeProperty, Property};
-use hashbrown::{HashMap, HashSet};
-use std::any::TypeId;
+use ahash::RandomState;
+use std::{
+    any::TypeId,
+    collections::{HashMap, HashSet},
+};
 
 #[derive(Default)]
 pub struct PropertyTypeRegistry {
-    registrations: HashMap<String, PropertyTypeRegistration>,
-    short_names: HashMap<String, String>,
-    ambigous_names: HashSet<String>,
+    registrations: HashMap<String, PropertyTypeRegistration, RandomState>,
+    short_names: HashMap<String, String, RandomState>,
+    ambigous_names: HashSet<String, RandomState>,
 }
 
 impl PropertyTypeRegistry {

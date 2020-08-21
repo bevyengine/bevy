@@ -5,19 +5,21 @@ use crate::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
+use ahash::RandomState;
 use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_window::Window;
-use hashbrown::HashMap;
 use std::{
+    collections::HashMap,
     ops::Range,
     sync::{Arc, RwLock},
 };
 
 #[derive(Default)]
 pub struct HeadlessRenderResourceContext {
-    buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
-    texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
-    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,
+    buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo, RandomState>>>,
+    texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor, RandomState>>>,
+    pub asset_resources:
+        Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId, RandomState>>>,
 }
 
 impl HeadlessRenderResourceContext {

@@ -1,11 +1,11 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
+use ahash::RandomState;
 use bevy_ecs::{Commands, Schedule};
-use hashbrown::HashMap;
-use std::{borrow::Cow, fmt::Debug};
+use std::{borrow::Cow, collections::HashMap, fmt::Debug};
 
 pub struct RenderGraph {
-    nodes: HashMap<NodeId, NodeState>,
-    node_names: HashMap<Cow<'static, str>, NodeId>,
+    nodes: HashMap<NodeId, NodeState, RandomState>,
+    node_names: HashMap<Cow<'static, str>, NodeId, RandomState>,
     system_node_schedule: Option<Schedule>,
     commands: Commands,
 }
@@ -301,8 +301,7 @@ mod tests {
         renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
-    use hashbrown::HashSet;
-    use std::iter::FromIterator;
+    use std::{collections::HashSet, iter::FromIterator};
 
     #[derive(Debug)]
     struct TestNode {
@@ -361,20 +360,20 @@ mod tests {
         graph.add_node_edge("B", "C").unwrap();
         graph.add_slot_edge("C", 0, "D", 0).unwrap();
 
-        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId, RandomState> {
             graph
                 .iter_node_inputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId>>()
+                .collect::<HashSet<NodeId, RandomState>>()
         }
 
-        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
+        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId, RandomState> {
             graph
                 .iter_node_outputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId>>()
+                .collect::<HashSet<NodeId, RandomState>>()
         }
 
         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");

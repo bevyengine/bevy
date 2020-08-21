@@ -1,11 +1,11 @@
-use hashbrown::HashSet;
-use std::hash::Hash;
+use ahash::RandomState;
+use std::{collections::HashSet, hash::Hash};
 
 /// A "press-able" input of type `T`
 pub struct Input<T> {
-    pressed: HashSet<T>,
-    just_pressed: HashSet<T>,
-    just_released: HashSet<T>,
+    pressed: HashSet<T, RandomState>,
+    just_pressed: HashSet<T, RandomState>,
+    just_released: HashSet<T, RandomState>,
 }
 
 impl<T> Default for Input<T> {

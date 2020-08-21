@@ -1,6 +1,6 @@
-use hashbrown::HashMap;
+use ahash::RandomState;
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     time::{Duration, SystemTime},
 };
 use uuid::Uuid;
@@ -105,7 +105,7 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    diagnostics: HashMap<DiagnosticId, Diagnostic, RandomState>,
 }
 
 impl Diagnostics {

@@ -1,7 +1,7 @@
 use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
 use crate::shader::{ShaderLayout, GL_VERTEX_INDEX};
-use hashbrown::HashMap;
-use std::hash::Hash;
+use ahash::RandomState;
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
@@ -17,7 +17,8 @@ impl PipelineLayout {
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
-        let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
+        let mut bind_groups =
+            HashMap::<u32, BindGroupDescriptor, RandomState>::with_hasher(RandomState::new());
         let mut vertex_buffer_descriptors = Vec::new();
         for shader_layout in shader_layouts.iter_mut() {
             for shader_bind_group in shader_layout.bind_groups.iter_mut() {

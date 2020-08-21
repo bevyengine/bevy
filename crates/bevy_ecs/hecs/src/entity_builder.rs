@@ -20,13 +20,13 @@ use crate::alloc::{
     vec,
     vec::Vec,
 };
+use ahash::RandomState;
 use core::{
     any::TypeId,
     mem::{self, MaybeUninit},
     ptr,
 };
-
-use hashbrown::HashSet;
+use std::collections::HashSet;
 
 use crate::{archetype::TypeInfo, Component, DynamicBundle};
 
@@ -48,7 +48,7 @@ pub struct EntityBuilder {
     cursor: usize,
     info: Vec<(TypeInfo, usize)>,
     ids: Vec<TypeId>,
-    id_set: HashSet<TypeId>,
+    id_set: HashSet<TypeId, RandomState>,
 }
 
 impl EntityBuilder {
@@ -59,7 +59,7 @@ impl EntityBuilder {
             storage: Box::new([]),
             info: Vec::new(),
             ids: Vec::new(),
-            id_set: HashSet::new(),
+            id_set: HashSet::with_hasher(RandomState::new()),
         }
     }
 
