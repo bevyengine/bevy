@@ -32,7 +32,9 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
 
 ## Community
-* **[Discord Server](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
+* Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)**
+* **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
+* **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
 
 ## Getting Started
 
