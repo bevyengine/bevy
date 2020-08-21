@@ -36,15 +36,15 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 
 ## Getting Started
 
-We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial. You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
+
+Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is setup up correctly.
+Once setup, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
 # Runs the "breakout" example
 cargo run --example breakout
 ```
-### Linux Dependencies
-
-Bevy requires some additional dependencies when running on a linux based OS, listed [here](https://github.com/bevyengine/bevy/blob/master/docs/linux_dependencies.md).
 
 ### Fast Compiles
 
