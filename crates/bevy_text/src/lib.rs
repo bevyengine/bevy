@@ -24,6 +24,6 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
-            .add_asset_loader::<Font, FontLoader>();
+            .add_asset_loader::<FontLoader>();
     }
 }

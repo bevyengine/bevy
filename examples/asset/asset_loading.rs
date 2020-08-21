@@ -17,7 +17,13 @@ fn setup(
 ) {
     // You can load all assets in a folder like this. They will be loaded in parallel without blocking
     asset_server
-        .load_asset_folder("assets/models/monkey")
+        .load_folder_all("assets/models/monkey")
+        .unwrap();
+
+    // If you only want a certain kind of asset from within a folder,
+    // you can also import like this:
+    asset_server
+        .load_folder::<Mesh, _>("assets/models/monkey")
         .unwrap();
 
     // Then any asset in the folder can be accessed like this:

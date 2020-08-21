@@ -23,7 +23,9 @@ impl FromResources for SceneLoader {
     }
 }
 
-impl AssetLoader<Scene> for SceneLoader {
+impl AssetLoader for SceneLoader {
+    type Asset = Scene;
+
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Scene> {
         let registry = self.property_type_registry.read().unwrap();
         let mut deserializer = bevy_ron::de::Deserializer::from_bytes(&bytes)?;

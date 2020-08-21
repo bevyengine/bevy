@@ -10,7 +10,9 @@ use std::path::Path;
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-impl AssetLoader<Texture> for ImageTextureLoader {
+impl AssetLoader for ImageTextureLoader {
+    type Asset = Texture;
+
     fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<Texture> {
         use bevy_core::AsBytes;
 

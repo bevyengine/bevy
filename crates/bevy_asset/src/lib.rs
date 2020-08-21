@@ -3,13 +3,11 @@ mod assets;
 #[cfg(feature = "filesystem_watcher")]
 mod filesystem_watcher;
 mod handle;
-mod load_request;
 mod loader;
 
 pub use asset_server::*;
 pub use assets::*;
 pub use handle::*;
-pub use load_request::*;
 pub use loader::*;
 
 /// The names of asset stages in an App Schedule

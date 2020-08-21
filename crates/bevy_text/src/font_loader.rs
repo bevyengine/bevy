@@ -6,7 +6,9 @@ use std::path::Path;
 #[derive(Default)]
 pub struct FontLoader;
 
-impl AssetLoader<Font> for FontLoader {
+impl AssetLoader for FontLoader {
+    type Asset = Font;
+
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Font> {
         Ok(Font::try_from_bytes(bytes)?)
     }

@@ -1,5 +1,5 @@
 use crate::{
-    update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
+    update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetLoader,
     Handle, HandleId,
 };
 use bevy_app::{prelude::Events, AppBuilder};
@@ -115,10 +115,9 @@ pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
         T: Send + Sync + 'static;
-    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+    fn add_asset_loader<Loader>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static;
+        Loader: AssetLoader + FromResources;
 }
 
 impl AddAsset for AppBuilder {
@@ -135,33 +134,33 @@ impl AddAsset for AppBuilder {
             .add_event::<AssetEvent<T>>()
     }
 
-    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+    fn add_asset_loader<Loader>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static,
+        Loader: AssetLoader + FromResources,
     {
         {
-            if !self.resources().contains::<AssetChannel<TAsset>>() {
-                self.resources_mut().insert(AssetChannel::<TAsset>::new());
+            if !self.resources().contains::<AssetChannel<Loader::Asset>>() {
+                self.resources_mut()
+                    .insert(AssetChannel::<Loader::Asset>::new());
                 self.add_system_to_stage(
                     crate::stage::LOAD_ASSETS,
-                    update_asset_storage_system::<TAsset>.system(),
+                    update_asset_storage_system::<Loader::Asset>.system(),
                 );
             }
+
             let asset_channel = self
                 .resources()
-                .get::<AssetChannel<TAsset>>()
+                .get::<AssetChannel<Loader::Asset>>()
                 .expect("AssetChannel should always exist at this point.");
             let mut asset_server = self
                 .resources()
                 .get_mut::<AssetServer>()
                 .expect("AssetServer does not exist. Consider adding it as a resource.");
-            asset_server.add_loader(TLoader::from_resources(self.resources()));
-            let handler = ChannelAssetHandler::new(
-                TLoader::from_resources(self.resources()),
-                asset_channel.sender.clone(),
-            );
-            asset_server.add_handler(handler);
+
+            asset_server.add_cal(ChannelAssetLoader {
+                sender: asset_channel.sender.clone(),
+                loader: Box::new(Loader::from_resources(self.resources())),
+            });
         }
         self
     }

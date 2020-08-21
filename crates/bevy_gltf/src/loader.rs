@@ -15,7 +15,9 @@ use thiserror::Error;
 #[derive(Default)]
 pub struct GltfLoader;
 
-impl AssetLoader<Mesh> for GltfLoader {
+impl AssetLoader for GltfLoader {
+    type Asset = Mesh;
+
     fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh> {
         let mesh = load_gltf(asset_path, bytes)?;
         Ok(mesh)

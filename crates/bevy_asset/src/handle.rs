@@ -5,7 +5,7 @@ use std::{
 
 use bevy_property::{Properties, Property};
 use serde::{Deserialize, Serialize};
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::TypeId, convert::TryFrom, marker::PhantomData};
 use uuid::Uuid;
 
 /// The ID of the "default" asset
@@ -103,18 +103,48 @@ impl<T> From<[u8; 16]> for Handle<T> {
     }
 }
 
-impl<T> From<HandleUntyped> for Handle<T>
-where
-    T: 'static,
-{
-    fn from(handle: HandleUntyped) -> Self {
+impl<T> Into<HandleId> for Handle<T> {
+    fn into(self) -> HandleId {
+        self.id
+    }
+}
+
+impl<T> Into<HandleId> for &'_ Handle<T> {
+    fn into(self) -> HandleId {
+        self.id
+    }
+}
+
+// impl<T> From<HandleUntyped> for Handle<T>
+// where
+//     T: 'static,
+// {
+//     fn from(handle: HandleUntyped) -> Self {
+//         if TypeId::of::<T>() == handle.type_id {
+//             Handle {
+//                 id: handle.id,
+//                 marker: PhantomData::default(),
+//             }
+//         } else {
+//             panic!("attempted to convert untyped handle to incorrect typed handle")
+//         }
+//     }
+// }
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct HandleUpcastError(());
+
+impl<T> TryFrom<HandleUntyped> for Handle<T> {
+    type Error = HandleUpcastError;
+
+    fn try_from(handle: HandleUntyped) -> Result<Self, Self::Error> {
         if TypeId::of::<T>() == handle.type_id {
-            Handle {
+            Ok(Handle {
                 id: handle.id,
                 marker: PhantomData::default(),
-            }
+            })
         } else {
-            panic!("attempted to convert untyped handle to incorrect typed handle")
+            Err(HandleUpcastError(()))
         }
     }
 }
@@ -187,5 +217,17 @@ where
             id: handle.id,
             type_id: TypeId::of::<T>(),
         }
+    }
+}
+
+impl Into<HandleId> for HandleUntyped {
+    fn into(self) -> HandleId {
+        self.id
+    }
+}
+
+impl Into<HandleId> for &'_ HandleUntyped {
+    fn into(self) -> HandleId {
+        self.id
     }
 }

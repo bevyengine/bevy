@@ -8,7 +8,9 @@ use std::path::Path;
 #[derive(Clone, Default)]
 pub struct HdrTextureLoader;
 
-impl AssetLoader<Texture> for HdrTextureLoader {
+impl AssetLoader for HdrTextureLoader {
+    type Asset = Texture;
+
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Texture> {
         let format = TextureFormat::Rgba32Float;
         debug_assert_eq!(

@@ -18,7 +18,9 @@ impl AsRef<[u8]> for AudioSource {
 #[derive(Default)]
 pub struct Mp3Loader;
 
-impl AssetLoader<AudioSource> for Mp3Loader {
+impl AssetLoader for Mp3Loader {
+    type Asset = AudioSource;
+
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<AudioSource> {
         Ok(AudioSource {
             bytes: Arc::new(bytes),

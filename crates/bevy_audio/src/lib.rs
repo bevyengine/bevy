@@ -20,7 +20,7 @@ impl Plugin for AudioPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<AudioOutput>()
             .add_asset::<AudioSource>()
-            .add_asset_loader::<AudioSource, Mp3Loader>()
+            .add_asset_loader::<Mp3Loader>()
             .add_system_to_stage(stage::POST_UPDATE, play_queued_audio_system.system());
     }
 }
