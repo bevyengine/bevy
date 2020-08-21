@@ -2,7 +2,6 @@ use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabe
 use ahash::RandomState;
 use bevy_ecs::{Commands, Schedule};
 use std::{borrow::Cow, collections::HashMap, fmt::Debug};
-
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState, RandomState>,
     node_names: HashMap<Cow<'static, str>, NodeId, RandomState>,
@@ -301,6 +300,7 @@ mod tests {
         renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
+    use ahash::RandomState;
     use std::{collections::HashSet, iter::FromIterator};
 
     #[derive(Debug)]
