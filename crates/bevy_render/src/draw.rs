@@ -1,7 +1,7 @@
 use crate::{
     pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VertexBufferDescriptors, IndexFormat,
+        IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        VertexBufferDescriptors,
     },
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,

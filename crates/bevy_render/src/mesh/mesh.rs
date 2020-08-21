@@ -589,10 +589,7 @@ pub fn mesh_resource_provider_system(
             );
 
             let index_bytes = mesh
-                .get_index_buffer_bytes(
-                    mesh_index_format
-                        .unwrap_or_default(),
-                )
+                .get_index_buffer_bytes(mesh_index_format.unwrap_or_default())
                 .unwrap();
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
