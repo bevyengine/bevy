@@ -49,6 +49,14 @@ cargo run --example breakout
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
 
+## Focus Areas
+
+Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
+
+### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
+### [PBR / Clustered Forward Rendering](https://github.com/bevyengine/bevy/issues/179)
+### [Scenes](https://github.com/bevyengine/bevy/issues/255)
+
 ## Libraries Used
 
 Bevy is only possible because of the hard work put into these foundational technologies:
