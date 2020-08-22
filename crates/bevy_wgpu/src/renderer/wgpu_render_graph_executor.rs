@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
 };
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use std::{collections::HashMap, sync::Arc};
 
 pub struct WgpuRenderGraphExecutor {
@@ -28,23 +28,23 @@ impl WgpuRenderGraphExecutor {
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
 
-        const MAX_RENDER_CONTEXTS: usize = usize::max_value(); // perhaps something more sane later.
-        let thread_num = rayon::current_num_threads();
+        // const MAX_RENDER_CONTEXTS: usize = usize::max_value(); // perhaps something more sane later.
+        // let thread_num = rayon::current_num_threads();
 
         let mut node_outputs: HashMap<NodeId, ResourceSlots> = HashMap::new();
 
         for stage in stages {
             let num_items = stage.jobs.len();
             // max(1, max(items/threads, items/max_chunks))
-            let chunk_sizes = std::cmp::max(
-                1,
-                std::cmp::max(num_items / thread_num, num_items / MAX_RENDER_CONTEXTS),
-            );
+            // let chunk_sizes = std::cmp::max(
+            //     1,
+            //     std::cmp::max(num_items / thread_num, num_items / MAX_RENDER_CONTEXTS),
+            // );
 
             let (command_buffers, new_node_outputs): (Vec<_>, Vec<_>) = stage
                 .jobs
-                // .chunks_mut(chunk_sizes)
-                .par_chunks_mut(chunk_sizes)
+                .chunks_mut(num_items) // just do one chunk
+                // .par_chunks_mut(chunk_sizes)
                 .map(|jobs| {
                     let mut render_context = WgpuRenderContext::new(
                         Arc::clone(&device),

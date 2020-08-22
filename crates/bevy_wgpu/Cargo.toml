@@ -29,4 +29,4 @@ wgpu = { git = "https://github.com/gfx-rs/wgpu-rs", rev = "333aeb73c103037abdae6
 pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 parking_lot = "0.10.2"
-rayon = "1.3"
+# rayon = "1.3"
