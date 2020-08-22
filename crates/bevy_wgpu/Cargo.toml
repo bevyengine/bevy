@@ -25,7 +25,7 @@ bevy_window = { path = "../bevy_window", version = "0.1" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.1" }
 
 # other
-wgpu = { git = "https://github.com/gfx-rs/wgpu-rs", rev = "333aeb73c103037abdae62abc078c4fcf745aef7" }
+wgpu = "0.6"
 pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 crossbeam-channel = "0.4.2"
