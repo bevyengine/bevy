@@ -22,7 +22,7 @@ impl Default for State {
         Self {
             added: false,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05),
+            timer: Timer::from_seconds(0.05, true),
         }
     }
 }
@@ -38,7 +38,7 @@ fn atlas_render_system(
         return;
     }
     if let Some(set) = font_atlas_sets.get(&state.handle.as_handle::<FontAtlasSet>()) {
-        for (_size, font_atlas) in set.iter() {
+        if let Some((_size, font_atlas)) = set.iter().next() {
             state.added = true;
             let texture_atlas = texture_atlases.get(&font_atlas.texture_atlas).unwrap();
             commands.spawn(ImageComponents {
@@ -54,7 +54,6 @@ fn atlas_render_system(
                 },
                 ..Default::default()
             });
-            break;
         }
     }
 }

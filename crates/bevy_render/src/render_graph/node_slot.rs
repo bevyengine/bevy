@@ -98,6 +98,10 @@ impl ResourceSlots {
     pub fn len(&self) -> usize {
         self.slots.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.slots.is_empty()
+    }
 }
 
 impl From<&ResourceSlotInfo> for ResourceSlot {

@@ -31,8 +31,7 @@ impl FlexSurface {
         let stretch_style = style.into();
         let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
             added = true;
-            let stretch_node = stretch.new_node(stretch_style, Vec::new()).unwrap();
-            stretch_node
+            stretch.new_node(stretch_style, Vec::new()).unwrap()
         });
 
         if !added {

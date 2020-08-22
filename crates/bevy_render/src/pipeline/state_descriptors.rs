@@ -7,11 +7,17 @@ pub struct DepthStencilStateDescriptor {
     pub format: TextureFormat,
     pub depth_write_enabled: bool,
     pub depth_compare: CompareFunction,
-    pub stencil_front: StencilStateFaceDescriptor,
-    pub stencil_back: StencilStateFaceDescriptor,
-    pub stencil_read_mask: u32,
-    pub stencil_write_mask: u32,
+    pub stencil: StencilStateDescriptor,
 }
+
+#[derive(Clone, Debug)]
+pub struct StencilStateDescriptor {
+    pub front: StencilStateFaceDescriptor,
+    pub back: StencilStateFaceDescriptor,
+    pub read_mask: u32,
+    pub write_mask: u32,
+}
+
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum StencilOperation {
     Keep = 0,
@@ -100,6 +106,7 @@ pub struct RasterizationStateDescriptor {
     pub depth_bias: i32,
     pub depth_bias_slope_scale: f32,
     pub depth_bias_clamp: f32,
+    pub clamp_depth: bool,
 }
 
 #[derive(Clone, Debug)]

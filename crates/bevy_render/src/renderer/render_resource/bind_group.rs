@@ -10,15 +10,15 @@ use std::{
 pub struct BindGroupId(pub u64);
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct IndexedBinding {
+pub struct IndexedBindGroupEntry {
     pub index: u32,
-    pub binding: RenderResourceBinding,
+    pub entry: RenderResourceBinding,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct BindGroup {
     pub id: BindGroupId,
-    pub indexed_bindings: Arc<Vec<IndexedBinding>>,
+    pub indexed_bindings: Arc<Vec<IndexedBindGroupEntry>>,
     pub dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
 }
 
@@ -30,7 +30,7 @@ impl BindGroup {
 
 #[derive(Default)]
 pub struct BindGroupBuilder {
-    pub indexed_bindings: Vec<IndexedBinding>,
+    pub indexed_bindings: Vec<IndexedBindGroupEntry>,
     pub dynamic_uniform_indices: Vec<u32>,
     pub hasher: DefaultHasher,
 }
@@ -47,7 +47,7 @@ impl BindGroupBuilder {
 
         binding.hash(&mut self.hasher);
         self.indexed_bindings
-            .push(IndexedBinding { index, binding });
+            .push(IndexedBindGroupEntry { index, entry: binding });
         self
     }
 

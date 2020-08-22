@@ -3,6 +3,7 @@ mod hdr_texture_loader;
 #[cfg(feature = "png")]
 mod image_texture_loader;
 mod sampler_descriptor;
+#[allow(clippy::module_inception)]
 mod texture;
 mod texture_descriptor;
 mod texture_dimension;

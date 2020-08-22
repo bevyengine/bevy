@@ -20,3 +20,4 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
+parking_lot = "0.10"

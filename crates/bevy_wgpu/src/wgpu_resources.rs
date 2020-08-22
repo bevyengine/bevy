@@ -6,10 +6,8 @@ use bevy_render::{
     texture::TextureDescriptor,
 };
 use bevy_window::WindowId;
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
+use parking_lot::{RwLock, RwLockReadGuard};
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Default)]
 pub struct WgpuBindGroupInfo {
@@ -89,11 +87,11 @@ pub struct WgpuResources {
 impl WgpuResources {
     pub fn read(&self) -> WgpuResourcesReadLock {
         WgpuResourcesReadLock {
-            buffers: self.buffers.read().unwrap(),
-            textures: self.texture_views.read().unwrap(),
-            swap_chain_frames: self.swap_chain_frames.read().unwrap(),
-            render_pipelines: self.render_pipelines.read().unwrap(),
-            bind_groups: self.bind_groups.read().unwrap(),
+            buffers: self.buffers.read(),
+            textures: self.texture_views.read(),
+            swap_chain_frames: self.swap_chain_frames.read(),
+            render_pipelines: self.render_pipelines.read(),
+            bind_groups: self.bind_groups.read(),
         }
     }
 
@@ -102,12 +100,7 @@ impl WgpuResources {
         bind_group_descriptor_id: BindGroupDescriptorId,
         bind_group_id: BindGroupId,
     ) -> bool {
-        if let Some(bind_group_info) = self
-            .bind_groups
-            .read()
-            .unwrap()
-            .get(&bind_group_descriptor_id)
-        {
+        if let Some(bind_group_info) = self.bind_groups.read().get(&bind_group_descriptor_id) {
             bind_group_info.bind_groups.get(&bind_group_id).is_some()
         } else {
             false

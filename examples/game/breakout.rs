@@ -74,7 +74,7 @@ fn setup(
                 font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                 value: "Score:".to_string(),
                 style: TextStyle {
-                    color: Color::rgb(0.2, 0.2, 0.8).into(),
+                    color: Color::rgb(0.2, 0.2, 0.8),
                     font_size: 40.0,
                 },
             },
@@ -219,7 +219,7 @@ fn ball_collision_system(
             let collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
             if let Some(collision) = collision {
                 // scorable colliders should be despawned and increment the scoreboard on collision
-                if let &Collider::Scorable = collider {
+                if let Collider::Scorable = *collider {
                     scoreboard.score += 1;
                     commands.despawn(collider_entity);
                 }

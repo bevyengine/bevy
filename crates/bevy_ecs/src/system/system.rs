@@ -14,6 +14,7 @@ pub enum ThreadLocalExecution {
 pub struct SystemId(pub u32);
 
 impl SystemId {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         SystemId(rand::random::<u32>())
     }

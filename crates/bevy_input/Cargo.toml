@@ -9,7 +9,12 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
+[features]
+default = []
+serialize = ["serde"]
+
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 bevy_math = { path = "../bevy_math", version = "0.1" }
+serde = { version = "1", features = ["derive"], optional = true }

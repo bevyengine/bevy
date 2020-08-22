@@ -1,6 +1,7 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
+#[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
 ///
 /// App store the ECS World, Resources, Schedule, and Executor. They also store the "run" function of the App, which
