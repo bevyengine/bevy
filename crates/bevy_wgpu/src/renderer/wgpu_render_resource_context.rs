@@ -16,7 +16,7 @@ use bevy_render::{
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_window::{Window, WindowId};
-use std::{ops::Range, sync::Arc, borrow::Cow};
+use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
 
 #[derive(Clone)]

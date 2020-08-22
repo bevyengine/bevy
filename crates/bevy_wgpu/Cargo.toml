@@ -28,6 +28,5 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.1" }
 wgpu = { git = "https://github.com/gfx-rs/wgpu-rs", rev = "333aeb73c103037abdae62abc078c4fcf745aef7" }
 pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
-crossbeam-channel = "0.4.2"
-crossbeam-utils = "0.7.2"
 parking_lot = "0.10.2"
+rayon = "1.3"

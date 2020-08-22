@@ -80,7 +80,7 @@ impl WgpuRenderer {
         }
     }
 
-    pub fn run_graph(&mut self, world: &mut World, resources: &mut Resources) {
+    pub fn run_graph(&self, world: &mut World, resources: &mut Resources) {
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         // stage nodes
         let mut stager = DependentNodeStager::loose_grouping();
@@ -95,7 +95,7 @@ impl WgpuRenderer {
             world,
             resources,
             self.device.clone(),
-            &mut self.queue,
+            &self.queue,
             &mut borrowed,
         );
     }
