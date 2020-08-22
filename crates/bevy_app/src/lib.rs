@@ -24,4 +24,5 @@ pub mod prelude {
         plugin::Plugin,
         stage, DynamicPlugin,
     };
+    pub use bevy_ecs::prelude::*;
 }

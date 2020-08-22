@@ -13,7 +13,6 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 
