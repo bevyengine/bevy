@@ -15,6 +15,7 @@ pub use bevy_derive::DynamicPlugin;
 pub use event::*;
 pub use plugin::*;
 pub use schedule_runner::*;
+pub use bevy_ecs as ecs;
 
 pub mod prelude {
     pub use crate::{
@@ -23,6 +24,6 @@ pub mod prelude {
         event::{EventReader, Events},
         plugin::Plugin,
         stage, DynamicPlugin,
+        ecs::prelude::*,
     };
-    pub use bevy_ecs::prelude::*;
 }
