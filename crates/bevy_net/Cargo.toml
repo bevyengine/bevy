@@ -1,0 +1,19 @@
+[package]
+name = "bevy_net"
+version = "0.1.0"
+edition = "2018"
+authors = ["Bevy Contributors <bevyengine@gmail.com>", "0x22fe <contact@0x22fe.com>"]
+description = "Provides basic network functionality for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
+
+# other
+ringbuf = "0.2.2"
+uuid = { version = "0.8", features = ["v4", "serde"] }

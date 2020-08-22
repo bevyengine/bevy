@@ -82,6 +82,13 @@ Example | File | Description
 `keyboard_input` | [`input/keyboard_input.rs`](./input/keyboard_input.rs) | Demonstrates handling a key press/release
 `keyboard_input_events` | [`input/keyboard_input_events.rs`](./input/keyboard_input_events.rs) | Prints out all keyboard events
 
+## Net
+
+Example | File | Description
+--- | --- | ---
+`net_client` | [`net/net_client.rs`](./net/net_client.rs) | Demonstrates creating and sending data over a TCP connection
+`net_server` | [`net/net_server.rs`](./net/net_server.rs) | Demonstrates creating and listening for data over a TCP connection
+
 ## Scene
 
 Example | File | Description

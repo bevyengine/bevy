@@ -7,3 +7,6 @@ pub use crate::{
 
 #[cfg(feature = "bevy_audio")]
 pub use crate::audio::prelude::*;
+
+#[cfg(feature = "bevy_net")]
+pub use crate::net::prelude::*;

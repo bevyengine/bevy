@@ -70,3 +70,6 @@ pub use bevy_winit as winit;
 
 #[cfg(feature = "bevy_wgpu")]
 pub use bevy_wgpu as wgpu;
+
+#[cfg(feature = "bevy_net")]
+pub use bevy_net as net;
