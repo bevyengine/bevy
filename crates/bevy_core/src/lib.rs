@@ -3,17 +3,18 @@ mod float_ord;
 mod label;
 mod time;
 
+pub use bevy_app as app;
+pub use bevy_ecs as ecs;
 pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
 pub use time::*;
 
 pub mod prelude {
-    pub use crate::{EntityLabels, Labels, Time, Timer};
+    pub use crate::{app::prelude::*, ecs::prelude::*, EntityLabels, Labels, Time, Timer};
 }
 
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
+use crate::prelude::*;
 use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 
