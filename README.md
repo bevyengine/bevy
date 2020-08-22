@@ -36,6 +36,8 @@ Before contributing or participating in discussions with the community, you shou
 
 * **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
 * **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
+* **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
+* **[Awesome Bevy](https://github.com/bevyengine/awesome-bevy):** A collection of awesome Bevy projects.
 
 ## Getting Started
 
