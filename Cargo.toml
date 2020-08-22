@@ -27,6 +27,8 @@ flac = ["bevy_audio/flac"]
 wav = ["bevy_audio/wav"]
 vorbis = ["bevy_audio/vorbis"]
 
+serialize = ["bevy_input/serialize"]
+
 [workspace]
 members = [
     "crates/*",
