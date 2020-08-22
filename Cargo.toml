@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2018"
 authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
 description = "A refreshingly simple data-driven game engine and app framework"
