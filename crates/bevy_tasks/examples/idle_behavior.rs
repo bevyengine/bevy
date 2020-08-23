@@ -1,4 +1,4 @@
-use smalltask::TaskPoolBuilder;
+use bevy_tasks::TaskPoolBuilder;
 
 // This sample demonstrates a thread pool with one thread per logical core and only one task
 // spinning. Other than the one thread, the system should remain idle, demonstrating good behavior

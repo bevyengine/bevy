@@ -1,4 +1,4 @@
-use smalltask::TaskPoolBuilder;
+use bevy_tasks::TaskPoolBuilder;
 
 // This sample demonstrates creating a thread pool with 4 tasks and spawning 40 tasks that spin
 // for 100ms. It's expected to take about a second to run (assuming the machine has >= 4 logical

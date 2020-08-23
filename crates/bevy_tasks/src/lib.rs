@@ -13,6 +13,7 @@ use std::{
 };
 
 mod slice;
+pub use slice::{ParallelSlice, ParallelSliceMut};
 
 macro_rules! pin_mut {
     ($($x:ident),*) => { $(
@@ -202,6 +203,12 @@ impl TaskPool {
     }
 }
 
+impl Default for TaskPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for TaskPool {
     fn drop(&mut self) {
         self.shutdown_internal().unwrap();
@@ -241,10 +248,12 @@ mod tests {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);
+        let foo = &*foo;
 
         let outputs = pool.scope(|scope| {
-            for _ in 0..1000 {
-                scope.spawn(async {
+            for i in 0..100 {
+                scope.spawn(async move {
+                    println!("task {}", i);
                     if *foo != 42 {
                         panic!("not 42!?!?")
                     } else {

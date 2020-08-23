@@ -1,7 +1,10 @@
 [package]
-name = "smalltask"
+name = "bevy_tasks"
 version = "0.1.0"
-authors = ["Lachlan Sneff <lachlan.sneff@gmail.com>"]
+authors = [
+    "Lachlan Sneff <lachlan.sneff@gmail.com>",
+    "Philip Degarmo <aclysma@gmail.com>"
+]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
