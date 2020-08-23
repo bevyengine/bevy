@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_core::AsBytes;
 
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World, Mutated};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -49,9 +49,7 @@ impl SystemNode for CameraNode {
             system.id(),
             CameraNodeState {
                 camera_name: self.camera_name.clone(),
-                command_queue: self.command_queue.clone(),
                 camera_buffer: None,
-                staging_buffer: None,
             },
         );
         system
@@ -60,10 +58,8 @@ impl SystemNode for CameraNode {
 
 #[derive(Default)]
 pub struct CameraNodeState {
-    command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
     camera_buffer: Option<BufferId>,
-    staging_buffer: Option<BufferId>,
 }
 
 pub fn camera_node_system(
@@ -72,7 +68,15 @@ pub fn camera_node_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     // PERF: this write on RenderResourceAssignments will prevent this system from running in parallel
     // with other systems that do the same
+    //
+    // If the `camera_buffer` could be created when creating this system, this
+    // wouldn't need to be here.
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
+    // PERF: Once `Either` queries are merged (#218), this should be changed
+    // to: Query<Either<Mutated<Camera>, Mutated<Transform>>>
+    //
+    // However, since `<gpu>.write_buffer` is much faster than `<gpu>.map_buffer + <gpu>.write_mapped_buffer`,
+    // we're still better of than before.
     query: Query<(&Camera, &Transform)>,
 ) {
     let render_resource_context = &**render_resource_context;
@@ -86,55 +90,30 @@ pub fn camera_node_system(
         return;
     };
 
-    let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
-        render_resource_context.map_buffer(staging_buffer);
-        staging_buffer
-    } else {
+    let state = &mut *state;
+    let camera_name = &state.camera_name;
+    let camera_buffer = &mut state.camera_buffer;
+
+    let camera_buffer = *camera_buffer.get_or_insert_with(|| {
         let size = std::mem::size_of::<[[f32; 4]; 4]>();
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
-            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-            ..Default::default()
+            buffer_usage: BufferUsage::UNIFORM | BufferUsage::COPY_DST,
+            mapped_at_creation: false,
         });
         render_resource_bindings.set(
-            &state.camera_name,
+            camera_name,
             RenderResourceBinding::Buffer {
                 buffer,
                 range: 0..size as u64,
                 dynamic_index: None,
             },
         );
-        state.camera_buffer = Some(buffer);
+        buffer
+    });
 
-        let staging_buffer = render_resource_context.create_buffer(BufferInfo {
-            size,
-            buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-            mapped_at_creation: true,
-        });
-
-        state.staging_buffer = Some(staging_buffer);
-        staging_buffer
-    };
-
-    let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
     let camera_matrix: [f32; 16] =
         (camera.projection_matrix * transform.value.inverse()).to_cols_array();
 
-    render_resource_context.write_mapped_buffer(
-        staging_buffer,
-        0..matrix_size as u64,
-        &mut |data, _renderer| {
-            data[0..matrix_size].copy_from_slice(camera_matrix.as_bytes());
-        },
-    );
-    render_resource_context.unmap_buffer(staging_buffer);
-
-    let camera_buffer = state.camera_buffer.unwrap();
-    state.command_queue.copy_buffer_to_buffer(
-        staging_buffer,
-        0,
-        camera_buffer,
-        0,
-        matrix_size as u64,
-    );
+    render_resource_context.write_buffer(camera_buffer, 0, camera_matrix.as_bytes());
 }

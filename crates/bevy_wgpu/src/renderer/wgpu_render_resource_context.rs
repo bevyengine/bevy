@@ -22,13 +22,15 @@ use wgpu::util::DeviceExt;
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
+    pub queue: Arc<wgpu::Queue>,
     pub resources: WgpuResources,
 }
 
 impl WgpuRenderResourceContext {
-    pub fn new(device: Arc<wgpu::Device>) -> Self {
+    pub fn new(device: Arc<wgpu::Device>, queue: Arc<wgpu::Queue>) -> Self {
         WgpuRenderResourceContext {
             device,
+            queue,
             resources: WgpuResources::default(),
         }
     }
@@ -548,5 +550,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         buffer.unmap();
+    }
+
+    fn write_buffer(&self, id: BufferId, offset: u64, data: &[u8]) {
+        let buffers = self.resources.buffers.read();
+        let buffer = buffers.get(&id).unwrap();
+        self.queue.write_buffer(buffer, offset, data);
     }
 }

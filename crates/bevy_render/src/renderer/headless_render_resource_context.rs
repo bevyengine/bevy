@@ -69,6 +69,8 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn unmap_buffer(&self, _id: BufferId) {}
 
+    fn write_buffer(&self, _id: BufferId, _offset: u64, _data: &[u8]) {}
+
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, _data: &[u8]) -> BufferId {
         let buffer = BufferId::new();
         self.add_buffer_info(buffer, buffer_info);

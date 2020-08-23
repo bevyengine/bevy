@@ -10,7 +10,7 @@ use std::{ops::Deref, sync::Arc};
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
-    pub queue: wgpu::Queue,
+    pub queue: Arc<wgpu::Queue>,
     pub window_resized_event_reader: EventReader<WindowResized>,
     pub window_created_event_reader: EventReader<WindowCreated>,
     pub intialized: bool,
@@ -44,6 +44,7 @@ impl WgpuRenderer {
             .await
             .unwrap();
         let device = Arc::new(device);
+        let queue = Arc::new(queue);
         WgpuRenderer {
             instance,
             device,

@@ -1,9 +1,13 @@
 use bevy::prelude::*;
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin};
+
 
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
         .add_default_plugins()
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(PrintDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
         .run();
 }
