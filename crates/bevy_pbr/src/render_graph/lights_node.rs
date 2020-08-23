@@ -2,7 +2,7 @@ use crate::{
     light::{Light, LightRaw},
     render_graph::uniform,
 };
-use bevy_core::{AsBytes, Byteable};
+use bevy_core::Byteable;
 use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_render::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
@@ -84,7 +84,8 @@ impl LightNodeRaw {
             let layout = Layout::from_size_align(
                 std::mem::size_of::<LightCount>() + std::mem::size_of::<LightRaw>() * max_lights,
                 mem::align_of::<LightNodeRaw<[LightRaw; 0]>>(),
-            ).unwrap();
+            )
+            .unwrap();
 
             let ptr = alloc_zeroed(layout);
             assert!(!ptr.is_null());
@@ -100,7 +101,8 @@ impl LightNodeRaw {
         unsafe {
             std::slice::from_raw_parts(
                 &self.count as *const LightCount as *const u8,
-                std::mem::size_of::<LightCount>() + std::mem::size_of::<LightRaw>() * self.lights.len(),
+                std::mem::size_of::<LightCount>()
+                    + std::mem::size_of::<LightRaw>() * self.lights.len(),
             )
         }
     }
@@ -174,10 +176,8 @@ pub fn lights_node_system(
     });
 
     let mut count = 0;
-    for ((light, transform, translation), light_raw) in query
-        .iter()
-        .iter()
-        .zip(state.raw.lights.iter_mut())
+    for ((light, transform, translation), light_raw) in
+        query.iter().iter().zip(state.raw.lights.iter_mut())
     {
         count += 1;
         *light_raw = LightRaw::from(&light, &transform.value, &translation);

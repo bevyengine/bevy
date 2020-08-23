@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_core::AsBytes;
 
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World, Mutated};
+use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
@@ -75,7 +75,7 @@ pub fn camera_node_system(
     // PERF: Once `Either` queries are merged (#218), this should be changed
     // to: Query<Either<Mutated<Camera>, Mutated<Transform>>>
     //
-    // However, since `<gpu>.write_buffer` is much faster than `<gpu>.map_buffer + <gpu>.write_mapped_buffer`,
+    // However, since `<gpu>.write_buffer` is much faster than `<gpu>.map_buffer` + `<gpu>.write_mapped_buffer`,
     // we're still better of than before.
     query: Query<(&Camera, &Transform)>,
 ) {
