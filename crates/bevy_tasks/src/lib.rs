@@ -80,13 +80,14 @@ impl TaskPoolBuilder {
     }
 
     pub fn install(self) {
-        let pool = Box::leak(Box::new(self.build()));
+        let mut pool = Box::new(self.build());
         if !GLOBAL_TASK_POOL
-            .compare_and_swap(ptr::null_mut(), pool, Ordering::SeqCst)
+            .compare_and_swap(ptr::null_mut(), &mut*pool, Ordering::SeqCst)
             .is_null()
         {
             panic!("GLOBAL_TASK_POLL can only be set once");
         }
+        mem::forget(pool);
     }
 }
 
