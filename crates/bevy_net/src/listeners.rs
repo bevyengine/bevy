@@ -24,4 +24,8 @@ impl Listeners {
     pub fn iter(&self) -> impl Iterator<Item = &Box<dyn Listener>> {
         self.listeners.values()
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Box<dyn Listener>> {
+        self.listeners.values_mut()
+    }
 }

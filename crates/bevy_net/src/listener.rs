@@ -187,7 +187,7 @@ impl ListenerUdp
     /// Returns the data read and the remote address
     pub fn read_incoming(&mut self) -> Result<Option<(&Vec<u8>, SocketAddress)>, ()>
     {
-        match self.listener.peek_from(&mut self.buf) {
+        match self.listener.recv_from(&mut self.buf) {
             Ok(connection) => Ok(Some((&self.buf, connection.1))),
             Err(err) => if err.kind() == ErrorKind::WouldBlock {
                 Ok(None)

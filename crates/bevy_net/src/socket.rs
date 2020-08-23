@@ -42,6 +42,9 @@ pub trait Socket: Send + Sync
 
     /// Get socket protocol
     fn get_type(&self) -> NetProtocol;
+
+    /// Get remote address
+    fn get_remote_address(&self) -> Result<SocketAddress, ()>;
 }
 
 /// TCP socket type
@@ -123,6 +126,10 @@ impl Socket for SocketTcp
     fn get_type(&self) -> NetProtocol {
         NetProtocol::Tcp
     }
+
+    fn get_remote_address(&self) -> Result<SocketAddress, ()> {
+        self.socket.peer_addr().map_err(|_| ())
+    }
 }
 
 impl SocketTcp
@@ -153,12 +160,10 @@ impl Socket for SocketUdp
                                  socket_id: Option<SocketId>,
                                  socket_port: Option<Port>,
                                  buffer_size: Option<usize>) -> Result<Self, ()> {
-        // Todo - Prevent duplicate (same address) UDP socket connections
-        // Todo - Check to make sure no listeners are bound on this port
         // The default port 0 will result in a random port being chosen
         let socket = UdpSocket::bind(
             SocketAddress::new(IpAddress::from([127, 0, 0, 1]),
-                               // Set port as 0 for OS to randomly select a port
+                               // If unspecified set the port to 0 for a random port
                                socket_port.unwrap_or(0)))
             .map_err(|_| ())?;
 
@@ -225,5 +230,9 @@ impl Socket for SocketUdp
 
     fn get_type(&self) -> NetProtocol {
         NetProtocol::Udp
+    }
+
+    fn get_remote_address(&self) -> Result<SocketAddress, ()> {
+        self.socket.peer_addr().map_err(|_| ())
     }
 }

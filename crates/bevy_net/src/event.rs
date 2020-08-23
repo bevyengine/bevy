@@ -63,6 +63,7 @@ pub struct SocketClosed {
 /// An event that is sent whenever a listener should be created
 #[derive(Debug, Clone)]
 pub struct CreateListener {
+    pub new_id: ListenerId,
     pub port: Port,
     pub protocol: NetProtocol
 }
@@ -94,7 +95,8 @@ pub struct HandleListener {
 #[derive(Debug, Clone)]
 pub struct ListenerConnected {
     pub id: ListenerId,
-    pub socket: SocketId
+    pub socket_id: SocketId,
+    pub socket_address: SocketAddress
 }
 
 /// An event that is sent whenever a listener has an error

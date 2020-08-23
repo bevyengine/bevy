@@ -36,16 +36,21 @@ impl Plugin for NetPlugin {
             .init_resource::<Sockets>()
             .add_systems_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
-                vec![handle_open_socket_events_system.system(),
-                     handle_receive_socket_events.system(),
-                     handle_send_socket_events.system(),
-                     close_socket_connections_system.system()])
+                vec![open_socket_events_system.system(),
+                     socket_receive_system.system(),
+                     send_socket_events_system.system(),
+                     close_socket_events_system.system()])
             .add_event::<CreateListener>()
             .add_event::<ListenerCreated>()
             .add_event::<ListenerError>()
             .add_event::<ListenerConnected>()
             .add_event::<CloseListener>()
             .add_event::<ListenerClosed>()
-            .init_resource::<Listeners>();
+            .init_resource::<Listeners>()
+            .add_systems_to_stage(
+                bevy_app::stage::EVENT_UPDATE,
+                vec![create_listener_events_system.system(),
+                     listener_connection_system.system(),
+                     close_listener_events_system.system()]);
     }
 }

@@ -5,7 +5,7 @@ const REMOTE_PORT: Port = 4000;
 const HOST_UDP_PORT: Port = 2000;
 const SOCKET_PROTOCOL: NetProtocol = NetProtocol::Tcp;
 
-// This example sends data to a localhost TCP server running on port <REMOTE_PORT>
+// This example sends data to a localhost TCP (or UDP if changed) server running on port <REMOTE_PORT>
 // If using TCP, run the following commnand to receive data in the terminal: `netcat -l <REMOTE_PORT>`
 // If using UDP, run: `netcat -ul <REMOTE_PORT>`
 // Remember to run the command prior to running the example (especially for TCP)
@@ -24,7 +24,7 @@ fn setup(
     socket_id: Res<SocketId>,
     mut socket_open: ResMut<Events<OpenSocket>>,
 ) {
-    // Open a TCP socket to localhost:REMOTE_PORT
+    // Open a socket to localhost:<REMOTE_PORT>
     socket_open.send(OpenSocket {
         new_id: *socket_id,
         remote_address: SocketAddress::new(IpAddress::from([127, 0, 0, 1]), REMOTE_PORT),
