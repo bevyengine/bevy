@@ -121,15 +121,15 @@ impl WgpuResourceDiagnosticsPlugin {
             render_resource_context.resources.buffers.read().len() as f64,
         );
 
-        diagnostics.add_measurement(
-            Self::TEXTURES,
-            render_resource_context.resources.textures.read().len() as f64,
-        );
+        // diagnostics.add_measurement(
+        //     Self::TEXTURES,
+        //     render_resource_context.resources.textures.read().len() as f64,
+        // );
 
-        diagnostics.add_measurement(
-            Self::TEXTURE_VIEWS,
-            render_resource_context.resources.texture_views.read().len() as f64,
-        );
+        // diagnostics.add_measurement(
+        //     Self::TEXTURE_VIEWS,
+        //     render_resource_context.resources.texture_views.read().len() as f64,
+        // );
 
         diagnostics.add_measurement(
             Self::SAMPLERS,

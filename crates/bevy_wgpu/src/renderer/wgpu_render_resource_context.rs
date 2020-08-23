@@ -74,8 +74,7 @@ impl WgpuRenderResourceContext {
         size: Extent3d,
     ) {
         let buffers = self.resources.buffers.read();
-        let textures = self.resources.textures.read();
-
+        
         let source = buffers.get(&source_buffer).unwrap();
         let destination = match destination_texture {
             TextureId::Wgpu((_, texture, _)) => {
@@ -174,8 +173,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
-        let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
         let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         let descriptor: wgpu::TextureDescriptor = (&texture_descriptor).wgpu_into();
@@ -236,13 +233,11 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     }
 
     fn remove_texture(&self, texture: TextureId) {
-        let mut textures = self.resources.textures.write();
-        let mut texture_views = self.resources.texture_views.write();
         let mut texture_descriptors = self.resources.texture_descriptors.write();
 
         // textures.remove(&texture);
         // texture_views.remove(&texture);
-        // texture_descriptors.remove(&texture);
+        texture_descriptors.remove(&texture);
     }
 
     fn remove_sampler(&self, sampler: SamplerId) {
@@ -462,7 +457,6 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 "start creating bind group for RenderResourceSet {:?}",
                 bind_group.id
             );
-            let texture_views = self.resources.texture_views.read();
             let samplers = self.resources.samplers.read();
             let buffers = self.resources.buffers.read();
             let bind_group_layouts = self.resources.bind_group_layouts.read();

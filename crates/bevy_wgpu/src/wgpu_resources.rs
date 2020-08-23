@@ -38,7 +38,6 @@ pub struct WgpuBindGroupInfo {
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
-    pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
     pub swap_chain_frames: RwLockReadGuard<'a, HashMap<TextureId, wgpu::SwapChainFrame>>,
     pub render_pipelines:
         RwLockReadGuard<'a, HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>,
@@ -49,7 +48,6 @@ impl<'a> WgpuResourcesReadLock<'a> {
     pub fn refs(&'a self) -> WgpuResourceRefs<'a> {
         WgpuResourceRefs {
             buffers: &self.buffers,
-            textures: &self.textures,
             swap_chain_frames: &self.swap_chain_frames,
             render_pipelines: &self.render_pipelines,
             bind_groups: &self.bind_groups,
@@ -60,7 +58,6 @@ impl<'a> WgpuResourcesReadLock<'a> {
 /// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
-    pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
     pub swap_chain_frames: &'a HashMap<TextureId, wgpu::SwapChainFrame>,
     pub render_pipelines: &'a HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>,
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
@@ -74,8 +71,6 @@ pub struct WgpuResources {
     pub window_swap_chains: Arc<RwLock<HashMap<WindowId, wgpu::SwapChain>>>,
     pub swap_chain_frames: Arc<RwLock<HashMap<TextureId, wgpu::SwapChainFrame>>>,
     pub buffers: Arc<RwLock<HashMap<BufferId, Arc<wgpu::Buffer>>>>,
-    pub texture_views: Arc<RwLock<HashMap<TextureId, wgpu::TextureView>>>,
-    pub textures: Arc<RwLock<HashMap<TextureId, wgpu::Texture>>>,
     pub samplers: Arc<RwLock<HashMap<SamplerId, wgpu::Sampler>>>,
     pub shader_modules: Arc<RwLock<HashMap<Handle<Shader>, wgpu::ShaderModule>>>,
     pub render_pipelines: Arc<RwLock<HashMap<Handle<PipelineDescriptor>, wgpu::RenderPipeline>>>,
@@ -88,7 +83,6 @@ impl WgpuResources {
     pub fn read(&self) -> WgpuResourcesReadLock {
         WgpuResourcesReadLock {
             buffers: self.buffers.read(),
-            textures: self.texture_views.read(),
             swap_chain_frames: self.swap_chain_frames.read(),
             render_pipelines: self.render_pipelines.read(),
             bind_groups: self.bind_groups.read(),
