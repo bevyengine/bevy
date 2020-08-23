@@ -32,6 +32,9 @@ impl AddDefaultPlugins for AppBuilder {
         #[cfg(feature = "bevy_wgpu")]
         self.add_plugin(bevy_wgpu::WgpuPlugin::default());
 
+        #[cfg(feature = "bevy_net")]
+        self.add_plugin(bevy_net::NetPlugin::default());
+
         self
     }
 }
