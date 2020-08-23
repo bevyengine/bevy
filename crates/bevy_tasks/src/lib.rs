@@ -5,8 +5,9 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
+    ptr,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicPtr, Ordering},
         Arc,
     },
     thread::{self, JoinHandle},
@@ -27,6 +28,8 @@ macro_rules! pin_mut {
         };
     )* }
 }
+
+static GLOBAL_TASK_POOL: AtomicPtr<TaskPool> = AtomicPtr::new(ptr::null_mut());
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -68,12 +71,22 @@ impl TaskPoolBuilder {
     }
 
     /// Creates a new ThreadPoolBuilder based on the current options.
-    pub fn build(&self) -> TaskPool {
+    pub fn build(self) -> TaskPool {
         TaskPool::new_internal(
             self.num_threads,
             self.stack_size,
             self.thread_name.as_deref(),
         )
+    }
+
+    pub fn install(self) {
+        let pool = Box::leak(Box::new(self.build()));
+        if !GLOBAL_TASK_POOL
+            .compare_and_swap(ptr::null_mut(), pool, Ordering::SeqCst)
+            .is_null()
+        {
+            panic!("GLOBAL_TASK_POLL can only be set once");
+        }
     }
 }
 
@@ -87,6 +100,23 @@ impl TaskPool {
     // Create a `TaskPool` with the default configuration.
     pub fn new() -> TaskPool {
         TaskPoolBuilder::new().build()
+    }
+
+    #[inline(always)]
+    pub fn global() -> &'static TaskPool {
+        #[inline(never)]
+        #[cold]
+        fn do_panic() {
+            panic!(
+                "A global task pool must be installed before `TaskPool::global()` can be called."
+            );
+        }
+
+        let ptr = GLOBAL_TASK_POOL.load(Ordering::Acquire);
+        if ptr.is_null() {
+            do_panic();
+        }
+        unsafe { &*ptr }
     }
 
     fn new_internal(
@@ -239,6 +269,18 @@ impl<'scope, T: Send + 'static> Scope<'scope, T> {
     }
 }
 
+pub fn scope<'scope, F, T>(f: F) -> Vec<T>
+where
+    F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+    T: Send + 'static,
+{
+    TaskPool::global().scope(f)
+}
+
+pub fn global_thread_num() -> usize {
+    TaskPool::global().thread_num()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +293,31 @@ mod tests {
         let foo = &*foo;
 
         let outputs = pool.scope(|scope| {
+            for i in 0..100 {
+                scope.spawn(async move {
+                    println!("task {}", i);
+                    if *foo != 42 {
+                        panic!("not 42!?!?")
+                    } else {
+                        *foo
+                    }
+                });
+            }
+        });
+
+        for output in outputs {
+            assert_eq!(output, 42);
+        }
+    }
+
+    #[test]
+    pub fn test_global_spawn() {
+        TaskPoolBuilder::new().install();
+
+        let foo = Box::new(42);
+        let foo = &*foo;
+
+        let outputs = scope(|scope| {
             for i in 0..100 {
                 scope.spawn(async move {
                     println!("task {}", i);
