@@ -5,8 +5,8 @@ use bevy_render::{
         BindType, BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         InputStepMode, PrimitiveTopology, RasterizationStateDescriptor, StencilOperation,
-        StencilStateFaceDescriptor, VertexAttributeDescriptor, VertexBufferDescriptor,
-        VertexFormat, StencilStateDescriptor,
+        StencilStateDescriptor, StencilStateFaceDescriptor, VertexAttributeDescriptor,
+        VertexBufferDescriptor, VertexFormat,
     },
     renderer::BufferUsage,
     texture::{
@@ -535,7 +535,6 @@ impl WgpuFrom<SamplerDescriptor> for wgpu::SamplerDescriptor<'_> {
             lod_max_clamp: sampler_descriptor.lod_max_clamp,
             compare: sampler_descriptor.compare_function.map(|c| c.wgpu_into()),
             anisotropy_clamp: sampler_descriptor.anisotropy_clamp,
-            ..Default::default()
         }
     }
 }

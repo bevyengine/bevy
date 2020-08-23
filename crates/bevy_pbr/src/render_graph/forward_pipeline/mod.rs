@@ -3,7 +3,7 @@ use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-        RasterizationStateDescriptor, StencilStateFaceDescriptor, StencilStateDescriptor,
+        RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
     },
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,

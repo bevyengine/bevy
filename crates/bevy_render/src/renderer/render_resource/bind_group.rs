@@ -46,8 +46,10 @@ impl BindGroupBuilder {
         }
 
         binding.hash(&mut self.hasher);
-        self.indexed_bindings
-            .push(IndexedBindGroupEntry { index, entry: binding });
+        self.indexed_bindings.push(IndexedBindGroupEntry {
+            index,
+            entry: binding,
+        });
         self
     }
 
