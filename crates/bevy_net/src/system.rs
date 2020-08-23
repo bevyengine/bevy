@@ -10,6 +10,8 @@ use crate::event::{CloseSocket, OpenSocket, SendSocket, SocketError, SocketOpene
 use crate::sockets::Sockets;
 use crate::socket::{SocketUdp, SocketTcp, Socket};
 
+// Socket systems
+
 // Handle socket open
 pub fn handle_open_socket_events_system(
     mut sockets: ResMut<Sockets>,

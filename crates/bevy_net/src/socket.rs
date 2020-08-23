@@ -148,6 +148,7 @@ pub struct SocketUdp
 
 impl Socket for SocketUdp
 {
+    /// If no port is specified, a random port is chosen (UDP)
     fn connect<A: ToSocketAddrs>(address: A,
                                  socket_id: Option<SocketId>,
                                  socket_port: Option<Port>,
@@ -157,6 +158,7 @@ impl Socket for SocketUdp
         // The default port 0 will result in a random port being chosen
         let socket = UdpSocket::bind(
             SocketAddress::new(IpAddress::from([127, 0, 0, 1]),
+                               // Set port as 0 for OS to randomly select a port
                                socket_port.unwrap_or(0)))
             .map_err(|_| ())?;
 
