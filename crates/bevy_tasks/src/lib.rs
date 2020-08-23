@@ -85,7 +85,7 @@ impl TaskPoolBuilder {
             .compare_and_swap(ptr::null_mut(), &mut*pool, Ordering::SeqCst)
             .is_null()
         {
-            panic!("GLOBAL_TASK_POLL can only be set once");
+            panic!("GLOBAL_TASK_POOL can only be set once");
         }
         mem::forget(pool);
     }
