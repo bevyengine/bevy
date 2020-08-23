@@ -157,7 +157,7 @@ pub fn lights_node_system(
 ) {
     let max_lights = state.max_lights;
 
-    let camera_buffer = *state.light_buffer.get_or_insert_with(|| {
+    let light_buffer = *state.light_buffer.get_or_insert_with(|| {
         let size = std::mem::size_of::<LightCount>() + std::mem::size_of::<LightRaw>() * max_lights;
         let buffer = render_resource_context.create_buffer(BufferInfo {
             size,
@@ -185,5 +185,5 @@ pub fn lights_node_system(
 
     state.raw.count = LightCount::new(count);
 
-    render_resource_context.write_buffer(camera_buffer, 0, state.raw.as_bytes());
+    render_resource_context.write_buffer(light_buffer, 0, state.raw.as_bytes());
 }
