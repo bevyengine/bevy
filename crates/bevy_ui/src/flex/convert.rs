@@ -17,13 +17,25 @@ where
     }
 }
 
-fn from_size<T, U>(size: Size<U>) -> stretch::geometry::Size<T>
+fn from_size<T>(size: Size<Val>) -> stretch::geometry::Size<T>
 where
-    T: From<U>,
+    T: From<Val>,
 {
+    let width = if let Val::Undefined = size.width {
+        Val::Auto
+    } else {
+        size.width
+    };
+
+    let height = if let Val::Undefined = size.height {
+        Val::Auto
+    } else {
+        size.height
+    };
+
     stretch::geometry::Size {
-        width: size.width.into(),
-        height: size.height.into(),
+        width: width.into(),
+        height: height.into(),
     }
 }
 
