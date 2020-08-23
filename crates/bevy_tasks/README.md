@@ -1,4 +1,4 @@
-# small-task
+# bevy_tasks
 
 This is a simple threadpool with minimal dependencies. The main usecase is a scoped fork-join, i.e. spawning tasks from
 a single thread and having that thread await the completion of those tasks. This is intended specifically for 
