@@ -17,7 +17,7 @@ impl WgpuRenderGraphExecutor {
         world: &World,
         resources: &Resources,
         device: Arc<wgpu::Device>,
-        queue: &mut wgpu::Queue,
+        queue: &wgpu::Queue,
         stages: &mut [StageBorrow],
     ) {
         let mut render_resource_context = resources

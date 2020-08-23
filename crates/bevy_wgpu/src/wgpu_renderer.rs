@@ -96,7 +96,7 @@ impl WgpuRenderer {
             world,
             resources,
             self.device.clone(),
-            &mut self.queue,
+            &self.queue,
             &mut borrowed,
         );
     }
