@@ -1,13 +1,15 @@
+use std::io::{Error, Read, Write};
+use std::net::{Shutdown, TcpStream, ToSocketAddrs, UdpSocket};
+
 use bevy_ecs::Bundle;
 
-use std::net::{TcpStream, ToSocketAddrs, Shutdown, UdpSocket, SocketAddr, IpAddr};
-use std::io::{Error, Write};
-use ringbuf::RingBuffer;
+use crate::{IpAddress, Port, SocketAddress};
+use crate::common::{NetProtocol, SocketId};
 
-use crate::common::{SocketId, NetProtocol};
+/// 1MB default buffer size
+pub const DEFAULT_BUFFER_SIZE: usize = 1_000_000;
 
-const DEFAULT_BUFFER_SIZE: usize = 1024;
-
+#[derive(Debug)]
 enum SocketInstance
 {
     Udp(UdpSocket),
@@ -15,7 +17,6 @@ enum SocketInstance
 }
 
 /// Socket type - supports TCP and UDP connections
-#[derive(Bundle)]
 pub struct Socket
 {
     pub id: SocketId,
@@ -34,32 +35,54 @@ impl Socket
         }
     }
 
-    /// Creates a new UDP socket
-    /// Optionally, specify the size of the internal buffer
-    pub fn connect_udp<A: ToSocketAddrs>(address: A, buf_size: Option<usize>) -> Option<Self> {
-        // Bind address to localhost and the same port as the destination
-        match UdpSocket::bind(SocketAddr::new(IpAddr::from([127, 0, 0, 1]), address.to_socket_addrs().unwrap().next().unwrap().port())) {
-            Ok(s) => match s.connect(address) {
-                Ok(f) => Some(Socket {
-                    id: SocketId::new(),
-                    sock: SocketInstance::Udp(s),
-                    buf_size: buf_size.unwrap_or(DEFAULT_BUFFER_SIZE)
-                }),
-                Err(_) => None
-            },
-            Err(_) => None
+    /// Creates a socket from an existing TCP connection
+    pub fn from_tcp(socket: TcpStream) -> Self
+    {
+        Self {
+            id: SocketId::new(),
+            buf_size: DEFAULT_BUFFER_SIZE,
+            sock: SocketInstance::Tcp(socket)
         }
     }
 
-    /// Creates a new TCP socket
-    pub fn connect_tcp<A: ToSocketAddrs>(address: A, buf_size: Option<usize>) -> Option<Self> {
-        match TcpStream::connect(address) {
-            Ok(s) => Some(Socket {
-                id: SocketId::new(),
-                sock: SocketInstance::Tcp(s),
-                buf_size: buf_size.unwrap_or(DEFAULT_BUFFER_SIZE)
-            }),
-            Err(_) => None
+    /// Creates a new socket
+    /// Optionally, specify the socket ID, socket port (for UDP, leave empty for a random port), and size of the internal buffer
+    pub fn connect<A: ToSocketAddrs>(address: A,
+                                     protocol: NetProtocol,
+                                     socket_id: Option<SocketId>,
+                                     socket_port: Option<Port>,
+                                     buffer_size: Option<usize>) -> Result<Self, ()> {
+        let buf_size = buffer_size.unwrap_or(DEFAULT_BUFFER_SIZE);
+        let id = socket_id.unwrap_or(SocketId::new());
+
+        match protocol {
+            NetProtocol::Udp => {
+                // Todo - Prevent duplicate (same address) UDP socket connections
+                // Todo - Check to make sure no listeners are bound on this port
+                // The default port 0 will result in a random port being chosen
+                let sock = UdpSocket::bind(
+                    SocketAddress::new(IpAddress::from([127, 0, 0, 1]),
+                                       socket_port.unwrap_or(0)))
+                    .map_err(|_| ())?;
+
+                sock.connect(address).map_err(|_| ())?;
+                sock.set_nonblocking(true).map_err(|_| ())?;
+
+                Ok(Socket {
+                    id,
+                    buf_size,
+                    sock: SocketInstance::Udp(sock),
+                })
+            }
+            NetProtocol::Tcp => {
+                let sock = TcpStream::connect(address).map_err(|_| ())?;
+                sock.set_nonblocking(true).map_err(|_| ())?;
+                Ok(Socket {
+                    id,
+                    buf_size,
+                    sock: SocketInstance::Tcp(sock),
+                })
+            }
         }
     }
 
@@ -67,27 +90,59 @@ impl Socket
     /// Returns number of bytes written
     pub fn send(&mut self, data: &[u8]) -> Result<usize, ()>
     {
-        (match & mut self.sock {
+        match &mut self.sock {
             SocketInstance::Udp(s) => s.send(data),
             SocketInstance::Tcp(s) => s.write(data),
-        }).map_err(|_| ())
+        }.map_err(|_| ())
     }
 
     /// Retrieve any data on the socket
-    /// Returns number of bytes read
-    pub fn recv(&mut self, data: &mut [u8]) -> Result<usize, ()>
+    /// Limits the size of the returned buffer to the value of buf_size
+    pub fn recv(&mut self) -> Result<Vec<u8>, ()>
     {
-        unimplemented!();
-        Err(())
+        let mut d = Vec::<u8>::new();
+        d.reserve(self.buf_size);
+
+        match &mut self.sock {
+            SocketInstance::Udp(sock) => sock.recv(&mut d[0..self.buf_size]),
+            SocketInstance::Tcp(stream) => stream.read(&mut d[0..self.buf_size])
+        }.map_err(|_| ()).map(|_| d)
+    }
+
+    /// Check whether a connection error has occurred
+    pub fn check_err(&mut self) -> Result<(), ()>
+    {
+        match &self.sock {
+            SocketInstance::Udp(s) =>
+                if let Ok(e) = s.take_error() {
+                    if let Some(_) = e {
+                        Err(())
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    Err(())
+                },
+            SocketInstance::Tcp(s) =>
+                if let Ok(e) = s.take_error() {
+                    if let Some(_) = e {
+                        Err(())
+                    } else {
+                        Ok(())
+                    }
+                } else {
+                    Err(())
+                },
+        }
     }
 
     /// Returns whether the socket was shutdown successfully
-    pub fn close(&mut self) -> bool
+    pub fn close(&mut self) -> Result<(), ()>
     {
         match &self.sock {
-            SocketInstance::Udp(_) => true,
+            SocketInstance::Udp(_) => Ok(()),
             SocketInstance::Tcp(stream) => stream.shutdown(Shutdown::Both)
-                .map_or(false, |_| true),
+                .map_err(|_| ()),
         }
     }
 }

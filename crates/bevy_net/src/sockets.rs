@@ -24,4 +24,8 @@ impl Sockets {
     pub fn iter(&self) -> impl Iterator<Item=&Socket> {
         self.sockets.values()
     }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut Socket> {
+        self.sockets.values_mut()
+    }
 }

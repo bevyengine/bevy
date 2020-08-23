@@ -1,14 +1,14 @@
-use std::net::SocketAddr;
-
-use crate::common::{SocketId, NetProtocol, ListenerId};
+use crate::common::{SocketId, SocketAddress, Port, NetError, NetProtocol, ListenerId};
 
 // Socket events
 
 /// An event that is sent whenever a socket should be opened
+/// The `port` field must be specified when using UDP
 #[derive(Debug, Clone)]
 pub struct OpenSocket {
     pub new_id: SocketId,
-    pub remote_address: SocketAddr,
+    pub remote_address: SocketAddress,
+    pub port: Option<Port>,
     pub protocol: NetProtocol
 }
 
@@ -22,7 +22,7 @@ pub struct SocketOpened {
 #[derive(Debug, Clone)]
 pub struct SendSocket {
     pub id: SocketId,
-    pub data: Vec<u8>
+    pub tx_data: Vec<u8>
 }
 
 /// An event that is sent whenever a socket sent data
@@ -36,13 +36,14 @@ pub struct SocketSent {
 #[derive(Debug, Clone)]
 pub struct SocketReceive {
     pub id: SocketId,
-    pub recv: Vec<u8>
+    pub rx_data: Vec<u8>
 }
 
 /// An event that is sent whenever a socket has an error
 #[derive(Debug, Clone)]
 pub struct SocketError {
-    pub id: Option<SocketId>,
+    pub id: SocketId,
+    pub err: NetError
 }
 
 /// An event that is sent whenever a socket should be closed
@@ -59,37 +60,48 @@ pub struct SocketClosed {
 
 // Listener events
 
-/// An event that is sent whenever a listener should be opened
+/// An event that is sent whenever a listener should be created
 #[derive(Debug, Clone)]
-pub struct OpenListener {
-    pub remote_address: SocketAddr,
+pub struct CreateListener {
+    pub port: Port,
     pub protocol: NetProtocol
 }
 
-/// An event that is sent whenever a listener is opened (connected)
+/// An event that is sent whenever a listener is opened
 #[derive(Debug, Clone)]
-pub struct ListenerOpened {
+pub struct ListenerCreated {
     pub id: ListenerId,
 }
 
-/// An event that is sent whenever a listener should send data
+/*
+/// An event that is sent whenever a listener receives a connection request
 #[derive(Debug, Clone)]
-pub struct SendListener {
+pub struct ListenerRequest {
     pub id: ListenerId,
-    pub send: Vec<u8>
+    pub remote_addr: SocketAddress
 }
 
-/// An event that is sent whenever a listener receives data
+/// An event that is sent whenever a listener should respond to a connection request
 #[derive(Debug, Clone)]
-pub struct ListenerReceive {
+pub struct HandleListener {
     pub id: ListenerId,
-    pub recv: Vec<u8>
+    pub remote_addr: SocketAddress,
+    pub accept: bool
+}
+*/
+
+/// An event that is sent whenever a listener creates a connection
+#[derive(Debug, Clone)]
+pub struct ListenerConnected {
+    pub id: ListenerId,
+    pub socket: SocketId
 }
 
 /// An event that is sent whenever a listener has an error
 #[derive(Debug, Clone)]
 pub struct ListenerError {
     pub id: ListenerId,
+    pub err: NetError,
 }
 
 /// An event that is sent whenever a listener should be closed

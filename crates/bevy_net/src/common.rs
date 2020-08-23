@@ -10,6 +10,22 @@ impl NetId {
     }
 }
 
+/// Network error type
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum NetError
+{
+    UnknownError,
+
+    OpenError,
+    CloseError,
+
+    SendError,
+    ReceiveError,
+
+    AcceptError,
+    QuitError
+}
+
 pub type SocketAddress = SocketAddr;
 pub type IpAddress = IpAddr;
 pub type Port = u16;
@@ -19,7 +35,7 @@ pub type ListenerId = NetId;
 
 /// Connection protocol
 /// TCP has sockets/listeners, but UDP can use sockets/listeners interchangeably
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum NetProtocol
 {
     /// UDP (User Datagram Protocol)

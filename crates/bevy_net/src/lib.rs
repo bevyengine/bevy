@@ -1,5 +1,4 @@
 use bevy_app::prelude::*;
-use bevy_ecs::IntoForEachSystem;
 use bevy_ecs::IntoQuerySystem;
 
 use system::*;
@@ -42,13 +41,12 @@ impl Plugin for NetPlugin {
                 close_socket_connections_system.system())
             .add_systems_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
-                vec![handle_create_socket_events_system.system(),
+                vec![handle_open_socket_events_system.system(),
                      handle_send_socket_events.system()])
-            .add_event::<OpenListener>()
-            .add_event::<ListenerOpened>()
+            .add_event::<CreateListener>()
+            .add_event::<ListenerCreated>()
             .add_event::<ListenerError>()
-            .add_event::<SendListener>()
-            .add_event::<ListenerReceive>()
+            .add_event::<ListenerConnected>()
             .add_event::<CloseListener>()
             .add_event::<ListenerClosed>()
             .init_resource::<Listeners>();
