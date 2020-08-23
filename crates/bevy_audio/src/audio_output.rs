@@ -2,19 +2,23 @@ use crate::AudioSource;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
-use rodio::{Decoder, Device, Sink};
+use rodio::OutputStreamHandle;
 use std::{collections::VecDeque, io::Cursor};
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput {
-    device: Device,
+    // stream: Arc<Mutex<OutputStream>>,
+    stream_handle: OutputStreamHandle,
     queue: RwLock<VecDeque<Handle<AudioSource>>>,
 }
 
 impl Default for AudioOutput {
     fn default() -> Self {
+        let (stream, stream_handle) =
+            rodio::OutputStream::try_default().expect("Can't get an output stream");
+        std::mem::forget(stream);
         Self {
-            device: rodio::default_output_device().unwrap(),
+            stream_handle,
             queue: Default::default(),
         }
     }
@@ -22,9 +26,10 @@ impl Default for AudioOutput {
 
 impl AudioOutput {
     pub fn play_source(&self, audio_source: &AudioSource) {
-        let sink = Sink::new(&self.device);
-        sink.append(Decoder::new(Cursor::new(audio_source.clone())).unwrap());
-        sink.detach();
+        self.stream_handle
+            .play_once(Cursor::new(audio_source.clone()))
+            .unwrap()
+            .detach();
     }
 
     pub fn play(&self, audio_source: Handle<AudioSource>) {
