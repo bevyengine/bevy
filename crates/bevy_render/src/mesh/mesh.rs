@@ -453,7 +453,93 @@ pub mod shape {
             }
         }
     }
-}
+    
+    // A cylinder standing on the XZ plane
+    pub struct Cylinder
+    {
+        // Radius of the cylinder (X/Z axis)
+        pub radius: f32,
+        // Height of the cylinder (Y axis)
+        pub height: f32,
+        // Number of vertices around each horizontal slice of the cylinder
+        pub resolution: u32,
+        // Number of vertical subdivisionss
+        pub subdivisions: u32,
+    }
+
+    impl Default for Cylinder {
+        fn default() -> Self {
+            Self {
+                radius: 0.5,
+                height: 1.0,
+                resolution: 20,
+                subdivisions: 4,
+            }
+        }
+    }
+
+    impl From<Cylinder> for Mesh
+    {
+        fn from(c: Cylinder) -> Self {
+            assert!(c.radius > 0.0 && c.height > 0.0 && c.resolution > 0 && c.subdivisions > 0);
+
+            let count = (c.resolution * (c.subdivisions + 1) + 2) as usize;
+            let mut positions = vec![[0.0,0.0,0.0]; count];
+            positions[0] = [0.0, c.height * 0.5, 0.0];      // top center
+            positions[1] = [0.0, -c.height * 0.5, 0.0];     // bottom center
+            let step = std::f32::consts::PI * 2.0 / c.resolution as f32;
+            let h_step = c.height / c.subdivisions as f32;
+            for i in 0..(c.subdivisions + 1) {
+                for j in 0..c.resolution {
+                    let theta = step * j as f32;
+                    positions[(2 + c.resolution * i + j) as usize] = [
+                            theta.cos() * c.radius, 
+                            c.height * 0.5 - h_step * i as f32,
+                            theta.sin() * c.radius];
+                }
+            }
+
+            let mut indices = Vec::with_capacity((c.subdivisions * (c.resolution+1)) as usize );
+            for j in 0..c.resolution
+            {
+                let j1 = (j + 1) % c.resolution;
+                let mut base = 2;
+                indices.extend([0, base + j, base + j1].iter().copied()); // top cap
+                base = 2 + c.resolution * c.subdivisions;
+                indices.extend([1, base + j1, base + j].iter().copied()); // bottom cap
+            }
+            for i in 0..c.subdivisions {
+                let base1 = 2 + c.resolution * i;
+                let base2 = base1 + c.resolution;
+                for j in 0..c.resolution {
+                    let j1 = (j + 1) % c.resolution;
+                    indices.extend([base2 + j, base1 + j1, base1 + j].iter().copied());
+                    indices.extend([base2 + j, base2 + j1, base1 + j1].iter().copied());
+                }
+            }
+
+            let normals = positions
+                .iter()
+                .map(|&p| Vec3::from(p).normalize().into() )
+                .collect();
+
+            let uvs = positions
+                .iter()
+                .map(|&p| [p[0] / c.radius, (p[1]+c.height) / (c.height*2.0)])
+                .collect();
+
+            Mesh {
+                primitive_topology: PrimitiveTopology::TriangleList,
+                attributes: vec![
+                    VertexAttribute::position(positions),
+                    VertexAttribute::normal(normals),
+                    VertexAttribute::uv(uvs),
+                ],
+                indices: Some(indices),
+            }
+        }
+    }
+} 
 
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
