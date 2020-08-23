@@ -65,6 +65,7 @@ impl Listener
 
     /// Accepts incoming requests
     /// Returns a tuple containing the remote address, any data sent during the request (UDP), and the socket (TCP)
+    /*
     pub fn check_incoming(&mut self) -> Result<(SocketAddress, Option<Socket>, Option<Vec<u8>>), ()> {
         match &self.listener {
             // As UDP is connectionless, we have to receive some data in order to establish a "connection"
@@ -82,6 +83,7 @@ impl Listener
             }
         }
     }
+     */
 
     /// Check whether a connection error has occurred
     pub fn check_err(&mut self) -> Result<(), ()> {

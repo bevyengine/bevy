@@ -1,15 +1,14 @@
 use bevy_app::{
-    AppExit,
     prelude::{EventReader, Events},
 };
-use bevy_ecs::{Local, Res, ResMut, Resources};
+use bevy_ecs::{Local, Res, ResMut};
 
 use crate::{NetError, SocketClosed, SocketReceive};
 use crate::common::NetProtocol;
 use crate::event::{CloseSocket, OpenSocket, SendSocket, SocketError, SocketOpened, SocketSent};
 
-use super::socket::Socket;
-use super::sockets::Sockets;
+use crate::sockets::Sockets;
+use crate::socket::{SocketUdp, SocketTcp, Socket};
 
 // Handle socket open
 pub fn handle_open_socket_events_system(
@@ -20,11 +19,18 @@ pub fn handle_open_socket_events_system(
     mut socket_error_events: ResMut<Events<SocketError>>,
 ) {
     for open_socket_event in state.iter(&open_socket_events) {
-        if let Ok(socket) = Socket::connect(open_socket_event.remote_address,
-                                            open_socket_event.protocol.clone(),
-                                            Some(open_socket_event.new_id),
-                                            open_socket_event.port,
-                                            None) {
+        let sock = match open_socket_event.protocol {
+            NetProtocol::Udp => Result::<Box<dyn Socket>, ()>::from(SocketUdp::connect(open_socket_event.remote_address,
+                                                                                       Some(open_socket_event.new_id),
+                                                                                       open_socket_event.port,
+                                                                                       None).map(|s| Box::new(s) as Box<dyn Socket>)),
+            NetProtocol::Tcp => Result::<Box<dyn Socket>, ()>::from(SocketTcp::connect(open_socket_event.remote_address,
+                                                            Some(open_socket_event.new_id),
+                                                            open_socket_event.port,
+                                                            None).map(|s| Box::new(s) as Box<dyn Socket>)),
+        };
+
+        if let Ok(socket) = sock {
             sockets.add(socket);
             socket_opened_events.send(SocketOpened {
                 id: open_socket_event.new_id
@@ -70,14 +76,14 @@ pub fn handle_receive_socket_events(
     mut socket_error_events: ResMut<Events<SocketError>>,
 ) {
     for socket in sockets.iter_mut() {
-        if let Ok(data) = socket.recv() {
+        if let Ok(data) = socket.receive() {
             socket_receive_events.send(SocketReceive {
-                id: socket.id,
+                id: socket.get_id(),
                 rx_data: data,
             });
         } else {
             socket_error_events.send(SocketError {
-                id: socket.id,
+                id: socket.get_id(),
                 err: NetError::ReceiveError,
             });
         }
@@ -85,7 +91,7 @@ pub fn handle_receive_socket_events(
         // Check for connection errors
         if let Err(_) = socket.check_err() {
             socket_error_events.send(SocketError {
-                id: socket.id,
+                id: socket.get_id(),
                 err: NetError::UnknownError,
             });
         }

@@ -1,12 +1,10 @@
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
-
-use system::*;
-
 pub use common::*;
 pub use event::*;
-pub use sockets::*;
 pub use listeners::*;
+pub use sockets::*;
+use system::*;
 
 mod common;
 mod event;
@@ -36,13 +34,12 @@ impl Plugin for NetPlugin {
             .add_event::<CloseSocket>()
             .add_event::<SocketClosed>()
             .init_resource::<Sockets>()
-            .add_system_to_stage(
-                bevy_app::stage::LAST,
-                close_socket_connections_system.system())
             .add_systems_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
                 vec![handle_open_socket_events_system.system(),
-                     handle_send_socket_events.system()])
+                     handle_receive_socket_events.system(),
+                     handle_send_socket_events.system(),
+                     close_socket_connections_system.system()])
             .add_event::<CreateListener>()
             .add_event::<ListenerCreated>()
             .add_event::<ListenerError>()

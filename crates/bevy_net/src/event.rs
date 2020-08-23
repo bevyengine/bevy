@@ -8,8 +8,8 @@ use crate::common::{SocketId, SocketAddress, Port, NetError, NetProtocol, Listen
 pub struct OpenSocket {
     pub new_id: SocketId,
     pub remote_address: SocketAddress,
+    pub protocol: NetProtocol,
     pub port: Option<Port>,
-    pub protocol: NetProtocol
 }
 
 /// An event that is sent whenever a socket is opened (connected)

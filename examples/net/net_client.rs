@@ -3,11 +3,12 @@ use bevy_net::{NetPlugin, NetProtocol, OpenSocket, SendSocket, SocketError};
 
 const REMOTE_PORT: Port = 4000;
 const HOST_UDP_PORT: Port = 2000;
-const SOCKET_PROTOCOL: NetProtocol = NetProtocol::Udp;
+const SOCKET_PROTOCOL: NetProtocol = NetProtocol::Tcp;
 
 // This example sends data to a localhost TCP server running on port <REMOTE_PORT>
 // If using TCP, run the following commnand to receive data in the terminal: `netcat -l <REMOTE_PORT>`
 // If using UDP, run: `netcat -ul <REMOTE_PORT>`
+// Remember to run the command prior to running the example (especially for TCP)
 fn main() {
     App::build()
         .add_plugin(NetPlugin)
