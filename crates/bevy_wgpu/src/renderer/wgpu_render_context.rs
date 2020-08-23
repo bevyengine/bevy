@@ -154,9 +154,9 @@ impl RenderContext for WgpuRenderContext {
     }
 }
 
-pub fn create_render_pass<'a, 'b>(
-    pass_descriptor: &PassDescriptor,
-    global_render_resource_bindings: &'b RenderResourceBindings,
+pub fn create_render_pass<'a>(
+    pass_descriptor: &'a PassDescriptor,
+    global_render_resource_bindings: &'a RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
     encoder: &'a mut wgpu::CommandEncoder,
 ) -> wgpu::RenderPass<'a> {
@@ -179,26 +179,39 @@ pub fn create_render_pass<'a, 'b>(
 }
 
 fn get_texture_view<'a>(
-    global_render_resource_bindings: &RenderResourceBindings,
+    global_render_resource_bindings: &'a RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
-    attachment: &TextureAttachment,
+    attachment: &'a TextureAttachment,
 ) -> &'a wgpu::TextureView {
     match attachment {
         TextureAttachment::Name(name) => match global_render_resource_bindings.get(&name) {
-            Some(RenderResourceBinding::Texture(resource)) => refs.textures.get(&resource).unwrap(),
+            Some(RenderResourceBinding::Texture(resource)) => {
+                match resource {
+                    TextureId::Wgpu((_, _, view)) => view,
+                    _=> panic!("Color attachment {} does not exist", name)
+                }
+            },
             _ => {
                 panic!("Color attachment {} does not exist", name);
             }
         },
-        TextureAttachment::Id(render_resource) => refs.textures.get(&render_resource).unwrap_or_else(|| &refs.swap_chain_frames.get(&render_resource).unwrap().output.view),
+        TextureAttachment::Id(render_resource) => {
+            match render_resource {
+                TextureId::Wgpu((_, _, view)) => view,
+                TextureId::WgpuSwap(_) => {
+                    &refs.swap_chain_frames.get(render_resource).unwrap().output.view
+                },
+                _=> panic!("Color attachment does not exist!")
+            }
+        },
         TextureAttachment::Input(_) => panic!("Encountered unset TextureAttachment::Input. The RenderGraph executor should always set TextureAttachment::Inputs to TextureAttachment::RenderResource before running. This is a bug"),
     }
 }
 
 fn create_wgpu_color_attachment_descriptor<'a>(
-    global_render_resource_bindings: &RenderResourceBindings,
+    global_render_resource_bindings: &'a RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
-    color_attachment_descriptor: &RenderPassColorAttachmentDescriptor,
+    color_attachment_descriptor: &'a RenderPassColorAttachmentDescriptor,
 ) -> wgpu::RenderPassColorAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
         global_render_resource_bindings,
@@ -213,15 +226,18 @@ fn create_wgpu_color_attachment_descriptor<'a>(
 
     wgpu::RenderPassColorAttachmentDescriptor {
         ops: (&color_attachment_descriptor.ops).wgpu_into(),
-        attachment,
-        resolve_target,
+        attachment: &attachment,
+        resolve_target: match resolve_target {
+            Some(view) => Some(&view),
+            None => None,
+        },
     }
 }
 
 fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
-    global_render_resource_bindings: &RenderResourceBindings,
+    global_render_resource_bindings: &'a RenderResourceBindings,
     refs: &WgpuResourceRefs<'a>,
-    depth_stencil_attachment_descriptor: &RenderPassDepthStencilAttachmentDescriptor,
+    depth_stencil_attachment_descriptor: &'a RenderPassDepthStencilAttachmentDescriptor,
 ) -> wgpu::RenderPassDepthStencilAttachmentDescriptor<'a> {
     let attachment = get_texture_view(
         global_render_resource_bindings,
@@ -230,7 +246,7 @@ fn create_wgpu_depth_stencil_attachment_descriptor<'a>(
     );
 
     wgpu::RenderPassDepthStencilAttachmentDescriptor {
-        attachment,
+        attachment: &attachment,
         depth_ops: depth_stencil_attachment_descriptor
             .depth_ops
             .as_ref()

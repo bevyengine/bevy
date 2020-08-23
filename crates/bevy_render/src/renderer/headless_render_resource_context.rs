@@ -23,7 +23,7 @@ impl HeadlessRenderResourceContext {
     }
 
     pub fn add_texture_descriptor(&self, texture: TextureId, descriptor: TextureDescriptor) {
-        self.texture_descriptors.write().insert(texture, descriptor);
+        // self.texture_descriptors.write().insert(texture, descriptor);
     }
 }
 
@@ -44,7 +44,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn create_texture(&self, texture_descriptor: TextureDescriptor) -> TextureId {
         let texture = TextureId::new();
-        self.add_texture_descriptor(texture, texture_descriptor);
+        self.add_texture_descriptor(texture.clone(), texture_descriptor);
         texture
     }
 
@@ -82,7 +82,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     }
 
     fn remove_texture(&self, texture: TextureId) {
-        self.texture_descriptors.write().remove(&texture);
+        // self.texture_descriptors.write().remove(&texture);
     }
 
     fn remove_sampler(&self, _sampler: SamplerId) {}

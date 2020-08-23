@@ -18,6 +18,7 @@ use bevy_render::{
 use bevy_window::{Window, WindowId};
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct WgpuRenderResourceContext {
@@ -76,7 +77,12 @@ impl WgpuRenderResourceContext {
         let textures = self.resources.textures.read();
 
         let source = buffers.get(&source_buffer).unwrap();
-        let destination = textures.get(&destination_texture).unwrap();
+        let destination = match destination_texture {
+            TextureId::Wgpu((_, texture, _)) => {
+                texture.unwrap()
+            }
+            _ => panic!("Invalid destination texture!")
+        };
         command_encoder.copy_buffer_to_texture(
             wgpu::BufferCopyView {
                 buffer: source,
@@ -87,7 +93,7 @@ impl WgpuRenderResourceContext {
                 },
             },
             wgpu::TextureCopyView {
-                texture: destination,
+                texture: &destination,
                 mip_level: destination_mip_level,
                 origin: wgpu::Origin3d {
                     x: destination_origin[0],
@@ -149,8 +155,8 @@ impl WgpuRenderResourceContext {
 
         let window_swap_chain = window_swap_chains.get_mut(&window_id).unwrap();
         let next_texture = window_swap_chain.get_current_frame().ok()?;
-        let id = TextureId::new();
-        swap_chain_outputs.insert(id, next_texture);
+        let id = TextureId::WgpuSwap(Uuid::new_v4());
+        swap_chain_outputs.insert(id.clone(), next_texture);
         Some(id)
     }
 }
@@ -162,8 +168,8 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let descriptor: wgpu::SamplerDescriptor = (*sampler_descriptor).wgpu_into();
         let sampler = self.device.create_sampler(&descriptor);
 
-        let id = SamplerId::new();
-        samplers.insert(id, sampler);
+        let id = SamplerId::Wgpu((Uuid::new_v4(), Arc::new(sampler)));
+        // samplers.insert(id, sampler);
         id
     }
 
@@ -176,10 +182,10 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let texture = self.device.create_texture(&descriptor);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let id = TextureId::new();
-        texture_descriptors.insert(id, texture_descriptor);
-        texture_views.insert(id, texture_view);
-        textures.insert(id, texture);
+        let id = TextureId::Wgpu((Uuid::new_v4(), Some(Arc::new(texture)), Arc::new(texture_view)));
+        // texture_descriptors.insert(id, texture_descriptor);
+        // texture_views.insert(id, texture_view);
+        // textures.insert(id, texture);
         id
     }
 
@@ -234,14 +240,14 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let mut texture_views = self.resources.texture_views.write();
         let mut texture_descriptors = self.resources.texture_descriptors.write();
 
-        textures.remove(&texture);
-        texture_views.remove(&texture);
-        texture_descriptors.remove(&texture);
+        // textures.remove(&texture);
+        // texture_views.remove(&texture);
+        // texture_descriptors.remove(&texture);
     }
 
     fn remove_sampler(&self, sampler: SamplerId) {
         let mut samplers = self.resources.samplers.write();
-        samplers.remove(&sampler);
+        // samplers.remove(&sampler);
     }
 
     fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
@@ -468,14 +474,20 @@ impl RenderResourceContext for WgpuRenderResourceContext {
                 .map(|indexed_binding| {
                     let wgpu_resource = match &indexed_binding.entry {
                         RenderResourceBinding::Texture(resource) => {
-                            let texture_view = texture_views
-                                .get(&resource)
-                                .unwrap_or_else(|| panic!("{:?}", resource));
-                            wgpu::BindingResource::TextureView(texture_view)
+                            match resource {
+                                TextureId::Wgpu((uuid, _, texture_view)) => {
+                                    wgpu::BindingResource::TextureView(texture_view)
+                                },
+                                _ => panic!("Invalid sampler binding resource. {:?}", resource)
+                            }
                         }
                         RenderResourceBinding::Sampler(resource) => {
-                            let sampler = samplers.get(&resource).unwrap();
-                            wgpu::BindingResource::Sampler(sampler)
+                            match resource {
+                                SamplerId::Wgpu((uuid, sampler)) => {
+                                    wgpu::BindingResource::Sampler(sampler)
+                                },
+                                _ => panic!("Invalid sampler binding resource. {:?}", resource)
+                            }
                         }
                         RenderResourceBinding::Buffer { buffer, range, .. } => {
                             let wgpu_buffer = buffers.get(&buffer).unwrap();

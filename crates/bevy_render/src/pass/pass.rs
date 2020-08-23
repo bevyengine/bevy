@@ -11,7 +11,7 @@ pub enum TextureAttachment {
 impl TextureAttachment {
     pub fn get_texture_id(&self) -> Option<TextureId> {
         if let TextureAttachment::Id(texture_id) = self {
-            Some(*texture_id)
+            Some(texture_id.clone())
         } else {
             None
         }

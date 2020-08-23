@@ -41,7 +41,7 @@ impl From<SamplerId> for RenderResourceId {
 impl RenderResourceId {
     pub fn get_texture(&self) -> Option<TextureId> {
         if let RenderResourceId::Texture(id) = self {
-            Some(*id)
+            Some(id.clone())
         } else {
             None
         }
@@ -57,7 +57,7 @@ impl RenderResourceId {
 
     pub fn get_sampler(&self) -> Option<SamplerId> {
         if let RenderResourceId::Sampler(id) = self {
-            Some(*id)
+            Some(id.clone())
         } else {
             None
         }

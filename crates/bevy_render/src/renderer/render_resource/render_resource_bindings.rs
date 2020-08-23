@@ -1,4 +1,4 @@
-use super::{BindGroup, BindGroupId, BufferId, RenderResourceId, SamplerId, TextureId};
+use super::{BindGroup, BindGroupId, BufferId, SamplerId, TextureId, RenderResourceId};
 use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     renderer::RenderResourceContext,
@@ -25,7 +25,7 @@ pub enum RenderResourceBinding {
 impl RenderResourceBinding {
     pub fn get_texture(&self) -> Option<TextureId> {
         if let RenderResourceBinding::Texture(texture) = self {
-            Some(*texture)
+            Some(texture.clone())
         } else {
             None
         }
@@ -41,7 +41,7 @@ impl RenderResourceBinding {
 
     pub fn get_sampler(&self) -> Option<SamplerId> {
         if let RenderResourceBinding::Sampler(sampler) = self {
-            Some(*sampler)
+            Some(sampler.clone())
         } else {
             None
         }
@@ -66,11 +66,11 @@ impl PartialEq for RenderResourceBinding {
             (
                 RenderResourceBinding::Texture(self_texture),
                 RenderResourceBinding::Texture(other_texture),
-            ) => RenderResourceId::from(*self_texture) == RenderResourceId::from(*other_texture),
+            ) => RenderResourceId::from(self_texture.clone()) == RenderResourceId::from(other_texture.clone()),
             (
                 RenderResourceBinding::Sampler(self_sampler),
                 RenderResourceBinding::Sampler(other_sampler),
-            ) => RenderResourceId::from(*self_sampler) == RenderResourceId::from(*other_sampler),
+            ) => RenderResourceId::from(self_sampler.clone()) == RenderResourceId::from(other_sampler.clone()),
             _ => false,
         }
     }
@@ -84,14 +84,14 @@ impl Hash for RenderResourceBinding {
                 range,
                 dynamic_index: _, // dynamic_index is not a part of the binding
             } => {
-                RenderResourceId::from(*buffer).hash(state);
+                RenderResourceId::from(buffer.clone()).hash(state);
                 range.hash(state);
             }
             RenderResourceBinding::Texture(texture) => {
-                RenderResourceId::from(*texture).hash(state);
+                RenderResourceId::from(texture.clone()).hash(state);
             }
             RenderResourceBinding::Sampler(sampler) => {
-                RenderResourceId::from(*sampler).hash(state);
+                RenderResourceId::from(sampler.clone()).hash(state);
             }
         }
     }
@@ -105,7 +105,7 @@ pub enum BindGroupStatus {
 }
 
 // PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
-#[derive(Eq, PartialEq, Debug, Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct RenderResourceBindings {
     // TODO: remove this. it shouldn't be needed anymore
     pub id: RenderResourceBindingsId,
