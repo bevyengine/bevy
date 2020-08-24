@@ -51,13 +51,14 @@ pub enum WindowOrigin {
 
 #[derive(Debug, Clone, Properties)]
 pub struct OrthographicProjection {
+    pub near: f32,
+    pub far: f32,
+    pub scale: f32,
+    pub window_origin: WindowOrigin,
     pub left: f32,
     pub right: f32,
     pub bottom: f32,
     pub top: f32,
-    pub near: f32,
-    pub far: f32,
-    pub window_origin: WindowOrigin,
 }
 
 impl CameraProjection for OrthographicProjection {
@@ -75,8 +76,8 @@ impl CameraProjection for OrthographicProjection {
     fn update(&mut self, width: usize, height: usize) {
         match self.window_origin {
             WindowOrigin::Center => {
-                let half_width = width as f32 / 2.0;
-                let half_height = height as f32 / 2.0;
+                let half_width = (width as f32 * self.scale) / 2.0;
+                let half_height = (height as f32 * self.scale) / 2.0;
                 self.left = -half_width;
                 self.right = half_width;
                 self.top = half_height;
@@ -84,8 +85,8 @@ impl CameraProjection for OrthographicProjection {
             }
             WindowOrigin::BottomLeft => {
                 self.left = 0.0;
-                self.right = width as f32;
-                self.top = height as f32;
+                self.right = width as f32 * self.scale;
+                self.top = height as f32 * self.scale;
                 self.bottom = 0.0;
             }
         }
@@ -105,6 +106,7 @@ impl Default for OrthographicProjection {
             top: 0.0,
             near: 0.0,
             far: 1000.0,
+            scale: 1.0,
             window_origin: WindowOrigin::Center,
         }
     }
