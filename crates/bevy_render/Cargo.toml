@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2018"
 authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
 description = "Provides rendering functionality for Bevy Engine"
@@ -40,6 +40,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 hexasphere = "0.1.5"
 ahash = "0.4.4"
+parking_lot = "0.10"
 
 [features]
 png = ["image/png"]

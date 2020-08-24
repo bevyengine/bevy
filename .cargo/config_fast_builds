@@ -7,8 +7,10 @@
 linker = "/usr/bin/clang"
 rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 
+# NOTE: you must manually install https://github.com/michaeleisel/zld on mac. you can easily do this with the "brew" package manager:
+# `brew install michaeleisel/zld/zld`
 [target.x86_64-apple-darwin]
-rustflags = ["-Zshare-generics=y"]
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/Cellar/zld/1.1.0/bin/zld", "-Zshare-generics=y"]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"

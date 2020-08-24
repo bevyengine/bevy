@@ -6,7 +6,7 @@ use std::time::Duration;
 // by making your import look like this in your Cargo.toml
 //
 // [dependencies]
-// bevy = { version = "0.1.0", default-features = false, features = ["headless"] }
+// bevy = { version = "0.1.3", default-features = false, features = ["headless"] }
 
 fn main() {
     // this app runs once
