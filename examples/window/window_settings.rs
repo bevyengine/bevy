@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use bevy_window::WindowMode;
+use bevy::{prelude::*, window::WindowMode};
 
 /// This example illustrates how to customize the default window settings
 fn main() {
