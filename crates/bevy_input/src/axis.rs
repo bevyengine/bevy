@@ -21,20 +21,14 @@ where
     }
 
     pub fn set(&mut self, axis_id: T, value: f32) {
-        match self.axes.get_mut(&axis_id) {
-            Some(axis) => {
-                *axis = value;
-            }
-            None => (), // Panic?? Or Result?
+        if let Some(axis) = self.axes.get_mut(&axis_id) {
+            *axis = value;
         }
     }
 
     pub fn add(&mut self, axis_id: T, value: f32) {
-        match self.axes.get_mut(&axis_id) {
-            Some(axis) => {
-                *axis += value;
-            }
-            None => (), // Panic?? Or Result?
+        if let Some(axis) = self.axes.get_mut(&axis_id) {
+            *axis += value;
         }
     }
 
