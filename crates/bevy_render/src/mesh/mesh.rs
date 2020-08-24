@@ -453,7 +453,6 @@ pub mod shape {
             }
         }
     }
-    
     /// A cylinder which stands on the XZ plane
     pub struct Cylinder {
         /// Radius of the cylinder (X&Z axis)
