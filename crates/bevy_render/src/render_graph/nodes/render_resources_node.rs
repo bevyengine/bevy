@@ -177,7 +177,7 @@ where
 
             buffer_array_status.current_item_capacity = new_capacity;
 
-            log::trace!(
+            println!(
                 "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
                 std::any::type_name::<T>(),
                 total_size,
