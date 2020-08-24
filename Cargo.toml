@@ -186,6 +186,14 @@ name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
+name = "touch_input"
+path = "examples/input/touch_input.rs"
+
+[[example]]
+name = "touch_input_events"
+path = "examples/input/touch_input_events.rs"
+
+[[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
 

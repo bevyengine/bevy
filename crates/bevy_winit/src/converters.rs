@@ -1,7 +1,9 @@
 use bevy_input::{
     keyboard::{ElementState, KeyCode, KeyboardInput},
     mouse::MouseButton,
+    touch::{TouchFingerInput, Finger}
 };
+use bevy_math::Vec2;
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -190,5 +192,13 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Copy => KeyCode::Copy,
         winit::event::VirtualKeyCode::Paste => KeyCode::Paste,
         winit::event::VirtualKeyCode::Cut => KeyCode::Cut,
+    }
+}
+
+pub fn convert_touch_input(state: ElementState, touch: &winit::event::Touch) -> TouchFingerInput {
+    TouchFingerInput {
+        finger: Finger(touch.id),
+        state,
+        position: Vec2::new(touch.location.x as f32, touch.location.y as f32)
     }
 }

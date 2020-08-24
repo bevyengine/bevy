@@ -1,17 +1,19 @@
 mod input;
 pub mod keyboard;
 pub mod mouse;
+pub mod touch;
 pub mod system;
 
 pub use input::*;
 
 pub mod prelude {
-    pub use crate::{keyboard::KeyCode, mouse::MouseButton, Input};
+    pub use crate::{keyboard::KeyCode, mouse::MouseButton, touch::Finger, Input};
 }
 
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use touch::{touch_finger_input_system, Finger, TouchFingerInput, TouchMotion};
 
 use bevy_ecs::IntoQuerySystem;
 
@@ -25,6 +27,9 @@ impl Plugin for InputPlugin {
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
+            .add_event::<Finger>()
+            .add_event::<TouchFingerInput>()
+            .add_event::<TouchMotion>()
             .init_resource::<Input<KeyCode>>()
             .add_system_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
@@ -34,6 +39,11 @@ impl Plugin for InputPlugin {
             .add_system_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
                 mouse_button_input_system.system(),
+            )
+            .init_resource::<Input<Finger>>()
+            .add_system_to_stage(
+                bevy_app::stage::EVENT_UPDATE,
+                touch_finger_input_system.system(),
             );
     }
 }
