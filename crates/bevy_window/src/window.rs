@@ -36,6 +36,8 @@ pub struct Window {
     pub vsync: bool,
     pub resizable: bool,
     pub mode: WindowMode,
+    pub cursor_grab: bool,
+    pub cursor_visible: bool,
 }
 
 /// Defines the way a window is displayed
@@ -60,6 +62,8 @@ impl Window {
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             mode: window_descriptor.mode,
+            cursor_grab: window_descriptor.cursor_grab,
+            cursor_visible: window_descriptor.cursor_visible,
         }
     }
 }
@@ -72,6 +76,8 @@ pub struct WindowDescriptor {
     pub vsync: bool,
     pub resizable: bool,
     pub mode: WindowMode,
+    pub cursor_grab: bool,
+    pub cursor_visible: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -83,6 +89,8 @@ impl Default for WindowDescriptor {
             vsync: true,
             resizable: true,
             mode: WindowMode::Windowed,
+            cursor_grab: false,
+            cursor_visible: true,
         }
     }
 }
