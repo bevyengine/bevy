@@ -4,7 +4,7 @@ use bevy_core::{Time, Timer};
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use std::time::Duration;
 
-/// An App Plugin that prints diagnostics to the console 
+/// An App Plugin that prints diagnostics to the console
 pub struct PrintDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,
@@ -30,7 +30,7 @@ impl Default for PrintDiagnosticsPlugin {
 impl Plugin for PrintDiagnosticsPlugin {
     fn build(&self, app: &mut bevy_app::AppBuilder) {
         app.add_resource(PrintDiagnosticsState {
-            timer: Timer::new(self.wait_duration),
+            timer: Timer::new(self.wait_duration, true),
             filter: self.filter.clone(),
         });
 
@@ -82,8 +82,6 @@ impl PrintDiagnosticsPlugin {
                     Self::print_diagnostic(diagnostic);
                 }
             }
-
-            state.timer.reset();
         }
     }
 
@@ -105,8 +103,6 @@ impl PrintDiagnosticsPlugin {
                     println!("{:#?}\n", diagnostic);
                 }
             }
-
-            state.timer.reset();
         }
     }
 }

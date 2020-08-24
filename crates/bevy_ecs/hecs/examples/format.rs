@@ -4,7 +4,9 @@
 //! also be useful for serialization, or other row-oriented generic operations.
 
 fn format_entity(entity: bevy_hecs::EntityRef<'_>) -> String {
-    fn fmt<T: bevy_hecs::Component + std::fmt::Display>(entity: bevy_hecs::EntityRef<'_>) -> Option<String> {
+    fn fmt<T: bevy_hecs::Component + std::fmt::Display>(
+        entity: bevy_hecs::EntityRef<'_>,
+    ) -> Option<String> {
         Some(entity.get::<T>()?.to_string())
     }
 

@@ -43,6 +43,10 @@ pub enum RenderCommand {
         base_vertex: i32,
         instances: Range<u32>,
     },
+    Draw {
+        vertices: Range<u32>,
+        instances: Range<u32>,
+    },
 }
 
 /// A component that indicates how to draw an entity.
@@ -138,7 +142,7 @@ impl<'a> UnsafeClone for DrawContext<'a> {
             render_resource_context: self.render_resource_context.unsafe_clone(),
             vertex_buffer_descriptors: self.vertex_buffer_descriptors.unsafe_clone(),
             shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline.clone(),
+            current_pipeline: self.current_pipeline,
         }
     }
 }

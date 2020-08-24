@@ -17,14 +17,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+
       - name: Install alsa
         run: sudo apt-get install libasound2-dev
+
       - name: Build
         run: cargo check
+
+      - name: Check the format
+        run: cargo +nightly fmt --all -- --check
+
+      # type complexity must be ignored because we use huge templates for queries
+      - name: Run clippy
+        run: >
+          cargo +nightly clippy
+          --all-targets
+          --all-features
+          --
+          -D warnings
+          -A clippy::type_complexity
+
       - name: Run tests
         run: cargo test --workspace
-

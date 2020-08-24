@@ -17,6 +17,7 @@ pub enum Serializable<'a> {
 }
 
 impl<'a> Serializable<'a> {
+    #[allow(clippy::should_implement_trait)]
     pub fn borrow(&self) -> &dyn erased_serde::Serialize {
         match self {
             Serializable::Borrowed(serialize) => serialize,
@@ -88,11 +89,9 @@ impl<'a> Serialize for DynamicPropertiesSerializer<'a> {
             PropertyType::Seq => {
                 SeqSerializer::new(self.dynamic_properties, self.registry).serialize(serializer)
             }
-            _ => {
-                return Err(serde::ser::Error::custom(
-                    "DynamicProperties cannot be Value type",
-                ))
-            }
+            _ => Err(serde::ser::Error::custom(
+                "DynamicProperties cannot be Value type",
+            )),
         }
     }
 }
@@ -511,7 +510,7 @@ where
                     .ok_or_else(|| de::Error::missing_field(TYPE_FIELD))?;
                 let mut dynamic_properties =
                     map.next_value_seed(MapPropertyDeserializer { registry })?;
-                dynamic_properties.type_name = type_name.to_string();
+                dynamic_properties.type_name = type_name;
                 return Ok(DynamicPropertiesOrProperty::DynamicProperties(
                     dynamic_properties,
                 ));

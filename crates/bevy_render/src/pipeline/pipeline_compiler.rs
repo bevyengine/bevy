@@ -4,10 +4,10 @@ use crate::{
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
 use bevy_property::{Properties, Property};
-use serde::{Serialize, Deserialize};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
@@ -29,8 +29,7 @@ impl Default for PipelineSpecialization {
 
 impl PipelineSpecialization {
     pub fn empty() -> &'static PipelineSpecialization {
-        pub static EMPTY: Lazy<PipelineSpecialization> =
-            Lazy::new(|| PipelineSpecialization::default());
+        pub static EMPTY: Lazy<PipelineSpecialization> = Lazy::new(PipelineSpecialization::default);
         &EMPTY
     }
 }
@@ -72,7 +71,7 @@ impl PipelineCompiler {
         let specialized_shaders = self
             .specialized_shaders
             .entry(*shader_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
 
         let shader = shaders.get(shader_handle).unwrap();
 
@@ -172,7 +171,7 @@ impl PipelineCompiler {
         let specialized_pipelines = self
             .specialized_pipelines
             .entry(source_pipeline)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         specialized_pipelines.push(SpecializedPipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),

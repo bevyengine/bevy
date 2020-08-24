@@ -4,10 +4,11 @@ use crate::{
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
+use parking_lot::Mutex;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
@@ -25,7 +26,7 @@ pub struct Schedule {
 impl Schedule {
     pub fn add_stage(&mut self, stage: impl Into<Cow<'static, str>>) {
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         } else {
             self.stages.insert(stage.clone(), Vec::new());
@@ -40,7 +41,7 @@ impl Schedule {
     ) {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         }
 
@@ -63,7 +64,7 @@ impl Schedule {
     ) {
         let target: Cow<str> = target.into();
         let stage: Cow<str> = stage.into();
-        if let Some(_) = self.stages.get(&stage) {
+        if self.stages.get(&stage).is_some() {
             panic!("Stage already exists: {}", stage);
         }
 
@@ -131,9 +132,9 @@ impl Schedule {
         for stage_name in self.stage_order.iter() {
             if let Some(stage_systems) = self.stages.get_mut(stage_name) {
                 for system in stage_systems.iter_mut() {
+                    let mut system = system.lock();
                     #[cfg(feature = "profiler")]
-                    crate::profiler::profiler_start(resources, system.name().clone());
-                    let mut system = system.lock().unwrap();
+                    crate::profiler_start(resources, system.name().clone());
                     system.update_archetype_access(world);
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => system.run(world, resources),
@@ -144,13 +145,13 @@ impl Schedule {
                         }
                     }
                     #[cfg(feature = "profiler")]
-                    crate::profiler::profiler_stop(resources, system.name().clone());
+                    crate::profiler_stop(resources, system.name().clone());
                 }
 
                 // "flush"
                 // NOTE: when this is made parallel a full sync is required here
                 for system in stage_systems.iter_mut() {
-                    let mut system = system.lock().unwrap();
+                    let mut system = system.lock();
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => {
                             system.run_thread_local(world, resources)
@@ -173,7 +174,7 @@ impl Schedule {
         let thread_pool_builder = resources
             .get::<ParallelExecutorOptions>()
             .map(|options| (*options).clone())
-            .unwrap_or_else(|| ParallelExecutorOptions::default())
+            .unwrap_or_else(ParallelExecutorOptions::default)
             .create_builder();
         // For now, bevy_ecs only uses the global thread pool so it is sufficient to configure it once here.
         // Dont call .unwrap() as the function is called twice..
@@ -181,7 +182,7 @@ impl Schedule {
 
         for stage in self.stages.values_mut() {
             for system in stage.iter_mut() {
-                let mut system = system.lock().unwrap();
+                let mut system = system.lock();
                 system.initialize(resources);
             }
         }

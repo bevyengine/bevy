@@ -32,11 +32,19 @@ Bevy is still in the _very_ early stages of development. APIs can and will chang
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
 
 ## Community
-* **[Discord Server](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
+Before contributing or participating in discussions with the community, you should familiarize yourself with our **[Code of Conduct](https://github.com/bevyengine/bevy/blob/master/CODE_OF_CONDUCT.md)**
+
+* **[Discord](https://discord.gg/gMUk5Ph):** Bevy's official discord server.
+* **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
+* **[Stack Overflow](https://stackoverflow.com/questions/tagged/bevy):** Questions tagged Bevy on Stack Overflow.
+* **[Awesome Bevy](https://github.com/bevyengine/awesome-bevy):** A collection of awesome Bevy projects.
 
 ## Getting Started
 
-We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial. You can quickly try out the [examples](/examples) by cloning this repo and running the following command:
+We recommend checking out [The Bevy Book](https://bevyengine.org/learn/book/introduction) for a full tutorial.
+
+Follow the [Setup guide](https://bevyengine.org/learn/book/getting-started/setup/) to ensure your development environment is setup correctly.
+Once setup, you can quickly try out the [examples](/examples) by cloning this repo and running the following command:
 
 ```sh
 # Runs the "breakout" example
@@ -46,6 +54,14 @@ cargo run --example breakout
 ### Fast Compiles
 
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](http://bevyengine.org/learn/book/getting-started/setup/).
+
+## Focus Areas
+
+Bevy has the following [Focus Areas](https://github.com/bevyengine/bevy/labels/focus-area). We are currently focusing our development efforts in these areas and they will receive priority for Bevy developers' time. If you would like to contribute to Bevy, you are heavily encouraged to join in on these efforts:
+
+### [Editor-Ready UI](https://github.com/bevyengine/bevy/issues/254)
+### [PBR / Clustered Forward Rendering](https://github.com/bevyengine/bevy/issues/179)
+### [Scenes](https://github.com/bevyengine/bevy/issues/255)
 
 ## Libraries Used
 

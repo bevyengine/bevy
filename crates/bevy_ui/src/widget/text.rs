@@ -4,8 +4,9 @@ use bevy_ecs::{Changed, Query, Res, ResMut};
 use bevy_math::{Size, Vec3};
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
+    prelude::Msaa,
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
-    texture::Texture, prelude::Msaa,
+    texture::Texture,
 };
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
@@ -48,6 +49,7 @@ pub fn text_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_text_system(
     mut draw_context: DrawContext,
     fonts: Res<Assets<Font>>,
@@ -59,7 +61,8 @@ pub fn draw_text_system(
     mut query: Query<(&mut Draw, &Text, &Node, &Transform)>,
 ) {
     for (mut draw, text, node, transform) in &mut query.iter() {
-        let position = Vec3::from(transform.value.w_axis().truncate()) - (node.size / 2.0).extend(0.0);
+        let position =
+            Vec3::from(transform.value.w_axis().truncate()) - (node.size / 2.0).extend(0.0);
 
         let mut drawable_text = DrawableText {
             font: fonts.get(&text.font).unwrap(),

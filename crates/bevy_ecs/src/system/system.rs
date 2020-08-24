@@ -1,6 +1,6 @@
 use crate::resource::Resources;
-use fixedbitset::FixedBitSet;
 use bevy_hecs::{Access, Query, World};
+use fixedbitset::FixedBitSet;
 use std::{any::TypeId, borrow::Cow, collections::HashSet};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
@@ -14,12 +14,13 @@ pub enum ThreadLocalExecution {
 pub struct SystemId(pub u32);
 
 impl SystemId {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         SystemId(rand::random::<u32>())
     }
 }
 
-/// An ECS system that can be added to a [Schedule](crate::Schedule) 
+/// An ECS system that can be added to a [Schedule](crate::Schedule)
 pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;

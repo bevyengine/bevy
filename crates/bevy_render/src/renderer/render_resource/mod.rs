@@ -1,5 +1,6 @@
 mod bind_group;
 mod buffer;
+#[allow(clippy::module_inception)]
 mod render_resource;
 mod render_resource_bindings;
 mod shared_buffers;

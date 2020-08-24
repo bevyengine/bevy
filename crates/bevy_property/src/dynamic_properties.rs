@@ -158,12 +158,16 @@ impl Property for DynamicProperties {
                 PropertyType::Map => {
                     for (i, prop) in properties.iter_props().enumerate() {
                         let name = properties.prop_name(i).unwrap();
-                        self.prop_mut(name).map(|p| p.apply(prop));
+                        if let Some(p) = self.prop_mut(name) {
+                            p.apply(prop);
+                        }
                     }
                 }
                 PropertyType::Seq => {
                     for (i, prop) in properties.iter_props().enumerate() {
-                        self.prop_with_index_mut(i).map(|p| p.apply(prop));
+                        if let Some(p) = self.prop_with_index_mut(i) {
+                            p.apply(prop);
+                        }
                     }
                 }
                 _ => panic!("DynamicProperties cannot be Value types"),

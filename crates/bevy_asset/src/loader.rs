@@ -47,13 +47,14 @@ pub struct AssetChannel<T: 'static> {
 }
 
 impl<T> AssetChannel<T> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         AssetChannel { sender, receiver }
     }
 }
 
-/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly 
+/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly
 pub fn update_asset_storage_system<T: Resource>(
     asset_channel: Res<AssetChannel<T>>,
     asset_server: Res<AssetServer>,

@@ -73,7 +73,7 @@ impl SceneSpawner {
         let spawned = self
             .spawned_scenes
             .entry(scene_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         spawned.push(instance_id);
         Ok(())
     }
@@ -85,7 +85,7 @@ impl SceneSpawner {
         mut instance_info: Option<&mut InstanceInfo>,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read().unwrap();
+        let component_registry = type_registry.component.read();
         let scenes = resources.get::<Assets<Scene>>().unwrap();
         let scene = scenes
             .get(&scene_handle)
@@ -98,7 +98,7 @@ impl SceneSpawner {
                 *instance_info
                     .entity_map
                     .entry(scene_entity.entity)
-                    .or_insert_with(|| bevy_ecs::Entity::new())
+                    .or_insert_with(bevy_ecs::Entity::new)
             } else {
                 bevy_ecs::Entity::from_id(scene_entity.entity)
             };
@@ -113,7 +113,6 @@ impl SceneSpawner {
                         component_registration.apply_component_to_entity(world, entity, component);
                     }
                 }
-
             } else {
                 world.spawn_as_entity(entity, (1,));
                 for component in scene_entity.components.iter() {
@@ -122,7 +121,8 @@ impl SceneSpawner {
                         .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
                             type_name: component.type_name.to_string(),
                         })?;
-                    component_registration.add_component_to_entity(world, resources, entity, component);
+                    component_registration
+                        .add_component_to_entity(world, resources, entity, component);
                 }
             }
         }
@@ -208,7 +208,6 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
             }
         }
     }
-
 
     scene_spawner.load_queued_scenes(world, resources).unwrap();
     scene_spawner.spawn_queued_scenes(world, resources).unwrap();

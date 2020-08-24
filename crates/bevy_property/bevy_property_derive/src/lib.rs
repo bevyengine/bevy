@@ -48,14 +48,12 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
                 f,
                 f.attrs
                     .iter()
-                    .find(|a| {
-                        a.path.get_ident().as_ref().unwrap().to_string() == PROP_ATTRIBUTE_NAME
-                    })
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == PROP_ATTRIBUTE_NAME)
                     .map(|a| {
                         syn::custom_keyword!(ignore);
                         let mut attribute_args = PropAttributeArgs { ignore: None };
                         a.parse_args_with(|input: ParseStream| {
-                            if let Some(_) = input.parse::<Option<ignore>>()? {
+                            if input.parse::<Option<ignore>>()?.is_some() {
                                 attribute_args.ignore = Some(true);
                                 return Ok(());
                             }

@@ -3,8 +3,8 @@ use crate::{
     draw::{Draw, RenderCommand},
     pass::{ClearColor, LoadOp, PassDescriptor, TextureAttachment},
     pipeline::{
-        BindGroupDescriptor, BindType, BindingDescriptor, PipelineDescriptor, UniformProperty,
-        BindingShaderStage,
+        BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, PipelineDescriptor,
+        UniformProperty,
     },
     render_graph::{Node, ResourceSlotInfo, ResourceSlots},
     renderer::{
@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Resources, World, HecsQuery};
+use bevy_ecs::{HecsQuery, Resources, World};
 use std::marker::PhantomData;
 
 struct CameraInfo {
@@ -77,7 +77,7 @@ impl<Q: HecsQuery> PassNode<Q> {
                 index: 0,
                 bind_type: BindType::Uniform {
                     dynamic: false,
-                    properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
+                    property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                 },
                 shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
             }],
@@ -136,8 +136,9 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                     TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap());
             }
             if let Some(input_index) = self.color_resolve_target_indices[i] {
-                color_attachment.resolve_target =
-                    Some(TextureAttachment::Id(input.get(input_index).unwrap().get_texture().unwrap()));
+                color_attachment.resolve_target = Some(TextureAttachment::Id(
+                    input.get(input_index).unwrap().get_texture().unwrap(),
+                ));
             }
         }
 
@@ -244,6 +245,13 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                                         log::info!("Could not draw indexed because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
                                     }
                                 }
+                                RenderCommand::Draw { vertices, instances } => {
+                                    if draw_state.can_draw() {
+                                        render_pass.draw(vertices.clone(), instances.clone());
+                                    } else {
+                                        log::info!("Could not draw because the pipeline layout wasn't fully set for pipeline: {:?}", draw_state.pipeline);
+                                    }
+                                }
                                 RenderCommand::SetVertexBuffer {
                                     buffer,
                                     offset,
@@ -305,10 +313,13 @@ impl DrawState {
         self.index_buffer = Some(buffer);
     }
 
-    pub fn can_draw_indexed(&self) -> bool {
+    pub fn can_draw(&self) -> bool {
         self.bind_groups.iter().all(|b| b.is_some())
             && self.vertex_buffers.iter().all(|v| v.is_some())
-            && self.index_buffer.is_some()
+    }
+
+    pub fn can_draw_indexed(&self) -> bool {
+        self.can_draw() && self.index_buffer.is_some()
     }
 
     pub fn set_pipeline(

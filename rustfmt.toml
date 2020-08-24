@@ -1,3 +1,4 @@
+unstable_features = true
 merge_imports = true
 use_field_init_shorthand = true
 reorder_impl_items = true
