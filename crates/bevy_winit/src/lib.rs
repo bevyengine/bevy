@@ -199,8 +199,8 @@ pub fn winit_runner(mut app: App) {
                 },
                 _ => {}
             },
-            event::Event::DeviceEvent { ref event, .. } => {
-                if let DeviceEvent::MouseMotion { delta } = event {
+            event::Event::DeviceEvent { ref event, .. } => match event {
+                DeviceEvent::MouseMotion { delta } => {
                     let mut mouse_motion_events =
                         app.resources.get_mut::<Events<MouseMotion>>().unwrap();
                     mouse_motion_events.send(MouseMotion {

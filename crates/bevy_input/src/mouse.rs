@@ -33,7 +33,7 @@ pub enum Mouse {
     Vertical,
     Horizontal,
 }
-  /// Unit of scroll
+/// Unit of scroll
 #[derive(Debug, Clone)]
 pub enum MouseScrollUnit {
     Line,

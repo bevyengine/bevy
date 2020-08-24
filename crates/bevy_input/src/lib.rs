@@ -16,7 +16,10 @@ use bevy_app::prelude::*;
 use bevy_window::{AxisId, Cursor};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 
-use mouse::{axis_system, cursor_system, mouse_axis_system, mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use mouse::{
+    axis_system, cursor_system, mouse_axis_system, mouse_button_input_system, MouseButton,
+    MouseButtonInput, MouseMotion, MouseWheel,
+};
 
 use bevy_ecs::IntoQuerySystem;
 
