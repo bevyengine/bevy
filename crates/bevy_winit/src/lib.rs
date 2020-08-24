@@ -203,6 +203,11 @@ pub fn winit_runner(mut app: App) {
                         app.resources.get_mut::<Events<TouchFingerInput>>().unwrap();
                         touch_finger_input_events.send(converters::convert_touch_input(ElementState::Released, &touch));
                 },
+                WindowEvent::Touch (touch @ Touch {phase: TouchPhase::Cancelled, ..}) => {
+                    let mut touch_finger_input_events =
+                        app.resources.get_mut::<Events<TouchFingerInput>>().unwrap();
+                        touch_finger_input_events.send(converters::convert_touch_input(ElementState::Released, &touch));
+                },
                 WindowEvent::Touch (Touch {phase: TouchPhase::Moved, id, location, ..}) => {
                     let mut touch_finger_moved_events =
                         app.resources.get_mut::<Events<TouchMotion>>().unwrap();
