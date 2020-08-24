@@ -16,6 +16,10 @@ impl<T> Axis<T>
 where
     T: Copy + Eq + Hash,
 {
+    pub fn register(&mut self, axis_id: T) {
+        self.axes.insert(axis_id, 0.0);
+    }
+
     pub fn set(&mut self, axis_id: T, value: f32) {
         match self.axes.get_mut(&axis_id) {
             Some(axis) => {
