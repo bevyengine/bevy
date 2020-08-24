@@ -74,4 +74,6 @@ Bevy is only possible because of the hard work put into these foundational techn
 
 ## [Bevy Cargo Features](docs/cargo_features.md)
 
+The cargo features provided by Bevy, could be enabled for certain usages.
+
 Additionally, we would like to thank the [Amethyst](https://github.com/amethyst/amethyst), [macroquad](https://github.com/not-fl3/macroquad), [coffee](https://github.com/hecrj/coffee), [ggez](https://github.com/ggez/ggez), and [Piston](https://github.com/PistonDevelopers/piston) projects for providing solid examples of game engine development in Rust. If you are looking for a Rust game engine, it is worth considering all of your options. Each engine has different design goals and some will likely resonate with you more than others. 

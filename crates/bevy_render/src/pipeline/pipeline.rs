@@ -4,7 +4,7 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindType, DynamicBinding, PipelineLayout, VertexBufferDescriptors, StencilStateDescriptor,
+    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor, VertexBufferDescriptors,
 };
 use crate::{
     shader::{Shader, ShaderStages},
