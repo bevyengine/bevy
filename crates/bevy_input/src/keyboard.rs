@@ -19,10 +19,7 @@ pub enum ElementState {
 
 impl ElementState {
     pub fn is_pressed(&self) -> bool {
-        match self {
-            ElementState::Pressed => true,
-            _ => false,
-        }
+        matches!(self, ElementState::Pressed)
     }
 }
 
@@ -59,6 +56,7 @@ pub fn keyboard_input_system(
 
 /// The key code of a keyboard input.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]
 pub enum KeyCode {
     /// The '1' key over the letters.

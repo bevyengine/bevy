@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub struct NodeId(Uuid);
 
 impl NodeId {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         NodeId(Uuid::new_v4())
     }
@@ -48,7 +49,7 @@ pub struct Edges {
 impl Edges {
     pub(crate) fn add_input_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_input_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+            return Err(RenderGraphError::EdgeAlreadyExists(edge));
         }
         self.input_edges.push(edge);
         Ok(())
@@ -56,7 +57,7 @@ impl Edges {
 
     pub(crate) fn add_output_edge(&mut self, edge: Edge) -> Result<(), RenderGraphError> {
         if self.has_output_edge(&edge) {
-            return Err(RenderGraphError::EdgeAlreadyExists(edge.clone()));
+            return Err(RenderGraphError::EdgeAlreadyExists(edge));
         }
         self.output_edges.push(edge);
         Ok(())

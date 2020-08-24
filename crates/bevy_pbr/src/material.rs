@@ -3,6 +3,7 @@ use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, t
 
 /// A material with "standard" properties used in PBR lighting
 #[derive(RenderResources, ShaderDefs)]
+#[allow(clippy::manual_non_exhaustive)]
 pub struct StandardMaterial {
     pub albedo: Color,
     #[shader_def]
@@ -10,6 +11,12 @@ pub struct StandardMaterial {
     #[render_resources(ignore)]
     #[shader_def]
     pub shaded: bool,
+
+    // this is a manual implementation of the non exhaustive pattern,
+    // especially made to allow ..Default::default()
+    #[render_resources(ignore)]
+    #[doc(hidden)]
+    pub __non_exhaustive: (),
 }
 
 impl Default for StandardMaterial {
@@ -18,6 +25,7 @@ impl Default for StandardMaterial {
             albedo: Color::rgb(1.0, 1.0, 1.0),
             albedo_texture: None,
             shaded: true,
+            __non_exhaustive: (),
         }
     }
 }

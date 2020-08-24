@@ -11,7 +11,7 @@ use std::{
 };
 use uuid::Uuid;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
     Buffer {
         buffer: BufferId,
@@ -44,6 +44,34 @@ impl RenderResourceBinding {
             Some(*sampler)
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for RenderResourceBinding {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                RenderResourceBinding::Buffer {
+                    buffer: self_buffer,
+                    range: self_range,
+                    dynamic_index: _,
+                },
+                RenderResourceBinding::Buffer {
+                    buffer: other_buffer,
+                    range: other_range,
+                    dynamic_index: _,
+                },
+            ) => self_buffer == other_buffer && self_range == other_range,
+            (
+                RenderResourceBinding::Texture(self_texture),
+                RenderResourceBinding::Texture(other_texture),
+            ) => RenderResourceId::from(*self_texture) == RenderResourceId::from(*other_texture),
+            (
+                RenderResourceBinding::Sampler(self_sampler),
+                RenderResourceBinding::Sampler(other_sampler),
+            ) => RenderResourceId::from(*self_sampler) == RenderResourceId::from(*other_sampler),
+            _ => false,
         }
     }
 }
@@ -117,7 +145,7 @@ impl RenderResourceBindings {
 
         for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
         {
-            self.set_vertex_buffer(name, *vertex_buffer, index_buffer.clone());
+            self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
         }
     }
 
@@ -241,7 +269,7 @@ impl AssetRenderResourceBindings {
     pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
         self.bindings
             .entry(HandleUntyped::from(handle))
-            .or_insert_with(|| RenderResourceBindings::default())
+            .or_insert_with(RenderResourceBindings::default)
     }
 
     pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {
@@ -273,7 +301,7 @@ mod tests {
                     name: "a".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty::Struct(vec![UniformProperty::Mat4])],
+                        property: UniformProperty::Struct(vec![UniformProperty::Mat4]),
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },
@@ -282,7 +310,7 @@ mod tests {
                     name: "b".to_string(),
                     bind_type: BindType::Uniform {
                         dynamic: false,
-                        properties: vec![UniformProperty::Float],
+                        property: UniformProperty::Float,
                     },
                     shader_stage: BindingShaderStage::VERTEX | BindingShaderStage::FRAGMENT,
                 },

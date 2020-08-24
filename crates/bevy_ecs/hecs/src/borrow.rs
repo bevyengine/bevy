@@ -72,7 +72,11 @@ pub struct Ref<'a, T: Component> {
 }
 
 impl<'a, T: Component> Ref<'a, T> {
-    #[allow(missing_docs)]
+    /// Creates a new entity component borrow
+    ///
+    /// # Safety
+    ///
+    /// - the index of the component must be valid
     pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
         let target = NonNull::new_unchecked(
             archetype
@@ -120,7 +124,11 @@ pub struct RefMut<'a, T: Component> {
 }
 
 impl<'a, T: Component> RefMut<'a, T> {
-    #[allow(missing_docs)]
+    /// Creates a new entity component mutable borrow
+    ///
+    /// # Safety
+    ///
+    /// - the index of the component must be valid
     pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
         let target = NonNull::new_unchecked(
             archetype

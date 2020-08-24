@@ -21,15 +21,15 @@ pub fn image_node_system(
     mut query: Query<(&Image, &mut CalculatedSize, &Handle<ColorMaterial>)>,
 ) {
     for (_image, mut calculated_size, material_handle) in &mut query.iter() {
-        materials
+        if let Some(texture) = materials
             .get(material_handle)
             .and_then(|material| material.texture)
             .and_then(|texture_handle| textures.get(&texture_handle))
-            .map(|texture| {
-                calculated_size.size = Size {
-                    width: texture.size.x(),
-                    height: texture.size.y(),
-                };
-            });
+        {
+            calculated_size.size = Size {
+                width: texture.size.x(),
+                height: texture.size.y(),
+            };
+        }
     }
 }

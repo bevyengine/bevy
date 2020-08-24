@@ -15,9 +15,13 @@ impl WindowId {
     pub fn is_primary(&self) -> bool {
         *self == WindowId::primary()
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.0.to_simple().to_string()
+use std::fmt;
+
+impl fmt::Display for WindowId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.to_simple().fmt(f)
     }
 }
 
@@ -69,6 +73,7 @@ impl Window {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::manual_non_exhaustive)]
 pub struct WindowDescriptor {
     pub width: u32,
     pub height: u32,
@@ -78,6 +83,10 @@ pub struct WindowDescriptor {
     pub mode: WindowMode,
     pub cursor_grab: bool,
     pub cursor_visible: bool,
+    // this is a manual implementation of the non exhaustive pattern,
+    // especially made to allow ..Default::default()
+    #[doc(hidden)]
+    pub __non_exhaustive: (),
 }
 
 impl Default for WindowDescriptor {
@@ -91,6 +100,7 @@ impl Default for WindowDescriptor {
             mode: WindowMode::Windowed,
             cursor_grab: false,
             cursor_visible: true,
+            __non_exhaustive: (),
         }
     }
 }

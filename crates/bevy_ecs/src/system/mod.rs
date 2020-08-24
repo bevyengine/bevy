@@ -3,6 +3,7 @@ mod into_system;
 #[cfg(feature = "profiler")]
 mod profiler;
 mod query;
+#[allow(clippy::module_inception)]
 mod system;
 
 pub use commands::*;
