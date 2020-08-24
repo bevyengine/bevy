@@ -98,6 +98,10 @@ name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 
 [[example]]
+name = "orthographic"
+path = "examples/3d/orthographic.rs"
+
+[[example]]
 name = "spawner"
 path = "examples/3d/spawner.rs"
 
