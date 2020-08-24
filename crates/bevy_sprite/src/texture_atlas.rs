@@ -9,11 +9,13 @@ use bevy_render::{
 };
 use std::collections::HashMap;
 
+/// An atlas containing multiple textures in one asset (like a spritesheet or a tilemap)
 #[derive(RenderResources)]
 pub struct TextureAtlas {
     pub texture: Handle<Texture>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
+    /// The specific areas of the asset where each texture can be found
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
@@ -57,6 +59,8 @@ impl TextureAtlas {
         }
     }
 
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// cell of the grid is one of the textures in the atlas
     pub fn from_grid(
         texture: Handle<Texture>,
         size: Vec2,
@@ -89,6 +93,7 @@ impl TextureAtlas {
         self.textures.push(rect);
     }
 
+    /// How many textures are in the `TextureAtlas`
     pub fn len(&self) -> usize {
         self.textures.len()
     }

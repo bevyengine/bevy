@@ -240,7 +240,9 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
-#[allow(missing_docs)]
+/// Query transformer that skips entities that have a `T` component that has
+/// not been mutated since the last pass of the system. This does not include
+/// components that were added in since the last pass.
 pub struct Mutated<'a, T> {
     value: &'a T,
 }
@@ -368,7 +370,8 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     }
 }
 
-#[allow(missing_docs)]
+/// Query transformer skipping entities that have not been either mutated or added
+/// since the last pass of the system
 pub struct Changed<'a, T> {
     value: &'a T,
 }
