@@ -4,7 +4,7 @@ mod winit_windows;
 use bevy_input::{
     keyboard::{ElementState, KeyboardInput},
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touch::{TouchFingerInput, Finger, TouchMotion}
+    touch::{Finger, TouchFingerInput, TouchMotion},
 };
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -18,7 +18,7 @@ use bevy_window::{
 use event::Event;
 use winit::{
     event,
-    event::{DeviceEvent, WindowEvent, TouchPhase, Touch},
+    event::{DeviceEvent, Touch, TouchPhase, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
@@ -193,29 +193,64 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                 },
-                WindowEvent::Touch (touch @ Touch {phase: TouchPhase::Started, ..}) => {
+                WindowEvent::Touch(
+                    touch
+                    @
+                    Touch {
+                        phase: TouchPhase::Started,
+                        ..
+                    },
+                ) => {
                     let mut touch_finger_input_events =
                         app.resources.get_mut::<Events<TouchFingerInput>>().unwrap();
-                    touch_finger_input_events.send(converters::convert_touch_input(ElementState::Pressed, &touch));
-                },
-                WindowEvent::Touch (touch @ Touch {phase: TouchPhase::Ended, ..}) => {
+                    touch_finger_input_events.send(converters::convert_touch_input(
+                        ElementState::Pressed,
+                        &touch,
+                    ));
+                }
+                WindowEvent::Touch(
+                    touch
+                    @
+                    Touch {
+                        phase: TouchPhase::Ended,
+                        ..
+                    },
+                ) => {
                     let mut touch_finger_input_events =
                         app.resources.get_mut::<Events<TouchFingerInput>>().unwrap();
-                        touch_finger_input_events.send(converters::convert_touch_input(ElementState::Released, &touch));
-                },
-                WindowEvent::Touch (touch @ Touch {phase: TouchPhase::Cancelled, ..}) => {
+                    touch_finger_input_events.send(converters::convert_touch_input(
+                        ElementState::Released,
+                        &touch,
+                    ));
+                }
+                WindowEvent::Touch(
+                    touch
+                    @
+                    Touch {
+                        phase: TouchPhase::Cancelled,
+                        ..
+                    },
+                ) => {
                     let mut touch_finger_input_events =
                         app.resources.get_mut::<Events<TouchFingerInput>>().unwrap();
-                        touch_finger_input_events.send(converters::convert_touch_input(ElementState::Released, &touch));
-                },
-                WindowEvent::Touch (Touch {phase: TouchPhase::Moved, id, location, ..}) => {
+                    touch_finger_input_events.send(converters::convert_touch_input(
+                        ElementState::Released,
+                        &touch,
+                    ));
+                }
+                WindowEvent::Touch(Touch {
+                    phase: TouchPhase::Moved,
+                    id,
+                    location,
+                    ..
+                }) => {
                     let mut touch_finger_moved_events =
                         app.resources.get_mut::<Events<TouchMotion>>().unwrap();
                     touch_finger_moved_events.send(TouchMotion {
                         finger: Finger(id),
-                        position: Vec2::new(location.x as f32, location.y as f32)
+                        position: Vec2::new(location.x as f32, location.y as f32),
                     });
-                },
+                }
                 _ => {}
             },
             event::Event::DeviceEvent { ref event, .. } => {

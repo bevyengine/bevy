@@ -1,6 +1,6 @@
 use bevy::{
     input::touch::{TouchFingerInput, TouchMotion},
-    prelude::*
+    prelude::*,
 };
 
 fn main() {
@@ -14,14 +14,14 @@ fn main() {
 #[derive(Default)]
 struct State {
     touch_finger_event_reader: EventReader<TouchFingerInput>,
-    touch_motion_event_reader: EventReader<TouchMotion>
+    touch_motion_event_reader: EventReader<TouchMotion>,
 }
 
 /// This system prints out all touch events as they come in
 fn print_touch_events_system(
     mut state: ResMut<State>,
     touch_finger_input_events: Res<Events<TouchFingerInput>>,
-    touch_motion_events: Res<Events<TouchMotion>>
+    touch_motion_events: Res<Events<TouchMotion>>,
 ) {
     for event in state
         .touch_finger_event_reader

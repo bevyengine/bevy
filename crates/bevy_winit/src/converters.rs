@@ -1,7 +1,7 @@
 use bevy_input::{
     keyboard::{ElementState, KeyCode, KeyboardInput},
     mouse::MouseButton,
-    touch::{TouchFingerInput, Finger}
+    touch::{Finger, TouchFingerInput},
 };
 use bevy_math::Vec2;
 
@@ -199,6 +199,6 @@ pub fn convert_touch_input(state: ElementState, touch: &winit::event::Touch) -> 
     TouchFingerInput {
         finger: Finger(touch.id),
         state,
-        position: Vec2::new(touch.location.x as f32, touch.location.y as f32)
+        position: Vec2::new(touch.location.x as f32, touch.location.y as f32),
     }
 }

@@ -1,8 +1,8 @@
 mod input;
 pub mod keyboard;
 pub mod mouse;
-pub mod touch;
 pub mod system;
+pub mod touch;
 
 pub use input::*;
 

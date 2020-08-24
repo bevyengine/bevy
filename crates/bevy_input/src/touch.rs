@@ -4,7 +4,6 @@ use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
 
-
 /// A finger on a touch screen device
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -15,17 +14,15 @@ pub struct Finger(pub u64);
 pub struct TouchFingerInput {
     pub finger: Finger,
     pub state: ElementState,
-    pub position: Vec2
+    pub position: Vec2,
 }
-
 
 /// A finer motion event
 #[derive(Debug, Clone)]
 pub struct TouchMotion {
     pub finger: Finger,
-    pub position: Vec2
+    pub position: Vec2,
 }
-
 
 /// State used by the mouse button input system
 #[derive(Default)]
