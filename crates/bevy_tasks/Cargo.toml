@@ -2,6 +2,7 @@
 name = "bevy_tasks"
 version = "0.1.0"
 authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
     "Lachlan Sneff <lachlan.sneff@gmail.com>",
     "Philip Degarmo <aclysma@gmail.com>"
 ]
