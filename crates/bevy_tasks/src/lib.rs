@@ -1,12 +1,11 @@
 use parking::Unparker;
 use std::{
-    fmt::{self, Debug},
     future::Future,
+    marker::PhantomData,
     mem,
     pin::Pin,
-    ptr,
     sync::{
-        atomic::{AtomicBool, AtomicPtr, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     thread::{self, JoinHandle},
@@ -17,6 +16,11 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 
 mod task;
 pub use task::Task;
+
+mod usages;
+pub use usages::Compute;
+
+pub type ComputePool = TaskPool<Compute>;
 
 macro_rules! pin_mut {
     ($($x:ident),*) => { $(
@@ -30,8 +34,6 @@ macro_rules! pin_mut {
         };
     )* }
 }
-
-static GLOBAL_TASK_POOL: AtomicPtr<TaskPool> = AtomicPtr::new(ptr::null_mut());
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -73,55 +75,47 @@ impl TaskPoolBuilder {
     }
 
     /// Creates a new ThreadPoolBuilder based on the current options.
-    pub fn build(self) -> TaskPool {
+    pub fn build<Usage>(self) -> TaskPool<Usage> {
         TaskPool::new_internal(
             self.num_threads,
             self.stack_size,
             self.thread_name.as_deref(),
         )
     }
+}
 
-    pub fn install(self) {
-        let mut pool = Box::new(self.build());
-        if !GLOBAL_TASK_POOL
-            .compare_and_swap(ptr::null_mut(), &mut*pool, Ordering::SeqCst)
-            .is_null()
-        {
-            panic!("GLOBAL_TASK_POOL can only be set once");
+struct TaskPoolInternal {
+    threads: Vec<(JoinHandle<()>, Arc<Unparker>)>,
+    shutdown_flag: Arc<AtomicBool>,
+}
+
+impl Drop for TaskPoolInternal {
+    fn drop(&mut self) {
+        self.shutdown_flag.store(true, Ordering::Release);
+
+        for (_, unparker) in &self.threads {
+            unparker.unpark();
         }
-        mem::forget(pool);
+        for (join_handle, _) in self.threads.drain(..) {
+            join_handle
+                .join()
+                .expect("task thread panicked while executing");
+        }
     }
 }
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
-pub struct TaskPool {
+pub struct TaskPool<Usage = Compute> {
     executor: Arc<multitask::Executor>,
-    threads: Vec<(JoinHandle<()>, Arc<Unparker>)>,
-    shutdown_flag: Arc<AtomicBool>,
+    internal: Arc<TaskPoolInternal>,
+    _marker: PhantomData<Usage>,
 }
 
-impl TaskPool {
+impl<Usage> TaskPool<Usage> {
     /// Create a `TaskPool` with the default configuration.
-    pub fn new() -> TaskPool {
+    pub fn new() -> Self {
         TaskPoolBuilder::new().build()
-    }
-
-    #[inline(always)]
-    pub fn global() -> &'static TaskPool {
-        #[inline(never)]
-        #[cold]
-        fn do_panic() {
-            panic!(
-                "A global task pool must be installed before `TaskPool::global()` can be called."
-            );
-        }
-
-        let ptr = GLOBAL_TASK_POOL.load(Ordering::Acquire);
-        if ptr.is_null() {
-            do_panic();
-        }
-        unsafe { &*ptr }
     }
 
     fn new_internal(
@@ -176,14 +170,17 @@ impl TaskPool {
 
         Self {
             executor,
-            threads,
-            shutdown_flag,
+            internal: Arc::new(TaskPoolInternal {
+                threads,
+                shutdown_flag,
+            }),
+            _marker: PhantomData,
         }
     }
 
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.threads.len()
+        self.internal.threads.len()
     }
 
     /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
@@ -235,46 +232,21 @@ impl TaskPool {
     {
         self.executor.spawn(future)
     }
-
-    /// Joins all the threads in the thread pool.
-    pub fn shutdown(self) -> Result<(), ThreadPanicked> {
-        let mut this = self;
-        this.shutdown_internal()
-    }
-
-    fn shutdown_internal(&mut self) -> Result<(), ThreadPanicked> {
-        self.shutdown_flag.store(true, Ordering::Release);
-
-        for (_, unparker) in &self.threads {
-            unparker.unpark();
-        }
-        for (join_handle, _) in self.threads.drain(..) {
-            join_handle
-                .join()
-                .expect("task thread panicked while executing");
-        }
-        Ok(())
-    }
 }
 
-impl Default for TaskPool {
+impl<Usage> Default for TaskPool<Usage> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for TaskPool {
-    fn drop(&mut self) {
-        self.shutdown_internal().unwrap();
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct ThreadPanicked(());
-
-impl Debug for ThreadPanicked {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "a task thread panicked during execution")
+impl<Usage> Clone for TaskPool<Usage> {
+    fn clone(&self) -> Self {
+        Self {
+            executor: Arc::clone(&self.executor),
+            internal: Arc::clone(&self.internal),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -293,55 +265,18 @@ impl<'scope, T: Send + 'static> Scope<'scope, T> {
     }
 }
 
-pub fn scope<'scope, F, T>(f: F) -> Vec<T>
-where
-    F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
-    T: Send + 'static,
-{
-    TaskPool::global().scope(f)
-}
-
-pub fn global_thread_num() -> usize {
-    TaskPool::global().thread_num()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     pub fn test_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::<Compute>::new();
 
         let foo = Box::new(42);
         let foo = &*foo;
 
         let outputs = pool.scope(|scope| {
-            for i in 0..100 {
-                scope.spawn(async move {
-                    println!("task {}", i);
-                    if *foo != 42 {
-                        panic!("not 42!?!?")
-                    } else {
-                        *foo
-                    }
-                });
-            }
-        });
-
-        for output in outputs {
-            assert_eq!(output, 42);
-        }
-    }
-
-    #[test]
-    pub fn test_global_spawn() {
-        TaskPoolBuilder::new().install();
-
-        let foo = Box::new(42);
-        let foo = &*foo;
-
-        let outputs = scope(|scope| {
             for i in 0..100 {
                 scope.spawn(async move {
                     println!("task {}", i);

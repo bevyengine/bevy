@@ -42,6 +42,10 @@ impl Resources {
         self.get_resource_mut(ResourceIndex::Global)
     }
 
+    pub fn get_cloned<T: Resource + Clone>(&self) -> Option<T> {
+        self.get::<T>().map(|r| (*r).clone())
+    }
+
     #[allow(clippy::needless_lifetimes)]
     pub fn get_local<'a, T: Resource>(&'a self, id: SystemId) -> Option<Ref<'a, T>> {
         self.get_resource(ResourceIndex::System(id))

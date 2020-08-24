@@ -63,7 +63,7 @@ impl App {
     }
 
     pub fn run(mut self) {
-        ParallelExecutor::initialize_pools(&self.resources);
+        ParallelExecutor::initialize_pools(&mut self.resources);
 
         self.startup_schedule.initialize(&mut self.resources);
         self.startup_executor.run(

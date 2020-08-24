@@ -1,7 +1,12 @@
 use super::TaskPool;
 
 pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
-    fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
+    fn par_chunk_map<F, R, Usage>(
+        &self,
+        task_pool: &TaskPool<Usage>,
+        chunk_size: usize,
+        f: F,
+    ) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -15,7 +20,12 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         })
     }
 
-    fn par_splat_map<F, R>(&self, task_pool: &TaskPool, max_tasks: Option<usize>, f: F) -> Vec<R>
+    fn par_splat_map<F, R, Usage>(
+        &self,
+        task_pool: &TaskPool<Usage>,
+        max_tasks: Option<usize>,
+        f: F,
+    ) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -36,7 +46,12 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
 impl<S, T: Sync> ParallelSlice<T> for S where S: AsRef<[T]> {}
 
 pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
-    fn par_chunk_map_mut<F, R>(&mut self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
+    fn par_chunk_map_mut<F, R, Usage>(
+        &mut self,
+        task_pool: &TaskPool<Usage>,
+        chunk_size: usize,
+        f: F,
+    ) -> Vec<R>
     where
         F: Fn(&mut [T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -50,9 +65,9 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         })
     }
 
-    fn par_splat_map_mut<F, R>(
+    fn par_splat_map_mut<F, R, Usage>(
         &mut self,
-        task_pool: &TaskPool,
+        task_pool: &TaskPool<Usage>,
         max_tasks: Option<usize>,
         f: F,
     ) -> Vec<R>
@@ -77,12 +92,12 @@ impl<S, T: Send> ParallelSliceMut<T> for S where S: AsMut<[T]> {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::*;
 
     #[test]
     fn test_par_chunks_map() {
         let v = vec![42; 1000];
-        let task_pool = TaskPool::new();
+        let task_pool = TaskPool::<Compute>::new();
 
         let outputs = v.par_splat_map(&task_pool, None, |numbers| -> i32 { numbers.iter().sum() });
 
@@ -92,7 +107,7 @@ mod tests {
     #[test]
     fn test_par_chunks_map_mut() {
         let mut v = vec![42; 1000];
-        let task_pool = TaskPool::new();
+        let task_pool = TaskPool::<Compute>::new();
 
         let outputs = v.par_splat_map_mut(&task_pool, None, |numbers| -> i32 {
             for number in numbers.iter_mut() {

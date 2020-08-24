@@ -35,15 +35,16 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelExecutor {
-    pub fn initialize_pools(resources: &Resources) {
-        let task_pool_builder = resources
+    pub fn initialize_pools(resources: &mut Resources) {
+        let compute_pool: bevy_tasks::ComputePool = resources
             .get::<ParallelExecutorOptions>()
             .map(|options| (*options).clone())
             .unwrap_or_else(ParallelExecutorOptions::default)
-            .create_builder();
+            .create_builder()
+            .build();
 
         // For now, bevy_ecs only uses the global task pool so it is sufficient to configure it once here.
-        task_pool_builder.install();
+        resources.insert(compute_pool);
     }
 
     pub fn without_tracker_clears() -> Self {
@@ -344,6 +345,8 @@ impl ExecutorStage {
         systems: &[Arc<Mutex<Box<dyn System>>>],
         schedule_changed: bool,
     ) {
+        let compute_pool = resources.get_cloned::<bevy_tasks::ComputePool>().unwrap();
+
         // if the schedule has changed, clear executor state / fill it with new defaults
         if schedule_changed {
             self.system_dependencies.clear();
@@ -381,7 +384,7 @@ impl ExecutorStage {
                 0..systems.len()
             };
 
-        bevy_tasks::scope(|scope| {
+        compute_pool.scope(|scope| {
             run_ready_result = self.run_ready_systems(
                 systems,
                 RunReadyType::Range(run_ready_system_index_range),
@@ -411,7 +414,7 @@ impl ExecutorStage {
                 run_ready_result = RunReadyResult::Ok;
             } else {
                 // wait for a system to finish, then run its dependents
-                bevy_tasks::scope(|scope| {
+                compute_pool.scope(|scope| {
                     loop {
                         // if all systems in the stage are finished, break out of the loop
                         if self.finished_systems.count_ones(..) == systems.len() {
