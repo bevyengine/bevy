@@ -58,6 +58,7 @@ pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;
 pub use bevy_ui as ui;
 pub use bevy_window as window;
+pub use bevy_tasks as tasks;
 
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
