@@ -28,15 +28,18 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
+            clamp_depth: false,
         }),
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil_front: StencilStateFaceDescriptor::IGNORE,
-            stencil_back: StencilStateFaceDescriptor::IGNORE,
-            stencil_read_mask: 0,
-            stencil_write_mask: 0,
+            stencil: StencilStateDescriptor {
+                front: StencilStateFaceDescriptor::IGNORE,
+                back: StencilStateFaceDescriptor::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
         }),
         color_states: vec![ColorStateDescriptor {
             format: TextureFormat::Bgra8UnormSrgb,
@@ -66,13 +69,13 @@ pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
 }
 
 pub mod node {
-    pub const UI_CAMERA: &'static str = "ui_camera";
-    pub const NODE: &'static str = "node";
-    pub const UI_PASS: &'static str = "ui_pass";
+    pub const UI_CAMERA: &str = "ui_camera";
+    pub const NODE: &str = "node";
+    pub const UI_PASS: &str = "ui_pass";
 }
 
 pub mod camera {
-    pub const UI_CAMERA: &'static str = "UiCamera";
+    pub const UI_CAMERA: &str = "UiCamera";
 }
 
 pub trait UiRenderGraphBuilder {

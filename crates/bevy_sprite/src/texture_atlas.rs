@@ -93,6 +93,10 @@ impl TextureAtlas {
         self.textures.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.textures.is_empty()
+    }
+
     pub fn get_texture_index(&self, texture: Handle<Texture>) -> Option<usize> {
         self.texture_handles
             .as_ref()

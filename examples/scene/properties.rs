@@ -65,7 +65,7 @@ fn setup(type_registry: Res<TypeRegistry>) {
 
     // All properties can be serialized.
     // If you #[derive(Properties)] your type doesn't even need to directly implement the Serde trait!
-    let registry = type_registry.property.read().unwrap();
+    let registry = type_registry.property.read();
     let ron_string = serialize_property(&test, &registry);
     println!("{}\n", ron_string);
 

@@ -221,6 +221,12 @@ impl Archetype {
     }
 
     #[allow(missing_docs)]
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[allow(missing_docs)]
     pub fn iter_entities(&self) -> impl Iterator<Item = &u32> {
         self.entities.iter().take(self.len as usize)
     }
@@ -239,6 +245,7 @@ impl Archetype {
         &self.types
     }
 
+    /// # Safety
     /// `index` must be in-bounds
     pub(crate) unsafe fn get_dynamic(
         &self,
@@ -255,6 +262,7 @@ impl Archetype {
         ))
     }
 
+    /// # Safety
     /// Every type must be written immediately after this call
     pub unsafe fn allocate(&mut self, id: u32) -> u32 {
         if self.len as usize == self.entities.len() {
@@ -408,7 +416,13 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)]
+    /// # Safety
+    ///
+    ///  - `component` must point to valid memory
+    ///  - the component `ty`pe must be registered
+    ///  - `index` must be in-bound
+    ///  - `size` must be the size of the component
+    ///  - the storage array must be big enough
     pub unsafe fn put_dynamic(
         &mut self,
         component: *mut u8,

@@ -15,7 +15,7 @@ Example | Main | Description
 --- | --- | ---
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
-`texture_atlas` | [`2d/texture_atlas.rs`](./2d/sprite_sheet.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+`texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
 ## 3D Rendering
 

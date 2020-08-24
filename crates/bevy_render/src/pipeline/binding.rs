@@ -21,7 +21,7 @@ pub struct BindingDescriptor {
 pub enum BindType {
     Uniform {
         dynamic: bool,
-        properties: Vec<UniformProperty>,
+        property: UniformProperty,
     },
     StorageBuffer {
         dynamic: bool,
@@ -45,11 +45,7 @@ pub enum BindType {
 impl BindType {
     pub fn get_uniform_size(&self) -> Option<u64> {
         match self {
-            BindType::Uniform { properties, .. } => Some(
-                properties
-                    .iter()
-                    .fold(0, |total, property| total + property.get_size()),
-            ),
+            BindType::Uniform { property, .. } => Some(property.get_size()),
             _ => None,
         }
     }

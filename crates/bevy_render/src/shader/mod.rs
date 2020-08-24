@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod shader;
 mod shader_defs;
 mod shader_reflect;

@@ -51,5 +51,5 @@ fn update_node_entity(
     position.set_z(z);
     transform.set_w_axis(position);
 
-    return Some(global_z);
+    Some(global_z)
 }

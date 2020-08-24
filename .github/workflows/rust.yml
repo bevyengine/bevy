@@ -26,7 +26,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Install alsa
         run: sudo apt-get install libasound2-dev
@@ -37,6 +37,15 @@ jobs:
       - name: Check the format
         run: cargo +nightly fmt --all -- --check
 
+      # type complexity must be ignored because we use huge templates for queries
+      - name: Run clippy
+        run: >
+          cargo +nightly clippy
+          --all-targets
+          --all-features
+          --
+          -D warnings
+          -A clippy::type_complexity
+
       - name: Run tests
         run: cargo test --workspace
-
