@@ -1,4 +1,3 @@
-use multitask::{Executor, Task};
 use parking::Unparker;
 use std::{
     fmt::{self, Debug},
@@ -15,6 +14,9 @@ use std::{
 
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
+
+mod task;
+pub use task::Task;
 
 macro_rules! pin_mut {
     ($($x:ident),*) => { $(
@@ -91,14 +93,16 @@ impl TaskPoolBuilder {
     }
 }
 
+/// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
+/// the pool on threads owned by the pool.
 pub struct TaskPool {
-    executor: Arc<Executor>,
+    executor: Arc<multitask::Executor>,
     threads: Vec<(JoinHandle<()>, Arc<Unparker>)>,
     shutdown_flag: Arc<AtomicBool>,
 }
 
 impl TaskPool {
-    // Create a `TaskPool` with the default configuration.
+    /// Create a `TaskPool` with the default configuration.
     pub fn new() -> TaskPool {
         TaskPoolBuilder::new().build()
     }
@@ -125,7 +129,7 @@ impl TaskPool {
         stack_size: Option<usize>,
         thread_name: Option<&str>,
     ) -> Self {
-        let executor = Arc::new(Executor::new());
+        let executor = Arc::new(multitask::Executor::new());
         let shutdown_flag = Arc::new(AtomicBool::new(false));
 
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
@@ -177,17 +181,22 @@ impl TaskPool {
         }
     }
 
+    /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
         self.threads.len()
     }
 
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
     where
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        // let ex = Arc::clone(&self.executor);
-        let executor: &'scope Executor = unsafe { mem::transmute(&*self.executor) };
+        let executor: &'scope multitask::Executor = unsafe { mem::transmute(&*self.executor) };
 
         let fut = async move {
             let mut scope = Scope {
@@ -214,6 +223,20 @@ impl TaskPool {
         pollster::block_on(self.executor.spawn(fut))
     }
 
+    /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
+    /// cancelled and "detached" allowing it to continue running without having to be polled by the
+    /// end-user.
+    pub fn spawn<T>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> impl Future<Output = T> + Send
+    where
+        T: Send + 'static,
+    {
+        self.executor.spawn(future)
+    }
+
+    /// Joins all the threads in the thread pool.
     pub fn shutdown(self) -> Result<(), ThreadPanicked> {
         let mut this = self;
         this.shutdown_internal()
@@ -256,8 +279,8 @@ impl Debug for ThreadPanicked {
 }
 
 pub struct Scope<'scope, T> {
-    executor: &'scope Executor,
-    spawned: Vec<Task<T>>,
+    executor: &'scope multitask::Executor,
+    spawned: Vec<multitask::Task<T>>,
 }
 
 impl<'scope, T: Send + 'static> Scope<'scope, T> {
