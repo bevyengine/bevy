@@ -4,10 +4,11 @@ use crate::{
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
+use parking_lot::Mutex;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
@@ -131,7 +132,7 @@ impl Schedule {
         for stage_name in self.stage_order.iter() {
             if let Some(stage_systems) = self.stages.get_mut(stage_name) {
                 for system in stage_systems.iter_mut() {
-                    let mut system = system.lock().unwrap();
+                    let mut system = system.lock();
                     #[cfg(feature = "profiler")]
                     crate::profiler_start(resources, system.name().clone());
                     system.update_archetype_access(world);
@@ -150,7 +151,7 @@ impl Schedule {
                 // "flush"
                 // NOTE: when this is made parallel a full sync is required here
                 for system in stage_systems.iter_mut() {
-                    let mut system = system.lock().unwrap();
+                    let mut system = system.lock();
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => {
                             system.run_thread_local(world, resources)
@@ -181,7 +182,7 @@ impl Schedule {
 
         for stage in self.stages.values_mut() {
             for system in stage.iter_mut() {
-                let mut system = system.lock().unwrap();
+                let mut system = system.lock();
                 system.initialize(resources);
             }
         }

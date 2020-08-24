@@ -95,7 +95,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .window_surfaces
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -105,7 +104,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .window_swap_chains
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -115,58 +113,32 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .swap_chain_frames
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
         diagnostics.add_measurement(
             Self::BUFFERS,
-            render_resource_context
-                .resources
-                .buffers
-                .read()
-                .unwrap()
-                .len() as f64,
+            render_resource_context.resources.buffers.read().len() as f64,
         );
 
         diagnostics.add_measurement(
             Self::TEXTURES,
-            render_resource_context
-                .resources
-                .textures
-                .read()
-                .unwrap()
-                .len() as f64,
+            render_resource_context.resources.textures.read().len() as f64,
         );
 
         diagnostics.add_measurement(
             Self::TEXTURE_VIEWS,
-            render_resource_context
-                .resources
-                .texture_views
-                .read()
-                .unwrap()
-                .len() as f64,
+            render_resource_context.resources.texture_views.read().len() as f64,
         );
 
         diagnostics.add_measurement(
             Self::SAMPLERS,
-            render_resource_context
-                .resources
-                .samplers
-                .read()
-                .unwrap()
-                .len() as f64,
+            render_resource_context.resources.samplers.read().len() as f64,
         );
 
         diagnostics.add_measurement(
             Self::BIND_GROUP_IDS,
-            render_resource_context
-                .resources
-                .bind_groups
-                .read()
-                .unwrap()
-                .len() as f64,
+            render_resource_context.resources.bind_groups.read().len() as f64,
         );
 
         let mut bind_group_count = 0;
@@ -174,7 +146,6 @@ impl WgpuResourceDiagnosticsPlugin {
             .resources
             .bind_groups
             .read()
-            .unwrap()
             .values()
         {
             bind_group_count += bind_group.bind_groups.len();
@@ -188,7 +159,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .bind_group_layouts
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -198,7 +168,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .shader_modules
                 .read()
-                .unwrap()
                 .len() as f64,
         );
 
@@ -208,7 +177,6 @@ impl WgpuResourceDiagnosticsPlugin {
                 .resources
                 .render_pipelines
                 .read()
-                .unwrap()
                 .len() as f64,
         );
     }

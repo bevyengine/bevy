@@ -2,7 +2,8 @@ use crate::{
     renderer::{BufferId, RenderContext, TextureId},
     texture::Extent3d,
 };
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum Command {
@@ -34,7 +35,7 @@ pub struct CommandQueue {
 
 impl CommandQueue {
     fn push(&mut self, command: Command) {
-        self.queue.lock().unwrap().push(command);
+        self.queue.lock().push(command);
     }
 
     pub fn copy_buffer_to_buffer(
@@ -81,11 +82,11 @@ impl CommandQueue {
     }
 
     pub fn clear(&mut self) {
-        self.queue.lock().unwrap().clear();
+        self.queue.lock().clear();
     }
 
     pub fn execute(&mut self, render_context: &mut dyn RenderContext) {
-        for command in self.queue.lock().unwrap().drain(..) {
+        for command in self.queue.lock().drain(..) {
             match command {
                 Command::CopyBufferToBuffer {
                     source_buffer,

@@ -4,7 +4,8 @@ use crate::{
     renderer::{BufferUsage, RenderResourceContext},
 };
 use bevy_ecs::Res;
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 // TODO: Instead of allocating small "exact size" buffers each frame, this should use multiple large shared buffers and probably
 // a long-living "cpu mapped" staging buffer. Im punting that for now because I don't know the best way to use wgpu's new async
@@ -53,7 +54,7 @@ impl SharedBuffers {
                 ..Default::default()
             });
 
-            let mut command_queue = self.command_queue.write().unwrap();
+            let mut command_queue = self.command_queue.write();
             command_queue.copy_buffer_to_buffer(
                 staging_buffer,
                 0,
@@ -62,7 +63,7 @@ impl SharedBuffers {
                 size as u64,
             );
 
-            let mut buffers = self.buffers.write().unwrap();
+            let mut buffers = self.buffers.write();
             buffers.push(staging_buffer);
             buffers.push(destination_buffer);
             Some(RenderResourceBinding::Buffer {
@@ -77,14 +78,14 @@ impl SharedBuffers {
 
     // TODO: remove this when this actually uses shared buffers
     pub fn free_buffers(&self) {
-        let mut buffers = self.buffers.write().unwrap();
+        let mut buffers = self.buffers.write();
         for buffer in buffers.drain(..) {
             self.render_resource_context.remove_buffer(buffer)
         }
     }
 
     pub fn reset_command_queue(&self) -> CommandQueue {
-        let mut command_queue = self.command_queue.write().unwrap();
+        let mut command_queue = self.command_queue.write();
         std::mem::take(&mut *command_queue)
     }
 }
