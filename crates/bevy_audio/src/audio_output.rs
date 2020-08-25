@@ -7,14 +7,14 @@ use std::{collections::VecDeque, io::Cursor};
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput {
-    device: Device,
+    device: Option<Device>,
     queue: RwLock<VecDeque<Handle<AudioSource>>>,
 }
 
 impl Default for AudioOutput {
     fn default() -> Self {
         Self {
-            device: rodio::default_output_device().unwrap(),
+            device: rodio::default_output_device(),
             queue: Default::default(),
         }
     }
@@ -22,9 +22,11 @@ impl Default for AudioOutput {
 
 impl AudioOutput {
     pub fn play_source(&self, audio_source: &AudioSource) {
-        let sink = Sink::new(&self.device);
-        sink.append(Decoder::new(Cursor::new(audio_source.clone())).unwrap());
-        sink.detach();
+        if let Some(device) = &self.device {
+            let sink = Sink::new(&device);
+            sink.append(Decoder::new(Cursor::new(audio_source.clone())).unwrap());
+            sink.detach();
+        }
     }
 
     pub fn play(&self, audio_source: Handle<AudioSource>) {
