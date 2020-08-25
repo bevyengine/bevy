@@ -1,4 +1,4 @@
-use crate::Decodable;
+use crate::{AudioSource, Decodable};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
@@ -6,7 +6,7 @@ use rodio::{Device, Sink};
 use std::collections::VecDeque;
 
 /// Used to play audio on the current "audio device"
-pub struct AudioOutput<P>
+pub struct AudioOutput<P = AudioSource>
 where
     P: Decodable,
 {
