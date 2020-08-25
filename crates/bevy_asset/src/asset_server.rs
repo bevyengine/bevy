@@ -270,7 +270,18 @@ impl AssetServer {
 
     pub fn load_untyped<P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
+
+        if !path.exists() {
+            return Err(AssetServerError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound, 
+                format!("{} does not exist.", path.to_string_lossy())
+            )))
+        }
+
+        // Check for extension, since folder-paths don't have an extension, they also fail this test
+        // Is this also true for all unix-based OS?
         if let Some(ref extension) = path.extension() {
+            // Look up whether an appropriate handling mechanism for this extension exists, otherwise yield error
             if let Some(index) = self.extension_to_handler_index.get(
                 extension
                     .to_str()
