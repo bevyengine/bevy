@@ -9,13 +9,14 @@ use bevy_render::{
 };
 use std::collections::HashMap;
 
-/// An atlas containing multiple textures in one asset (like a spritesheet or a tilemap)
+/// An atlas containing multiple textures (like a spritesheet or a tilemap)
 #[derive(RenderResources)]
 pub struct TextureAtlas {
+    /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Texture>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
-    /// The specific areas of the asset where each texture can be found
+    /// The specific areas of the atlas where each texture can be found
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
@@ -50,6 +51,8 @@ impl TextureAtlasSprite {
 }
 
 impl TextureAtlas {
+    /// Create a new `TextureAtlas` that has a texture, but does not have
+    /// any individual sprites specified
     pub fn new_empty(texture: Handle<Texture>, dimensions: Vec2) -> Self {
         Self {
             texture,
@@ -89,6 +92,12 @@ impl TextureAtlas {
         }
     }
 
+    /// Add a sprite to the list of textures in the `TextureAtlas`
+    ///
+    /// # Arguments
+    ///
+    /// * `rect` - The section of the atlas that contains the texture to be added,
+    /// from the top-left corner of the texture to the bottom-right corner
     pub fn add_texture(&mut self, rect: Rect) {
         self.textures.push(rect);
     }
