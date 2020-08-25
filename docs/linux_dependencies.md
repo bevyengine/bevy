@@ -18,3 +18,8 @@ sudo dnf install gcc-c++ libX11-devel alsa-lib-devel
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
+
+## Solus
+```bash
+sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
+```
