@@ -1,16 +1,45 @@
 use crate::components::{NonUniformScale, Rotation, Scale, Transform, Translation};
 use bevy_math::{Mat4, Quat, Vec3};
 
-trait ComposableTransform {
+/// Allows for intuitive composition of tranform components.
+///
+/// Results are of the most specific possible type. For instance
+/// `rotation1.then_rotate(*rotation2)` returns another Rotation, but
+/// `rotation.then_translate(*translation)` returns a Transform.
+///
+/// ```
+/// # use bevy_transform::components::{NonUniformScale, ComposableTransform};
+/// # use bevy_math::{Mat4, Quat, Vec3};
+/// let comp = NonUniformScale::new(1.0, 2.0, 3.0)
+///     .then_scale(4.0)
+///     .then_rotate(Quat::from_rotation_ypr(5.0, 6.0, 7.0))
+///     .then_translate(Vec3::new(8.0, 9.0, 10.0));
+/// let expected = Mat4::from_scale_rotation_translation(
+///     Vec3::new(4.0, 8.0, 12.0),
+///     Quat::from_rotation_ypr(5.0, 6.0, 7.0),
+///     Vec3::new(8.0, 9.0, 10.0),
+/// );
+/// assert!(comp.value.abs_diff_eq(expected, 0.0001));
+/// ```
+pub trait ComposableTransform {
+    /// The resulting type when the current transform is composed with a NonUniformScale
     type WithNonUniformScale;
+    /// The resulting type when the current transform is composed with a Rotation
     type WithRotation;
+    /// The resulting type when the current transform is composed with a Scale
     type WithScale;
+    /// The resulting type when the current transform is composed with a Translation
     type WithTranslation;
 
+    /// Applies a general transform after the current transform
     fn then_transform(self, other: Mat4) -> Transform;
+    /// Applies a non uniform scale after the current transform
     fn then_non_uniform_scale(self, other: Vec3) -> Self::WithNonUniformScale;
+    /// Applies a rotation after the current transform
     fn then_rotate(self, other: Quat) -> Self::WithRotation;
+    /// Applies a uniform scale after the current transform
     fn then_scale(self, other: f32) -> Self::WithScale;
+    /// Applies a translation after the current transform
     fn then_translate(self, other: Vec3) -> Self::WithTranslation;
 }
 
