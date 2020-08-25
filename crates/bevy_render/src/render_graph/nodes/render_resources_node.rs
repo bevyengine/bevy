@@ -90,8 +90,8 @@ where
         for buffer_status in self.uniform_arrays.iter_mut() {
             if let Some((_name, buffer_status)) = buffer_status {
                 buffer_status.changed_item_count = 0;
-                buffer_status.current_index = 0;
-                buffer_status.indices.clear();
+                //buffer_status.current_index = 0;
+                //buffer_status.indices.clear();
                 buffer_status.current_offset = 0;
                 buffer_status.changed_size = 0;
             }
@@ -177,7 +177,7 @@ where
 
             buffer_array_status.current_item_capacity = new_capacity;
 
-            log::trace!(
+            println!(
                 "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
                 std::any::type_name::<T>(),
                 total_size,

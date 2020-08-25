@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   # NOTE: temporarily disabled because on-push currently uses up too many resources
