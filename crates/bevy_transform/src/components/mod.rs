@@ -1,4 +1,5 @@
 mod children;
+mod compose;
 mod local_transform;
 mod non_uniform_scale;
 mod parent;
@@ -8,6 +9,7 @@ mod transform;
 mod translation;
 
 pub use children::Children;
+pub use compose::*;
 pub use local_transform::*;
 pub use non_uniform_scale::*;
 pub use parent::{Parent, PreviousParent};
