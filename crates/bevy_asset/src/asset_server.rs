@@ -273,9 +273,9 @@ impl AssetServer {
 
         if !path.exists() {
             return Err(AssetServerError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound, 
-                format!("{} does not exist.", path.to_string_lossy())
-            )))
+                std::io::ErrorKind::NotFound,
+                format!("{} does not exist.", path.to_string_lossy()),
+            )));
         }
 
         // Check for extension, since folder-paths don't have an extension, they also fail this test
