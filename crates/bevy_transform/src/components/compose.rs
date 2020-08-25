@@ -41,6 +41,9 @@ pub trait ComposableTransform {
     fn then_scale(self, other: f32) -> Self::WithScale;
     /// Applies a translation after the current transform
     fn then_translate(self, other: Vec3) -> Self::WithTranslation;
+    /// Rotates the -z axis to point at center, with the +y axis in the
+    /// plane spanned by -z and up.
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation;
 }
 
 impl ComposableTransform for Transform {
@@ -72,7 +75,7 @@ impl ComposableTransform for Transform {
 
     fn then_scale(self, other: f32) -> Self::WithScale {
         Transform {
-            value: Mat4::from_scale(Vec3::new(other, other, other)) * self.value,
+            value: Mat4::from_scale(Vec3::splat(other)) * self.value,
             sync: false,
         }
     }
@@ -80,6 +83,16 @@ impl ComposableTransform for Transform {
     fn then_translate(self, other: Vec3) -> Self::WithTranslation {
         Transform {
             value: Mat4::from_translation(other) * self.value,
+            sync: false,
+        }
+    }
+
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation {
+        let (scale, _, translation) = self.value.to_scale_rotation_translation();
+        let (_, rotation, _) =
+            Mat4::look_at_rh(translation, center, up).to_scale_rotation_translation();
+        Transform {
+            value: Mat4::from_scale_rotation_translation(scale, rotation, translation),
             sync: false,
         }
     }
@@ -119,6 +132,15 @@ impl ComposableTransform for NonUniformScale {
             sync: false,
         }
     }
+
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation {
+        let (_, rotation, _) =
+            Mat4::look_at_rh(Vec3::zero(), center, up).to_scale_rotation_translation();
+        Transform {
+            value: Mat4::from_scale_rotation_translation(*self, rotation, Vec3::zero()),
+            sync: false,
+        }
+    }
 }
 
 impl ComposableTransform for Rotation {
@@ -147,7 +169,7 @@ impl ComposableTransform for Rotation {
 
     fn then_scale(self, other: f32) -> Self::WithScale {
         Transform {
-            value: Mat4::from_scale(Vec3::new(other, other, other)) * Mat4::from_quat(*self),
+            value: Mat4::from_scale(Vec3::splat(other)) * Mat4::from_quat(*self),
             sync: false,
         }
     }
@@ -157,6 +179,12 @@ impl ComposableTransform for Rotation {
             value: Mat4::from_translation(other) * Mat4::from_quat(*self),
             sync: false,
         }
+    }
+
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation {
+        let (_, rotation, _) =
+            Mat4::look_at_rh(Vec3::zero(), center, up).to_scale_rotation_translation();
+        Rotation(rotation)
     }
 }
 
@@ -168,7 +196,7 @@ impl ComposableTransform for Scale {
 
     fn then_transform(self, other: Mat4) -> Transform {
         Transform {
-            value: other * Mat4::from_scale(Vec3::new(*self, *self, *self)),
+            value: other * Mat4::from_scale(Vec3::splat(*self)),
             sync: false,
         }
     }
@@ -179,7 +207,7 @@ impl ComposableTransform for Scale {
 
     fn then_rotate(self, other: Quat) -> Self::WithRotation {
         Transform {
-            value: Mat4::from_quat(other) * Mat4::from_scale(Vec3::new(*self, *self, *self)),
+            value: Mat4::from_quat(other) * Mat4::from_scale(Vec3::splat(*self)),
             sync: false,
         }
     }
@@ -190,7 +218,20 @@ impl ComposableTransform for Scale {
 
     fn then_translate(self, other: Vec3) -> Self::WithTranslation {
         Transform {
-            value: Mat4::from_translation(other) * Mat4::from_scale(Vec3::new(*self, *self, *self)),
+            value: Mat4::from_translation(other) * Mat4::from_scale(Vec3::splat(*self)),
+            sync: false,
+        }
+    }
+
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation {
+        let (_, rotation, _) =
+            Mat4::look_at_rh(Vec3::zero(), center, up).to_scale_rotation_translation();
+        Transform {
+            value: Mat4::from_scale_rotation_translation(
+                Vec3::splat(*self),
+                rotation,
+                Vec3::zero(),
+            ),
             sync: false,
         }
     }
@@ -225,13 +266,21 @@ impl ComposableTransform for Translation {
 
     fn then_scale(self, other: f32) -> Self::WithScale {
         Transform {
-            value: Mat4::from_scale(Vec3::new(other, other, other)) * Mat4::from_translation(*self),
+            value: Mat4::from_scale(Vec3::splat(other)) * Mat4::from_translation(*self),
             sync: false,
         }
     }
 
     fn then_translate(self, other: Vec3) -> Self::WithTranslation {
         Translation(other + *self)
+    }
+
+    fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation {
+        let (_, rotation, _) = Mat4::look_at_rh(*self, center, up).to_scale_rotation_translation();
+        Transform {
+            value: Mat4::from_scale_rotation_translation(Vec3::one(), rotation, *self),
+            sync: false,
+        }
     }
 }
 
@@ -336,6 +385,77 @@ mod tests {
             Vec3::new(4.0, 8.0, 12.0),
             Quat::from_rotation_ypr(5.0, 6.0, 7.0),
             Vec3::new(8.0, 9.0, 10.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_look_at() {
+        let comp = Transform::new(Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_ypr(4.0, 5.0, 6.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        ))
+        .then_look_at(Vec3::zero(), Vec3::unit_y());
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_y(5.0 * PI / 4.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp =
+            NonUniformScale::new(1.0, 2.0, 3.0).then_look_at(-Vec3::unit_x(), Vec3::unit_y());
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_y(-PI / 2.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            comp.value,
+            expected,
+        );
+
+        let comp = Rotation(Quat::from_rotation_ypr(1.0, 2.0, 3.0))
+            .then_look_at(-Vec3::unit_z(), Vec3::unit_y());
+        let expected = Quat::identity();
+        assert!(
+            comp.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            *comp,
+            expected
+        );
+
+        let comp = Scale(2.0).then_look_at(-Vec3::unit_x(), Vec3::unit_y());
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::splat(2.0),
+            Quat::from_rotation_y(-PI / 2.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp = Translation::new(1.0, 0.0, -1.0).then_look_at(Vec3::zero(), Vec3::unit_y());
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::one(),
+            Quat::from_rotation_y(5.0 * PI / 4.0),
+            Vec3::new(1.0, 0.0, -1.0),
         );
         assert!(
             comp.value.abs_diff_eq(expected, 0.0001),
