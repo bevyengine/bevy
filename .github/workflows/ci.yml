@@ -15,24 +15,73 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
     steps:
       - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.toolchain }}
           override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install alsa
+        run: sudo apt-get install --no-install-recommends libasound2-dev
+
+      - name: Build
+        run: cargo check
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install alsa
+        run: sudo apt-get install --no-install-recommends libasound2-dev
+
+      - name: Run tests
+        run: cargo test --workspace
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           components: rustfmt, clippy
-
+          override: true
+          
       - name: Install alsa
-        run: sudo apt-get install libasound2-dev
-
-      - name: Build
-        run: cargo check
+        run: sudo apt-get install --no-install-recommends libasound2-dev
 
       - name: Check the format
         run: cargo +nightly fmt --all -- --check
@@ -46,6 +95,3 @@ jobs:
           --
           -D warnings
           -A clippy::type_complexity
-
-      - name: Run tests
-        run: cargo test --workspace
