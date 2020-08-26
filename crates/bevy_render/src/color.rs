@@ -30,13 +30,21 @@ impl Color {
     pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
     pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
 
+    /// Create a Color provided values for R, G and B, in the inclusive range [0, 1]
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
     }
 
+    /// Create a Color provided values for R, G, B and A, in the inclusive range [0, 1]
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
+
+    /// Create a Color provided an array of three values in the inclusive range [0, 1], corresponding to R, G, and B, respectively.
+    pub const fn array3(rgb: [f32;3]) -> Color { Color { r: rgb[0], g: rgb[1], b: rgb[2], a: 1.0 }}
+
+    /// Create a Color provided an array of four values in the inclusive range [0, 1], corresponding to R, G, B, and A, respectively.
+    pub const fn array4(rgba: [f32;4]) -> Color { Color { r: rgba[0], g: rgba[1], b: rgba[2], a: rgba[3] }}
 }
 
 impl Default for Color {

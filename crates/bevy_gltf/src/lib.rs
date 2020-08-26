@@ -1,4 +1,6 @@
 mod loader;
+mod gltf_reader;
+
 pub use loader::*;
 
 use bevy_app::prelude::*;
