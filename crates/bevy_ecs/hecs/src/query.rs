@@ -1130,11 +1130,17 @@ mod tests {
     #[test]
     fn or_mutated_query() {
         let mut world = World::default();
-        world.spawn((A(0), B(0)));
+        let e1 = world.spawn((A(0), B(0)));
         let e2 = world.spawn((A(0), B(0)));
-        world.spawn((A(0), B(0)));
+        let e3 = world.spawn((A(0), B(0)));
+        let _e4 = world.spawn((A(0), B(0)));
 
-        for mut b in world.query::<Mut<B>>().iter().skip(1).take(1) {
+        // Mutate A in entities e1 and e2
+        for mut a in world.query::<Mut<A>>().iter().take(2) {
+            a.0 += 1;
+        }
+        // Mutate B in entities e2 and e3
+        for mut b in world.query::<Mut<B>>().iter().skip(1).take(2) {
             b.0 += 1;
         }
 
@@ -1143,7 +1149,8 @@ mod tests {
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
-        assert_eq!(a_b_changed, vec![e2]);
+        // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
+        assert_eq!(a_b_changed, vec![e1, e2, e3]);
     }
 
     #[test]
