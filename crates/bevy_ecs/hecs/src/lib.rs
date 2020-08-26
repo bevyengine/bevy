@@ -81,7 +81,7 @@ pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{
-    Access, Added, BatchedIter, Changed, Either, Mut, Mutated, Query, QueryBorrow, QueryIter, With,
+    Access, Added, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryBorrow, QueryIter, With,
     Without,
 };
 pub use query_one::QueryOne;

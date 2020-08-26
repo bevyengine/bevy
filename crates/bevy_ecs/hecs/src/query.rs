@@ -254,22 +254,22 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
 ///     *b += 1;
 /// }
 /// let components = world
-///     .query::<Either<Mutated<bool>, Mutated<i32>>>()
+///     .query::<Or<Mutated<bool>, Mutated<i32>>>()
 ///     .iter()
 ///     .map(|(b, i)| (*b, *i))
 ///     .collect::<Vec<_>>();
 /// assert_eq!(components, &[(false, 457)]);
 /// ```
-pub struct Either<Q1, Q2>(PhantomData<(Q1, Q2)>);
+pub struct Or<Q1, Q2>(PhantomData<(Q1, Q2)>);
 
-impl<Q1: Query, Q2: Query> Query for Either<Q1, Q2> {
-    type Fetch = FetchEither<Q1::Fetch, Q2::Fetch>;
+impl<Q1: Query, Q2: Query> Query for Or<Q1, Q2> {
+    type Fetch = FetchOr<Q1::Fetch, Q2::Fetch>;
 }
 
 #[doc(hidden)]
-pub struct FetchEither<F1, F2>(F1, F2);
+pub struct FetchOr<F1, F2>(F1, F2);
 
-impl<'a, F1: Fetch<'a>, F2: Fetch<'a>> Fetch<'a> for FetchEither<F1, F2> {
+impl<'a, F1: Fetch<'a>, F2: Fetch<'a>> Fetch<'a> for FetchOr<F1, F2> {
     type Item = (F1::Item, F2::Item);
 
     fn access(archetype: &Archetype) -> Option<Access> {
@@ -1128,7 +1128,7 @@ mod tests {
     }
 
     #[test]
-    fn either_mutated_query() {
+    fn or_mutated_query() {
         let mut world = World::default();
         world.spawn((A(0), B(0)));
         let e2 = world.spawn((A(0), B(0)));
@@ -1139,7 +1139,7 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query::<(Either<Mutated<A>, Mutated<B>>, Entity)>()
+            .query::<(Or<Mutated<A>, Mutated<B>>, Entity)>()
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
