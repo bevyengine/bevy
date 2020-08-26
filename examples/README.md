@@ -79,6 +79,7 @@ Example | File | Description
 --- | --- | ---
 `mouse_input` | [`input/mouse_input.rs`](./input/mouse_input.rs) | Demonstrates handling a mouse button press/release
 `mouse_input_events` | [`input/mouse_input_events.rs`](./input/mouse_input_events.rs) | Prints out all mouse events (buttons, movement, etc.)
+`mouse_position` | [`input/mouse_position.rs`](./input/mouse_position.rs) | Shows how to use `Axis<Mouse/Cursor>` and the difference between them
 `keyboard_input` | [`input/keyboard_input.rs`](./input/keyboard_input.rs) | Demonstrates handling a key press/release
 `keyboard_input_events` | [`input/keyboard_input_events.rs`](./input/keyboard_input_events.rs) | Prints out all keyboard events
 
