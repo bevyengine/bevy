@@ -1154,6 +1154,43 @@ mod tests {
     }
 
     #[test]
+    fn or_nested_query() {
+        let mut world = World::default();
+        let _e1 = world.spawn((A(0), B(0), C));
+        let e2 = world.spawn((A(0), B(0), C));
+        let _e3 = world.spawn((A(0), B(0), C));
+
+        for mut b in world.query::<Mut<B>>().iter().skip(1).take(1) {
+            b.0 += 1;
+        }
+
+        let a_b_changed = world
+            .query::<(Or<Or<Mutated<A>, Mutated<B>>, Mutated<C>>, Entity)>()
+            .iter()
+            .map(|(((_a, _b), _c), e)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed, vec![e2]);
+        let a_b_changed = world
+            .query::<(Or<Mutated<C>, Or<Mutated<A>, Mutated<B>>>, Entity)>()
+            .iter()
+            .map(|((_c, (_a, _b)), e)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed, vec![e2]);
+        let a_b_changed = world
+            .query::<(Or<Mutated<B>, Or<Mutated<A>, Mutated<C>>>, Entity)>()
+            .iter()
+            .map(|((_c, (_a, _b)), e)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed, vec![e2]);
+        let a_b_changed = world
+            .query::<(Or<Or<Mutated<A>, Mutated<C>>, Mutated<B>>, Entity)>()
+            .iter()
+            .map(|(((_a, _b), _c), e)| e)
+            .collect::<Vec<Entity>>();
+        assert_eq!(a_b_changed, vec![e2]);
+    }
+
+    #[test]
     fn changed_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0)));
