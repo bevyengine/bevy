@@ -63,10 +63,15 @@ impl Default for SpriteComponents {
     }
 }
 
+/// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
+/// to as a `TextureAtlas`)
 #[derive(Bundle)]
 pub struct SpriteSheetComponents {
+    /// The specific sprite from the texture atlas to be drawn
     pub sprite: TextureAtlasSprite,
+    /// A handle to the texture atlas that holds the sprite images
     pub texture_atlas: Handle<TextureAtlas>,
+    /// Data pertaining to how the sprite is drawn on the screen
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,

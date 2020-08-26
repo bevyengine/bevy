@@ -1,7 +1,10 @@
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
-To run an example, use the command `cargo run --example <Example>`.
+To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
+```
+cargo run --features wayland hello_world
+```
 
 ## Hello, World!
 
