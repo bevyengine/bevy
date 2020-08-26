@@ -92,6 +92,23 @@ pub fn winit_runner(mut app: App) {
                     let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                     window_close_requested_events.send(WindowCloseRequested { id: window_id });
                 }
+                WindowEvent::Focused(focused) => {
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+
+                    let windows = app.resources.get::<Windows>().unwrap();
+
+                    let window = windows.get(window_id).unwrap();
+                    let winit_window = winit_windows.windows.get(&winit_window_id).unwrap();
+
+                    if window.cursor_grab {
+                        if focused {
+                            winit_window.set_cursor_grab(true).unwrap();
+                        } else {
+                            winit_window.set_cursor_grab(false).unwrap();
+                        }
+                    }
+                }
                 WindowEvent::KeyboardInput { ref input, .. } => {
                     let mut keyboard_input_events =
                         app.resources.get_mut::<Events<KeyboardInput>>().unwrap();

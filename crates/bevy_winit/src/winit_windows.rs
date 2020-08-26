@@ -43,7 +43,6 @@ impl WinitWindows {
             .build(&event_loop)
             .unwrap();
 
-        winit_window.set_cursor_grab(window.cursor_grab);
         winit_window.set_cursor_visible(window.cursor_visible);
 
         self.window_id_to_winit.insert(window.id, winit_window.id());
