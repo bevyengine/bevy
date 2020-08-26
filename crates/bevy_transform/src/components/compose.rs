@@ -44,6 +44,12 @@ pub trait ComposableTransform {
     /// Rotates the -z axis to point at center, with the +y axis in the
     /// plane spanned by -z and up.
     fn then_look_at(self, center: Vec3, up: Vec3) -> Self::WithRotation;
+    /// Interpolates a fraction s of the way from the current rotation to another rotation.
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation;
+    /// Interpolates angle radians from the current rotation toward another
+    /// rotation. If clamp is true, do not rotate past the destination (or
+    /// before the current rotation, if angle is negative).
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation;
 }
 
 impl ComposableTransform for Transform {
@@ -96,6 +102,30 @@ impl ComposableTransform for Transform {
             sync: false,
         }
     }
+
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation {
+        let (scale, rotation, translation) = self.value.to_scale_rotation_translation();
+        let new_rotation = rotation.slerp(other, s);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(scale, new_rotation, translation),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation {
+        let (scale, rotation, translation) = self.value.to_scale_rotation_translation();
+        let (axis, full_angle) = (other * rotation.conjugate()).to_axis_angle();
+        let clamped_angle = if clamp {
+            angle.min(0.0).max(full_angle)
+        } else {
+            angle
+        };
+        let inter = Quat::from_axis_angle(axis, clamped_angle);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(scale, inter * rotation, translation),
+            sync: false,
+        }
+    }
 }
 
 impl ComposableTransform for NonUniformScale {
@@ -138,6 +168,28 @@ impl ComposableTransform for NonUniformScale {
             Mat4::look_at_rh(Vec3::zero(), center, up).to_scale_rotation_translation();
         Transform {
             value: Mat4::from_scale_rotation_translation(*self, rotation, Vec3::zero()),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation {
+        let new_rotation = Quat::identity().slerp(other, s);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(*self, new_rotation, Vec3::zero()),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation {
+        let (axis, full_angle) = other.to_axis_angle();
+        let clamped_angle = if clamp {
+            angle.min(0.0).max(full_angle)
+        } else {
+            angle
+        };
+        let inter = Quat::from_axis_angle(axis, clamped_angle);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(*self, inter, Vec3::zero()),
             sync: false,
         }
     }
@@ -185,6 +237,21 @@ impl ComposableTransform for Rotation {
         let (_, rotation, _) =
             Mat4::look_at_rh(Vec3::zero(), center, up).to_scale_rotation_translation();
         Rotation(rotation)
+    }
+
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation {
+        Rotation(self.slerp(other, s))
+    }
+
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation {
+        let (axis, full_angle) = (other * self.conjugate()).to_axis_angle();
+        let clamped_angle = if clamp {
+            angle.min(0.0).max(full_angle)
+        } else {
+            angle
+        };
+        let inter = Quat::from_axis_angle(axis, clamped_angle);
+        Rotation(inter * *self)
     }
 }
 
@@ -235,6 +302,32 @@ impl ComposableTransform for Scale {
             sync: false,
         }
     }
+
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation {
+        let new_rotation = Quat::identity().slerp(other, s);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(
+                Vec3::splat(*self),
+                new_rotation,
+                Vec3::zero(),
+            ),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation {
+        let (axis, full_angle) = other.to_axis_angle();
+        let clamped_angle = if clamp {
+            angle.min(0.0).max(full_angle)
+        } else {
+            angle
+        };
+        let inter = Quat::from_axis_angle(axis, clamped_angle);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(Vec3::splat(*self), inter, Vec3::zero()),
+            sync: false,
+        }
+    }
 }
 
 impl ComposableTransform for Translation {
@@ -279,6 +372,28 @@ impl ComposableTransform for Translation {
         let (_, rotation, _) = Mat4::look_at_rh(*self, center, up).to_scale_rotation_translation();
         Transform {
             value: Mat4::from_scale_rotation_translation(Vec3::one(), rotation, *self),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_fraction_to(self, other: Quat, s: f32) -> Self::WithRotation {
+        let new_rotation = Quat::identity().slerp(other, s);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(Vec3::one(), new_rotation, *self),
+            sync: false,
+        }
+    }
+
+    fn then_rotate_angle_to(self, other: Quat, angle: f32, clamp: bool) -> Self::WithRotation {
+        let (axis, full_angle) = other.to_axis_angle();
+        let clamped_angle = if clamp {
+            angle.min(0.0).max(full_angle)
+        } else {
+            angle
+        };
+        let inter = Quat::from_axis_angle(axis, clamped_angle);
+        Transform {
+            value: Mat4::from_scale_rotation_translation(Vec3::one(), inter, *self),
             sync: false,
         }
     }
@@ -459,6 +574,172 @@ mod tests {
         );
         assert!(
             comp.value.abs_diff_eq(expected, 0.0001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_then_rotate_fraction_to() {
+        let comp = Transform::new(Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_x(PI / 2.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        ))
+        .then_rotate_fraction_to(Quat::from_rotation_y(PI / 2.0), 0.5);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_axis_angle(
+                Vec3::new(1.0, 1.0, 0.0).normalize(),
+                2.0 * (6.0f32.sqrt() / 3.0).acos(),
+            ),
+            Vec3::new(1.0, 0.0, -1.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp = NonUniformScale::new(1.0, 2.0, 3.0)
+            .then_rotate_fraction_to(Quat::from_rotation_x(PI / 2.0), 0.5);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected,
+        );
+
+        let comp = Rotation(Quat::from_rotation_x(PI / 2.0))
+            .then_rotate_fraction_to(Quat::from_rotation_y(PI / 2.0), 0.5);
+        let expected = Quat::from_axis_angle(
+            Vec3::new(1.0, 1.0, 0.0).normalize(),
+            2.0 * (6.0f32.sqrt() / 3.0).acos(),
+        );
+        assert!(
+            comp.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            *comp,
+            expected
+        );
+
+        let comp = Scale(2.0).then_rotate_fraction_to(Quat::from_rotation_x(PI / 2.0), 0.5);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::splat(2.0),
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp = Translation::new(1.0, 0.0, -1.0)
+            .then_rotate_fraction_to(Quat::from_rotation_x(PI / 2.0), 0.5);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::one(),
+            Quat::from_rotation_x(PI / 4.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_then_rotate_angle_to() {
+        let comp = Transform::new(Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_x(PI / 2.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        ))
+        .then_rotate_angle_to(Quat::from_rotation_y(PI / 2.0), PI / 3.0, false);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_axis_angle(
+                Vec3::new(1.0, 1.0, 0.0).normalize(),
+                2.0 * (6.0f32.sqrt() / 3.0).acos(),
+            ),
+            Vec3::new(1.0, 0.0, -1.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp = NonUniformScale::new(1.0, 2.0, 3.0).then_rotate_angle_to(
+            Quat::from_rotation_x(PI / 2.0),
+            PI / 3.0,
+            false,
+        );
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::new(1.0, 2.0, 3.0),
+            Quat::from_rotation_x(PI / 3.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected,
+        );
+
+        let comp = Rotation(Quat::from_rotation_x(PI / 2.0)).then_rotate_angle_to(
+            Quat::from_rotation_y(PI / 2.0),
+            PI / 3.0,
+            false,
+        );
+        let expected = Quat::from_axis_angle(
+            Vec3::new(1.0, 1.0, 0.0).normalize(),
+            2.0 * (6.0f32.sqrt() / 3.0).acos(),
+        );
+        assert!(
+            comp.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            *comp,
+            expected
+        );
+
+        let comp =
+            Scale(2.0).then_rotate_angle_to(Quat::from_rotation_x(PI / 2.0), PI / 3.0, false);
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::splat(2.0),
+            Quat::from_rotation_x(PI / 3.0),
+            Vec3::zero(),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
+            "{:?} != {:?}",
+            comp.value,
+            expected
+        );
+
+        let comp = Translation::new(1.0, 0.0, -1.0).then_rotate_angle_to(
+            Quat::from_rotation_x(PI / 2.0),
+            PI / 3.0,
+            false,
+        );
+        let expected = Mat4::from_scale_rotation_translation(
+            Vec3::one(),
+            Quat::from_rotation_x(PI / 3.0),
+            Vec3::new(1.0, 0.0, -1.0),
+        );
+        assert!(
+            comp.value.abs_diff_eq(expected, 0.001),
             "{:?} != {:?}",
             comp.value,
             expected
