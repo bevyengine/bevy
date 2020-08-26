@@ -453,6 +453,7 @@ pub mod shape {
             }
         }
     }
+
     /// A cylinder which stands on the XZ plane
     pub struct Cylinder {
         /// Radius of the cylinder (X&Z axis)
@@ -480,33 +481,40 @@ pub mod shape {
         fn from(c: Cylinder) -> Self {
             assert!(c.radius > 0.0 && c.height > 0.0 && c.resolution > 0 && c.subdivisions > 0);
 
-            let count = (c.resolution * (c.subdivisions + 1) + 2) as usize;
-            let mut positions = vec![[0.0, 0.0, 0.0]; count];
-            positions[0] = [0.0, c.height * 0.5, 0.0]; // top center
-            positions[1] = [0.0, -c.height * 0.5, 0.0]; // bottom center
+            let count = (c.resolution * (c.subdivisions + 3) + 2) as usize;
+            let mut positions = Vec::with_capacity(count);
             let step = std::f32::consts::PI * 2.0 / c.resolution as f32;
-            let h_step = c.height / c.subdivisions as f32;
-            for i in 0..(c.subdivisions + 1) {
+            let mut add_ring = |height, with_center| {
+                if with_center {
+                    positions.push([0.0, height, 0.0]);
+                }
                 for j in 0..c.resolution {
                     let theta = step * j as f32;
-                    positions[(2 + c.resolution * i + j) as usize] = [
-                        theta.cos() * c.radius,
-                        c.height * 0.5 - h_step * i as f32,
-                        theta.sin() * c.radius,
-                    ];
+                    positions.push([theta.cos() * c.radius, height, theta.sin() * c.radius]);
                 }
+            };
+
+            // Shaft vertices
+            let h_step = c.height / c.subdivisions as f32;
+            for i in 0..(c.subdivisions + 1) {
+                add_ring(c.height * 0.5 - h_step * i as f32, false);
             }
 
-            let mut indices = Vec::with_capacity((c.subdivisions * (c.resolution + 1)) as usize);
-            for j in 0..c.resolution {
-                let j1 = (j + 1) % c.resolution;
-                let mut base = 2;
-                indices.extend([0, base + j, base + j1].iter().copied()); // top cap
-                base = 2 + c.resolution * c.subdivisions;
-                indices.extend([1, base + j1, base + j].iter().copied()); // bottom cap
-            }
+            // Top vertices
+            let top_offset = c.resolution * (c.subdivisions + 1);
+            add_ring(c.height * 0.5, true);
+
+            // Bottom vertices
+            let bottom_offset = top_offset + c.resolution + 1;
+            add_ring(-c.height * 0.5, true);
+            assert_eq!(positions.len(), count);
+
+            // Index buffer
+            let index_count = ((6 * c.subdivisions * c.resolution) + 6 * c.resolution) as usize;
+            let mut indices = Vec::with_capacity(index_count);
+            // Shaft quads
             for i in 0..c.subdivisions {
-                let base1 = 2 + c.resolution * i;
+                let base1 = c.resolution * i;
                 let base2 = base1 + c.resolution;
                 for j in 0..c.resolution {
                     let j1 = (j + 1) % c.resolution;
@@ -515,10 +523,37 @@ pub mod shape {
                 }
             }
 
-            let normals = positions
+            // Top circle triangles
+            for j in 0..c.resolution {
+                let j1 = (j + 1) % c.resolution;
+                let base = top_offset + 1;
+                indices.extend([top_offset, base + j, base + j1].iter().copied());
+            }
+            // Bottom circle triangles
+            for j in 0..c.resolution {
+                let j1 = (j + 1) % c.resolution;
+                let base = bottom_offset + 1;
+                indices.extend([bottom_offset, base + j1, base + j].iter().copied());
+            }
+            assert_eq!(indices.len(), index_count);
+
+            // Shaft normals are their positions X&Z
+            let mut normals = positions
                 .iter()
-                .map(|&p| Vec3::from(p).normalize().into())
-                .collect();
+                .map(|&p| {
+                    (Vec3::from(p) * Vec3::new(1.0, 0.0, 1.0))
+                        .normalize()
+                        .into()
+                })
+                .collect::<Vec<[f32; 3]>>();
+
+            // Give the top and bottom of the cylinder a clear up/down normal
+            for i in top_offset..bottom_offset {
+                normals[i as usize] = [0.0, 1.0, 0.0];
+            }
+            for i in bottom_offset..count as u32 {
+                normals[i as usize] = [0.0, -1.0, 0.0];
+            }
 
             let uvs = positions
                 .iter()
