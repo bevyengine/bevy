@@ -117,14 +117,12 @@ fn save_scene_system(_world: &mut World, resources: &mut Resources) {
 
     // The component registry resource contains information about all registered components. This is used to construct scenes.
     let type_registry = resources.get::<TypeRegistry>().unwrap();
-    let scene = Scene::from_world(&world, &type_registry.component.read().unwrap());
+    let scene = Scene::from_world(&world, &type_registry.component.read());
 
     // Scenes can be serialized like this:
     println!(
         "{}",
-        scene
-            .serialize_ron(&type_registry.property.read().unwrap())
-            .unwrap()
+        scene.serialize_ron(&type_registry.property.read()).unwrap()
     );
 
     // TODO: save scene

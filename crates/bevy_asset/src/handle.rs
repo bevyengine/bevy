@@ -17,6 +17,7 @@ pub(crate) const DEFAULT_HANDLE_ID: HandleId =
 pub struct HandleId(pub Uuid);
 
 impl HandleId {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> HandleId {
         HandleId(Uuid::new_v4())
     }
@@ -151,7 +152,7 @@ impl<T> Default for Handle<T> {
 impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Handle {
-            id: self.id.clone(),
+            id: self.id,
             marker: PhantomData,
         }
     }

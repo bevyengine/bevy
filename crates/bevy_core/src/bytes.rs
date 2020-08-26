@@ -144,7 +144,7 @@ where
     T: FromBytes,
 {
     fn from_bytes(bytes: &[u8]) -> Self {
-        if bytes.len() == 0 {
+        if bytes.is_empty() {
             None
         } else {
             Some(T::from_bytes(bytes))

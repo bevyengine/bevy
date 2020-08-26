@@ -42,10 +42,12 @@ impl Resources {
         self.get_resource_mut(ResourceIndex::Global)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_local<'a, T: Resource>(&'a self, id: SystemId) -> Option<Ref<'a, T>> {
         self.get_resource(ResourceIndex::System(id))
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_local_mut<'a, T: Resource>(&'a self, id: SystemId) -> Option<RefMut<'a, T>> {
         self.get_resource_mut(ResourceIndex::System(id))
     }
@@ -82,10 +84,13 @@ impl Resources {
                 }),
         };
 
-        if index == archetype.len() {
-            unsafe { archetype.allocate(index) };
-        } else if index > archetype.len() {
-            panic!("attempted to access index beyond 'current_capacity + 1'")
+        use std::cmp::Ordering;
+        match index.cmp(&archetype.len()) {
+            Ordering::Equal => {
+                unsafe { archetype.allocate(index) };
+            }
+            Ordering::Greater => panic!("attempted to access index beyond 'current_capacity + 1'"),
+            Ordering::Less => (),
         }
 
         unsafe {
@@ -140,6 +145,7 @@ impl Resources {
     }
 
     #[inline]
+    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_ref<T: Resource>(&self, resource_index: ResourceIndex) -> NonNull<T> {
         self.resource_data
             .get(&TypeId::of::<T>())

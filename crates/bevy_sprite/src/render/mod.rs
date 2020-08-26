@@ -5,7 +5,7 @@ use bevy_render::{
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
-        RasterizationStateDescriptor, StencilStateFaceDescriptor,
+        RasterizationStateDescriptor, StencilStateDescriptor, StencilStateFaceDescriptor,
     },
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::{Shader, ShaderStage, ShaderStages},
@@ -22,19 +22,22 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
+            cull_mode: CullMode::None,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
+            clamp_depth: false,
         }),
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil_front: StencilStateFaceDescriptor::IGNORE,
-            stencil_back: StencilStateFaceDescriptor::IGNORE,
-            stencil_read_mask: 0,
-            stencil_write_mask: 0,
+            stencil: StencilStateDescriptor {
+                front: StencilStateFaceDescriptor::IGNORE,
+                back: StencilStateFaceDescriptor::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
         }),
         color_states: vec![ColorStateDescriptor {
             format: TextureFormat::Bgra8UnormSrgb,
@@ -67,19 +70,22 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
     PipelineDescriptor {
         rasterization_state: Some(RasterizationStateDescriptor {
             front_face: FrontFace::Ccw,
-            cull_mode: CullMode::Back,
+            cull_mode: CullMode::None,
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
+            clamp_depth: false,
         }),
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
             depth_compare: CompareFunction::Less,
-            stencil_front: StencilStateFaceDescriptor::IGNORE,
-            stencil_back: StencilStateFaceDescriptor::IGNORE,
-            stencil_read_mask: 0,
-            stencil_write_mask: 0,
+            stencil: StencilStateDescriptor {
+                front: StencilStateFaceDescriptor::IGNORE,
+                back: StencilStateFaceDescriptor::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
         }),
         color_states: vec![ColorStateDescriptor {
             format: TextureFormat::Bgra8UnormSrgb,
@@ -109,10 +115,10 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
 }
 
 pub mod node {
-    pub const COLOR_MATERIAL: &'static str = "color_material";
-    pub const SPRITE: &'static str = "sprite";
-    pub const SPRITE_SHEET: &'static str = "sprite_sheet";
-    pub const SPRITE_SHEET_SPRITE: &'static str = "sprite_sheet_sprite";
+    pub const COLOR_MATERIAL: &str = "color_material";
+    pub const SPRITE: &str = "sprite";
+    pub const SPRITE_SHEET: &str = "sprite_sheet";
+    pub const SPRITE_SHEET_SPRITE: &str = "sprite_sheet_sprite";
 }
 
 pub trait SpriteRenderGraphBuilder {

@@ -61,7 +61,7 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .get(&bind_group_descriptor_id)
         {
             if let Some(wgpu_bind_group) = bind_group_info.bind_groups.get(&bind_group) {
-                const EMPTY: &'static [u32] = &[];
+                const EMPTY: &[u32] = &[];
                 let dynamic_uniform_indices =
                     if let Some(dynamic_uniform_indices) = dynamic_uniform_indices {
                         dynamic_uniform_indices

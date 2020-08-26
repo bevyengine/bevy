@@ -25,7 +25,7 @@ impl Default for Translation {
 
 impl From<Vec3> for Translation {
     fn from(translation: Vec3) -> Self {
-        Self(Vec3::from(translation))
+        Self(translation)
     }
 }
 

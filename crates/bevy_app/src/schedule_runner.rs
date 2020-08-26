@@ -4,7 +4,10 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use std::{thread, time::Duration};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 /// Determines the method used to run an [App]'s `Schedule`
 #[derive(Copy, Clone, Debug)]
@@ -51,6 +54,8 @@ impl Plugin for ScheduleRunnerPlugin {
                     app.schedule.run(&mut app.world, &mut app.resources);
                 }
                 RunMode::Loop { wait } => loop {
+                    let start_time = Instant::now();
+
                     if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {
                             break;
@@ -65,8 +70,13 @@ impl Plugin for ScheduleRunnerPlugin {
                         }
                     }
 
+                    let end_time = Instant::now();
+
                     if let Some(wait) = wait {
-                        thread::sleep(wait);
+                        let exe_time = end_time - start_time;
+                        if exe_time < wait {
+                            thread::sleep(wait - exe_time);
+                        }
                     }
                 },
             }

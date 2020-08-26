@@ -33,7 +33,7 @@ use update::ui_z_system;
 pub struct UiPlugin;
 
 pub mod stage {
-    pub const UI: &'static str = "ui";
+    pub const UI: &str = "ui";
 }
 
 impl Plugin for UiPlugin {
