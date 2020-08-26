@@ -240,67 +240,84 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
+macro_rules! impl_or_query {
+    ( $( $T:ident ),+; $( $t:ident ),+ ) => {
+        impl<$( $T: Query ),+> Query for Or<($( $T ),+)> {
+            type Fetch = FetchOr<($( $T::Fetch ),+)>;
+        }
+
+        impl<'a, $( $T: Fetch<'a> ),+> Fetch<'a> for FetchOr<($( $T ),+)> {
+            type Item = ($( $T::Item ),+);
+
+            fn access(archetype: &Archetype) -> Option<Access> {
+                if false $(|| $T::access(archetype).is_none() )+ {
+                    return None
+                }
+                Some(Access::Read)
+            }
+
+            fn borrow(archetype: &Archetype) {
+                $(
+                    $T::borrow(archetype);
+                 )+
+            }
+
+            unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+                Some(Self(( $( $T::get(archetype, offset)?),+ )))
+            }
+
+            fn release(archetype: &Archetype) {
+                $(
+                    $T::release(archetype);
+                 )+
+            }
+
+            unsafe fn next(&mut self) -> Self::Item {
+                let ($( $t ),+) = &mut self.0;
+                ($( $t.next() ),+)
+            }
+
+            unsafe fn should_skip(&self) -> bool {
+                let ($( $t ),+) = &self.0;
+                true $( && $t.should_skip() )+
+            }
+        }
+    };
+}
+
+impl_or_query!(Q1, Q2; q1, q2);
+impl_or_query!(Q1, Q2, Q3; q1, q2, q3);
+impl_or_query!(Q1, Q2, Q3, Q4; q1, q2, q3, q4);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5; q1, q2, q3, q4, q5);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6; q1, q2, q3, q4, q5, q6);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7; q1, q2, q3, q4, q5, q6, q7);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8; q1, q2, q3, q4, q5, q6, q7, q8);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9; q1, q2, q3, q4, q5, q6, q7, q8, q9);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10; q1, q2, q3, q4, q5, q6, q7, q8, q9, q10);
+
 /// Query transformer performing a logical or on a pair of queries
-///
 /// Intended to be used on Mutated or Changed queries.
-///
 /// # Example
 /// ```
 /// # use bevy_hecs::*;
 /// let mut world = World::new();
-/// world.spawn((123, true));
-/// world.spawn((456, false));
+/// world.spawn((123, true, 1., Some(1)));
+/// world.spawn((456, false, 2., Some(0)));
 /// for mut b in world.query::<Mut<i32>>().iter().skip(1).take(1) {
 ///     *b += 1;
 /// }
 /// let components = world
-///     .query::<Or<Mutated<bool>, Mutated<i32>>>()
+///     .query::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
 ///     .iter()
-///     .map(|(b, i)| (*b, *i))
+///     .map(|(b, i, f, o)| (*b, *i))
 ///     .collect::<Vec<_>>();
 /// assert_eq!(components, &[(false, 457)]);
 /// ```
-pub struct Or<Q1, Q2>(PhantomData<(Q1, Q2)>);
-
-impl<Q1: Query, Q2: Query> Query for Or<Q1, Q2> {
-    type Fetch = FetchOr<Q1::Fetch, Q2::Fetch>;
-}
+pub struct Or<T>(PhantomData<T>);
+//pub struct Or<Q1, Q2, Q3>(PhantomData<(Q1, Q2, Q3)>);
 
 #[doc(hidden)]
-pub struct FetchOr<F1, F2>(F1, F2);
-
-impl<'a, F1: Fetch<'a>, F2: Fetch<'a>> Fetch<'a> for FetchOr<F1, F2> {
-    type Item = (F1::Item, F2::Item);
-
-    fn access(archetype: &Archetype) -> Option<Access> {
-        F1::access(archetype).and(F2::access(archetype))
-    }
-
-    fn borrow(archetype: &Archetype) {
-        F1::borrow(archetype);
-        F2::borrow(archetype);
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        Some(Self(
-            F1::get(archetype, offset)?,
-            F2::get(archetype, offset)?,
-        ))
-    }
-
-    fn release(archetype: &Archetype) {
-        F1::release(archetype);
-        F2::release(archetype);
-    }
-
-    unsafe fn next(&mut self) -> Self::Item {
-        (self.0.next(), self.1.next())
-    }
-
-    unsafe fn should_skip(&self) -> bool {
-        self.0.should_skip() && self.1.should_skip()
-    }
-}
+pub struct FetchOr<T>(T);
 
 /// Query transformer that skips entities that have a `T` component that has
 /// not been mutated since the last pass of the system. This does not include
@@ -1145,7 +1162,7 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query::<(Or<Mutated<A>, Mutated<B>>, Entity)>()
+            .query::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
