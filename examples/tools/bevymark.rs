@@ -30,7 +30,6 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_resource(BevyCounter { count: 0 })
         .add_resource(Option::<Handle<ColorMaterial>>::None)
-        .add_resource(Option::<Vec2>::None)
         .add_startup_system(setup.system())
         .add_system(mouse_handler.system())
         .add_system(movement_system.system())
