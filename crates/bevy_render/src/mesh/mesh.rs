@@ -416,12 +416,12 @@ pub mod shape {
     impl Default for RectangularPrism {
         fn default() -> Self {
             RectangularPrism {
-                min_x: 0.0,
+                min_x: -1.0,
                 max_x: 1.0,
-                min_y: 0.0,
-                max_y: 1.0,
-                min_z: 0.0,
-                max_z: 1.0,
+                min_y: -0.5,
+                max_y: 0.5,
+                min_z: -0.5,
+                max_z: 0.5,
             }
         }
     }
