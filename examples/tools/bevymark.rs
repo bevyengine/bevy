@@ -59,12 +59,10 @@ fn setup(
         .spawn(UiCameraComponents::default())
         .spawn(TextComponents {
             text: Text {
-                font: asset_server
-                    .load("assets/fonts/FiraMono-Medium.ttf")
-                    .unwrap(),
+                font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                 value: "Bird Count:".to_string(),
                 style: TextStyle {
-                    color: Color::rgb(0.0, 0.9, 0.0),
+                    color: Color::rgb(0.0, 1.0, 0.0),
                     font_size: 40.0,
                 },
             },
