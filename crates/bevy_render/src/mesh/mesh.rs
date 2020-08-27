@@ -190,7 +190,7 @@ pub mod shape {
 
     impl From<Cube> for Mesh {
         fn from(cube: Cube) -> Self {
-            Mesh::from(SquarePrism {
+            Mesh::from(RectangularPrism {
                 min_x: -cube.size,
                 max_x: cube.size,
                 min_y: -cube.size,
@@ -402,7 +402,7 @@ pub mod shape {
     }
 
     /// A Square prism. Just like a cube, but you can specify the dimensions.
-    pub struct SquarePrism {
+    pub struct RectangularPrism {
         pub min_x: f32,
         pub max_x: f32,
 
@@ -413,9 +413,9 @@ pub mod shape {
         pub max_z: f32,
     }
 
-    impl Default for SquarePrism {
+    impl Default for RectangularPrism {
         fn default() -> Self {
-            SquarePrism {
+            RectangularPrism {
                 min_x: 0.0,
                 max_x: 1.0,
                 min_y: 0.0,
@@ -426,8 +426,8 @@ pub mod shape {
         }
     }
 
-    impl From<SquarePrism> for Mesh {
-        fn from(sp: SquarePrism) -> Self {
+    impl From<RectangularPrism> for Mesh {
+        fn from(sp: RectangularPrism) -> Self {
             // Position, Normals, UVs
             let vertices = &[
                 // Top
