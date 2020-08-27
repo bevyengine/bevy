@@ -37,6 +37,19 @@ impl Color {
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
+
+    pub fn hex<T: AsRef<[u8]>>(hex: T) -> Color {
+        let mut buf = [0; 3];
+        if hex::decode_to_slice(hex, &mut buf).is_ok() {
+            let r = buf[0] as f32 / 255.0;
+            let g = buf[1] as f32 / 255.0;
+            let b = buf[2] as f32 / 255.0;
+            Color::rgb(r, g, b)
+        }else {
+            // Invalid value, use default color
+            Color::default()
+        }
+    }
 }
 
 impl Default for Color {
