@@ -45,7 +45,7 @@ impl Color {
             let g = buf[1] as f32 / 255.0;
             let b = buf[2] as f32 / 255.0;
             Color::rgb(r, g, b)
-        }else {
+        } else {
             // Invalid value, use default color
             Color::default()
         }
