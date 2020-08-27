@@ -1,7 +1,9 @@
+#[cfg(feature = "dynamic_plugins")]
+use crate::plugin::dynamically_load_plugin;
 use crate::{
     app::{App, AppExit},
     event::Events,
-    plugin::{dynamically_load_plugin, Plugin},
+    plugin::Plugin,
     stage, startup_stage,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
@@ -220,6 +222,7 @@ impl AppBuilder {
         self
     }
 
+    #[cfg(feature = "dynamic_plugins")]
     pub fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (_lib, plugin) = dynamically_load_plugin(path);
         log::debug!("loaded plugin: {}", plugin.name());
