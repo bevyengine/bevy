@@ -176,7 +176,7 @@ pub mod shape {
     use bevy_math::*;
     use hexasphere::Hexasphere;
 
-    /// A cube -> SquarePrism where all length of sides are the same.
+    /// A cube -> RectangularPrism where all length of sides are the same.
     pub struct Cube {
         /// Half the side length of the cube.
         pub size: f32,
@@ -401,7 +401,8 @@ pub mod shape {
         }
     }
 
-    /// A Square prism. Just like a cube, but you can specify the dimensions.
+    /// A aectangular prism. Just like a cube, but you can specify the
+    /// length of each dimensions.
     pub struct RectangularPrism {
         pub min_x: f32,
         pub max_x: f32,
