@@ -414,16 +414,22 @@ pub mod shape {
         pub max_z: f32,
     }
 
+    impl RectangularPrism {
+        pub fn new(length :f32, height :f32, width :f32) -> RectangularPrism {
+            RectangularPrism {
+                max_x: (length/2),
+                min_x: -(length/2),
+                max_y: (height/2),
+                min_y: -(height/2),
+                max_z: (width/2),
+                min_z: -(width/2),
+            }
+        }
+    }
+
     impl Default for RectangularPrism {
         fn default() -> Self {
-            RectangularPrism {
-                min_x: -1.0,
-                max_x: 1.0,
-                min_y: -0.5,
-                max_y: 0.5,
-                min_z: -0.5,
-                max_z: 0.5,
-            }
+            RectangularPrism::new(2.0,1.0,1.0)
         }
     }
 
