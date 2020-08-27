@@ -38,7 +38,7 @@ impl AssetLoader<Texture> for GltfLoader {
             .texture
             .into_iter()
             .nth(0)
-            .ok_or_else(|| anyhow::anyhow!("The GLTF file did not contain a mesh"))?;
+            .ok_or_else(|| anyhow::anyhow!("The GLTF file did not contain a texture"))?;
         Ok(texture)
     }
 

@@ -68,6 +68,7 @@ bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
 [dev-dependencies]
 rand = "0.7.2"
 serde = { version = "1", features = ["derive"]}
+simplelog = "0.8.0"
 
 [[example]]
 name = "hello_world"
