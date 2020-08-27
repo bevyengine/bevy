@@ -86,7 +86,7 @@ pub trait RenderResources: Send + Sync + 'static {
     fn get_render_resource_hints(&self, _index: usize) -> Option<RenderResourceHints> {
         None
     }
-    fn iter_render_resources(&self) -> RenderResourceIterator;
+    fn iter(&self) -> RenderResourceIterator;
 }
 
 pub struct RenderResourceIterator<'a> {
@@ -200,7 +200,7 @@ impl RenderResources for bevy_transform::prelude::Transform {
         }
     }
 
-    fn iter_render_resources(&self) -> RenderResourceIterator {
+    fn iter(&self) -> RenderResourceIterator {
         RenderResourceIterator::new(self)
     }
 }

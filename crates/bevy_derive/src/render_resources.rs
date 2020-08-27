@@ -66,7 +66,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn iter_render_resources(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
+                fn iter(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
                     #bevy_render_path::renderer::RenderResourceIterator::new(self)
                 }
             }
@@ -167,7 +167,7 @@ pub fn derive_render_resources(input: TokenStream) -> TokenStream {
                     #render_resource_hints_ident[index].clone()
                 }
 
-                fn iter_render_resources(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
+                fn iter(&self) -> #bevy_render_path::renderer::RenderResourceIterator {
                     #bevy_render_path::renderer::RenderResourceIterator::new(self)
                 }
             }
