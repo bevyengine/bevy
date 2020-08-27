@@ -13,10 +13,7 @@ use bevy_render::{
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
-use bevy_transform::{
-    components::LocalTransform,
-    prelude::{Rotation, Scale, Transform, Translation},
-};
+use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
 
 #[derive(Bundle)]
 pub struct NodeComponents {
@@ -27,7 +24,6 @@ pub struct NodeComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub local_transform: LocalTransform,
 }
 
 impl Default for NodeComponents {
@@ -57,7 +53,6 @@ impl Default for NodeComponents {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            local_transform: Default::default(),
         }
     }
 }
@@ -73,7 +68,6 @@ pub struct ImageComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub local_transform: LocalTransform,
 }
 
 impl Default for ImageComponents {
@@ -105,7 +99,6 @@ impl Default for ImageComponents {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            local_transform: Default::default(),
         }
     }
 }
@@ -119,7 +112,6 @@ pub struct TextComponents {
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
-    pub local_transform: LocalTransform,
 }
 
 impl Default for TextComponents {
@@ -135,7 +127,6 @@ impl Default for TextComponents {
             calculated_size: Default::default(),
             style: Default::default(),
             transform: Default::default(),
-            local_transform: Default::default(),
         }
     }
 }
@@ -152,7 +143,6 @@ pub struct ButtonComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub local_transform: LocalTransform,
 }
 
 impl Default for ButtonComponents {
@@ -185,7 +175,6 @@ impl Default for ButtonComponents {
             material: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            local_transform: Default::default(),
         }
     }
 }

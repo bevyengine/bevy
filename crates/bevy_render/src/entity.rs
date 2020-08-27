@@ -17,9 +17,6 @@ pub struct MeshComponents {
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
 }
 
 /// A component bundle for "3d camera" entities
@@ -29,9 +26,6 @@ pub struct Camera3dComponents {
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
 }
 
 impl Default for Camera3dComponents {
@@ -44,9 +38,6 @@ impl Default for Camera3dComponents {
             perspective_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
         }
     }
 }

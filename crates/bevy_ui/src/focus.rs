@@ -73,7 +73,7 @@ pub fn ui_focus_system(
         let mut moused_over_z_sorted_nodes = query_iter
             .iter()
             .filter_map(|(entity, node, transform, interaction, focus_policy)| {
-                let position = transform.value.w_axis();
+                let position = transform.global_matrix().w_axis();
                 let ui_position = position.truncate().truncate();
                 let extents = node.size / 2.0;
                 let min = ui_position - extents;

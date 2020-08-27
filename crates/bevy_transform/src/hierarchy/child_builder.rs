@@ -1,4 +1,4 @@
-use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+use crate::prelude::{Children, Parent, PreviousParent, Transform};
 use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity, WorldWriter};
 use smallvec::SmallVec;
 
@@ -17,7 +17,7 @@ impl WorldWriter for InsertChildren {
                     (
                         Parent(self.parent),
                         PreviousParent(Some(self.parent)),
-                        LocalTransform::default(),
+                        Transform::default(),
                     ),
                 )
                 .unwrap();
@@ -58,7 +58,7 @@ impl WorldWriter for PushChildren {
                     (
                         Parent(self.parent),
                         PreviousParent(Some(self.parent)),
-                        LocalTransform::default(),
+                        Transform::default(),
                     ),
                 )
                 .unwrap();
@@ -215,7 +215,7 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::BuildChildren;
-    use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+    use crate::prelude::{Children, Parent, PreviousParent, Transform};
     use bevy_ecs::{Commands, Entity, Resources, World};
     use smallvec::{smallvec, SmallVec};
 
@@ -262,8 +262,8 @@ mod tests {
             PreviousParent(Some(parent))
         );
 
-        assert!(world.get::<LocalTransform>(child1).is_ok());
-        assert!(world.get::<LocalTransform>(child2).is_ok());
+        assert!(world.get::<Transform>(child1).is_ok());
+        assert!(world.get::<Transform>(child2).is_ok());
     }
 
     #[test]
@@ -301,8 +301,8 @@ mod tests {
             PreviousParent(Some(parent))
         );
 
-        assert!(world.get::<LocalTransform>(child1).is_ok());
-        assert!(world.get::<LocalTransform>(child2).is_ok());
+        assert!(world.get::<Transform>(child1).is_ok());
+        assert!(world.get::<Transform>(child2).is_ok());
 
         commands.insert_children(parent, 1, &entities[3..]);
         commands.apply(&mut world, &mut resources);
@@ -323,7 +323,7 @@ mod tests {
             PreviousParent(Some(parent))
         );
 
-        assert!(world.get::<LocalTransform>(child3).is_ok());
-        assert!(world.get::<LocalTransform>(child4).is_ok());
+        assert!(world.get::<Transform>(child3).is_ok());
+        assert!(world.get::<Transform>(child4).is_ok());
     }
 }

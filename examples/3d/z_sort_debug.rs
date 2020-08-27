@@ -57,7 +57,7 @@ fn setup(
                 shaded: false,
                 ..Default::default()
             }),
-            translation: Translation::new(0.0, 0.0, 1.0),
+            transform: Translation::new(0.0, 0.0, 1.0).into(),
             ..Default::default()
         })
         .with(Rotator)
@@ -70,7 +70,7 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    translation: Translation::new(0.0, 3.0, 0.0),
+                    transform: Translation::new(0.0, 3.0, 0.0).into(),
                     ..Default::default()
                 })
                 .spawn(PbrComponents {
@@ -79,13 +79,13 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    translation: Translation::new(0.0, -3.0, 0.0),
+                    transform: Translation::new(0.0, -3.0, 0.0).into(),
                     ..Default::default()
                 });
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

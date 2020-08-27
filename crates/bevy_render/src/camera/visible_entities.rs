@@ -30,7 +30,7 @@ pub fn visible_entities_system(
 ) {
     for (camera, camera_transform, mut visible_entities) in &mut camera_query.iter() {
         visible_entities.value.clear();
-        let camera_position = camera_transform.value.w_axis().truncate();
+        let camera_position = camera_transform.global_matrix().w_axis().truncate();
 
         let mut no_transform_order = 0.0;
         let mut transparent_entities = Vec::new();
@@ -40,7 +40,7 @@ pub fn visible_entities_system(
             }
 
             let order = if let Ok(transform) = draw_transform_query.get::<Transform>(entity) {
-                let position = transform.value.w_axis().truncate();
+                let position = transform.global_matrix().w_axis().truncate();
                 // smaller distances are sorted to lower indices by using the distance from the camera
                 FloatOrd(match camera.depth_calculation {
                     DepthCalculation::ZDifference => camera_position.z() - position.z(),

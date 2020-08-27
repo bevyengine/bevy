@@ -127,13 +127,13 @@ mod test {
         let mut parent = None;
         let mut children = Vec::new();
         commands
-            .spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()))
+            .spawn((Transform::from(Translation::new(1.0, 0.0, 0.0)), ()))
             .for_current_entity(|entity| parent = Some(entity))
             .with_children(|parent| {
                 parent
-                    .spawn((Translation::new(0.0, 2.0, 0.0), Transform::identity()))
+                    .spawn((Transform::from(Translation::new(0.0, 2.0, 0.0)), ()))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Translation::new(0.0, 0.0, 3.0), Transform::identity()))
+                    .spawn((Transform::from(Translation::new(0.0, 0.0, 3.0)), ()))
                     .for_current_entity(|entity| children.push(entity));
             });
         let parent = parent.unwrap();

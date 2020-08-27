@@ -26,8 +26,16 @@ fn setup(
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            translation: Translation::new(0.0, 1.0, 0.0),
+            transform: Translation::new(0.0, 1.0, 0.0).into(),
             ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn(PbrComponents {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+                transform: Translation::new(0.0, 0.75, 0.0).into(),
+                ..Default::default()
+            });
         })
         // sphere
         .spawn(PbrComponents {
@@ -36,17 +44,17 @@ fn setup(
                 radius: 0.5,
             })),
             material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
-            translation: Translation::new(1.5, 1.5, 1.5),
+            transform: Translation::new(1.5, 1.5, 1.5).into(),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, 8.0, 4.0),
+            transform: Translation::new(4.0, 8.0, 4.0).into(),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(-3.0, 5.0, 8.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

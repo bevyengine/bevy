@@ -7,7 +7,7 @@ use bevy_render::{
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
     render_graph::base::MainPass,
 };
-use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
+use bevy_transform::prelude::Transform;
 
 /// A component bundle for "pbr mesh" entities
 #[derive(Bundle)]
@@ -18,9 +18,6 @@ pub struct PbrComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
 }
 
 impl Default for PbrComponents {
@@ -49,9 +46,6 @@ impl Default for PbrComponents {
             main_pass: Default::default(),
             draw: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
         }
     }
 }
@@ -61,6 +55,4 @@ impl Default for PbrComponents {
 pub struct LightComponents {
     pub light: Light,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
 }

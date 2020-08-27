@@ -61,8 +61,8 @@ pub fn draw_text_system(
     mut query: Query<(&mut Draw, &Text, &Node, &Transform)>,
 ) {
     for (mut draw, text, node, transform) in &mut query.iter() {
-        let position =
-            Vec3::from(transform.value.w_axis().truncate()) - (node.size / 2.0).extend(0.0);
+        let position = Vec3::from(transform.global_matrix().w_axis().truncate())
+            - (node.size / 2.0).extend(0.0);
 
         let mut drawable_text = DrawableText {
             font: fonts.get(&text.font).unwrap(),

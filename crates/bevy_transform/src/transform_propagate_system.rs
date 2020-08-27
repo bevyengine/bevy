@@ -1,61 +1,46 @@
 use crate::components::*;
 use bevy_ecs::prelude::*;
+use bevy_math::Mat4;
 
+// ANSWERME: make this take all transforms and perform in recursion (looking at compute shader)
 pub fn transform_propagate_system(
-    mut root_query: Query<
-        Without<Parent, (Option<&Children>, &mut Transform, Option<&LocalTransform>)>,
-    >,
-    mut local_transform_query: Query<(&mut Transform, &LocalTransform, Option<&Children>)>,
+    mut root_query: Query<Without<Parent, (Option<&Children>, &mut Transform)>>,
+    mut transform_query: Query<(&mut Transform, Option<&Children>)>,
 ) {
-    for (children, mut transform, local_transform) in &mut root_query.iter() {
-        if let Some(local_transform) = local_transform {
-            transform.value = local_transform.0;
-        }
+    for (children, mut transform) in &mut root_query.iter() {
+        transform.apply_parent_matrix(None);
 
         if let Some(children) = children {
             for child in children.0.iter() {
-                propagate_recursive(*transform, &mut local_transform_query, *child);
+                propagate_recursive(*transform.global_matrix(), &mut transform_query, *child);
             }
         }
     }
 }
 
+// ANSWERME: maybe speed this up with compute
 fn propagate_recursive(
-    parent_local_to_world: Transform,
-    local_transform_query: &mut Query<(&mut Transform, &LocalTransform, Option<&Children>)>,
+    parent: Mat4,
+    transform_query: &mut Query<(&mut Transform, Option<&Children>)>,
     entity: Entity,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
-    let local_transform = {
-        if let Ok(local_transform) = local_transform_query.get::<LocalTransform>(entity) {
-            *local_transform
-        } else {
-            log::warn!(
-                "Entity {:?} is a child in the hierarchy but does not have a LocalTransform",
-                entity
-            );
-            return;
-        }
-    };
 
-    let new_transform = Transform {
-        value: parent_local_to_world.value * local_transform.0,
-        sync: true,
-    };
+    let global_matrix = {
+        let mut transform = transform_query.get_mut::<Transform>(entity).unwrap();
 
-    {
-        let mut transform = local_transform_query.get_mut::<Transform>(entity).unwrap();
-        transform.value = new_transform.value;
-    }
+        transform.apply_parent_matrix(Some(parent));
+        *transform.global_matrix()
+    };
 
     // Collect children
-    let children = local_transform_query
+    let children = transform_query
         .get::<Children>(entity)
         .map(|e| e.0.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 
     for child in children {
-        propagate_recursive(new_transform, local_transform_query, child);
+        propagate_recursive(global_matrix, transform_query, child);
     }
 }
 
@@ -78,19 +63,15 @@ mod test {
         }
 
         // Root entity
-        let parent = world.spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()));
+        let parent = world.spawn((Transform::from(Translation::new(1.0, 0.0, 0.0)), ())); //FIXME: shouldn't need () to be added
         let children = world
             .spawn_batch(vec![
                 (
-                    Translation::new(0.0, 2.0, 0.0),
-                    LocalTransform::identity(),
-                    Transform::identity(),
+                    Transform::from(Translation::new(0.0, 2.0, 0.0)),
                     Parent(parent),
                 ),
                 (
-                    Translation::new(0.0, 0.0, 3.0),
-                    LocalTransform::identity(),
-                    Transform::identity(),
+                    Transform::from(Translation::new(0.0, 0.0, 3.0)),
                     Parent(parent),
                 ),
             ])
@@ -103,13 +84,13 @@ mod test {
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
-            world.get::<Transform>(children[0]).unwrap().value,
+            *world.get::<Transform>(children[0]).unwrap().global_matrix(),
             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
                 * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
         );
 
         assert_eq!(
-            world.get::<Transform>(children[1]).unwrap().value,
+            *world.get::<Transform>(children[1]).unwrap().global_matrix(),
             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
                 * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
@@ -130,25 +111,25 @@ mod test {
         let mut commands = Commands::default();
         let mut children = Vec::new();
         commands
-            .spawn((Translation::new(1.0, 0.0, 0.0), Transform::identity()))
+            .spawn((Transform::from(Translation::new(1.0, 0.0, 0.0)), ())) //FIXME: shouldn't need () to be added
             .with_children(|parent| {
                 parent
-                    .spawn((Translation::new(0.0, 2.0, 0.0), Transform::identity()))
+                    .spawn((Transform::from(Translation::new(0.0, 2.0, 0.0)), ()))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Translation::new(0.0, 0.0, 3.0), Transform::identity()))
+                    .spawn((Transform::from(Translation::new(0.0, 0.0, 3.0)), ()))
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
-            world.get::<Transform>(children[0]).unwrap().value,
+            *world.get::<Transform>(children[0]).unwrap().global_matrix(),
             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
                 * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
         );
 
         assert_eq!(
-            world.get::<Transform>(children[1]).unwrap().value,
+            *world.get::<Transform>(children[1]).unwrap().global_matrix(),
             Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
                 * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
