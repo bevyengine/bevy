@@ -1,7 +1,7 @@
 use super::Batch;
-use ahash::RandomState;
+use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::HashMap, hash::Hash};
+use std::{borrow::Cow, hash::Hash};
 
 // TODO: add sorting by primary / secondary handle to reduce rebinds of data
 
@@ -71,9 +71,9 @@ pub struct Batcher<TKey, TValue, TData>
 where
     TKey: Key,
 {
-    pub batches: HashMap<BatchKey<TKey>, Batch<TKey, TValue, TData>, RandomState>,
+    pub batches: HashMap<BatchKey<TKey>, Batch<TKey, TValue, TData>>,
     pub is_index: Vec<fn(&TKey) -> bool>,
-    pub key_states: HashMap<TValue, BatcherKeyState<TKey>, RandomState>,
+    pub key_states: HashMap<TValue, BatcherKeyState<TKey>>,
     pub key_count: usize,
 }
 

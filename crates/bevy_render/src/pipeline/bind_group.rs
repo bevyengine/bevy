@@ -1,5 +1,5 @@
 use super::BindingDescriptor;
-use ahash::AHasher;
+use bevy_utils::AHasher;
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, Eq)]

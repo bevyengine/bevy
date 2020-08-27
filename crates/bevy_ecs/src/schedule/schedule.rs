@@ -3,23 +3,19 @@ use crate::{
     schedule::ParallelExecutorOptions,
     system::{System, SystemId, ThreadLocalExecution},
 };
-use ahash::RandomState;
 use bevy_hecs::World;
+use bevy_utils::{HashMap, HashSet};
 use parking_lot::Mutex;
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{borrow::Cow, sync::Arc};
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
 /// Schedules are essentially the "execution plan" for an App's systems.
 /// They are run on a given [World] and [Resources] reference.
 #[derive(Default)]
 pub struct Schedule {
-    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Arc<Mutex<Box<dyn System>>>>, RandomState>,
+    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Arc<Mutex<Box<dyn System>>>>>,
     pub(crate) stage_order: Vec<Cow<'static, str>>,
-    pub(crate) system_ids: HashSet<SystemId, RandomState>,
+    pub(crate) system_ids: HashSet<SystemId>,
     generation: usize,
     last_initialize_generation: usize,
 }

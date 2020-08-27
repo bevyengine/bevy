@@ -2,11 +2,10 @@ use crate::{
     update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
     Handle, HandleId,
 };
-use ahash::RandomState;
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
 use bevy_type_registry::RegisterType;
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 /// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Resource> {
@@ -17,7 +16,7 @@ pub enum AssetEvent<T: Resource> {
 
 /// Stores Assets of a given type and tracks changes to them.
 pub struct Assets<T: Resource> {
-    assets: HashMap<Handle<T>, T, RandomState>,
+    assets: HashMap<Handle<T>, T>,
     events: Events<AssetEvent<T>>,
 }
 

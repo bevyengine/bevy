@@ -1,9 +1,9 @@
 // modified by Bevy contributors
 
-use ahash::RandomState;
+use bevy_utils::HashMap;
 use core::fmt;
 #[cfg(feature = "std")]
-use std::{collections::HashMap, error::Error};
+use std::error::Error;
 
 /// Lightweight unique ID of an entity
 ///
@@ -37,7 +37,7 @@ impl Entity {
 
 #[derive(Default)]
 pub(crate) struct Entities {
-    pub entity_locations: HashMap<Entity, Location, RandomState>,
+    pub entity_locations: HashMap<Entity, Location>,
 }
 
 impl Entities {

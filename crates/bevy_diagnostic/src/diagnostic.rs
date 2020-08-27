@@ -1,6 +1,6 @@
-use ahash::RandomState;
+use bevy_utils::HashMap;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     time::{Duration, SystemTime},
 };
 use uuid::Uuid;
@@ -105,7 +105,7 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic, RandomState>,
+    diagnostics: HashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {

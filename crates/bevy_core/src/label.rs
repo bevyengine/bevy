@@ -1,9 +1,8 @@
-use ahash::RandomState;
 use bevy_ecs::prelude::*;
 use bevy_property::Properties;
+use bevy_utils::{HashMap, HashSet};
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
@@ -11,7 +10,7 @@ use std::{
 /// A collection of labels
 #[derive(Default, Properties)]
 pub struct Labels {
-    labels: HashSet<Cow<'static, str>, RandomState>,
+    labels: HashSet<Cow<'static, str>>,
 }
 
 impl Debug for Labels {
@@ -30,7 +29,7 @@ where
     T: IntoIterator<Item = L>,
 {
     fn from(value: T) -> Self {
-        let mut labels = HashSet::with_hasher(RandomState::new());
+        let mut labels = HashSet::default();
         for label in value {
             labels.insert(label.into());
         }
@@ -55,8 +54,8 @@ impl Labels {
 /// Maintains a mapping from [Entity](bevy_ecs::prelude::Entity) ids to entity labels and entity labels to [Entities](bevy_ecs::prelude::Entity).
 #[derive(Default)]
 pub struct EntityLabels {
-    label_entities: HashMap<Cow<'static, str>, Vec<Entity>, RandomState>,
-    entity_labels: HashMap<Entity, HashSet<Cow<'static, str>, RandomState>, RandomState>,
+    label_entities: HashMap<Cow<'static, str>, Vec<Entity>>,
+    entity_labels: HashMap<Entity, HashSet<Cow<'static, str>>>,
 }
 
 impl EntityLabels {
@@ -78,7 +77,7 @@ pub(crate) fn entity_labels_system(
         let current_labels = entity_labels
             .entity_labels
             .entry(entity)
-            .or_insert_with(|| HashSet::with_hasher(RandomState::new()));
+            .or_insert_with(|| HashSet::default());
         for removed_label in current_labels.difference(&labels.labels) {
             if let Some(entities) = entity_labels.label_entities.get_mut(removed_label) {
                 entities.retain(|e| *e != entity);

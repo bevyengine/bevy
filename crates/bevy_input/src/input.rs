@@ -1,11 +1,11 @@
-use ahash::RandomState;
-use std::{collections::HashSet, hash::Hash};
+use bevy_utils::HashSet;
+use std::hash::Hash;
 
 /// A "press-able" input of type `T`
 pub struct Input<T> {
-    pressed: HashSet<T, RandomState>,
-    just_pressed: HashSet<T, RandomState>,
-    just_released: HashSet<T, RandomState>,
+    pressed: HashSet<T>,
+    just_pressed: HashSet<T>,
+    just_released: HashSet<T>,
 }
 
 impl<T> Default for Input<T> {

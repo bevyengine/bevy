@@ -15,14 +15,11 @@
 // modified by Bevy contributors
 
 use crate::alloc::vec::Vec;
+use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
 
-use ahash::RandomState;
 #[cfg(feature = "std")]
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-};
+use std::error::Error;
 
 use crate::{
     archetype::Archetype,
@@ -40,8 +37,8 @@ use crate::{
 /// runs, allowing for extremely fast, cache-friendly iteration.
 pub struct World {
     entities: Entities,
-    index: HashMap<Vec<TypeId>, u32, RandomState>,
-    removed_components: HashMap<TypeId, Vec<Entity>, RandomState>,
+    index: HashMap<Vec<TypeId>, u32>,
+    removed_components: HashMap<TypeId, Vec<Entity>>,
     #[allow(missing_docs)]
     pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
@@ -467,8 +464,7 @@ impl World {
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
-            let removed =
-                T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_, RandomState>>());
+            let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
             let info = self.archetypes[loc.archetype as usize]
                 .types()
                 .iter()

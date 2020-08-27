@@ -1,12 +1,11 @@
-use ahash::RandomState;
+use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowMode};
-use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct WinitWindows {
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window, RandomState>,
-    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId, RandomState>,
-    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId, RandomState>,
+    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
+    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
 }
 
 impl WinitWindows {

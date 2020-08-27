@@ -3,12 +3,12 @@ use crate::{
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
-use ahash::RandomState;
 use bevy_asset::{Assets, Handle};
 use bevy_property::{Properties, Property};
+use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
@@ -37,7 +37,7 @@ impl PipelineSpecialization {
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Property, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
-    pub shader_defs: HashSet<String, RandomState>,
+    pub shader_defs: HashSet<String>,
 }
 
 struct SpecializedShader {
@@ -58,9 +58,8 @@ pub struct DynamicBinding {
 
 #[derive(Default)]
 pub struct PipelineCompiler {
-    specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>, RandomState>,
-    specialized_pipelines:
-        HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>, RandomState>,
+    specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
+    specialized_pipelines: HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,
 }
 
 impl PipelineCompiler {

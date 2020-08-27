@@ -1,15 +1,14 @@
 use crate::Scene;
-use ahash::RandomState;
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
-use std::collections::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
 struct InstanceInfo {
-    entity_map: HashMap<u32, bevy_ecs::Entity, RandomState>,
+    entity_map: HashMap<u32, bevy_ecs::Entity>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -23,9 +22,9 @@ impl InstanceId {
 
 #[derive(Default)]
 pub struct SceneSpawner {
-    loaded_scenes: HashSet<Handle<Scene>, RandomState>,
-    spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>, RandomState>,
-    spawned_instances: HashMap<InstanceId, InstanceInfo, RandomState>,
+    loaded_scenes: HashSet<Handle<Scene>>,
+    spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
+    spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: EventReader<AssetEvent<Scene>>,
     scenes_to_spawn: Vec<Handle<Scene>>,
     scenes_to_load: Vec<Handle<Scene>>,

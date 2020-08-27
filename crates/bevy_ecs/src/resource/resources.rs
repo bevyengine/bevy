@@ -1,9 +1,9 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
-use ahash::RandomState;
 use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
+use bevy_utils::HashMap;
 use core::any::TypeId;
-use std::{collections::HashMap, ptr::NonNull};
+use std::ptr::NonNull;
 
 /// A Resource type
 pub trait Resource: Send + Sync + 'static {}
@@ -12,7 +12,7 @@ impl<T: Send + Sync + 'static> Resource for T {}
 pub(crate) struct ResourceData {
     archetype: Archetype,
     default_index: Option<u32>,
-    system_id_to_archetype_index: HashMap<u32, u32, RandomState>,
+    system_id_to_archetype_index: HashMap<u32, u32>,
 }
 
 pub enum ResourceIndex {
@@ -23,7 +23,7 @@ pub enum ResourceIndex {
 /// A collection of resource instances identified by their type.
 #[derive(Default)]
 pub struct Resources {
-    pub(crate) resource_data: HashMap<TypeId, ResourceData, RandomState>,
+    pub(crate) resource_data: HashMap<TypeId, ResourceData>,
 }
 
 impl Resources {
@@ -65,7 +65,7 @@ impl Resources {
             ResourceData {
                 archetype: Archetype::new(types),
                 default_index: None,
-                system_id_to_archetype_index: HashMap::with_hasher(RandomState::new()),
+                system_id_to_archetype_index: HashMap::default(),
             }
         });
 

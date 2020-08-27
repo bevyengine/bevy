@@ -1,5 +1,5 @@
 use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
-use ahash::AHasher;
+use bevy_utils::AHasher;
 use std::{
     hash::{Hash, Hasher},
     ops::Range,

@@ -1,6 +1,5 @@
 use super::{NodeId, NodeState, RenderGraph, RenderGraphError};
-use ahash::RandomState;
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -40,12 +39,12 @@ struct NodeIndices {
 pub struct Stages {
     stages: Vec<Stage>,
     /// a collection of node indices that are used to efficiently borrow render graph nodes
-    node_indices: HashMap<NodeId, NodeIndices, RandomState>,
+    node_indices: HashMap<NodeId, NodeIndices>,
 }
 
 impl Stages {
     pub fn new(stages: Vec<Stage>) -> Self {
-        let mut node_indices = HashMap::with_hasher(RandomState::new());
+        let mut node_indices = HashMap::default();
         for (stage_index, stage) in stages.iter().enumerate() {
             for (job_index, job) in stage.jobs.iter().enumerate() {
                 for (node_index, node) in job.nodes.iter().enumerate() {
@@ -162,7 +161,7 @@ impl RenderGraphStager for DependentNodeStager {
             .iter_nodes()
             .filter(|node| node.input_slots.is_empty());
         let mut stages = vec![Stage::default()];
-        let mut node_stages = HashMap::with_hasher(RandomState::new());
+        let mut node_stages = HashMap::default();
         for output_only_node in output_only_nodes {
             // each "output only" node should start a new job on the first stage
             stage_node(
@@ -181,7 +180,7 @@ impl RenderGraphStager for DependentNodeStager {
 fn stage_node(
     graph: &RenderGraph,
     stages: &mut Vec<Stage>,
-    node_stages_and_jobs: &mut HashMap<NodeId, (usize, usize), RandomState>,
+    node_stages_and_jobs: &mut HashMap<NodeId, (usize, usize)>,
     node: &NodeState,
     job_grouping: JobGrouping,
 ) {

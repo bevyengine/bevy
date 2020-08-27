@@ -1,10 +1,10 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
-use ahash::RandomState;
 use bevy_ecs::{Commands, Schedule};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug};
+use bevy_utils::HashMap;
+use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
-    nodes: HashMap<NodeId, NodeState, RandomState>,
-    node_names: HashMap<Cow<'static, str>, NodeId, RandomState>,
+    nodes: HashMap<NodeId, NodeState>,
+    node_names: HashMap<Cow<'static, str>, NodeId>,
     system_node_schedule: Option<Schedule>,
     commands: Commands,
 }
@@ -299,9 +299,9 @@ mod tests {
         render_graph::{Edge, Node, NodeId, RenderGraphError, ResourceSlotInfo, ResourceSlots},
         renderer::{RenderContext, RenderResourceType},
     };
-    use ahash::RandomState;
     use bevy_ecs::{Resources, World};
-    use std::{collections::HashSet, iter::FromIterator};
+    use bevy_utils::HashSet;
+    use std::iter::FromIterator;
 
     #[derive(Debug)]
     struct TestNode {
@@ -360,20 +360,20 @@ mod tests {
         graph.add_node_edge("B", "C").unwrap();
         graph.add_slot_edge("C", 0, "D", 0).unwrap();
 
-        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId, RandomState> {
+        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
             graph
                 .iter_node_inputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId, RandomState>>()
+                .collect::<HashSet<NodeId>>()
         }
 
-        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId, RandomState> {
+        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
             graph
                 .iter_node_outputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<HashSet<NodeId, RandomState>>()
+                .collect::<HashSet<NodeId>>()
         }
 
         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");

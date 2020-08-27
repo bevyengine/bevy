@@ -958,10 +958,9 @@ mod tests {
 
     #[test]
     fn test_map() {
-        use ahash::RandomState;
-        use std::collections::HashMap;
+        use bevy_utils::HashMap;
 
-        let mut map = HashMap::with_hasher(RandomState::new());
+        let mut map = HashMap::default();
         map.insert((true, false), 4);
         map.insert((false, false), 123);
 

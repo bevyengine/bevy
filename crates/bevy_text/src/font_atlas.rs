@@ -1,13 +1,12 @@
-use ahash::RandomState;
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::{Texture, TextureFormat};
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
-    pub glyph_to_index: HashMap<char, u32, RandomState>,
+    pub glyph_to_index: HashMap<char, u32>,
     pub texture_atlas: Handle<TextureAtlas>,
 }
 
@@ -25,7 +24,7 @@ impl FontAtlas {
         let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
         Self {
             texture_atlas: texture_atlases.add(texture_atlas),
-            glyph_to_index: HashMap::with_hasher(RandomState::new()),
+            glyph_to_index: HashMap::default(),
             dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder::new(size, 1),
         }
     }

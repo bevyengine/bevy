@@ -23,6 +23,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 bevy_render = { path = "../bevy_render", version = "0.1" }
 bevy_window = { path = "../bevy_window", version = "0.1" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.1" }
 
 # other
 wgpu = "0.6"
@@ -30,5 +31,4 @@ pollster = "0.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 crossbeam-channel = "0.4.2"
 crossbeam-utils = "0.7.2"
-ahash = "0.4.4"
 parking_lot = "0.10.2"

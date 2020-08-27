@@ -1,10 +1,9 @@
 use super::{Window, WindowId};
-use ahash::RandomState;
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 #[derive(Default)]
 pub struct Windows {
-    windows: HashMap<WindowId, Window, RandomState>,
+    windows: HashMap<WindowId, Window>,
 }
 
 impl Windows {

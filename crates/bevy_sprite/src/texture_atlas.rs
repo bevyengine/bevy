@@ -1,5 +1,4 @@
 use crate::Rect;
-use ahash::RandomState;
 use bevy_asset::Handle;
 use bevy_core::Bytes;
 use bevy_math::Vec2;
@@ -8,7 +7,7 @@ use bevy_render::{
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 #[derive(RenderResources)]
 pub struct TextureAtlas {
@@ -18,7 +17,7 @@ pub struct TextureAtlas {
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
-    pub texture_handles: Option<HashMap<Handle<Texture>, usize, RandomState>>,
+    pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
 // NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
