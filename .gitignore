@@ -4,3 +4,4 @@ crates/*/target
 Cargo.lock
 .cargo/config
 /.idea
+/.vscode
