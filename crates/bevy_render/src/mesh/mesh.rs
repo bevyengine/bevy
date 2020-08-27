@@ -196,7 +196,7 @@ pub mod shape {
                 min_y: -cube.size,
                 max_y: cube.size,
                 min_z: -cube.size,
-                max_z: cube.size
+                max_z: cube.size,
             })
         }
     }
@@ -427,44 +427,39 @@ pub mod shape {
     }
 
     impl From<SquarePrism> for Mesh {
-        fn from(rec: SquarePrism) -> Self {
+        fn from(sp: SquarePrism) -> Self {
             // Position, Normals, UVs
             let vertices = &[
                 // Top
-                ([rec.min_x, rec.min_y, rec.max_z], [0.0, 0.0, 1.0], [0.0, 0.0]),
-                ([rec.max_x, rec.min_y, rec.max_z], [0.0, 0.0, 1.0], [1.0, 0.0]),
-                ([rec.max_x, rec.max_y, rec.max_z], [0.0, 0.0, 1.0], [1.0, 1.0]),
-                ([rec.min_x, rec.max_y, rec.max_z], [0.0, 0.0, 1.0], [0.0, 1.0]),
-
+                ([sp.min_x, sp.min_y, sp.max_z], [0., 0., 1.0], [0., 0.]),
+                ([sp.max_x, sp.min_y, sp.max_z], [0., 0., 1.0], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.max_z], [0., 0., 1.0], [1.0, 1.0]),
+                ([sp.min_x, sp.max_y, sp.max_z], [0., 0., 1.0], [0., 1.0]),
                 // Bottom
-                ([rec.min_x, rec.max_y, rec.min_z], [0.0, 0.0, -1.0], [1.0, 0.0]),
-                ([rec.max_x, rec.max_y, rec.min_z], [0.0, 0.0, -1.0], [0.0, 0.0]),
-                ([rec.max_x, rec.min_y, rec.min_z], [0.0, 0.0, -1.0], [0.0, 1.0]),
-                ([rec.min_x, rec.min_y, rec.min_z], [0.0, 0.0, -1.0], [1.0, 1.0]),
-
+                ([sp.min_x, sp.max_y, sp.min_z], [0., 0., -1.0], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.min_z], [0., 0., -1.0], [0., 0.]),
+                ([sp.max_x, sp.min_y, sp.min_z], [0., 0., -1.0], [0., 1.0]),
+                ([sp.min_x, sp.min_y, sp.min_z], [0., 0., -1.0], [1.0, 1.0]),
                 // Right
-                ([rec.max_x, rec.min_y, rec.min_z], [1.0, 0.0, 0.0], [0.0, 0.0]),
-                ([rec.max_x, rec.max_y, rec.min_z], [1.0, 0.0, 0.0], [1.0, 0.0]),
-                ([rec.max_x, rec.max_y, rec.max_z], [1.0, 0.0, 0.0], [1.0, 1.0]),
-                ([rec.max_x, rec.min_y, rec.max_z], [1.0, 0.0, 0.0], [0.0, 1.0]),
-
+                ([sp.max_x, sp.min_y, sp.min_z], [1.0, 0., 0.], [0., 0.]),
+                ([sp.max_x, sp.max_y, sp.min_z], [1.0, 0., 0.], [1.0, 0.]),
+                ([sp.max_x, sp.max_y, sp.max_z], [1.0, 0., 0.], [1.0, 1.0]),
+                ([sp.max_x, sp.min_y, sp.max_z], [1.0, 0., 0.], [0., 1.0]),
                 // Left
-                ([rec.min_x, rec.min_y, rec.max_z], [-1.0, 0.0, 0.0], [1.0, 0.0]),
-                ([rec.min_x, rec.max_y, rec.max_z], [-1.0, 0.0, 0.0], [0.0, 0.0]),
-                ([rec.min_x, rec.max_y, rec.min_z], [-1.0, 0.0, 0.0], [0.0, 1.0]),
-                ([rec.min_x, rec.min_y, rec.min_z], [-1.0, 0.0, 0.0], [1.0, 1.0]),
-
+                ([sp.min_x, sp.min_y, sp.max_z], [-1.0, 0., 0.], [1.0, 0.]),
+                ([sp.min_x, sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
+                ([sp.min_x, sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
+                ([sp.min_x, sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
                 // Front
-                ([rec.max_x, rec.max_y, rec.min_z], [0.0, 1.0, 0.0], [1.0, 0.0]),
-                ([rec.min_x, rec.max_y, rec.min_z], [0.0, 1.0, 0.0], [0.0, 0.0]),
-                ([rec.min_x, rec.max_y, rec.max_z], [0.0, 1.0, 0.0], [0.0, 1.0]),
-                ([rec.max_x, rec.max_y, rec.max_z], [0.0, 1.0, 0.0], [1.0, 1.0]),
-
+                ([sp.max_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [1.0, 0.]),
+                ([sp.min_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [0., 0.]),
+                ([sp.min_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [0., 1.0]),
+                ([sp.max_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [1.0, 1.0]),
                 // Back
-                ([rec.max_x, rec.min_y, rec.max_z], [0.0, -1.0, 0.0], [0.0, 0.0]),
-                ([rec.min_x, rec.min_y, rec.max_z], [0.0, -1.0, 0.0], [1.0, 0.0]),
-                ([rec.min_x, rec.min_y, rec.min_z], [0.0, -1.0, 0.0], [1.0, 1.0]),
-                ([rec.max_x, rec.min_y, rec.min_z], [0.0, -1.0, 0.0], [0.0, 1.0]),
+                ([sp.max_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [0., 0.]),
+                ([sp.min_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [1.0, 0.]),
+                ([sp.min_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [1.0, 1.0]),
+                ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
             ];
 
             let mut positions = Vec::with_capacity(24);
@@ -478,9 +473,9 @@ pub mod shape {
             }
 
             let indices = vec![
-                0, 1, 2, 2, 3, 0,       // top
-                4, 5, 6, 6, 7, 4,       // bottom
-                8, 9, 10, 10, 11, 8,    // right
+                0, 1, 2, 2, 3, 0, // top
+                4, 5, 6, 6, 7, 4, // bottom
+                8, 9, 10, 10, 11, 8, // right
                 12, 13, 14, 14, 15, 12, // left
                 16, 17, 18, 18, 19, 16, // front
                 20, 21, 22, 22, 23, 20, // back
@@ -504,13 +499,13 @@ fn remove_current_mesh_resources(
     handle: Handle<Mesh>,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-    render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
     }
     if let Some(RenderResourceId::Buffer(buffer)) =
-    render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
@@ -606,7 +601,7 @@ pub fn mesh_resource_provider_system(
         }
 
         if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-        render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+            render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
         {
             render_pipelines.bindings.set_vertex_buffer(
                 "Vertex",
