@@ -170,8 +170,7 @@ fn counter_system(
     for mut text in &mut query.iter() {
         text.value = format!(
             "Bird Count: {}\nAverage FPS: {:.2}",
-            counter.count,
-            fps_value,
+            counter.count, fps_value,
         );
     }
 }
