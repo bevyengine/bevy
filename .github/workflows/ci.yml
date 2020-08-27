@@ -11,10 +11,11 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         toolchain: [stable, nightly]
+        os: [windows-2019, ubuntu-20.04, macos-10.15]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
 
@@ -31,6 +32,7 @@ jobs:
 
       - name: Install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
+        if: ${{ runner.os == 'Linux' }}
 
       - name: Build
         run: cargo check
