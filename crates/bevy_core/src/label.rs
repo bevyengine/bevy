@@ -77,7 +77,7 @@ pub(crate) fn entity_labels_system(
         let current_labels = entity_labels
             .entity_labels
             .entry(entity)
-            .or_insert_with(|| HashSet::default());
+            .or_insert_with(HashSet::default);
         for removed_label in current_labels.difference(&labels.labels) {
             if let Some(entities) = entity_labels.label_entities.get_mut(removed_label) {
                 entities.retain(|e| *e != entity);
