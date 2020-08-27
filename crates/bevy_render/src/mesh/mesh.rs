@@ -176,7 +176,7 @@ pub mod shape {
     use bevy_math::*;
     use hexasphere::Hexasphere;
 
-    /// A cube.
+    /// A cube -> SquarePrism where all length of sides are the same.
     pub struct Cube {
         /// Half the side length of the cube.
         pub size: f32,
@@ -190,67 +190,14 @@ pub mod shape {
 
     impl From<Cube> for Mesh {
         fn from(cube: Cube) -> Self {
-            let size = cube.size;
-            let vertices = &[
-                // top (0., 0., size)
-                ([-size, -size, size], [0., 0., size], [0., 0.]),
-                ([size, -size, size], [0., 0., size], [size, 0.]),
-                ([size, size, size], [0., 0., size], [size, size]),
-                ([-size, size, size], [0., 0., size], [0., size]),
-                // bottom (0., 0., -size)
-                ([-size, size, -size], [0., 0., -size], [size, 0.]),
-                ([size, size, -size], [0., 0., -size], [0., 0.]),
-                ([size, -size, -size], [0., 0., -size], [0., size]),
-                ([-size, -size, -size], [0., 0., -size], [size, size]),
-                // right (size, 0., 0.)
-                ([size, -size, -size], [size, 0., 0.], [0., 0.]),
-                ([size, size, -size], [size, 0., 0.], [size, 0.]),
-                ([size, size, size], [size, 0., 0.], [size, size]),
-                ([size, -size, size], [size, 0., 0.], [0., size]),
-                // left (-size, 0., 0.)
-                ([-size, -size, size], [-size, 0., 0.], [size, 0.]),
-                ([-size, size, size], [-size, 0., 0.], [0., 0.]),
-                ([-size, size, -size], [-size, 0., 0.], [0., size]),
-                ([-size, -size, -size], [-size, 0., 0.], [size, size]),
-                // front (0., size, 0.)
-                ([size, size, -size], [0., size, 0.], [size, 0.]),
-                ([-size, size, -size], [0., size, 0.], [0., 0.]),
-                ([-size, size, size], [0., size, 0.], [0., size]),
-                ([size, size, size], [0., size, 0.], [size, size]),
-                // back (0., -size, 0.)
-                ([size, -size, size], [0., -size, 0.], [0., 0.]),
-                ([-size, -size, size], [0., -size, 0.], [size, 0.]),
-                ([-size, -size, -size], [0., -size, 0.], [size, size]),
-                ([size, -size, -size], [0., -size, 0.], [0., size]),
-            ];
-
-            let mut positions = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = Vec::new();
-            for (position, normal, uv) in vertices.iter() {
-                positions.push(*position);
-                normals.push(*normal);
-                uvs.push(*uv);
-            }
-
-            let indices = vec![
-                0, 1, 2, 2, 3, 0, // top
-                4, 5, 6, 6, 7, 4, // bottom
-                8, 9, 10, 10, 11, 8, // right
-                12, 13, 14, 14, 15, 12, // left
-                16, 17, 18, 18, 19, 16, // front
-                20, 21, 22, 22, 23, 20, // back
-            ];
-
-            Mesh {
-                primitive_topology: PrimitiveTopology::TriangleList,
-                attributes: vec![
-                    VertexAttribute::position(positions),
-                    VertexAttribute::normal(normals),
-                    VertexAttribute::uv(uvs),
-                ],
-                indices: Some(indices),
-            }
+            Mesh::from(SquarePrism {
+                min_x: -cube.size,
+                max_x: cube.size,
+                min_y: -cube.size,
+                max_y: cube.size,
+                min_z: -cube.size,
+                max_z: cube.size
+            })
         }
     }
 
@@ -453,6 +400,103 @@ pub mod shape {
             }
         }
     }
+
+    /// A Square prism. Just like a cube, but you can specify the dimensions.
+    pub struct SquarePrism {
+        pub min_x: f32,
+        pub max_x: f32,
+
+        pub min_y: f32,
+        pub max_y: f32,
+
+        pub min_z: f32,
+        pub max_z: f32,
+    }
+
+    impl Default for SquarePrism {
+        fn default() -> Self {
+            SquarePrism {
+                min_x: 0.0,
+                max_x: 1.0,
+                min_y: 0.0,
+                max_y: 1.0,
+                min_z: 0.0,
+                max_z: 1.0,
+            }
+        }
+    }
+
+    impl From<SquarePrism> for Mesh {
+        fn from(rec: SquarePrism) -> Self {
+            // Position, Normals, UVs
+            let vertices = &[
+                // Top
+                ([rec.min_x, rec.min_y, rec.max_z], [0.0, 0.0, 1.0], [0.0, 0.0]),
+                ([rec.max_x, rec.min_y, rec.max_z], [0.0, 0.0, 1.0], [1.0, 0.0]),
+                ([rec.max_x, rec.max_y, rec.max_z], [0.0, 0.0, 1.0], [1.0, 1.0]),
+                ([rec.min_x, rec.max_y, rec.max_z], [0.0, 0.0, 1.0], [0.0, 1.0]),
+
+                // Bottom
+                ([rec.min_x, rec.max_y, rec.min_z], [0.0, 0.0, -1.0], [1.0, 0.0]),
+                ([rec.max_x, rec.max_y, rec.min_z], [0.0, 0.0, -1.0], [0.0, 0.0]),
+                ([rec.max_x, rec.min_y, rec.min_z], [0.0, 0.0, -1.0], [0.0, 1.0]),
+                ([rec.min_x, rec.min_y, rec.min_z], [0.0, 0.0, -1.0], [1.0, 1.0]),
+
+                // Right
+                ([rec.max_x, rec.min_y, rec.min_z], [1.0, 0.0, 0.0], [0.0, 0.0]),
+                ([rec.max_x, rec.max_y, rec.min_z], [1.0, 0.0, 0.0], [1.0, 0.0]),
+                ([rec.max_x, rec.max_y, rec.max_z], [1.0, 0.0, 0.0], [1.0, 1.0]),
+                ([rec.max_x, rec.min_y, rec.max_z], [1.0, 0.0, 0.0], [0.0, 1.0]),
+
+                // Left
+                ([rec.min_x, rec.min_y, rec.max_z], [-1.0, 0.0, 0.0], [1.0, 0.0]),
+                ([rec.min_x, rec.max_y, rec.max_z], [-1.0, 0.0, 0.0], [0.0, 0.0]),
+                ([rec.min_x, rec.max_y, rec.min_z], [-1.0, 0.0, 0.0], [0.0, 1.0]),
+                ([rec.min_x, rec.min_y, rec.min_z], [-1.0, 0.0, 0.0], [1.0, 1.0]),
+
+                // Front
+                ([rec.max_x, rec.max_y, rec.min_z], [0.0, 1.0, 0.0], [1.0, 0.0]),
+                ([rec.min_x, rec.max_y, rec.min_z], [0.0, 1.0, 0.0], [0.0, 0.0]),
+                ([rec.min_x, rec.max_y, rec.max_z], [0.0, 1.0, 0.0], [0.0, 1.0]),
+                ([rec.max_x, rec.max_y, rec.max_z], [0.0, 1.0, 0.0], [1.0, 1.0]),
+
+                // Back
+                ([rec.max_x, rec.min_y, rec.max_z], [0.0, -1.0, 0.0], [0.0, 0.0]),
+                ([rec.min_x, rec.min_y, rec.max_z], [0.0, -1.0, 0.0], [1.0, 0.0]),
+                ([rec.min_x, rec.min_y, rec.min_z], [0.0, -1.0, 0.0], [1.0, 1.0]),
+                ([rec.max_x, rec.min_y, rec.min_z], [0.0, -1.0, 0.0], [0.0, 1.0]),
+            ];
+
+            let mut positions = Vec::with_capacity(24);
+            let mut normals = Vec::with_capacity(24);
+            let mut uvs = Vec::with_capacity(24);
+
+            for (position, normal, uv) in vertices.iter() {
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
+            }
+
+            let indices = vec![
+                0, 1, 2, 2, 3, 0,       // top
+                4, 5, 6, 6, 7, 4,       // bottom
+                8, 9, 10, 10, 11, 8,    // right
+                12, 13, 14, 14, 15, 12, // left
+                16, 17, 18, 18, 19, 16, // front
+                20, 21, 22, 22, 23, 20, // back
+            ];
+
+            Mesh {
+                primitive_topology: PrimitiveTopology::TriangleList,
+                attributes: vec![
+                    VertexAttribute::position(positions),
+                    VertexAttribute::normal(normals),
+                    VertexAttribute::uv(uvs),
+                ],
+                indices: Some(indices),
+            }
+        }
+    }
 }
 
 fn remove_current_mesh_resources(
@@ -460,13 +504,13 @@ fn remove_current_mesh_resources(
     handle: Handle<Mesh>,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+    render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
     }
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+    render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
@@ -562,7 +606,7 @@ pub fn mesh_resource_provider_system(
         }
 
         if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-            render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
         {
             render_pipelines.bindings.set_vertex_buffer(
                 "Vertex",
