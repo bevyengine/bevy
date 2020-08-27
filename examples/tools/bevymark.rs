@@ -1,5 +1,5 @@
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 
@@ -28,7 +28,6 @@ fn main() {
         })
         .add_default_plugins()
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(PrintDiagnosticsPlugin::default())
         .add_resource(BevyCounter { count: 0 })
         .add_resource(Option::<Handle<ColorMaterial>>::None)
         .add_resource(Option::<Vec2>::None)
@@ -155,8 +154,24 @@ fn collision_system(
     }
 }
 
-fn counter_system(counter: Res<BevyCounter>, mut query: Query<&mut Text>) {
+fn counter_system(
+    diagnostics: Res<Diagnostics>,
+    counter: Res<BevyCounter>,
+    mut query: Query<&mut Text>,
+) {
+    let mut fps_value = 0.;
+
+    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(average) = fps.average() {
+            fps_value = average;
+        }
+    };
+
     for mut text in &mut query.iter() {
-        text.value = format!("Bird Count: {}", counter.count)
+        text.value = format!(
+            "Bird Count: {}\nAverage FPS: {:.2}",
+            counter.count,
+            fps_value,
+        );
     }
 }
