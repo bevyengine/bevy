@@ -1,4 +1,11 @@
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use uuid::Uuid;
+
+#[derive(Debug)]
+pub struct BevyRawWindowHandle(pub RawWindowHandle);
+
+unsafe impl Send for BevyRawWindowHandle {}
+unsafe impl Sync for BevyRawWindowHandle {}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WindowId(Uuid);
@@ -40,6 +47,7 @@ pub struct Window {
     pub vsync: bool,
     pub resizable: bool,
     pub mode: WindowMode,
+    pub raw_window_handle: BevyRawWindowHandle,
 }
 
 /// Defines the way a window is displayed
@@ -55,9 +63,14 @@ pub enum WindowMode {
 }
 
 impl Window {
-    pub fn new(id: WindowId, window_descriptor: &WindowDescriptor) -> Self {
+    pub fn new(
+        id: WindowId,
+        raw_window_handle: BevyRawWindowHandle,
+        window_descriptor: &WindowDescriptor,
+    ) -> Self {
         Window {
             id,
+            raw_window_handle,
             height: window_descriptor.height,
             width: window_descriptor.width,
             title: window_descriptor.title.clone(),
@@ -65,6 +78,12 @@ impl Window {
             resizable: window_descriptor.resizable,
             mode: window_descriptor.mode,
         }
+    }
+}
+
+unsafe impl HasRawWindowHandle for Window {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        self.raw_window_handle.0
     }
 }
 
