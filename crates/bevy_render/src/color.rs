@@ -41,10 +41,24 @@ impl Color {
     }
 
     /// Create a Color provided an array of three values in the inclusive range [0, 1], corresponding to R, G, and B, respectively.
-    pub const fn array3(rgb: [f32;3]) -> Color { Color { r: rgb[0], g: rgb[1], b: rgb[2], a: 1.0 }}
+    pub const fn array3(rgb: [f32; 3]) -> Color {
+        Color {
+            r: rgb[0],
+            g: rgb[1],
+            b: rgb[2],
+            a: 1.0,
+        }
+    }
 
     /// Create a Color provided an array of four values in the inclusive range [0, 1], corresponding to R, G, B, and A, respectively.
-    pub const fn array4(rgba: [f32;4]) -> Color { Color { r: rgba[0], g: rgba[1], b: rgba[2], a: rgba[3] }}
+    pub const fn array4(rgba: [f32; 4]) -> Color {
+        Color {
+            r: rgba[0],
+            g: rgba[1],
+            b: rgba[2],
+            a: rgba[3],
+        }
+    }
 }
 
 impl Default for Color {

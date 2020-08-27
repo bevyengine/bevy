@@ -7,6 +7,7 @@ use bevy_ecs::{Res, Resource, Resources};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
+    any::TypeId,
     collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
@@ -14,7 +15,6 @@ use std::{
     thread,
 };
 use thiserror::Error;
-use std::any::TypeId;
 
 /// The type used for asset versioning
 pub type AssetVersion = usize;
@@ -127,8 +127,10 @@ impl AssetServer {
     {
         let loader_index = self.loaders.len();
         for extension in loader.extensions().iter() {
-            self.extension_to_loader_index
-                .insert((TypeId::of::<TAsset>(), extension.to_string()), loader_index);
+            self.extension_to_loader_index.insert(
+                (TypeId::of::<TAsset>(), extension.to_string()),
+                loader_index,
+            );
         }
 
         let mut resources = Resources::default();
@@ -236,7 +238,10 @@ impl AssetServer {
     }
 
     // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
-    pub fn load<T: 'static, P: Clone + AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
+    pub fn load<T: 'static, P: Clone + AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<Handle<T>, AssetServerError> {
         self.load_typed::<T, _>(path).map(Handle::from)
     }
 
@@ -249,15 +254,18 @@ impl AssetServer {
         T: 'static,
     {
         let path = path.as_ref();
-        let ref extension = path.extension()
+        let ref extension = path
+            .extension()
             .ok_or(AssetServerError::MissingAssetHandler)?;
 
-        let extension = extension.to_str()
+        let extension = extension
+            .to_str()
             .expect("extension should be a valid string")
             .to_string();
         let typeid = TypeId::of::<T>();
 
-        let index = self.extension_to_loader_index
+        let index = self
+            .extension_to_loader_index
             .get(&(typeid, extension))
             .ok_or(AssetServerError::MissingAssetHandler)?;
 
@@ -272,7 +280,11 @@ impl AssetServer {
     }
 
     /// Common code for loading assets async
-    fn _load_helper<P: AsRef<Path>>(&self, loader_index: &usize, path: P) -> Result<HandleId, AssetServerError> {
+    fn _load_helper<P: AsRef<Path>>(
+        &self,
+        loader_index: &usize,
+        path: P,
+    ) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
         let mut new_version = 0;
         let handle_id = {
@@ -282,13 +294,12 @@ impl AssetServer {
                 .get(path)
                 .and_then(|handle_id| asset_info.get_mut(&handle_id))
             {
-                asset_info.load_state =
-                    if let LoadState::Loaded(_version) = asset_info.load_state {
-                        new_version += 1;
-                        LoadState::Loading(new_version)
-                    } else {
-                        LoadState::Loading(new_version)
-                    };
+                asset_info.load_state = if let LoadState::Loaded(_version) = asset_info.load_state {
+                    new_version += 1;
+                    LoadState::Loading(new_version)
+                } else {
+                    LoadState::Loading(new_version)
+                };
                 asset_info.handle_id
             } else {
                 let handle_id = HandleId::new();
@@ -315,33 +326,42 @@ impl AssetServer {
         // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
         // folders instead (when possible)
         #[cfg(feature = "filesystem_watcher")]
-            Self::watch_path_for_changes(&mut self.filesystem_watcher.write(), path)?;
+        Self::watch_path_for_changes(&mut self.filesystem_watcher.write(), path)?;
         Ok(handle_id)
     }
 
     pub fn load_untyped<P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
-        let extension = path.extension()
+        let extension = path
+            .extension()
             .ok_or(AssetServerError::MissingAssetHandler)?
             .to_str()
             .expect("Extension should be a valid string");
 
-        let index = self.extension_to_handler_index.get(extension)
+        let index = self
+            .extension_to_handler_index
+            .get(extension)
             .ok_or(AssetServerError::MissingAssetHandler)?;
 
         self._load_helper(index, path)
     }
 
-    pub fn load_typed<T: 'static, P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
+    pub fn load_typed<T: 'static, P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
-        let extension = path.extension()
+        let extension = path
+            .extension()
             .ok_or(AssetServerError::MissingAssetHandler)?
             .to_str()
             .expect("Extension should be a valid string")
             .to_string();
         let typeid = TypeId::of::<T>();
 
-        let index = self.extension_to_loader_index.get(&(typeid, extension))
+        let index = self
+            .extension_to_loader_index
+            .get(&(typeid, extension))
             .ok_or(AssetServerError::MissingAssetHandler)?;
 
         self._load_helper(index, path)

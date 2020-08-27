@@ -1,13 +1,10 @@
-use bevy_render::{
-    mesh::Mesh
-};
+use bevy_render::mesh::Mesh;
 
+use crate::gltf_reader::load_gltf;
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use std::path::Path;
-use crate::gltf_reader::load_gltf;
 use bevy_render::texture::Texture;
-
+use std::path::Path;
 
 /// Loads meshes from GLTF files into Mesh assets
 ///

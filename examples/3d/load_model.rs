@@ -2,10 +2,7 @@ use bevy::prelude::*;
 use simplelog::*;
 
 fn main() {
-    SimpleLogger::init(
-        LevelFilter::Warn,
-        Config::default()
-    ).unwrap();
+    SimpleLogger::init(LevelFilter::Warn, Config::default()).unwrap();
 
     App::build()
         .add_resource(Msaa { samples: 4 })
@@ -65,15 +62,14 @@ fn setup(
     let cube_texture = asset_server
         .load::<Texture, _>("assets/models/cube/textured_cube.glb")
         .unwrap();
-    commands
-        .spawn(PbrComponents {
-            mesh: cube,
-            material: materials.add(StandardMaterial {
-                albedo_texture: Some(cube_texture),
-                ..Default::default()
-            }),
-            translation: Translation::new(3.5, 0.0, 0.0),
-            rotation: Rotation::from_rotation_xyz(1.2, 3.14, 0.0),
+    commands.spawn(PbrComponents {
+        mesh: cube,
+        material: materials.add(StandardMaterial {
+            albedo_texture: Some(cube_texture),
             ..Default::default()
-        });
+        }),
+        translation: Translation::new(3.5, 0.0, 0.0),
+        rotation: Rotation::from_rotation_xyz(1.2, 3.14, 0.0),
+        ..Default::default()
+    });
 }

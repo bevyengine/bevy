@@ -1,5 +1,5 @@
-mod loader;
 mod gltf_reader;
+mod loader;
 
 pub use loader::*;
 

@@ -5,27 +5,27 @@ use std::{fs, io, path::Path};
 use anyhow::Result;
 use gltf::{buffer::Source, mesh::Mode};
 use image::{GenericImageView, ImageFormat};
-use thiserror::Error;
 use log::warn;
+use thiserror::Error;
 
 use bevy_render::{
     mesh::{Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
+    texture::{Texture, TextureFormat},
 };
-use bevy_render::texture::{Texture, TextureFormat};
 
 /// The result of loading a GLTF file.
 /// May be possible to extend to support multiple meshes & materials.
 pub struct GltfAssets {
     pub mesh: Vec<Mesh>,
-    pub texture: Vec<Texture>
+    pub texture: Vec<Texture>,
 }
 
 impl Default for GltfAssets {
     fn default() -> Self {
         GltfAssets {
             mesh: Vec::new(),
-            texture: Vec::new()
+            texture: Vec::new(),
         }
     }
 }
@@ -66,7 +66,11 @@ pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> anyhow::Result<GltfAssets
     for scene in gltf.scenes() {
         for node in scene.nodes() {
             if let Err(e) = load_node(&mut assets, &buffer_data, &node, 1) {
-                warn!("While loading GLTF {} encountered problem {:?}", asset_path.display(), e);
+                warn!(
+                    "While loading GLTF {} encountered problem {:?}",
+                    asset_path.display(),
+                    e
+                );
             }
         }
     }
@@ -75,7 +79,12 @@ pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> anyhow::Result<GltfAssets
 }
 
 /// Parse the node. Set the data in the passed-in GltfAssets if appropriate.
-fn load_node(asset: &mut GltfAssets, buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> anyhow::Result<()> {
+fn load_node(
+    asset: &mut GltfAssets,
+    buffer_data: &[Vec<u8>],
+    node: &gltf::Node,
+    depth: i32,
+) -> anyhow::Result<()> {
     if let Some(mesh) = node.mesh() {
         // Read Mesh info from primitives into Bevy's formats
         for primitive in mesh.primitives() {
@@ -123,7 +132,10 @@ fn load_node(asset: &mut GltfAssets, buffer_data: &[Vec<u8>], node: &gltf::Node,
             if texture.is_some() {
                 let image = texture.unwrap().texture().source().source();
                 match image {
-                    gltf::image::Source::Uri { uri: _uri, mime_type: _mime_type }  => panic!("URIs are not supported by the GLTF loader"),
+                    gltf::image::Source::Uri {
+                        uri: _uri,
+                        mime_type: _mime_type,
+                    } => panic!("URIs are not supported by the GLTF loader"),
                     gltf::image::Source::View { view, mime_type } => {
                         let start = view.offset() as usize;
                         let end = (view.offset() + view.length()) as usize;
@@ -144,16 +156,15 @@ fn load_node(asset: &mut GltfAssets, buffer_data: &[Vec<u8>], node: &gltf::Node,
                             }
                         };
                         let size = image.dimensions();
-                        let image = image.as_rgba8()
-                            .ok_or_else(|| {
-                                warn!("While loading GLTF, converting image to rgba8 failed.");
-                                anyhow::anyhow!("Could not convert image to rgba8")
-                            })?;
+                        let image = image.as_rgba8().ok_or_else(|| {
+                            warn!("While loading GLTF, converting image to rgba8 failed.");
+                            anyhow::anyhow!("Could not convert image to rgba8")
+                        })?;
 
                         let texture = Texture {
                             data: image.clone().into_vec(),
                             size: bevy_math::f32::vec2(size.0 as f32, size.1 as f32),
-                            format: TextureFormat::Rgba8Unorm
+                            format: TextureFormat::Rgba8Unorm,
                         };
 
                         asset.texture.push(texture);
