@@ -4,16 +4,17 @@ use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
-        RenderResourceBindings, RenderResourceBindingsId, RenderResourceContext,
-        RenderResourceHints,
+        RenderResourceBindings, RenderResourceContext, RenderResourceHints,
     },
     texture,
 };
 
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    Commands, Entity, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World,
+};
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
+use std::{collections::HashMap, hash::Hash, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 
@@ -29,19 +30,19 @@ struct QueuedBufferWrite {
     size: usize,
 }
 
-/// Used to track items in a gpu buffer in an "array" style 
+/// Used to track items in a gpu buffer in an "array" style
 #[derive(Debug)]
-struct BufferArray {
+struct BufferArray<I> {
     item_size: usize,
     buffer_capacity: usize,
     min_capacity: usize,
     len: usize,
     buffer: Option<BufferId>,
     free_indices: Vec<usize>,
-    indices: HashMap<RenderResourceBindingsId, usize>,
+    indices: HashMap<I, usize>,
 }
 
-impl BufferArray {
+impl<I: Hash + Eq> BufferArray<I> {
     pub fn new(item_size: usize, min_capacity: usize, align: bool) -> Self {
         BufferArray {
             item_size: if align {
@@ -58,9 +59,13 @@ impl BufferArray {
         }
     }
 
-    fn get_or_assign_index(&mut self, id: RenderResourceBindingsId) -> usize {
+    fn get_or_assign_index(&mut self, id: I) -> usize {
         if let Some(index) = self.indices.get(&id) {
             *index
+        } else if let Some(index) = self.free_indices.pop() {
+            self.indices.insert(id, index);
+            self.len += 1;
+            index
         } else {
             let index = self.len;
             self.indices.insert(id, index);
@@ -69,13 +74,21 @@ impl BufferArray {
         }
     }
 
-    pub fn get_binding(&self, id: RenderResourceBindingsId) -> Option<RenderResourceBinding> {
-        self.indices.get(&id)
+    pub fn get_binding(&self, id: I) -> Option<RenderResourceBinding> {
+        self.indices
+            .get(&id)
             .map(|index| RenderResourceBinding::Buffer {
                 buffer: self.buffer.unwrap(),
                 dynamic_index: Some((index * self.item_size) as u32),
                 range: 0..self.item_size as u64,
             })
+    }
+
+    pub fn remove_binding(&mut self, id: I) {
+        if let Some(index) = self.indices.remove(&id) {
+            self.free_indices.push(index);
+            self.len -= 1;
+        }
     }
 
     pub fn resize(&mut self, render_resource_context: &dyn RenderResourceContext) {
@@ -93,9 +106,9 @@ impl BufferArray {
         }
 
         let new_len = if self.buffer_capacity == 0 {
-            self.min_capacity.max(self.len) 
+            self.min_capacity.max(self.len)
         } else {
-            self.min_capacity.max(self.len * 2) 
+            self.min_capacity.max(self.len * 2)
         };
 
         let size = new_len * self.item_size;
@@ -110,11 +123,11 @@ impl BufferArray {
     }
 }
 
-struct UniformBufferArrays<T>
+struct UniformBufferArrays<I, T>
 where
     T: renderer::RenderResources,
 {
-    buffer_arrays: Vec<Option<BufferArray>>,
+    buffer_arrays: Vec<Option<BufferArray<I>>>,
     staging_buffer: Option<BufferId>,
     staging_buffer_size: usize,
     required_staging_buffer_size: usize,
@@ -123,7 +136,7 @@ where
     _marker: PhantomData<T>,
 }
 
-impl<T> Default for UniformBufferArrays<T>
+impl<I, T> Default for UniformBufferArrays<I, T>
 where
     T: renderer::RenderResources,
 {
@@ -140,8 +153,9 @@ where
     }
 }
 
-impl<T> UniformBufferArrays<T>
+impl<I, T> UniformBufferArrays<I, T>
 where
+    I: Hash + Eq + Copy,
     T: renderer::RenderResources,
 {
     /// Initialize this UniformBufferArrays using information from a RenderResources value.
@@ -168,7 +182,7 @@ where
     }
 
     /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in the staging buffer
-    fn prepare_uniform_buffers(&mut self, id: RenderResourceBindingsId, render_resources: &T) {
+    fn prepare_uniform_buffers(&mut self, id: I, render_resources: &T) {
         for (i, render_resource) in render_resources.iter().enumerate() {
             if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
                 let size = render_resource.buffer_byte_len().unwrap();
@@ -212,8 +226,17 @@ where
         }
     }
 
+    fn remove_bindings(&mut self, id: I) {
+        for buffer_array in self.buffer_arrays.iter_mut() {
+            if let Some(buffer_array) = buffer_array {
+                buffer_array.remove_binding(id);
+            }
+        }
+    }
+
     fn write_uniform_buffers(
         &mut self,
+        id: I,
         uniforms: &T,
         dynamic_uniforms: bool,
         render_resource_context: &dyn RenderResourceContext,
@@ -228,7 +251,7 @@ where
                     let buffer_array = self.buffer_arrays[i].as_mut().unwrap();
                     let range = 0..size as u64;
                     let (target_buffer, target_offset) = if dynamic_uniforms {
-                        let binding = buffer_array.get_binding(render_resource_bindings.id).unwrap();
+                        let binding = buffer_array.get_binding(id).unwrap();
                         let dynamic_index = if let RenderResourceBinding::Buffer {
                             dynamic_index: Some(dynamic_index),
                             ..
@@ -374,7 +397,7 @@ where
             system.id(),
             RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
             },
         );
@@ -383,13 +406,13 @@ where
     }
 }
 
-struct RenderResourcesNodeState<T: RenderResources> {
+struct RenderResourcesNodeState<I, T: RenderResources> {
     command_queue: CommandQueue,
-    uniform_buffer_arrays: UniformBufferArrays<T>,
+    uniform_buffer_arrays: UniformBufferArrays<I, T>,
     dynamic_uniforms: bool,
 }
 
-impl<T: RenderResources> Default for RenderResourcesNodeState<T> {
+impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
     fn default() -> Self {
         Self {
             command_queue: Default::default(),
@@ -400,25 +423,29 @@ impl<T: RenderResources> Default for RenderResourcesNodeState<T> {
 }
 
 fn render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<T>>,
+    mut state: Local<RenderResourcesNodeState<Entity, T>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(&T, &Draw, &mut RenderPipelines)>,
+    mut query: Query<(Entity, &T, &Draw, &mut RenderPipelines)>,
 ) {
     let state = state.deref_mut();
     let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
     let render_resource_context = &**render_resource_context;
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some((first, _, _)) = query.iter().iter().next() {
+    if let Some((_, first, _, _)) = query.iter().iter().next() {
         uniform_buffer_arrays.initialize(first);
     }
 
-    for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+    for entity in query.removed::<T>() {
+        uniform_buffer_arrays.remove_bindings(*entity);
+    }
+
+    for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
             continue;
         }
 
-        uniform_buffer_arrays.prepare_uniform_buffers(render_pipelines.bindings.id, uniforms);
+        uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         setup_uniform_texture_resources::<T>(
             &uniforms,
             render_resource_context,
@@ -435,12 +462,13 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+                for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
                         continue;
                     }
 
                     state.uniform_buffer_arrays.write_uniform_buffers(
+                        entity,
                         &uniforms,
                         state.dynamic_uniforms,
                         render_resource_context,
@@ -458,12 +486,13 @@ fn render_resources_node_system<T: RenderResources>(
     } else {
         // TODO: can we just remove this?
         let mut staging_buffer: [u8; 0] = [];
-        for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+        for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
             if !draw.is_visible {
                 continue;
             }
 
             state.uniform_buffer_arrays.write_uniform_buffers(
+                entity,
                 &uniforms,
                 state.dynamic_uniforms,
                 render_resource_context,
@@ -525,7 +554,7 @@ where
             system.id(),
             RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                uniform_buffer_arrays: UniformBufferArrays::<Handle<T>, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
             },
         );
@@ -535,9 +564,8 @@ where
 }
 
 fn asset_render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<T>>,
+    mut state: Local<RenderResourcesNodeState<Handle<T>, T>>,
     assets: Res<Assets<T>>,
-    //    asset_events: Res<Events<AssetEvent<T>>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&Handle<T>, &Draw, &mut RenderPipelines)>,
@@ -553,15 +581,15 @@ fn asset_render_resources_node_system<T: RenderResources>(
 
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some(first_handle) = modified_assets.iter().next() {
+    if let Some(first_handle) = modified_assets.get(0) {
         let asset = assets.get(first_handle).expect(EXPECT_ASSET_MESSAGE);
         uniform_buffer_arrays.initialize(asset);
     }
 
     for asset_handle in modified_assets.iter() {
         let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+        uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
         let mut bindings = asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
-        uniform_buffer_arrays.prepare_uniform_buffers(bindings.id, asset);
         setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings);
     }
 
@@ -580,6 +608,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
                         asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                     // TODO: only setup buffer if we haven't seen this handle before
                     state.uniform_buffer_arrays.write_uniform_buffers(
+                        *asset_handle,
                         &asset,
                         state.dynamic_uniforms,
                         render_resource_context,
@@ -602,6 +631,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
                 asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
             // TODO: only setup buffer if we haven't seen this handle before
             state.uniform_buffer_arrays.write_uniform_buffers(
+                *asset_handle,
                 &asset,
                 state.dynamic_uniforms,
                 render_resource_context,
