@@ -411,6 +411,15 @@ pub mod shape {
 
     impl From<Icosphere> for Mesh {
         fn from(sphere: Icosphere) -> Self {
+            if sphere.subdivisions >= 80 {
+                let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
+
+                panic!(
+                    "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
+                    sphere.subdivisions,
+                    temp_sphere.raw_points().len()
+                );
+            }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
                 let inclination = point.z().acos();
                 let azumith = point.y().atan2(point.x());
