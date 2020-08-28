@@ -1,6 +1,6 @@
 use super::{
-    CameraNode, MeshNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode,
-    WindowSwapChainNode, WindowTextureNode,
+    CameraNode, CompilePipelinesNode, MeshNode, PassNode, RenderGraph, SharedBuffersNode,
+    TextureCopyNode, WindowSwapChainNode, WindowTextureNode,
 };
 use crate::{
     pass::{
@@ -63,6 +63,7 @@ pub mod node {
     pub const PRIMARY_SWAP_CHAIN: &str = "swapchain";
     pub const CAMERA3D: &str = "camera3d";
     pub const CAMERA2D: &str = "camera2d";
+    pub const COMPILE_PIPELINES: &str = "compile_pipelines";
     pub const TEXTURE_COPY: &str = "texture_copy";
     pub const MAIN_DEPTH_TEXTURE: &str = "main_pass_depth_texture";
     pub const MAIN_SAMPLED_COLOR_ATTACHMENT: &str = "main_pass_sampled_color_attachment";
@@ -99,7 +100,13 @@ impl BaseRenderGraphBuilder for RenderGraph {
     fn add_base_graph(&mut self, config: &BaseRenderGraphConfig, msaa: &Msaa) -> &mut Self {
         self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
 
+        self.add_system_node(node::COMPILE_PIPELINES, CompilePipelinesNode);
+
         self.add_system_node(node::MESH, MeshNode);
+
+        // Mesh node creates vertex buffers, which requires that we know the vertex buffer layout.
+        self.add_node_edge(node::MESH, node::COMPILE_PIPELINES)
+            .unwrap();
 
         if config.add_3d_camera {
             self.add_system_node(node::CAMERA3D, CameraNode::new(camera::CAMERA3D));

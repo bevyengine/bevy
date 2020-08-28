@@ -1,4 +1,5 @@
 mod camera_node;
+mod compile_pipelines_node;
 mod mesh_node;
 mod pass_node;
 mod render_resources_node;
@@ -8,6 +9,7 @@ mod window_swapchain_node;
 mod window_texture_node;
 
 pub use camera_node::*;
+pub use compile_pipelines_node::*;
 pub use mesh_node::*;
 pub use pass_node::*;
 pub use render_resources_node::*;
