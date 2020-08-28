@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     pub fn test_spawn() {
-        let pool = TaskPool::<Compute>::new();
+        let pool = TaskPool::new();
 
         let foo = Box::new(42);
         let foo = &*foo;
