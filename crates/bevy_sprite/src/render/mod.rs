@@ -31,7 +31,7 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
+            depth_compare: CompareFunction::LessEqual,
             stencil: StencilStateDescriptor {
                 front: StencilStateFaceDescriptor::IGNORE,
                 back: StencilStateFaceDescriptor::IGNORE,
@@ -79,7 +79,7 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
         depth_stencil_state: Some(DepthStencilStateDescriptor {
             format: TextureFormat::Depth32Float,
             depth_write_enabled: true,
-            depth_compare: CompareFunction::Less,
+            depth_compare: CompareFunction::LessEqual,
             stencil: StencilStateDescriptor {
                 front: StencilStateFaceDescriptor::IGNORE,
                 back: StencilStateFaceDescriptor::IGNORE,
