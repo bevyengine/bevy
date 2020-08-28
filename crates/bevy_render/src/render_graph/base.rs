@@ -1,6 +1,6 @@
 use super::{
-    CameraNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode, WindowSwapChainNode,
-    WindowTextureNode,
+    CameraNode, MeshNode, PassNode, RenderGraph, SharedBuffersNode, TextureCopyNode,
+    WindowSwapChainNode, WindowTextureNode,
 };
 use crate::{
     pass::{
@@ -68,6 +68,7 @@ pub mod node {
     pub const MAIN_SAMPLED_COLOR_ATTACHMENT: &str = "main_pass_sampled_color_attachment";
     pub const MAIN_PASS: &str = "main_pass";
     pub const SHARED_BUFFERS: &str = "shared_buffers";
+    pub const MESH: &str = "MESH";
 }
 
 pub mod camera {
@@ -97,6 +98,9 @@ pub trait BaseRenderGraphBuilder {
 impl BaseRenderGraphBuilder for RenderGraph {
     fn add_base_graph(&mut self, config: &BaseRenderGraphConfig, msaa: &Msaa) -> &mut Self {
         self.add_node(node::TEXTURE_COPY, TextureCopyNode::default());
+
+        self.add_system_node(node::MESH, MeshNode);
+
         if config.add_3d_camera {
             self.add_system_node(node::CAMERA3D, CameraNode::new(camera::CAMERA3D));
         }

@@ -35,7 +35,6 @@ use bevy_type_registry::RegisterType;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
-use mesh::LoadingMeshes;
 use pipeline::{
     DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
     PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
@@ -115,7 +114,6 @@ impl Plugin for RenderPlugin {
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()
             .init_resource::<VertexBufferDescriptors>()
-            .init_resource::<LoadingMeshes>()
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
@@ -139,11 +137,6 @@ impl Plugin for RenderPlugin {
             .add_system_to_stage(
                 bevy_app::stage::POST_UPDATE,
                 camera::visible_entities_system.system(),
-            )
-            // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                mesh::mesh_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
