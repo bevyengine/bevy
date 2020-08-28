@@ -42,6 +42,8 @@ impl Resources {
         self.get_resource_mut(ResourceIndex::Global)
     }
 
+    /// Returns a clone of the underlying resource, this is helpful when borrowing something
+    /// cloneable (like a task pool) without taking a borrow on the resource map
     pub fn get_cloned<T: Resource + Clone>(&self) -> Option<T> {
         self.get::<T>().map(|r| (*r).clone())
     }

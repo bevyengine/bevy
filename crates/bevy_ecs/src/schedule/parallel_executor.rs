@@ -35,18 +35,6 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelExecutor {
-    pub fn initialize_pools(resources: &mut Resources) {
-        let compute_pool: bevy_tasks::ComputePool = resources
-            .get::<ParallelExecutorOptions>()
-            .map(|options| (*options).clone())
-            .unwrap_or_else(ParallelExecutorOptions::default)
-            .create_builder()
-            .build();
-
-        // For now, bevy_ecs only uses the global task pool so it is sufficient to configure it once here.
-        resources.insert(compute_pool);
-    }
-
     pub fn without_tracker_clears() -> Self {
         Self {
             clear_trackers: false,
@@ -74,52 +62,6 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
-    }
-}
-
-/// This can be added as an app resource to control the global `bevy_tasks::TaskPool` used by ecs.
-// Dev internal note: We cannot directly expose a ThreadPoolBuilder here as it does not implement Send and Sync.
-#[derive(Debug, Default, Clone)]
-pub struct ParallelExecutorOptions {
-    /// If some value, we'll set up the thread pool to use at most n threads. See `bevy_tasks::TaskPoolBuilder::num_threads`.
-    num_threads: Option<usize>,
-    /// If some value, we'll set up the thread pool's' workers to the given stack size. See `bevy_tasks::TaskPoolBuilder::stack_size`.
-    stack_size: Option<usize>,
-    // TODO: Do we also need/want to expose other features (*_handler, etc.)
-}
-
-impl ParallelExecutorOptions {
-    /// Creates a new ParallelExecutorOptions instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the num_threads option, using the builder pattern
-    pub fn with_num_threads(mut self, num_threads: Option<usize>) -> Self {
-        self.num_threads = num_threads;
-        self
-    }
-
-    /// Sets the stack_size option, using the builder pattern. WARNING: Only use this if you know what you're doing,
-    /// otherwise your application may run into stability and performance issues.
-    pub fn with_stack_size(mut self, stack_size: Option<usize>) -> Self {
-        self.stack_size = stack_size;
-        self
-    }
-
-    /// Creates a new ThreadPoolBuilder based on the current options.
-    pub(crate) fn create_builder(&self) -> bevy_tasks::TaskPoolBuilder {
-        let mut builder = bevy_tasks::TaskPoolBuilder::new();
-
-        if let Some(num_threads) = self.num_threads {
-            builder = builder.num_threads(num_threads);
-        }
-
-        if let Some(stack_size) = self.stack_size {
-            builder = builder.stack_size(stack_size);
-        }
-
-        builder
     }
 }
 
@@ -325,11 +267,6 @@ impl ExecutorStage {
                     system.run(world, resources);
                     sender.send(system_index).unwrap();
                 });
-                // scope.spawn_fifo(move |_| {
-                //     let mut system = system.lock();
-                //     system.run(world, resources);
-                //     sender.send(system_index).unwrap();
-                // });
 
                 systems_currently_running = true;
             }
@@ -345,7 +282,9 @@ impl ExecutorStage {
         systems: &[Arc<Mutex<Box<dyn System>>>],
         schedule_changed: bool,
     ) {
-        let compute_pool = resources.get_cloned::<bevy_tasks::ComputePool>().unwrap();
+        let compute_pool = resources
+            .get_cloned::<bevy_tasks::ComputeTaskPool>()
+            .unwrap();
 
         // if the schedule has changed, clear executor state / fill it with new defaults
         if schedule_changed {

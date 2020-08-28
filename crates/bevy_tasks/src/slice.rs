@@ -1,12 +1,7 @@
 use super::TaskPool;
 
 pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
-    fn par_chunk_map<F, R, Usage>(
-        &self,
-        task_pool: &TaskPool<Usage>,
-        chunk_size: usize,
-        f: F,
-    ) -> Vec<R>
+    fn par_chunk_map<F, R>(&self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -20,12 +15,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
         })
     }
 
-    fn par_splat_map<F, R, Usage>(
-        &self,
-        task_pool: &TaskPool<Usage>,
-        max_tasks: Option<usize>,
-        f: F,
-    ) -> Vec<R>
+    fn par_splat_map<F, R>(&self, task_pool: &TaskPool, max_tasks: Option<usize>, f: F) -> Vec<R>
     where
         F: Fn(&[T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -46,12 +36,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
 impl<S, T: Sync> ParallelSlice<T> for S where S: AsRef<[T]> {}
 
 pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
-    fn par_chunk_map_mut<F, R, Usage>(
-        &mut self,
-        task_pool: &TaskPool<Usage>,
-        chunk_size: usize,
-        f: F,
-    ) -> Vec<R>
+    fn par_chunk_map_mut<F, R>(&mut self, task_pool: &TaskPool, chunk_size: usize, f: F) -> Vec<R>
     where
         F: Fn(&mut [T]) -> R + Send + Sync,
         R: Send + 'static,
@@ -65,9 +50,9 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
         })
     }
 
-    fn par_splat_map_mut<F, R, Usage>(
+    fn par_splat_map_mut<F, R>(
         &mut self,
-        task_pool: &TaskPool<Usage>,
+        task_pool: &TaskPool,
         max_tasks: Option<usize>,
         f: F,
     ) -> Vec<R>
