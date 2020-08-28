@@ -1,5 +1,6 @@
 use super::Texture;
 use crate::pipeline::CompareFunction;
+use std::num::NonZeroU8;
 
 /// Describes a sampler
 #[derive(Copy, Clone)]
@@ -13,7 +14,7 @@ pub struct SamplerDescriptor {
     pub lod_min_clamp: f32,
     pub lod_max_clamp: f32,
     pub compare_function: Option<CompareFunction>,
-    pub anisotropy_clamp: Option<u8>,
+    pub anisotropy_clamp: Option<NonZeroU8>,
 }
 
 impl Default for SamplerDescriptor {

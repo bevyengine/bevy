@@ -36,6 +36,10 @@ impl VertexAttributeValues {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     // TODO: add vertex format as parameter here and perform type conversions
     pub fn get_bytes(&self) -> &[u8] {
         match self {
@@ -238,9 +242,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             let indices = vec![
@@ -345,9 +349,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {
@@ -385,9 +389,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {

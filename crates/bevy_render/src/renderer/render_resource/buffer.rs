@@ -4,6 +4,7 @@ use uuid::Uuid;
 pub struct BufferId(Uuid);
 
 impl BufferId {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         BufferId(Uuid::new_v4())
     }

@@ -62,6 +62,7 @@ struct Pretty {
 ///     .indentor("\t".to_owned());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PrettyConfig {
     /// Limit the pretty-ness up to the given depth.
     #[serde(default = "default_depth_limit")]
@@ -83,9 +84,6 @@ pub struct PrettyConfig {
     pub decimal_floats: bool,
     /// Enable extensions. Only configures 'implicit_some' for now.
     pub extensions: Extensions,
-    /// Private field to ensure adding a field is non-breaking.
-    #[serde(skip)]
-    _future_proof: (),
 }
 
 impl PrettyConfig {
@@ -206,7 +204,6 @@ impl Default for PrettyConfig {
             enumerate_arrays: default_enumerate_arrays(),
             extensions: Extensions::default(),
             decimal_floats: default_decimal_floats(),
-            _future_proof: (),
         }
     }
 }
@@ -391,7 +388,7 @@ impl<'a, W: io::Write> ser::Serializer for &'a mut Serializer<W> {
     fn serialize_f32(self, v: f32) -> Result<()> {
         write!(self.output, "{}", v)?;
         // TODO: use f32::EPSILON when minimum supported rust version is 1.43
-        pub const EPSILON: f32 = 1.19209290e-07_f32;
+        pub const EPSILON: f32 = 1.1920929e-7_f32;
         if self.decimal_floats() && (v - v.floor()).abs() < EPSILON {
             write!(self.output, ".0")?;
         }
@@ -401,7 +398,7 @@ impl<'a, W: io::Write> ser::Serializer for &'a mut Serializer<W> {
     fn serialize_f64(self, v: f64) -> Result<()> {
         write!(self.output, "{}", v)?;
         // TODO: use f64::EPSILON when minimum supported rust version is 1.43
-        pub const EPSILON: f64 = 2.2204460492503131e-16_f64;
+        pub const EPSILON: f64 = 2.220446049250313e-16_f64;
         if self.decimal_floats() && (v - v.floor()).abs() < EPSILON {
             write!(self.output, ".0")?;
         }

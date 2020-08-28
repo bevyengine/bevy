@@ -67,7 +67,7 @@ impl Node for TextureCopyNode {
                             texture_resource.get_texture().unwrap(),
                             [0, 0, 0],
                             0,
-                            texture_descriptor.size.clone(),
+                            texture_descriptor.size,
                         );
                         render_context.resources().remove_buffer(texture_buffer);
                     }

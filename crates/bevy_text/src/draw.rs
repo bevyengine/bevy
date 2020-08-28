@@ -84,6 +84,11 @@ impl<'a> Drawable for DrawableText<'a> {
         // set local per-character bindings
         for character in self.text.chars() {
             if character.is_control() {
+                if character == '\n' {
+                    caret.set_x(self.position.x());
+                    // TODO: Necessary to also calculate scaled_font.line_gap() in here?
+                    caret.set_y(caret.y() - scaled_font.height());
+                }
                 continue;
             }
 

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_text"
-version = "0.1.0"
+version = "0.1.3"
 edition = "2018"
 authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
 description = "Provides text functionality for Bevy Engine"

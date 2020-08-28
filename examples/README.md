@@ -1,7 +1,10 @@
 # Examples
 
 These examples demonstrate the main features of Bevy and how to use them.
-To run an example, use the command `cargo run --example <Example>`.
+To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
+```
+cargo run --features wayland hello_world
+```
 
 ## Hello, World!
 
@@ -15,7 +18,7 @@ Example | Main | Description
 --- | --- | ---
 `sprite` | [`2d/sprite.rs`](./2d/sprite.rs) | Renders a sprite
 `sprite_sheet` | [`2d/sprite_sheet.rs`](./2d/sprite_sheet.rs) | Renders an animated sprite
-`texture_atlas` | [`2d/texture_atlas.rs`](./2d/sprite_sheet.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+`texture_atlas` | [`2d/texture_atlas.rs`](./2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 
 ## 3D Rendering
 

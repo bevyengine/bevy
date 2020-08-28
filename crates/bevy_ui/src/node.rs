@@ -92,9 +92,9 @@ impl Default for Style {
             flex_grow: 0.0,
             flex_shrink: 1.0,
             flex_basis: Val::Auto,
-            size: Default::default(),
-            min_size: Default::default(),
-            max_size: Default::default(),
+            size: Size::new(Val::Auto, Val::Auto),
+            min_size: Size::new(Val::Auto, Val::Auto),
+            max_size: Size::new(Val::Auto, Val::Auto),
             aspect_ratio: Default::default(),
         }
     }

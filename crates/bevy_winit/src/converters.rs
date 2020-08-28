@@ -7,9 +7,7 @@ pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> K
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
-        key_code: keyboard_input
-            .virtual_keycode
-            .map(|v| convert_virtual_key_code(v)),
+        key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
     }
 }
 

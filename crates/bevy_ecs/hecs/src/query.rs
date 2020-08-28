@@ -47,6 +47,9 @@ pub trait Fetch<'a>: Sized {
     fn release(archetype: &Archetype);
 
     /// if this returns true, the current item will be skipped during iteration
+    ///
+    /// # Safety
+    /// shouldn't be called if there is no current item
     unsafe fn should_skip(&self) -> bool {
         false
     }
@@ -237,7 +240,9 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
-#[allow(missing_docs)]
+/// Query transformer that skips entities that have a `T` component that has
+/// not been mutated since the last pass of the system. This does not include
+/// components that were added in since the last pass.
 pub struct Mutated<'a, T> {
     value: &'a T,
 }
@@ -365,7 +370,8 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     }
 }
 
-#[allow(missing_docs)]
+/// Query transformer skipping entities that have not been either mutated or added
+/// since the last pass of the system
 pub struct Changed<'a, T> {
     value: &'a T,
 }
@@ -793,7 +799,7 @@ struct ChunkIter<Q: Query> {
 }
 
 impl<Q: Query> ChunkIter<Q> {
-    unsafe fn next<'a, 'w>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
+    unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
             if self.len == 0 {
                 return None;
