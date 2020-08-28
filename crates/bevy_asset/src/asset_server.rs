@@ -294,12 +294,10 @@ impl AssetServer {
                 .get(path)
                 .and_then(|handle_id| asset_info.get_mut(&handle_id))
             {
-                asset_info.load_state = if let LoadState::Loaded(_version) = asset_info.load_state {
+                if let LoadState::Loaded(_) = asset_info.load_state {
                     new_version += 1;
-                    LoadState::Loading(new_version)
-                } else {
-                    LoadState::Loading(new_version)
-                };
+                }
+                asset_info.load_state = LoadState::Loading(new_version);
                 asset_info.handle_id
             } else {
                 let handle_id = HandleId::new();
