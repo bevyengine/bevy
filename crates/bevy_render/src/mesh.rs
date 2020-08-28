@@ -461,11 +461,20 @@ pub mod shape {
 #[cfg(test)]
 mod tests {
     use super::{Mesh, VertexAttribute};
-    use crate::{
-        mesh::Vertex,
-        pipeline::{AsVertexBufferDescriptor, PrimitiveTopology},
-    };
-    use bevy_core::AsBytes;
+    use crate::pipeline::{AsVertexBufferDescriptor, PrimitiveTopology};
+    use bevy_core::{AsBytes, Byteable};
+
+    #[repr(C)]
+    #[derive(Clone, Copy, AsVertexBufferDescriptor)]
+    #[as_crate(bevy_render)]
+    struct Vertex {
+        pub position: [f32; 3],
+        pub normal: [f32; 3],
+        pub uv: [f32; 2],
+    }
+
+    // SAFE: Vertex is repr(C) containing primitives
+    unsafe impl Byteable for Vertex {}
 
     #[test]
     fn test_get_vertex_bytes() {
