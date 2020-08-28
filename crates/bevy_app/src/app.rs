@@ -1,5 +1,4 @@
-use crate::app_builder::AppBuilder;
-use crate::DefaultTaskPoolOptions;
+use crate::{app_builder::AppBuilder, DefaultTaskPoolOptions};
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
 #[allow(clippy::needless_doctest_main)]

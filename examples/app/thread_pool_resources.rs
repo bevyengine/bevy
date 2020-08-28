@@ -1,5 +1,5 @@
-use bevy::{ecs::ParallelExecutorOptions, prelude::*};
-use bevy_ecs::DefaultTaskPoolOptions;
+use bevy::prelude::*;
+use bevy_app::DefaultTaskPoolOptions;
 
 /// This example illustrates how to customize the thread pool used internally (e.g. to only use a
 /// certain number of threads).
