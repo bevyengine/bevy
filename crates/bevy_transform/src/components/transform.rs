@@ -52,12 +52,12 @@ impl Transform {
     }
 
     pub fn with_translation(mut self, translation: Vec3) -> Self {
-        self.translate(&translation);
+        self.translate(translation);
         self
     }
 
     pub fn with_rotation(mut self, rotation: Quat) -> Self {
-        self.rotate(&rotation);
+        self.rotate(rotation);
         self
     }
 
@@ -101,7 +101,7 @@ impl Transform {
         )
     }
 
-    pub fn set_local_translation(&mut self, translation: &Vec3) {
+    pub fn set_local_translation(&mut self, translation: Vec3) {
         *self.local.w_axis_mut() = translation.extend(1.0);
     }
 
@@ -112,12 +112,12 @@ impl Transform {
         };
     }
 
-    pub fn translate(&mut self, translation: &Vec3) {
+    pub fn translate(&mut self, translation: Vec3) {
         *self.local.w_axis_mut() += translation.extend(0.0);
     }
 
-    pub fn rotate(&mut self, rotation: &Quat) {
-        self.local = self.local.mul_mat4(&Mat4::from_quat(*rotation));
+    pub fn rotate(&mut self, rotation: Quat) {
+        self.local = self.local.mul_mat4(&Mat4::from_quat(rotation));
     }
 
     // TODO: scale()

@@ -25,7 +25,7 @@ fn move_cubes(
 ) {
     for (mut transform, material_handle) in &mut query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
-        transform.translate(&Translation(Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds));
+        transform.translate(Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds);
         material.albedo =
             Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup as f32).sin());
     }
