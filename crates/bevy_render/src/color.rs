@@ -38,17 +38,41 @@ impl Color {
         Color { r, g, b, a }
     }
 
-    pub fn hex<T: AsRef<[u8]>>(hex: T) -> Color {
-        let mut buf = [0; 3];
-        if hex::decode_to_slice(hex, &mut buf).is_ok() {
-            let r = buf[0] as f32 / 255.0;
-            let g = buf[1] as f32 / 255.0;
-            let b = buf[2] as f32 / 255.0;
-            Color::rgb(r, g, b)
-        } else {
-            // Invalid value, use default color
-            Color::default()
+    pub fn hex<T: AsRef<str>>(hex: T) -> Color {
+        let hex = hex.as_ref();
+
+        // RGB
+        if hex.len() == 3 {
+            let mut data = [0; 6];
+            for (i, ch) in hex.chars().enumerate() {
+                data[i * 2] = ch as u8;
+                data[i * 2 + 1] = ch as u8;
+            }
+            return decode_rgb(&data);
         }
+
+        // RGBA
+        if hex.len() == 4 {
+            let mut data = [0; 8];
+            for (i, ch) in hex.chars().enumerate() {
+                data[i * 2] = ch as u8;
+                data[i * 2 + 1] = ch as u8;
+            }
+            return decode_rgba(&data);
+        }
+
+        // RRGGBB
+        if hex.len() == 6 {
+            return decode_rgb(hex.as_bytes());
+        }
+
+        // RRGGBBAA
+        if hex.len() == 8 {
+            return decode_rgba(hex.as_bytes());
+        }
+
+        // Invalid value, use default color
+        Color::default()
     }
 }
 
@@ -217,3 +241,49 @@ impl From<Handle<Texture>> for ColorSource {
 }
 
 impl_render_resource_bytes!(Color);
+
+fn decode_rgb(data: &[u8]) -> Color {
+    let mut buf = [0; 3];
+    if hex::decode_to_slice(data, &mut buf).is_ok() {
+        let r = buf[0] as f32 / 255.0;
+        let g = buf[1] as f32 / 255.0;
+        let b = buf[2] as f32 / 255.0;
+        Color::rgb(r, g, b)
+    } else {
+        Color::default()
+    }
+}
+
+fn decode_rgba(data: &[u8]) -> Color {
+    let mut buf = [0; 4];
+    if hex::decode_to_slice(data, &mut buf).is_ok() {
+        let r = buf[0] as f32 / 255.0;
+        let g = buf[1] as f32 / 255.0;
+        let b = buf[2] as f32 / 255.0;
+        let a = buf[3] as f32 / 255.0;
+        Color::rgba(r, g, b, a)
+    } else {
+        Color::default()
+    }
+}
+
+#[test]
+fn test_hex_color() {
+    assert_eq!(Color::hex("FFF"), Color::rgb(1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("000"), Color::rgb(0.0, 0.0, 0.0));
+    assert_eq!(Color::hex("---"), Color::default());
+
+    assert_eq!(Color::hex("FFFF"), Color::rgba(1.0, 1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("0000"), Color::rgba(0.0, 0.0, 0.0, 0.0));
+    assert_eq!(Color::hex("----"), Color::default());
+
+    assert_eq!(Color::hex("FFFFFF"), Color::rgb(1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("000000"), Color::rgb(0.0, 0.0, 0.0));
+    assert_eq!(Color::hex("------"), Color::default());
+
+    assert_eq!(Color::hex("FFFFFFFF"), Color::rgba(1.0, 1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("00000000"), Color::rgba(0.0, 0.0, 0.0, 0.0));
+    assert_eq!(Color::hex("--------"), Color::default());
+
+    assert_eq!(Color::hex("1234567890"), Color::default());
+}
