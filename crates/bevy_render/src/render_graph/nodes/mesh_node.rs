@@ -1,6 +1,8 @@
 use crate::{
     mesh::{self, Mesh},
-    pipeline::{IndexFormat, PipelineCompiler, PipelineDescriptor, RenderPipelines},
+    pipeline::{
+        IndexFormat, PipelineCompiler, PipelineDescriptor, RenderPipelines, VertexBufferDescriptor,
+    },
     render_graph::{Node, ResourceSlots, SystemNode},
     renderer::{BufferInfo, BufferUsage, RenderContext, RenderResourceContext, RenderResourceId},
 };
@@ -49,38 +51,6 @@ pub fn mesh_node_system(
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    // Find the vertex buffer descriptor that should be used for each mesh.
-    // TODO: support multiple descriptors for a single mesh; this would require changes to the
-    // RenderResourceContext to allow storing a resource per (asset, T) where T is some kind of
-    // buffer descriptor ID.
-    // TODO: store a map from descriptor to set of pipelines that use it, so we don't have to linear
-    // search through the pipelines here
-    let mut mesh_buffer_descriptors = HashMap::new();
-    for (mesh_handle, render_pipelines) in &mut query.iter() {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            'pipes: for pipeline in render_pipelines.pipelines.iter() {
-                if let Some(specialized_descriptor_handle) = pipeline_compiler
-                    .get_specialized_pipeline(pipeline.pipeline, &pipeline.specialization)
-                {
-                    if let Some(pipeline_descriptor) =
-                        pipeline_descriptors.get(&specialized_descriptor_handle)
-                    {
-                        if let Some(layout) = pipeline_descriptor.layout.as_ref() {
-                            // Find the first compatible vertex buffer descriptor.
-                            for vb_descriptor in layout.vertex_buffer_descriptors.iter() {
-                                if mesh.is_compatible_with_vertex_buffer_descriptor(vb_descriptor) {
-                                    // Record the descriptor for when we load the buffer.
-                                    mesh_buffer_descriptors.insert(*mesh_handle, vb_descriptor);
-                                    break 'pipes;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     let render_resource_context = &**render_resource_context;
     let mut changed_meshes = HashSet::new();
     for event in state.mesh_event_reader.iter(&mesh_events) {
@@ -101,43 +71,68 @@ pub fn mesh_node_system(
         }
     }
 
-    for changed_mesh_handle in changed_meshes.into_iter() {
-        if let (Some(mesh), Some(vertex_buffer_descriptor)) = (
-            meshes.get(&changed_mesh_handle),
-            mesh_buffer_descriptors.get(&changed_mesh_handle),
-        ) {
-            let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(vertex_buffer_descriptor)
-                .unwrap();
-            // TODO: use a staging buffer here
-            let vertex_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::VERTEX,
-                    ..Default::default()
-                },
-                &vertex_bytes,
-            );
+    {
+        // Find the vertex buffer descriptor that should be used for each mesh.
+        // TODO: support multiple descriptors for a single mesh; this would require changes to the
+        // RenderResourceContext to allow storing a resource per (asset, T) where T is some kind of
+        // buffer descriptor ID.
+        // TODO: store a map from descriptor to set of pipelines that use it, so we don't have to
+        // linear search through the pipelines here
+        let mut mesh_buffer_descriptors = HashMap::new();
+        let mut iter = query.iter();
+        for (mesh_handle, render_pipelines) in &mut iter {
+            if let Some(mesh) = meshes.get(mesh_handle) {
+                if changed_meshes.contains(mesh_handle) {
+                    if let Some(descriptor) = find_compatible_vertex_buffer_descriptor(
+                        mesh,
+                        &render_pipelines,
+                        &pipeline_compiler,
+                        &pipeline_descriptors,
+                    ) {
+                        mesh_buffer_descriptors.insert(mesh_handle, descriptor);
+                    }
+                }
+            }
+        }
 
-            // TODO: support optional index buffers
-            let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
-            let index_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::INDEX,
-                    ..Default::default()
-                },
-                &index_bytes,
-            );
+        for changed_mesh_handle in changed_meshes.into_iter() {
+            if let (Some(mesh), Some(vertex_buffer_descriptor)) = (
+                meshes.get(&changed_mesh_handle),
+                mesh_buffer_descriptors.get(&changed_mesh_handle),
+            ) {
+                let vertex_bytes = mesh
+                    .get_vertex_buffer_bytes(vertex_buffer_descriptor)
+                    .unwrap();
+                // TODO: use a staging buffer here
+                let vertex_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    &vertex_bytes,
+                );
 
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(vertex_buffer),
-                mesh::VERTEX_BUFFER_ASSET_INDEX,
-            );
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(index_buffer),
-                mesh::INDEX_BUFFER_ASSET_INDEX,
-            );
+                // TODO: support optional index buffers
+                let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
+                let index_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::INDEX,
+                        ..Default::default()
+                    },
+                    &index_bytes,
+                );
+
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(vertex_buffer),
+                    mesh::VERTEX_BUFFER_ASSET_INDEX,
+                );
+                render_resource_context.set_asset_resource(
+                    changed_mesh_handle,
+                    RenderResourceId::Buffer(index_buffer),
+                    mesh::INDEX_BUFFER_ASSET_INDEX,
+                );
+            }
         }
     }
 
@@ -167,6 +162,34 @@ pub fn mesh_node_system(
             );
         }
     }
+}
+
+fn find_compatible_vertex_buffer_descriptor<'a>(
+    mesh: &Mesh,
+    render_pipelines: &RenderPipelines,
+    pipeline_compiler: &PipelineCompiler,
+    pipeline_descriptors: &'a Assets<PipelineDescriptor>,
+) -> Option<&'a VertexBufferDescriptor> {
+    for pipeline in render_pipelines.pipelines.iter() {
+        if let Some(specialized_descriptor_handle) =
+            pipeline_compiler.get_specialized_pipeline(pipeline.pipeline, &pipeline.specialization)
+        {
+            if let Some(pipeline_descriptor) =
+                pipeline_descriptors.get(&specialized_descriptor_handle)
+            {
+                if let Some(layout) = pipeline_descriptor.layout.as_ref() {
+                    // Find the first compatible vertex buffer descriptor.
+                    for vb_descriptor in layout.vertex_buffer_descriptors.iter() {
+                        if mesh.is_compatible_with_vertex_buffer_descriptor(vb_descriptor) {
+                            return Some(vb_descriptor);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn remove_current_mesh_resources(
