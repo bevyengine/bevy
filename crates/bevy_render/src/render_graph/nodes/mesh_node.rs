@@ -1,15 +1,13 @@
 use crate::{
     mesh::{self, Mesh},
-    pipeline::{
-        IndexFormat, PipelineCompiler, PipelineDescriptor, RenderPipelines, VertexBufferDescriptors,
-    },
+    pipeline::{IndexFormat, PipelineCompiler, PipelineDescriptor, RenderPipelines},
     render_graph::{Node, ResourceSlots, SystemNode},
     renderer::{BufferInfo, BufferUsage, RenderContext, RenderResourceContext, RenderResourceId},
 };
 
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, Resources, System, World};
 
 use std::collections::{HashMap, HashSet};
 
@@ -48,8 +46,6 @@ pub fn mesh_node_system(
     meshes: Res<Assets<Mesh>>,
     pipeline_compiler: Res<PipelineCompiler>,
     pipeline_descriptors: Res<Assets<PipelineDescriptor>>,
-    // TODO: not needed when descriptors are reflected
-    mut vertex_buffer_descriptors: ResMut<VertexBufferDescriptors>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {

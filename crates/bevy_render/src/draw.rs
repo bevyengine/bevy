@@ -1,8 +1,5 @@
 use crate::{
-    pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VertexBufferDescriptors,
-    },
+    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
@@ -128,7 +125,6 @@ pub struct DrawContext<'a> {
     pub shaders: ResMut<'a, Assets<Shader>>,
     pub pipeline_compiler: ResMut<'a, PipelineCompiler>,
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
-    pub vertex_buffer_descriptors: Res<'a, VertexBufferDescriptors>,
     pub shared_buffers: Res<'a, SharedBuffers>,
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
 }
@@ -140,7 +136,6 @@ impl<'a> UnsafeClone for DrawContext<'a> {
             shaders: self.shaders.unsafe_clone(),
             pipeline_compiler: self.pipeline_compiler.unsafe_clone(),
             render_resource_context: self.render_resource_context.unsafe_clone(),
-            vertex_buffer_descriptors: self.vertex_buffer_descriptors.unsafe_clone(),
             shared_buffers: self.shared_buffers.unsafe_clone(),
             current_pipeline: self.current_pipeline,
         }
@@ -162,7 +157,6 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         resources.borrow_mut::<Assets<Shader>>();
         resources.borrow_mut::<PipelineCompiler>();
         resources.borrow::<Box<dyn RenderResourceContext>>();
-        resources.borrow::<VertexBufferDescriptors>();
         resources.borrow::<SharedBuffers>();
     }
 
@@ -171,7 +165,6 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         resources.release_mut::<Assets<Shader>>();
         resources.release_mut::<PipelineCompiler>();
         resources.release::<Box<dyn RenderResourceContext>>();
-        resources.release::<VertexBufferDescriptors>();
         resources.release::<SharedBuffers>();
     }
 
@@ -186,9 +179,6 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
             ),
             render_resource_context: Res::new(
                 resources.get_unsafe_ref::<Box<dyn RenderResourceContext>>(ResourceIndex::Global),
-            ),
-            vertex_buffer_descriptors: Res::new(
-                resources.get_unsafe_ref::<VertexBufferDescriptors>(ResourceIndex::Global),
             ),
             shared_buffers: Res::new(
                 resources.get_unsafe_ref::<SharedBuffers>(ResourceIndex::Global),
@@ -207,9 +197,6 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         access
             .immutable
             .insert(TypeId::of::<Box<dyn RenderResourceContext>>());
-        access
-            .immutable
-            .insert(TypeId::of::<VertexBufferDescriptors>());
         access.immutable.insert(TypeId::of::<SharedBuffers>());
         access
     }
@@ -250,7 +237,6 @@ impl<'a> DrawContext<'a> {
                 &mut self.pipelines,
                 &mut self.shaders,
                 pipeline_handle,
-                &self.vertex_buffer_descriptors,
                 specialization,
             )
         };

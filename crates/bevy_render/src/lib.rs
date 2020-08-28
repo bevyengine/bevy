@@ -37,7 +37,7 @@ use camera::{
 };
 use pipeline::{
     DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
+    PrimitiveTopology, ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
@@ -113,7 +113,6 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()
-            .init_resource::<VertexBufferDescriptors>()
             .init_resource::<TextureResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()

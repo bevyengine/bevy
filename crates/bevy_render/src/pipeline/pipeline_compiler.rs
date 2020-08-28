@@ -1,4 +1,4 @@
-use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
+use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor};
 use crate::{
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
@@ -129,8 +129,6 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: Handle<PipelineDescriptor>,
-        // TODO: not needed when descriptors are reflected
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(&source_pipeline).unwrap();
@@ -155,9 +153,6 @@ impl PipelineCompiler {
         specialized_descriptor.reflect_layout(
             shaders,
             true,
-            // TODO: does this parameter need to exist if vertex buffer descriptors are being
-            // reflected?
-            None,
             &pipeline_specialization.dynamic_bindings,
         );
 

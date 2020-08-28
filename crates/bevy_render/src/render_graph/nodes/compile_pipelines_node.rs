@@ -1,5 +1,5 @@
 use crate::{
-    pipeline::{PipelineCompiler, PipelineDescriptor, RenderPipelines, VertexBufferDescriptors},
+    pipeline::{PipelineCompiler, PipelineDescriptor, RenderPipelines},
     render_graph::{Node, ResourceSlots, SystemNode},
     renderer::{RenderContext, RenderResourceContext},
     shader::Shader,
@@ -34,7 +34,6 @@ fn compile_pipelines_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
-    vertex_buffer_descriptors: Res<VertexBufferDescriptors>,
     mut query: Query<Changed<RenderPipelines>>,
 ) {
     for changed_pipelines in &mut query.iter() {
@@ -44,7 +43,6 @@ fn compile_pipelines_system(
                 &mut pipelines,
                 &mut shaders,
                 pipeline.pipeline,
-                &vertex_buffer_descriptors,
                 &pipeline.specialization,
             );
         }

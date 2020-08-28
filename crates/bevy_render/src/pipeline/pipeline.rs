@@ -4,7 +4,7 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor, VertexBufferDescriptors,
+    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
 };
 use crate::{
     shader::{Shader, ShaderStages},
@@ -122,14 +122,10 @@ impl PipelineDescriptor {
     /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
     ///
     /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
-    ///
-    /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
-    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
     pub fn reflect_layout(
         &mut self,
         shaders: &Assets<Shader>,
         bevy_conventions: bool,
-        vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
         dynamic_bindings: &[DynamicBinding],
     ) {
         let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
@@ -145,9 +141,6 @@ impl PipelineDescriptor {
         }
 
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-        if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
-            layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
-        }
 
         if !dynamic_bindings.is_empty() {
             // set binding uniforms to dynamic if render resource bindings use dynamic
