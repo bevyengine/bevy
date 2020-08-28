@@ -26,14 +26,14 @@ fn setup(
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            transform: Translation::new(0.0, 1.0, 0.0).into(),
+            transform: Transform::from_translation((0.0, 1.0, 0.0).into()),
             ..Default::default()
         })
         .with_children(|parent| {
             parent.spawn(PbrComponents {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-                transform: Translation::new(0.0, 0.75, 0.0).into(),
+                transform: Transform::from_translation((0.0, 0.75, 0.0).into()),
                 ..Default::default()
             });
         })
@@ -44,12 +44,12 @@ fn setup(
                 radius: 0.5,
             })),
             material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
-            transform: Translation::new(1.5, 1.5, 1.5).into(),
+            transform: Transform::from_translation((1.5, 1.5, 1.5).into()),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            transform: Translation::new(4.0, 8.0, 4.0).into(),
+            transform: Transform::from_translation((4.0, 8.0, 4.0).into()),
             ..Default::default()
         })
         // camera

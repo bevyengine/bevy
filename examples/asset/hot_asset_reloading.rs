@@ -42,7 +42,7 @@ fn setup(
         })
         // light
         .spawn(LightComponents {
-            transform: Translation::new(4.0, 5.0, 4.0).into(),
+            transform: Transform::from_translation((4.0, 5.0, 4.0).into()),
             ..Default::default()
         })
         // camera

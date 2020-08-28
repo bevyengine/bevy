@@ -123,7 +123,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Translation::new(-2.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((-2.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         .with(green_material)
@@ -149,7 +149,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Translation::new(2.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((2.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         .with(blue_material)

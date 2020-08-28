@@ -63,15 +63,15 @@ mod test {
         }
 
         // Root entity
-        let parent = world.spawn((Transform::from(Translation::new(1.0, 0.0, 0.0)), ())); //FIXME: shouldn't need () to be added
+        let parent = world.spawn((Transform::from_translation((1.0, 0.0, 0.0).into()), ())); //FIXME: shouldn't need () to be added
         let children = world
             .spawn_batch(vec![
                 (
-                    Transform::from(Translation::new(0.0, 2.0, 0.0)),
+                    Transform::from_translation((0.0, 2.0, 0.0).into()),
                     Parent(parent),
                 ),
                 (
-                    Transform::from(Translation::new(0.0, 0.0, 3.0)),
+                    Transform::from_translation((0.0, 0.0, 3.0).into()),
                     Parent(parent),
                 ),
             ])
@@ -111,12 +111,12 @@ mod test {
         let mut commands = Commands::default();
         let mut children = Vec::new();
         commands
-            .spawn((Transform::from(Translation::new(1.0, 0.0, 0.0)), ())) //FIXME: shouldn't need () to be added
+            .spawn((Transform::from_translation((1.0, 0.0, 0.0).into()), ())) //FIXME: shouldn't need () to be added
             .with_children(|parent| {
                 parent
-                    .spawn((Transform::from(Translation::new(0.0, 2.0, 0.0)), ()))
+                    .spawn((Transform::from_translation((0.0, 2.0, 0.0).into()), ()))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Transform::from(Translation::new(0.0, 0.0, 3.0)), ()))
+                    .spawn((Transform::from_translation((0.0, 0.0, 3.0).into()), ()))
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);

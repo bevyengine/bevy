@@ -49,26 +49,26 @@ fn setup(
         .spawn(PbrComponents {
             mesh: monkey_handle,
             material: material_handle,
-            transform: Translation::new(-3.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((-3.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         // cube
         .spawn(PbrComponents {
             mesh: cube_handle,
             material: material_handle,
-            transform: Translation::new(0.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((0.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         // sphere
         .spawn(PbrComponents {
             mesh: sphere_handle,
             material: material_handle,
-            transform: Translation::new(3.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((3.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            transform: Translation::new(4.0, 5.0, 4.0).into(),
+            transform: Transform::from_translation((4.0, 5.0, 4.0).into()),
             ..Default::default()
         })
         // camera

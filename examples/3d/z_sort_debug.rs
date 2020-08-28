@@ -57,7 +57,7 @@ fn setup(
                 shaded: false,
                 ..Default::default()
             }),
-            transform: Translation::new(0.0, 0.0, 1.0).into(),
+            transform: Transform::from_translation((0.0, 0.0, 1.0).into()),
             ..Default::default()
         })
         .with(Rotator)
@@ -70,7 +70,7 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    transform: Translation::new(0.0, 3.0, 0.0).into(),
+                    transform: Transform::from_translation((0.0, 3.0, 0.0).into()),
                     ..Default::default()
                 })
                 .spawn(PbrComponents {
@@ -79,7 +79,7 @@ fn setup(
                         shaded: false,
                         ..Default::default()
                     }),
-                    transform: Translation::new(0.0, -3.0, 0.0).into(),
+                    transform: Transform::from_translation((0.0, -3.0, 0.0).into()),
                     ..Default::default()
                 });
         })

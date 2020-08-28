@@ -39,7 +39,7 @@ fn setup(
     commands
         // light
         .spawn(LightComponents {
-            transform: Translation::new(4.0, -4.0, 5.0).into(),
+            transform: Transform::from_translation((4.0, -4.0, 5.0).into()),
             ..Default::default()
         })
         // camera
@@ -65,12 +65,9 @@ fn setup(
                 ),
                 ..Default::default()
             }),
-            transform: Translation::new(
-                rng.gen_range(-50.0, 50.0),
-                rng.gen_range(-50.0, 50.0),
-                0.0,
-            )
-            .into(),
+            transform: Transform::from_translation(
+                (rng.gen_range(-50.0, 50.0), rng.gen_range(-50.0, 50.0), 0.0).into(),
+            ),
             ..Default::default()
         });
     }

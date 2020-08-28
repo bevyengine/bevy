@@ -102,7 +102,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Translation::new(0.0, 0.0, 0.0).into(),
+            transform: Transform::from_translation((0.0, 0.0, 0.0).into()),
             ..Default::default()
         })
         .with(material)
