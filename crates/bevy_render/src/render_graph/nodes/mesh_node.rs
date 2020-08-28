@@ -40,10 +40,6 @@ impl SystemNode for MeshNode {
 #[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
-    // HACK: this is used to work around the fact that pipelines get compiled lazily during the DRAW
-    // stage, but we need to use the layout in order to create a vertex buffer for meshes created
-    // before the DRAW stage
-    loading_meshes: HashSet<Handle<Mesh>>,
 }
 
 pub fn mesh_node_system(
@@ -88,29 +84,29 @@ pub fn mesh_node_system(
     }
 
     let render_resource_context = &**render_resource_context;
+    let mut changed_meshes = HashSet::new();
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
             AssetEvent::Created { handle } => {
-                state.loading_meshes.insert(*handle);
+                changed_meshes.insert(*handle);
             }
             AssetEvent::Modified { handle } => {
-                state.loading_meshes.insert(*handle);
+                changed_meshes.insert(*handle);
                 remove_current_mesh_resources(render_resource_context, *handle);
             }
             AssetEvent::Removed { handle } => {
                 remove_current_mesh_resources(render_resource_context, *handle);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
-                state.loading_meshes.remove(handle);
+                changed_meshes.remove(handle);
             }
         }
     }
 
-    let mut loaded_meshes = Vec::new();
-    for changed_mesh_handle in state.loading_meshes.iter() {
+    for changed_mesh_handle in changed_meshes.into_iter() {
         if let (Some(mesh), Some(vertex_buffer_descriptor)) = (
-            meshes.get(changed_mesh_handle),
-            mesh_buffer_descriptors.get(changed_mesh_handle),
+            meshes.get(&changed_mesh_handle),
+            mesh_buffer_descriptors.get(&changed_mesh_handle),
         ) {
             let vertex_bytes = mesh
                 .get_vertex_buffer_bytes(vertex_buffer_descriptor)
@@ -135,22 +131,16 @@ pub fn mesh_node_system(
             );
 
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(vertex_buffer),
                 mesh::VERTEX_BUFFER_ASSET_INDEX,
             );
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(index_buffer),
                 mesh::INDEX_BUFFER_ASSET_INDEX,
             );
-
-            loaded_meshes.push(*changed_mesh_handle);
         }
-    }
-
-    for mesh in loaded_meshes.iter() {
-        state.loading_meshes.remove(mesh);
     }
 
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
