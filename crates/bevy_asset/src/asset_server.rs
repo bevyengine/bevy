@@ -254,7 +254,7 @@ impl AssetServer {
         T: 'static,
     {
         let path = path.as_ref();
-        let ref extension = path
+        let extension = &path
             .extension()
             .ok_or(AssetServerError::MissingAssetHandler)?;
 

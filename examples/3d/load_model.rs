@@ -69,7 +69,7 @@ fn setup(
             ..Default::default()
         }),
         translation: Translation::new(3.5, 0.0, 0.0),
-        rotation: Rotation::from_rotation_xyz(1.2, 3.14, 0.0),
+        rotation: Rotation::from_rotation_xyz(1.2, 3.10, 0.0),
         ..Default::default()
     });
 }

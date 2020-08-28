@@ -19,7 +19,7 @@ impl AssetLoader<Mesh> for GltfLoader {
         let mesh = load_gltf(asset_path, bytes)?
             .mesh
             .into_iter()
-            .nth(0)
+            .next()
             .ok_or_else(|| anyhow::anyhow!("The GLTF file did not contain a mesh"))?;
         Ok(mesh)
     }
@@ -34,7 +34,7 @@ impl AssetLoader<Texture> for GltfLoader {
         let texture = load_gltf(asset_path, bytes)?
             .texture
             .into_iter()
-            .nth(0)
+            .next()
             .ok_or_else(|| anyhow::anyhow!("The GLTF file did not contain a texture"))?;
         Ok(texture)
     }

@@ -75,7 +75,7 @@ pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> anyhow::Result<GltfAssets
         }
     }
 
-    return Ok(assets);
+    Ok(assets)
 }
 
 /// Parse the node. Set the data in the passed-in GltfAssets if appropriate.
@@ -129,8 +129,8 @@ fn load_node(
             // Read the material info and apply it
             let material = primitive.material();
             let texture = material.pbr_metallic_roughness().base_color_texture();
-            if texture.is_some() {
-                let image = texture.unwrap().texture().source().source();
+            if let Some(texture) = texture {
+                let image = texture.texture().source().source();
                 match image {
                     gltf::image::Source::Uri {
                         uri: _uri,
