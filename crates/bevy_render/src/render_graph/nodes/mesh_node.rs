@@ -57,6 +57,8 @@ pub fn mesh_node_system(
     // TODO: support multiple descriptors for a single mesh; this would require changes to the
     // RenderResourceContext to allow storing a resource per (asset, T) where T is some kind of
     // buffer descriptor ID.
+    // TODO: store a map from descriptor to set of pipelines that use it, so we don't have to linear
+    // search through the pipelines here
     let mut mesh_buffer_descriptors = HashMap::new();
     for (mesh_handle, render_pipelines) in &mut query.iter() {
         if let Some(mesh) = meshes.get(mesh_handle) {
