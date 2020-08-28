@@ -119,8 +119,7 @@ impl Mesh {
         vertex_buffer_descriptor.attributes.iter().all(|vb_attr| {
             self.attributes
                 .iter()
-                .find(|mesh_attr| mesh_attr.name == vb_attr.name)
-                .is_some()
+                .any(|mesh_attr| mesh_attr.name == vb_attr.name)
         })
     }
 
