@@ -402,6 +402,7 @@ mod tests {
         Commands,
     };
     use bevy_hecs::{Entity, World};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;
     use std::sync::Arc;
@@ -415,6 +416,8 @@ mod tests {
     fn cross_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("PreArchetypeChange");
         schedule.add_stage("PostArchetypeChange");
@@ -444,6 +447,8 @@ mod tests {
     fn intra_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
 
@@ -472,6 +477,7 @@ mod tests {
     fn schedule() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
         resources.insert(Counter::default());
         resources.insert(1.0f64);
         resources.insert(2isize);
