@@ -9,7 +9,7 @@ use bevy_render::{
         BindGroupDescriptor, BindGroupDescriptorId, BindingShaderStage, PipelineDescriptor,
     },
     renderer::{
-        BindGroup, BufferId, BufferInfo, RenderResourceBinding, RenderResourceContext,
+        BindGroup, BufferId, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceContext,
         RenderResourceId, SamplerId, TextureId,
     },
     shader::Shader,
@@ -190,7 +190,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: buffer_info.size as u64,
+            size: buffer_size(buffer_info.size, buffer_info.buffer_usage) as u64,
             usage: buffer_info.buffer_usage.wgpu_into(),
             mapped_at_creation: buffer_info.mapped_at_creation,
         });
@@ -206,7 +206,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let mut buffer_infos = self.resources.buffer_infos.write();
         let mut buffers = self.resources.buffers.write();
 
-        buffer_info.size = data.len();
+        buffer_info.size = buffer_size(data.len(), buffer_info.buffer_usage);
         let buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -548,5 +548,15 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffers = self.resources.buffers.read();
         let buffer = buffers.get(&id).unwrap();
         buffer.unmap();
+    }
+}
+
+fn buffer_size(requested: usize, usage: BufferUsage) -> usize {
+    if usage == BufferUsage::INDEX {
+        // WGPU index buffers must be 4-byte aligned.
+        // (https://github.com/gfx-rs/wgpu-rs/issues/449)
+        ((requested + 3) / 4) * 4
+    } else {
+        requested
     }
 }

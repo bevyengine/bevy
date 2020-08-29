@@ -89,8 +89,7 @@ fn setup(
                 values: VertexAttributeValues::Float4(colors),
             },
         ],
-        // HACK: Working around a buffer alignment bug: https://github.com/gfx-rs/wgpu-rs/issues/449
-        indices: Some(vec![0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2]),
+        indices: Some(vec![0, 1, 2]),
     };
 
     // Setup our world
