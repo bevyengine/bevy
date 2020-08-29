@@ -9,7 +9,6 @@ use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
     any::TypeId,
-    collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
     sync::Arc,
