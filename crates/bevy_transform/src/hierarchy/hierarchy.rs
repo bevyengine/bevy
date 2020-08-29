@@ -1,4 +1,4 @@
-use crate::components::Children;
+use crate::components::{Children, Parent};
 use bevy_ecs::{Commands, Entity, Query, World, WorldWriter};
 
 pub fn run_on_hierarchy<T, S>(
@@ -44,6 +44,18 @@ pub struct DespawnRecursive {
 }
 
 fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
+    // first, make the entity's own parent forget about it
+    if let Ok(parent) = world.get::<Parent>(entity) {
+        if let Ok(mut children) = world.get_mut::<Children>(parent.0) {
+            children.0.retain(|c| *c != entity);
+        }
+    }
+    // then despawn the entity and all of its children
+    despawn_with_children_recursive_inner(world, entity);
+}
+
+// Should only be called by `despawn_with_children_recursive`!
+fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     if let Some(children) = world
         .get::<Children>(entity)
         .ok()
