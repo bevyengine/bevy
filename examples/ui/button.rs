@@ -40,8 +40,22 @@ fn button_system(
     for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
-            Interaction::Clicked => {
-                text.value = "Press".to_string();
+            Interaction::Clicked(i) => {
+                let mut s = String::with_capacity(20);
+                if i.check(MouseButton::Left)
+                {
+                    s.push_str(" Left");
+                }
+                if i.check(MouseButton::Right)
+                {
+                    s.push_str(" Right");
+                }
+                if i.check(MouseButton::Middle)
+                {
+                    s.push_str(" Middle");
+                }
+                
+                text.value = format!("Pressing button(s){}", s).to_string();
                 *material = button_materials.pressed;
             }
             Interaction::Hovered => {
@@ -66,7 +80,7 @@ fn setup(
         .spawn(UiCameraComponents::default())
         .spawn(ButtonComponents {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                size: Size::new(Val::Px(550.0), Val::Px(65.0)),
                 // center button
                 margin: Rect::all(Val::Auto),
                 // horizontally center child text

@@ -3,9 +3,9 @@ use std::hash::Hash;
 
 /// A "press-able" input of type `T`
 pub struct Input<T> {
-    pressed: HashSet<T>,
-    just_pressed: HashSet<T>,
-    just_released: HashSet<T>,
+    pub pressed: HashSet<T>,
+    pub just_pressed: HashSet<T>,
+    pub just_released: HashSet<T>,
 }
 
 impl<T> Default for Input<T> {

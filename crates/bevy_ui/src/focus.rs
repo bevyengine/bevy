@@ -9,9 +9,42 @@ use bevy_window::CursorMoved;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Interaction {
-    Clicked,
+    Clicked(MouseFlags),
     Hovered,
     None,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct MouseFlags(u16);
+
+impl MouseFlags {
+    pub fn check(self, button: MouseButton) -> bool {
+        let i: u16 = button.into();
+        ((self.0 << i) >> 15) > 0
+    }
+
+    pub fn build(button: &MouseButton) -> Self {
+        button.clone().into()
+    }
+
+    pub fn remove(&mut self, button: &MouseButton) {
+        let i: u16 = button.clone().into();
+        let mask = !((u16::MAX << 15) >> i);
+        self.0 &= mask;
+    }
+
+    pub fn add(&mut self, button: &MouseButton) {
+        let i: u16 = button.clone().into();
+        let mask = (u16::MAX << 15) >> i;
+        self.0 |= mask;
+    }
+}
+
+impl From<MouseButton> for MouseFlags {
+    fn from(button: MouseButton) -> Self {
+        let i: u16 = button.into();
+        MouseFlags((u16::MAX << 15) >> i)
+    }
 }
 
 impl Default for Interaction {
@@ -55,17 +88,23 @@ pub fn ui_focus_system(
         state.cursor_position = cursor_moved.position;
     }
 
-    if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _transform, interaction, _focus_policy) in &mut node_query.iter() {
-            if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
+    for (_entity, _node, _transform, interaction, _focus_policy) in &mut node_query.iter() {
+        if let Some(mut interaction) = interaction {
+            for released in &mouse_button_input.just_released {
+                if let Interaction::Clicked(mut flags) = *interaction {
+                    flags.remove(released);
+                    *interaction = Interaction::Clicked(flags);
+                }
+            }
+
+            if let Interaction::Clicked(flags) = *interaction {
+                if flags.0 == 0 {
                     *interaction = Interaction::None;
                 }
             }
         }
     }
 
-    let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left);
     let mut hovered_entity = None;
 
     {
@@ -97,13 +136,21 @@ pub fn ui_focus_system(
         moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
         for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
             if let Some(mut interaction) = interaction {
-                if mouse_clicked {
-                    // only consider nodes with ClickState "clickable"
-                    if *interaction != Interaction::Clicked {
-                        *interaction = Interaction::Clicked;
-                    }
-                } else if *interaction == Interaction::None {
+                //Build bitflags out of hashset
+                let flags = mouse_button_input.pressed.iter().fold(
+                    MouseFlags(0),
+                    |mut flags, button| {
+                        flags.add(button);
+                        flags
+                    },
+                );
+
+                if flags.0 == 0
+                // nothing is clicked
+                {
                     *interaction = Interaction::Hovered;
+                } else {
+                    *interaction = Interaction::Clicked(flags)
                 }
             }
 

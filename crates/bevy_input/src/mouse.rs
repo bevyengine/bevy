@@ -21,6 +21,17 @@ pub enum MouseButton {
     Other(u8),
 }
 
+impl Into<u16> for MouseButton {
+    fn into(self) -> u16 {
+        match self {
+            MouseButton::Left => 0,
+            MouseButton::Right => 1,
+            MouseButton::Middle => 2,
+            MouseButton::Other(i) => (i as u16),
+        }
+    }
+}
+
 /// A mouse motion event
 #[derive(Debug, Clone)]
 pub struct MouseMotion {
