@@ -16,3 +16,11 @@ pub mod prelude {
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool},
     };
 }
+
+pub fn logical_core_count() -> usize {
+    num_cpus::get()
+}
+
+pub fn physical_core_count() -> usize {
+    num_cpus::get_physical()
+}

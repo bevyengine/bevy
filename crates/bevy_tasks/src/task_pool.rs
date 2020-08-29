@@ -10,19 +10,6 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-macro_rules! pin_mut {
-    ($($x:ident),*) => { $(
-        // Move the value to ensure that it is owned
-        let mut $x = $x;
-        // Shadow the original binding so that it can't be directly accessed
-        // ever again.
-        #[allow(unused_mut)]
-        let mut $x = unsafe {
-            Pin::new_unchecked(&mut $x)
-        };
-    )* }
-}
-
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {
@@ -103,7 +90,7 @@ pub struct TaskPool {
     /// Vec<Task<T>> contained within TaskPoolInner
     executor: Arc<multitask::Executor>,
 
-    ///
+    /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
 }
 
@@ -187,7 +174,12 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        let executor: &'scope multitask::Executor = unsafe { mem::transmute(&*self.executor) };
+        // SAFETY: This function blocks until all futures complete, so this future must return
+        // before this function returns. However, rust has no way of knowing
+        // this so we must convert to 'static here to appease the compiler as it is unable to
+        // validate safety.
+        let executor: &multitask::Executor = &*self.executor as &multitask::Executor;
+        let executor: &'scope multitask::Executor = unsafe { mem::transmute(executor) };
 
         let fut = async move {
             let mut scope = Scope {
@@ -205,11 +197,20 @@ impl TaskPool {
             results
         };
 
-        pin_mut!(fut);
+        // Move the value to ensure that it is owned
+        let mut fut = fut;
 
-        // let fut: Pin<&mut (dyn Future<Output=()> + Send)> = fut;
+        // Shadow the original binding so that it can't be directly accessed
+        // ever again.
+        let fut = unsafe { Pin::new_unchecked(&mut fut) };
+
+        // SAFETY: This function blocks until all futures complete, so we do not read/write the
+        // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
+        // this so we must convert to 'static here to appease the compiler as it is unable to
+        // validate safety.
+        let fut: Pin<&mut (dyn Future<Output = Vec<T>> + Send)> = fut;
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
-            unsafe { mem::transmute(fut as Pin<&mut (dyn Future<Output = Vec<T>> + Send)>) };
+            unsafe { mem::transmute(fut) };
 
         pollster::block_on(self.executor.spawn(fut))
     }
@@ -241,6 +242,10 @@ pub struct Scope<'scope, T> {
 
 impl<'scope, T: Send + 'static> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
+        // SAFETY: This function blocks until all futures complete, so we do not read/write the
+        // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
+        // this so we must convert to 'static here to appease the compiler as it is unable to
+        // validate safety.
         let fut: Pin<Box<dyn Future<Output = T> + 'scope + Send>> = Box::pin(f);
         let fut: Pin<Box<dyn Future<Output = T> + 'static + Send>> = unsafe { mem::transmute(fut) };
 

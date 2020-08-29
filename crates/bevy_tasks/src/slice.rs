@@ -85,7 +85,12 @@ mod tests {
         let task_pool = TaskPool::new();
         let outputs = v.par_splat_map(&task_pool, None, |numbers| -> i32 { numbers.iter().sum() });
 
-        println!("outputs: {:?}", outputs);
+        let mut sum = 0;
+        for output in outputs {
+            sum += output;
+        }
+
+        assert_eq!(sum, 1000 * 42);
     }
 
     #[test]
@@ -100,6 +105,12 @@ mod tests {
             numbers.iter().sum()
         });
 
-        println!("outputs: {:?}", outputs);
+        let mut sum = 0;
+        for output in outputs {
+            sum += output;
+        }
+
+        assert_eq!(sum, 1000 * 42 * 2);
+        assert_eq!(v[0], 84);
     }
 }
