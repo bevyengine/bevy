@@ -7,7 +7,7 @@ use bevy_render::{
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)
 #[derive(RenderResources)]

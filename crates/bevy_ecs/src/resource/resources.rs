@@ -1,8 +1,9 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
+use bevy_utils::HashMap;
 use core::any::TypeId;
-use std::{collections::HashMap, ptr::NonNull};
+use std::ptr::NonNull;
 
 /// A Resource type
 pub trait Resource: Send + Sync + 'static {}
@@ -64,7 +65,7 @@ impl Resources {
             ResourceData {
                 archetype: Archetype::new(types),
                 default_index: None,
-                system_id_to_archetype_index: HashMap::new(),
+                system_id_to_archetype_index: HashMap::default(),
             }
         });
 

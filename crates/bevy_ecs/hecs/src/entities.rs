@@ -1,7 +1,7 @@
 // modified by Bevy contributors
 
+use bevy_utils::HashMap;
 use core::fmt;
-use hashbrown::HashMap;
 #[cfg(feature = "std")]
 use std::error::Error;
 

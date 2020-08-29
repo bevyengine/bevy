@@ -1,5 +1,5 @@
 use super::{Window, WindowId};
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 #[derive(Default)]
 pub struct Windows {

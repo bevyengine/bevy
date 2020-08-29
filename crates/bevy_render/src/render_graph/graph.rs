@@ -1,7 +1,7 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
 use bevy_ecs::{Commands, Schedule};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug};
-
+use bevy_utils::HashMap;
+use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
     nodes: HashMap<NodeId, NodeState>,
     node_names: HashMap<Cow<'static, str>, NodeId>,
@@ -300,7 +300,8 @@ mod tests {
         renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
-    use std::{collections::HashSet, iter::FromIterator};
+    use bevy_utils::HashSet;
+    use std::iter::FromIterator;
 
     #[derive(Debug)]
     struct TestNode {

@@ -11,7 +11,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use bevy_utils::HashSet;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -506,7 +507,7 @@ pub fn mesh_resource_provider_system(
             vertex_buffer_descriptor
         }
     };
-    let mut changed_meshes = HashSet::new();
+    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {

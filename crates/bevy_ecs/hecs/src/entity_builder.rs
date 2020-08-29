@@ -20,13 +20,13 @@ use crate::alloc::{
     vec,
     vec::Vec,
 };
+
+use bevy_utils::HashSet;
 use core::{
     any::TypeId,
     mem::{self, MaybeUninit},
     ptr,
 };
-
-use hashbrown::HashSet;
 
 use crate::{archetype::TypeInfo, Component, DynamicBundle};
 
@@ -59,7 +59,7 @@ impl EntityBuilder {
             storage: Box::new([]),
             info: Vec::new(),
             ids: Vec::new(),
-            id_set: HashSet::new(),
+            id_set: HashSet::default(),
         }
     }
 
