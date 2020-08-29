@@ -20,14 +20,13 @@ use crate::alloc::{
     vec,
     vec::Vec,
 };
+use bevy_utils::{HashMap, HashMapExt};
 use core::{
     any::{type_name, TypeId},
     cell::UnsafeCell,
     mem,
     ptr::{self, NonNull},
 };
-
-use hashbrown::HashMap;
 
 use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 

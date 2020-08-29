@@ -11,7 +11,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use bevy_utils::HashSet;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -411,6 +412,15 @@ pub mod shape {
 
     impl From<Icosphere> for Mesh {
         fn from(sphere: Icosphere) -> Self {
+            if sphere.subdivisions >= 80 {
+                let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
+
+                panic!(
+                    "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
+                    sphere.subdivisions,
+                    temp_sphere.raw_points().len()
+                );
+            }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
                 let inclination = point.z().acos();
                 let azumith = point.y().atan2(point.x());
@@ -497,7 +507,7 @@ pub fn mesh_resource_provider_system(
             vertex_buffer_descriptor
         }
     };
-    let mut changed_meshes = HashSet::new();
+    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {

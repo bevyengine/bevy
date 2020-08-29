@@ -4,12 +4,9 @@ use crate::{
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
+use bevy_utils::{HashMap, HashSet};
 use parking_lot::Mutex;
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{borrow::Cow, sync::Arc};
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
 /// Schedules are essentially the "execution plan" for an App's systems.
