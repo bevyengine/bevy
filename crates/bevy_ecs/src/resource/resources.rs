@@ -154,20 +154,71 @@ impl Resources {
     #[inline]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_ref<T: Resource>(&self, resource_index: ResourceIndex) -> NonNull<T> {
-        self.resource_data
-            .get(&TypeId::of::<T>())
-            .and_then(|data| {
-                let index = match resource_index {
-                    ResourceIndex::Global => data.default_index?,
-                    ResourceIndex::System(id) => {
-                        data.system_id_to_archetype_index.get(&id.0).cloned()?
-                    }
-                };
+        self.get_unsafe_resource_data_index::<T>(resource_index)
+            .and_then(|(data, index)| {
                 Some(NonNull::new_unchecked(
-                    data.archetype.get::<T>()?.as_ptr().add(index as usize),
+                    data.archetype.get::<T>()?.as_ptr().add(index),
                 ))
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
+    }
+
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unsafe_ref_with_mutated<T: Resource>(
+        &self,
+        resource_index: ResourceIndex,
+    ) -> (NonNull<T>, NonNull<bool>) {
+        self.get_unsafe_resource_data_index::<T>(resource_index)
+            .and_then(|(data, index)| {
+                data.archetype
+                    .get_with_mutated::<T>()
+                    .map(|(resource, mutated)| {
+                        (
+                            NonNull::new_unchecked(resource.as_ptr().add(index)),
+                            NonNull::new_unchecked(mutated.as_ptr().add(index)),
+                        )
+                    })
+            })
+            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
+    }
+
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn get_unsafe_ref_with_added_and_mutated<T: Resource>(
+        &self,
+        resource_index: ResourceIndex,
+    ) -> (NonNull<T>, NonNull<bool>, NonNull<bool>) {
+        self.get_unsafe_resource_data_index::<T>(resource_index)
+            .and_then(|(data, index)| {
+                data.archetype.get_with_added_and_mutated::<T>().map(
+                    |(resource, added, mutated)| {
+                        (
+                            NonNull::new_unchecked(resource.as_ptr().add(index)),
+                            NonNull::new_unchecked(added.as_ptr().add(index)),
+                            NonNull::new_unchecked(mutated.as_ptr().add(index)),
+                        )
+                    },
+                )
+            })
+            .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
+    }
+
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    unsafe fn get_unsafe_resource_data_index<T: Resource>(
+        &self,
+        resource_index: ResourceIndex,
+    ) -> Option<(&ResourceData, usize)> {
+        self.resource_data.get(&TypeId::of::<T>()).and_then(|data| {
+            let index = match resource_index {
+                ResourceIndex::Global => data.default_index?,
+                ResourceIndex::System(id) => {
+                    data.system_id_to_archetype_index.get(&id.0).cloned()?
+                }
+            };
+            Some((data, index as usize))
+        })
     }
 
     pub fn borrow<T: Resource>(&self) {
@@ -191,6 +242,14 @@ impl Resources {
     pub fn release_mut<T: Resource>(&self) {
         if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
             data.archetype.release_mut::<T>();
+        }
+    }
+
+    /// Clears each resource's tracker state.
+    /// For example, each resource's component "mutated" state will be reset to `false`.
+    pub fn clear_trackers(&mut self) {
+        for (_, resource_data) in self.resource_data.iter_mut() {
+            resource_data.archetype.clear_trackers();
         }
     }
 }

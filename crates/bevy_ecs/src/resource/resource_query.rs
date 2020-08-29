@@ -12,6 +12,45 @@ use core::{
 use std::marker::PhantomData;
 
 /// Shared borrow of a Resource
+pub struct ChangedRes<'a, T: Resource> {
+    value: Option<&'a T>,
+}
+
+impl<'a, T: Resource> ChangedRes<'a, T> {
+    /// Creates a reference cell to a Resource from a pointer
+    ///
+    /// # Safety
+    /// The pointer must have correct lifetime / storage
+    pub unsafe fn new((value, added, mutated): (NonNull<T>, NonNull<bool>, NonNull<bool>)) -> Self {
+        let return_value = if *added.as_ptr() || *mutated.as_ptr() {
+            Some(&*value.as_ptr())
+        } else {
+            None
+        };
+        Self {
+            value: return_value,
+        }
+    }
+}
+
+impl<'a, T: Resource> UnsafeClone for ChangedRes<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self { value: self.value }
+    }
+}
+
+unsafe impl<T: Resource> Send for ChangedRes<'_, T> {}
+unsafe impl<T: Resource> Sync for ChangedRes<'_, T> {}
+
+impl<'a, T: Resource> Deref for ChangedRes<'a, T> {
+    type Target = Option<&'a T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+/// Shared borrow of a Resource
 pub struct Res<'a, T: Resource> {
     value: &'a T,
 }
@@ -55,6 +94,7 @@ impl<'a, T: Resource> Deref for Res<'a, T> {
 pub struct ResMut<'a, T: Resource> {
     _marker: PhantomData<&'a T>,
     value: *mut T,
+    mutated: *mut bool,
 }
 
 impl<'a, T: Resource> ResMut<'a, T> {
@@ -62,9 +102,10 @@ impl<'a, T: Resource> ResMut<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage / ownership
-    pub unsafe fn new(value: NonNull<T>) -> Self {
+    pub unsafe fn new((value, mutated): (NonNull<T>, NonNull<bool>)) -> Self {
         Self {
             value: value.as_ptr(),
+            mutated: mutated.as_ptr(),
             _marker: Default::default(),
         }
     }
@@ -83,7 +124,10 @@ impl<'a, T: Resource> Deref for ResMut<'a, T> {
 
 impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.value }
+        unsafe {
+            *self.mutated = true;
+            &mut *self.value
+        }
     }
 }
 
@@ -91,6 +135,7 @@ impl<'a, T: Resource> UnsafeClone for ResMut<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
             value: self.value,
+            mutated: self.mutated,
             _marker: Default::default(),
         }
     }
@@ -175,6 +220,35 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     }
 }
 
+impl<'a, T: Resource> ResourceQuery for ChangedRes<'a, T> {
+    type Fetch = FetchResourceChanged<T>;
+}
+
+/// Fetches a shared resource reference
+pub struct FetchResourceChanged<T>(NonNull<T>);
+
+impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
+    type Item = ChangedRes<'a, T>;
+
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
+        ChangedRes::new(resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global))
+    }
+
+    fn borrow(resources: &Resources) {
+        resources.borrow::<T>();
+    }
+
+    fn release(resources: &Resources) {
+        resources.release::<T>();
+    }
+
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.immutable.insert(TypeId::of::<T>());
+        access
+    }
+}
+
 impl<'a, T: Resource> ResourceQuery for ResMut<'a, T> {
     type Fetch = FetchResourceWrite<T>;
 }
@@ -186,7 +260,7 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        ResMut::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+        ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global))
     }
 
     fn borrow(resources: &Resources) {
@@ -294,3 +368,19 @@ macro_rules! tuple_impl {
 }
 
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn changed_resource() {
+        let mut resources = Resources::default();
+        resources.insert(123);
+        assert_eq!(*resources.query::<ChangedRes<i32>>(), Some(&(123 as i32)));
+        resources.clear_trackers();
+        assert_eq!(*resources.query::<ChangedRes<i32>>(), None);
+        *resources.query::<ResMut<i32>>() += 1;
+        assert_eq!(*resources.query::<ChangedRes<i32>>(), Some(&(124 as i32)));
+    }
+}
