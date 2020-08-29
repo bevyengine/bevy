@@ -1,4 +1,5 @@
 /target
+crates/*/target
 **/*.rs.bk
 Cargo.lock
 .cargo/config

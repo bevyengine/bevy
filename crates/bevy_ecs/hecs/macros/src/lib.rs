@@ -83,7 +83,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
                 #path::lazy_static::lazy_static! {
                     static ref ELEMENTS: [TypeId; #n] = {
-                        let mut dedup = std::collections::HashSet::new();
+                        let mut dedup = #path::bevy_utils::HashSet::default();
                         for &(ty, name) in [#((std::any::TypeId::of::<#tys>(), std::any::type_name::<#tys>())),*].iter() {
                             if !dedup.insert(ty) {
                                 panic!("{} has multiple {} fields; each type must occur at most once!", stringify!(#ident), name);

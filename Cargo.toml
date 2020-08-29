@@ -57,6 +57,7 @@ bevy_sprite = { path = "crates/bevy_sprite", version = "0.1" }
 bevy_transform = { path = "crates/bevy_transform", version = "0.1" }
 bevy_text = { path = "crates/bevy_text", version = "0.1" }
 bevy_ui = { path = "crates/bevy_ui", version = "0.1" }
+bevy_utils = { path = "crates/bevy_utils", version = "0.1" }
 bevy_window = { path = "crates/bevy_window", version = "0.1" }
 
 # bevy (optional)

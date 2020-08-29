@@ -23,3 +23,26 @@ sudo pacman -S libx11 pkgconf alsa-lib
 ```bash
 sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
 ```
+
+## NixOS
+
+Add a `build.rs` file to your project with the following:
+
+```rust
+fn main() {
+    if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-lib=vulkan");
+    }
+}
+```
+
+The following packages are known to provide the dependencies required to run a bevy project. They can be installed globally or via nix-shell.
+
+`nix-shell -p pkgconfig x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools lutris vulkan-headers vulkan-loader vulkan-validation-layers alsaLib`
+
+At this point, projects should successfully compile but fail on execution. This is due to `glslang_validator` which, unfortunately, needs to have it's binary patched to link correctly. This is a known issue and there are plans to remove this dependency.
+
+1. `find target -type f -name glslang_validator` in order to find glslang_validator in `target/debug/build/bevy-glsl-to-spirv-<hash>/out/glslang_validator`. The directory containing glslang_validator will be referenced again, so save it for later: `export OUT_DIR="$(dirname $(find target -type f -name glslang_validator))"`.
+2. Running `ldd $OUT_DIR/glslang_validator` may show `libstdc++.so.6` is not found. If all dependencies are found, then bevy should work. If not, install (globally or in nix-shell) any of the results found by `nix-locate -w libstdc++.so.6`. For example purposes, consider `nixos.gcc-unwrapped`. In theory, any of the ones in `find -L /nix/store -type f -name libstdc++.so.6` will work.
+3. `patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" --set-rpath /nix/store/784rh7jrfhagbkydjfrv68h9x3g4gqmk-gcc-8.3.0-lib/lib $OUT_DIR/glslang_validator`
+4. Bevy should now be working properly!

@@ -1,5 +1,5 @@
 use super::{NodeId, NodeState, RenderGraph, RenderGraphError};
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -161,7 +161,7 @@ impl RenderGraphStager for DependentNodeStager {
             .iter_nodes()
             .filter(|node| node.input_slots.is_empty());
         let mut stages = vec![Stage::default()];
-        let mut node_stages = HashMap::new();
+        let mut node_stages = HashMap::default();
         for output_only_node in output_only_nodes {
             // each "output only" node should start a new job on the first stage
             stage_node(
