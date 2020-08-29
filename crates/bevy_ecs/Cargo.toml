@@ -15,6 +15,7 @@ profiler = []
 
 [dependencies]
 bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.1" }
 rand = "0.7.2"
 rayon = "1.3"
 crossbeam-channel = "0.4.2"

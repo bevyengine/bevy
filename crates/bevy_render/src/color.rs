@@ -37,6 +37,21 @@ impl Color {
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
+
+    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
+        Color::rgba_u8(r, g, b, u8::MAX)
+    }
+
+    // Float operations in const fn are not stable yet
+    // see https://github.com/rust-lang/rust/issues/57241
+    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
+        Color::rgba(
+            r as f32 / u8::MAX as f32,
+            g as f32 / u8::MAX as f32,
+            b as f32 / u8::MAX as f32,
+            a as f32 / u8::MAX as f32,
+        )
+    }
 }
 
 impl Default for Color {

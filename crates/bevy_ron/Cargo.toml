@@ -22,6 +22,7 @@ exclude = ["bors.toml", ".travis.yml"]
 name = "bevy_ron"
 
 [dependencies]
+bevy_utils = { path = "../bevy_utils", version = "0.1" }
 base64 = "0.12"
 bitflags = "1.0.4"
 indexmap = { version = "1.0.2", features = ["serde-1"], optional = true }

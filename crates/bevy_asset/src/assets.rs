@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
 use bevy_type_registry::RegisterType;
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 /// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Resource> {

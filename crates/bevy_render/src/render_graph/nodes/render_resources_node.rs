@@ -13,8 +13,9 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     Commands, Entity, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World,
 };
+use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{collections::HashMap, hash::Hash, marker::PhantomData, ops::DerefMut};
+use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 
@@ -55,7 +56,7 @@ impl<I: Hash + Eq> BufferArray<I> {
             min_capacity,
             buffer: None,
             free_indices: Vec::new(),
-            indices: HashMap::new(),
+            indices: HashMap::default(),
         }
     }
 
