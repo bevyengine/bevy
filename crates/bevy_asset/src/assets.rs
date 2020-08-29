@@ -5,7 +5,7 @@ use crate::{
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
 use bevy_type_registry::RegisterType;
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 /// Events that happen on assets of type `T`
 pub enum AssetEvent<T: Resource> {
@@ -65,7 +65,7 @@ impl<T: Resource> Assets<T> {
     }
 
     pub fn get_id_mut(&mut self, id: HandleId) -> Option<&mut T> {
-        self.assets.get_mut(&Handle::from_id(id))
+        self.get_mut(&Handle::from_id(id))
     }
 
     pub fn get(&self, handle: &Handle<T>) -> Option<&T> {

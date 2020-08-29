@@ -24,6 +24,7 @@ bevy_text = { path = "../bevy_text", version = "0.1" }
 bevy_transform = { path = "../bevy_transform", version = "0.1" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
 bevy_window = { path = "../bevy_window", version = "0.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.1" }
 
 # other
 stretch = "0.3"

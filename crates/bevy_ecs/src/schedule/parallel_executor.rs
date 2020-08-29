@@ -7,7 +7,6 @@ use bevy_hecs::{ArchetypesGeneration, World};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
 use parking_lot::Mutex;
-use rayon::ScopeFifo;
 use std::{ops::Range, sync::Arc};
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
@@ -63,52 +62,6 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
-    }
-}
-
-/// This can be added as an app resource to control the global `rayon::ThreadPool` used by ecs.
-// Dev internal note: We cannot directly expose a ThreadPoolBuilder here as it does not implement Send and Sync.
-#[derive(Debug, Default, Clone)]
-pub struct ParallelExecutorOptions {
-    /// If some value, we'll set up the thread pool to use at most n threads. See `rayon::ThreadPoolBuilder::num_threads`.
-    num_threads: Option<usize>,
-    /// If some value, we'll set up the thread pool's' workers to the given stack size. See `rayon::ThreadPoolBuilder::stack_size`.
-    stack_size: Option<usize>,
-    // TODO: Do we also need/want to expose other features (*_handler, etc.)
-}
-
-impl ParallelExecutorOptions {
-    /// Creates a new ParallelExecutorOptions instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the num_threads option, using the builder pattern
-    pub fn with_num_threads(mut self, num_threads: Option<usize>) -> Self {
-        self.num_threads = num_threads;
-        self
-    }
-
-    /// Sets the stack_size option, using the builder pattern. WARNING: Only use this if you know what you're doing,
-    /// otherwise your application may run into stability and performance issues.
-    pub fn with_stack_size(mut self, stack_size: Option<usize>) -> Self {
-        self.stack_size = stack_size;
-        self
-    }
-
-    /// Creates a new ThreadPoolBuilder based on the current options.
-    pub(crate) fn create_builder(&self) -> rayon::ThreadPoolBuilder {
-        let mut builder = rayon::ThreadPoolBuilder::new();
-
-        if let Some(num_threads) = self.num_threads {
-            builder = builder.num_threads(num_threads);
-        }
-
-        if let Some(stack_size) = self.stack_size {
-            builder = builder.stack_size(stack_size);
-        }
-
-        builder
     }
 }
 
@@ -262,7 +215,7 @@ impl ExecutorStage {
         &mut self,
         systems: &[Arc<Mutex<Box<dyn System>>>],
         run_ready_type: RunReadyType,
-        scope: &ScopeFifo<'run>,
+        scope: &mut bevy_tasks::Scope<'run, ()>,
         world: &'run World,
         resources: &'run Resources,
     ) -> RunReadyResult {
@@ -308,7 +261,8 @@ impl ExecutorStage {
                 // handle multi-threaded system
                 let sender = self.sender.clone();
                 self.running_systems.insert(system_index);
-                scope.spawn_fifo(move |_| {
+
+                scope.spawn(async move {
                     let mut system = system.lock();
                     system.run(world, resources);
                     sender.send(system_index).unwrap();
@@ -328,6 +282,10 @@ impl ExecutorStage {
         systems: &[Arc<Mutex<Box<dyn System>>>],
         schedule_changed: bool,
     ) {
+        let compute_pool = resources
+            .get_cloned::<bevy_tasks::ComputeTaskPool>()
+            .unwrap();
+
         // if the schedule has changed, clear executor state / fill it with new defaults
         if schedule_changed {
             self.system_dependencies.clear();
@@ -364,7 +322,8 @@ impl ExecutorStage {
                 // if there are no upcoming thread local systems, run everything right now
                 0..systems.len()
             };
-        rayon::scope_fifo(|scope| {
+
+        compute_pool.scope(|scope| {
             run_ready_result = self.run_ready_systems(
                 systems,
                 RunReadyType::Range(run_ready_system_index_range),
@@ -373,6 +332,7 @@ impl ExecutorStage {
                 resources,
             );
         });
+
         loop {
             // if all systems in the stage are finished, break out of the loop
             if self.finished_systems.count_ones(..) == systems.len() {
@@ -393,7 +353,7 @@ impl ExecutorStage {
                 run_ready_result = RunReadyResult::Ok;
             } else {
                 // wait for a system to finish, then run its dependents
-                rayon::scope_fifo(|scope| {
+                compute_pool.scope(|scope| {
                     loop {
                         // if all systems in the stage are finished, break out of the loop
                         if self.finished_systems.count_ones(..) == systems.len() {
@@ -410,7 +370,7 @@ impl ExecutorStage {
                             resources,
                         );
 
-                        // if the next ready system is thread local, break out of this loop/rayon scope so it can be run
+                        // if the next ready system is thread local, break out of this loop/bevy_tasks scope so it can be run
                         if let RunReadyResult::ThreadLocalReady(_) = run_ready_result {
                             break;
                         }
@@ -442,6 +402,7 @@ mod tests {
         Commands,
     };
     use bevy_hecs::{Entity, World};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;
     use std::sync::Arc;
@@ -455,6 +416,8 @@ mod tests {
     fn cross_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("PreArchetypeChange");
         schedule.add_stage("PostArchetypeChange");
@@ -484,6 +447,8 @@ mod tests {
     fn intra_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
 
@@ -512,6 +477,7 @@ mod tests {
     fn schedule() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
         resources.insert(Counter::default());
         resources.insert(1.0f64);
         resources.insert(2isize);

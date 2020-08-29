@@ -6,9 +6,10 @@ use crate::{
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_utils::HashMap;
 use bevy_window::Window;
 use parking_lot::RwLock;
-use std::{collections::HashMap, ops::Range, sync::Arc};
+use std::{ops::Range, sync::Arc};
 
 #[derive(Default)]
 pub struct HeadlessRenderResourceContext {

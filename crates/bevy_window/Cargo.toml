@@ -14,6 +14,7 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 bevy_math = { path = "../bevy_math", version = "0.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.1" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }

@@ -1,7 +1,8 @@
 use crate::resource::Resources;
 use bevy_hecs::{Access, Query, World};
+use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
-use std::{any::TypeId, borrow::Cow, collections::HashSet};
+use std::{any::TypeId, borrow::Cow};
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

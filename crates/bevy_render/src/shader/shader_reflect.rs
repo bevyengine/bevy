@@ -6,6 +6,7 @@ use crate::{
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
+use bevy_utils::HashSet;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
@@ -14,7 +15,6 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
-use std::collections::HashSet;
 
 /// Defines the memory layout of a shader
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,7 +51,7 @@ impl ShaderLayout {
                 vertex_attribute_descriptors
                     .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut visited_buffer_descriptors = HashSet::new();
+                let mut visited_buffer_descriptors = HashSet::default();
                 let mut vertex_buffer_descriptors = Vec::new();
                 let mut current_descriptor: Option<VertexBufferDescriptor> = None;
                 for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {

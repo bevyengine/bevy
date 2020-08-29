@@ -1,5 +1,6 @@
+use bevy_utils::HashMap;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     time::{Duration, SystemTime},
 };
 use uuid::Uuid;
