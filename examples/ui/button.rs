@@ -42,19 +42,16 @@ fn button_system(
         match *interaction {
             Interaction::Clicked(i) => {
                 let mut s = String::with_capacity(20);
-                if i.check(MouseButton::Left)
-                {
+                if i.check(MouseButton::Left) {
                     s.push_str(" Left");
                 }
-                if i.check(MouseButton::Right)
-                {
+                if i.check(MouseButton::Right) {
                     s.push_str(" Right");
                 }
-                if i.check(MouseButton::Middle)
-                {
+                if i.check(MouseButton::Middle) {
                     s.push_str(" Middle");
                 }
-                
+
                 text.value = format!("Pressing button(s){}", s).to_string();
                 *material = button_materials.pressed;
             }

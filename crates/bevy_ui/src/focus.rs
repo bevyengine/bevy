@@ -137,13 +137,14 @@ pub fn ui_focus_system(
         for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
             if let Some(mut interaction) = interaction {
                 //Build bitflags out of hashset
-                let flags = mouse_button_input.pressed.iter().fold(
-                    MouseFlags(0),
-                    |mut flags, button| {
-                        flags.add(button);
-                        flags
-                    },
-                );
+                let flags =
+                    mouse_button_input
+                        .pressed
+                        .iter()
+                        .fold(MouseFlags(0), |mut flags, button| {
+                            flags.add(button);
+                            flags
+                        });
 
                 if flags.0 == 0
                 // nothing is clicked
