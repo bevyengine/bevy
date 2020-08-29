@@ -90,8 +90,7 @@ impl DespawnRecursiveExt for Commands {
 #[cfg(test)]
 mod tests {
     use super::DespawnRecursiveExt;
-    use crate::components::Children;
-    use crate::hierarchy::BuildChildren;
+    use crate::{components::Children, hierarchy::BuildChildren};
     use bevy_ecs::{Commands, Resources, World};
 
     #[test]
