@@ -4,10 +4,10 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
+use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
-    collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -185,7 +185,7 @@ impl AssetServer {
     #[cfg(feature = "filesystem_watcher")]
     pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
         use notify::event::{Event, EventKind, ModifyKind};
-        let mut changed = HashSet::new();
+        let mut changed = HashSet::default();
 
         while let Some(filesystem_watcher) = asset_server.filesystem_watcher.read().as_ref() {
             let result = match filesystem_watcher.receiver.try_recv() {

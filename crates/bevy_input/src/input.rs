@@ -1,4 +1,5 @@
-use std::{collections::HashSet, hash::Hash};
+use bevy_utils::HashSet;
+use std::hash::Hash;
 
 /// A "press-able" input of type `T`
 pub struct Input<T> {

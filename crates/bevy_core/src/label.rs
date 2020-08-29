@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
 use bevy_property::Properties;
+use bevy_utils::{HashMap, HashSet};
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
@@ -29,7 +29,7 @@ where
     T: IntoIterator<Item = L>,
 {
     fn from(value: T) -> Self {
-        let mut labels = HashSet::new();
+        let mut labels = HashSet::default();
         for label in value {
             labels.insert(label.into());
         }

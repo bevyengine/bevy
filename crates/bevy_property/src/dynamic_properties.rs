@@ -2,8 +2,9 @@ use crate::{
     property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer, Serializable},
     DeserializeProperty, Properties, Property, PropertyIter, PropertyType, PropertyTypeRegistry,
 };
+use bevy_utils::HashMap;
 use serde::de::DeserializeSeed;
-use std::{any::Any, borrow::Cow, collections::HashMap};
+use std::{any::Any, borrow::Cow};
 
 pub struct DynamicProperties {
     pub type_name: String,

@@ -1,6 +1,6 @@
 use super::Camera;
 use bevy_ecs::{Entity, Query, ResMut};
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
 #[derive(Default)]
 pub struct ActiveCameras {
