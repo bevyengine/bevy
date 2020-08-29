@@ -78,31 +78,41 @@ impl DespawnRecursiveExt for Commands {
 #[cfg(test)]
 mod tests {
     use super::DespawnRecursiveExt;
+    use crate::components::Children;
     use crate::hierarchy::BuildChildren;
-    use bevy_ecs::{Commands, Entity, Resources, World};
+    use bevy_ecs::{Commands, Resources, World};
 
     #[test]
     fn despawn_recursive() {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut command_buffer = Commands::default();
-        let parent_entity = Entity::new();
 
         command_buffer.spawn((0u32, 0u64)).with_children(|parent| {
             parent.spawn((0u32, 0u64));
         });
 
-        command_buffer
-            .spawn_as_entity(parent_entity, (1u32, 2u64))
-            .with_children(|parent| {
-                parent.spawn((1u32, 2u64)).with_children(|parent| {
-                    parent.spawn((1u32, 2u64));
+        // Create a grandparent entity which will _not_ be deleted
+        command_buffer.spawn((1u32, 1u64));
+        let grandparent_entity = command_buffer.current_entity().unwrap();
+
+        command_buffer.with_children(|parent| {
+            // Add a child to the grandparent (the "parent"), which will get deleted
+            parent.spawn((2u32, 2u64));
+            // All descendents of the "parent" should also be deleted.
+            parent.with_children(|parent| {
+                parent.spawn((3u32, 3u64)).with_children(|parent| {
+                    // child
+                    parent.spawn((4u32, 4u64));
                 });
-                parent.spawn((1u32, 2u64));
+                parent.spawn((5u32, 5u64));
             });
+        });
 
         command_buffer.spawn((0u32, 0u64));
         command_buffer.apply(&mut world, &mut resources);
+
+        let parent_entity = world.get::<Children>(grandparent_entity).unwrap()[0];
 
         command_buffer.despawn_recursive(parent_entity);
         command_buffer.apply(&mut world, &mut resources);
@@ -113,8 +123,20 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
 
+        {
+            let children = world.get::<Children>(grandparent_entity).unwrap();
+            assert_eq!(
+                children.iter().any(|&i| i == parent_entity),
+                false,
+                "grandparent should no longer know about its child which has been removed"
+            );
+        }
+
         // parent_entity and its children should be deleted,
-        // the (0, 0) tuples remaining.
-        assert_eq!(results, vec![(0u32, 0u64), (0u32, 0u64), (0u32, 0u64)]);
+        // the grandparent tuple (1, 1) and (0, 0) tuples remaining.
+        assert_eq!(
+            results,
+            vec![(0u32, 0u64), (0u32, 0u64), (0u32, 0u64), (1u32, 1u64)]
+        );
     }
 }
