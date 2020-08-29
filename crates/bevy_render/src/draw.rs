@@ -178,11 +178,15 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
         DrawContext {
             pipelines: ResMut::new(
-                resources.get_unsafe_ref::<Assets<PipelineDescriptor>>(ResourceIndex::Global),
+                resources.get_unsafe_ref_with_mutated::<Assets<PipelineDescriptor>>(
+                    ResourceIndex::Global,
+                ),
             ),
-            shaders: ResMut::new(resources.get_unsafe_ref::<Assets<Shader>>(ResourceIndex::Global)),
+            shaders: ResMut::new(
+                resources.get_unsafe_ref_with_mutated::<Assets<Shader>>(ResourceIndex::Global),
+            ),
             pipeline_compiler: ResMut::new(
-                resources.get_unsafe_ref::<PipelineCompiler>(ResourceIndex::Global),
+                resources.get_unsafe_ref_with_mutated::<PipelineCompiler>(ResourceIndex::Global),
             ),
             render_resource_context: Res::new(
                 resources.get_unsafe_ref::<Box<dyn RenderResourceContext>>(ResourceIndex::Global),
