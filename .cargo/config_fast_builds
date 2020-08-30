@@ -12,6 +12,10 @@ rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 [target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y"]
 
+# NOTE: you must manually install LLVM (specifically, lld-link.exe) on Windows and add `lld-link.exe` to your PATH.
+# This can be done by installing the prebuilt binaries from the LLVM website https://releases.llvm.org/download.html#10.0.0
+# or through scoop:
+# `scoop install llvm`
 [target.x86_64-pc-windows-msvc]
-linker = "rust-lld.exe"
+linker = "lld-link.exe"
 rustflags = ["-Zshare-generics=y"]
