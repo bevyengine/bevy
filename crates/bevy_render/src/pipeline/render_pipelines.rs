@@ -34,7 +34,7 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
     #[property(ignore)]
