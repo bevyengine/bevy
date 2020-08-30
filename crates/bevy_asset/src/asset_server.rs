@@ -187,16 +187,20 @@ impl AssetServer {
         use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::default();
 
-        while let Some(filesystem_watcher) = asset_server.filesystem_watcher.read().as_ref() {
-            let result = match filesystem_watcher.receiver.try_recv() {
-                Ok(result) => result,
-                Err(TryRecvError::Empty) => {
+        loop {
+            let result = {
+                let rwlock_guard = asset_server.filesystem_watcher.read();
+                if let Some(filesystem_watcher) = rwlock_guard.as_ref() {
+                    filesystem_watcher.receiver.try_recv()
+                } else {
                     break;
                 }
+            };
+            let event = match result {
+                Ok(result) => result.unwrap(),
+                Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
             };
-
-            let event = result.unwrap();
             if let Event {
                 kind: EventKind::Modify(ModifyKind::Data(_)),
                 paths,
