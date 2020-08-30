@@ -13,6 +13,7 @@ use std::{
     sync::Arc,
     thread,
 };
+
 use thiserror::Error;
 
 /// The type used for asset versioning
@@ -184,7 +185,6 @@ impl AssetServer {
 
     #[cfg(feature = "filesystem_watcher")]
     pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-        use notify::event::{Event, EventKind, ModifyKind};
         let mut changed = HashSet::default();
 
         loop {
@@ -201,8 +201,8 @@ impl AssetServer {
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
             };
-            if let Event {
-                kind: EventKind::Modify(ModifyKind::Data(_)),
+            if let notify::event::Event {
+                kind: notify::event::EventKind::Modify(_),
                 paths,
                 ..
             } = event
