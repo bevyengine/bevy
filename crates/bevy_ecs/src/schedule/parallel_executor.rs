@@ -282,6 +282,7 @@ impl ExecutorStage {
         systems: &[Arc<Mutex<Box<dyn System>>>],
         schedule_changed: bool,
     ) {
+        let start_archetypes_generation = world.archetypes_generation();
         let compute_pool = resources
             .get_cloned::<bevy_tasks::ComputeTaskPool>()
             .unwrap();
@@ -388,7 +389,11 @@ impl ExecutorStage {
             }
         }
 
-        self.last_archetypes_generation = world.archetypes_generation();
+        // If world's archetypes_generation is the same as it was before running any systems then
+        // we can assume that all systems have correct archetype accesses.
+        if start_archetypes_generation == world.archetypes_generation() {
+            self.last_archetypes_generation = world.archetypes_generation();
+        }
     }
 }
 
