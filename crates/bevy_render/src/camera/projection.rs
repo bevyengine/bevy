@@ -112,3 +112,58 @@ impl Default for OrthographicProjection {
         }
     }
 }
+
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct ScaledOrthographicProjection {
+    pub aspect_ratio: f32,
+    pub near: f32,
+    pub far: f32,
+    pub window_origin: WindowOrigin,
+}
+
+impl CameraProjection for ScaledOrthographicProjection {
+    fn get_projection_matrix(&self) -> Mat4 {
+        match self.window_origin {
+            WindowOrigin::Center => {
+                Mat4::orthographic_rh(
+                    -self.aspect_ratio,
+                    self.aspect_ratio,
+                    -1.0,
+                    1.0,
+                    self.near,
+                    self.far,
+                )
+            }
+            WindowOrigin::BottomLeft => {
+                Mat4::orthographic_rh(
+                    0.0,
+                    self.aspect_ratio,
+                    0.0,
+                    1.0,
+                    self.near,
+                    self.far,
+                )
+            }
+        }
+    }
+
+    fn update(&mut self, width: f32, height: f32) {
+        self.aspect_ratio = width / height;
+    }
+
+    fn depth_calculation(&self) -> DepthCalculation {
+        DepthCalculation::ZDifference
+    }
+}
+
+impl Default for ScaledOrthographicProjection {
+    fn default() -> Self {
+        ScaledOrthographicProjection {
+            aspect_ratio: 1.0,
+            near: 0.0,
+            far: 1000.0,
+            window_origin: WindowOrigin::Center,
+        }
+    }
+}

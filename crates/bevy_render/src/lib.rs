@@ -35,7 +35,8 @@ use base::Msaa;
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use camera::{
-    ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    ActiveCameras, Camera, VisibleEntities,
+    OrthographicProjection, PerspectiveProjection, ScaledOrthographicProjection,
 };
 use pipeline::{
     IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
@@ -145,6 +146,10 @@ impl Plugin for RenderPlugin {
         .add_system_to_stage(
             bevy_app::stage::POST_UPDATE,
             camera::camera_system::<OrthographicProjection>.system(),
+        )
+        .add_system_to_stage(
+            bevy_app::stage::POST_UPDATE,
+            camera::camera_system::<ScaledOrthographicProjection>.system(),
         )
         .add_system_to_stage(
             bevy_app::stage::POST_UPDATE,
