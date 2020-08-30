@@ -76,7 +76,7 @@ pub enum Access {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct EntityFetch(NonNull<u32>);
+pub struct EntityFetch(NonNull<u128>);
 
 impl Query for Entity {
     type Fetch = EntityFetch;

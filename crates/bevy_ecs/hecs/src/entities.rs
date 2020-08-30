@@ -9,18 +9,18 @@ use std::error::Error;
 ///
 /// Obtained from `World::spawn`. Can be stored to refer to an entity in the future.
 #[derive(Debug, Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Entity(u32);
+pub struct Entity(u128);
 
 #[allow(clippy::new_without_default)]
 impl Entity {
     #[allow(missing_docs)]
     pub fn new() -> Self {
-        Self(rand::random::<u32>())
+        Self(rand::random::<u128>())
     }
 
     #[allow(missing_docs)]
     #[inline]
-    pub fn from_id(id: u32) -> Self {
+    pub fn from_id(id: u128) -> Self {
         Self(id)
     }
 
@@ -30,7 +30,7 @@ impl Entity {
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub fn id(self) -> u32 {
+    pub fn id(self) -> u128 {
         self.0
     }
 }

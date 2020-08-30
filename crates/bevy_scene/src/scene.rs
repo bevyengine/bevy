@@ -11,7 +11,7 @@ pub struct Scene {
 }
 
 pub struct Entity {
-    pub entity: u32,
+    pub entity: u128,
     pub components: Vec<DynamicProperties>,
 }
 
