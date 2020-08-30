@@ -241,7 +241,7 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
 }
 
 macro_rules! impl_or_query {
-    ( $( $T:ident ),+; $( $t:ident ),+ ) => {
+    ( $( $T:ident ),+ ) => {
         impl<$( $T: Query ),+> Query for Or<($( $T ),+)> {
             type Fetch = FetchOr<($( $T::Fetch ),+)>;
         }
@@ -250,10 +250,11 @@ macro_rules! impl_or_query {
             type Item = ($( $T::Item ),+);
 
             fn access(archetype: &Archetype) -> Option<Access> {
-                if false $(|| $T::access(archetype).is_none() )+ {
-                    return None
-                }
-                Some(Access::Read)
+                let mut max_access = None;
+                $(
+                max_access = max_access.max($T::access(archetype));
+                )+
+                max_access
             }
 
             fn borrow(archetype: &Archetype) {
@@ -272,28 +273,30 @@ macro_rules! impl_or_query {
                  )+
             }
 
+            #[allow(non_snake_case)]
             unsafe fn next(&mut self) -> Self::Item {
-                let ($( $t ),+) = &mut self.0;
-                ($( $t.next() ),+)
+                let ($( $T ),+) = &mut self.0;
+                ($( $T.next() ),+)
             }
 
+             #[allow(non_snake_case)]
             unsafe fn should_skip(&self) -> bool {
-                let ($( $t ),+) = &self.0;
-                true $( && $t.should_skip() )+
+                let ($( $T ),+) = &self.0;
+                true $( && $T.should_skip() )+
             }
         }
     };
 }
 
-impl_or_query!(Q1, Q2; q1, q2);
-impl_or_query!(Q1, Q2, Q3; q1, q2, q3);
-impl_or_query!(Q1, Q2, Q3, Q4; q1, q2, q3, q4);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5; q1, q2, q3, q4, q5);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6; q1, q2, q3, q4, q5, q6);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7; q1, q2, q3, q4, q5, q6, q7);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8; q1, q2, q3, q4, q5, q6, q7, q8);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9; q1, q2, q3, q4, q5, q6, q7, q8, q9);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10; q1, q2, q3, q4, q5, q6, q7, q8, q9, q10);
+impl_or_query!(Q1, Q2);
+impl_or_query!(Q1, Q2, Q3);
+impl_or_query!(Q1, Q2, Q3, Q4);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
 
 /// Query transformer performing a logical or on a pair of queries
 /// Intended to be used on Mutated or Changed queries.
