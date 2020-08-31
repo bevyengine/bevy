@@ -130,7 +130,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
     };
-    dbg!(code.to_string());
     TokenStream::from(code)
 }
 
@@ -163,7 +162,7 @@ fn struct_fields(
         }
         syn::Fields::Unit => {}
     };
-    return Ok((final_fields, skipped));
+    Ok((final_fields, skipped))
 }
 
 fn should_include_in_bundle(f: &syn::Field) -> Result<bool, TokenStream> {
@@ -174,9 +173,9 @@ fn should_include_in_bundle(f: &syn::Field) -> Result<bool, TokenStream> {
                 return Ok(false);
             } else {
                 let error = format!("Invalid bundle attribute #[bundle{}]", string);
-                return Err(quote_spanned! {attr.span().into() => compile_error!(#error)}.into());
+                return Err(quote_spanned! {attr.span() => compile_error!(#error)}.into());
             }
         }
     }
-    return Ok(true);
+    Ok(true)
 }
