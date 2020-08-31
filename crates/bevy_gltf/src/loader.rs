@@ -76,18 +76,22 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             let primitive_topology = get_primitive_topology(primitive.mode())?;
             let mut mesh = Mesh::new(primitive_topology);
 
-            if let Some(vertex_attribute) = reader
-                .read_positions()
-                .map(|v| VertexAttribute::position(v.collect()))
-            {
-                mesh.attributes.push(vertex_attribute);
-            }
+            let vertex_attribute = match reader.read_positions().map(|v| VertexAttribute::position(v.collect())){
+                Some(x) => x,
+                None => return Err(GltfError::BufferFormatUnsupported) //TODO: return proper error message
+            };
+
+            let total_vertices = vertex_attribute.values.len();
+            mesh.attributes.push(vertex_attribute);
+
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
                 .map(|v| VertexAttribute::normal(v.collect()))
             {
                 mesh.attributes.push(vertex_attribute);
+            } else {
+                mesh.attributes.push(VertexAttribute::normal(vec![[0.0, 0.0, 0.0]; total_vertices]));
             }
 
             if let Some(vertex_attribute) = reader
@@ -95,6 +99,8 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
                 .map(|v| VertexAttribute::uv(v.into_f32().collect()))
             {
                 mesh.attributes.push(vertex_attribute);
+            } else {
+                mesh.attributes.push(VertexAttribute::uv(vec![[0.0, 0.0]; total_vertices]));
             }
 
             if let Some(indices) = reader.read_indices() {
