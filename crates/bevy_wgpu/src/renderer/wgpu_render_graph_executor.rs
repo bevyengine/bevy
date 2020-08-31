@@ -4,8 +4,8 @@ use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
 };
-// use rayon::prelude::*;
-use std::{collections::HashMap, sync::Arc};
+use bevy_utils::HashMap;
+use std::sync::Arc;
 
 pub struct WgpuRenderGraphExecutor {
     /// Ignored because we're using rayon
@@ -31,7 +31,7 @@ impl WgpuRenderGraphExecutor {
         // const MAX_RENDER_CONTEXTS: usize = usize::max_value(); // perhaps something more sane later.
         // let thread_num = rayon::current_num_threads();
 
-        let mut node_outputs: HashMap<NodeId, ResourceSlots> = HashMap::new();
+        let mut node_outputs: HashMap<NodeId, ResourceSlots> = HashMap::default();
 
         for stage in stages {
             let num_items = stage.jobs.len();

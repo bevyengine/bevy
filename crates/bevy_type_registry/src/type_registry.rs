@@ -1,11 +1,8 @@
 use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
+use bevy_utils::{HashMap, HashSet};
 use parking_lot::RwLock;
-use std::{
-    any::TypeId,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{any::TypeId, sync::Arc};
 
 #[derive(Clone, Default)]
 pub struct TypeRegistry {

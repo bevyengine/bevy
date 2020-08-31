@@ -50,7 +50,7 @@ pub enum RenderCommand {
 }
 
 /// A component that indicates how to draw an entity.
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct Draw {
     pub is_visible: bool,
     pub is_transparent: bool,
