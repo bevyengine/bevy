@@ -11,20 +11,20 @@ pub enum Command {
 }
 
 /// A [World] mutation
-pub trait WorldWriter: Send + Sync {
+pub trait WorldWriter: Send {
     fn write(self: Box<Self>, world: &mut World);
 }
 
 pub(crate) struct Spawn<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     components: T,
 }
 
 impl<T> WorldWriter for Spawn<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.spawn(self.components);
@@ -33,7 +33,7 @@ where
 
 pub(crate) struct SpawnAsEntity<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     entity: Entity,
     components: T,
@@ -41,7 +41,7 @@ where
 
 impl<T> WorldWriter for SpawnAsEntity<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.spawn_as_entity(self.entity, self.components);
@@ -58,7 +58,7 @@ where
 
 impl<I> WorldWriter for SpawnBatch<I>
 where
-    I: IntoIterator + Send + Sync,
+    I: IntoIterator + Send,
     I::Item: Bundle,
 {
     fn write(self: Box<Self>, world: &mut World) {
@@ -78,7 +78,7 @@ impl WorldWriter for Despawn {
 
 pub struct Insert<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     entity: Entity,
     components: T,
@@ -86,7 +86,7 @@ where
 
 impl<T> WorldWriter for Insert<T>
 where
-    T: DynamicBundle + Send + Sync + 'static,
+    T: DynamicBundle + Send + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.insert(self.entity, self.components).unwrap();
@@ -129,7 +129,7 @@ where
     }
 }
 
-pub trait ResourcesWriter: Send + Sync {
+pub trait ResourcesWriter: Send {
     fn write(self: Box<Self>, resources: &mut Resources);
 }
 
@@ -161,14 +161,14 @@ pub struct CommandsInternal {
 }
 
 impl CommandsInternal {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         self.spawn_as_entity(Entity::new(), components)
     }
 
     pub fn spawn_as_entity(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
+        components: impl DynamicBundle + Send + 'static,
     ) -> &mut Self {
         self.current_entity = Some(entity);
         self.commands
@@ -179,10 +179,7 @@ impl CommandsInternal {
         self
     }
 
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn with_bundle(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add components because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.push(Command::WriteWorld(Box::new(Insert {
             entity: current_entity,
@@ -223,14 +220,14 @@ pub struct Commands {
 }
 
 impl Commands {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         self.spawn_as_entity(Entity::new(), components)
     }
 
     pub fn spawn_as_entity(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
+        components: impl DynamicBundle + Send + 'static,
     ) -> &mut Self {
         {
             let mut commands = self.commands.lock();
@@ -241,7 +238,7 @@ impl Commands {
 
     pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
     where
-        I: IntoIterator + Send + Sync + 'static,
+        I: IntoIterator + Send + 'static,
         I::Item: Bundle,
     {
         self.write_world(SpawnBatch { components_iter })
@@ -260,10 +257,7 @@ impl Commands {
         self
     }
 
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn with_bundle(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         {
             let mut commands = self.commands.lock();
             commands.with_bundle(components);
@@ -274,7 +268,7 @@ impl Commands {
     pub fn insert(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
+        components: impl DynamicBundle + Send + 'static,
     ) -> &mut Self {
         self.write_world(Insert { entity, components })
     }

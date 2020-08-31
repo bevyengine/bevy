@@ -81,24 +81,21 @@ impl WorldWriter for PushChildren {
 }
 
 impl<'a> ChildBuilder<'a> {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         self.spawn_as_entity(Entity::new(), components)
     }
 
     pub fn spawn_as_entity(
         &mut self,
         entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
+        components: impl DynamicBundle + Send + 'static,
     ) -> &mut Self {
         self.commands.spawn_as_entity(entity, components);
         self.push_children.children.push(entity);
         self
     }
 
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn with_bundle(&mut self, components: impl DynamicBundle + Send + 'static) -> &mut Self {
         self.commands.with_bundle(components);
         self
     }

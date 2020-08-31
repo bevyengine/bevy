@@ -28,6 +28,11 @@ pub struct NodeComponents {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub local_transform: LocalTransform,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for NodeComponents {
@@ -58,6 +63,7 @@ impl Default for NodeComponents {
             draw: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }
@@ -74,6 +80,11 @@ pub struct ImageComponents {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub local_transform: LocalTransform,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for ImageComponents {
@@ -106,6 +117,7 @@ impl Default for ImageComponents {
             draw: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }
@@ -120,6 +132,11 @@ pub struct TextComponents {
     pub focus_policy: FocusPolicy,
     pub transform: Transform,
     pub local_transform: LocalTransform,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for TextComponents {
@@ -136,6 +153,7 @@ impl Default for TextComponents {
             style: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }
@@ -153,6 +171,11 @@ pub struct ButtonComponents {
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
     pub local_transform: LocalTransform,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for ButtonComponents {
@@ -186,6 +209,7 @@ impl Default for ButtonComponents {
             draw: Default::default(),
             transform: Default::default(),
             local_transform: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }
@@ -199,6 +223,11 @@ pub struct UiCameraComponents {
     pub translation: Translation,
     pub rotation: Rotation,
     pub scale: Scale,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for UiCameraComponents {
@@ -221,6 +250,7 @@ impl Default for UiCameraComponents {
             transform: Default::default(),
             rotation: Default::default(),
             scale: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }

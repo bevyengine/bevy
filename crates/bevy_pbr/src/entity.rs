@@ -21,6 +21,11 @@ pub struct PbrComponents {
     pub translation: Translation,
     pub rotation: Rotation,
     pub scale: Scale,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
 
 impl Default for PbrComponents {
@@ -52,6 +57,7 @@ impl Default for PbrComponents {
             translation: Default::default(),
             rotation: Default::default(),
             scale: Default::default(),
+            not_sync: Default::default(),
         }
     }
 }
@@ -63,4 +69,9 @@ pub struct LightComponents {
     pub transform: Transform,
     pub translation: Translation,
     pub rotation: Rotation,
+    /// Hack: Prevents `Self: Component`, which prevents
+    /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
+    #[bundle(skip)]
+    #[doc(hidden)]
+    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
 }
