@@ -1,5 +1,4 @@
-use crate::iter::ParallelIterator;
-use crate::TaskPool;
+use crate::{iter::ParallelIterator, TaskPool};
 
 pub struct Chain<T, U> {
     pub(crate) left: T,
@@ -24,14 +23,6 @@ where
         }
         self.right.next_batch()
     }
-
-    fn task_pool(&self) -> &TaskPool {
-        if self.left_in_progress {
-            self.left.task_pool()
-        } else {
-            self.right.task_pool()
-        }
-    }
 }
 
 pub struct Zip<B1, B2, T, U> {
@@ -50,14 +41,9 @@ where
 {
     type Item = (T::Item, U::Item);
 
-	/// Note: Zip::next_batch() nessesarily reduces the batch size to 1
+    /// Note: Zip::next_batch() nessesarily reduces the batch size to 1
     fn next_batch(&mut self) -> Option<std::iter::Zip<B1, B2>> {
         unimplemented!()
-    }
-
-    // TODO: not sure what to do with this
-    fn task_pool(&self) -> &TaskPool {
-        self.left.task_pool()
     }
 }
 
@@ -76,9 +62,5 @@ where
 
     fn next_batch(&mut self) -> Option<std::iter::Map<B, F>> {
         self.iter.next_batch().map(|b| b.map(self.f.clone()))
-    }
-
-    fn task_pool(&self) -> &TaskPool {
-        self.iter.task_pool()
     }
 }

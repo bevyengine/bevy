@@ -13,22 +13,19 @@ where
     type Item;
 
     fn next_batch(&mut self) -> Option<B>;
-    fn task_pool(&self) -> &TaskPool;
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         (0, None)
     }
 
-    fn count(mut self) -> usize {
-        self.task_pool()
-            .clone()
-            .scope(|s| {
-                while let Some(batch) = self.next_batch() {
-                    s.spawn(async move { batch.count() })
-                }
-            })
-            .iter()
-            .sum()
+    fn count(mut self, pool: &TaskPool) -> usize {
+        pool.scope(|s| {
+            while let Some(batch) = self.next_batch() {
+                s.spawn(async move { batch.count() })
+            }
+        })
+        .iter()
+        .sum()
     }
 
     fn last(mut self) -> Option<Self::Item> {
@@ -89,11 +86,11 @@ where
         Map { iter: self, f }
     }
 
-    fn for_each<F>(mut self, f: F)
+    fn for_each<F>(mut self, pool: &TaskPool, f: F)
     where
         F: FnMut(Self::Item) + Send + Clone + Sync,
     {
-        self.task_pool().clone().scope(|s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move {
