@@ -182,7 +182,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
                     if id.is_some() {
                         return Err(Error::duplicate_field(ENTITY_FIELD_ENTITY));
                     }
-                    id = Some(map.next_value::<u32>()?);
+                    id = Some(map.next_value::<u128>()?);
                 }
                 EntityField::Components => {
                     if components.is_some() {
