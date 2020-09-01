@@ -12,7 +12,7 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::Transform;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Text {
     pub value: String,
     pub font: Handle<Font>,

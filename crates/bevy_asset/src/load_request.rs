@@ -38,11 +38,18 @@ where
     }
 
     fn load_asset(&self, load_request: &LoadRequest) -> Result<TAsset, AssetLoadError> {
-        let mut file = File::open(&load_request.path)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        let asset = self.loader.from_bytes(&load_request.path, bytes)?;
-        Ok(asset)
+        match File::open(&load_request.path) {
+            Ok(mut file) => {
+                let mut bytes = Vec::new();
+                file.read_to_end(&mut bytes)?;
+                let asset = self.loader.from_bytes(&load_request.path, bytes)?;
+                Ok(asset)
+            }
+            Err(e) => Err(AssetLoadError::Io(std::io::Error::new(
+                e.kind(),
+                format!("{}", load_request.path.display()),
+            ))),
+        }
     }
 }
 

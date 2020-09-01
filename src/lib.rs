@@ -53,6 +53,7 @@ pub use bevy_property as property;
 pub use bevy_render as render;
 pub use bevy_scene as scene;
 pub use bevy_sprite as sprite;
+pub use bevy_tasks as tasks;
 pub use bevy_text as text;
 pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;

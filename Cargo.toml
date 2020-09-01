@@ -13,7 +13,7 @@ readme = "README.md"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 
 [features]
-default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit", "png", "hdr", "mp3"]
+default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit", "png", "hdr", "mp3", "x11"]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
 
@@ -28,6 +28,10 @@ wav = ["bevy_audio/wav"]
 vorbis = ["bevy_audio/vorbis"]
 
 serialize = ["bevy_input/serialize"]
+
+# Display server protocol support (X11 is enabled by default)
+wayland = ["bevy_winit/wayland"]
+x11 = ["bevy_winit/x11"]
 
 [workspace]
 members = [
@@ -53,7 +57,9 @@ bevy_sprite = { path = "crates/bevy_sprite", version = "0.1" }
 bevy_transform = { path = "crates/bevy_transform", version = "0.1" }
 bevy_text = { path = "crates/bevy_text", version = "0.1" }
 bevy_ui = { path = "crates/bevy_ui", version = "0.1" }
+bevy_utils = { path = "crates/bevy_utils", version = "0.1" }
 bevy_window = { path = "crates/bevy_window", version = "0.1" }
+bevy_tasks = { path = "crates/bevy_tasks", version = "0.1" }
 
 # bevy (optional)
 bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.1" }

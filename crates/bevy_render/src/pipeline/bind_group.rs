@@ -1,8 +1,6 @@
 use super::BindingDescriptor;
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+use bevy_utils::AHasher;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug, Eq)]
 pub struct BindGroupDescriptor {
@@ -27,7 +25,7 @@ impl BindGroupDescriptor {
     }
 
     pub fn update_id(&mut self) {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = AHasher::default();
         self.hash(&mut hasher);
         self.id = BindGroupDescriptorId(hasher.finish());
     }

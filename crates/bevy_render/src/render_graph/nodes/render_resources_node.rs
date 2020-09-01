@@ -4,18 +4,25 @@ use crate::{
     render_graph::{CommandQueue, Node, ResourceSlots, SystemNode},
     renderer::{
         self, BufferInfo, BufferUsage, RenderContext, RenderResourceBinding,
-        RenderResourceBindings, RenderResourceBindingsId, RenderResourceContext,
-        RenderResourceHints,
+        RenderResourceBindings, RenderResourceContext, RenderResourceHints,
     },
     texture,
 };
 
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{
+    Commands, Entity, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World,
+};
+use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{collections::HashMap, marker::PhantomData, ops::DerefMut};
+use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
+
+fn get_aligned_dynamic_uniform_size(data_size: usize) -> usize {
+    BIND_BUFFER_ALIGNMENT * ((data_size as f32 / BIND_BUFFER_ALIGNMENT as f32).ceil() as usize)
+}
+
 #[derive(Debug)]
 struct QueuedBufferWrite {
     buffer: BufferId,
@@ -24,189 +31,191 @@ struct QueuedBufferWrite {
     size: usize,
 }
 
+/// Used to track items in a gpu buffer in an "array" style
 #[derive(Debug)]
-struct BufferArrayStatus {
-    changed_item_count: usize,
+struct BufferArray<I> {
     item_size: usize,
-    aligned_size: usize,
-    staging_buffer_offset: usize,
+    buffer_capacity: usize,
+    min_capacity: usize,
+    len: usize,
     buffer: Option<BufferId>,
-    queued_buffer_writes: Vec<QueuedBufferWrite>,
-    current_item_count: usize,
-    current_item_capacity: usize,
-    indices: HashMap<RenderResourceBindingsId, usize>,
-    current_index: usize,
-    // TODO: this is a hack to workaround RenderResources without a fixed length
-    changed_size: usize,
-    current_offset: usize,
+    free_indices: Vec<usize>,
+    indices: HashMap<I, usize>,
 }
 
-impl BufferArrayStatus {
-    pub fn get_or_assign_index(&mut self, id: RenderResourceBindingsId) -> usize {
-        if let Some(offset) = self.indices.get(&id) {
-            *offset
-        } else {
-            if self.current_index == self.current_item_capacity {
-                panic!("no empty slots available in array");
-            }
+impl<I: Hash + Eq> BufferArray<I> {
+    pub fn new(item_size: usize, min_capacity: usize, align: bool) -> Self {
+        BufferArray {
+            item_size: if align {
+                get_aligned_dynamic_uniform_size(item_size)
+            } else {
+                item_size
+            },
+            len: 0,
+            buffer_capacity: 0,
+            min_capacity,
+            buffer: None,
+            free_indices: Vec::new(),
+            indices: HashMap::default(),
+        }
+    }
 
-            let index = self.current_index;
+    fn get_or_assign_index(&mut self, id: I) -> usize {
+        if let Some(index) = self.indices.get(&id) {
+            *index
+        } else if let Some(index) = self.free_indices.pop() {
             self.indices.insert(id, index);
-            self.current_index += 1;
+            self.len += 1;
+            index
+        } else {
+            let index = self.len;
+            self.indices.insert(id, index);
+            self.len += 1;
             index
         }
     }
+
+    pub fn get_binding(&self, id: I) -> Option<RenderResourceBinding> {
+        self.indices
+            .get(&id)
+            .map(|index| RenderResourceBinding::Buffer {
+                buffer: self.buffer.unwrap(),
+                dynamic_index: Some((index * self.item_size) as u32),
+                range: 0..self.item_size as u64,
+            })
+    }
+
+    pub fn remove_binding(&mut self, id: I) {
+        if let Some(index) = self.indices.remove(&id) {
+            self.free_indices.push(index);
+            self.len -= 1;
+        }
+    }
+
+    pub fn resize(&mut self, render_resource_context: &dyn RenderResourceContext) {
+        if self.len <= self.buffer_capacity {
+            return;
+        }
+
+        self.allocate_buffer(render_resource_context);
+        // TODO: allow shrinking
+    }
+
+    pub fn allocate_buffer(&mut self, render_resource_context: &dyn RenderResourceContext) {
+        if let Some(old_buffer) = self.buffer.take() {
+            render_resource_context.remove_buffer(old_buffer);
+        }
+
+        let new_len = if self.buffer_capacity == 0 {
+            self.min_capacity.max(self.len)
+        } else {
+            self.min_capacity.max(self.len * 2)
+        };
+
+        let size = new_len * self.item_size;
+        let buffer = render_resource_context.create_buffer(BufferInfo {
+            size,
+            buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
+            ..Default::default()
+        });
+
+        self.buffer = Some(buffer);
+        self.buffer_capacity = new_len;
+    }
 }
 
-struct UniformBufferArrays<T>
+struct UniformBufferArrays<I, T>
 where
     T: renderer::RenderResources,
 {
-    uniform_arrays: Vec<Option<(String, BufferArrayStatus)>>,
+    buffer_arrays: Vec<Option<BufferArray<I>>>,
     staging_buffer: Option<BufferId>,
     staging_buffer_size: usize,
+    required_staging_buffer_size: usize,
+    current_staging_buffer_offset: usize,
+    queued_buffer_writes: Vec<QueuedBufferWrite>,
     _marker: PhantomData<T>,
 }
 
-impl<T> Default for UniformBufferArrays<T>
+impl<I, T> Default for UniformBufferArrays<I, T>
 where
     T: renderer::RenderResources,
 {
     fn default() -> Self {
         Self {
-            uniform_arrays: Default::default(),
+            buffer_arrays: Default::default(),
             staging_buffer: Default::default(),
             staging_buffer_size: 0,
+            current_staging_buffer_offset: 0,
+            queued_buffer_writes: Vec::new(),
+            required_staging_buffer_size: 0,
             _marker: Default::default(),
         }
     }
 }
 
-impl<T> UniformBufferArrays<T>
+impl<I, T> UniformBufferArrays<I, T>
 where
+    I: Hash + Eq + Copy,
     T: renderer::RenderResources,
 {
-    fn reset_changed_item_counts(&mut self) {
-        for buffer_status in self.uniform_arrays.iter_mut() {
-            if let Some((_name, buffer_status)) = buffer_status {
-                buffer_status.changed_item_count = 0;
-                buffer_status.current_index = 0;
-                buffer_status.indices.clear();
-                buffer_status.current_offset = 0;
-                buffer_status.changed_size = 0;
-            }
-        }
-    }
-
-    fn increment_changed_item_counts(&mut self, uniforms: &T) {
-        if self.uniform_arrays.len() != uniforms.render_resources_len() {
-            self.uniform_arrays
-                .resize_with(uniforms.render_resources_len(), || None);
-        }
-        for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
-            if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
-                let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
-                let size = render_resource.buffer_byte_len().unwrap();
-                if let Some((ref _name, ref mut buffer_array_status)) = self.uniform_arrays[i] {
-                    buffer_array_status.changed_item_count += 1;
-                    buffer_array_status.changed_size += size;
+    /// Initialize this UniformBufferArrays using information from a RenderResources value.
+    fn initialize(&mut self, render_resources: &T) {
+        if self.buffer_arrays.len() != render_resources.render_resources_len() {
+            let mut buffer_arrays = Vec::with_capacity(render_resources.render_resources_len());
+            for render_resource in render_resources.iter() {
+                if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
+                    let size = render_resource.buffer_byte_len().unwrap();
+                    buffer_arrays.push(Some(BufferArray::new(size, 10, true)));
                 } else {
-                    self.uniform_arrays[i] = Some((
-                        render_resource_name.to_string(),
-                        BufferArrayStatus {
-                            changed_item_count: 1,
-                            queued_buffer_writes: Vec::new(),
-                            aligned_size: Self::get_aligned_dynamic_uniform_size(size),
-                            item_size: size,
-                            staging_buffer_offset: 0,
-                            buffer: None,
-                            current_index: 0,
-                            current_item_count: 0,
-                            current_item_capacity: 0,
-                            indices: HashMap::new(),
-                            changed_size: size,
-                            current_offset: 0,
-                        },
-                    ))
+                    buffer_arrays.push(None);
+                }
+            }
+
+            self.buffer_arrays = buffer_arrays;
+        }
+    }
+
+    /// Resets staging buffer tracking information
+    fn begin_update(&mut self) {
+        self.required_staging_buffer_size = 0;
+        self.current_staging_buffer_offset = 0;
+    }
+
+    /// Find a spot for the given RenderResources in each uniform's BufferArray and prepare space in the staging buffer
+    fn prepare_uniform_buffers(&mut self, id: I, render_resources: &T) {
+        for (i, render_resource) in render_resources.iter().enumerate() {
+            if let Some(RenderResourceType::Buffer) = render_resource.resource_type() {
+                let size = render_resource.buffer_byte_len().unwrap();
+                if let Some(buffer_array) = &mut self.buffer_arrays[i] {
+                    buffer_array.get_or_assign_index(id);
+                    self.required_staging_buffer_size += size;
                 }
             }
         }
     }
 
-    fn get_aligned_dynamic_uniform_size(data_size: usize) -> usize {
-        BIND_BUFFER_ALIGNMENT * ((data_size as f32 / BIND_BUFFER_ALIGNMENT as f32).ceil() as usize)
-    }
-
-    fn setup_buffer_arrays(
-        &mut self,
-        render_resource_context: &dyn RenderResourceContext,
-        dynamic_uniforms: bool,
-    ) {
-        for buffer_array_status in self.uniform_arrays.iter_mut() {
-            if let Some((_name, buffer_array_status)) = buffer_array_status {
-                if dynamic_uniforms {
-                    Self::setup_buffer_array(buffer_array_status, render_resource_context, true);
-                }
-
-                buffer_array_status.queued_buffer_writes =
-                    Vec::with_capacity(buffer_array_status.changed_item_count);
+    /// Resize BufferArray buffers if they aren't large enough
+    fn resize_buffer_arrays(&mut self, render_resource_context: &dyn RenderResourceContext) {
+        for buffer_array in self.buffer_arrays.iter_mut() {
+            if let Some(buffer_array) = buffer_array {
+                buffer_array.resize(render_resource_context);
             }
         }
     }
 
-    fn setup_buffer_array(
-        buffer_array_status: &mut BufferArrayStatus,
-        render_resource_context: &dyn RenderResourceContext,
-        align: bool,
-    ) {
-        if buffer_array_status.current_item_capacity < buffer_array_status.changed_item_count {
-            let new_capacity =
-                buffer_array_status.changed_item_count + buffer_array_status.changed_item_count / 2;
-            let mut item_size = buffer_array_status.item_size;
-            if align {
-                item_size = Self::get_aligned_dynamic_uniform_size(item_size);
-            }
-
-            let total_size = item_size * new_capacity;
-
-            let buffer = render_resource_context.create_buffer(BufferInfo {
-                size: total_size,
-                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                ..Default::default()
-            });
-
-            buffer_array_status.current_item_capacity = new_capacity;
-
-            log::trace!(
-                "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
-                std::any::type_name::<T>(),
-                total_size,
-                new_capacity,
-                item_size
-            );
-
-            buffer_array_status.buffer = Some(buffer);
-        }
-    }
-
-    fn update_staging_buffer(&mut self, render_resource_context: &dyn RenderResourceContext) {
-        let mut size = 0;
-        for dynamic_buffer_array_status in self.uniform_arrays.iter_mut() {
-            if let Some((_name, ref mut buffer_array_status)) = dynamic_buffer_array_status {
-                buffer_array_status.staging_buffer_offset = size;
-                size += buffer_array_status.changed_size;
-            }
-        }
-
-        if self.staging_buffer_size != size {
+    /// Update the staging buffer to provide enough space to copy data to target buffers.
+    fn resize_staging_buffer(&mut self, render_resource_context: &dyn RenderResourceContext) {
+        // TODO: allow staging buffer to scale down
+        if self.required_staging_buffer_size > self.staging_buffer_size {
             if let Some(staging_buffer) = self.staging_buffer {
                 render_resource_context.remove_buffer(staging_buffer);
             }
 
-            if size > 0 {
+            if self.required_staging_buffer_size > 0 {
                 let staging_buffer = render_resource_context.create_buffer(BufferInfo {
                     buffer_usage: BufferUsage::COPY_SRC | BufferUsage::MAP_WRITE,
-                    size,
+                    size: self.required_staging_buffer_size,
                     ..Default::default()
                 });
                 self.staging_buffer = Some(staging_buffer);
@@ -214,40 +223,47 @@ where
                 self.staging_buffer = None;
             }
 
-            self.staging_buffer_size = size;
+            self.staging_buffer_size = self.required_staging_buffer_size;
         }
     }
 
-    fn setup_uniform_buffer_resources(
+    fn remove_bindings(&mut self, id: I) {
+        for buffer_array in self.buffer_arrays.iter_mut() {
+            if let Some(buffer_array) = buffer_array {
+                buffer_array.remove_binding(id);
+            }
+        }
+    }
+
+    fn write_uniform_buffers(
         &mut self,
+        id: I,
         uniforms: &T,
         dynamic_uniforms: bool,
         render_resource_context: &dyn RenderResourceContext,
         render_resource_bindings: &mut RenderResourceBindings,
         staging_buffer: &mut [u8],
     ) {
-        for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
+        for (i, render_resource) in uniforms.iter().enumerate() {
             match render_resource.resource_type() {
                 Some(RenderResourceType::Buffer) => {
                     let size = render_resource.buffer_byte_len().unwrap();
                     let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
-                    let (_name, uniform_buffer_status) = self.uniform_arrays[i].as_mut().unwrap();
+                    let buffer_array = self.buffer_arrays[i].as_mut().unwrap();
                     let range = 0..size as u64;
                     let (target_buffer, target_offset) = if dynamic_uniforms {
-                        let buffer = uniform_buffer_status.buffer.unwrap();
-                        let index =
-                            uniform_buffer_status.get_or_assign_index(render_resource_bindings.id);
-                        render_resource_bindings.set(
-                            render_resource_name,
-                            RenderResourceBinding::Buffer {
-                                buffer,
-                                dynamic_index: Some(
-                                    (index * uniform_buffer_status.aligned_size) as u32,
-                                ),
-                                range,
-                            },
-                        );
-                        (buffer, index * uniform_buffer_status.aligned_size)
+                        let binding = buffer_array.get_binding(id).unwrap();
+                        let dynamic_index = if let RenderResourceBinding::Buffer {
+                            dynamic_index: Some(dynamic_index),
+                            ..
+                        } = binding
+                        {
+                            dynamic_index
+                        } else {
+                            panic!("dynamic index should always be set");
+                        };
+                        render_resource_bindings.set(render_resource_name, binding);
+                        (buffer_array.buffer.unwrap(), dynamic_index)
                     } else {
                         let mut matching_buffer = None;
                         if let Some(binding) = render_resource_bindings.get(render_resource_name) {
@@ -296,22 +312,18 @@ where
                         (resource, 0)
                     };
 
-                    let staging_buffer_start = uniform_buffer_status.staging_buffer_offset
-                        + uniform_buffer_status.current_offset;
-
                     render_resource.write_buffer_bytes(
-                        &mut staging_buffer[staging_buffer_start..(staging_buffer_start + size)],
+                        &mut staging_buffer[self.current_staging_buffer_offset
+                            ..(self.current_staging_buffer_offset + size)],
                     );
 
-                    uniform_buffer_status
-                        .queued_buffer_writes
-                        .push(QueuedBufferWrite {
-                            buffer: target_buffer,
-                            target_offset,
-                            source_offset: uniform_buffer_status.current_offset,
-                            size,
-                        });
-                    uniform_buffer_status.current_offset += size;
+                    self.queued_buffer_writes.push(QueuedBufferWrite {
+                        buffer: target_buffer,
+                        target_offset: target_offset as usize,
+                        source_offset: self.current_staging_buffer_offset,
+                        size,
+                    });
+                    self.current_staging_buffer_offset += size;
                 }
                 Some(RenderResourceType::Texture) => { /* ignore textures */ }
                 Some(RenderResourceType::Sampler) => { /* ignore samplers */ }
@@ -325,19 +337,14 @@ where
         command_queue: &mut CommandQueue,
         staging_buffer: BufferId,
     ) {
-        for uniform_buffer_status in self.uniform_arrays.iter_mut() {
-            if let Some((_name, buffer_array_status)) = uniform_buffer_status {
-                let start = buffer_array_status.staging_buffer_offset;
-                for queued_buffer_write in buffer_array_status.queued_buffer_writes.drain(..) {
-                    command_queue.copy_buffer_to_buffer(
-                        staging_buffer,
-                        (start + queued_buffer_write.source_offset) as u64,
-                        queued_buffer_write.buffer,
-                        queued_buffer_write.target_offset as u64,
-                        queued_buffer_write.size as u64,
-                    )
-                }
-            }
+        for queued_buffer_write in self.queued_buffer_writes.drain(..) {
+            command_queue.copy_buffer_to_buffer(
+                staging_buffer,
+                queued_buffer_write.source_offset as u64,
+                queued_buffer_write.buffer,
+                queued_buffer_write.target_offset as u64,
+                queued_buffer_write.size as u64,
+            )
         }
     }
 }
@@ -391,7 +398,7 @@ where
             system.id(),
             RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                uniform_buffer_arrays: UniformBufferArrays::<Entity, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
             },
         );
@@ -400,13 +407,13 @@ where
     }
 }
 
-struct RenderResourcesNodeState<T: RenderResources> {
+struct RenderResourcesNodeState<I, T: RenderResources> {
     command_queue: CommandQueue,
-    uniform_buffer_arrays: UniformBufferArrays<T>,
+    uniform_buffer_arrays: UniformBufferArrays<I, T>,
     dynamic_uniforms: bool,
 }
 
-impl<T: RenderResources> Default for RenderResourcesNodeState<T> {
+impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
     fn default() -> Self {
         Self {
             command_queue: Default::default(),
@@ -417,35 +424,29 @@ impl<T: RenderResources> Default for RenderResourcesNodeState<T> {
 }
 
 fn render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<T>>,
+    mut state: Local<RenderResourcesNodeState<Entity, T>>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    mut query: Query<(&T, &Draw, &mut RenderPipelines)>,
+    mut query: Query<(Entity, &T, &Draw, &mut RenderPipelines)>,
 ) {
     let state = state.deref_mut();
+    let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
     let render_resource_context = &**render_resource_context;
-    state.uniform_buffer_arrays.reset_changed_item_counts();
-    // update uniforms info
-    for (uniforms, draw, _render_pipelines) in &mut query.iter() {
-        if !draw.is_visible {
-            continue;
-        }
-
-        state
-            .uniform_buffer_arrays
-            .increment_changed_item_counts(&uniforms);
+    uniform_buffer_arrays.begin_update();
+    // initialize uniform buffer arrays using the first RenderResources
+    if let Some((_, first, _, _)) = query.iter().iter().next() {
+        uniform_buffer_arrays.initialize(first);
     }
-    state
-        .uniform_buffer_arrays
-        .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
-    state
-        .uniform_buffer_arrays
-        .update_staging_buffer(render_resource_context);
 
-    for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+    for entity in query.removed::<T>() {
+        uniform_buffer_arrays.remove_bindings(*entity);
+    }
+
+    for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
         if !draw.is_visible {
             continue;
         }
 
+        uniform_buffer_arrays.prepare_uniform_buffers(entity, uniforms);
         setup_uniform_texture_resources::<T>(
             &uniforms,
             render_resource_context,
@@ -453,18 +454,22 @@ fn render_resources_node_system<T: RenderResources>(
         )
     }
 
+    uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
+    uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
+
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
         render_resource_context.map_buffer(staging_buffer);
         render_resource_context.write_mapped_buffer(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+                for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
                     if !draw.is_visible {
                         continue;
                     }
 
-                    state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                    state.uniform_buffer_arrays.write_uniform_buffers(
+                        entity,
                         &uniforms,
                         state.dynamic_uniforms,
                         render_resource_context,
@@ -482,12 +487,13 @@ fn render_resources_node_system<T: RenderResources>(
     } else {
         // TODO: can we just remove this?
         let mut staging_buffer: [u8; 0] = [];
-        for (uniforms, draw, mut render_pipelines) in &mut query.iter() {
+        for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
             if !draw.is_visible {
                 continue;
             }
 
-            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+            state.uniform_buffer_arrays.write_uniform_buffers(
+                entity,
                 &uniforms,
                 state.dynamic_uniforms,
                 render_resource_context,
@@ -549,7 +555,7 @@ where
             system.id(),
             RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<T>::default(),
+                uniform_buffer_arrays: UniformBufferArrays::<Handle<T>, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
             },
         );
@@ -559,63 +565,37 @@ where
 }
 
 fn asset_render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<T>>,
+    mut state: Local<RenderResourcesNodeState<Handle<T>, T>>,
     assets: Res<Assets<T>>,
-    //    asset_events: Res<Events<AssetEvent<T>>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut query: Query<(&Handle<T>, &Draw, &mut RenderPipelines)>,
 ) {
     let state = state.deref_mut();
+    let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
     let render_resource_context = &**render_resource_context;
-    state.uniform_buffer_arrays.reset_changed_item_counts();
 
     let modified_assets = assets
         .iter()
         .map(|(handle, _)| handle)
         .collect::<Vec<Handle<T>>>();
-    // TODO: uncomment this when asset dependency events are added https://github.com/bevyengine/bevy/issues/26
-    // let mut modified_assets = HashSet::new();
-    // for event in asset_event_reader.iter(&asset_events) {
-    //     match event {
-    //         AssetEvent::Created { handle } => {
-    //             modified_assets.insert(*handle);
-    //         }
-    //         AssetEvent::Modified { handle } => {
-    //             modified_assets.insert(*handle);
-    //         }
-    //         AssetEvent::Removed { handle } => {
-    //             // TODO: handle removals
-    //             modified_assets.remove(handle);
-    //         }
-    //     }
-    // }
 
-    // update uniform handles info
-    for asset_handle in modified_assets.iter() {
-        let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-        state
-            .uniform_buffer_arrays
-            .increment_changed_item_counts(&asset);
+    uniform_buffer_arrays.begin_update();
+    // initialize uniform buffer arrays using the first RenderResources
+    if let Some(first_handle) = modified_assets.get(0) {
+        let asset = assets.get(first_handle).expect(EXPECT_ASSET_MESSAGE);
+        uniform_buffer_arrays.initialize(asset);
     }
-
-    state
-        .uniform_buffer_arrays
-        .setup_buffer_arrays(render_resource_context, state.dynamic_uniforms);
-    state
-        .uniform_buffer_arrays
-        .update_staging_buffer(render_resource_context);
 
     for asset_handle in modified_assets.iter() {
         let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-        let mut render_resource_bindings =
-            asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
-        setup_uniform_texture_resources::<T>(
-            &asset,
-            render_resource_context,
-            &mut render_resource_bindings,
-        );
+        uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
+        let mut bindings = asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+        setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings);
     }
+
+    uniform_buffer_arrays.resize_buffer_arrays(render_resource_context);
+    uniform_buffer_arrays.resize_staging_buffer(render_resource_context);
 
     if let Some(staging_buffer) = state.uniform_buffer_arrays.staging_buffer {
         render_resource_context.map_buffer(staging_buffer);
@@ -628,7 +608,8 @@ fn asset_render_resources_node_system<T: RenderResources>(
                     let mut render_resource_bindings =
                         asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
                     // TODO: only setup buffer if we haven't seen this handle before
-                    state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+                    state.uniform_buffer_arrays.write_uniform_buffers(
+                        *asset_handle,
                         &asset,
                         state.dynamic_uniforms,
                         render_resource_context,
@@ -650,7 +631,8 @@ fn asset_render_resources_node_system<T: RenderResources>(
             let mut render_resource_bindings =
                 asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
             // TODO: only setup buffer if we haven't seen this handle before
-            state.uniform_buffer_arrays.setup_uniform_buffer_resources(
+            state.uniform_buffer_arrays.write_uniform_buffers(
+                *asset_handle,
                 &asset,
                 state.dynamic_uniforms,
                 render_resource_context,
@@ -677,7 +659,7 @@ fn setup_uniform_texture_resources<T>(
 ) where
     T: renderer::RenderResources,
 {
-    for (i, render_resource) in uniforms.iter_render_resources().enumerate() {
+    for (i, render_resource) in uniforms.iter().enumerate() {
         if let Some(RenderResourceType::Texture) = render_resource.resource_type() {
             let render_resource_name = uniforms.get_render_resource_name(i).unwrap();
             let sampler_name = format!("{}_sampler", render_resource_name);

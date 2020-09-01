@@ -5,6 +5,7 @@ use bevy_math::Size;
 use bevy_render::texture::Texture;
 use bevy_sprite::ColorMaterial;
 
+#[derive(Clone)]
 pub enum Image {
     KeepAspect,
 }
