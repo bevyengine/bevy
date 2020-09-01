@@ -18,6 +18,7 @@ pub use iter::ParallelIterator;
 
 pub mod prelude {
     pub use crate::{
+        iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
         usages::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool},
     };
