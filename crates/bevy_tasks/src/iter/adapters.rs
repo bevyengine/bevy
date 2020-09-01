@@ -1,4 +1,4 @@
-use crate::{iter::ParallelIterator, TaskPool};
+use crate::iter::ParallelIterator;
 
 pub struct Chain<T, U> {
     pub(crate) left: T,

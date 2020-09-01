@@ -30,11 +30,8 @@ where
 
     fn last(mut self) -> Option<Self::Item> {
         let mut last_item = None;
-        loop {
-            match self.next_batch() {
-                Some(batch) => last_item = batch.last(),
-                None => break,
-            }
+        while let Some(batch) = self.next_batch() {
+            last_item = batch.last();
         }
         last_item
     }
