@@ -180,6 +180,10 @@ name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
 
 [[example]]
+name = "parallel_query"
+path = "examples/ecs/parallel_query.rs"
+
+[[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
 
