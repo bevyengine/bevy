@@ -215,7 +215,7 @@ where
     }
 
     // TODO: Investigate optimizations for less copying
-    /// Note that find consume the whole iterator, and return a Vec of all results
+    /// Note that find consumes the whole iterator, and return a Vec of all results
     fn find<F>(mut self, pool: &TaskPool, f: F) -> Vec<Self::Item>
     where
         F: FnMut(&Self::Item) -> bool + Send + Sync + Clone,
@@ -239,7 +239,7 @@ where
     }
 
     // TODO: Investigate optimizations for less copying
-    /// Note that find_map consume the whole iterator, and return a Vec of all results
+    /// Note that find_map consumes the whole iterator, and return a Vec of all results
     fn find_map<C, F>(mut self, pool: &TaskPool, f: F) -> Vec<C>
     where
         F: FnMut(Self::Item) -> Option<C> + Send + Sync + Clone,
@@ -263,7 +263,7 @@ where
     }
 
     // TODO: Investigate optimizations for less copying
-    /// Note that position consume the whole iterator
+    /// Note that position consumes the whole iterator
     fn position<F>(mut self, pool: &TaskPool, f: F) -> Option<usize>
     where
         F: FnMut(Self::Item) -> bool + Send + Sync + Clone,
