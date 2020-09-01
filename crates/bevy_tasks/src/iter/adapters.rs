@@ -25,28 +25,6 @@ where
     }
 }
 
-pub struct Zip<B1, B2, T, U> {
-    pub(crate) left: T,
-    pub(crate) left_batch: Option<B1>,
-    pub(crate) right: U,
-    pub(crate) right_batch: Option<B2>,
-}
-
-impl<B1, B2, T, U> ParallelIterator<std::iter::Zip<B1, B2>> for Zip<B1, B2, T, U>
-where
-    B1: Iterator + Send,
-    B2: Iterator + Send,
-    T: ParallelIterator<B1, Item = B1::Item>,
-    U: ParallelIterator<B2, Item = B2::Item>,
-{
-    type Item = (T::Item, U::Item);
-
-    /// Note: Zip::next_batch() nessesarily reduces the batch size to 1
-    fn next_batch(&mut self) -> Option<std::iter::Zip<B1, B2>> {
-        unimplemented!()
-    }
-}
-
 pub struct Map<P, F> {
     pub(crate) iter: P,
     pub(crate) f: F,

@@ -62,20 +62,6 @@ where
         }
     }
 
-    // TODO: Use IntoParallelIterator for U
-    fn zip<U, B2>(self, other: U) -> Zip<B, B2, Self, U>
-    where
-        B2: Iterator + Send,
-        U: ParallelIterator<B2, Item = B2::Item>,
-    {
-        Zip {
-            left: self,
-            left_batch: None,
-            right: other,
-            right_batch: None,
-        }
-    }
-
     fn map<T, F>(self, f: F) -> Map<Self, F>
     where
         F: FnMut(Self::Item) -> T + Send + Clone,
