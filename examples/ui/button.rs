@@ -41,7 +41,7 @@ fn button_system(
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked(i) => {
-                let mut s = String::with_capacity(20);
+                let mut s = String::from("Pressing button(s)");
                 if i.check(MouseButton::Left) {
                     s.push_str(" Left");
                 }
@@ -51,8 +51,7 @@ fn button_system(
                 if i.check(MouseButton::Middle) {
                     s.push_str(" Middle");
                 }
-
-                text.value = format!("Pressing button(s){}", s).to_string();
+                text.value = s;
                 *material = button_materials.pressed;
             }
             Interaction::Hovered => {

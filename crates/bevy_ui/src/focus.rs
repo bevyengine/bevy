@@ -97,10 +97,8 @@ pub fn ui_focus_system(
                 }
             }
 
-            if let Interaction::Clicked(flags) = *interaction {
-                if flags.0 == 0 {
-                    *interaction = Interaction::None;
-                }
+            if let Interaction::Clicked(MouseFlags(0)) = *interaction {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -136,7 +134,7 @@ pub fn ui_focus_system(
         moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
         for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
             if let Some(mut interaction) = interaction {
-                //Build bitflags out of hashset
+                // Build bitflags out of hashset
                 let new_flags = mouse_button_input.just_pressed.iter().fold(
                     MouseFlags(0),
                     |mut flags, button| {

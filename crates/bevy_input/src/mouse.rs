@@ -27,7 +27,7 @@ impl Into<u16> for MouseButton {
             MouseButton::Left => 0,
             MouseButton::Right => 1,
             MouseButton::Middle => 2,
-            MouseButton::Other(i) => (i as u16),
+            MouseButton::Other(i) => u16::from(i),
         }
     }
 }
