@@ -284,10 +284,10 @@ pub struct BatchedIter<'q, 'w, Q: HecsQuery> {
 unsafe impl<'q, 'w, Q: HecsQuery> Send for BatchedIter<'q, 'w, Q> {}
 unsafe impl<'q, 'w, Q: HecsQuery> Sync for BatchedIter<'q, 'w, Q> {}
 
-impl<'q, 'w, Q: HecsQuery> Iterator for BatchedIter<'q, 'w, Q> {
-    type Item = Batch<'q, Q>;
+impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for BatchedIter<'q, 'w, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next_batch(&mut self) -> Option<Batch<'q, Q>> {
         loop {
             let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
             let offset = self.batch_size * self.batch;
@@ -314,14 +314,6 @@ impl<'q, 'w, Q: HecsQuery> Iterator for BatchedIter<'q, 'w, Q> {
                 continue;
             }
         }
-    }
-}
-
-impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for BatchedIter<'q, 'w, Q> {
-    type Item = <Q::Fetch as Fetch<'q>>::Item;
-
-    fn next_batch(&mut self) -> Option<Batch<'q, Q>> {
-        self.next()
     }
 }
 
