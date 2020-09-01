@@ -33,9 +33,6 @@ where
     }
 
     pub fn get(&self, axis_id: T) -> Option<f32> {
-        match self.axes.get(&axis_id) {
-            Some(axis) => Some(*axis),
-            None => None,
-        }
+        self.axes.get(&axis_id).copied()
     }
 }
