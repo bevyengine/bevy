@@ -8,7 +8,7 @@ fn main() {
         .add_default_plugins()
         .add_startup_system(setup.system())
         .add_system(rotator_system.system())
-        .add_system(print_children.system())
+        //.add_system(print_children.system())
         .run();
 }
 

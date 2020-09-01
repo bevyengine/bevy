@@ -26,7 +26,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .with_bundle((
                 Parent(parent_entity),
                 PreviousParent(Some(parent_entity)),
-                Transform::default(),
+                //Transform::default(),
             ));
         {
             let world = &mut self.world_builder.world;
