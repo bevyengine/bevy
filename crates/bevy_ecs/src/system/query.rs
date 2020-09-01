@@ -3,6 +3,7 @@ use bevy_hecs::{
     Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryOne, Ref, RefMut,
     World,
 };
+use bevy_tasks::ParallelIterator;
 use std::marker::PhantomData;
 
 /// Provides scoped access to a World according to a given [HecsQuery]
@@ -148,6 +149,20 @@ impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
             iter: None,
         }
     }
+
+    /// Like `iter`, but returns child iterators of at most `batch_size`
+    /// elements
+    ///
+    /// Useful for distributing work over a threadpool using the
+    /// ParallelIterator interface.
+    pub fn iter_batched<'q>(&'q mut self, batch_size: u32) -> BatchedIter<'q, 'w, Q> {
+        BatchedIter {
+            borrow: self,
+            archetype_index: 0,
+            batch_size,
+            batch: 0,
+        }
+    }
 }
 
 unsafe impl<'w, Q: HecsQuery> Send for QueryBorrow<'w, Q> {}
@@ -257,3 +272,73 @@ impl<Q: HecsQuery> ChunkIter<Q> {
         }
     }
 }
+
+/// Batched version of `QueryIter`
+pub struct BatchedIter<'q, 'w, Q: HecsQuery> {
+    borrow: &'q mut QueryBorrow<'w, Q>,
+    archetype_index: u32,
+    batch_size: u32,
+    batch: u32,
+}
+
+unsafe impl<'q, 'w, Q: HecsQuery> Send for BatchedIter<'q, 'w, Q> {}
+unsafe impl<'q, 'w, Q: HecsQuery> Sync for BatchedIter<'q, 'w, Q> {}
+
+impl<'q, 'w, Q: HecsQuery> Iterator for BatchedIter<'q, 'w, Q> {
+    type Item = Batch<'q, Q>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+            let offset = self.batch_size * self.batch;
+            if offset >= archetype.len() {
+                self.archetype_index += 1;
+                self.batch = 0;
+                continue;
+            }
+            if let Some(fetch) = unsafe { Q::Fetch::get(archetype, offset as usize) } {
+                self.batch += 1;
+                return Some(Batch {
+                    _marker: PhantomData,
+                    state: ChunkIter {
+                        fetch,
+                        len: self.batch_size.min(archetype.len() - offset),
+                    },
+                });
+            } else {
+                self.archetype_index += 1;
+                debug_assert_eq!(
+                    self.batch, 0,
+                    "query fetch should always reject at the first batch or not at all"
+                );
+                continue;
+            }
+        }
+    }
+}
+
+impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for BatchedIter<'q, 'w, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    fn next_batch(&mut self) -> Option<Batch<'q, Q>> {
+        self.next()
+    }
+}
+
+/// A sequence of entities yielded by `BatchedIter`
+pub struct Batch<'q, Q: HecsQuery> {
+    _marker: PhantomData<&'q ()>,
+    state: ChunkIter<Q>,
+}
+
+impl<'q, 'w, Q: HecsQuery> Iterator for Batch<'q, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let components = unsafe { self.state.next()? };
+        Some(components)
+    }
+}
+
+unsafe impl<'q, Q: HecsQuery> Send for Batch<'q, Q> {}
+unsafe impl<'q, Q: HecsQuery> Sync for Batch<'q, Q> {}
