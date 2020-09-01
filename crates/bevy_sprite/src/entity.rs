@@ -28,7 +28,7 @@ pub struct SpriteComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for SpriteComponents {
@@ -90,7 +90,7 @@ pub struct SpriteSheetComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for SpriteSheetComponents {

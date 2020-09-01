@@ -25,7 +25,7 @@ pub struct PbrComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for PbrComponents {
@@ -73,5 +73,5 @@ pub struct LightComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }

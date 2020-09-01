@@ -32,7 +32,7 @@ pub struct NodeComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for NodeComponents {
@@ -84,7 +84,7 @@ pub struct ImageComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for ImageComponents {
@@ -136,7 +136,7 @@ pub struct TextComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for TextComponents {
@@ -175,7 +175,7 @@ pub struct ButtonComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for ButtonComponents {
@@ -227,7 +227,7 @@ pub struct UiCameraComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for UiCameraComponents {

@@ -24,7 +24,7 @@ pub struct MeshComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 /// A component bundle for "3d camera" entities
@@ -41,7 +41,7 @@ pub struct Camera3dComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for Camera3dComponents {
@@ -76,7 +76,7 @@ pub struct Camera2dComponents {
     /// `AppBuilder::spawn(Self {..}, )` and `Query<&Self>` from compiling
     #[bundle(skip)]
     #[doc(hidden)]
-    pub not_sync: std::marker::PhantomData<std::cell::UnsafeCell<()>>,
+    pub not_sync: std::marker::PhantomData<std::cell::Cell<()>>,
 }
 
 impl Default for Camera2dComponents {
