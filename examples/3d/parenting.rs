@@ -8,7 +8,6 @@ fn main() {
         .add_default_plugins()
         .add_startup_system(setup.system())
         .add_system(rotator_system.system())
-        //.add_system(print_children.system())
         .run();
 }
 
@@ -19,19 +18,6 @@ struct Rotator;
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
     for (_rotator, mut transform) in &mut query.iter() {
         transform.rotate(Quat::from_rotation_x(3.0 * time.delta_seconds));
-    }
-}
-
-fn print_children(
-    mut root_query: Query<(&Rotator, &Transform)>,
-    mut child_query: Query<(&Parent, &Transform)>,
-) {
-    for (_, transform) in root_query.iter().iter() {
-        println!("parent: {:?}", transform.global_matrix());
-    }
-
-    for (i, (_, transform)) in child_query.iter().iter().enumerate() {
-        println!("child {}: {:?}", i, transform.global_matrix());
     }
 }
 
