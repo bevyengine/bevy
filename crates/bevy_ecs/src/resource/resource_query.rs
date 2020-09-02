@@ -11,9 +11,10 @@ use core::{
 };
 use std::marker::PhantomData;
 
-/// Shared borrow of a Resource
+/// A shared borrow of a Resource
+/// that will only return in a query if the Resource has been changed
 pub struct ChangedRes<'a, T: Resource> {
-    value: Option<&'a T>,
+    value: &'a T,
 }
 
 impl<'a, T: Resource> ChangedRes<'a, T> {
@@ -21,14 +22,9 @@ impl<'a, T: Resource> ChangedRes<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage
-    pub unsafe fn new((value, added, mutated): (NonNull<T>, NonNull<bool>, NonNull<bool>)) -> Self {
-        let return_value = if *added.as_ptr() || *mutated.as_ptr() {
-            Some(&*value.as_ptr())
-        } else {
-            None
-        };
+    pub unsafe fn new(value: NonNull<T>) -> Self {
         Self {
-            value: return_value,
+            value: &*value.as_ptr(),
         }
     }
 }
@@ -43,10 +39,10 @@ unsafe impl<T: Resource> Send for ChangedRes<'_, T> {}
 unsafe impl<T: Resource> Sync for ChangedRes<'_, T> {}
 
 impl<'a, T: Resource> Deref for ChangedRes<'a, T> {
-    type Target = Option<&'a T>;
+    type Target = T;
 
-    fn deref(&self) -> &Self::Target {
-        &self.value
+    fn deref(&self) -> &T {
+        self.value
     }
 }
 
@@ -188,7 +184,7 @@ pub trait FetchResource<'a>: Sized {
     fn release(resources: &Resources);
 
     #[allow(clippy::missing_safety_doc)]
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item>;
 }
 
 impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
@@ -201,8 +197,10 @@ pub struct FetchResourceRead<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
+        Some(Res::new(
+            resources.get_unsafe_ref::<T>(ResourceIndex::Global),
+        ))
     }
 
     fn borrow(resources: &Resources) {
@@ -230,8 +228,14 @@ pub struct FetchResourceChanged<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
     type Item = ChangedRes<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        ChangedRes::new(resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global))
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
+        let (value, added, mutated) =
+            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
+        if *added.as_ptr() || *mutated.as_ptr() {
+            Some(ChangedRes::new(value))
+        } else {
+            None
+        }
     }
 
     fn borrow(resources: &Resources) {
@@ -259,8 +263,10 @@ pub struct FetchResourceWrite<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global))
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
+        Some(ResMut::new(
+            resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global),
+        ))
     }
 
     fn borrow(resources: &Resources) {
@@ -294,14 +300,14 @@ pub struct FetchResourceLocalMut<T>(NonNull<T>);
 impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item> {
         let id = system_id.expect("Local<T> resources can only be used by systems");
-        Local {
+        Some(Local {
             value: resources
                 .get_unsafe_ref::<T>(ResourceIndex::System(id))
                 .as_ptr(),
             _marker: Default::default(),
-        }
+        })
     }
 
     fn borrow(resources: &Resources) {
@@ -334,9 +340,14 @@ macro_rules! tuple_impl {
                 $($name::release(resources);)*
             }
 
-            #[allow(unused_variables)]
-            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
-                ($($name::get(resources, system_id),)*)
+            #[allow(unused_variables, irrefutable_let_patterns, non_snake_case)]
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item> {
+                if let ($(Some($name),)*) = ($($name::get(resources, system_id),)*) {
+                    Some(($($name,)*))
+                }
+                else {
+                    None
+                }
             }
 
             #[allow(unused_mut)]
@@ -377,10 +388,16 @@ mod tests {
     fn changed_resource() {
         let mut resources = Resources::default();
         resources.insert(123);
-        assert_eq!(*resources.query::<ChangedRes<i32>>(), Some(&(123 as i32)));
+        assert_eq!(
+            resources.query::<ChangedRes<i32>>().as_deref(),
+            Some(&(123 as i32))
+        );
         resources.clear_trackers();
-        assert_eq!(*resources.query::<ChangedRes<i32>>(), None);
-        *resources.query::<ResMut<i32>>() += 1;
-        assert_eq!(*resources.query::<ChangedRes<i32>>(), Some(&(124 as i32)));
+        assert_eq!(resources.query::<ChangedRes<i32>>().as_deref(), None);
+        *resources.query::<ResMut<i32>>().unwrap() += 1;
+        assert_eq!(
+            resources.query::<ChangedRes<i32>>().as_deref(),
+            Some(&(124 as i32))
+        );
     }
 }

@@ -175,8 +175,8 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         resources.release::<SharedBuffers>();
     }
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        DrawContext {
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
+        Some(DrawContext {
             pipelines: ResMut::new(
                 resources.get_unsafe_ref_with_mutated::<Assets<PipelineDescriptor>>(
                     ResourceIndex::Global,
@@ -198,7 +198,7 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
                 resources.get_unsafe_ref::<SharedBuffers>(ResourceIndex::Global),
             ),
             current_pipeline: None,
-        }
+        })
     }
 
     fn access() -> TypeAccess {
