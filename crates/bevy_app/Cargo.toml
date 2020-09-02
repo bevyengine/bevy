@@ -9,6 +9,9 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
+[features]
+dynamic_plugins = ["libloading"]
+
 [dependencies]
 # bevy
 bevy_derive = { path = "../bevy_derive", version = "0.1" }
@@ -17,6 +20,6 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.1" }
 bevy_math = { path = "../bevy_math", version = "0.1" }
 
 # other
-libloading = "0.6"
+libloading = { version = "0.6", optional = true }
 log = { version = "0.4", features = ["release_max_level_info"] }
 serde = { version = "1.0", features = ["derive"]}
