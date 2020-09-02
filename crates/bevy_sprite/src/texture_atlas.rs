@@ -50,6 +50,33 @@ impl TextureAtlasSprite {
     }
 }
 
+// NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
+// Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
+#[derive(Bytes, RenderResources, RenderResource)]
+#[render_resources(from_self)]
+pub struct TextTextureAtlasSprite {
+    pub color: Color,
+    pub index: u32,
+}
+
+impl Default for TextTextureAtlasSprite {
+    fn default() -> Self {
+        Self {
+            index: 0,
+            color: Color::WHITE,
+        }
+    }
+}
+
+impl TextTextureAtlasSprite {
+    pub fn new(index: u32) -> TextTextureAtlasSprite {
+        Self {
+            index,
+            ..Default::default()
+        }
+    }
+}
+
 impl TextureAtlas {
     /// Create a new `TextureAtlas` that has a texture, but does not have
     /// any individual sprites specified

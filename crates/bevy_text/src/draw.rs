@@ -13,7 +13,7 @@ use bevy_render::{
         RenderResourceId,
     },
 };
-use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
+use bevy_sprite::{TextureAtlas, TextureAtlasSprite, TextTextureAtlasSprite};
 
 #[derive(Clone)]
 pub struct TextStyle {
@@ -45,9 +45,10 @@ pub struct DrawableText<'a> {
 
 impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
+        
         context.set_pipeline(
             draw,
-            bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
+            bevy_sprite::TEXT_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
                 ..Default::default()
@@ -128,7 +129,7 @@ impl<'a> Drawable for DrawableText<'a> {
                                 0.0,
                             ),
                     );
-                    let sprite = TextureAtlasSprite {
+                    let sprite = TextTextureAtlasSprite {
                         index: glyph_atlas_info.char_index,
                         color: self.style.color,
                     };

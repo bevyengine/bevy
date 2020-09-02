@@ -43,4 +43,24 @@ fn setup(
             ..Default::default()
         })
         .with(Timer::from_seconds(0.1, true));
-    }
+     let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
+    commands
+        // 2d camera
+        .spawn(UiCameraComponents::default())
+        // texture
+        .spawn(TextComponents {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                ..Default::default()
+            },
+            text: Text {
+                value: "FPS:".to_string(),
+                font: font_handle,
+                style: TextStyle {
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
+            },
+            ..Default::default()
+        });
+}
