@@ -21,20 +21,20 @@ pub enum MouseButton {
 }
 
 /// A mouse motion event
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MouseMotion {
     pub delta: Vec2,
 }
 
 /// Unit of scroll
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum MouseScrollUnit {
     Line,
     Pixel,
 }
 
 /// A mouse scroll wheel event, where x represents horizontal scroll and y represents vertical scroll.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MouseWheel {
     pub unit: MouseScrollUnit,
     pub x: f32,
