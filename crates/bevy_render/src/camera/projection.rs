@@ -1,5 +1,5 @@
 use super::DepthCalculation;
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Vec2};
 use bevy_property::{Properties, Property};
 use serde::{Deserialize, Serialize};
 
@@ -47,6 +47,10 @@ impl Default for PerspectiveProjection {
 pub enum WindowOrigin {
     Center,
     BottomLeft,
+    /// Sets origin to center of window with pixel offset applied
+    CenterOffset(Vec2),
+    /// Sets origin to bottom left of window with pixel offset applied
+    BottomLeftOffset(Vec2),
 }
 
 #[derive(Debug, Clone, Properties)]
@@ -87,6 +91,24 @@ impl CameraProjection for OrthographicProjection {
                 self.right = width as f32;
                 self.top = height as f32;
                 self.bottom = 0.0;
+            }
+            WindowOrigin::CenterOffset(offset) => {
+                let (x_offset, y_offset) = (offset.x(), offset.y());
+
+                let half_width = width as f32 / 2.0;
+                let half_height = height as f32 / 2.0;
+                self.left = -half_width + x_offset;
+                self.right = half_width + x_offset;
+                self.top = half_height + y_offset;
+                self.bottom = -half_height + y_offset;
+            }
+            WindowOrigin::BottomLeftOffset(offset) => {
+                let (x_offset, y_offset) = (offset.x(), offset.y());
+
+                self.left = x_offset;
+                self.right = width as f32 + x_offset;
+                self.top = height as f32 + y_offset;
+                self.bottom = y_offset;
             }
         }
     }
