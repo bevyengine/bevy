@@ -240,6 +240,88 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
+macro_rules! impl_or_query {
+    ( $( $T:ident ),+ ) => {
+        impl<$( $T: Query ),+> Query for Or<($( $T ),+)> {
+            type Fetch = FetchOr<($( $T::Fetch ),+)>;
+        }
+
+        impl<'a, $( $T: Fetch<'a> ),+> Fetch<'a> for FetchOr<($( $T ),+)> {
+            type Item = ($( $T::Item ),+);
+
+            fn access(archetype: &Archetype) -> Option<Access> {
+                let mut max_access = None;
+                $(
+                max_access = max_access.max($T::access(archetype));
+                )+
+                max_access
+            }
+
+            fn borrow(archetype: &Archetype) {
+                $(
+                    $T::borrow(archetype);
+                 )+
+            }
+
+            unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
+                Some(Self(( $( $T::get(archetype, offset)?),+ )))
+            }
+
+            fn release(archetype: &Archetype) {
+                $(
+                    $T::release(archetype);
+                 )+
+            }
+
+            #[allow(non_snake_case)]
+            unsafe fn next(&mut self) -> Self::Item {
+                let ($( $T ),+) = &mut self.0;
+                ($( $T.next() ),+)
+            }
+
+             #[allow(non_snake_case)]
+            unsafe fn should_skip(&self) -> bool {
+                let ($( $T ),+) = &self.0;
+                true $( && $T.should_skip() )+
+            }
+        }
+    };
+}
+
+impl_or_query!(Q1, Q2);
+impl_or_query!(Q1, Q2, Q3);
+impl_or_query!(Q1, Q2, Q3, Q4);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
+impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
+
+/// Query transformer performing a logical or on a pair of queries
+/// Intended to be used on Mutated or Changed queries.
+/// # Example
+/// ```
+/// # use bevy_hecs::*;
+/// let mut world = World::new();
+/// world.spawn((123, true, 1., Some(1)));
+/// world.spawn((456, false, 2., Some(0)));
+/// for mut b in world.query::<Mut<i32>>().iter().skip(1).take(1) {
+///     *b += 1;
+/// }
+/// let components = world
+///     .query::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
+///     .iter()
+///     .map(|(b, i, f, o)| (*b, *i))
+///     .collect::<Vec<_>>();
+/// assert_eq!(components, &[(false, 457)]);
+/// ```
+pub struct Or<T>(PhantomData<T>);
+//pub struct Or<Q1, Q2, Q3>(PhantomData<(Q1, Q2, Q3)>);
+
+#[doc(hidden)]
+pub struct FetchOr<T>(T);
+
 /// Query transformer that skips entities that have a `T` component that has
 /// not been mutated since the last pass of the system. This does not include
 /// components that were added in since the last pass.
@@ -1063,6 +1145,32 @@ mod tests {
             .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_changed, vec![e2]);
+    }
+
+    #[test]
+    fn or_mutated_query() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0)));
+        let e2 = world.spawn((A(0), B(0)));
+        let e3 = world.spawn((A(0), B(0)));
+        let _e4 = world.spawn((A(0), B(0)));
+
+        // Mutate A in entities e1 and e2
+        for mut a in world.query::<Mut<A>>().iter().take(2) {
+            a.0 += 1;
+        }
+        // Mutate B in entities e2 and e3
+        for mut b in world.query::<Mut<B>>().iter().skip(1).take(2) {
+            b.0 += 1;
+        }
+
+        let a_b_changed = world
+            .query::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
+            .iter()
+            .map(|((_a, _b), e)| e)
+            .collect::<Vec<Entity>>();
+        // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
+        assert_eq!(a_b_changed, vec![e1, e2, e3]);
     }
 
     #[test]
