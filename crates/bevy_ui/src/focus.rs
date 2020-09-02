@@ -11,6 +11,7 @@ use bevy_window::CursorMoved;
 pub enum Interaction {
     Clicked,
     Hovered,
+    Pressed,
     None,
 }
 
@@ -37,6 +38,7 @@ pub struct State {
     cursor_moved_event_reader: EventReader<CursorMoved>,
     cursor_position: Vec2,
     hovered_entity: Option<Entity>,
+    just_clicked: bool,
 }
 
 pub fn ui_focus_system(
@@ -55,7 +57,7 @@ pub fn ui_focus_system(
         state.cursor_position = cursor_moved.position;
     }
 
-    if mouse_button_input.just_released(MouseButton::Left) {
+    if state.just_clicked {
         for (_entity, _node, _transform, interaction, _focus_policy) in &mut node_query.iter() {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
@@ -63,9 +65,11 @@ pub fn ui_focus_system(
                 }
             }
         }
+        state.just_clicked = false;
     }
 
-    let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left);
+    let mouse_pressed = mouse_button_input.just_pressed(MouseButton::Left);
+    let mouse_released = mouse_button_input.just_released(MouseButton::Left);
     let mut hovered_entity = None;
 
     {
@@ -85,9 +89,7 @@ pub fn ui_focus_system(
                     Some((entity, focus_policy, interaction, FloatOrd(position.z())))
                 } else {
                     if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered {
-                            *interaction = Interaction::None;
-                        }
+                        *interaction = Interaction::None;
                     }
                     None
                 }
@@ -97,10 +99,15 @@ pub fn ui_focus_system(
         moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
         for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
             if let Some(mut interaction) = interaction {
-                if mouse_clicked {
+                if mouse_pressed {
                     // only consider nodes with ClickState "clickable"
-                    if *interaction != Interaction::Clicked {
+                    if *interaction != Interaction::Pressed {
+                        *interaction = Interaction::Pressed;
+                    }
+                } else if mouse_released {
+                    if *interaction == Interaction::Pressed {
                         *interaction = Interaction::Clicked;
+                        state.just_clicked = true;
                     }
                 } else if *interaction == Interaction::None {
                     *interaction = Interaction::Hovered;
@@ -113,7 +120,7 @@ pub fn ui_focus_system(
                 FocusPolicy::Block => {
                     break;
                 }
-                FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
+                FocusPolicy::Pass => { /* allow the next node to be hovered/pressed/clicked */ }
             }
         }
     }

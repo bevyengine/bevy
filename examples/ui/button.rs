@@ -14,6 +14,7 @@ struct ButtonMaterials {
     normal: Handle<ColorMaterial>,
     hovered: Handle<ColorMaterial>,
     pressed: Handle<ColorMaterial>,
+    clicked: Handle<ColorMaterial>,
 }
 
 impl FromResources for ButtonMaterials {
@@ -23,6 +24,7 @@ impl FromResources for ButtonMaterials {
             normal: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
             hovered: materials.add(Color::rgb(0.05, 0.05, 0.05).into()),
             pressed: materials.add(Color::rgb(0.1, 0.5, 0.1).into()),
+            clicked: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
         }
     }
 }
@@ -41,12 +43,16 @@ fn button_system(
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {
-                text.value = "Press".to_string();
-                *material = button_materials.pressed;
+                text.value = "Click".to_string();
+                *material = button_materials.clicked;
             }
             Interaction::Hovered => {
                 text.value = "Hover".to_string();
                 *material = button_materials.hovered;
+            }
+            Interaction::Pressed => {
+                text.value = "Press".to_string();
+                *material = button_materials.pressed;
             }
             Interaction::None => {
                 text.value = "Button".to_string();
