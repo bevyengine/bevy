@@ -1,6 +1,6 @@
 use super::{BufferId, RenderResourceBinding, SamplerId, TextureId};
+use bevy_utils::AHasher;
 use std::{
-    collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     ops::Range,
     sync::Arc,
@@ -32,7 +32,7 @@ impl BindGroup {
 pub struct BindGroupBuilder {
     pub indexed_bindings: Vec<IndexedBindGroupEntry>,
     pub dynamic_uniform_indices: Vec<u32>,
-    pub hasher: DefaultHasher,
+    pub hasher: AHasher,
 }
 
 impl BindGroupBuilder {

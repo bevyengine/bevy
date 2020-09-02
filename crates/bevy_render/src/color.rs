@@ -37,6 +37,57 @@ impl Color {
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
+
+    pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
+        let hex = hex.as_ref();
+
+        // RGB
+        if hex.len() == 3 {
+            let mut data = [0; 6];
+            for (i, ch) in hex.chars().enumerate() {
+                data[i * 2] = ch as u8;
+                data[i * 2 + 1] = ch as u8;
+            }
+            return decode_rgb(&data);
+        }
+
+        // RGBA
+        if hex.len() == 4 {
+            let mut data = [0; 8];
+            for (i, ch) in hex.chars().enumerate() {
+                data[i * 2] = ch as u8;
+                data[i * 2 + 1] = ch as u8;
+            }
+            return decode_rgba(&data);
+        }
+
+        // RRGGBB
+        if hex.len() == 6 {
+            return decode_rgb(hex.as_bytes());
+        }
+
+        // RRGGBBAA
+        if hex.len() == 8 {
+            return decode_rgba(hex.as_bytes());
+        }
+
+        Err(HexColorError::Length)
+    }
+
+    pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
+        Color::rgba_u8(r, g, b, u8::MAX)
+    }
+
+    // Float operations in const fn are not stable yet
+    // see https://github.com/rust-lang/rust/issues/57241
+    pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
+        Color::rgba(
+            r as f32 / u8::MAX as f32,
+            g as f32 / u8::MAX as f32,
+            b as f32 / u8::MAX as f32,
+            a as f32 / u8::MAX as f32,
+        )
+    }
 }
 
 impl Default for Color {
@@ -204,3 +255,63 @@ impl From<Handle<Texture>> for ColorSource {
 }
 
 impl_render_resource_bytes!(Color);
+
+#[derive(Debug)]
+pub enum HexColorError {
+    Length,
+    Hex(hex::FromHexError),
+}
+
+fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {
+    let mut buf = [0; 3];
+    match hex::decode_to_slice(data, &mut buf) {
+        Ok(_) => {
+            let r = buf[0] as f32 / 255.0;
+            let g = buf[1] as f32 / 255.0;
+            let b = buf[2] as f32 / 255.0;
+            Ok(Color::rgb(r, g, b))
+        }
+        Err(err) => Err(HexColorError::Hex(err)),
+    }
+}
+
+fn decode_rgba(data: &[u8]) -> Result<Color, HexColorError> {
+    let mut buf = [0; 4];
+    match hex::decode_to_slice(data, &mut buf) {
+        Ok(_) => {
+            let r = buf[0] as f32 / 255.0;
+            let g = buf[1] as f32 / 255.0;
+            let b = buf[2] as f32 / 255.0;
+            let a = buf[3] as f32 / 255.0;
+            Ok(Color::rgba(r, g, b, a))
+        }
+        Err(err) => Err(HexColorError::Hex(err)),
+    }
+}
+
+#[test]
+fn test_hex_color() {
+    assert_eq!(Color::hex("FFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("000").unwrap(), Color::rgb(0.0, 0.0, 0.0));
+    assert!(Color::hex("---").is_err());
+
+    assert_eq!(Color::hex("FFFF").unwrap(), Color::rgba(1.0, 1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("0000").unwrap(), Color::rgba(0.0, 0.0, 0.0, 0.0));
+    assert!(Color::hex("----").is_err());
+
+    assert_eq!(Color::hex("FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
+    assert_eq!(Color::hex("000000").unwrap(), Color::rgb(0.0, 0.0, 0.0));
+    assert!(Color::hex("------").is_err());
+
+    assert_eq!(
+        Color::hex("FFFFFFFF").unwrap(),
+        Color::rgba(1.0, 1.0, 1.0, 1.0)
+    );
+    assert_eq!(
+        Color::hex("00000000").unwrap(),
+        Color::rgba(0.0, 0.0, 0.0, 0.0)
+    );
+    assert!(Color::hex("--------").is_err());
+
+    assert!(Color::hex("1234567890").is_err());
+}

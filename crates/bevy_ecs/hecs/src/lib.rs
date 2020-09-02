@@ -81,7 +81,8 @@ pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{
-    Access, Added, BatchedIter, Changed, Mut, Mutated, Query, QueryBorrow, QueryIter, With, Without,
+    Access, Added, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryBorrow, QueryIter, With,
+    Without,
 };
 pub use query_one::QueryOne;
 pub use world::{ArchetypesGeneration, Component, ComponentError, Iter, SpawnBatchIter, World};
@@ -89,6 +90,8 @@ pub use world::{ArchetypesGeneration, Component, ComponentError, Iter, SpawnBatc
 // Unstable implementation details needed by the macros
 #[doc(hidden)]
 pub use archetype::TypeInfo;
+#[doc(hidden)]
+pub use bevy_utils;
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub use lazy_static;

@@ -4,8 +4,9 @@ use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
 };
+use bevy_utils::HashMap;
 use parking_lot::RwLock;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 pub struct WgpuRenderGraphExecutor {
     pub max_thread_count: usize,

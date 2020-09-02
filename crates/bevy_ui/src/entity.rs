@@ -18,7 +18,7 @@ use bevy_transform::{
     prelude::{Rotation, Scale, Transform, Translation},
 };
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct NodeComponents {
     pub node: Node,
     pub style: Style,
@@ -62,7 +62,7 @@ impl Default for NodeComponents {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct ImageComponents {
     pub node: Node,
     pub style: Style,
@@ -110,7 +110,7 @@ impl Default for ImageComponents {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct TextComponents {
     pub node: Node,
     pub style: Style,
@@ -140,7 +140,7 @@ impl Default for TextComponents {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct ButtonComponents {
     pub node: Node,
     pub button: Button,

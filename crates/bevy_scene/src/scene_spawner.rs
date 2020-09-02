@@ -3,12 +3,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
-use std::collections::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
 struct InstanceInfo {
-    entity_map: HashMap<u32, bevy_ecs::Entity>,
+    entity_map: HashMap<u128, bevy_ecs::Entity>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
