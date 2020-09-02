@@ -1,6 +1,7 @@
 use super::{BindGroupDescriptor, VertexBufferDescriptor, VertexBufferDescriptors};
 use crate::shader::{ShaderLayout, GL_VERTEX_INDEX};
-use std::{collections::HashMap, hash::Hash};
+use bevy_utils::HashMap;
+use std::hash::Hash;
 
 #[derive(Clone, Debug, Default)]
 pub struct PipelineLayout {
@@ -16,7 +17,7 @@ impl PipelineLayout {
     }
 
     pub fn from_shader_layouts(shader_layouts: &mut [ShaderLayout]) -> Self {
-        let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::new();
+        let mut bind_groups = HashMap::<u32, BindGroupDescriptor>::default();
         let mut vertex_buffer_descriptors = Vec::new();
         for shader_layout in shader_layouts.iter_mut() {
             for shader_bind_group in shader_layout.bind_groups.iter_mut() {
@@ -25,16 +26,21 @@ impl PipelineLayout {
                         for shader_binding in shader_bind_group.bindings.iter() {
                             if let Some(binding) = bind_group
                                 .bindings
-                                .iter()
+                                .iter_mut()
                                 .find(|binding| binding.index == shader_binding.index)
                             {
-                                if binding != shader_binding {
+                                binding.shader_stage |= shader_binding.shader_stage;
+                                if binding.bind_type != shader_binding.bind_type
+                                    || binding.name != shader_binding.name
+                                    || binding.index != shader_binding.index
+                                {
                                     panic!("Binding {} in BindGroup {} does not match across all shader types: {:?} {:?}", binding.index, bind_group.index, binding, shader_binding);
                                 }
                             } else {
                                 bind_group.bindings.push(shader_binding.clone());
                             }
                         }
+                        bind_group.update_id();
                     }
                     None => {
                         bind_groups.insert(shader_bind_group.index, shader_bind_group.clone());
@@ -127,10 +133,7 @@ impl UniformProperty {
             UniformProperty::Vec4 => 4 * 4,
             UniformProperty::Mat3 => 4 * 4 * 3,
             UniformProperty::Mat4 => 4 * 4 * 4,
-            UniformProperty::Struct(properties) => properties
-                .iter()
-                .map(|p| p.get_size())
-                .fold(0, |total, size| total + size),
+            UniformProperty::Struct(properties) => properties.iter().map(|p| p.get_size()).sum(),
             UniformProperty::Array(property, length) => property.get_size() * *length as u64,
         }
     }

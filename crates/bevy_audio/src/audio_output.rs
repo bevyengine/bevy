@@ -1,8 +1,9 @@
 use crate::AudioSource;
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
+use parking_lot::RwLock;
 use rodio::{Decoder, Device, Sink};
-use std::{collections::VecDeque, io::Cursor, sync::RwLock};
+use std::{collections::VecDeque, io::Cursor};
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput {
@@ -27,11 +28,11 @@ impl AudioOutput {
     }
 
     pub fn play(&self, audio_source: Handle<AudioSource>) {
-        self.queue.write().unwrap().push_front(audio_source);
+        self.queue.write().push_front(audio_source);
     }
 
     pub fn try_play_queued(&self, audio_sources: &Assets<AudioSource>) {
-        let mut queue = self.queue.write().unwrap();
+        let mut queue = self.queue.write();
         let len = queue.len();
         let mut i = 0;
         while i < len {

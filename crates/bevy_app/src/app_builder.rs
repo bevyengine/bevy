@@ -1,7 +1,9 @@
+#[cfg(feature = "dynamic_plugins")]
+use crate::plugin::dynamically_load_plugin;
 use crate::{
     app::{App, AppExit},
     event::Events,
-    plugin::{dynamically_load_plugin, Plugin},
+    plugin::Plugin,
     stage, startup_stage,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
@@ -39,7 +41,7 @@ impl AppBuilder {
     }
 
     pub fn run(&mut self) {
-        let app = std::mem::replace(&mut self.app, App::default());
+        let app = std::mem::take(&mut self.app);
         app.run();
     }
 
@@ -209,7 +211,7 @@ impl AppBuilder {
     where
         R: FromResources + Send + Sync + 'static,
     {
-        let resource = R::from_resources(&mut self.app.resources);
+        let resource = R::from_resources(&self.app.resources);
         self.app.resources.insert(resource);
 
         self
@@ -220,6 +222,7 @@ impl AppBuilder {
         self
     }
 
+    #[cfg(feature = "dynamic_plugins")]
     pub fn load_plugin(&mut self, path: &str) -> &mut Self {
         let (_lib, plugin) = dynamically_load_plugin(path);
         log::debug!("loaded plugin: {}", plugin.name());

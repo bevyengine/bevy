@@ -6,11 +6,8 @@ use crate::{
 use bevy_hecs::{ArchetypesGeneration, World};
 use crossbeam_channel::{Receiver, Sender};
 use fixedbitset::FixedBitSet;
-use rayon::ScopeFifo;
-use std::{
-    ops::Range,
-    sync::{Arc, Mutex},
-};
+use parking_lot::Mutex;
+use std::{ops::Range, sync::Arc};
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
@@ -51,7 +48,7 @@ impl ParallelExecutor {
         if schedule_changed {
             self.stages.clear();
             self.stages
-                .resize_with(schedule.stage_order.len(), || ExecutorStage::default());
+                .resize_with(schedule.stage_order.len(), ExecutorStage::default);
         }
         for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter_mut())
         {
@@ -65,52 +62,6 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
-    }
-}
-
-/// This can be added as an app resource to control the global `rayon::ThreadPool` used by ecs.
-// Dev internal note: We cannot directly expose a ThreadPoolBuilder here as it does not implement Send and Sync.
-#[derive(Debug, Default, Clone)]
-pub struct ParallelExecutorOptions {
-    /// If some value, we'll set up the thread pool to use at most n threads. See `rayon::ThreadPoolBuilder::num_threads`.
-    num_threads: Option<usize>,
-    /// If some value, we'll set up the thread pool's' workers to the given stack size. See `rayon::ThreadPoolBuilder::stack_size`.
-    stack_size: Option<usize>,
-    // TODO: Do we also need/want to expose other features (*_handler, etc.)
-}
-
-impl ParallelExecutorOptions {
-    /// Creates a new ParallelExecutorOptions instance
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the num_threads option, using the builder pattern
-    pub fn with_num_threads(mut self, num_threads: Option<usize>) -> Self {
-        self.num_threads = num_threads;
-        self
-    }
-
-    /// Sets the stack_size option, using the builder pattern. WARNING: Only use this if you know what you're doing,
-    /// otherwise your application may run into stability and performance issues.
-    pub fn with_stack_size(mut self, stack_size: Option<usize>) -> Self {
-        self.stack_size = stack_size;
-        self
-    }
-
-    /// Creates a new ThreadPoolBuilder based on the current options.
-    pub(crate) fn create_builder(&self) -> rayon::ThreadPoolBuilder {
-        let mut builder = rayon::ThreadPoolBuilder::new();
-
-        if let Some(num_threads) = self.num_threads {
-            builder = builder.num_threads(num_threads);
-        }
-
-        if let Some(stack_size) = self.stack_size {
-            builder = builder.stack_size(stack_size);
-        }
-
-        builder
     }
 }
 
@@ -194,7 +145,7 @@ impl ExecutorStage {
         if schedule_changed || archetypes_generation_changed {
             // update each system's archetype access to latest world archetypes
             for system_index in prepare_system_index_range.clone() {
-                let mut system = systems[system_index].lock().unwrap();
+                let mut system = systems[system_index].lock();
                 system.update_archetype_access(world);
             }
 
@@ -202,19 +153,20 @@ impl ExecutorStage {
             let mut current_archetype_access = ArchetypeAccess::default();
             let mut current_resource_access = TypeAccess::default();
             for system_index in prepare_system_index_range.clone() {
-                let system = systems[system_index].lock().unwrap();
+                let system = systems[system_index].lock();
                 let archetype_access = system.archetype_access();
                 match system.thread_local_execution() {
                     ThreadLocalExecution::NextFlush => {
                         let resource_access = system.resource_access();
                         // if any system before this one conflicts, check all systems that came before for compatibility
-                        if current_archetype_access.is_compatible(archetype_access) == false
-                            || current_resource_access.is_compatible(resource_access) == false
+                        if !current_archetype_access.is_compatible(archetype_access)
+                            || !current_resource_access.is_compatible(resource_access)
                         {
+                            #[allow(clippy::needless_range_loop)]
                             for earlier_system_index in
                                 prepare_system_index_range.start..system_index
                             {
-                                let earlier_system = systems[earlier_system_index].lock().unwrap();
+                                let earlier_system = systems[earlier_system_index].lock();
 
                                 // due to how prepare ranges work, previous systems should all be "NextFlush"
                                 debug_assert_eq!(
@@ -223,14 +175,12 @@ impl ExecutorStage {
                                 );
 
                                 // if earlier system is incompatible, make the current system dependent
-                                if earlier_system
+                                if !earlier_system
                                     .archetype_access()
                                     .is_compatible(archetype_access)
-                                    == false
-                                    || earlier_system
+                                    || !earlier_system
                                         .resource_access()
                                         .is_compatible(resource_access)
-                                        == false
                                 {
                                     self.system_dependents[earlier_system_index].push(system_index);
                                     self.system_dependencies[system_index]
@@ -265,7 +215,7 @@ impl ExecutorStage {
         &mut self,
         systems: &[Arc<Mutex<Box<dyn System>>>],
         run_ready_type: RunReadyType,
-        scope: &ScopeFifo<'run>,
+        scope: &mut bevy_tasks::Scope<'run, ()>,
         world: &'run World,
         resources: &'run Resources,
     ) -> RunReadyResult {
@@ -296,7 +246,7 @@ impl ExecutorStage {
 
                 // handle thread local system
                 {
-                    let system = system.lock().unwrap();
+                    let system = system.lock();
                     if let ThreadLocalExecution::Immediate = system.thread_local_execution() {
                         if systems_currently_running {
                             // if systems are currently running, we can't run this thread local system yet
@@ -311,8 +261,9 @@ impl ExecutorStage {
                 // handle multi-threaded system
                 let sender = self.sender.clone();
                 self.running_systems.insert(system_index);
-                scope.spawn_fifo(move |_| {
-                    let mut system = system.lock().unwrap();
+
+                scope.spawn(async move {
+                    let mut system = system.lock();
                     system.run(world, resources);
                     sender.send(system_index).unwrap();
                 });
@@ -331,6 +282,11 @@ impl ExecutorStage {
         systems: &[Arc<Mutex<Box<dyn System>>>],
         schedule_changed: bool,
     ) {
+        let start_archetypes_generation = world.archetypes_generation();
+        let compute_pool = resources
+            .get_cloned::<bevy_tasks::ComputeTaskPool>()
+            .unwrap();
+
         // if the schedule has changed, clear executor state / fill it with new defaults
         if schedule_changed {
             self.system_dependencies.clear();
@@ -345,7 +301,7 @@ impl ExecutorStage {
             self.running_systems.grow(systems.len());
 
             for (system_index, system) in systems.iter().enumerate() {
-                let system = system.lock().unwrap();
+                let system = system.lock();
                 if system.thread_local_execution() == ThreadLocalExecution::Immediate {
                     self.thread_local_system_indices.push(system_index);
                 }
@@ -367,7 +323,8 @@ impl ExecutorStage {
                 // if there are no upcoming thread local systems, run everything right now
                 0..systems.len()
             };
-        rayon::scope_fifo(|scope| {
+
+        compute_pool.scope(|scope| {
             run_ready_result = self.run_ready_systems(
                 systems,
                 RunReadyType::Range(run_ready_system_index_range),
@@ -376,6 +333,7 @@ impl ExecutorStage {
                 resources,
             );
         });
+
         loop {
             // if all systems in the stage are finished, break out of the loop
             if self.finished_systems.count_ones(..) == systems.len() {
@@ -384,7 +342,7 @@ impl ExecutorStage {
 
             if let RunReadyResult::ThreadLocalReady(thread_local_index) = run_ready_result {
                 // if a thread local system is ready to run, run it exclusively on the main thread
-                let mut system = systems[thread_local_index].lock().unwrap();
+                let mut system = systems[thread_local_index].lock();
                 self.running_systems.insert(thread_local_index);
                 system.run(world, resources);
                 system.run_thread_local(world, resources);
@@ -396,7 +354,7 @@ impl ExecutorStage {
                 run_ready_result = RunReadyResult::Ok;
             } else {
                 // wait for a system to finish, then run its dependents
-                rayon::scope_fifo(|scope| {
+                compute_pool.scope(|scope| {
                     loop {
                         // if all systems in the stage are finished, break out of the loop
                         if self.finished_systems.count_ones(..) == systems.len() {
@@ -413,7 +371,7 @@ impl ExecutorStage {
                             resources,
                         );
 
-                        // if the next ready system is thread local, break out of this loop/rayon scope so it can be run
+                        // if the next ready system is thread local, break out of this loop/bevy_tasks scope so it can be run
                         if let RunReadyResult::ThreadLocalReady(_) = run_ready_result {
                             break;
                         }
@@ -424,14 +382,18 @@ impl ExecutorStage {
 
         // "flush"
         for system in systems.iter() {
-            let mut system = system.lock().unwrap();
+            let mut system = system.lock();
             match system.thread_local_execution() {
                 ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
                 ThreadLocalExecution::Immediate => { /* already ran */ }
             }
         }
 
-        self.last_archetypes_generation = world.archetypes_generation();
+        // If world's archetypes_generation is the same as it was before running any systems then
+        // we can assume that all systems have correct archetype accesses.
+        if start_archetypes_generation == world.archetypes_generation() {
+            self.last_archetypes_generation = world.archetypes_generation();
+        }
     }
 }
 
@@ -445,8 +407,10 @@ mod tests {
         Commands,
     };
     use bevy_hecs::{Entity, World};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
-    use std::sync::{Arc, Mutex};
+    use parking_lot::Mutex;
+    use std::sync::Arc;
 
     #[derive(Default)]
     struct Counter {
@@ -457,6 +421,8 @@ mod tests {
     fn cross_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("PreArchetypeChange");
         schedule.add_stage("PostArchetypeChange");
@@ -486,6 +452,8 @@ mod tests {
     fn intra_stage_archetype_change_prepare() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
+
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
 
@@ -514,6 +482,7 @@ mod tests {
     fn schedule() {
         let mut world = World::new();
         let mut resources = Resources::default();
+        resources.insert(ComputeTaskPool(TaskPool::default()));
         resources.insert(Counter::default());
         resources.insert(1.0f64);
         resources.insert(2isize);
@@ -530,25 +499,25 @@ mod tests {
         // A systems
 
         fn read_u32(counter: Res<Counter>, _query: Query<&u32>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert!(*count < 2, "should be one of the first two systems to run");
             *count += 1;
         }
 
         fn write_float(counter: Res<Counter>, _query: Query<&f32>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert!(*count < 2, "should be one of the first two systems to run");
             *count += 1;
         }
 
         fn read_u32_write_u64(counter: Res<Counter>, _query: Query<(&u32, &mut u64)>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 2, "should always be the 3rd system to run");
             *count += 1;
         }
 
         fn read_u64(counter: Res<Counter>, _query: Query<&u64>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 3, "should always be the 4th system to run");
             *count += 1;
         }
@@ -561,20 +530,20 @@ mod tests {
         // B systems
 
         fn write_u64(counter: Res<Counter>, _query: Query<&mut u64>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 4, "should always be the 5th system to run");
             *count += 1;
         }
 
         fn thread_local_system(_world: &mut World, resources: &mut Resources) {
             let counter = resources.get::<Counter>().unwrap();
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 5, "should always be the 6th system to run");
             *count += 1;
         }
 
         fn write_f32(counter: Res<Counter>, _query: Query<&mut f32>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 6, "should always be the 7th system to run");
             *count += 1;
         }
@@ -586,7 +555,7 @@ mod tests {
         // C systems
 
         fn read_f64_res(counter: Res<Counter>, _f64_res: Res<f64>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert!(
                 7 == *count || *count == 8,
                 "should always be the 8th or 9th system to run"
@@ -595,7 +564,7 @@ mod tests {
         }
 
         fn read_isize_res(counter: Res<Counter>, _isize_res: Res<isize>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert!(
                 7 == *count || *count == 8,
                 "should always be the 8th or 9th system to run"
@@ -608,13 +577,13 @@ mod tests {
             _isize_res: Res<isize>,
             _f64_res: ResMut<f64>,
         ) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 9, "should always be the 10th system to run");
             *count += 1;
         }
 
         fn write_f64_res(counter: Res<Counter>, _f64_res: ResMut<f64>) {
-            let mut count = counter.count.lock().unwrap();
+            let mut count = counter.count.lock();
             assert_eq!(*count, 10, "should always be the 11th system to run");
             *count += 1;
         }
@@ -693,7 +662,7 @@ mod tests {
 
             let counter = resources.get::<Counter>().unwrap();
             assert_eq!(
-                *counter.count.lock().unwrap(),
+                *counter.count.lock(),
                 11,
                 "counter should have been incremented once for each system"
             );
@@ -702,7 +671,7 @@ mod tests {
         let mut executor = ParallelExecutor::default();
         run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
         // run again (with counter reset) to ensure executor works correctly across runs
-        *resources.get::<Counter>().unwrap().count.lock().unwrap() = 0;
+        *resources.get::<Counter>().unwrap().count.lock() = 0;
         run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
     }
 }

@@ -13,7 +13,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use bevy_utils::HashSet;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -34,6 +35,10 @@ impl VertexAttributeValues {
             VertexAttributeValues::Float3(ref values) => values.len(),
             VertexAttributeValues::Float4(ref values) => values.len(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     // TODO: add vertex format as parameter here and perform type conversions
@@ -226,9 +231,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             let indices = vec![
@@ -333,9 +338,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {
@@ -373,9 +378,9 @@ pub mod shape {
             let mut normals = Vec::new();
             let mut uvs = Vec::new();
             for (position, normal, uv) in vertices.iter() {
-                positions.push(position.clone());
-                normals.push(normal.clone());
-                uvs.push(uv.clone());
+                positions.push(*position);
+                normals.push(*normal);
+                uvs.push(*uv);
             }
 
             Mesh {
@@ -409,6 +414,15 @@ pub mod shape {
 
     impl From<Icosphere> for Mesh {
         fn from(sphere: Icosphere) -> Self {
+            if sphere.subdivisions >= 80 {
+                let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
+
+                panic!(
+                    "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
+                    sphere.subdivisions,
+                    temp_sphere.raw_points().len()
+                );
+            }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
                 let inclination = point.z().acos();
                 let azumith = point.y().atan2(point.x());
@@ -480,7 +494,7 @@ fn prepare_pipeline<'a>(
     pipelines: &'a mut Assets<PipelineDescriptor>,
     shaders: &'a mut Assets<Shader>,
     pipeline_compiler: &'a mut PipelineCompiler,
-    render_resource_context: &'a Box<dyn RenderResourceContext>,
+    render_resource_context: &'a dyn RenderResourceContext,
     vertex_buffer_descriptors: &'a mut VertexBufferDescriptors,
     pipeline_handle: Handle<PipelineDescriptor>,
     specialization: &PipelineSpecialization,
@@ -491,7 +505,7 @@ fn prepare_pipeline<'a>(
         Ok(specialized_pipeline)
     } else {
         Ok(pipeline_compiler.prepare_pipeline(
-            &**render_resource_context,
+            render_resource_context,
             pipelines,
             shaders,
             pipeline_handle,
@@ -512,9 +526,9 @@ pub fn mesh_resource_provider_system(
     mut pipeline_compiler: ResMut<PipelineCompiler>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    let mut changed_meshes = HashSet::new();
+    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
+    let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
-        let render_resource_context = &**render_resource_context;
         match event {
             AssetEvent::Created { handle } => {
                 changed_meshes.insert(*handle);
@@ -544,7 +558,7 @@ pub fn mesh_resource_provider_system(
                             &mut pipeline_descriptors,
                             &mut shaders,
                             &mut pipeline_compiler,
-                            &render_resource_context,
+                            render_resource_context,
                             &mut vertex_buffer_descriptors,
                             pipeline.pipeline,
                             &pipeline.specialization,
@@ -627,7 +641,7 @@ pub fn mesh_resource_provider_system(
             'name: for pipeline in &mut render_pipelines.pipelines {
                 if let Some(pipeline) = pipeline_descriptors.get(&pipeline.pipeline) {
                     if let Some(layout) = &pipeline.layout {
-                        for vertex_buffer_descriptor in &layout.vertex_buffer_descriptors {
+                        if let Some(vertex_buffer_descriptor) = layout.vertex_buffer_descriptors.iter().next() {
                             buffer_name = Some(vertex_buffer_descriptor.name.to_string());
                             break 'name;
                         }

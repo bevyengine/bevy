@@ -3,12 +3,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Resources, World};
 use bevy_type_registry::TypeRegistry;
-use std::collections::{HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
 struct InstanceInfo {
-    entity_map: HashMap<u32, bevy_ecs::Entity>,
+    entity_map: HashMap<u128, bevy_ecs::Entity>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -73,7 +73,7 @@ impl SceneSpawner {
         let spawned = self
             .spawned_scenes
             .entry(scene_handle)
-            .or_insert_with(|| Vec::new());
+            .or_insert_with(Vec::new);
         spawned.push(instance_id);
         Ok(())
     }
@@ -85,7 +85,7 @@ impl SceneSpawner {
         mut instance_info: Option<&mut InstanceInfo>,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = resources.get::<TypeRegistry>().unwrap();
-        let component_registry = type_registry.component.read().unwrap();
+        let component_registry = type_registry.component.read();
         let scenes = resources.get::<Assets<Scene>>().unwrap();
         let scene = scenes
             .get(&scene_handle)
@@ -98,7 +98,7 @@ impl SceneSpawner {
                 *instance_info
                     .entity_map
                     .entry(scene_entity.entity)
-                    .or_insert_with(|| bevy_ecs::Entity::new())
+                    .or_insert_with(bevy_ecs::Entity::new)
             } else {
                 bevy_ecs::Entity::from_id(scene_entity.entity)
             };

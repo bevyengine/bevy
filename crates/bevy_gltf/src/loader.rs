@@ -1,11 +1,11 @@
 use bevy_render::{
-    mesh::{Mesh, VertexAttribute, VertexAttributeValues},
+    mesh::{Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
 };
 
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use gltf::{buffer::Source, iter, mesh::Mode};
+use gltf::{buffer::Source, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
@@ -22,7 +22,7 @@ impl AssetLoader<Mesh> for GltfLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["gltf"];
+        static EXTENSIONS: &[&str] = &["gltf", "glb"];
         EXTENSIONS
     }
 }
@@ -36,8 +36,8 @@ pub enum GltfError {
     Gltf(#[from] gltf::Error),
     #[error("Failed to load file.")]
     Io(#[from] io::Error),
-    #[error("Binary buffers not supported yet.")]
-    BinaryBuffersUnsupported,
+    #[error("Binary blob is missing.")]
+    MissingBlob,
     #[error("Failed to decode base64 mesh data.")]
     Base64Decode(#[from] base64::DecodeError),
     #[error("Unsupported buffer format.")]
@@ -51,16 +51,16 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
         Mode::LineStrip => Ok(PrimitiveTopology::LineStrip),
         Mode::Triangles => Ok(PrimitiveTopology::TriangleList),
         Mode::TriangleStrip => Ok(PrimitiveTopology::TriangleStrip),
-        mode @ _ => Err(GltfError::UnsupportedPrimitive { mode }),
+        mode => Err(GltfError::UnsupportedPrimitive { mode }),
     }
 }
 
 // TODO: this should return a scene
 pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh, GltfError> {
     let gltf = gltf::Gltf::from_slice(&bytes)?;
-    let buffer_data = load_buffers(gltf.buffers(), asset_path)?;
+    let buffer_data = load_buffers(&gltf, asset_path)?;
     for scene in gltf.scenes() {
-        for node in scene.nodes() {
+        if let Some(node) = scene.nodes().next() {
             return Ok(load_node(&buffer_data, &node, 1)?);
         }
     }
@@ -71,54 +71,52 @@ pub fn load_gltf(asset_path: &Path, bytes: Vec<u8>) -> Result<Mesh, GltfError> {
 
 fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<Mesh, GltfError> {
     if let Some(mesh) = node.mesh() {
-        for primitive in mesh.primitives() {
+        if let Some(primitive) = mesh.primitives().next() {
             let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let primitive_topology = get_primitive_topology(primitive.mode())?;
             let mut mesh = Mesh::new(primitive_topology);
-            reader
+
+            if let Some(vertex_attribute) = reader
                 .read_positions()
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Position".into(),
-                    values: VertexAttributeValues::Float3(v.collect()),
-                })
-                .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
+                .map(|v| VertexAttribute::position(v.collect()))
+            {
+                mesh.attributes.push(vertex_attribute);
+            }
 
-            reader
+            if let Some(vertex_attribute) = reader
                 .read_normals()
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Normal".into(),
-                    values: VertexAttributeValues::Float3(v.collect()),
-                })
-                .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
+                .map(|v| VertexAttribute::normal(v.collect()))
+            {
+                mesh.attributes.push(vertex_attribute);
+            }
 
-            reader
+            if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttribute {
-                    name: "Vertex_Uv".into(),
-                    values: VertexAttributeValues::Float2(v.into_f32().collect()),
-                })
-                .map(|vertex_attribute| mesh.attributes.push(vertex_attribute));
+                .map(|v| VertexAttribute::uv(v.into_f32().collect()))
+            {
+                mesh.attributes.push(vertex_attribute);
+            }
 
-            reader.read_indices().map(|indices| {
+            if let Some(indices) = reader.read_indices() {
                 mesh.indices = Some(indices.into_u32().collect::<Vec<u32>>());
-            });
+            };
 
             return Ok(mesh);
         }
     }
 
-    for child in node.children() {
+    if let Some(child) = node.children().next() {
         return Ok(load_node(buffer_data, &child, depth + 1)?);
     }
 
     panic!("failed to find mesh")
 }
 
-fn load_buffers(buffers: iter::Buffers, asset_path: &Path) -> Result<Vec<Vec<u8>>, GltfError> {
+fn load_buffers(gltf: &gltf::Gltf, asset_path: &Path) -> Result<Vec<Vec<u8>>, GltfError> {
     const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
 
     let mut buffer_data = Vec::new();
-    for buffer in buffers {
+    for buffer in gltf.buffers() {
         match buffer.source() {
             Source::Uri(uri) => {
                 if uri.starts_with("data:") {
@@ -133,7 +131,13 @@ fn load_buffers(buffers: iter::Buffers, asset_path: &Path) -> Result<Vec<Vec<u8>
                     buffer_data.push(buffer_bytes);
                 }
             }
-            Source::Bin => return Err(GltfError::BinaryBuffersUnsupported),
+            Source::Bin => {
+                if let Some(blob) = gltf.blob.as_deref() {
+                    buffer_data.push(blob.into());
+                } else {
+                    return Err(GltfError::MissingBlob);
+                }
+            }
         }
     }
 

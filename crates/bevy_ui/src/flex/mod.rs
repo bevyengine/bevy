@@ -4,8 +4,8 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, LocalTransform, Parent};
+use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, Windows};
-use std::collections::HashMap;
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
@@ -31,8 +31,7 @@ impl FlexSurface {
         let stretch_style = style.into();
         let stretch_node = self.entity_to_stretch.entry(entity).or_insert_with(|| {
             added = true;
-            let stretch_node = stretch.new_node(stretch_style, Vec::new()).unwrap();
-            stretch_node
+            stretch.new_node(stretch_style, Vec::new()).unwrap()
         });
 
         if !added {

@@ -7,7 +7,9 @@ use crate::{
 use bevy_asset::Handle;
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_property::Properties;
+
 #[derive(Properties, Default, Clone)]
+#[non_exhaustive]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
@@ -28,12 +30,11 @@ impl RenderPipeline {
         RenderPipeline {
             pipeline,
             specialization,
-            ..Default::default()
         }
     }
 }
 
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
     #[property(ignore)]

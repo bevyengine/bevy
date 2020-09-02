@@ -12,7 +12,7 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::Transform;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Text {
     pub value: String,
     pub font: Handle<Font>,
@@ -49,6 +49,7 @@ pub fn text_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn draw_text_system(
     mut draw_context: DrawContext,
     fonts: Res<Assets<Font>>,

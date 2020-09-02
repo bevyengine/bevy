@@ -20,6 +20,7 @@ pub mod prelude {
         draw::Draw,
         entity::*,
         mesh::{shape, Mesh},
+        pass::ClearColor,
         pipeline::RenderPipelines,
         shader::Shader,
         texture::Texture,

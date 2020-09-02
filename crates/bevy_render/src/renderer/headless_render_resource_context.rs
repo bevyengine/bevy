@@ -6,12 +6,10 @@ use crate::{
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_utils::HashMap;
 use bevy_window::Window;
-use std::{
-    collections::HashMap,
-    ops::Range,
-    sync::{Arc, RwLock},
-};
+use parking_lot::RwLock;
+use std::{ops::Range, sync::Arc};
 
 #[derive(Default)]
 pub struct HeadlessRenderResourceContext {
@@ -22,14 +20,11 @@ pub struct HeadlessRenderResourceContext {
 
 impl HeadlessRenderResourceContext {
     pub fn add_buffer_info(&self, buffer: BufferId, info: BufferInfo) {
-        self.buffer_info.write().unwrap().insert(buffer, info);
+        self.buffer_info.write().insert(buffer, info);
     }
 
     pub fn add_texture_descriptor(&self, texture: TextureId, descriptor: TextureDescriptor) {
-        self.texture_descriptors
-            .write()
-            .unwrap()
-            .insert(texture, descriptor);
+        self.texture_descriptors.write().insert(texture, descriptor);
     }
 }
 
@@ -66,7 +61,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         _range: Range<u64>,
         write: &mut dyn FnMut(&mut [u8], &dyn RenderResourceContext),
     ) {
-        let size = self.buffer_info.read().unwrap().get(&id).unwrap().size;
+        let size = self.buffer_info.read().get(&id).unwrap().size;
         let mut buffer = vec![0; size];
         write(&mut buffer, self);
     }
@@ -84,11 +79,11 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}
 
     fn remove_buffer(&self, buffer: BufferId) {
-        self.buffer_info.write().unwrap().remove(&buffer);
+        self.buffer_info.write().remove(&buffer);
     }
 
     fn remove_texture(&self, texture: TextureId) {
-        self.texture_descriptors.write().unwrap().remove(&texture);
+        self.texture_descriptors.write().remove(&texture);
     }
 
     fn remove_sampler(&self, _sampler: SamplerId) {}
@@ -101,7 +96,6 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) {
         self.asset_resources
             .write()
-            .unwrap()
             .insert((handle, index), render_resource);
     }
 
@@ -110,11 +104,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         handle: HandleUntyped,
         index: usize,
     ) -> Option<RenderResourceId> {
-        self.asset_resources
-            .write()
-            .unwrap()
-            .get(&(handle, index))
-            .cloned()
+        self.asset_resources.write().get(&(handle, index)).cloned()
     }
 
     fn create_render_pipeline(
@@ -135,16 +125,13 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
 
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
-        self.asset_resources
-            .write()
-            .unwrap()
-            .remove(&(handle, index));
+        self.asset_resources.write().remove(&(handle, index));
     }
 
     fn clear_bind_groups(&self) {}
 
     fn get_buffer_info(&self, buffer: BufferId) -> Option<BufferInfo> {
-        self.buffer_info.read().unwrap().get(&buffer).cloned()
+        self.buffer_info.read().get(&buffer).cloned()
     }
 
     fn bind_group_descriptor_exists(

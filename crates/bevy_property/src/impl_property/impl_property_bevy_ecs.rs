@@ -8,7 +8,7 @@ impl_property!(Entity, serialize_entity, deserialize_entity);
 mod private {
     use serde::{Deserialize, Serialize};
     #[derive(Serialize, Deserialize)]
-    pub(super) struct Entity(pub(super) u32);
+    pub(super) struct Entity(pub(super) u128);
 }
 
 fn serialize_entity(entity: &Entity) -> Serializable {

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap, HashSet},
-    hash::Hash,
+    hash::{BuildHasher, Hash},
     ops::Range,
 };
 
@@ -67,7 +67,7 @@ where
     fn set(&mut self, value: &dyn Property) {
         if let Some(properties) = value.as_properties() {
             let len = properties.prop_len();
-            self.resize_with(len, || T::default());
+            self.resize_with(len, T::default);
 
             if properties.property_type() != self.property_type() {
                 panic!(
@@ -77,7 +77,9 @@ where
                 );
             }
             for (i, prop) in properties.iter_props().enumerate() {
-                self.prop_with_index_mut(i).map(|p| p.apply(prop));
+                if let Some(p) = self.prop_with_index_mut(i) {
+                    p.apply(prop)
+                }
             }
         } else {
             panic!("attempted to apply non-Properties type to Properties type");
@@ -103,10 +105,11 @@ where
 
 // impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
 impl_property!(Option<T> where T: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
-impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static);
-impl_property!(HashMap<K, V> where
+impl_property!(HashSet<T, H> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static, H: Clone + Send + Sync + Default + BuildHasher + 'static);
+impl_property!(HashMap<K, V, H> where
     K: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static,
-    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,);
+    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,
+    H: Clone + Send + Sync + Default + BuildHasher + 'static);
 impl_property!(BTreeMap<K, V> where
     K: Clone + Ord + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,
     V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
@@ -171,7 +174,7 @@ impl Property for bool {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -211,7 +214,7 @@ impl Property for usize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -269,7 +272,7 @@ impl Property for u64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -327,7 +330,7 @@ impl Property for u32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -385,7 +388,7 @@ impl Property for u16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -443,7 +446,7 @@ impl Property for u8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -501,7 +504,7 @@ impl Property for isize {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -559,7 +562,7 @@ impl Property for i64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -617,7 +620,7 @@ impl Property for i32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -675,7 +678,7 @@ impl Property for i16 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -733,7 +736,7 @@ impl Property for i8 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -791,7 +794,7 @@ impl Property for f32 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]
@@ -833,7 +836,7 @@ impl Property for f64 {
 
     #[inline]
     fn clone_prop(&self) -> Box<dyn Property> {
-        Box::new(self.clone())
+        Box::new(*self)
     }
 
     #[inline]

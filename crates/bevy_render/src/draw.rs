@@ -50,7 +50,7 @@ pub enum RenderCommand {
 }
 
 /// A component that indicates how to draw an entity.
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct Draw {
     pub is_visible: bool,
     pub is_transparent: bool,
@@ -142,7 +142,7 @@ impl<'a> UnsafeClone for DrawContext<'a> {
             render_resource_context: self.render_resource_context.unsafe_clone(),
             vertex_buffer_descriptors: self.vertex_buffer_descriptors.unsafe_clone(),
             shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline.clone(),
+            current_pipeline: self.current_pipeline,
         }
     }
 }

@@ -15,12 +15,11 @@
 // modified by Bevy contributors
 
 use crate::alloc::vec::Vec;
+use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
 
 #[cfg(feature = "std")]
 use std::error::Error;
-
-use hashbrown::{HashMap, HashSet};
 
 use crate::{
     archetype::Archetype,
@@ -165,7 +164,7 @@ impl World {
             let removed_entities = self
                 .removed_components
                 .entry(ty.id())
-                .or_insert_with(|| Vec::new());
+                .or_insert_with(Vec::new);
             removed_entities.push(entity);
         }
         Ok(())
@@ -202,7 +201,7 @@ impl World {
                 let removed_entities = self
                     .removed_components
                     .entry(ty.id())
-                    .or_insert_with(|| Vec::new());
+                    .or_insert_with(Vec::new);
                 removed_entities.extend(archetype.iter_entities().map(|id| Entity::from_id(*id)));
             }
             archetype.clear();
@@ -363,7 +362,7 @@ impl World {
         entity: Entity,
         components: impl DynamicBundle,
     ) -> Result<(), NoSuchEntity> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
@@ -461,7 +460,7 @@ impl World {
     /// assert_eq!(*world.get::<bool>(e).unwrap(), true);
     /// ```
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
@@ -505,7 +504,7 @@ impl World {
                         state.mutated_entities[target_index as usize] = is_mutated;
                     } else {
                         let removed_entities =
-                            removed_components.entry(ty).or_insert_with(|| Vec::new());
+                            removed_components.entry(ty).or_insert_with(Vec::new);
                         removed_entities.push(entity);
                     }
                 })

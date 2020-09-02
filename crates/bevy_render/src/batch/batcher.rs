@@ -1,6 +1,7 @@
 use super::Batch;
+use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::HashMap, hash::Hash};
+use std::{borrow::Cow, hash::Hash};
 
 // TODO: add sorting by primary / secondary handle to reduce rebinds of data
 
@@ -123,7 +124,7 @@ where
                 .find(|(_i, is_index)| is_index(&key))
                 .map(|(i, _)| i);
             if let Some(key_index) = key_index {
-                key_state.set(key_index, key.clone());
+                key_state.set(key_index, key);
                 key_state.finish()
             } else {
                 return false;
@@ -139,7 +140,7 @@ where
             batch.add(value);
         }
 
-        return true;
+        true
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Batch<TKey, TValue, TData>> {

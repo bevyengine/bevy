@@ -20,14 +20,13 @@ use crate::alloc::{
     vec,
     vec::Vec,
 };
+use bevy_utils::{HashMap, HashMapExt};
 use core::{
     any::{type_name, TypeId},
     cell::UnsafeCell,
     mem,
     ptr::{self, NonNull},
 };
-
-use hashbrown::HashMap;
 
 use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 
@@ -39,7 +38,7 @@ pub struct Archetype {
     types: Vec<TypeInfo>,
     state: HashMap<TypeId, TypeState>,
     len: u32,
-    entities: Box<[u32]>,
+    entities: Box<[u128]>,
     // UnsafeCell allows unique references into `data` to be constructed while shared references
     // containing the `Archetype` exist
     data: UnsafeCell<NonNull<u8>>,
@@ -221,16 +220,22 @@ impl Archetype {
     }
 
     #[allow(missing_docs)]
-    pub fn iter_entities(&self) -> impl Iterator<Item = &u32> {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    #[allow(missing_docs)]
+    pub fn iter_entities(&self) -> impl Iterator<Item = &u128> {
         self.entities.iter().take(self.len as usize)
     }
 
     #[inline]
-    pub(crate) fn entities(&self) -> NonNull<u32> {
+    pub(crate) fn entities(&self) -> NonNull<u128> {
         unsafe { NonNull::new_unchecked(self.entities.as_ptr() as *mut _) }
     }
 
-    pub(crate) fn entity_id(&self, index: u32) -> u32 {
+    pub(crate) fn entity_id(&self, index: u32) -> u128 {
         self.entities[index as usize]
     }
 
@@ -239,6 +244,7 @@ impl Archetype {
         &self.types
     }
 
+    /// # Safety
     /// `index` must be in-bounds
     pub(crate) unsafe fn get_dynamic(
         &self,
@@ -255,8 +261,9 @@ impl Archetype {
         ))
     }
 
+    /// # Safety
     /// Every type must be written immediately after this call
-    pub unsafe fn allocate(&mut self, id: u32) -> u32 {
+    pub unsafe fn allocate(&mut self, id: u128) -> u32 {
         if self.len as usize == self.entities.len() {
             self.grow(self.len.max(self.grow_size));
         }
@@ -334,7 +341,7 @@ impl Archetype {
     }
 
     /// Returns the ID of the entity moved into `index`, if any
-    pub(crate) unsafe fn remove(&mut self, index: u32) -> Option<u32> {
+    pub(crate) unsafe fn remove(&mut self, index: u32) -> Option<u128> {
         let last = self.len - 1;
         for ty in &self.types {
             let removed = self
@@ -373,7 +380,7 @@ impl Archetype {
         &mut self,
         index: u32,
         mut f: impl FnMut(*mut u8, TypeId, usize, bool, bool),
-    ) -> Option<u32> {
+    ) -> Option<u128> {
         let last = self.len - 1;
         for ty in &self.types {
             let moved = self
@@ -408,7 +415,13 @@ impl Archetype {
         }
     }
 
-    #[allow(missing_docs)]
+    /// # Safety
+    ///
+    ///  - `component` must point to valid memory
+    ///  - the component `ty`pe must be registered
+    ///  - `index` must be in-bound
+    ///  - `size` must be the size of the component
+    ///  - the storage array must be big enough
     pub unsafe fn put_dynamic(
         &mut self,
         component: *mut u8,

@@ -1,5 +1,6 @@
+use bevy_utils::HashMap;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     time::{Duration, SystemTime},
 };
 use uuid::Uuid;
@@ -71,7 +72,7 @@ impl Diagnostic {
     }
 
     pub fn average(&self) -> Option<f64> {
-        if self.history.len() > 0 {
+        if !self.history.is_empty() {
             Some(self.sum / self.history.len() as f64)
         } else {
             None
@@ -93,7 +94,7 @@ impl Diagnostic {
             }
         }
 
-        return None;
+        None
     }
 
     pub fn get_max_history_length(&self) -> usize {

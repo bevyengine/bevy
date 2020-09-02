@@ -4,14 +4,16 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
+use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::TryRecvError;
+use parking_lot::RwLock;
 use std::{
-    collections::{HashMap, HashSet},
     env, fs, io,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::Arc,
     thread,
 };
+
 use thiserror::Error;
 
 /// The type used for asset versioning
@@ -107,7 +109,7 @@ impl AssetServer {
     where
         T: AssetLoadRequestHandler,
     {
-        let mut asset_handlers = self.asset_handlers.write().unwrap();
+        let mut asset_handlers = self.asset_handlers.write();
         let handler_index = asset_handlers.len();
         for extension in asset_handler.extensions().iter() {
             self.extension_to_handler_index
@@ -140,14 +142,13 @@ impl AssetServer {
         let root_path = self.get_root_path()?;
         let asset_folder = root_path.join(path);
         let handle_ids = self.load_assets_in_folder_recursive(&asset_folder)?;
-        self.asset_folders.write().unwrap().push(asset_folder);
+        self.asset_folders.write().push(asset_folder);
         Ok(handle_ids)
     }
 
     pub fn get_handle<T, P: AsRef<Path>>(&self, path: P) -> Option<Handle<T>> {
         self.asset_info_paths
             .read()
-            .unwrap()
             .get(path.as_ref())
             .map(|handle_id| Handle::from(*handle_id))
     }
@@ -170,11 +171,11 @@ impl AssetServer {
 
     #[cfg(feature = "filesystem_watcher")]
     pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        let mut filesystem_watcher = self.filesystem_watcher.write().unwrap();
+        let mut filesystem_watcher = self.filesystem_watcher.write();
 
-        let _ = filesystem_watcher.get_or_insert_with(|| FilesystemWatcher::default());
+        let _ = filesystem_watcher.get_or_insert_with(FilesystemWatcher::default);
         // watch current files
-        let asset_info_paths = self.asset_info_paths.read().unwrap();
+        let asset_info_paths = self.asset_info_paths.read();
         for asset_path in asset_info_paths.keys() {
             Self::watch_path_for_changes(&mut filesystem_watcher, asset_path)?;
         }
@@ -184,46 +185,40 @@ impl AssetServer {
 
     #[cfg(feature = "filesystem_watcher")]
     pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-        use notify::event::{Event, EventKind, ModifyKind};
-        let mut changed = HashSet::new();
-        loop {
-            let result = if let Some(filesystem_watcher) =
-                asset_server.filesystem_watcher.read().unwrap().as_ref()
-            {
-                match filesystem_watcher.receiver.try_recv() {
-                    Ok(result) => result,
-                    Err(TryRecvError::Empty) => {
-                        break;
-                    }
-                    Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
-                }
-            } else {
-                break;
-            };
+        let mut changed = HashSet::default();
 
-            let event = result.unwrap();
-            match event {
-                Event {
-                    kind: EventKind::Modify(ModifyKind::Data(_)),
-                    paths,
-                    ..
-                } => {
-                    for path in paths.iter() {
-                        if !changed.contains(path) {
-                            let root_path = asset_server.get_root_path().unwrap();
-                            let relative_path = path.strip_prefix(root_path).unwrap();
-                            match asset_server.load_untyped(relative_path) {
-                                Ok(_) => {}
-                                Err(AssetServerError::AssetLoadError(error)) => {
-                                    panic!("{:?}", error)
-                                }
-                                Err(_) => {}
-                            }
+        loop {
+            let result = {
+                let rwlock_guard = asset_server.filesystem_watcher.read();
+                if let Some(filesystem_watcher) = rwlock_guard.as_ref() {
+                    filesystem_watcher.receiver.try_recv()
+                } else {
+                    break;
+                }
+            };
+            let event = match result {
+                Ok(result) => result.unwrap(),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
+            };
+            if let notify::event::Event {
+                kind: notify::event::EventKind::Modify(_),
+                paths,
+                ..
+            } = event
+            {
+                for path in paths.iter() {
+                    if !changed.contains(path) {
+                        let root_path = asset_server.get_root_path().unwrap();
+                        let relative_path = path.strip_prefix(root_path).unwrap();
+                        match asset_server.load_untyped(relative_path) {
+                            Ok(_) => {}
+                            Err(AssetServerError::AssetLoadError(error)) => panic!("{:?}", error),
+                            Err(_) => {}
                         }
                     }
-                    changed.extend(paths);
                 }
-                _ => {}
+                changed.extend(paths);
             }
         }
     }
@@ -244,8 +239,7 @@ impl AssetServer {
 
     // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
     pub fn load<T, P: AsRef<Path>>(&self, path: P) -> Result<Handle<T>, AssetServerError> {
-        self.load_untyped(path)
-            .map(|handle_id| Handle::from(handle_id))
+        self.load_untyped(path).map(Handle::from)
     }
 
     pub fn load_sync<T: Resource, P: AsRef<Path>>(
@@ -288,8 +282,8 @@ impl AssetServer {
             ) {
                 let mut new_version = 0;
                 let handle_id = {
-                    let mut asset_info = self.asset_info.write().unwrap();
-                    let mut asset_info_paths = self.asset_info_paths.write().unwrap();
+                    let mut asset_info = self.asset_info.write();
+                    let mut asset_info_paths = self.asset_info_paths.write();
                     if let Some(asset_info) = asset_info_paths
                         .get(path)
                         .and_then(|handle_id| asset_info.get_mut(&handle_id))
@@ -327,7 +321,7 @@ impl AssetServer {
                 // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
                 // folders instead (when possible)
                 #[cfg(feature = "filesystem_watcher")]
-                Self::watch_path_for_changes(&mut self.filesystem_watcher.write().unwrap(), path)?;
+                Self::watch_path_for_changes(&mut self.filesystem_watcher.write(), path)?;
                 Ok(handle_id)
             } else {
                 Err(AssetServerError::MissingAssetHandler)
@@ -338,21 +332,16 @@ impl AssetServer {
     }
 
     pub fn set_load_state(&self, handle_id: HandleId, load_state: LoadState) {
-        self.asset_info
-            .write()
-            .unwrap()
-            .get_mut(&handle_id)
-            .map(|asset_info| {
-                if load_state.get_version() >= asset_info.load_state.get_version() {
-                    asset_info.load_state = load_state;
-                }
-            });
+        if let Some(asset_info) = self.asset_info.write().get_mut(&handle_id) {
+            if load_state.get_version() >= asset_info.load_state.get_version() {
+                asset_info.load_state = load_state;
+            }
+        }
     }
 
     pub fn get_load_state_untyped(&self, handle_id: HandleId) -> Option<LoadState> {
         self.asset_info
             .read()
-            .unwrap()
             .get(&handle_id)
             .map(|asset_info| asset_info.load_state.clone())
     }
@@ -379,7 +368,7 @@ impl AssetServer {
 
     fn send_request_to_loader_thread(&self, load_request: LoadRequest) {
         // NOTE: This lock makes the call to Arc::strong_count safe. Removing (or reordering) it could result in undefined behavior
-        let mut loader_threads = self.loader_threads.write().unwrap();
+        let mut loader_threads = self.loader_threads.write();
         if loader_threads.len() < self.max_loader_threads {
             let loader_thread = LoaderThread {
                 requests: Arc::new(RwLock::new(vec![load_request])),
@@ -390,9 +379,9 @@ impl AssetServer {
         } else {
             let most_free_thread = loader_threads
                 .iter()
-                .min_by_key(|l| l.requests.read().unwrap().len())
+                .min_by_key(|l| l.requests.read().len())
                 .unwrap();
-            let mut requests = most_free_thread.requests.write().unwrap();
+            let mut requests = most_free_thread.requests.write();
             requests.push(load_request);
             // if most free thread only has one reference, the thread as spun down. if so, we need to spin it back up!
             if Arc::strong_count(&most_free_thread.requests) == 1 {
@@ -411,7 +400,7 @@ impl AssetServer {
         thread::spawn(move || {
             loop {
                 let request = {
-                    let mut current_requests = requests.write().unwrap();
+                    let mut current_requests = requests.write();
                     if current_requests.len() == 0 {
                         // if there are no requests, spin down the thread
                         break;
@@ -420,7 +409,7 @@ impl AssetServer {
                     current_requests.pop().unwrap()
                 };
 
-                let handlers = request_handlers.read().unwrap();
+                let handlers = request_handlers.read();
                 let request_handler = &handlers[request.handler_index];
                 request_handler.handle_request(&request);
             }
@@ -453,7 +442,7 @@ impl AssetServer {
                 ) {
                     Ok(handle) => handle,
                     Err(AssetServerError::MissingAssetHandler) => continue,
-                    Err(err) => Err(err)?,
+                    Err(err) => return Err(err),
                 };
 
                 handle_ids.push(handle);
