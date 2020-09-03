@@ -1,7 +1,6 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
-use bevy_glsl_to_spirv::compile;
-use std::{io::Read, marker::Copy};
+use std::marker::Copy;
 
 /// The stage of a shader
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -11,6 +10,7 @@ pub enum ShaderStage {
     Compute,
 }
 
+#[cfg(not(target_os = "ios"))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -21,15 +21,56 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
+#[cfg(not(target_os = "ios"))]
 fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
-    let mut output = compile(glsl_source, stage.into(), shader_defs).unwrap();
+    use std::io::Read;
+
+    let mut output = bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs).unwrap();
     let mut spv_bytes = Vec::new();
     output.read_to_end(&mut spv_bytes).unwrap();
     bytes_to_words(&spv_bytes)
+}
+
+#[cfg(target_os = "ios")]
+impl Into<shaderc::ShaderKind> for ShaderStage {
+    fn into(self) -> shaderc::ShaderKind {
+        match self {
+            ShaderStage::Vertex => shaderc::ShaderKind::Vertex,
+            ShaderStage::Fragment => shaderc::ShaderKind::Fragment,
+            ShaderStage::Compute => shaderc::ShaderKind::Compute,
+        }
+    }
+}
+
+#[cfg(target_os = "ios")]
+fn glsl_to_spirv(
+    glsl_source: &str,
+    stage: ShaderStage,
+    shader_defs: Option<&[String]>,
+) -> Vec<u32> {
+    let mut compiler = shaderc::Compiler::new().unwrap();
+    let mut options = shaderc::CompileOptions::new().unwrap();
+    if let Some(shader_defs) = shader_defs {
+        for def in shader_defs.iter() {
+            options.add_macro_definition(def, None);
+        }
+    }
+
+    let binary_result = compiler
+        .compile_into_spirv(
+            glsl_source,
+            stage.into(),
+            "shader.glsl",
+            "main",
+            Some(&options),
+        )
+        .unwrap();
+
+    binary_result.as_binary().to_vec()
 }
 
 fn bytes_to_words(bytes: &[u8]) -> Vec<u32> {

@@ -52,7 +52,7 @@ impl Default for DefaultTaskPoolOptions {
     fn default() -> Self {
         DefaultTaskPoolOptions {
             // By default, use however many cores are available on the system
-            min_total_threads: 1,
+            min_total_threads: 4, // TODO(#408): set `min_total_threads` back to `1`
             max_total_threads: std::usize::MAX,
 
             // Use 25% of cores for IO, at least 1, no more than 4
@@ -96,6 +96,7 @@ impl DefaultTaskPoolOptions {
             self.min_total_threads,
             self.max_total_threads,
         );
+        log::trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;
 
@@ -104,7 +105,9 @@ impl DefaultTaskPoolOptions {
             let io_threads = self
                 .io
                 .get_number_of_threads(remaining_threads, total_threads);
-            remaining_threads -= io_threads;
+
+            log::trace!("IO Threads: {}", io_threads);
+            remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             resources.insert(IOTaskPool(
                 TaskPoolBuilder::default()
@@ -119,7 +122,9 @@ impl DefaultTaskPoolOptions {
             let async_compute_threads = self
                 .async_compute
                 .get_number_of_threads(remaining_threads, total_threads);
-            remaining_threads -= async_compute_threads;
+
+            log::trace!("Async Compute Threads: {}", async_compute_threads);
+            remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             resources.insert(AsyncComputeTaskPool(
                 TaskPoolBuilder::default()
@@ -136,6 +141,7 @@ impl DefaultTaskPoolOptions {
                 .compute
                 .get_number_of_threads(remaining_threads, total_threads);
 
+            log::trace!("Compute Threads: {}", compute_threads);
             resources.insert(ComputeTaskPool(
                 TaskPoolBuilder::default()
                     .num_threads(compute_threads)
