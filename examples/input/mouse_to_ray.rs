@@ -1,15 +1,15 @@
+// based on: https://antongerdelan.net/opengl/raycasting.html
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
     input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    input::keyboard::ElementState,
+    window::WindowId,
     prelude::*,
 };
 
-use bevy::input::keyboard::ElementState;
-use bevy::window::WindowId;
 use bevy::render::camera::CameraProjection;
 use bevy_render::camera::PerspectiveProjection;
-use std::borrow::Borrow;
 
 fn main() {
     App::build()
@@ -83,7 +83,7 @@ fn ray_cast_mouse(
     cursor_moved_events: Res<Events<CursorMoved>>,
     windows: Res<Windows>,
     main_camera_entity: Res<MainCameraEntity>,
-    mut placeable: Query<(&mut Translation, &GreenBallTag)>,
+    mut placeable: Query<With<GreenBallTag, (&mut Translation)>>,
     mut cameras: Query<(&Transform, &bevy::render::camera::Camera, &bevy::render::camera::PerspectiveProjection)>,
 ) {
 
@@ -103,18 +103,15 @@ fn ray_cast_mouse(
 
                 let mut main_camera_ent = cameras.entity(main_camera_entity.0).unwrap();
                 let main_camera = main_camera_ent.get().unwrap();
-                let object_to_world = main_camera.0.value;
-                let object_to_clip = main_camera.2.get_projection_matrix();
-
-                let ray = mouse_pos_to_ray(
+                let mouse_ray = cursor_pos_to_ray(
                     &state.cursor_pos,
                     &window,
-                    &object_to_world,
-                    &object_to_clip);
+                    &main_camera.0.value,
+                    & main_camera.2.get_projection_matrix());
 
                 let plane = Plane::new(Vec3::zero(), Vec3::new(0.0, 1.0, 0.0));
-                if let Some(hit_point) = plane.intersect_ray(&ray){
-                    for (mut translation, placeable) in &mut placeable.iter() {
+                if let Some(hit_point) = plane.intersect_ray(&mouse_ray){
+                    for mut translation in &mut placeable.iter() {
                         translation.0 = hit_point;
                     }
                 }
@@ -123,29 +120,33 @@ fn ray_cast_mouse(
     }
 }
 
-fn mouse_pos_to_ray(
-    cursor_pos: &Vec2,
+fn cursor_pos_to_ray(
+    cursor_viewport: &Vec2,
     window: &Window,
     camera_transform: &Mat4,
     camera_perspective: &Mat4) -> Ray {
 
-    let cursor_clip = Vec4::from((
-        (cursor_pos.x() / window.width as f32) * 2.0 - 1.0,
-        (cursor_pos.y() / window.height as f32) * 2.0 - 1.0,
-        -1.0,
+    // calculate the cursor pos in NDC space [(-1,-1), (1,1)]
+    let cursor_ndc = Vec4::from((
+        (cursor_viewport.x() / window.width as f32) * 2.0 - 1.0,
+        (cursor_viewport.y() / window.height as f32) * 2.0 - 1.0,
+        -1.0, // let the cursor be on the far clipping plane
         1.0));
 
     let object_to_world = camera_transform;
-    let object_to_clip = camera_perspective;
-    let camera_pos = Vec3::from(camera_transform.w_axis().truncate());
+    let object_to_ndc = camera_perspective;
 
-    let mut ray_camera = object_to_clip.inverse().mul_vec4(cursor_clip);
+    // transform the cursor position into object/camera space
+    // this also turns the cursor into a vector that's pointing from the camera center onto the far plane
+    let mut ray_camera = object_to_ndc.inverse().mul_vec4(cursor_ndc);
     ray_camera.set_z(-1.0);
-    ray_camera.set_w(0.0);
+    ray_camera.set_w(0.0); // treat the vector as a direction (0 = Direction, 1 = Position)
 
+    // transform the cursor into world space
     let ray_world = object_to_world.mul_vec4(ray_camera);
     let ray_world = Vec3::from(ray_world.truncate());
 
+    let camera_pos = Vec3::from(camera_transform.w_axis().truncate());
     Ray{
         origin: camera_pos,
         direction: (ray_world).normalize(),
