@@ -27,8 +27,9 @@ struct MouseState {
     cursor_window_id: Option<WindowId>,
 }
 
-#[derive(Default)]
-struct PlaceableTag;
+struct GreenBallTag;
+
+struct MainCameraEntity(pub Entity);
 
 fn setup(
     mut commands: Commands,
@@ -45,7 +46,7 @@ fn setup(
         ..Default::default()
     });
 
-    commands.spawn(  LightComponents{
+    commands.spawn(LightComponents{
         translation: Translation(Vec3::new(10.0, 10.0, 10.0)),
         ..Default::default()
     });
@@ -60,17 +61,18 @@ fn setup(
         transform: Transform::new(Mat4::identity()),
         ..Default::default()
 
-    }).with(PlaceableTag);
+    }).with(GreenBallTag);
 
     // Camera
-    commands.spawn(Camera3dComponents {
+    let main_camera_entity = Entity::new();
+    commands.spawn_as_entity(main_camera_entity, Camera3dComponents {
          transform: Transform::new_sync_disabled(Mat4::face_toward(
              Vec3::new(10.0, 10.0, 10.0),
              Vec3::new(0.0, 0.0, 0.0),
              Vec3::new(0.0, 1.0, 0.0),
          )),
          ..Default::default()
-     });
+     }).insert_resource(MainCameraEntity(main_camera_entity));
 
     commands.insert_resource(MouseState::default());
 }
@@ -80,31 +82,29 @@ fn ray_cast_mouse(
     mouse_button_input_events: Res<Events<MouseButtonInput>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     windows: Res<Windows>,
-    mut placeable: Query<(&mut Translation, &PlaceableTag)>,
+    main_camera_entity: Res<MainCameraEntity>,
+    mut placeable: Query<(&mut Translation, &GreenBallTag)>,
     mut cameras: Query<(&Transform, &bevy::render::camera::Camera, &bevy::render::camera::PerspectiveProjection)>,
 ) {
 
     for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
         state.cursor_pos = event.position;
-        state.cursor_window_id = Some(event.id);
+        state.cursor_window_id = Some(event.id); // get the window id here, as it is only available in the moved mouse event
     }
 
     for event in state
         .mouse_button_event_reader
         .iter(&mouse_button_input_events)
     {
+
         if let Some(window_id) = state.cursor_window_id{
             if event.button == MouseButton::Left && event.state == ElementState::Pressed{
                 let window = windows.get(window_id).unwrap();
 
-                let mut object_to_world = Mat4::identity();
-                let mut object_to_clip = Mat4::identity();
-                let mut camera_pos = Vec3::zero();
-                for (transform, camera, perspective) in &mut cameras.iter(){
-                    object_to_world = transform.value;
-                    object_to_clip = perspective.get_projection_matrix();
-                    camera_pos = Vec3::from(transform.value.w_axis().truncate());
-                }
+                let mut main_camera_ent = cameras.entity(main_camera_entity.0).unwrap();
+                let main_camera = main_camera_ent.get().unwrap();
+                let object_to_world = main_camera.0.value;
+                let object_to_clip = main_camera.2.get_projection_matrix();
 
                 let ray = mouse_pos_to_ray(
                     &state.cursor_pos,
