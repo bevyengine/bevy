@@ -2,7 +2,7 @@ use super::Node;
 use crate::{
     render::UI_PIPELINE_HANDLE,
     widget::{Button, Image, Text},
-    CalculatedSize, FocusPolicy, Interaction, Style,
+    CalculatedSize, FocusPolicy, Interaction, PropagatePolicy, Style,
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
@@ -118,6 +118,7 @@ pub struct TextComponents {
     pub text: Text,
     pub calculated_size: CalculatedSize,
     pub focus_policy: FocusPolicy,
+    pub propagate_policy: PropagatePolicy,
     pub transform: Transform,
     pub local_transform: LocalTransform,
 }
@@ -126,6 +127,7 @@ impl Default for TextComponents {
     fn default() -> Self {
         TextComponents {
             focus_policy: FocusPolicy::Pass,
+            propagate_policy: PropagatePolicy::Pass,
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -147,6 +149,7 @@ pub struct ButtonComponents {
     pub style: Style,
     pub interaction: Interaction,
     pub focus_policy: FocusPolicy,
+    pub propagate_policy: PropagatePolicy,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub material: Handle<ColorMaterial>,
     pub draw: Draw,
@@ -180,6 +183,7 @@ impl Default for ButtonComponents {
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),
+            propagate_policy: Default::default(),
             node: Default::default(),
             style: Default::default(),
             material: Default::default(),

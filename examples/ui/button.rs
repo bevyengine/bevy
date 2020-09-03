@@ -4,6 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_default_plugins()
+        .init_resource::<EventListenerState>()
         .init_resource::<ButtonMaterials>()
         .add_startup_system(setup.system())
         .add_system(button_system.system())
@@ -27,16 +28,48 @@ impl FromResources for ButtonMaterials {
     }
 }
 
+#[derive(Default)]
+struct EventListenerState {
+    mousedown_reader: EventReader<MouseDown>,
+    mouseup_reader: EventReader<MouseUp>,
+    mouseenter_reader: EventReader<MouseEnter>,
+    mouseleave_reader: EventReader<MouseLeave>,
+    mousehover_reader: EventReader<MouseHover>,
+    click_reader: EventReader<Click>,
+    doubleclick_reader: EventReader<DoubleClick>,
+}
+
 fn button_system(
     button_materials: Res<ButtonMaterials>,
+    mut state: ResMut<EventListenerState>,
+    button_events: (
+        Res<Events<MouseDown>>,
+        Res<Events<MouseUp>>,
+        Res<Events<MouseEnter>>,
+        Res<Events<MouseLeave>>,
+        Res<Events<MouseHover>>,
+        Res<Events<Click>>,
+        Res<Events<DoubleClick>>,
+    ),
     mut interaction_query: Query<(
         &Button,
         Mutated<Interaction>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
+    event_query: Query<&Button>,
     text_query: Query<&mut Text>,
 ) {
+    let (
+        mousedown_events,
+        mouseup_events,
+        mouseenter_events,
+        mouseleave_events,
+        mousehover_events,
+        click_events,
+        doubleclick_events,
+    ) = button_events;
+
     for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
@@ -52,6 +85,48 @@ fn button_system(
                 text.value = "Button".to_string();
                 *material = button_materials.normal;
             }
+        }
+    }
+
+    for my_event in state.mousedown_reader.iter(&mousedown_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("MouseDown");
+        }
+    }
+
+    for my_event in state.mouseup_reader.iter(&mouseup_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("MouseUp");
+        }
+    }
+
+    for my_event in state.mouseenter_reader.iter(&mouseenter_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("MouseEnter");
+        }
+    }
+
+    for my_event in state.mouseleave_reader.iter(&mouseleave_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("MouseLeave");
+        }
+    }
+
+    for my_event in state.mousehover_reader.iter(&mousehover_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("MouseHover");
+        }
+    }
+
+    for my_event in state.click_reader.iter(&click_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("Click");
+        }
+    }
+
+    for my_event in state.doubleclick_reader.iter(&doubleclick_events) {
+        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
+            println!("DoubleClick");
         }
     }
 }
