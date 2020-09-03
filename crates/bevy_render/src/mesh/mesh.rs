@@ -150,7 +150,7 @@ impl Mesh {
                     if !fill_missing_attributes {
                         return Err(MeshToVertexBufferError::MissingVertexAttribute {
                             attribute_name: vertex_attribute.name.clone(),
-                        })
+                        });
                     }
                 }
             }
