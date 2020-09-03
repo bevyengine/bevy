@@ -192,6 +192,10 @@ name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
 
 [[example]]
+name = "mouse_to_ray"
+path = "examples/input/mouse_to_ray.rs"
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
