@@ -89,7 +89,7 @@ fn ray_cast_mouse(
     cursor_moved_events: Res<Events<CursorMoved>>,
     windows: Res<Windows>,
     main_camera_entity: Res<MainCameraEntity>,
-    mut placeable: Query<With<GreenBallTag, (&mut Translation)>>,
+    mut placeable: Query<With<GreenBallTag, &mut Translation>>,
     mut cameras: Query<(
         &Transform,
         &bevy::render::camera::Camera,
@@ -204,5 +204,5 @@ fn intersect_ray_plane(ray: &Ray, plane: &Plane) -> Option<Vec3> {
             return Some(ray.origin + t * ray.direction);
         }
     }
-    return None;
+    None
 }
