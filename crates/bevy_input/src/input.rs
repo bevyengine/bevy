@@ -51,4 +51,12 @@ where
         self.just_pressed.clear();
         self.just_released.clear();
     }
+
+    pub fn get_pressed(&self) -> impl Iterator<Item = &T> {
+        self.pressed.iter()
+    }
+
+    pub fn get_just_pressed(&self) -> impl Iterator<Item = &T> {
+        self.just_pressed.iter()
+    }
 }
