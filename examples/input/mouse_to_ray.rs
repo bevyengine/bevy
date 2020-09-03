@@ -1,10 +1,7 @@
 // based on: https://antongerdelan.net/opengl/raycasting.html
 
 use bevy::{
-    input::{
-        keyboard::ElementState,
-        mouse::MouseButtonInput,
-    },
+    input::{keyboard::ElementState, mouse::MouseButtonInput},
     prelude::*,
     window::WindowId,
 };
