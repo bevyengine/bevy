@@ -141,14 +141,28 @@ impl Resources {
     }
 
     pub fn query<Q: ResourceQuery>(&self) -> Option<<Q::Fetch as FetchResource>::Item> {
-        unsafe { Q::Fetch::get(&self, None) }
+        unsafe {
+            let g = Q::Fetch::get(&self, None);
+            if g.1 {
+                Some(g.0)
+            } else {
+                None
+            }
+        }
     }
 
     pub fn query_system<Q: ResourceQuery>(
         &self,
         id: SystemId,
     ) -> Option<<Q::Fetch as FetchResource>::Item> {
-        unsafe { Q::Fetch::get(&self, Some(id)) }
+        unsafe {
+            let g = Q::Fetch::get(&self, Some(id));
+            if g.1 {
+                Some(g.0)
+            } else {
+                None
+            }
+        }
     }
 
     #[inline]

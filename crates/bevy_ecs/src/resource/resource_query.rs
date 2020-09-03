@@ -184,7 +184,7 @@ pub trait FetchResource<'a>: Sized {
     fn release(resources: &Resources);
 
     #[allow(clippy::missing_safety_doc)]
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item>;
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool);
 }
 
 impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
@@ -197,10 +197,11 @@ pub struct FetchResourceRead<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
-        Some(Res::new(
-            resources.get_unsafe_ref::<T>(ResourceIndex::Global),
-        ))
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
+        (
+            Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)),
+            true,
+        )
     }
 
     fn borrow(resources: &Resources) {
@@ -228,14 +229,10 @@ pub struct FetchResourceChanged<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
     type Item = ChangedRes<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
         let (value, added, mutated) =
             resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        if *added.as_ptr() || *mutated.as_ptr() {
-            Some(ChangedRes::new(value))
-        } else {
-            None
-        }
+        (ChangedRes::new(value), *added.as_ptr() || *mutated.as_ptr())
     }
 
     fn borrow(resources: &Resources) {
@@ -263,10 +260,11 @@ pub struct FetchResourceWrite<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Option<Self::Item> {
-        Some(ResMut::new(
-            resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global),
-        ))
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
+        (
+            ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global)),
+            true,
+        )
     }
 
     fn borrow(resources: &Resources) {
@@ -300,14 +298,17 @@ pub struct FetchResourceLocalMut<T>(NonNull<T>);
 impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item> {
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
         let id = system_id.expect("Local<T> resources can only be used by systems");
-        Some(Local {
-            value: resources
-                .get_unsafe_ref::<T>(ResourceIndex::System(id))
-                .as_ptr(),
-            _marker: Default::default(),
-        })
+        (
+            Local {
+                value: resources
+                    .get_unsafe_ref::<T>(ResourceIndex::System(id))
+                    .as_ptr(),
+                _marker: Default::default(),
+            },
+            true,
+        )
     }
 
     fn borrow(resources: &Resources) {
@@ -341,13 +342,9 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, irrefutable_let_patterns, non_snake_case)]
-            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Option<Self::Item> {
-                if let ($(Some($name),)*) = ($($name::get(resources, system_id),)*) {
-                    Some(($($name,)*))
-                }
-                else {
-                    None
-                }
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
+                let ($($name,)*) = ($($name::get(resources, system_id),)*);
+                (($($name.0,)*), true $(&& $name.1)*)
             }
 
             #[allow(unused_mut)]
@@ -380,6 +377,69 @@ macro_rules! tuple_impl {
 
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
+pub struct OrRes<T>(T);
+
+pub struct FetchResourceOr<T>(NonNull<T>);
+
+macro_rules! tuple_impl_or {
+    ($($name: ident),*) => {
+        impl<'a, $($name: FetchResource<'a>),*> FetchResource<'a> for FetchResourceOr<($($name,)*)> {
+            type Item = OrRes<($($name::Item,)*)>;
+
+            #[allow(unused_variables)]
+            fn borrow(resources: &Resources) {
+                $($name::borrow(resources);)*
+            }
+
+            #[allow(unused_variables)]
+            fn release(resources: &Resources) {
+                $($name::release(resources);)*
+            }
+
+            #[allow(unused_variables, irrefutable_let_patterns, non_snake_case)]
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
+                let ($($name,)*) = ($($name::get(resources, system_id),)*);
+                (OrRes(($($name.0,)*)), false $(|| $name.1)*)
+            }
+
+            #[allow(unused_mut)]
+            fn access() -> TypeAccess {
+                let mut access = TypeAccess::default();
+                $(access.union(&$name::access());)*
+                access
+            }
+        }
+
+        impl<$($name: ResourceQuery),*> ResourceQuery for OrRes<($($name,)*)> {
+            type Fetch = FetchResourceOr<($($name::Fetch,)*)>;
+
+            #[allow(unused_variables)]
+            fn initialize(resources: &mut Resources, system_id: Option<SystemId>) {
+                $($name::initialize(resources, system_id);)*
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<$($name: UnsafeClone),*> UnsafeClone for OrRes<($($name,)*)> {
+            unsafe fn unsafe_clone(&self) -> Self {
+                let OrRes(($($name,)*)) = self;
+                OrRes(($($name.unsafe_clone(),)*))
+            }
+        }
+
+        impl<$($name,)*> Deref for OrRes<($($name,)*)> {
+            type Target = ($($name,)*);
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+    };
+}
+
+smaller_tuples_too!(tuple_impl_or, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,5 +459,26 @@ mod tests {
             resources.query::<ChangedRes<i32>>().as_deref(),
             Some(&(124 as i32))
         );
+    }
+
+    #[test]
+    fn or_changed_resource() {
+        let mut resources = Resources::default();
+        resources.insert(123);
+        resources.insert(0.2);
+        assert!(!resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_none(),);
+        resources.clear_trackers();
+        assert!(resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_none(),);
+        *resources.query::<ResMut<i32>>().unwrap() += 1;
+        assert!(!resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_none(),);
+        assert!(resources
+            .query::<(ChangedRes<i32>, ChangedRes<f64>)>()
+            .is_none(),);
     }
 }

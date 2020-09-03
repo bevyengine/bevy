@@ -11,7 +11,7 @@ pub use world::*;
 
 pub mod prelude {
     pub use crate::{
-        resource::{ChangedRes, FromResources, Local, Res, ResMut, Resource, Resources},
+        resource::{ChangedRes, FromResources, Local, OrRes, Res, ResMut, Resource, Resources},
         system::{
             Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
         },
