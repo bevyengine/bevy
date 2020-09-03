@@ -2,10 +2,12 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    input::keyboard::ElementState,
-    window::WindowId,
+    input::{
+        keyboard::ElementState,
+        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    },
     prelude::*,
+    window::WindowId
 };
 
 use bevy::render::camera::CameraProjection;
@@ -35,10 +37,10 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-){
+) {
     // Plane
     commands.spawn(PbrComponents {
-        mesh:  meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
         material: materials.add(StandardMaterial {
             albedo: Color::WHITE,
             ..Default::default()
