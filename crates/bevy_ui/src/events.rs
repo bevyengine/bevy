@@ -6,7 +6,10 @@ use bevy_input::{mouse::MouseButton, Input};
 use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_window::CursorMoved;
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    time::{Duration, Instant},
+};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum PropagatePolicy {
@@ -60,6 +63,7 @@ pub struct EventState {
     cursor_position: Vec2,
     hovered_entities: HashSet<Entity>,
     pressed_entities: HashSet<Entity>,
+    clicked_entities: HashMap<Entity, Instant>,
 }
 
 impl Default for EventState {
@@ -69,6 +73,7 @@ impl Default for EventState {
             cursor_position: Default::default(),
             hovered_entities: HashSet::new(),
             pressed_entities: HashSet::new(),
+            clicked_entities: HashMap::new(),
         }
     }
 }
@@ -130,6 +135,7 @@ pub fn ui_event_system(
     let mut new_hovered_entities = HashSet::new();
     for (entity, propagate_policy, _) in moused_over_z_sorted_nodes {
         new_hovered_entities.insert(entity);
+
         if !state.hovered_entities.contains(&entity) {
             mouse_enter_events.send(MouseEnter { entity });
             state.hovered_entities.insert(entity);
@@ -139,10 +145,15 @@ pub fn ui_event_system(
             state.pressed_entities.insert(entity);
             mouse_down_events.send(MouseDown { entity });
         }
+
         if mouse_released {
             mouse_up_events.send(MouseUp { entity });
             if state.pressed_entities.contains(&entity) {
                 click_events.send(Click { entity });
+                if state.clicked_entities.contains_key(&entity) {
+                    double_click_events.send(DoubleClick { entity });
+                }
+                state.clicked_entities.insert(entity, Instant::now());
             }
         }
 
@@ -156,21 +167,17 @@ pub fn ui_event_system(
         }
     }
 
-    let mut unhovered_entities = HashSet::new();
-    for entity in &state.hovered_entities {
-        if !new_hovered_entities.contains(&entity) {
-            unhovered_entities.insert(entity.clone());
-        }
-    }
-
-    for entity in unhovered_entities {
+    for entity in state.hovered_entities.clone().difference(&new_hovered_entities) {
         mouse_leave_events.send(MouseLeave {
-            entity: entity.clone(),
+            entity: *entity,
         });
-        if state.pressed_entities.contains(&entity) {
-            state.pressed_entities.remove(&entity);
-        }
+        state.pressed_entities.remove(&entity);
     }
 
     state.hovered_entities = new_hovered_entities;
+
+    let time = Instant::now();
+    state
+        .clicked_entities
+        .retain(|_entity, clicked_time| (time - *clicked_time).as_millis() < 300);
 }

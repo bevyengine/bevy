@@ -34,7 +34,6 @@ struct EventListenerState {
     mouseup_reader: EventReader<MouseUp>,
     mouseenter_reader: EventReader<MouseEnter>,
     mouseleave_reader: EventReader<MouseLeave>,
-    mousehover_reader: EventReader<MouseHover>,
     click_reader: EventReader<Click>,
     doubleclick_reader: EventReader<DoubleClick>,
 }
@@ -47,7 +46,6 @@ fn button_system(
         Res<Events<MouseUp>>,
         Res<Events<MouseEnter>>,
         Res<Events<MouseLeave>>,
-        Res<Events<MouseHover>>,
         Res<Events<Click>>,
         Res<Events<DoubleClick>>,
     ),
@@ -65,7 +63,6 @@ fn button_system(
         mouseup_events,
         mouseenter_events,
         mouseleave_events,
-        mousehover_events,
         click_events,
         doubleclick_events,
     ) = button_events;
@@ -109,12 +106,6 @@ fn button_system(
     for my_event in state.mouseleave_reader.iter(&mouseleave_events) {
         if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
             println!("MouseLeave");
-        }
-    }
-
-    for my_event in state.mousehover_reader.iter(&mousehover_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("MouseHover");
         }
     }
 
