@@ -90,7 +90,7 @@ fn ray_cast_mouse(
     windows: Res<Windows>,
     main_camera_entity: Res<MainCameraEntity>,
     mut placeable: Query<With<GreenBallTag, &mut Translation>>,
-    mut cameras: Query<(
+    cameras: Query<(
         &Transform,
         &bevy::render::camera::Camera,
         &bevy::render::camera::PerspectiveProjection,
