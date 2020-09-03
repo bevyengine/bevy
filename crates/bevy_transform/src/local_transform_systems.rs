@@ -57,9 +57,16 @@ pub fn local_transform_non_uniform_scale_system(
 
 pub fn local_transform_translation_rotation_system(
     mut query: Query<
-        Without<Scale, Without<NonUniformScale,
-            (&mut LocalTransform, Or<(Changed<Translation>, Changed<Rotation>)>)
-        >>,
+        Without<
+            Scale,
+            Without<
+                NonUniformScale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<Rotation>)>,
+                ),
+            >,
+        >,
     >,
 ) {
     for (mut local, (translation, rotation)) in &mut query.iter() {
@@ -69,9 +76,16 @@ pub fn local_transform_translation_rotation_system(
 
 pub fn local_transform_translation_scale_system(
     mut query: Query<
-        Without<Rotation, Without<NonUniformScale,
-            (&mut LocalTransform, Or<(Changed<Translation>, Changed<Scale>)>)
-        >>,
+        Without<
+            Rotation,
+            Without<
+                NonUniformScale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<Scale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
     for (mut local, (translation, scale)) in &mut query.iter() {
@@ -85,9 +99,16 @@ pub fn local_transform_translation_scale_system(
 
 pub fn local_transform_translation_non_uniform_scale_system(
     mut query: Query<
-        Without<Rotation, Without<Scale,
-            (&mut LocalTransform, Or<(Changed<Translation>, Changed<NonUniformScale>)>)
-        >>,
+        Without<
+            Rotation,
+            Without<
+                Scale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<NonUniformScale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
     for (mut local, (translation, non_uniform_scale)) in &mut query.iter() {
@@ -101,9 +122,13 @@ pub fn local_transform_translation_non_uniform_scale_system(
 
 pub fn local_transform_rotation_scale_system(
     mut query: Query<
-        Without<Translation, Without<NonUniformScale,
-            (&mut LocalTransform, Or<(Changed<Rotation>, Changed<Scale>)>)
-        >>,
+        Without<
+            Translation,
+            Without<
+                NonUniformScale,
+                (&mut LocalTransform, Or<(Changed<Rotation>, Changed<Scale>)>),
+            >,
+        >,
     >,
 ) {
     for (mut local, (rotation, scale)) in &mut query.iter() {
@@ -117,9 +142,16 @@ pub fn local_transform_rotation_scale_system(
 
 pub fn local_transform_rotation_non_uniform_scale_system(
     mut query: Query<
-        Without<Translation, Without<Scale,
-            (&mut LocalTransform, Or<(Changed<Rotation>, Changed<NonUniformScale>)>)
-        >>,
+        Without<
+            Translation,
+            Without<
+                Scale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Rotation>, Changed<NonUniformScale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
     for (mut local, (rotation, non_uniform_scale)) in &mut query.iter() {
@@ -133,8 +165,13 @@ pub fn local_transform_rotation_non_uniform_scale_system(
 
 pub fn local_transform_translation_rotation_scale_system(
     mut query: Query<
-        Without<NonUniformScale,
-            (&mut LocalTransform, Or<(Changed<Translation>, Changed<Rotation>, Changed<Scale>)>)>,
+        Without<
+            NonUniformScale,
+            (
+                &mut LocalTransform,
+                Or<(Changed<Translation>, Changed<Rotation>, Changed<Scale>)>,
+            ),
+        >,
     >,
 ) {
     for (mut local, (translation, rotation, scale)) in &mut query.iter() {
