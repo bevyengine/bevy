@@ -73,7 +73,7 @@ fn button_system(
     for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 text.value = "Press".to_string();
                 *material = button_materials.pressed;
             }
