@@ -94,7 +94,7 @@ impl Resources {
         use std::cmp::Ordering;
         match index.cmp(&archetype.len()) {
             Ordering::Equal => {
-                unsafe { archetype.allocate(index) };
+                unsafe { archetype.allocate(index as u128) };
             }
             Ordering::Greater => panic!("attempted to access index beyond 'current_capacity + 1'"),
             Ordering::Less => (),
