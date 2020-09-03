@@ -78,6 +78,7 @@ bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
 [dev-dependencies]
 rand = "0.7.2"
 serde = { version = "1", features = ["derive"]}
+criterion = "0.3"
 
 [[example]]
 name = "hello_world"
@@ -246,3 +247,8 @@ path = "examples/window/multiple_windows.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[[bench]]
+name = "iter"
+path = "crates/bevy_tasks/benches/iter.rs"
+harness = false
