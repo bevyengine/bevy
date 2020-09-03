@@ -1,17 +1,15 @@
 // based on: https://antongerdelan.net/opengl/raycasting.html
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, PrintDiagnosticsPlugin},
     input::{
         keyboard::ElementState,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+        mouse::MouseButtonInput,
     },
     prelude::*,
     window::WindowId,
 };
 
 use bevy::render::camera::CameraProjection;
-use bevy_render::camera::PerspectiveProjection;
 
 fn main() {
     App::build()
