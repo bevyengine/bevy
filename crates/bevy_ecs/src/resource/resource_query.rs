@@ -440,6 +440,73 @@ macro_rules! tuple_impl_or {
 
 smaller_tuples_too!(tuple_impl_or, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
+pub trait FlagResource: Resource {
+    fn flag(&self) -> bool;
+}
+
+pub struct FlaggedRes<'a, T: FlagResource> {
+    value: &'a T,
+}
+
+impl<'a, T: FlagResource> FlaggedRes<'a, T> {
+    /// Creates a reference cell to a Resource from a pointer
+    ///
+    /// # Safety
+    /// The pointer must have correct lifetime / storage
+    pub unsafe fn new(value: NonNull<T>) -> Self {
+        Self {
+            value: &*value.as_ptr(),
+        }
+    }
+}
+
+impl<'a, T: FlagResource> UnsafeClone for FlaggedRes<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self { value: self.value }
+    }
+}
+
+unsafe impl<T: FlagResource> Send for FlaggedRes<'_, T> {}
+unsafe impl<T: FlagResource> Sync for FlaggedRes<'_, T> {}
+
+impl<'a, T: FlagResource> Deref for FlaggedRes<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'a, T: FlagResource> ResourceQuery for FlaggedRes<'a, T> {
+    type Fetch = FetchResourceFlagged<T>;
+}
+
+pub struct FetchResourceFlagged<T: FlagResource>(NonNull<T>);
+
+impl<'a, T: FlagResource> FetchResource<'a> for FetchResourceFlagged<T> {
+    type Item = FlaggedRes<'a, T>;
+
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
+        let r = FlaggedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global));
+        let flag = r.flag();
+        (r, flag)
+    }
+
+    fn borrow(resources: &Resources) {
+        resources.borrow::<T>();
+    }
+
+    fn release(resources: &Resources) {
+        resources.release::<T>();
+    }
+
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.immutable.insert(TypeId::of::<T>());
+        access
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
