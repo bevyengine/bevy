@@ -444,11 +444,11 @@ pub trait FlagResource: Resource {
     fn flag(&self) -> bool;
 }
 
-pub struct FlaggedRes<'a, T: FlagResource> {
+pub struct FlagRes<'a, T: FlagResource> {
     value: &'a T,
 }
 
-impl<'a, T: FlagResource> FlaggedRes<'a, T> {
+impl<'a, T: FlagResource> FlagRes<'a, T> {
     /// Creates a reference cell to a Resource from a pointer
     ///
     /// # Safety
@@ -460,16 +460,16 @@ impl<'a, T: FlagResource> FlaggedRes<'a, T> {
     }
 }
 
-impl<'a, T: FlagResource> UnsafeClone for FlaggedRes<'a, T> {
+impl<'a, T: FlagResource> UnsafeClone for FlagRes<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self { value: self.value }
     }
 }
 
-unsafe impl<T: FlagResource> Send for FlaggedRes<'_, T> {}
-unsafe impl<T: FlagResource> Sync for FlaggedRes<'_, T> {}
+unsafe impl<T: FlagResource> Send for FlagRes<'_, T> {}
+unsafe impl<T: FlagResource> Sync for FlagRes<'_, T> {}
 
-impl<'a, T: FlagResource> Deref for FlaggedRes<'a, T> {
+impl<'a, T: FlagResource> Deref for FlagRes<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -477,17 +477,17 @@ impl<'a, T: FlagResource> Deref for FlaggedRes<'a, T> {
     }
 }
 
-impl<'a, T: FlagResource> ResourceQuery for FlaggedRes<'a, T> {
-    type Fetch = FetchResourceFlagged<T>;
+impl<'a, T: FlagResource> ResourceQuery for FlagRes<'a, T> {
+    type Fetch = FetchResourceFlag<T>;
 }
 
-pub struct FetchResourceFlagged<T: FlagResource>(NonNull<T>);
+pub struct FetchResourceFlag<T: FlagResource>(NonNull<T>);
 
-impl<'a, T: FlagResource> FetchResource<'a> for FetchResourceFlagged<T> {
-    type Item = FlaggedRes<'a, T>;
+impl<'a, T: FlagResource> FetchResource<'a> for FetchResourceFlag<T> {
+    type Item = FlagRes<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
-        let r = FlaggedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global));
+        let r = FlagRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global));
         let flag = r.flag();
         (r, flag)
     }

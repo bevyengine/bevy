@@ -348,7 +348,7 @@ mod tests {
     use crate::{
         resource::{ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Mut,
+        ChangedRes, FlagRes, FlagResource, Mut,
     };
     use bevy_hecs::{Entity, With, World};
 
@@ -441,6 +441,57 @@ mod tests {
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
 
         *resources.get_mut::<bool>().unwrap() = true;
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
+    }
+
+    #[test]
+    fn flag_resource_system() {
+        struct Paused(bool);
+        struct NotPaused(bool);
+
+        impl FlagResource for Paused {
+            fn flag(&self) -> bool {
+                self.0
+            }
+        }
+        impl FlagResource for NotPaused {
+            fn flag(&self) -> bool {
+                self.0
+            }
+        }
+
+        fn paused_system(_paused: FlagRes<Paused>, mut acc: Mut<i32>) {
+            *acc -= 1;
+        }
+        fn not_paused_system(_paused: FlagRes<NotPaused>, mut acc: Mut<i32>) {
+            *acc += 1;
+        }
+
+        fn pause_unpause(resources: &mut Resources, pause: bool) {
+            resources.insert(Paused(pause));
+            resources.insert(NotPaused(!pause));
+        }
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        pause_unpause(&mut resources, false);
+        let ent = world.spawn((0,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", paused_system.system());
+        schedule.add_system_to_stage("update", not_paused_system.system());
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
+
+        pause_unpause(&mut resources, true);
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 0);
+
+        pause_unpause(&mut resources, false);
+        schedule.run(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
     }
