@@ -1,0 +1,11 @@
+[package]
+name = "bevy_prototype_input_map"
+version = "0.0.1"
+edition = "2018"
+authors = ["Pradeep Kumar Rajamanickam <raj.pradeep.kumar@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_input = { path = "../bevy_input", version = "0.1" }
