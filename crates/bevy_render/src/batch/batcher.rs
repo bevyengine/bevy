@@ -1,6 +1,7 @@
 use super::Batch;
+use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::HashMap, hash::Hash};
+use std::{borrow::Cow, hash::Hash};
 
 // TODO: add sorting by primary / secondary handle to reduce rebinds of data
 

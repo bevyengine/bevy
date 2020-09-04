@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     any::Any,
     collections::{BTreeMap, HashMap, HashSet},
-    hash::Hash,
+    hash::{BuildHasher, Hash},
     ops::Range,
 };
 
@@ -105,10 +105,11 @@ where
 
 // impl_property!(SEQUENCE, VecDeque<T> where T: Clone + Send + Sync + Serialize + 'static);
 impl_property!(Option<T> where T: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);
-impl_property!(HashSet<T> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static);
-impl_property!(HashMap<K, V> where
+impl_property!(HashSet<T, H> where T: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static, H: Clone + Send + Sync + Default + BuildHasher + 'static);
+impl_property!(HashMap<K, V, H> where
     K: Clone + Eq + Send + Sync + Hash + Serialize + for<'de> Deserialize<'de> + 'static,
-    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,);
+    V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,
+    H: Clone + Send + Sync + Default + BuildHasher + 'static);
 impl_property!(BTreeMap<K, V> where
     K: Clone + Ord + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static,
     V: Clone + Send + Sync + Serialize + for<'de> Deserialize<'de> + 'static);

@@ -15,12 +15,11 @@
 // modified by Bevy contributors
 
 use crate::alloc::vec::Vec;
+use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
 
 #[cfg(feature = "std")]
 use std::error::Error;
-
-use hashbrown::{HashMap, HashSet};
 
 use crate::{
     archetype::Archetype,
@@ -363,7 +362,7 @@ impl World {
         entity: Entity,
         components: impl DynamicBundle,
     ) -> Result<(), NoSuchEntity> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {
@@ -461,7 +460,7 @@ impl World {
     /// assert_eq!(*world.get::<bool>(e).unwrap(), true);
     /// ```
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
-        use hashbrown::hash_map::Entry;
+        use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
         unsafe {

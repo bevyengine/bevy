@@ -11,7 +11,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use std::{borrow::Cow, collections::HashSet};
+use bevy_utils::HashSet;
+use std::borrow::Cow;
 use thiserror::Error;
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -124,6 +125,7 @@ impl Mesh {
     pub fn get_vertex_buffer_bytes(
         &self,
         vertex_buffer_descriptor: &VertexBufferDescriptor,
+        fill_missing_attributes: bool,
     ) -> Result<Vec<u8>, MeshToVertexBufferError> {
         let length = self.attributes.first().map(|a| a.values.len()).unwrap_or(0);
         let mut bytes = vec![0; vertex_buffer_descriptor.stride as usize * length];
@@ -145,9 +147,11 @@ impl Mesh {
                     }
                 }
                 None => {
-                    return Err(MeshToVertexBufferError::MissingVertexAttribute {
-                        attribute_name: vertex_attribute.name.clone(),
-                    })
+                    if !fill_missing_attributes {
+                        return Err(MeshToVertexBufferError::MissingVertexAttribute {
+                            attribute_name: vertex_attribute.name.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -411,6 +415,15 @@ pub mod shape {
 
     impl From<Icosphere> for Mesh {
         fn from(sphere: Icosphere) -> Self {
+            if sphere.subdivisions >= 80 {
+                let temp_sphere = Hexasphere::new(sphere.subdivisions, |_| ());
+
+                panic!(
+                    "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {} (Limited to 65535 vertices or 79 subdivisions)",
+                    sphere.subdivisions,
+                    temp_sphere.raw_points().len()
+                );
+            }
             let hexasphere = Hexasphere::new(sphere.subdivisions, |point| {
                 let inclination = point.z().acos();
                 let azumith = point.y().atan2(point.x());
@@ -497,7 +510,7 @@ pub fn mesh_resource_provider_system(
             vertex_buffer_descriptor
         }
     };
-    let mut changed_meshes = HashSet::new();
+    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
@@ -520,7 +533,7 @@ pub fn mesh_resource_provider_system(
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
             let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                .get_vertex_buffer_bytes(&vertex_buffer_descriptor, true)
                 .unwrap();
             // TODO: use a staging buffer here
             let vertex_buffer = render_resource_context.create_buffer_with_data(
@@ -634,7 +647,7 @@ mod tests {
 
         let descriptor = Vertex::as_vertex_buffer_descriptor();
         assert_eq!(
-            mesh.get_vertex_buffer_bytes(descriptor).unwrap(),
+            mesh.get_vertex_buffer_bytes(descriptor, true).unwrap(),
             expected_vertices.as_bytes(),
             "buffer bytes are equal"
         );

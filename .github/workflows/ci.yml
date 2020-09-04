@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+        os: [windows-2019, ubuntu-20.04, macos-10.15]
+        exclude:
+          - os: macos-10.15
+            toolchain: nightly
+    runs-on: ${{ matrix.os }}
+    needs: clean
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install alsa
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
+        if: ${{ runner.os == 'Linux' }}
+
+      - name: Build
+        run: cargo check
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+      - name: Run tests
+        run: cargo test --workspace
+        if: ${{ runner.os == 'Linux' }}
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+          override: true
+          
+      - name: Install alsa
+        run: sudo apt-get install --no-install-recommends libasound2-dev
+
+      - name: Check the format
+        run: cargo +nightly fmt --all -- --check
+
+      # type complexity must be ignored because we use huge templates for queries
+      - name: Run clippy
+        run: >
+          cargo +nightly clippy
+          --all-targets
+          --all-features
+          --
+          -D warnings
+          -A clippy::type_complexity

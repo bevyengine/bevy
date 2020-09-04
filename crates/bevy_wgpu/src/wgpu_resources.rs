@@ -5,9 +5,10 @@ use bevy_render::{
     shader::Shader,
     texture::TextureDescriptor,
 };
+use bevy_utils::HashMap;
 use bevy_window::WindowId;
 use parking_lot::{RwLock, RwLockReadGuard};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct WgpuBindGroupInfo {

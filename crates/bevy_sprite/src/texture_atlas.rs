@@ -7,13 +7,16 @@ use bevy_render::{
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
-use std::collections::HashMap;
+use bevy_utils::HashMap;
 
+/// An atlas containing multiple textures (like a spritesheet or a tilemap)
 #[derive(RenderResources)]
 pub struct TextureAtlas {
+    /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Texture>,
     // TODO: add support to Uniforms derive to write dimensions and sprites to the same buffer
     pub size: Vec2,
+    /// The specific areas of the atlas where each texture can be found
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
@@ -48,6 +51,8 @@ impl TextureAtlasSprite {
 }
 
 impl TextureAtlas {
+    /// Create a new `TextureAtlas` that has a texture, but does not have
+    /// any individual sprites specified
     pub fn new_empty(texture: Handle<Texture>, dimensions: Vec2) -> Self {
         Self {
             texture,
@@ -57,6 +62,8 @@ impl TextureAtlas {
         }
     }
 
+    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
+    /// cell of the grid is one of the textures in the atlas
     pub fn from_grid(
         texture: Handle<Texture>,
         size: Vec2,
@@ -85,10 +92,17 @@ impl TextureAtlas {
         }
     }
 
+    /// Add a sprite to the list of textures in the `TextureAtlas`
+    ///
+    /// # Arguments
+    ///
+    /// * `rect` - The section of the atlas that contains the texture to be added,
+    /// from the top-left corner of the texture to the bottom-right corner
     pub fn add_texture(&mut self, rect: Rect) {
         self.textures.push(rect);
     }
 
+    /// How many textures are in the `TextureAtlas`
     pub fn len(&self) -> usize {
         self.textures.len()
     }
