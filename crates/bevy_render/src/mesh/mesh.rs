@@ -125,6 +125,7 @@ impl Mesh {
     pub fn get_vertex_buffer_bytes(
         &self,
         vertex_buffer_descriptor: &VertexBufferDescriptor,
+        fill_missing_attributes: bool,
     ) -> Result<Vec<u8>, MeshToVertexBufferError> {
         let length = self.attributes.first().map(|a| a.values.len()).unwrap_or(0);
         let mut bytes = vec![0; vertex_buffer_descriptor.stride as usize * length];
@@ -146,9 +147,11 @@ impl Mesh {
                     }
                 }
                 None => {
-                    return Err(MeshToVertexBufferError::MissingVertexAttribute {
-                        attribute_name: vertex_attribute.name.clone(),
-                    })
+                    if !fill_missing_attributes {
+                        return Err(MeshToVertexBufferError::MissingVertexAttribute {
+                            attribute_name: vertex_attribute.name.clone(),
+                        });
+                    }
                 }
             }
         }
@@ -530,7 +533,7 @@ pub fn mesh_resource_provider_system(
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
             let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(&vertex_buffer_descriptor)
+                .get_vertex_buffer_bytes(&vertex_buffer_descriptor, true)
                 .unwrap();
             // TODO: use a staging buffer here
             let vertex_buffer = render_resource_context.create_buffer_with_data(
@@ -644,7 +647,7 @@ mod tests {
 
         let descriptor = Vertex::as_vertex_buffer_descriptor();
         assert_eq!(
-            mesh.get_vertex_buffer_bytes(descriptor).unwrap(),
+            mesh.get_vertex_buffer_bytes(descriptor, true).unwrap(),
             expected_vertices.as_bytes(),
             "buffer bytes are equal"
         );

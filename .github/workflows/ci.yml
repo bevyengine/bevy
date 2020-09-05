@@ -15,7 +15,11 @@ jobs:
       matrix:
         toolchain: [stable, nightly]
         os: [windows-2019, ubuntu-20.04, macos-10.15]
+        exclude:
+          - os: macos-10.15
+            toolchain: nightly
     runs-on: ${{ matrix.os }}
+    needs: clean
     steps:
       - uses: actions/checkout@v2
 
@@ -28,10 +32,10 @@ jobs:
         with:
           path: |
             target
-          key: ${{ runner.os }}-cargo-check-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev
         if: ${{ runner.os == 'Linux' }}
 
       - name: Build
@@ -40,30 +44,9 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.toolchain }}
-          override: true
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            target
-          key: ${{ runner.os }}-cargo-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install alsa
-        run: sudo apt-get install --no-install-recommends libasound2-dev
-
       - name: Run tests
         run: cargo test --workspace
+        if: ${{ runner.os == 'Linux' }}
         env:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"

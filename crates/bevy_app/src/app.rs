@@ -1,4 +1,4 @@
-use crate::app_builder::AppBuilder;
+use crate::{app_builder::AppBuilder, DefaultTaskPoolOptions};
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 
 #[allow(clippy::needless_doctest_main)]
@@ -63,6 +63,12 @@ impl App {
     }
 
     pub fn run(mut self) {
+        // Setup the default bevy task pools
+        self.resources
+            .get_cloned::<DefaultTaskPoolOptions>()
+            .unwrap_or_else(DefaultTaskPoolOptions::default)
+            .create_default_pools(&mut self.resources);
+
         self.startup_schedule.initialize(&mut self.resources);
         self.startup_executor.run(
             &mut self.startup_schedule,
