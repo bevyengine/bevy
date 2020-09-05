@@ -208,7 +208,7 @@ impl ExecutorStage {
 
         // Reset the countdown events for this range of systems. Resetting is required even if the
         // schedule didn't change
-        self.reset_system_ready_events(prepare_system_index_range.clone());
+        self.reset_system_ready_events(prepare_system_index_range);
 
         if let Some(index) = self
             .thread_local_system_indices
