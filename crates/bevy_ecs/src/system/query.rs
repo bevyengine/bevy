@@ -155,8 +155,8 @@ impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
     ///
     /// Useful for distributing work over a threadpool using the
     /// ParallelIterator interface.
-    pub fn iter_batched<'q>(&'q mut self, batch_size: u32) -> BatchedIter<'q, 'w, Q> {
-        BatchedIter {
+    pub fn par_iter<'q>(&'q mut self, batch_size: u32) -> ParIter<'q, 'w, Q> {
+        ParIter {
             borrow: self,
             archetype_index: 0,
             batch_size,
@@ -274,17 +274,17 @@ impl<Q: HecsQuery> ChunkIter<Q> {
 }
 
 /// Batched version of `QueryIter`
-pub struct BatchedIter<'q, 'w, Q: HecsQuery> {
+pub struct ParIter<'q, 'w, Q: HecsQuery> {
     borrow: &'q mut QueryBorrow<'w, Q>,
     archetype_index: u32,
     batch_size: u32,
     batch: u32,
 }
 
-unsafe impl<'q, 'w, Q: HecsQuery> Send for BatchedIter<'q, 'w, Q> {}
-unsafe impl<'q, 'w, Q: HecsQuery> Sync for BatchedIter<'q, 'w, Q> {}
+unsafe impl<'q, 'w, Q: HecsQuery> Send for ParIter<'q, 'w, Q> {}
+unsafe impl<'q, 'w, Q: HecsQuery> Sync for ParIter<'q, 'w, Q> {}
 
-impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for BatchedIter<'q, 'w, Q> {
+impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for ParIter<'q, 'w, Q> {
     type Item = <Q::Fetch as Fetch<'q>>::Item;
 
     fn next_batch(&mut self) -> Option<Batch<'q, Q>> {
@@ -317,7 +317,7 @@ impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for BatchedIter<'q, 'w
     }
 }
 
-/// A sequence of entities yielded by `BatchedIter`
+/// A sequence of entities yielded by `ParIter`
 pub struct Batch<'q, Q: HecsQuery> {
     _marker: PhantomData<&'q ()>,
     state: ChunkIter<Q>,
