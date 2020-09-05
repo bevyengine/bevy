@@ -201,23 +201,14 @@ impl ExecutorStage {
                 }
 
                 assert!(!self.system_dependencies[system_index].contains(system_index));
-
-                let dependency_count = self.system_dependencies[system_index].count_ones(..);
-                self.system_dependency_count[system_index] = dependency_count;
-                self.ready_events[system_index] = match dependency_count {
-                    0 => None,
-                    n => Some(CountdownEvent::new(n as isize)),
-                };
-            }
-        } else {
-            for system_index in prepare_system_index_range.clone() {
-                let dependency_count = self.system_dependency_count[system_index];
-                self.ready_events[system_index] = match dependency_count {
-                    0 => None,
-                    n => Some(CountdownEvent::new(n as isize)),
-                };
+                self.system_dependency_count[system_index] =
+                    self.system_dependencies[system_index].count_ones(..);
             }
         }
+
+        // Reset the countdown events for this range of systems. Resetting is required even if the
+        // schedule didn't change
+        self.reset_system_ready_events(prepare_system_index_range.clone());
 
         if let Some(index) = self
             .thread_local_system_indices
@@ -228,6 +219,16 @@ impl ExecutorStage {
         } else {
             // if there are no upcoming thread local systems, prepare everything right now
             prepare_system_start_index..systems.len()
+        }
+    }
+
+    fn reset_system_ready_events(&mut self, prepare_system_index_range: Range<usize>) {
+        for system_index in prepare_system_index_range {
+            let dependency_count = self.system_dependency_count[system_index];
+            self.ready_events[system_index] = match dependency_count {
+                0 => None,
+                n => Some(CountdownEvent::new(n as isize)),
+            };
         }
     }
 
