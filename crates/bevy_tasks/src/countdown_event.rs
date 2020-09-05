@@ -92,5 +92,5 @@ pub fn countdown_event_ready() {
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     countdown_event.decrement();
-    handle.join();
+    handle.join().unwrap();
 }
