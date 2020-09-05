@@ -72,8 +72,10 @@ pub struct ExecutorStage {
     system_dependencies: Vec<FixedBitSet>,
     /// count of each system's dependencies
     system_dependency_count: Vec<usize>,
-    /// Countdown of finished dependencies, used to trigger the next systems
+    /// Countdown of finished dependencies, used to trigger the next system
     ready_events: Vec<Option<CountdownEvent>>,
+    /// When a system finishes, it will decrement the countdown events of all dependents
+    ready_events_of_dependents: Vec<Vec<CountdownEvent>>,
     /// each system's dependents (the systems that can't run until this system has run)
     system_dependents: Vec<Vec<usize>>,
     /// stores the indices of thread local systems in this stage, which are used during stage.prepare()
@@ -89,6 +91,7 @@ impl Default for ExecutorStage {
             system_dependents: Default::default(),
             system_dependency_count: Default::default(),
             ready_events: Default::default(),
+            ready_events_of_dependents: Default::default(),
             system_dependencies: Default::default(),
             thread_local_system_indices: Default::default(),
             last_archetypes_generation: ArchetypesGeneration(u64::MAX), // MAX forces prepare to run the first time
@@ -199,16 +202,39 @@ impl ExecutorStage {
                         }
                     }
                 }
-
-                assert!(!self.system_dependencies[system_index].contains(system_index));
-                self.system_dependency_count[system_index] =
-                    self.system_dependencies[system_index].count_ones(..);
             }
-        }
 
-        // Reset the countdown events for this range of systems. Resetting is required even if the
-        // schedule didn't change
-        self.reset_system_ready_events(prepare_system_index_range);
+            // Now that system_dependents and system_dependencies is populated, update
+            // system_dependency_count and ready_events
+            for system_index in prepare_system_index_range.clone() {
+                // Count all dependencies to update system_dependency_count
+                assert!(!self.system_dependencies[system_index].contains(system_index));
+                let dependency_count = self.system_dependencies[system_index].count_ones(..);
+                self.system_dependency_count[system_index] = dependency_count;
+
+                // If dependency count > 0, allocate a ready_event
+                self.ready_events[system_index] = match self.system_dependency_count[system_index] {
+                    0 => None,
+                    dependency_count => Some(CountdownEvent::new(dependency_count as isize)),
+                }
+            }
+
+            // Now that ready_events are created, we can build ready_events_of_dependents
+            for system_index in prepare_system_index_range.clone() {
+                for dependent_system in &self.system_dependents[system_index] {
+                    self.ready_events_of_dependents[system_index].push(
+                        self.ready_events[*dependent_system]
+                            .as_ref()
+                            .expect("A dependent task should have a non-None ready event")
+                            .clone(),
+                    );
+                }
+            }
+        } else {
+            // Reset the countdown events for this range of systems. Resetting is required even if the
+            // schedule didn't change
+            self.reset_system_ready_events(prepare_system_index_range);
+        }
 
         if let Some(index) = self
             .thread_local_system_indices
@@ -225,10 +251,12 @@ impl ExecutorStage {
     fn reset_system_ready_events(&mut self, prepare_system_index_range: Range<usize>) {
         for system_index in prepare_system_index_range {
             let dependency_count = self.system_dependency_count[system_index];
-            self.ready_events[system_index] = match dependency_count {
-                0 => None,
-                n => Some(CountdownEvent::new(n as isize)),
-            };
+            if dependency_count > 0 {
+                self.ready_events[system_index]
+                    .as_ref()
+                    .expect("A system with >0 dependency count should have a non-None ready event")
+                    .reset(dependency_count as isize)
+            }
         }
     }
 
@@ -262,7 +290,7 @@ impl ExecutorStage {
 
                 // This event will be awaited, preventing the task from starting until all
                 // our dependencies finish running
-                let ready_event = self.ready_events[system_index].clone();
+                let ready_event = &self.ready_events[system_index];
 
                 // Clear any dependencies on systems before this range of systems. We know at this
                 // point everything before start_system_index is finished, and our ready_event did
@@ -281,18 +309,7 @@ impl ExecutorStage {
                 let world_ref = &*world;
                 let resources_ref = &*resources;
 
-                // For every task that depends on this one, we need to decrement their ready event.
-                // Gather a list of those here to pass into the task. They will be decremented when
-                // the task finishes
-                let mut trigger_events = Vec::new();
-                for dependent in &self.system_dependents[system_index] {
-                    trigger_events.push(
-                        self.ready_events[*dependent]
-                            .as_ref()
-                            .expect("dependent task should have non-None CountdownEvent")
-                            .clone(),
-                    );
-                }
+                let trigger_events = &self.ready_events_of_dependents[system_index];
 
                 // Spawn the task
                 scope.spawn(async move {
@@ -345,6 +362,8 @@ impl ExecutorStage {
             self.system_dependents.resize(systems.len(), Vec::new());
 
             self.ready_events.resize(systems.len(), None);
+            self.ready_events_of_dependents
+                .resize_with(systems.len(), || Vec::new());
 
             for (system_index, system) in systems.iter().enumerate() {
                 let system = system.lock();

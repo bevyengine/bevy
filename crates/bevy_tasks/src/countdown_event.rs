@@ -1,6 +1,6 @@
 use event_listener::Event;
 use std::sync::{
-    atomic::{AtomicIsize, Ordering},
+    atomic::{AtomicIsize, AtomicUsize, Ordering},
     Arc,
 };
 
@@ -36,16 +36,21 @@ impl CountdownEvent {
 
     /// Decrement the counter by one. If this is the Nth call, trigger all listeners
     pub fn decrement(&self) {
-        // If we are the last decrementer, notify listeners. notify inserts a SeqCst fence so
-        // relaxed is sufficient.
-        let value = self.inner.counter.fetch_sub(1, Ordering::Relaxed);
+        // If we are the last decrementer, notify listeners
+        let value = self.inner.counter.fetch_sub(1, Ordering::AcqRel);
         if value <= 1 {
             self.inner.event.notify(std::usize::MAX);
 
             // Reset to 0 - wrapping an isize negative seems unlikely but should probably do it
             // anyways.
-            self.inner.counter.store(0, Ordering::Relaxed);
+            self.inner.counter.store(0, Ordering::Release);
         }
+    }
+
+    /// Resets the counter. Any listens following this point will not be notified until decrement
+    /// is called N times
+    pub fn reset(&self, n: isize) {
+        self.inner.counter.store(n, Ordering::Release);
     }
 
     /// Awaits decrement being called N times
@@ -54,10 +59,9 @@ impl CountdownEvent {
 
         // The complexity here is due to Event not necessarily signalling awaits that are placed
         // after the await is called. So we must check the counter AFTER taking a listener.
-        // listen() inserts a SeqCst fence so relaxed is sufficient.
         loop {
             // We're done, break
-            if self.inner.counter.load(Ordering::Relaxed) <= 0 {
+            if self.inner.counter.load(Ordering::Acquire) <= 0 {
                 break;
             }
 
@@ -93,4 +97,28 @@ pub fn countdown_event_ready() {
 
     countdown_event.decrement();
     handle.join().unwrap();
+}
+
+#[test]
+pub fn event_resets_if_listeners_are_cleared() {
+    let event = Event::new();
+
+    // notify all listeners
+    let listener1 = event.listen();
+    event.notify(std::usize::MAX);
+    pollster::block_on(listener1);
+
+    // If all listeners are notified, the structure should now be cleared. We're free to listen again
+    let listener2 = event.listen();
+    let listener3 = event.listen();
+
+    // Verify that we are still blocked
+    assert_eq!(
+        false,
+        listener2.wait_timeout(std::time::Duration::from_millis(10))
+    );
+
+    // Notify all and verify the remaining listener is notified
+    event.notify(std::usize::MAX);
+    pollster::block_on(listener3);
 }
