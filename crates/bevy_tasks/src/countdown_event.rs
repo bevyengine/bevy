@@ -87,7 +87,7 @@ pub fn countdown_event_ready_after() {
     let countdown_event = CountdownEvent::new(2);
     countdown_event.decrement();
     countdown_event.decrement();
-    pollster::block_on(countdown_event.listen());
+    futures_lite::future::block_on(countdown_event.listen());
 }
 
 #[test]
@@ -95,7 +95,8 @@ pub fn countdown_event_ready() {
     let countdown_event = CountdownEvent::new(2);
     countdown_event.decrement();
     let countdown_event_clone = countdown_event.clone();
-    let handle = std::thread::spawn(move || pollster::block_on(countdown_event_clone.listen()));
+    let handle =
+        std::thread::spawn(move || futures_lite::future::block_on(countdown_event_clone.listen()));
 
     // Pause to give the new thread time to start blocking (ugly hack)
     std::thread::sleep(std::time::Duration::from_millis(100));

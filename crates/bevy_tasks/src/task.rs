@@ -13,7 +13,7 @@ use std::{
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 /// Wraps multitask::Task
-pub struct Task<T>(multitask::Task<T>);
+pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
     /// Detaches the task to let it keep running in the background. See `multitask::Task::detach`
