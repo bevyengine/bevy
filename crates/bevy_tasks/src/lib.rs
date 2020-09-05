@@ -10,6 +10,9 @@ pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 mod usages;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool};
 
+mod countdown_event;
+pub use countdown_event::CountdownEvent;
+
 pub mod prelude {
     pub use crate::{
         slice::{ParallelSlice, ParallelSliceMut},
