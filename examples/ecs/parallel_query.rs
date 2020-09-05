@@ -1,44 +1,64 @@
 use bevy::{prelude::*, tasks::prelude::*};
-use std::{
-    sync::{atomic, atomic::AtomicUsize},
-    thread,
-    time::{Duration, Instant},
-};
+use rand::random;
 
-fn spawn_system(mut commands: Commands) {
-    for i in 0..16usize {
-        commands.spawn((i,));
+struct Velocity(Vec2);
+
+fn spawn_system(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn(Camera2dComponents::default());
+    let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
+    for _ in 0..128 {
+        commands
+            .spawn(SpriteComponents {
+                material: materials.add(texture_handle.into()),
+                translation: Translation::new(0.0, 0.0, 0.0),
+                scale: Scale(0.1),
+                ..Default::default()
+            })
+            .with(Velocity(
+                20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5),
+            ));
     }
 }
 
-fn square_system(pool: Res<ComputeTaskPool>, mut nums: Query<&mut usize>) {
-    let i = AtomicUsize::new(0);
-    nums.iter().iter_batched(1).for_each(&pool, |mut n| {
-        println!(
-            "Processing entity {}",
-            i.fetch_add(1, atomic::Ordering::Relaxed)
-        );
-        thread::sleep(Duration::from_secs(1));
-        *n = *n * *n;
+// Move sprties according to their velocity
+fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Translation, &Velocity)>) {
+    // Compute the new location of each sprite in parallel on the ComputeTaskPool using batches of 32 sprties
+    sprites.iter().par_iter(32).for_each(&pool, |(mut t, v)| {
+        t.0 += v.0.extend(0.0);
     });
 }
 
-fn print_threads_system(pool: Res<ComputeTaskPool>) {
-    println!("Using {} threads in compute pool", pool.thread_num());
-}
-
-fn print_system(num: &usize) {
-    print!("{} ", num);
+// Bounce sprties outside the window
+fn bounce_system(
+    pool: Res<ComputeTaskPool>,
+    windows: Res<Windows>,
+    mut sprites: Query<(&Translation, &mut Velocity)>,
+) {
+    let Window { width, height, .. } = windows.get_primary().expect("No primary window");
+    let left = *width as f32 / -2.0;
+    let right = *width as f32 / 2.0;
+    let bottom = *height as f32 / -2.0;
+    let top = *height as f32 / 2.0;
+    sprites
+        .iter()
+        .par_iter(32)
+        // Filter out sprites that don't need to be bounced
+        .filter(|(t, _)| !(left < t.x() && t.x() < right && bottom < t.y() && t.y() < top))
+        // For simplicity, just reverse the velocity; don't use realistic bounces
+        .for_each(&pool, |(_, mut v)| {
+            v.0 = -v.0;
+        });
 }
 
 fn main() {
-    let t0 = Instant::now();
     App::build()
+        .add_default_plugins()
         .add_startup_system(spawn_system.system())
-        .add_startup_system(print_threads_system.system())
-        .add_system(square_system.system())
-        .add_system(print_system.system())
+        .add_system(move_system.system())
+        .add_system(bounce_system.system())
         .run();
-    let t1 = Instant::now();
-    println!("\nTook {:.3}s", (t1 - t0).as_secs_f32());
 }
