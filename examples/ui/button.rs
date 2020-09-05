@@ -30,25 +30,18 @@ impl FromResources for ButtonMaterials {
 
 #[derive(Default)]
 struct EventListenerState {
-    mousedown_reader: EventReader<MouseDown>,
-    mouseup_reader: EventReader<MouseUp>,
-    mouseenter_reader: EventReader<MouseEnter>,
-    mouseleave_reader: EventReader<MouseLeave>,
-    click_reader: EventReader<Click>,
-    doubleclick_reader: EventReader<DoubleClick>,
+    region_reader: EventReader<PointerRegion>,
+    press_reader: EventReader<PointerPress>,
+    click_reader: EventReader<PointerClick>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut state: ResMut<EventListenerState>,
-    button_events: (
-        Res<Events<MouseDown>>,
-        Res<Events<MouseUp>>,
-        Res<Events<MouseEnter>>,
-        Res<Events<MouseLeave>>,
-        Res<Events<Click>>,
-        Res<Events<DoubleClick>>,
-    ),
+    region_events: Res<Events<PointerRegion>>,
+    press_events: Res<Events<PointerPress>>,
+    click_events: Res<Events<PointerClick>>,
     mut interaction_query: Query<(
         &Button,
         Mutated<Interaction>,
@@ -58,15 +51,6 @@ fn button_system(
     event_query: Query<&Button>,
     text_query: Query<&mut Text>,
 ) {
-    let (
-        mousedown_events,
-        mouseup_events,
-        mouseenter_events,
-        mouseleave_events,
-        click_events,
-        doubleclick_events,
-    ) = button_events;
-
     for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
@@ -85,39 +69,29 @@ fn button_system(
         }
     }
 
-    for my_event in state.mousedown_reader.iter(&mousedown_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("MouseDown");
+    for event in state.region_reader.iter(&region_events) {
+        if let Ok(_button) = event_query.get::<Button>(event.entity) {
+            match event.action {
+                RegionAction::Enter => println!("Enter"),
+                RegionAction::Exit => println!("Exit"),
+                RegionAction::Hover(pos) => println!("Hover: {}", pos),
+                RegionAction::Move(pos) => println!("Move: {}", pos),
+            }
         }
     }
 
-    for my_event in state.mouseup_reader.iter(&mouseup_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("MouseUp");
+    for event in state.press_reader.iter(&press_events) {
+        if let Ok(_button) = event_query.get::<Button>(event.entity) {
+            match event.action {
+                PressAction::Up => println!("Up"),
+                PressAction::Down => println!("Down"),
+            }
         }
     }
 
-    for my_event in state.mouseenter_reader.iter(&mouseenter_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("MouseEnter");
-        }
-    }
-
-    for my_event in state.mouseleave_reader.iter(&mouseleave_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("MouseLeave");
-        }
-    }
-
-    for my_event in state.click_reader.iter(&click_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("Click");
-        }
-    }
-
-    for my_event in state.doubleclick_reader.iter(&doubleclick_events) {
-        if let Ok(_button) = event_query.get::<Button>(my_event.entity) {
-            println!("DoubleClick");
+    for event in state.click_reader.iter(&click_events) {
+        if let Ok(_button) = event_query.get::<Button>(event.entity) {
+            println!("Click")
         }
     }
 }
