@@ -138,6 +138,10 @@ pub fn ui_event_system(
         let mouse_pressed = mouse_button_input.just_pressed(MouseButton::Left);
         let mouse_released = mouse_button_input.just_released(MouseButton::Left);
 
+        if mouse_released {
+            state.pressed_entities.clear();
+        }
+
         for (entity, mut interaction, position, propagate_policy, _) in moused_over_z_sorted_nodes {
             new_hovered_entities.insert(entity);
 
@@ -164,9 +168,7 @@ pub fn ui_event_system(
                 });
 
                 *interaction = Interaction::Pressed;
-            }
-
-            if mouse_released {
+            } else if mouse_released {
                 press_events.send(PointerPress {
                     entity,
                     action: PressAction::Up,
@@ -176,7 +178,6 @@ pub fn ui_event_system(
                 }
 
                 *interaction = Interaction::Hovered;
-                state.pressed_entities.clear();
             }
 
             if cursor_has_moved {
