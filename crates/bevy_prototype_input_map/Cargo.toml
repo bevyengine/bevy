@@ -3,6 +3,7 @@ name = "bevy_prototype_input_map"
 version = "0.0.1"
 edition = "2018"
 authors = ["Pradeep Kumar Rajamanickam <raj.pradeep.kumar@gmail.com>"]
+description = "Adds support for input mapping"
 license = "MIT"
 
 [dependencies]
