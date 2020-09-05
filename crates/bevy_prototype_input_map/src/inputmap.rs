@@ -1,64 +1,28 @@
-use std::collections::{HashSet, HashMap};
 use bevy_input::{mouse::MouseButton, prelude::KeyCode};
+use std::collections::{HashSet, HashMap};
 
-pub struct InputMap
-{
+pub struct InputMap {
     // actions
-    action: HashSet<String>,
+    pub(crate) action_raw_strength: HashMap<String, f32>,
+    pub(crate) action_deadzone: HashMap<String, f32>,
 
     // inputs
-    keyboard_pressed_map: HashMap<KeyCode, String>,
-    keyboard_just_pressed_map: HashMap<KeyCode, String>,
-    keyboard_just_released_map: HashMap<KeyCode, String>,
-    
-    mouse_pressed_map: HashMap<MouseButton, String>,
-    mouse_just_pressed_map: HashMap<MouseButton, String>,
-    mouse_just_released_map: HashMap<MouseButton, String>,
+    pub(crate) keyboard_pressed_map: HashMap<KeyCode, String>,
+    pub(crate) mouse_pressed_map: HashMap<MouseButton, String>,
 }
 
-impl InputMap
-{
-    // keyboard
-    pub fn BindKeyboardPressed(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_pressed_map.insert(
-            code,
-            action
-            );
+impl InputMap {
+    // actions
+    pub fn SetActionStrength(&mut self, action: String, strength: f32) {
+        self.action_raw_strength.insert(action, strength);
     }
-    pub fn BindKeyboardJustPressed(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_just_pressed_map.insert(
-            code,
-            action
-            );
+    pub fn IsActionPressed(&self, action: String) -> bool {
+        self.GetActionStrength(action) > 0.0
     }
-    pub fn BindKeyboardJustReleased(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_just_released_map.insert(
-            code,
-            action
-            );
+    pub fn GetActionStrength(&self, action: String) -> f32 {
+        self.action_raw_strength[&action] // TODO need to compute deadzone
     }
-    pub fn UnBindKeyboardPressed(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_pressed_map.remove(
-            code,
-            action
-            );
-    }
-    pub fn UnBindKeyboardJustPressed(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_just_pressed_map.remove(
-            code,
-            action
-            );
-    }
-    pub fn UnBindKeyboardJustReleased(&mut self, code: KeyCode, action: String)
-    {
-        self.keyboard_just_released_map.remove(
-            code,
-            action
-            );
+    pub fn ResetActionStrength(&mut self, action: String) {
+        self.SetActionStrength(action, 0.0)
     }
 }

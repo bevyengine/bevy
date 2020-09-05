@@ -9,4 +9,5 @@ license = "MIT"
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
 bevy_input = { path = "../bevy_input", version = "0.1" }
