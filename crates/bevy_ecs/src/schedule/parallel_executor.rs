@@ -363,7 +363,7 @@ impl ExecutorStage {
 
             self.ready_events.resize(systems.len(), None);
             self.ready_events_of_dependents
-                .resize_with(systems.len(), || Vec::new());
+                .resize(systems.len(), Vec::new());
 
             for (system_index, system) in systems.iter().enumerate() {
                 let system = system.lock();

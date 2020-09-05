@@ -1,6 +1,6 @@
 use event_listener::Event;
 use std::sync::{
-    atomic::{AtomicIsize, AtomicUsize, Ordering},
+    atomic::{AtomicIsize, Ordering},
     Arc,
 };
 
