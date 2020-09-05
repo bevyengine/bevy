@@ -443,14 +443,14 @@ mod tests {
         Commands,
     };
     use bevy_hecs::{Entity, World};
-    use bevy_tasks::TaskPool;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
     use fixedbitset::FixedBitSet;
     use parking_lot::Mutex;
-    use std::sync::Arc;
+    use std::{collections::HashSet, sync::Arc};
 
     #[derive(Default)]
-    struct Counter {
-        count: Arc<Mutex<usize>>,
+    struct CompletedSystems {
+        completed_systems: Arc<Mutex<HashSet<&'static str>>>,
     }
 
     #[test]
@@ -514,15 +514,12 @@ mod tests {
         executor.run(&mut schedule, &mut world, &mut resources);
     }
 
-    //TODO: Most of the assertions that check the Counter resource are incorrect so
-    // they are commented out until they can be improved. (For example by checking a bitfield to
-    // confirm preprequisite systems were run
     #[test]
     fn schedule() {
         let mut world = World::new();
         let mut resources = Resources::default();
         resources.insert(ComputeTaskPool(TaskPool::default()));
-        resources.insert(Counter::default());
+        resources.insert(CompletedSystems::default());
         resources.insert(1.0f64);
         resources.insert(2isize);
 
@@ -535,30 +532,51 @@ mod tests {
         schedule.add_stage("B"); // thread local
         schedule.add_stage("C"); // resources
 
+        // A system names
+        const READ_U32_SYSTEM_NAME: &str = "read_u32";
+        const WRITE_FLOAT_SYSTEM_NAME: &str = "write_float";
+        const READ_U32_WRITE_U64_SYSTEM_NAME: &str = "read_u32_write_u64";
+        const READ_U64_SYSTEM_NAME: &str = "read_u64";
+
+        // B system names
+        const WRITE_U64_SYSTEM_NAME: &str = "write_u64";
+        const THREAD_LOCAL_SYSTEM_SYSTEM_NAME: &str = "thread_local_system";
+        const WRITE_F32_SYSTEM_NAME: &str = "write_f32";
+
+        // C system names
+        const READ_F64_RES_SYSTEM_NAME: &str = "read_f64_res";
+        const READ_ISIZE_RES_SYSTEM_NAME: &str = "read_isize_res";
+        const READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME: &str = "read_isize_write_f64_res";
+        const WRITE_F64_RES_SYSTEM_NAME: &str = "write_f64_res";
+
         // A systems
 
-        fn read_u32(counter: Res<Counter>, _query: Query<&u32>) {
-            let mut count = counter.count.lock();
-            //assert!(*count < 2, "should be one of the first two systems to run");
-            *count += 1;
+        fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(!completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
+            completed_systems.insert(READ_U32_SYSTEM_NAME);
         }
 
-        fn write_float(counter: Res<Counter>, _query: Query<&f32>) {
-            let mut count = counter.count.lock();
-            //assert!(*count < 2, "should be one of the first two systems to run");
-            *count += 1;
+        fn write_float(completed_systems: Res<CompletedSystems>, _query: Query<&f32>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            completed_systems.insert(WRITE_FLOAT_SYSTEM_NAME);
         }
 
-        fn read_u32_write_u64(counter: Res<Counter>, _query: Query<(&u32, &mut u64)>) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 2, "should always be the 3rd system to run");
-            *count += 1;
+        fn read_u32_write_u64(
+            completed_systems: Res<CompletedSystems>,
+            _query: Query<(&u32, &mut u64)>,
+        ) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(READ_U32_SYSTEM_NAME));
+            assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
+            completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
         }
 
-        fn read_u64(counter: Res<Counter>, _query: Query<&u64>) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 3, "should always be the 4th system to run");
-            *count += 1;
+        fn read_u64(completed_systems: Res<CompletedSystems>, _query: Query<&u64>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
+            assert!(!completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+            completed_systems.insert(READ_U64_SYSTEM_NAME);
         }
 
         schedule.add_system_to_stage("A", read_u32.system());
@@ -568,23 +586,28 @@ mod tests {
 
         // B systems
 
-        fn write_u64(counter: Res<Counter>, _query: Query<&mut u64>) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 4, "should always be the 5th system to run");
-            *count += 1;
+        fn write_u64(completed_systems: Res<CompletedSystems>, _query: Query<&mut u64>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(READ_U64_SYSTEM_NAME));
+            assert!(!completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
+            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+            completed_systems.insert(WRITE_U64_SYSTEM_NAME);
         }
 
         fn thread_local_system(_world: &mut World, resources: &mut Resources) {
-            let counter = resources.get::<Counter>().unwrap();
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 5, "should always be the 6th system to run");
-            *count += 1;
+            let completed_systems = resources.get::<CompletedSystems>().unwrap();
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+            assert!(!completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+            completed_systems.insert(THREAD_LOCAL_SYSTEM_SYSTEM_NAME);
         }
 
-        fn write_f32(counter: Res<Counter>, _query: Query<&mut f32>) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 6, "should always be the 7th system to run");
-            *count += 1;
+        fn write_f32(completed_systems: Res<CompletedSystems>, _query: Query<&mut f32>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(WRITE_U64_SYSTEM_NAME));
+            assert!(completed_systems.contains(THREAD_LOCAL_SYSTEM_SYSTEM_NAME));
+            assert!(!completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+            completed_systems.insert(WRITE_F32_SYSTEM_NAME);
         }
 
         schedule.add_system_to_stage("B", write_u64.system());
@@ -593,38 +616,35 @@ mod tests {
 
         // C systems
 
-        fn read_f64_res(counter: Res<Counter>, _f64_res: Res<f64>) {
-            let mut count = counter.count.lock();
-            // assert!(
-            //     7 == *count || *count == 8,
-            //     "should always be the 8th or 9th system to run"
-            // );
-            *count += 1;
+        fn read_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: Res<f64>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(WRITE_F32_SYSTEM_NAME));
+            assert!(!completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
+            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
+            completed_systems.insert(READ_F64_RES_SYSTEM_NAME);
         }
 
-        fn read_isize_res(counter: Res<Counter>, _isize_res: Res<isize>) {
-            let mut count = counter.count.lock();
-            // assert!(
-            //     7 == *count || *count == 8,
-            //     "should always be the 8th or 9th system to run"
-            // );
-            *count += 1;
+        fn read_isize_res(completed_systems: Res<CompletedSystems>, _isize_res: Res<isize>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            completed_systems.insert(READ_ISIZE_RES_SYSTEM_NAME);
         }
 
         fn read_isize_write_f64_res(
-            counter: Res<Counter>,
+            completed_systems: Res<CompletedSystems>,
             _isize_res: Res<isize>,
             _f64_res: ResMut<f64>,
         ) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 9, "should always be the 10th system to run");
-            *count += 1;
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+            assert!(!completed_systems.contains(WRITE_F64_RES_SYSTEM_NAME));
+            completed_systems.insert(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME);
         }
 
-        fn write_f64_res(counter: Res<Counter>, _f64_res: ResMut<f64>) {
-            let mut count = counter.count.lock();
-            //assert_eq!(*count, 10, "should always be the 11th system to run");
-            *count += 1;
+        fn write_f64_res(completed_systems: Res<CompletedSystems>, _f64_res: ResMut<f64>) {
+            let mut completed_systems = completed_systems.completed_systems.lock();
+            assert!(completed_systems.contains(READ_F64_RES_SYSTEM_NAME));
+            assert!(completed_systems.contains(READ_ISIZE_WRITE_F64_RES_SYSTEM_NAME));
+            completed_systems.insert(WRITE_F64_RES_SYSTEM_NAME);
         }
 
         schedule.add_system_to_stage("C", read_f64_res.system());
@@ -699,11 +719,11 @@ mod tests {
                 ]
             );
 
-            let counter = resources.get::<Counter>().unwrap();
+            let completed_systems = resources.get::<CompletedSystems>().unwrap();
             assert_eq!(
-                *counter.count.lock(),
+                completed_systems.completed_systems.lock().len(),
                 11,
-                "counter should have been incremented once for each system"
+                "completed_systems should have been incremented once for each system"
             );
         }
 
@@ -711,15 +731,25 @@ mod tests {
         for _ in 0..1000 {
             let mut executor = ParallelExecutor::default();
             run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
-            *resources.get::<Counter>().unwrap().count.lock() = 0;
+            resources
+                .get::<CompletedSystems>()
+                .unwrap()
+                .completed_systems
+                .lock()
+                .clear();
         }
 
         // Stress test the "continue running" case
         let mut executor = ParallelExecutor::default();
         run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
         for _ in 0..1000 {
-            // run again (with counter reset) to ensure executor works correctly across runs
-            *resources.get::<Counter>().unwrap().count.lock() = 0;
+            // run again (with completed_systems reset) to ensure executor works correctly across runs
+            resources
+                .get::<CompletedSystems>()
+                .unwrap()
+                .completed_systems
+                .lock()
+                .clear();
             run_executor_and_validate(&mut executor, &mut schedule, &mut world, &mut resources);
         }
     }

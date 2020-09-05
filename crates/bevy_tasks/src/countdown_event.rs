@@ -1,6 +1,8 @@
 use event_listener::Event;
-use std::sync::atomic::{AtomicIsize, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicIsize, Ordering},
+    Arc,
+};
 
 #[derive(Debug)]
 struct CountdownEventInner {
