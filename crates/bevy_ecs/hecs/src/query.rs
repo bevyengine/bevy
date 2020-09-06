@@ -323,8 +323,8 @@ pub struct Or<T>(PhantomData<T>);
 pub struct FetchOr<T>(T);
 
 /// Query transformer that skips entities that have a `T` component that has
-/// not been mutated since the last pass of the system. This does not include
-/// components that were added in since the last pass.
+/// not been mutated since the start of the frame.
+/// Added components do not count as mutated.
 pub struct Mutated<'a, T> {
     value: &'a T,
 }
@@ -389,7 +389,8 @@ impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
     }
 }
 
-#[allow(missing_docs)]
+/// Query transformer that skips entities with a `T` component that has
+/// not been added since the start of the frame.
 pub struct Added<'a, T> {
     value: &'a T,
 }
@@ -452,8 +453,8 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     }
 }
 
-/// Query transformer skipping entities that have not been either mutated or added
-/// since the last pass of the system
+/// Query transformer that skips entities that have a 'T' component that has
+/// not been either mutated or added since the start of the frame.
 pub struct Changed<'a, T> {
     value: &'a T,
 }
