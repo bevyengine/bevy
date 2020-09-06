@@ -1,9 +1,8 @@
 use bevy::prelude::*;
 use bevy_app::AppExit;
-use bevy_prototype_input_map::axis::Axis;
-use bevy_prototype_input_map::inputmap::InputMap;
-use bevy_prototype_input_map::keyboard::KeyboardMap;
-use bevy_prototype_input_map::mouse::MouseMap;
+use bevy_prototype_input_map::{
+    axis::Axis, inputmap::InputMap, keyboard::KeyboardMap, mouse::MouseMap,
+};
 
 fn main() {
     App::build()

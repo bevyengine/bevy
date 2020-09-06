@@ -1,5 +1,4 @@
-use crate::axis::Axis;
-use crate::inputmap::InputMap;
+use crate::{axis::Axis, inputmap::InputMap};
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_input::{mouse::MouseMotion, prelude::MouseButton, Input};
@@ -23,12 +22,15 @@ impl MouseMap {
     pub fn bind_mouse_button_pressed(&mut self, code: MouseButton, action: String) {
         self.action_button_binding.insert(code, action);
     }
+
     pub fn unbind_mouse_button_pressed(&mut self, button: MouseButton) {
         self.action_button_binding.remove(&button);
     }
+
     pub fn bind_mouse_motion(&mut self, axis: Axis, action: String) {
         self.action_move_binding.insert(axis, action);
     }
+
     pub fn unbind_mouse_motion(&mut self, axis: Axis, action: String) {
         self.action_move_binding.remove(&axis);
     }

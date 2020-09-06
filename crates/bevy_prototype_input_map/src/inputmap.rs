@@ -19,6 +19,7 @@ impl InputMap {
             None => return 0.,
         }
     }
+
     pub fn is_action_in_progress(&self, action: String) -> bool {
         self.get_action_strength(action) > 0.0
     }
@@ -31,9 +32,11 @@ impl InputMap {
     pub(crate) fn set_raw_action_strength(&mut self, action: String, strength: f32) {
         self.action_raw_strength.insert(action, strength);
     }
+
     pub(crate) fn reset_raw_action_strength(&mut self, action: String) {
         self.set_raw_action_strength(action, 0.0)
     }
+
     pub(crate) fn reset_all_raw_strength(&mut self) {
         self.action_raw_strength.clear();
     }

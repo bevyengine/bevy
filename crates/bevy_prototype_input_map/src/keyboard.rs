@@ -13,6 +13,7 @@ impl KeyboardMap {
     pub fn bind_keyboard_pressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.insert(code, action);
     }
+
     pub fn unbind_keyboard_pressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.remove(&code);
     }
