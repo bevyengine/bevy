@@ -25,7 +25,9 @@ impl Plugin for InputMapPlugin {
 
             // mouse
             .init_resource::<MouseMap>()
-            .add_system_to_stage(stage::UPDATE, MouseMap::action_update_system.system())
+            .add_system_to_stage(stage::UPDATE, MouseMap::button_press_input_system.system())
+            .add_system_to_stage(stage::UPDATE, MouseMap::mouse_move_event_system.system()
+            )
             ;
     }
 }
