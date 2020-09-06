@@ -18,10 +18,6 @@ impl KeyboardMap {
     }
     
     // system
-    pub(crate) fn action_reset_system(mut input_map: ResMut<InputMap>)
-    {
-        input_map.ResetAllRawStrength();
-    }
     pub(crate) fn action_update_system(
         mut input_map: ResMut<InputMap>,
         key_map: Res<KeyboardMap>,

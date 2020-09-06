@@ -1,5 +1,6 @@
 use bevy_input::{mouse::MouseButton, prelude::KeyCode};
 use std::collections::HashMap;
+use bevy_ecs::ResMut;
 
 // TODO deadzone
 #[derive(Default)]
@@ -34,5 +35,11 @@ impl InputMap {
     pub(crate) fn ResetAllRawStrength(&mut self)
     {
         self.action_raw_strength.clear();
+    }
+
+    // system
+    pub(crate) fn action_reset_system(mut input_map: ResMut<InputMap>)
+    {
+        input_map.ResetAllRawStrength();
     }
 }
