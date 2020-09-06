@@ -223,6 +223,14 @@ pub struct Commands {
 }
 
 impl Commands {
+    /// Creates a new entity in the current [World].
+    /// 
+    /// # Example
+    /// ```
+    /// commands
+    ///     .spawn(MyComponent)
+    ///     .with(MyAdditionalComponent);
+    /// ```
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         self.spawn_as_entity(Entity::new(), components)
     }
@@ -248,10 +256,22 @@ impl Commands {
     }
 
     /// Despawns only the specified entity, ignoring any other consideration.
+    /// 
+    /// # Example
+    /// commands
+    ///     .despawn(EntitiyToDespawn);
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
         self.write_world(Despawn { entity })
     }
 
+    /// Describes an entity with an additional component.
+    /// 
+    /// # Example
+    /// ```
+    /// commands
+    ///     .spawn(MyFirstComponent)
+    ///     .with(MySecondComponent)
+    /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         {
             let mut commands = self.commands.lock();
@@ -260,6 +280,23 @@ impl Commands {
         self
     }
 
+    /// Describes an entity with multiple additional components.
+    /// This is useful e.g. whenever you want to spawn a entity with more than one additional component.
+    /// 
+    /// # Example
+    /// ```
+    /// commands
+    ///     .spawn(MyFirstComponent)
+    ///     .with_bundle((MySecondComponent, MyThirdComponent, MyFourthComponent));
+    /// ```
+    /// same as
+    /// ```
+    /// commands
+    ///     .spawn(MyFirstComponent)
+    ///     .with(MySecondComponent)
+    ///     .with(MyThirdComponent)
+    ///     .with(MyFourthComponent);
+    /// ```
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -271,6 +308,13 @@ impl Commands {
         self
     }
 
+    /// Adds components to a already existing entity.
+    /// 
+    /// # Example
+    /// ```
+    /// commands
+    ///     .insert(MyEntity, (FirstComponent, SecondComponent, ThirdComponent));
+    /// ```
     pub fn insert(
         &mut self,
         entity: Entity,
@@ -279,6 +323,18 @@ impl Commands {
         self.write_world(Insert { entity, components })
     }
 
+    /// Adds a single component to a already existing entity.
+    /// 
+    /// # Example
+    /// ```
+    /// commands
+    ///     .insert_one(MyEntity, MyComponent);
+    /// ```
+    /// is the same as
+    /// ```
+    /// commands
+    ///     .insert(MyEntity, (MyComponent,));
+    /// ```
     pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
         self.write_world(InsertOne { entity, component })
     }
