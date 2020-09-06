@@ -10,13 +10,13 @@ pub struct KeyboardMap {
 
 impl KeyboardMap {
     // publics
-    pub fn BindKeyboardPressed(&mut self, code: KeyCode, action: String) {
+    pub fn bind_keyboard_pressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.insert(code, action);
     }
-    pub fn UnBindKeyboardPressed(&mut self, code: KeyCode, action: String) {
+    pub fn unbind_keyboard_pressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.remove(&code);
     }
-    
+
     // system
     pub(crate) fn action_update_system(
         mut input_map: ResMut<InputMap>,
@@ -28,7 +28,7 @@ impl KeyboardMap {
 
         for (keycode, action) in bindings_iter {
             if key_input.pressed(*keycode) {
-                map.SetRawActionStrength(action.clone(), 1.0);
+                map.set_raw_action_strength(action.clone(), 1.0);
             }
         }
     }

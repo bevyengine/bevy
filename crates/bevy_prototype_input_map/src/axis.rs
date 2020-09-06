@@ -1,9 +1,8 @@
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub enum Axis
-{
+pub enum Axis {
     X_Positive,
     X_Negative,
 
     Y_Positive,
-    Y_Negative
+    Y_Negative,
 }
