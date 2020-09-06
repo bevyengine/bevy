@@ -1,12 +1,10 @@
 use crate::inputmap::InputMap;
+use bevy_ecs::{Res, ResMut};
+use bevy_input::{prelude::KeyCode, Input};
 use std::collections::HashMap;
-use bevy_ecs::{ Res, ResMut};
-use bevy_input::{Input, prelude::KeyCode};
-
 
 // keyboard
 impl InputMap {
-
     pub fn GetKeyPressedBindingMap(&self) -> &HashMap<KeyCode, String> {
         &self.keyboard_pressed_map
     }
@@ -19,14 +17,15 @@ impl InputMap {
     }
 
     // system
-    pub fn keyboard_input_map_system(key_input: Res<Input<KeyCode>>, mut input_map: ResMut<InputMap>) {
-        for (keycode, action) in input_map.GetKeyPressedBindingMap() {
-            if key_input.pressed(*keycode) 
-            {
+    pub fn keyboard_input_map_system(
+        mut input_map: ResMut<InputMap>,
+        key_input: Res<Input<KeyCode>>,
+    ) {
+        let mut bindings = &mut input_map.GetKeyPressedBindingMap();
+        for (keycode, action) in bindings.iter() {
+            if key_input.pressed(*keycode) {
                 input_map.action_raw_strength.insert(action.clone(), 1.0);
-            }
-            else
-            {
+            } else {
                 input_map.action_raw_strength.insert(action.clone(), 0.0);
             }
         }
