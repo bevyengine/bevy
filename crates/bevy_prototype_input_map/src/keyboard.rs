@@ -23,7 +23,11 @@ impl KeyboardMap {
     // }
 
     // system
-    pub(crate) fn action_system(
+    pub(crate) fn action_reset_system(mut input_map: ResMut<InputMap>)
+    {
+        input_map.ResetAllRawStrength();
+    }
+    pub(crate) fn action_update_system(
         mut input_map: ResMut<InputMap>,
         key_map: Res<KeyboardMap>,
         key_input: Res<Input<KeyCode>>,
@@ -32,10 +36,9 @@ impl KeyboardMap {
         let bindings_iter = key_map.action_binding.iter();
 
         for (keycode, action) in bindings_iter {
+            // println!("{:?} : {}", keycode, action);
             if key_input.pressed(*keycode) {
                 map.SetRawActionStrength(action.clone(), 1.0);
-            } else {
-                map.ResetActionStrength(action.clone());
             }
         }
     }
