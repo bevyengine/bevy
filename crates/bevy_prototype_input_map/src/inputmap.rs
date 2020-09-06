@@ -13,7 +13,12 @@ pub struct InputMap {
 impl InputMap {
     // publics
     pub fn GetActionStrength(&self, action: String) -> f32 {
-        self.action_raw_strength[&action]
+        
+        match self.action_raw_strength.get(&action)
+        {
+            Some(n) => return  n.clone(),
+            None => return 0.
+        }
     }
     pub fn IsActionPressed(&self, action: String) -> bool {
         self.GetActionStrength(action) > 0.0
@@ -23,7 +28,7 @@ impl InputMap {
     pub(crate) fn SetRawActionStrength(&mut self, action: String, strength: f32) {
         self.action_raw_strength.insert(action, strength);
     }
-    pub(crate) fn ResetActionStrength(&mut self, action: String) {
+    pub(crate) fn ResetRawActionStrength(&mut self, action: String) {
         self.SetRawActionStrength(action, 0.0)
     }
     pub(crate) fn ResetAllRawStrength(&mut self)
