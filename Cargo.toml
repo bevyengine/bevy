@@ -56,6 +56,7 @@ bevy_core = { path = "crates/bevy_core", version = "0.1" }
 bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.1" }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.1" }
 bevy_input = { path = "crates/bevy_input", version = "0.1" }
+bevy_prototype_input_map = { path = "crates/bevy_prototype_input_map", version = "0.1" }
 bevy_math = { path = "crates/bevy_math", version = "0.1" }
 bevy_pbr = { path = "crates/bevy_pbr", version = "0.1" }
 bevy_property = { path = "crates/bevy_property", version = "0.1" }
@@ -182,6 +183,10 @@ path = "examples/ecs/ecs_guide.rs"
 [[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
+
+[[example]]
+name = "input_map"
+path = "examples/input/input_map.rs"
 
 [[example]]
 name = "mouse_input"
