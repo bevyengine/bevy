@@ -144,6 +144,10 @@ impl ExecutorStage {
             for system_index in prepare_system_index_range.clone() {
                 let mut system = systems[system_index].lock();
                 system.update_archetype_access(world);
+
+                // Clear this so that the next block of code that populates it doesn't insert
+                // duplicates
+                self.system_dependents[system_index].clear();
             }
 
             // calculate dependencies between systems and build execution order
@@ -205,6 +209,7 @@ impl ExecutorStage {
             }
 
             // Verify that dependents are not duplicated
+            #[cfg(debug_assertions)]
             for system_index in prepare_system_index_range.clone() {
                 let mut system_dependents_set = std::collections::HashSet::new();
                 for dependent_system in &self.system_dependents[system_index] {
@@ -213,11 +218,8 @@ impl ExecutorStage {
                     // This means duplicate values are in the system_dependents list
                     // This is reproducing when archetypes change. When we fix this, we can remove
                     // the hack below and make this a debug-only assert or remove it
-                    //assert!(inserted);
+                    debug_assert!(inserted);
                 }
-
-                // HACK: system_dependents is ending up with duplicate values
-                self.system_dependents[system_index] = system_dependents_set.into_iter().collect();
             }
 
             // Clear the ready events lists associated with each system so we can rebuild them
