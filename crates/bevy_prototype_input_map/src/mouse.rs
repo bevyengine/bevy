@@ -91,7 +91,7 @@ impl MouseMap {
                     match mouse_map.action_move_binding.get(&Axis::Y_Positive)
                     {
                         Some(action) => 
-                        { input_map.SetRawActionStrength( action.clone(), x); }
+                        { input_map.SetRawActionStrength( action.clone(), y); }
                         None => {}
                     }
                 }
@@ -101,7 +101,7 @@ impl MouseMap {
                     match mouse_map.action_move_binding.get(&Axis::Y_Negative)
                     {
                         Some(action) => 
-                        { input_map.SetRawActionStrength( action.clone(), x.abs()); }
+                        { input_map.SetRawActionStrength( action.clone(), y.abs()); }
                         None => {}
                     }
                 }
