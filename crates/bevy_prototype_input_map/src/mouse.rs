@@ -4,8 +4,6 @@ use bevy_ecs::{Local, Res, ResMut};
 use bevy_input::{mouse::MouseMotion, prelude::MouseButton, Input};
 use std::collections::HashMap;
 
-// TODO Mouse move
-
 #[derive(Default)]
 pub struct MouseMap {
     action_button_binding: HashMap<MouseButton, String>,
