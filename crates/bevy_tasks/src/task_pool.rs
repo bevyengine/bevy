@@ -257,6 +257,7 @@ impl<'scope, T: Send + 'static> Scope<'scope, T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicI32, Ordering};
 
     #[test]
     pub fn test_spawn() {
@@ -265,21 +266,27 @@ mod tests {
         let foo = Box::new(42);
         let foo = &*foo;
 
+        let count = Arc::new(AtomicI32::new(0));
+
         let outputs = pool.scope(|scope| {
-            for i in 0..100 {
+            for _ in 0..100 {
+                let count_clone = count.clone();
                 scope.spawn(async move {
-                    println!("task {}", i);
                     if *foo != 42 {
                         panic!("not 42!?!?")
                     } else {
+                        count_clone.fetch_add(1, Ordering::Relaxed);
                         *foo
                     }
                 });
             }
         });
 
-        for output in outputs {
-            assert_eq!(output, 42);
+        for output in &outputs {
+            assert_eq!(*output, 42);
         }
+
+        assert_eq!(outputs.len(), 100);
+        assert_eq!(count.load(Ordering::Relaxed), 100);
     }
 }
