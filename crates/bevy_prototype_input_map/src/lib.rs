@@ -1,3 +1,6 @@
+pub mod inputmap;
+pub mod keyboard;
+
 use bevy_app::prelude::*;
 use bevy_input::{prelude::KeyCode, Input};
 use bevy_ecs::IntoQuerySystem;
