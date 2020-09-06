@@ -26,4 +26,8 @@ impl InputMap {
     pub(crate) fn ResetActionStrength(&mut self, action: String) {
         self.SetRawActionStrength(action, 0.0)
     }
+    pub(crate) fn ResetAllRawStrength(&mut self)
+    {
+        self.action_raw_strength.clear();
+    }
 }
