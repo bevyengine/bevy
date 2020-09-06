@@ -57,51 +57,36 @@ impl MouseMap {
         mut state: Local<MouseMoveState>,
         move_events: Res<Events<MouseMotion>>,
     ) {
-        match state.reader.latest(&move_events) {
-            Some(value) => {
-                let normalised_vec = value.delta.normalize();
-                let x = normalised_vec.x();
-                let y = normalised_vec.y();
+        if let Some(value) = state.reader.latest(&move_events) {
+            let normalised_vec = value.delta.normalize();
+            let x = normalised_vec.x();
+            let y = normalised_vec.y();
 
-                // horizontal
-                if x > 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::XPositive) {
-                        Some(action) => {
-                            input_map.set_raw_action_strength(action.clone(), x);
-                        }
-                        None => {}
-                    }
-                }
-
-                if x < 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::XNegative) {
-                        Some(action) => {
-                            input_map.set_raw_action_strength(action.clone(), x.abs());
-                        }
-                        None => {}
-                    }
-                }
-
-                // vertical
-                if y > 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::YPositive) {
-                        Some(action) => {
-                            input_map.set_raw_action_strength(action.clone(), y);
-                        }
-                        None => {}
-                    }
-                }
-
-                if y < 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::YNegative) {
-                        Some(action) => {
-                            input_map.set_raw_action_strength(action.clone(), y.abs());
-                        }
-                        None => {}
-                    }
+            // horizontal
+            if x > 0.0 {
+                if let Some(action) = mouse_map.action_move_binding.get(&Axis::XPositive) {
+                    input_map.set_raw_action_strength(action.clone(), x);
                 }
             }
-            None => {}
+
+            if x < 0.0 {
+                if let Some(action) = mouse_map.action_move_binding.get(&Axis::XNegative) {
+                    input_map.set_raw_action_strength(action.clone(), x.abs());
+                }
+            }
+
+            // vertical
+            if y > 0.0 {
+                if let Some(action) = mouse_map.action_move_binding.get(&Axis::YPositive) {
+                    input_map.set_raw_action_strength(action.clone(), y);
+                }
+            }
+
+            if y < 0.0 {
+                if let Some(action) = mouse_map.action_move_binding.get(&Axis::YNegative) {
+                    input_map.set_raw_action_strength(action.clone(), y.abs());
+                }
+            }
         }
     }
 }

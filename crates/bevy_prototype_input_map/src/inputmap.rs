@@ -14,8 +14,8 @@ impl InputMap {
     // publics
     pub fn get_action_strength(&self, action: String) -> f32 {
         match self.action_raw_strength.get(&action) {
-            Some(n) => return n.clone(),
-            None => return 0.,
+            Some(n) => *n,
+            None => 0.,
         }
     }
 
@@ -30,10 +30,6 @@ impl InputMap {
     // crates
     pub(crate) fn set_raw_action_strength(&mut self, action: String, strength: f32) {
         self.action_raw_strength.insert(action, strength);
-    }
-
-    pub(crate) fn reset_raw_action_strength(&mut self, action: String) {
-        self.set_raw_action_strength(action, 0.0)
     }
 
     pub(crate) fn reset_all_raw_strength(&mut self) {
