@@ -16,12 +16,7 @@ impl KeyboardMap {
     pub fn UnBindKeyboardPressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.remove(&code);
     }
-
-    // crates
-    // pub(crate) fn GetBindings(&mut self) -> &HashMap<KeyCode, String> {
-    //     &self.action_binding
-    // }
-
+    
     // system
     pub(crate) fn action_reset_system(mut input_map: ResMut<InputMap>)
     {
@@ -36,7 +31,6 @@ impl KeyboardMap {
         let bindings_iter = key_map.action_binding.iter();
 
         for (keycode, action) in bindings_iter {
-            // println!("{:?} : {}", keycode, action);
             if key_input.pressed(*keycode) {
                 map.SetRawActionStrength(action.clone(), 1.0);
             }
