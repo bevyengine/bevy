@@ -223,13 +223,12 @@ pub struct Commands {
 }
 
 impl Commands {
-    /// Creates a new entity in the current [World].
+    /// Creates a new entity with a given component in the current [World].
     /// 
     /// # Example
     /// ```
     /// commands
-    ///     .spawn(MyComponent)
-    ///     .with(MyAdditionalComponent);
+    ///     .spawn(MyComponent);
     /// ```
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         self.spawn_as_entity(Entity::new(), components)
@@ -258,8 +257,10 @@ impl Commands {
     /// Despawns only the specified entity, ignoring any other consideration.
     /// 
     /// # Example
+    /// ```
     /// commands
     ///     .despawn(EntitiyToDespawn);
+    /// ```
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
         self.write_world(Despawn { entity })
     }
@@ -330,7 +331,7 @@ impl Commands {
     /// commands
     ///     .insert_one(MyEntity, MyComponent);
     /// ```
-    /// is the same as
+    /// same as
     /// ```
     /// commands
     ///     .insert(MyEntity, (MyComponent,));
