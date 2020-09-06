@@ -3,8 +3,7 @@ pub mod keyboard;
 
 use crate::inputmap::InputMap;
 use bevy_app::prelude::*;
-use bevy_input::{prelude::KeyCode, Input};
-use bevy_ecs::{ResMut, IntoQuerySystem};
+use bevy_ecs::IntoQuerySystem;
 use keyboard::KeyboardMap;
 
 #[derive(Default)]
