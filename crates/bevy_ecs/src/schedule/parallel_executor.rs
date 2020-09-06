@@ -148,6 +148,7 @@ impl ExecutorStage {
                 // Clear this so that the next block of code that populates it doesn't insert
                 // duplicates
                 self.system_dependents[system_index].clear();
+                self.system_dependencies[system_index].clear();
             }
 
             // calculate dependencies between systems and build execution order
@@ -223,7 +224,9 @@ impl ExecutorStage {
             }
 
             // Clear the ready events lists associated with each system so we can rebuild them
-            for ready_events_of_dependents in &mut self.ready_events_of_dependents {
+            for ready_events_of_dependents in
+                &mut self.ready_events_of_dependents[prepare_system_index_range.clone()]
+            {
                 ready_events_of_dependents.clear();
             }
 
