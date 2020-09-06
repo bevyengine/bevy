@@ -14,7 +14,7 @@ impl KeyboardMap {
         self.action_binding.insert(code, action);
     }
 
-    pub fn unbind_keyboard_pressed(&mut self, code: KeyCode, action: String) {
+    pub fn unbind_keyboard_pressed(&mut self, code: KeyCode) {
         self.action_binding.remove(&code);
     }
 
@@ -24,7 +24,7 @@ impl KeyboardMap {
         key_map: Res<KeyboardMap>,
         key_input: Res<Input<KeyCode>>,
     ) {
-        let mut map = &mut input_map;
+        let map = &mut input_map;
         let bindings_iter = key_map.action_binding.iter();
 
         for (keycode, action) in bindings_iter {

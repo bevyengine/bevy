@@ -31,7 +31,7 @@ impl MouseMap {
         self.action_move_binding.insert(axis, action);
     }
 
-    pub fn unbind_mouse_motion(&mut self, axis: Axis, action: String) {
+    pub fn unbind_mouse_motion(&mut self, axis: Axis) {
         self.action_move_binding.remove(&axis);
     }
 
@@ -65,7 +65,7 @@ impl MouseMap {
 
                 // horizontal
                 if x > 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::X_Positive) {
+                    match mouse_map.action_move_binding.get(&Axis::XPositive) {
                         Some(action) => {
                             input_map.set_raw_action_strength(action.clone(), x);
                         }
@@ -74,7 +74,7 @@ impl MouseMap {
                 }
 
                 if x < 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::X_Negative) {
+                    match mouse_map.action_move_binding.get(&Axis::XNegative) {
                         Some(action) => {
                             input_map.set_raw_action_strength(action.clone(), x.abs());
                         }
@@ -84,7 +84,7 @@ impl MouseMap {
 
                 // vertical
                 if y > 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::Y_Positive) {
+                    match mouse_map.action_move_binding.get(&Axis::YPositive) {
                         Some(action) => {
                             input_map.set_raw_action_strength(action.clone(), y);
                         }
@@ -93,7 +93,7 @@ impl MouseMap {
                 }
 
                 if y < 0.0 {
-                    match mouse_map.action_move_binding.get(&Axis::Y_Negative) {
+                    match mouse_map.action_move_binding.get(&Axis::YNegative) {
                         Some(action) => {
                             input_map.set_raw_action_strength(action.clone(), y.abs());
                         }

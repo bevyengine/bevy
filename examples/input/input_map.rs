@@ -29,10 +29,10 @@ fn setup(
     mouse_map.bind_mouse_button_pressed(MouseButton::Left, "SHOOT".to_string());
     mouse_map.bind_mouse_button_pressed(MouseButton::Right, "JUMP".to_string());
 
-    mouse_map.bind_mouse_motion(Axis::Y_Negative, "AIM_UP".to_string());
-    mouse_map.bind_mouse_motion(Axis::Y_Positive, "AIM_DOWN".to_string());
-    mouse_map.bind_mouse_motion(Axis::X_Negative, "AIM_LEFT".to_string());
-    mouse_map.bind_mouse_motion(Axis::X_Positive, "AIM_RIGHT".to_string());
+    mouse_map.bind_mouse_motion(Axis::YNegative, "AIM_UP".to_string());
+    mouse_map.bind_mouse_motion(Axis::YPositive, "AIM_DOWN".to_string());
+    mouse_map.bind_mouse_motion(Axis::XNegative, "AIM_LEFT".to_string());
+    mouse_map.bind_mouse_motion(Axis::XPositive, "AIM_RIGHT".to_string());
 
     // input map
     // meaningful only for analog inputs like mouse move, joystick...etc

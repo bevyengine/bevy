@@ -1,8 +1,8 @@
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Axis {
-    X_Positive,
-    X_Negative,
+    XPositive,
+    XNegative,
 
-    Y_Positive,
-    Y_Negative,
+    YPositive,
+    YNegative,
 }
