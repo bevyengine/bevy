@@ -39,13 +39,11 @@ impl MouseMap {
         mouse_map: Res<MouseMap>,
         mouse_button_input: Res<Input<MouseButton>>,
     ) {
-        let mut map = &mut input_map;
-
         // buttons
         let button_bindings_iter = mouse_map.action_button_binding.iter();
         for (button, action) in button_bindings_iter {
             if mouse_button_input.pressed(*button) {
-                map.SetRawActionStrength(action.clone(), 1.0);
+                input_map.SetRawActionStrength(action.clone(), 1.0);
             }
         }
     }
