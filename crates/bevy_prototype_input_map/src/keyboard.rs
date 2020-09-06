@@ -10,7 +10,7 @@ pub struct KeyboardMap {
 
 impl KeyboardMap {
     // publics
-    pub fn BindKeyboardPressed(&mut self, code: KeyCode, action: String, deadzone: f32) {
+    pub fn BindKeyboardPressed(&mut self, code: KeyCode, action: String) {
         self.action_binding.insert(code, action);
     }
     pub fn UnBindKeyboardPressed(&mut self, code: KeyCode, action: String) {
