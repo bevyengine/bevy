@@ -25,6 +25,11 @@ impl InputMap {
         self.GetActionStrength(action) > 0.0
     }
 
+    pub fn SetDeadZone(&mut self, action: String, value: f32)
+    {
+        self.action_deadzone.insert(action, value);
+    }
+
     // crates
     pub(crate) fn SetRawActionStrength(&mut self, action: String, strength: f32) {
         self.action_raw_strength.insert(action, strength);
