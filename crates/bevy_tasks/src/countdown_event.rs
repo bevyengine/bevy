@@ -34,6 +34,11 @@ impl CountdownEvent {
         }
     }
 
+    /// Get the number of times decrement must be called to trigger notifying all listeners
+    pub fn get(&self) -> isize {
+        self.inner.counter.load(Ordering::Acquire)
+    }
+
     /// Decrement the counter by one. If this is the Nth call, trigger all listeners
     pub fn decrement(&self) {
         // If we are the last decrementer, notify listeners
