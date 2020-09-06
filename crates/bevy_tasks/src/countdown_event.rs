@@ -112,7 +112,7 @@ pub fn event_resets_if_listeners_are_cleared() {
     // notify all listeners
     let listener1 = event.listen();
     event.notify(std::usize::MAX);
-    pollster::block_on(listener1);
+    futures_lite::future::block_on(listener1);
 
     // If all listeners are notified, the structure should now be cleared. We're free to listen again
     let listener2 = event.listen();
@@ -126,5 +126,5 @@ pub fn event_resets_if_listeners_are_cleared() {
 
     // Notify all and verify the remaining listener is notified
     event.notify(std::usize::MAX);
-    pollster::block_on(listener3);
+    futures_lite::future::block_on(listener3);
 }

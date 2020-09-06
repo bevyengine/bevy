@@ -121,15 +121,13 @@ impl TaskPool {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
-                let handle = thread_builder
+                thread_builder
                     .spawn(move || {
                         let shutdown_future = ex.run(shutdown_rx.recv());
                         // Use unwrap_err because we expect a Closed error
                         futures_lite::future::block_on(shutdown_future).unwrap_err();
                     })
-                    .expect("failed to spawn thread");
-
-                handle
+                    .expect("failed to spawn thread")
             })
             .collect();
 
