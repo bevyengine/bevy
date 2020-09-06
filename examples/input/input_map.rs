@@ -1,7 +1,8 @@
 use bevy::prelude::*;
-use bevy_prototype_input_map::keyboard::KeyboardMap;
-use bevy_prototype_input_map::inputmap::InputMap;
 use bevy_app::AppExit;
+use bevy_prototype_input_map::inputmap::InputMap;
+use bevy_prototype_input_map::keyboard::KeyboardMap;
+use bevy_prototype_input_map::mouse::MouseMap;
 
 fn main() {
     App::build()
@@ -16,17 +17,20 @@ fn main() {
 }
 
 fn setup(
-    mut key_map: ResMut<KeyboardMap>
+    mut key_map: ResMut<KeyboardMap>,
+    mut mouse_map: ResMut<MouseMap>
 )
 {
     // keyboard
-    key_map.BindKeyboardPressed(KeyCode::Up, "JUMP".to_string(), 0.25);
-    key_map.BindKeyboardPressed(KeyCode::Space, "JUMP".to_string(), 0.25);
+    key_map.BindKeyboardPressed(KeyCode::Up, "JUMP".to_string());
+    key_map.BindKeyboardPressed(KeyCode::Space, "JUMP".to_string());
 
-    key_map.BindKeyboardPressed(KeyCode::Return, "SHOOT".to_string(), 0.25);
+    key_map.BindKeyboardPressed(KeyCode::Return, "SHOOT".to_string());
 
-    key_map.BindKeyboardPressed(KeyCode::Escape, "QUIT_APP".to_string(), 0.25);
-    
+    key_map.BindKeyboardPressed(KeyCode::Escape, "QUIT_APP".to_string());
+
+    // mouse
+    mouse_map.BindMousePressed(MouseButton::Left, "SHOOT".to_string());
 }
 
 /// This system prints 'A' key state
