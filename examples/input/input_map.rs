@@ -5,6 +5,7 @@ use bevy_prototype_input_map::inputmap::InputMap;
 fn main() {
     App::build()
         .add_default_plugins()
+        .add_plugin(bevy_prototype_input_map::InputMapPlugin::default())
         .add_startup_system(setup.system())
         .add_system(action_system.system())
         .run();
