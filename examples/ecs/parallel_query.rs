@@ -10,10 +10,11 @@ fn spawn_system(
 ) {
     commands.spawn(Camera2dComponents::default());
     let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
+    let material = materials.add(texture_handle.into());
     for _ in 0..128 {
         commands
             .spawn(SpriteComponents {
-                material: materials.add(texture_handle.into()),
+                material,
                 translation: Translation::new(0.0, 0.0, 0.0),
                 scale: Scale(0.1),
                 ..Default::default()
