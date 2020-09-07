@@ -28,6 +28,9 @@ pub fn derive_render_resource(input: TokenStream) -> TokenStream {
             fn texture(&self) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture>> {
                 None
             }
+            fn texture3d(&self) -> Option<#bevy_asset_path::Handle<#bevy_render_path::texture::Texture3D>> {
+                None
+            }
 
         }
     })

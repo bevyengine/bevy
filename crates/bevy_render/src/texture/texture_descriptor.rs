@@ -1,4 +1,4 @@
-use super::{Extent3d, Texture, TextureDimension, TextureFormat, TextureUsage};
+use super::{Extent3d, Texture, Texture3D, TextureDimension, TextureFormat, TextureUsage};
 
 /// Describes a texture
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -22,6 +22,23 @@ impl From<&Texture> for TextureDescriptor {
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
+            format: texture.format,
+            usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
+        }
+    }
+}
+
+impl From<&Texture3D> for TextureDescriptor {
+    fn from(texture: &Texture3D) -> Self {
+        TextureDescriptor {
+            size: Extent3d {
+                width: texture.size.x() as u32,
+                height: texture.size.y() as u32,
+                depth: texture.size.z() as u32,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D3,
             format: texture.format,
             usage: TextureUsage::SAMPLED | TextureUsage::COPY_DST,
         }

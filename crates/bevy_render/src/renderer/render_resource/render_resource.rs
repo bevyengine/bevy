@@ -1,5 +1,5 @@
 use super::{BufferId, SamplerId, TextureId};
-use crate::texture::Texture;
+use crate::texture::{Texture, Texture3D};
 use bevy_asset::Handle;
 
 use bevy_core::{Byteable, Bytes};
@@ -77,6 +77,7 @@ pub trait RenderResource {
     fn buffer_byte_len(&self) -> Option<usize>;
     // TODO: consider making these panic by default, but return non-options
     fn texture(&self) -> Option<Handle<Texture>>;
+    fn texture3d(&self) -> Option<Handle<Texture3D>>;
 }
 
 pub trait RenderResources: Send + Sync + 'static {
@@ -138,6 +139,10 @@ macro_rules! impl_render_resource_bytes {
             fn texture(&self) -> Option<Handle<Texture>> {
                 None
             }
+
+            fn texture3d(&self) -> Option<Handle<Texture3D>> {
+                None
+            }
         }
     };
 }
@@ -175,6 +180,10 @@ where
     }
 
     fn texture(&self) -> Option<Handle<Texture>> {
+        None
+    }
+
+    fn texture3d(&self) -> Option<Handle<Texture3D>> {
         None
     }
 }

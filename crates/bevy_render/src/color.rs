@@ -1,4 +1,4 @@
-use super::texture::Texture;
+use super::texture::{Texture, Texture3D};
 use crate::{
     impl_render_resource_bytes,
     renderer::{RenderResource, RenderResourceType},

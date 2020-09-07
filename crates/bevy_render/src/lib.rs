@@ -23,7 +23,7 @@ pub mod prelude {
         pass::ClearColor,
         pipeline::RenderPipelines,
         shader::Shader,
-        texture::Texture,
+        texture::{Texture, Texture3D},
     };
 }
 
@@ -50,7 +50,7 @@ use std::ops::Range;
 use texture::HdrTextureLoader;
 #[cfg(feature = "png")]
 use texture::ImageTextureLoader;
-use texture::TextureResourceSystemState;
+use texture::{TextureResourceSystemState, Texture3DResourceSystemState};
 
 /// The names of "render" App stages
 pub mod stage {
@@ -96,6 +96,7 @@ impl Plugin for RenderPlugin {
             .add_stage_after(stage::RENDER, stage::POST_RENDER)
             .add_asset::<Mesh>()
             .add_asset::<Texture>()
+            .add_asset::<Texture3D>()
             .add_asset::<Shader>()
             .add_asset::<PipelineDescriptor>()
             .register_component::<Camera>()
@@ -116,6 +117,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<RenderResourceBindings>()
             .init_resource::<VertexBufferDescriptors>()
             .init_resource::<TextureResourceSystemState>()
+            .init_resource::<Texture3DResourceSystemState>()
             .init_resource::<AssetRenderResourceBindings>()
             .init_resource::<ActiveCameras>()
             .add_system_to_stage(
@@ -147,6 +149,10 @@ impl Plugin for RenderPlugin {
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),
+            )
+            .add_system_to_stage(
+                stage::RENDER_RESOURCE,
+                Texture3D::texture3d_resource_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,

@@ -1,4 +1,4 @@
-use super::Texture;
+use super::{Texture, Texture3D};
 use crate::pipeline::CompareFunction;
 use std::num::NonZeroU8;
 
@@ -36,6 +36,23 @@ impl Default for SamplerDescriptor {
 
 impl From<&Texture> for SamplerDescriptor {
     fn from(_texture: &Texture) -> Self {
+        SamplerDescriptor {
+            address_mode_u: AddressMode::ClampToEdge,
+            address_mode_v: AddressMode::ClampToEdge,
+            address_mode_w: AddressMode::ClampToEdge,
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: std::f32::MAX,
+            compare_function: None,
+            anisotropy_clamp: None,
+        }
+    }
+}
+
+impl From<&Texture3D> for SamplerDescriptor {
+    fn from(_texture: &Texture3D) -> Self {
         SamplerDescriptor {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
