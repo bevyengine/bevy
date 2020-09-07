@@ -215,54 +215,6 @@ where
     }
 
     // TODO: Investigate optimizations for less copying
-    /// Note that find consumes the whole iterator, and return a Vec of all results
-    fn find<F>(mut self, pool: &TaskPool, f: F) -> Vec<Self::Item>
-    where
-        F: FnMut(&Self::Item) -> bool + Send + Sync + Clone,
-        Self::Item: Send + 'static,
-    {
-        pool.scope(|s| {
-            while let Some(mut batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move {
-                    let mut found = Vec::new();
-                    while let Some(item) = batch.find(newf.clone()) {
-                        found.push(item);
-                    }
-                    found
-                });
-            }
-        })
-        .into_iter()
-        .flatten()
-        .collect()
-    }
-
-    // TODO: Investigate optimizations for less copying
-    /// Note that find_map consumes the whole iterator, and return a Vec of all results
-    fn find_map<C, F>(mut self, pool: &TaskPool, f: F) -> Vec<C>
-    where
-        F: FnMut(Self::Item) -> Option<C> + Send + Sync + Clone,
-        C: Send + 'static,
-    {
-        pool.scope(|s| {
-            while let Some(mut batch) = self.next_batch() {
-                let newf = f.clone();
-                s.spawn(async move {
-                    let mut found = Vec::new();
-                    while let Some(item) = batch.find_map(newf.clone()) {
-                        found.push(item);
-                    }
-                    found
-                });
-            }
-        })
-        .into_iter()
-        .flatten()
-        .collect()
-    }
-
-    // TODO: Investigate optimizations for less copying
     /// Note that position consumes the whole iterator
     fn position<F>(mut self, pool: &TaskPool, f: F) -> Option<usize>
     where
