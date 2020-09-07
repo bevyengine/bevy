@@ -34,7 +34,7 @@ where
         .sum()
     }
 
-    fn last(mut self) -> Option<Self::Item> {
+    fn last(mut self, _pool: &TaskPool) -> Option<Self::Item> {
         let mut last_item = None;
         while let Some(batch) = self.next_batch() {
             last_item = batch.last();
@@ -43,7 +43,7 @@ where
     }
 
     // TODO: Optimize with size_hint on each batch
-    fn nth(mut self, n: usize) -> Option<Self::Item> {
+    fn nth(mut self, _pool: &TaskPool, n: usize) -> Option<Self::Item> {
         let mut i = 0;
         while let Some(batch) = self.next_batch() {
             for item in batch {
