@@ -227,8 +227,8 @@ where
                     let mut len = 0;
                     let mut pos = None;
                     for item in batch {
-                        if newf(item) {
-                            pos = pos.or(Some(len));
+                        if pos.is_none() && newf(item) {
+                            pos = Some(len);
                         }
                         len += 1;
                     }
