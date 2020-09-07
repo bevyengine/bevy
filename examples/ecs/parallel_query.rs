@@ -24,7 +24,7 @@ fn spawn_system(
     }
 }
 
-// Move sprties according to their velocity
+// Move sprites according to their velocity
 fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Translation, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool using batches of 32 sprties
