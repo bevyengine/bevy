@@ -144,7 +144,7 @@ impl NodeState {
     {
         self.node
             .downcast_ref::<T>()
-            .ok_or_else(|| RenderGraphError::WrongNodeType)
+            .ok_or(RenderGraphError::WrongNodeType)
     }
 
     pub fn node_mut<T>(&mut self) -> Result<&mut T, RenderGraphError>
@@ -153,7 +153,7 @@ impl NodeState {
     {
         self.node
             .downcast_mut::<T>()
-            .ok_or_else(|| RenderGraphError::WrongNodeType)
+            .ok_or(RenderGraphError::WrongNodeType)
     }
 
     pub fn validate_output_slots(&self) -> Result<(), RenderGraphError> {

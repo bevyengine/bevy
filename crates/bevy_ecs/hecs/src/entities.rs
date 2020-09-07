@@ -67,9 +67,7 @@ impl Entities {
 
     /// Access the location storage of an entity
     pub fn get_mut(&mut self, entity: Entity) -> Result<&mut Location, NoSuchEntity> {
-        self.entity_locations
-            .get_mut(&entity)
-            .ok_or_else(|| NoSuchEntity)
+        self.entity_locations.get_mut(&entity).ok_or(NoSuchEntity)
     }
 
     /// Access the location storage of an entity
@@ -81,7 +79,7 @@ impl Entities {
         self.entity_locations
             .get(&entity)
             .cloned()
-            .ok_or_else(|| NoSuchEntity)
+            .ok_or(NoSuchEntity)
     }
 }
 
