@@ -3,14 +3,14 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
-    texture::{TextureComponentType, TextureViewDimension},
+    texture::{TextureComponentType, TextureFormat, TextureViewDimension},
 };
 use bevy_core::AsBytes;
 use bevy_utils::HashSet;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
+        ReflectImageFormat, ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
         ReflectTypeFlags,
     },
     ShaderModule,
@@ -173,6 +173,29 @@ fn reflect_dimension(type_description: &ReflectTypeDescription) -> TextureViewDi
     }
 }
 
+fn reflect_texture_format(type_description: &ReflectTypeDescription) -> TextureFormat {
+    match type_description.traits.image.image_format {
+        ReflectImageFormat::RGBA32_FLOAT => TextureFormat::Rgba32Float,
+        ReflectImageFormat::RGBA16_FLOAT => TextureFormat::Rgba16Float,
+        ReflectImageFormat::R32_FLOAT => TextureFormat::R32Float,
+        ReflectImageFormat::RGBA8_SNORM => TextureFormat::Rgba8Snorm,
+        ReflectImageFormat::RG32_FLOAT => TextureFormat::Rg32Float,
+        ReflectImageFormat::RG16_FLOAT => TextureFormat::Rg16Float,
+        ReflectImageFormat::R16_FLOAT => TextureFormat::R16Float,
+        ReflectImageFormat::R8_SNORM => TextureFormat::R8Snorm,
+        ReflectImageFormat::RGBA32_UINT => TextureFormat::Rgba32Uint,
+        ReflectImageFormat::RGBA16_UINT => TextureFormat::Rgba16Uint,
+        ReflectImageFormat::RGBA8_UINT => TextureFormat::Rgba8Uint,
+        ReflectImageFormat::R32_UINT => TextureFormat::R32Uint,
+        ReflectImageFormat::RG32_UINT => TextureFormat::Rg32Uint,
+        ReflectImageFormat::RG16_UINT => TextureFormat::Rg16Uint,
+        ReflectImageFormat::RG8_UINT => TextureFormat::Rg8Uint,
+        ReflectImageFormat::R16_UINT => TextureFormat::R16Uint,
+        ReflectImageFormat::R8_UINT => TextureFormat::R8Uint,
+        format => panic!("unsupported image format: {:?}", format),
+    }
+}
+
 fn reflect_binding(
     binding: &ReflectDescriptorBinding,
     shader_stage: ReflectShaderStageFlags,
@@ -203,6 +226,14 @@ fn reflect_binding(
         ),
         // TODO: detect comparison "true" case: https://github.com/gpuweb/gpuweb/issues/552
         ReflectDescriptorType::Sampler => (&binding.name, BindType::Sampler { comparison: false }),
+        ReflectDescriptorType::StorageImage => (
+            &binding.name,
+            BindType::StorageTexture {
+                readonly: false,
+                dimension: reflect_dimension(type_description),
+                format: reflect_texture_format(type_description),
+            },
+        ),
         _ => panic!("unsupported bind type {:?}", binding.descriptor_type),
     };
 
