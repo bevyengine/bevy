@@ -155,6 +155,15 @@ impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
     ///
     /// Useful for distributing work over a threadpool using the
     /// ParallelIterator interface.
+    ///
+    /// Batch size needs to be chosen based on the task being done in
+    /// parallel. The elements in each batch are computed serially, while
+    /// the batches themselves are computed in parallel.
+    ///
+    /// A too small batch size can cause too much overhead, since scheduling
+    /// each batch could take longer than running the batch. On the other
+    /// hand, a too large batch size risks that one batch is still running
+    /// long after the rest have finished.
     pub fn par_iter<'q>(&'q mut self, batch_size: u32) -> ParIter<'q, 'w, Q> {
         ParIter {
             borrow: self,
