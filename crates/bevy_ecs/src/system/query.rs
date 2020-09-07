@@ -281,9 +281,6 @@ pub struct ParIter<'q, 'w, Q: HecsQuery> {
     batch: u32,
 }
 
-unsafe impl<'q, 'w, Q: HecsQuery> Send for ParIter<'q, 'w, Q> {}
-unsafe impl<'q, 'w, Q: HecsQuery> Sync for ParIter<'q, 'w, Q> {}
-
 impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for ParIter<'q, 'w, Q> {
     type Item = <Q::Fetch as Fetch<'q>>::Item;
 
@@ -333,4 +330,3 @@ impl<'q, 'w, Q: HecsQuery> Iterator for Batch<'q, Q> {
 }
 
 unsafe impl<'q, Q: HecsQuery> Send for Batch<'q, Q> {}
-unsafe impl<'q, Q: HecsQuery> Sync for Batch<'q, Q> {}
