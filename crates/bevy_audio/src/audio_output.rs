@@ -1,17 +1,23 @@
-use crate::AudioSource;
+use crate::{AudioSource, Decodable};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
-use rodio::{Decoder, Device, Sink};
-use std::{collections::VecDeque, io::Cursor};
+use rodio::{Device, Sink};
+use std::collections::VecDeque;
 
 /// Used to play audio on the current "audio device"
-pub struct AudioOutput {
+pub struct AudioOutput<P = AudioSource>
+where
+    P: Decodable,
+{
     device: Device,
-    queue: RwLock<VecDeque<Handle<AudioSource>>>,
+    queue: RwLock<VecDeque<Handle<P>>>,
 }
 
-impl Default for AudioOutput {
+impl<P> Default for AudioOutput<P>
+where
+    P: Decodable,
+{
     fn default() -> Self {
         Self {
             device: rodio::default_output_device().unwrap(),
@@ -20,18 +26,23 @@ impl Default for AudioOutput {
     }
 }
 
-impl AudioOutput {
-    pub fn play_source(&self, audio_source: &AudioSource) {
+impl<P> AudioOutput<P>
+where
+    P: Decodable,
+    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
+    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+{
+    pub fn play_source(&self, audio_source: &P) {
         let sink = Sink::new(&self.device);
-        sink.append(Decoder::new(Cursor::new(audio_source.clone())).unwrap());
+        sink.append(audio_source.decoder());
         sink.detach();
     }
 
-    pub fn play(&self, audio_source: Handle<AudioSource>) {
+    pub fn play(&self, audio_source: Handle<P>) {
         self.queue.write().push_front(audio_source);
     }
 
-    pub fn try_play_queued(&self, audio_sources: &Assets<AudioSource>) {
+    pub fn try_play_queued(&self, audio_sources: &Assets<P>) {
         let mut queue = self.queue.write();
         let len = queue.len();
         let mut i = 0;
@@ -49,9 +60,11 @@ impl AudioOutput {
 }
 
 /// Plays audio currently queued in the [AudioOutput] resource
-pub(crate) fn play_queued_audio_system(
-    audio_sources: Res<Assets<AudioSource>>,
-    audio_output: Res<AudioOutput>,
-) {
+pub fn play_queued_audio_system<P>(audio_sources: Res<Assets<P>>, audio_output: Res<AudioOutput<P>>)
+where
+    P: Decodable,
+    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
+    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+{
     audio_output.try_play_queued(&audio_sources);
 }
