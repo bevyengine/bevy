@@ -70,7 +70,7 @@ impl TextureAtlas {
         columns: usize,
         rows: usize,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding(texture, size, columns, rows, Vec2(0f32, 0f32))
+        Self::from_grid_with_padding(texture, size, columns, rows, Vec2::new(0f32, 0f32))
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
