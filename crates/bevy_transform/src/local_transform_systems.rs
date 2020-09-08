@@ -7,7 +7,7 @@ pub fn local_transform_translation_system(
     mut query: Query<
         Without<
             Rotation,
-            Without<Scale, Without<NonUniformScale, (&mut LocalTransform, &Translation)>>,
+            Without<Scale, Without<NonUniformScale, (&mut LocalTransform, Changed<Translation>)>>,
         >,
     >,
 ) {
@@ -20,7 +20,7 @@ pub fn local_transform_rotation_system(
     mut query: Query<
         Without<
             Translation,
-            Without<Scale, Without<NonUniformScale, (&mut LocalTransform, &Rotation)>>,
+            Without<Scale, Without<NonUniformScale, (&mut LocalTransform, Changed<Rotation>)>>,
         >,
     >,
 ) {
@@ -33,7 +33,7 @@ pub fn local_transform_scale_system(
     mut query: Query<
         Without<
             Translation,
-            Without<Rotation, Without<NonUniformScale, (&mut LocalTransform, &Scale)>>,
+            Without<Rotation, Without<NonUniformScale, (&mut LocalTransform, Changed<Scale>)>>,
         >,
     >,
 ) {
@@ -46,7 +46,7 @@ pub fn local_transform_non_uniform_scale_system(
     mut query: Query<
         Without<
             Translation,
-            Without<Rotation, Without<Scale, (&mut LocalTransform, &NonUniformScale)>>,
+            Without<Rotation, Without<Scale, (&mut LocalTransform, Changed<NonUniformScale>)>>,
         >,
     >,
 ) {
@@ -57,20 +57,38 @@ pub fn local_transform_non_uniform_scale_system(
 
 pub fn local_transform_translation_rotation_system(
     mut query: Query<
-        Without<Scale, Without<NonUniformScale, (&mut LocalTransform, &Translation, &Rotation)>>,
+        Without<
+            Scale,
+            Without<
+                NonUniformScale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<Rotation>)>,
+                ),
+            >,
+        >,
     >,
 ) {
-    for (mut local, translation, rotation) in &mut query.iter() {
+    for (mut local, (translation, rotation)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_rotation_translation(rotation.0, translation.0));
     }
 }
 
 pub fn local_transform_translation_scale_system(
     mut query: Query<
-        Without<Rotation, Without<NonUniformScale, (&mut LocalTransform, &Translation, &Scale)>>,
+        Without<
+            Rotation,
+            Without<
+                NonUniformScale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<Scale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
-    for (mut local, translation, scale) in &mut query.iter() {
+    for (mut local, (translation, scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             Vec3::new(scale.0, scale.0, scale.0),
             Quat::default(),
@@ -81,10 +99,19 @@ pub fn local_transform_translation_scale_system(
 
 pub fn local_transform_translation_non_uniform_scale_system(
     mut query: Query<
-        Without<Rotation, Without<Scale, (&mut LocalTransform, &Translation, &NonUniformScale)>>,
+        Without<
+            Rotation,
+            Without<
+                Scale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Translation>, Changed<NonUniformScale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
-    for (mut local, translation, non_uniform_scale) in &mut query.iter() {
+    for (mut local, (translation, non_uniform_scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             non_uniform_scale.0,
             Quat::default(),
@@ -95,10 +122,16 @@ pub fn local_transform_translation_non_uniform_scale_system(
 
 pub fn local_transform_rotation_scale_system(
     mut query: Query<
-        Without<Translation, Without<NonUniformScale, (&mut LocalTransform, &Rotation, &Scale)>>,
+        Without<
+            Translation,
+            Without<
+                NonUniformScale,
+                (&mut LocalTransform, Or<(Changed<Rotation>, Changed<Scale>)>),
+            >,
+        >,
     >,
 ) {
-    for (mut local, rotation, scale) in &mut query.iter() {
+    for (mut local, (rotation, scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             Vec3::new(scale.0, scale.0, scale.0),
             rotation.0,
@@ -109,10 +142,19 @@ pub fn local_transform_rotation_scale_system(
 
 pub fn local_transform_rotation_non_uniform_scale_system(
     mut query: Query<
-        Without<Translation, Without<Scale, (&mut LocalTransform, &Rotation, &NonUniformScale)>>,
+        Without<
+            Translation,
+            Without<
+                Scale,
+                (
+                    &mut LocalTransform,
+                    Or<(Changed<Rotation>, Changed<NonUniformScale>)>,
+                ),
+            >,
+        >,
     >,
 ) {
-    for (mut local, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut local, (rotation, non_uniform_scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             non_uniform_scale.0,
             rotation.0,
@@ -123,10 +165,16 @@ pub fn local_transform_rotation_non_uniform_scale_system(
 
 pub fn local_transform_translation_rotation_scale_system(
     mut query: Query<
-        Without<NonUniformScale, (&mut LocalTransform, &Translation, &Rotation, &Scale)>,
+        Without<
+            NonUniformScale,
+            (
+                &mut LocalTransform,
+                Or<(Changed<Translation>, Changed<Rotation>, Changed<Scale>)>,
+            ),
+        >,
     >,
 ) {
-    for (mut local, translation, rotation, scale) in &mut query.iter() {
+    for (mut local, (translation, rotation, scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             Vec3::new(scale.0, scale.0, scale.0),
             rotation.0,
@@ -141,14 +189,16 @@ pub fn local_transform_translation_rotation_non_uniform_scale_system(
             Scale,
             (
                 &mut LocalTransform,
-                &Translation,
-                &Rotation,
-                &NonUniformScale,
+                Or<(
+                    Changed<Translation>,
+                    Changed<Rotation>,
+                    Changed<NonUniformScale>,
+                )>,
             ),
         >,
     >,
 ) {
-    for (mut local, translation, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut local, (translation, rotation, non_uniform_scale)) in &mut query.iter() {
         *local = LocalTransform(Mat4::from_scale_rotation_translation(
             non_uniform_scale.0,
             rotation.0,
@@ -269,5 +319,47 @@ mod test {
                 .0,
             Mat4::from_scale_rotation_translation(nus.0, r.0, t.0)
         );
+    }
+
+    #[test]
+    fn only_propagates_local_transform_on_change() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        for system in local_transform_systems() {
+            schedule.add_system_to_stage("update", system);
+        }
+
+        let local_transform = LocalTransform::identity();
+        let t = Translation::new(1.0, 2.0, 3.0);
+        let r = Rotation(Quat::from_rotation_ypr(1.0, 2.0, 3.0));
+        let s = Scale(2.0);
+        let nus = NonUniformScale::new(1.0, 2.0, 3.0);
+
+        // Add every combination of transform types.
+        world.spawn((local_transform, t));
+        world.spawn((local_transform, r));
+        world.spawn((local_transform, s));
+        world.spawn((local_transform, nus));
+        world.spawn((local_transform, t, r));
+        world.spawn((local_transform, t, s));
+        world.spawn((local_transform, t, nus));
+        world.spawn((local_transform, r, s));
+        world.spawn((local_transform, r, nus));
+        world.spawn((local_transform, t, r, s));
+        world.spawn((local_transform, t, r, nus));
+
+        // Run the system, local transforms should mutate since they are new
+        schedule.run(&mut world, &mut resources);
+
+        // Verify that the local transform is not mutated on the second frame
+        fn assert_no_local_transforms_changed_system(_: Changed<LocalTransform>) {
+            assert!(false)
+        }
+
+        schedule.add_system_to_stage("update", assert_no_local_transforms_changed_system.system());
+        schedule.run(&mut world, &mut resources);
     }
 }

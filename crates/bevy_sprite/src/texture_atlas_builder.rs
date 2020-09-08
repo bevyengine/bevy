@@ -2,11 +2,11 @@ use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::{Texture, TextureFormat};
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
-use std::collections::HashMap;
 use thiserror::Error;
 
 pub struct TextureAtlasBuilder {
@@ -88,7 +88,7 @@ impl TextureAtlasBuilder {
                 rect_placements = None;
                 break;
             }
-            let mut target_bins = HashMap::new();
+            let mut target_bins = std::collections::HashMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             atlas_texture = Texture::new_fill(
                 Vec2::new(current_width as f32, current_height as f32),
@@ -110,10 +110,10 @@ impl TextureAtlasBuilder {
             }
         }
 
-        let rect_placements = rect_placements.ok_or_else(|| RectanglePackError::NotEnoughSpace)?;
+        let rect_placements = rect_placements.ok_or(RectanglePackError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_handles = HashMap::new();
+        let mut texture_handles = HashMap::default();
         for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
             let texture = textures.get(texture_handle).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);

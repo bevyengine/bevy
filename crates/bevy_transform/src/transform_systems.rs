@@ -9,7 +9,7 @@ pub fn transform_translation_system(
             LocalTransform,
             Without<
                 Rotation,
-                Without<Scale, Without<NonUniformScale, (&mut Transform, &Translation)>>,
+                Without<Scale, Without<NonUniformScale, (&mut Transform, Changed<Translation>)>>,
             >,
         >,
     >,
@@ -29,7 +29,7 @@ pub fn transform_rotation_system(
             LocalTransform,
             Without<
                 Translation,
-                Without<Scale, Without<NonUniformScale, (&mut Transform, &Rotation)>>,
+                Without<Scale, Without<NonUniformScale, (&mut Transform, Changed<Rotation>)>>,
             >,
         >,
     >,
@@ -49,7 +49,7 @@ pub fn transform_scale_system(
             LocalTransform,
             Without<
                 Translation,
-                Without<Rotation, Without<NonUniformScale, (&mut Transform, &Scale)>>,
+                Without<Rotation, Without<NonUniformScale, (&mut Transform, Changed<Scale>)>>,
             >,
         >,
     >,
@@ -69,7 +69,7 @@ pub fn transform_non_uniform_scale_system(
             LocalTransform,
             Without<
                 Translation,
-                Without<Rotation, Without<Scale, (&mut Transform, &NonUniformScale)>>,
+                Without<Rotation, Without<Scale, (&mut Transform, Changed<NonUniformScale>)>>,
             >,
         >,
     >,
@@ -87,11 +87,20 @@ pub fn transform_translation_rotation_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Scale, Without<NonUniformScale, (&mut Transform, &Translation, &Rotation)>>,
+            Without<
+                Scale,
+                Without<
+                    NonUniformScale,
+                    (
+                        &mut Transform,
+                        Or<(Changed<Translation>, Changed<Rotation>)>,
+                    ),
+                >,
+            >,
         >,
     >,
 ) {
-    for (mut transform, translation, rotation) in &mut query.iter() {
+    for (mut transform, (translation, rotation)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -104,11 +113,17 @@ pub fn transform_translation_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Rotation, Without<NonUniformScale, (&mut Transform, &Translation, &Scale)>>,
+            Without<
+                Rotation,
+                Without<
+                    NonUniformScale,
+                    (&mut Transform, Or<(Changed<Translation>, Changed<Scale>)>),
+                >,
+            >,
         >,
     >,
 ) {
-    for (mut transform, translation, scale) in &mut query.iter() {
+    for (mut transform, (translation, scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -125,11 +140,20 @@ pub fn transform_translation_non_uniform_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Rotation, Without<Scale, (&mut Transform, &Translation, &NonUniformScale)>>,
+            Without<
+                Rotation,
+                Without<
+                    Scale,
+                    (
+                        &mut Transform,
+                        Or<(Changed<Translation>, Changed<NonUniformScale>)>,
+                    ),
+                >,
+            >,
         >,
     >,
 ) {
-    for (mut transform, translation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, (translation, non_uniform_scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -146,11 +170,14 @@ pub fn transform_rotation_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Translation, Without<NonUniformScale, (&mut Transform, &Rotation, &Scale)>>,
+            Without<
+                Translation,
+                Without<NonUniformScale, (&mut Transform, Or<(Changed<Rotation>, Changed<Scale>)>)>,
+            >,
         >,
     >,
 ) {
-    for (mut transform, rotation, scale) in &mut query.iter() {
+    for (mut transform, (rotation, scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -167,11 +194,20 @@ pub fn transform_rotation_non_uniform_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Translation, Without<Scale, (&mut Transform, &Rotation, &NonUniformScale)>>,
+            Without<
+                Translation,
+                Without<
+                    Scale,
+                    (
+                        &mut Transform,
+                        Or<(Changed<Rotation>, Changed<NonUniformScale>)>,
+                    ),
+                >,
+            >,
         >,
     >,
 ) {
-    for (mut transform, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, (rotation, non_uniform_scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -188,11 +224,17 @@ pub fn transform_translation_rotation_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<NonUniformScale, (&mut Transform, &Translation, &Rotation, &Scale)>,
+            Without<
+                NonUniformScale,
+                (
+                    &mut Transform,
+                    Or<(Changed<Translation>, Changed<Rotation>, Changed<Scale>)>,
+                ),
+            >,
         >,
     >,
 ) {
-    for (mut transform, translation, rotation, scale) in &mut query.iter() {
+    for (mut transform, (translation, rotation, scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -209,11 +251,21 @@ pub fn transform_translation_rotation_non_uniform_scale_system(
     mut query: Query<
         Without<
             LocalTransform,
-            Without<Scale, (&mut Transform, &Translation, &Rotation, &NonUniformScale)>,
+            Without<
+                Scale,
+                (
+                    &mut Transform,
+                    Or<(
+                        Changed<Translation>,
+                        Changed<Rotation>,
+                        Changed<NonUniformScale>,
+                    )>,
+                ),
+            >,
         >,
     >,
 ) {
-    for (mut transform, translation, rotation, non_uniform_scale) in &mut query.iter() {
+    for (mut transform, (translation, rotation, non_uniform_scale)) in &mut query.iter() {
         if !transform.sync {
             continue;
         }
@@ -335,5 +387,47 @@ mod test {
                 .value,
             Mat4::from_scale_rotation_translation(nus.0, r.0, t.0)
         );
+    }
+
+    #[test]
+    fn only_propagates_transform_on_change() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        for system in transform_systems() {
+            schedule.add_system_to_stage("update", system);
+        }
+
+        let transform = Transform::identity();
+        let t = Translation::new(1.0, 2.0, 3.0);
+        let r = Rotation(Quat::from_rotation_ypr(1.0, 2.0, 3.0));
+        let s = Scale(2.0);
+        let nus = NonUniformScale::new(1.0, 2.0, 3.0);
+
+        // Add every combination of transform types.
+        world.spawn((transform, t));
+        world.spawn((transform, r));
+        world.spawn((transform, s));
+        world.spawn((transform, nus));
+        world.spawn((transform, t, r));
+        world.spawn((transform, t, s));
+        world.spawn((transform, t, nus));
+        world.spawn((transform, r, s));
+        world.spawn((transform, r, nus));
+        world.spawn((transform, t, r, s));
+        world.spawn((transform, t, r, nus));
+
+        // Run the system, transforms should mutate since they are new
+        schedule.run(&mut world, &mut resources);
+
+        // Verify that the transform is not mutated on the second frame
+        fn assert_no_transforms_changed_system(_: Changed<Transform>) {
+            assert!(false)
+        }
+
+        schedule.add_system_to_stage("update", assert_no_transforms_changed_system.system());
+        schedule.run(&mut world, &mut resources);
     }
 }

@@ -17,12 +17,24 @@ fn setup(
     commands
         // mesh
         .spawn(PbrComponents {
-            // load the mesh
+            // load a mesh from glTF
             mesh: asset_server
                 .load("assets/models/monkey/Monkey.gltf")
                 .unwrap(),
             // create a material for the mesh
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            translation: Translation::new(-1.5, 0.0, 0.0),
+            ..Default::default()
+        })
+        // mesh
+        .spawn(PbrComponents {
+            // load a mesh from binary glTF
+            mesh: asset_server
+                .load("assets/models/monkey/Monkey.glb")
+                .unwrap(),
+            // create a material for the mesh
+            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            translation: Translation::new(1.5, 0.0, 0.0),
             ..Default::default()
         })
         // light

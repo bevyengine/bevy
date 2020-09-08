@@ -13,9 +13,17 @@ readme = "README.md"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 
 [features]
-default = ["bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit", "png", "hdr", "mp3", "x11"]
+default = [
+    "bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit",
+    "dynamic_plugins", "png", "hdr", "mp3", "x11"
+]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
+dynamic_plugins = [
+    "bevy_core/dynamic_plugins",
+    "bevy_app/dynamic_plugins",
+    "bevy_type_registry/dynamic_plugins",
+]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
 png = ["bevy_render/png"]
@@ -38,6 +46,7 @@ members = [
     "crates/*",
     "crates/bevy_ecs/hecs",
 ]
+exclude = ["benches"]
 
 [dependencies]
 # bevy
@@ -57,7 +66,9 @@ bevy_sprite = { path = "crates/bevy_sprite", version = "0.1" }
 bevy_transform = { path = "crates/bevy_transform", version = "0.1" }
 bevy_text = { path = "crates/bevy_text", version = "0.1" }
 bevy_ui = { path = "crates/bevy_ui", version = "0.1" }
+bevy_utils = { path = "crates/bevy_utils", version = "0.1" }
 bevy_window = { path = "crates/bevy_window", version = "0.1" }
+bevy_tasks = { path = "crates/bevy_tasks", version = "0.1" }
 
 # bevy (optional)
 bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.1" }
@@ -168,6 +179,10 @@ path = "examples/ecs/startup_system.rs"
 [[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
+
+[[example]]
+name = "parallel_query"
+path = "examples/ecs/parallel_query.rs"
 
 [[example]]
 name = "breakout"

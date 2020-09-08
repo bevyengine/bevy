@@ -3,6 +3,7 @@ use bevy_hecs::{
     Archetype, Component, ComponentError, Entity, Fetch, Query as HecsQuery, QueryOne, Ref, RefMut,
     World,
 };
+use bevy_tasks::ParallelIterator;
 use std::marker::PhantomData;
 
 /// Provides scoped access to a World according to a given [HecsQuery]
@@ -148,6 +149,29 @@ impl<'w, Q: HecsQuery> QueryBorrow<'w, Q> {
             iter: None,
         }
     }
+
+    /// Like `iter`, but returns child iterators of at most `batch_size`
+    /// elements
+    ///
+    /// Useful for distributing work over a threadpool using the
+    /// ParallelIterator interface.
+    ///
+    /// Batch size needs to be chosen based on the task being done in
+    /// parallel. The elements in each batch are computed serially, while
+    /// the batches themselves are computed in parallel.
+    ///
+    /// A too small batch size can cause too much overhead, since scheduling
+    /// each batch could take longer than running the batch. On the other
+    /// hand, a too large batch size risks that one batch is still running
+    /// long after the rest have finished.
+    pub fn par_iter<'q>(&'q mut self, batch_size: u32) -> ParIter<'q, 'w, Q> {
+        ParIter {
+            borrow: self,
+            archetype_index: 0,
+            batch_size,
+            batch: 0,
+        }
+    }
 }
 
 unsafe impl<'w, Q: HecsQuery> Send for QueryBorrow<'w, Q> {}
@@ -257,3 +281,61 @@ impl<Q: HecsQuery> ChunkIter<Q> {
         }
     }
 }
+
+/// Batched version of `QueryIter`
+pub struct ParIter<'q, 'w, Q: HecsQuery> {
+    borrow: &'q mut QueryBorrow<'w, Q>,
+    archetype_index: u32,
+    batch_size: u32,
+    batch: u32,
+}
+
+impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for ParIter<'q, 'w, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    fn next_batch(&mut self) -> Option<Batch<'q, Q>> {
+        loop {
+            let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+            let offset = self.batch_size * self.batch;
+            if offset >= archetype.len() {
+                self.archetype_index += 1;
+                self.batch = 0;
+                continue;
+            }
+            if let Some(fetch) = unsafe { Q::Fetch::get(archetype, offset as usize) } {
+                self.batch += 1;
+                return Some(Batch {
+                    _marker: PhantomData,
+                    state: ChunkIter {
+                        fetch,
+                        len: self.batch_size.min(archetype.len() - offset),
+                    },
+                });
+            } else {
+                self.archetype_index += 1;
+                debug_assert_eq!(
+                    self.batch, 0,
+                    "query fetch should always reject at the first batch or not at all"
+                );
+                continue;
+            }
+        }
+    }
+}
+
+/// A sequence of entities yielded by `ParIter`
+pub struct Batch<'q, Q: HecsQuery> {
+    _marker: PhantomData<&'q ()>,
+    state: ChunkIter<Q>,
+}
+
+impl<'q, 'w, Q: HecsQuery> Iterator for Batch<'q, Q> {
+    type Item = <Q::Fetch as Fetch<'q>>::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let components = unsafe { self.state.next()? };
+        Some(components)
+    }
+}
+
+unsafe impl<'q, Q: HecsQuery> Send for Batch<'q, Q> {}
