@@ -70,26 +70,7 @@ impl TextureAtlas {
         columns: usize,
         rows: usize,
     ) -> TextureAtlas {
-        let texture_width = size.x() / columns as f32;
-        let texture_height = size.y() / rows as f32;
-        let mut sprites = Vec::new();
-        for y in 0..rows {
-            for x in 0..columns {
-                sprites.push(Rect {
-                    min: Vec2::new(x as f32 * texture_width, y as f32 * texture_height),
-                    max: Vec2::new(
-                        (x + 1) as f32 * texture_width,
-                        (y + 1) as f32 * texture_height,
-                    ),
-                })
-            }
-        }
-        TextureAtlas {
-            size,
-            textures: sprites,
-            texture,
-            texture_handles: None,
-        }
+        Self::from_grid_with_padding(texture, size, columns, rows, Vec2(0f32, 0f32))
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
