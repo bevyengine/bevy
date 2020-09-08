@@ -338,7 +338,6 @@ impl ExecutorStage {
                 let world_ref = &*world;
                 let resources_ref = &*resources;
 
-                let dependent_systems = &self.system_dependents[system_index];
                 let trigger_events = &self.ready_events_of_dependents[system_index];
 
                 // Verify that any dependent task has a > 0 count. If a dependent task has > 0
@@ -348,6 +347,7 @@ impl ExecutorStage {
                 // make it explicitly debug-only anyways
                 #[cfg(debug_assertions)]
                 {
+                    let dependent_systems = &self.system_dependents[system_index];
                     debug_assert_eq!(trigger_events.len(), dependent_systems.len());
                     for (trigger_event, dependent_system_index) in
                         trigger_events.iter().zip(dependent_systems)
