@@ -5,3 +5,4 @@ Cargo.lock
 .cargo/config
 /.idea
 /.vscode
+/benches/target
