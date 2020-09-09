@@ -1,12 +1,8 @@
-use parking::Unparker;
 use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::Arc,
     thread::{self, JoinHandle},
 };
 
@@ -60,18 +56,15 @@ impl TaskPoolBuilder {
 }
 
 struct TaskPoolInner {
-    threads: Vec<(JoinHandle<()>, Arc<Unparker>)>,
-    shutdown_flag: Arc<AtomicBool>,
+    threads: Vec<JoinHandle<()>>,
+    shutdown_tx: async_channel::Sender<()>,
 }
 
 impl Drop for TaskPoolInner {
     fn drop(&mut self) {
-        self.shutdown_flag.store(true, Ordering::Release);
+        self.shutdown_tx.close();
 
-        for (_, unparker) in &self.threads {
-            unparker.unpark();
-        }
-        for (join_handle, _) in self.threads.drain(..) {
+        for join_handle in self.threads.drain(..) {
             join_handle
                 .join()
                 .expect("task thread panicked while executing");
@@ -88,7 +81,7 @@ pub struct TaskPool {
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
     /// pass into the worker threads, and we must create the worker threads before we can create the
     /// Vec<Task<T>> contained within TaskPoolInner
-    executor: Arc<multitask::Executor>,
+    executor: Arc<async_executor::Executor>,
 
     /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
@@ -105,19 +98,16 @@ impl TaskPool {
         stack_size: Option<usize>,
         thread_name: Option<&str>,
     ) -> Self {
-        let executor = Arc::new(multitask::Executor::new());
-        let shutdown_flag = Arc::new(AtomicBool::new(false));
+        let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
+
+        let executor = Arc::new(async_executor::Executor::new());
 
         let num_threads = num_threads.unwrap_or_else(num_cpus::get);
 
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
-                let flag = Arc::clone(&shutdown_flag);
-                let (p, u) = parking::pair();
-                let unparker = Arc::new(u);
-                let u = Arc::clone(&unparker);
-                // Run an executor thread.
+                let shutdown_rx = shutdown_rx.clone();
 
                 let thread_name = if let Some(thread_name) = thread_name {
                     format!("{} ({})", thread_name, i)
@@ -131,22 +121,13 @@ impl TaskPool {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
-                let handle = thread_builder
+                thread_builder
                     .spawn(move || {
-                        let ticker = ex.ticker(move || u.unpark());
-                        loop {
-                            if flag.load(Ordering::Acquire) {
-                                break;
-                            }
-
-                            if !ticker.tick() {
-                                p.park();
-                            }
-                        }
+                        let shutdown_future = ex.run(shutdown_rx.recv());
+                        // Use unwrap_err because we expect a Closed error
+                        futures_lite::future::block_on(shutdown_future).unwrap_err();
                     })
-                    .expect("failed to spawn thread");
-
-                (handle, unparker)
+                    .expect("failed to spawn thread")
             })
             .collect();
 
@@ -154,7 +135,7 @@ impl TaskPool {
             executor,
             inner: Arc::new(TaskPoolInner {
                 threads,
-                shutdown_flag,
+                shutdown_tx,
             }),
         }
     }
@@ -178,8 +159,8 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &multitask::Executor = &*self.executor as &multitask::Executor;
-        let executor: &'scope multitask::Executor = unsafe { mem::transmute(executor) };
+        let executor: &async_executor::Executor = &*self.executor as &async_executor::Executor;
+        let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
 
         let fut = async move {
             let mut scope = Scope {
@@ -212,7 +193,7 @@ impl TaskPool {
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        pollster::block_on(self.executor.spawn(fut))
+        futures_lite::future::block_on(self.executor.spawn(fut))
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
@@ -236,8 +217,8 @@ impl Default for TaskPool {
 }
 
 pub struct Scope<'scope, T> {
-    executor: &'scope multitask::Executor,
-    spawned: Vec<multitask::Task<T>>,
+    executor: &'scope async_executor::Executor,
+    spawned: Vec<async_executor::Task<T>>,
 }
 
 impl<'scope, T: Send + 'static> Scope<'scope, T> {

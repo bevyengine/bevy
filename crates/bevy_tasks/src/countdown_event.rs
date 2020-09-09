@@ -87,7 +87,7 @@ pub fn countdown_event_ready_after() {
     let countdown_event = CountdownEvent::new(2);
     countdown_event.decrement();
     countdown_event.decrement();
-    pollster::block_on(countdown_event.listen());
+    futures_lite::future::block_on(countdown_event.listen());
 }
 
 #[test]
@@ -95,7 +95,8 @@ pub fn countdown_event_ready() {
     let countdown_event = CountdownEvent::new(2);
     countdown_event.decrement();
     let countdown_event_clone = countdown_event.clone();
-    let handle = std::thread::spawn(move || pollster::block_on(countdown_event_clone.listen()));
+    let handle =
+        std::thread::spawn(move || futures_lite::future::block_on(countdown_event_clone.listen()));
 
     // Pause to give the new thread time to start blocking (ugly hack)
     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -111,7 +112,7 @@ pub fn event_resets_if_listeners_are_cleared() {
     // notify all listeners
     let listener1 = event.listen();
     event.notify(std::usize::MAX);
-    pollster::block_on(listener1);
+    futures_lite::future::block_on(listener1);
 
     // If all listeners are notified, the structure should now be cleared. We're free to listen again
     let listener2 = event.listen();
@@ -125,5 +126,5 @@ pub fn event_resets_if_listeners_are_cleared() {
 
     // Notify all and verify the remaining listener is notified
     event.notify(std::usize::MAX);
-    pollster::block_on(listener3);
+    futures_lite::future::block_on(listener3);
 }
