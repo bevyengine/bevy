@@ -142,9 +142,8 @@ impl Resources {
 
     pub fn query<Q: ResourceQuery>(&self) -> Option<<Q::Fetch as FetchResource>::Item> {
         unsafe {
-            let g = Q::Fetch::get(&self, None);
-            if g.1 {
-                Some(g.0)
+            if Q::Fetch::is_some(&self, None) {
+                Some(Q::Fetch::get(&self, None))
             } else {
                 None
             }
@@ -156,9 +155,8 @@ impl Resources {
         id: SystemId,
     ) -> Option<<Q::Fetch as FetchResource>::Item> {
         unsafe {
-            let g = Q::Fetch::get(&self, Some(id));
-            if g.1 {
-                Some(g.0)
+            if Q::Fetch::is_some(&self, Some(id)) {
+                Some(Q::Fetch::get(&self, Some(id)))
             } else {
                 None
             }
@@ -199,28 +197,23 @@ impl Resources {
 
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn get_unsafe_ref_with_added_and_mutated<T: Resource>(
+    pub unsafe fn get_unsafe_added_and_mutated<T: Resource>(
         &self,
         resource_index: ResourceIndex,
-    ) -> (NonNull<T>, NonNull<bool>, NonNull<bool>) {
+    ) -> (NonNull<bool>, NonNull<bool>) {
         self.get_unsafe_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
-                data.archetype.get_with_added_and_mutated::<T>().map(
-                    |(resource, added, mutated)| {
-                        (
-                            NonNull::new_unchecked(resource.as_ptr().add(index)),
-                            NonNull::new_unchecked(added.as_ptr().add(index)),
-                            NonNull::new_unchecked(mutated.as_ptr().add(index)),
-                        )
-                    },
-                )
+                Some((
+                    NonNull::new_unchecked(data.archetype.get_added::<T>()?.as_ptr().add(index)),
+                    NonNull::new_unchecked(data.archetype.get_mutated::<T>()?.as_ptr().add(index)),
+                ))
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))
     }
 
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    unsafe fn get_unsafe_resource_data_index<T: Resource>(
+    fn get_unsafe_resource_data_index<T: Resource>(
         &self,
         resource_index: ResourceIndex,
     ) -> Option<(&ResourceData, usize)> {

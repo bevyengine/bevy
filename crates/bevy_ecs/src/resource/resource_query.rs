@@ -184,7 +184,10 @@ pub trait FetchResource<'a>: Sized {
     fn release(resources: &Resources);
 
     #[allow(clippy::missing_safety_doc)]
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool);
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
+    unsafe fn is_some(_resources: &'a Resources, _system_id: Option<SystemId>) -> bool {
+        true
+    }
 }
 
 impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
@@ -197,11 +200,8 @@ pub struct FetchResourceRead<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     type Item = Res<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
-        (
-            Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)),
-            true,
-        )
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
+        Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
     }
 
     fn borrow(resources: &Resources) {
@@ -229,10 +229,13 @@ pub struct FetchResourceChanged<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
     type Item = ChangedRes<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
-        let (value, added, mutated) =
-            resources.get_unsafe_ref_with_added_and_mutated::<T>(ResourceIndex::Global);
-        (ChangedRes::new(value), *added.as_ptr() || *mutated.as_ptr())
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
+        ChangedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+    }
+
+    unsafe fn is_some(resources: &'a Resources, _system_id: Option<SystemId>) -> bool {
+        let (added, mutated) = resources.get_unsafe_added_and_mutated::<T>(ResourceIndex::Global);
+        *added.as_ptr() || *mutated.as_ptr()
     }
 
     fn borrow(resources: &Resources) {
@@ -260,11 +263,8 @@ pub struct FetchResourceWrite<T>(NonNull<T>);
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> (Self::Item, bool) {
-        (
-            ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global)),
-            true,
-        )
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
+        ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global))
     }
 
     fn borrow(resources: &Resources) {
@@ -298,17 +298,14 @@ pub struct FetchResourceLocalMut<T>(NonNull<T>);
 impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
     type Item = Local<'a, T>;
 
-    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
+    unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
         let id = system_id.expect("Local<T> resources can only be used by systems");
-        (
-            Local {
-                value: resources
-                    .get_unsafe_ref::<T>(ResourceIndex::System(id))
-                    .as_ptr(),
-                _marker: Default::default(),
-            },
-            true,
-        )
+        Local {
+            value: resources
+                .get_unsafe_ref::<T>(ResourceIndex::System(id))
+                .as_ptr(),
+            _marker: Default::default(),
+        }
     }
 
     fn borrow(resources: &Resources) {
@@ -341,10 +338,14 @@ macro_rules! tuple_impl {
                 $($name::release(resources);)*
             }
 
-            #[allow(unused_variables, irrefutable_let_patterns, non_snake_case)]
-            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
-                let ($($name,)*) = ($($name::get(resources, system_id),)*);
-                (($($name.0,)*), true $(&& $name.1)*)
+            #[allow(unused_variables)]
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
+                ($($name::get(resources, system_id),)*)
+            }
+
+            #[allow(unused_variables)]
+            unsafe fn is_some(resources: &'a Resources, system_id: Option<SystemId>) -> bool {
+                true $(&& $name::is_some(resources, system_id))*
             }
 
             #[allow(unused_mut)]
@@ -396,10 +397,14 @@ macro_rules! tuple_impl_or {
                 $($name::release(resources);)*
             }
 
-            #[allow(unused_variables, irrefutable_let_patterns, non_snake_case)]
-            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> (Self::Item, bool) {
-                let ($($name,)*) = ($($name::get(resources, system_id),)*);
-                (OrRes(($($name.0,)*)), false $(|| $name.1)*)
+            #[allow(unused_variables)]
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
+                OrRes(($($name::get(resources, system_id),)*))
+            }
+
+            #[allow(unused_variables)]
+            unsafe fn is_some(resources: &'a Resources, system_id: Option<SystemId>) -> bool {
+                false $(|| $name::is_some(resources, system_id))*
             }
 
             #[allow(unused_mut)]
@@ -466,17 +471,17 @@ mod tests {
         let mut resources = Resources::default();
         resources.insert(123);
         resources.insert(0.2);
-        assert!(!resources
+        assert!(resources
             .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
-            .is_none(),);
+            .is_some(),);
         resources.clear_trackers();
         assert!(resources
             .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
             .is_none(),);
         *resources.query::<ResMut<i32>>().unwrap() += 1;
-        assert!(!resources
+        assert!(resources
             .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
-            .is_none(),);
+            .is_some(),);
         assert!(resources
             .query::<(ChangedRes<i32>, ChangedRes<f64>)>()
             .is_none(),);
