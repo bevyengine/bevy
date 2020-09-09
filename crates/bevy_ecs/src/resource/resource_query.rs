@@ -185,6 +185,8 @@ pub trait FetchResource<'a>: Sized {
 
     #[allow(clippy::missing_safety_doc)]
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
+
+    #[allow(clippy::missing_safety_doc)]
     unsafe fn is_some(_resources: &'a Resources, _system_id: Option<SystemId>) -> bool {
         true
     }

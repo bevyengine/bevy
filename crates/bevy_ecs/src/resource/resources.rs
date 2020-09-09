@@ -166,7 +166,7 @@ impl Resources {
     #[inline]
     #[allow(clippy::missing_safety_doc)]
     pub unsafe fn get_unsafe_ref<T: Resource>(&self, resource_index: ResourceIndex) -> NonNull<T> {
-        self.get_unsafe_resource_data_index::<T>(resource_index)
+        self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
                 Some(NonNull::new_unchecked(
                     data.archetype.get::<T>()?.as_ptr().add(index),
@@ -181,7 +181,7 @@ impl Resources {
         &self,
         resource_index: ResourceIndex,
     ) -> (NonNull<T>, NonNull<bool>) {
-        self.get_unsafe_resource_data_index::<T>(resource_index)
+        self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
                 data.archetype
                     .get_with_mutated::<T>()
@@ -201,7 +201,7 @@ impl Resources {
         &self,
         resource_index: ResourceIndex,
     ) -> (NonNull<bool>, NonNull<bool>) {
-        self.get_unsafe_resource_data_index::<T>(resource_index)
+        self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
                 Some((
                     NonNull::new_unchecked(data.archetype.get_added::<T>()?.as_ptr().add(index)),
@@ -212,8 +212,7 @@ impl Resources {
     }
 
     #[inline]
-    #[allow(clippy::missing_safety_doc)]
-    fn get_unsafe_resource_data_index<T: Resource>(
+    fn get_resource_data_index<T: Resource>(
         &self,
         resource_index: ResourceIndex,
     ) -> Option<(&ResourceData, usize)> {
