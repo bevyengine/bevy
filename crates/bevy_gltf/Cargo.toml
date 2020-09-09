@@ -2,7 +2,10 @@
 name = "bevy_gltf"
 version = "0.1.3"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "Bevy Engine GLTF loading"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
