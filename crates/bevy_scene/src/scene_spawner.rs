@@ -28,6 +28,7 @@ pub struct SceneSpawner {
     scene_asset_event_reader: EventReader<AssetEvent<Scene>>,
     scenes_to_spawn: Vec<Handle<Scene>>,
     scenes_to_load: Vec<Handle<Scene>>,
+    scenes_to_unload: Vec<Handle<Scene>>,
 }
 
 #[derive(Error, Debug)]
@@ -47,6 +48,10 @@ impl SceneSpawner {
         self.scenes_to_load.push(scene_handle);
     }
 
+    pub fn unload(&mut self, scene_handle: Handle<Scene>) {
+        self.scenes_to_unload.push(scene_handle);
+    }
+
     pub fn load_sync(
         &mut self,
         world: &mut World,
@@ -55,6 +60,26 @@ impl SceneSpawner {
     ) -> Result<(), SceneSpawnError> {
         Self::load_internal(world, resources, scene_handle, None)?;
         self.loaded_scenes.insert(scene_handle);
+        Ok(())
+    }
+
+    pub fn unload_sync(
+        &mut self,
+        world: &mut World,
+        scene_handle: Handle<Scene>,
+    ) -> Result<(), SceneSpawnError> {
+        if let Some(instance_ids) = self.spawned_scenes.get(&scene_handle) {
+            for instance_id in instance_ids {
+                if let Some(instance) = self.spawned_instances.get(&instance_id) {
+                    for entity in instance.entity_map.values() {
+                        let _ = world.despawn(*entity); // Ignore the result, unload only cares if it exists.
+                    }
+                }
+            }
+
+            self.loaded_scenes.remove(&scene_handle);
+            self.spawned_scenes.remove(&scene_handle);
+        }
         Ok(())
     }
 
@@ -152,19 +177,27 @@ impl SceneSpawner {
         world: &mut World,
         resources: &Resources,
     ) -> Result<(), SceneSpawnError> {
-        let scenes_to_load = self.scenes_to_load.drain(..).collect::<Vec<_>>();
-        let mut non_existent_scenes = Vec::new();
+        let scenes_to_load = std::mem::take(&mut self.scenes_to_load);
+
         for scene_handle in scenes_to_load {
             match self.load_sync(world, resources, scene_handle) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    non_existent_scenes.push(scene_handle)
+                    self.scenes_to_load.push(scene_handle)
                 }
                 Err(err) => return Err(err),
             }
         }
 
-        self.scenes_to_load = non_existent_scenes;
+        Ok(())
+    }
+
+    pub fn unload_queued_scenes(&mut self, world: &mut World) -> Result<(), SceneSpawnError> {
+        let scenes_to_unload = std::mem::take(&mut self.scenes_to_unload);
+
+        for scene_handle in scenes_to_unload {
+            self.unload_sync(world, scene_handle)?;
+        }
         Ok(())
     }
 
@@ -173,19 +206,18 @@ impl SceneSpawner {
         world: &mut World,
         resources: &Resources,
     ) -> Result<(), SceneSpawnError> {
-        let scenes_to_spawn = self.scenes_to_spawn.drain(..).collect::<Vec<_>>();
-        let mut non_existent_scenes = Vec::new();
+        let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
+
         for scene_handle in scenes_to_spawn {
             match self.spawn_sync(world, resources, scene_handle) {
                 Ok(_) => {}
                 Err(SceneSpawnError::NonExistentScene { .. }) => {
-                    non_existent_scenes.push(scene_handle)
+                    self.scenes_to_spawn.push(scene_handle)
                 }
                 Err(err) => return Err(err),
             }
         }
 
-        self.scenes_to_spawn = non_existent_scenes;
         Ok(())
     }
 }
@@ -209,6 +241,7 @@ pub fn scene_spawner_system(world: &mut World, resources: &mut Resources) {
         }
     }
 
+    scene_spawner.unload_queued_scenes(world).unwrap();
     scene_spawner.load_queued_scenes(world, resources).unwrap();
     scene_spawner.spawn_queued_scenes(world, resources).unwrap();
     scene_spawner

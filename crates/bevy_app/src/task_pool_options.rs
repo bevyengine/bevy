@@ -52,7 +52,7 @@ impl Default for DefaultTaskPoolOptions {
     fn default() -> Self {
         DefaultTaskPoolOptions {
             // By default, use however many cores are available on the system
-            min_total_threads: 4, // TODO(#408): set `min_total_threads` back to `1`
+            min_total_threads: 1,
             max_total_threads: std::usize::MAX,
 
             // Use 25% of cores for IO, at least 1, no more than 4

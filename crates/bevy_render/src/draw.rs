@@ -230,7 +230,7 @@ impl<'a> DrawContext<'a> {
     ) -> Result<RenderResourceBinding, DrawError> {
         self.shared_buffers
             .get_buffer(render_resource, buffer_usage)
-            .ok_or_else(|| DrawError::BufferAllocationFailure)
+            .ok_or(DrawError::BufferAllocationFailure)
     }
 
     pub fn set_pipeline(
@@ -263,14 +263,14 @@ impl<'a> DrawContext<'a> {
     pub fn get_pipeline_descriptor(&self) -> Result<&PipelineDescriptor, DrawError> {
         self.current_pipeline
             .and_then(|handle| self.pipelines.get(&handle))
-            .ok_or_else(|| DrawError::NoPipelineSet)
+            .ok_or(DrawError::NoPipelineSet)
     }
 
     pub fn get_pipeline_layout(&self) -> Result<&PipelineLayout, DrawError> {
         self.get_pipeline_descriptor().and_then(|descriptor| {
             descriptor
                 .get_layout()
-                .ok_or_else(|| DrawError::PipelineHasNoLayout)
+                .ok_or(DrawError::PipelineHasNoLayout)
         })
     }
 
@@ -279,16 +279,14 @@ impl<'a> DrawContext<'a> {
         draw: &mut Draw,
         render_resource_bindings: &mut [&mut RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self
-            .current_pipeline
-            .ok_or_else(|| DrawError::NoPipelineSet)?;
+        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
             .get(&pipeline)
-            .ok_or_else(|| DrawError::NonExistentPipeline)?;
+            .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
-            .ok_or_else(|| DrawError::PipelineHasNoLayout)?;
+            .ok_or(DrawError::PipelineHasNoLayout)?;
         for bindings in render_resource_bindings.iter_mut() {
             bindings.update_bind_groups(pipeline_descriptor, &**self.render_resource_context);
         }
@@ -311,16 +309,14 @@ impl<'a> DrawContext<'a> {
         index: u32,
         bind_group: &BindGroup,
     ) -> Result<(), DrawError> {
-        let pipeline = self
-            .current_pipeline
-            .ok_or_else(|| DrawError::NoPipelineSet)?;
+        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
             .get(&pipeline)
-            .ok_or_else(|| DrawError::NonExistentPipeline)?;
+            .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
-            .ok_or_else(|| DrawError::PipelineHasNoLayout)?;
+            .ok_or(DrawError::PipelineHasNoLayout)?;
         let bind_group_descriptor = &layout.bind_groups[index as usize];
         self.render_resource_context
             .create_bind_group(bind_group_descriptor.id, bind_group);
@@ -333,16 +329,14 @@ impl<'a> DrawContext<'a> {
         render_resource_bindings: &[&RenderResourceBindings],
     ) -> Result<Option<Range<u32>>, DrawError> {
         let mut indices = None;
-        let pipeline = self
-            .current_pipeline
-            .ok_or_else(|| DrawError::NoPipelineSet)?;
+        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
             .get(&pipeline)
-            .ok_or_else(|| DrawError::NonExistentPipeline)?;
+            .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
-            .ok_or_else(|| DrawError::PipelineHasNoLayout)?;
+            .ok_or(DrawError::PipelineHasNoLayout)?;
         for (slot, vertex_buffer_descriptor) in layout.vertex_buffer_descriptors.iter().enumerate()
         {
             for bindings in render_resource_bindings.iter() {

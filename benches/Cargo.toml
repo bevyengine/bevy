@@ -1,0 +1,14 @@
+[package]
+name = "benches"
+version = "0.1.0"
+authors = ["Carter Anderson <mcanders1@gmail.com>"]
+edition = "2018"
+
+[dev-dependencies]
+criterion = "0.3"
+bevy = { path = "../" }
+
+[[bench]]
+name = "iter"
+path = "benches/bevy_tasks/iter.rs"
+harness = false

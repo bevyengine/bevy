@@ -49,9 +49,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
             translation: Translation(Vec3::new(0.0, -215.0, 0.0)),
-            sprite: Sprite {
-                size: Vec2::new(120.0, 30.0),
-            },
+            sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
         })
         .with(Paddle { speed: 500.0 })
@@ -60,9 +58,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
             translation: Translation(Vec3::new(0.0, -50.0, 1.0)),
-            sprite: Sprite {
-                size: Vec2::new(30.0, 30.0),
-            },
+            sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
         })
         .with(Ball {
@@ -100,9 +96,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite {
-                size: Vec2::new(wall_thickness, bounds.y() + wall_thickness),
-            },
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
@@ -110,9 +104,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
-            sprite: Sprite {
-                size: Vec2::new(wall_thickness, bounds.y() + wall_thickness),
-            },
+            sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
@@ -120,9 +112,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
-            sprite: Sprite {
-                size: Vec2::new(bounds.x() + wall_thickness, wall_thickness),
-            },
+            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid)
@@ -130,9 +120,7 @@ fn setup(
         .spawn(SpriteComponents {
             material: wall_material,
             translation: Translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
-            sprite: Sprite {
-                size: Vec2::new(bounds.x() + wall_thickness, wall_thickness),
-            },
+            sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
             ..Default::default()
         })
         .with(Collider::Solid);
@@ -158,7 +146,7 @@ fn setup(
                 // brick
                 .spawn(SpriteComponents {
                     material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
-                    sprite: Sprite { size: brick_size },
+                    sprite: Sprite::new(brick_size),
                     translation: Translation(brick_position),
                     ..Default::default()
                 })
