@@ -28,5 +28,5 @@ A very small dependency list is a key feature of this module
 ├── num_cpus
 │   └── libc
 ├── parking
-└── pollster
+└── futures-lite
 ```

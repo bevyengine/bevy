@@ -181,19 +181,19 @@ impl<'a> Bytes<'a> {
 
             any_float(f)
         } else {
-            let max_u8 = std::u8::MAX as u128;
-            let max_u16 = std::u16::MAX as u128;
-            let max_u32 = std::u32::MAX as u128;
-            let max_u64 = std::u64::MAX as u128;
+            let max_u8 = u8::MAX as u128;
+            let max_u16 = u16::MAX as u128;
+            let max_u32 = u32::MAX as u128;
+            let max_u64 = u64::MAX as u128;
 
-            let min_i8 = std::i8::MIN as i128;
-            let max_i8 = std::i8::MAX as i128;
-            let min_i16 = std::i16::MIN as i128;
-            let max_i16 = std::i16::MAX as i128;
-            let min_i32 = std::i32::MIN as i128;
-            let max_i32 = std::i32::MAX as i128;
-            let min_i64 = std::i64::MIN as i128;
-            let max_i64 = std::i64::MAX as i128;
+            let min_i8 = i8::MIN as i128;
+            let max_i8 = i8::MAX as i128;
+            let min_i16 = i16::MIN as i128;
+            let max_i16 = i16::MAX as i128;
+            let min_i32 = i32::MIN as i128;
+            let max_i32 = i32::MAX as i128;
+            let min_i64 = i64::MIN as i128;
+            let max_i64 = i64::MAX as i128;
 
             if is_signed {
                 match self.signed_integer::<i128>() {

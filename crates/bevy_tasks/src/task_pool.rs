@@ -133,7 +133,9 @@ impl TaskPool {
 
                 let handle = thread_builder
                     .spawn(move || {
-                        let ticker = ex.ticker(move || u.unpark());
+                        let ticker = ex.ticker(move || {
+                            u.unpark();
+                        });
                         loop {
                             if flag.load(Ordering::Acquire) {
                                 break;
@@ -212,7 +214,7 @@ impl TaskPool {
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        pollster::block_on(self.executor.spawn(fut))
+        futures_lite::future::block_on(self.executor.spawn(fut))
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be

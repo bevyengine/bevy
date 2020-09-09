@@ -53,7 +53,7 @@ impl Default for DefaultTaskPoolOptions {
         DefaultTaskPoolOptions {
             // By default, use however many cores are available on the system
             min_total_threads: 1,
-            max_total_threads: std::usize::MAX,
+            max_total_threads: usize::MAX,
 
             // Use 25% of cores for IO, at least 1, no more than 4
             io: TaskPoolThreadAssignmentPolicy {
@@ -72,7 +72,7 @@ impl Default for DefaultTaskPoolOptions {
             // Use all remaining cores for compute (at least 1)
             compute: TaskPoolThreadAssignmentPolicy {
                 min_threads: 1,
-                max_threads: std::usize::MAX,
+                max_threads: usize::MAX,
                 percent: 1.0, // This 1.0 here means "whatever is left over"
             },
         }
