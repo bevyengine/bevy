@@ -33,7 +33,7 @@ image = { version = "0.23", default-features = false }
 # misc
 log = { version = "0.4", features = ["release_max_level_info"] }
 uuid = { version = "0.8", features = ["v4", "serde"] }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 bitflags = "1.2.1"
 smallvec = "1.4.2"
 # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
