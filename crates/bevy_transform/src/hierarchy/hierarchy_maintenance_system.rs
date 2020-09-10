@@ -125,6 +125,7 @@ mod test {
 
         // Add parent entities
         let mut commands = Commands::default();
+        commands.set_entity_reserver(world.get_entity_reserver());
         let mut parent = None;
         let mut children = Vec::new();
         commands

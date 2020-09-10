@@ -8,7 +8,7 @@ impl_property!(Entity, serialize_entity, deserialize_entity);
 mod private {
     use serde::{Deserialize, Serialize};
     #[derive(Serialize, Deserialize)]
-    pub(super) struct Entity(pub(super) u128);
+    pub(super) struct Entity(pub(super) u32);
 }
 
 fn serialize_entity(entity: &Entity) -> Serializable {
@@ -20,5 +20,5 @@ fn deserialize_entity(
     _registry: &PropertyTypeRegistry,
 ) -> Result<Box<dyn Property>, erased_serde::Error> {
     let entity = private::Entity::deserialize(deserializer)?;
-    Ok(Box::new(Entity::from_id(entity.0)))
+    Ok(Box::new(Entity::new(entity.0)))
 }

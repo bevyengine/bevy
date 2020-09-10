@@ -12,12 +12,12 @@ pub enum ThreadLocalExecution {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct SystemId(pub u32);
+pub struct SystemId(pub usize);
 
 impl SystemId {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        SystemId(rand::random::<u32>())
+        SystemId(rand::random::<usize>())
     }
 }
 
@@ -31,7 +31,7 @@ pub trait System: Send + Sync {
     fn thread_local_execution(&self) -> ThreadLocalExecution;
     fn run(&mut self, world: &World, resources: &Resources);
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources);
-    fn initialize(&mut self, _resources: &mut Resources) {}
+    fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
 
 /// Provides information about the archetypes a [System] reads and writes

@@ -165,51 +165,12 @@ fn dynamic_components() {
 }
 
 #[test]
-#[should_panic(expected = "already borrowed")]
-fn illegal_borrow() {
-    let mut world = World::new();
-    world.spawn(("abc", 123));
-    world.spawn(("def", 456));
-
-    world.query::<(&mut i32, &i32)>().iter();
-}
-
-#[test]
-#[should_panic(expected = "already borrowed")]
-fn illegal_borrow_2() {
-    let mut world = World::new();
-    world.spawn(("abc", 123));
-    world.spawn(("def", 456));
-
-    world.query::<(&mut i32, &mut i32)>().iter();
-}
-
-#[test]
-fn disjoint_queries() {
-    let mut world = World::new();
-    world.spawn(("abc", true));
-    world.spawn(("def", 456));
-
-    let _a = world.query::<(&mut &str, &bool)>();
-    let _b = world.query::<(&mut &str, &i32)>();
-}
-
-#[test]
 fn shared_borrow() {
     let mut world = World::new();
     world.spawn(("abc", 123));
     world.spawn(("def", 456));
 
     world.query::<(&i32, &i32)>();
-}
-
-#[test]
-#[should_panic(expected = "already borrowed")]
-fn illegal_random_access() {
-    let mut world = World::new();
-    let e = world.spawn(("abc", 123));
-    let _borrow = world.get_mut::<i32>(e).unwrap();
-    world.get::<i32>(e).unwrap();
 }
 
 #[test]
@@ -267,7 +228,7 @@ fn alias() {
     let mut world = World::new();
     world.spawn(("abc", 123));
     world.spawn(("def", 456, true));
-    let mut q = world.query::<&mut i32>();
+    let mut q = world.query_mut::<Entity>();
     let _a = q.iter().collect::<Vec<_>>();
     let _b = q.iter().collect::<Vec<_>>();
 }

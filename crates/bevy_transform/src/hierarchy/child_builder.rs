@@ -74,16 +74,10 @@ impl WorldWriter for PushChildren {
 
 impl<'a> ChildBuilder<'a> {
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        self.spawn_as_entity(Entity::new(), components)
-    }
-
-    pub fn spawn_as_entity(
-        &mut self,
-        entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.commands.spawn_as_entity(entity, components);
-        self.push_children.children.push(entity);
+        self.commands.spawn(components);
+        self.push_children
+            .children
+            .push(self.commands.current_entity.unwrap());
         self
     }
 
@@ -216,6 +210,7 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut commands = Commands::default();
+        commands.set_entity_reserver(world.get_entity_reserver());
 
         let mut parent = None;
         let mut child1 = None;
