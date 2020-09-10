@@ -60,6 +60,7 @@ impl ParallelExecutor {
 
         if self.clear_trackers {
             world.clear_trackers();
+            resources.clear_trackers();
         }
 
         self.last_schedule_generation = schedule_generation;

@@ -106,9 +106,10 @@ macro_rules! impl_into_foreach_system {
                     func: move |world, resources, _archetype_access, state| {
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
-                            let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
-                            for ($($component,)*) in world.query::<($($component,)*)>().iter() {
-                                fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
+                            if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
+                                for ($($component,)*) in world.query::<($($component,)*)>().iter() {
+                                    fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
+                                }
                             }
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
@@ -175,15 +176,16 @@ macro_rules! impl_into_query_system {
                     func: move |world, resources, archetype_access, state| {
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
-                            let ($($resource,)*) = resources.query_system::<($($resource,)*)>(id);
-                            let mut i = 0;
-                            $(
-                                let $query = Query::<$query>::new(world, &state.archetype_accesses[i]);
-                                i += 1;
-                            )*
+                            if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
+                                let mut i = 0;
+                                $(
+                                    let $query = Query::<$query>::new(world, &state.archetype_accesses[i]);
+                                    i += 1;
+                                )*
 
-                            let commands = &state.commands;
-                            fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
+                                let commands = &state.commands;
+                                fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
+                            }
                         }
                         <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
                     },
@@ -342,10 +344,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{IntoQuerySystem, Query};
+    use super::{IntoForEachSystem, IntoQuerySystem, Query};
     use crate::{
         resource::{ResMut, Resources},
         schedule::Schedule,
+        ChangedRes, Mut,
     };
     use bevy_hecs::{Entity, With, World};
 
@@ -414,5 +417,31 @@ mod tests {
         schedule.run(&mut world, &mut resources);
 
         assert!(*resources.get::<bool>().unwrap(), "system ran");
+    }
+
+    #[test]
+    fn changed_resource_system() {
+        fn incr_e_on_flip(_run_on_flip: ChangedRes<bool>, mut i: Mut<i32>) {
+            *i += 1;
+        }
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        resources.insert(false);
+        let ent = world.spawn((0,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", incr_e_on_flip.system());
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
+
+        *resources.get_mut::<bool>().unwrap() = true;
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
     }
 }

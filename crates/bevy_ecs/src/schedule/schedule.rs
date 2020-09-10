@@ -159,6 +159,7 @@ impl Schedule {
         }
 
         world.clear_trackers();
+        resources.clear_trackers();
     }
 
     // TODO: move this code to ParallelExecutor
