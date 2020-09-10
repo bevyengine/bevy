@@ -44,10 +44,7 @@ impl Scene {
     }
 
     // TODO: move to AssetSaver when it is implemented
-    pub fn serialize_ron(
-        &self,
-        registry: &PropertyTypeRegistry,
-    ) -> Result<String, ron::Error> {
+    pub fn serialize_ron(&self, registry: &PropertyTypeRegistry) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
