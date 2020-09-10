@@ -16,6 +16,7 @@ use bevy_render::{
     texture::{Extent3d, SamplerDescriptor, TextureDescriptor},
 };
 use bevy_window::{Window, WindowId};
+use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
 
@@ -539,7 +540,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffer_slice = buffer.slice(..);
         let data = buffer_slice.map_async(wgpu::MapMode::Write);
         self.device.poll(wgpu::Maintain::Wait);
-        if pollster::block_on(data).is_err() {
+        if future::block_on(data).is_err() {
             panic!("failed to map buffer to host");
         }
     }

@@ -6,6 +6,8 @@ use std::{
     thread::{self, JoinHandle},
 };
 
+use futures_lite::future;
+
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {
@@ -125,7 +127,7 @@ impl TaskPool {
                     .spawn(move || {
                         let shutdown_future = ex.run(shutdown_rx.recv());
                         // Use unwrap_err because we expect a Closed error
-                        futures_lite::future::block_on(shutdown_future).unwrap_err();
+                        future::block_on(shutdown_future).unwrap_err();
                     })
                     .expect("failed to spawn thread")
             })
@@ -159,7 +161,7 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &async_executor::Executor = &*self.executor as &async_executor::Executor;
+        let executor: &async_executor::Executor = &*self.executor;
         let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
 
         let fut = async move {
@@ -193,7 +195,7 @@ impl TaskPool {
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        futures_lite::future::block_on(self.executor.spawn(fut))
+        future::block_on(self.executor.spawn(fut))
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
