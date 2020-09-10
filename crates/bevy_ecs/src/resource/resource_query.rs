@@ -98,7 +98,7 @@ impl<'a, T: Resource> ResMut<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage / ownership
-    pub unsafe fn new((value, mutated): (NonNull<T>, NonNull<bool>)) -> Self {
+    pub unsafe fn new(value: NonNull<T>, mutated: NonNull<bool>) -> Self {
         Self {
             value: value.as_ptr(),
             mutated: mutated.as_ptr(),
@@ -266,7 +266,8 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        ResMut::new(resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global))
+        let (value, mutated) = resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global);
+        ResMut::new(value, mutated)
     }
 
     fn borrow(resources: &Resources) {
