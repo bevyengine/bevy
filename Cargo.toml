@@ -51,6 +51,7 @@ exclude = ["benches"]
 [dependencies]
 # bevy
 bevy_app = { path = "crates/bevy_app", version = "0.1" }
+bevy_animation = { path = "crates/bevy_animation", version = "0.1" }
 bevy_asset = { path = "crates/bevy_asset", version = "0.1" }
 bevy_type_registry = { path = "crates/bevy_type_registry", version = "0.1" }
 bevy_core = { path = "crates/bevy_core", version = "0.1" }
@@ -123,6 +124,10 @@ path = "examples/3d/texture.rs"
 [[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
+
+[[example]]
+name = "animation_2d"
+path = "examples/animation/animation_2d.rs"
 
 [[example]]
 name = "empty_defaults"

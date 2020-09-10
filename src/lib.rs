@@ -41,6 +41,7 @@ mod add_default_plugins;
 pub mod prelude;
 
 pub use add_default_plugins::*;
+pub use bevy_animation as animation;
 pub use bevy_app as app;
 pub use bevy_asset as asset;
 pub use bevy_core as core;
