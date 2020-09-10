@@ -47,30 +47,58 @@ impl<C: Animatable + Component> Animator<C> {
         component.set_values(values);
     }
     pub fn progress(&mut self, component: &mut C, delta: core::time::Duration) {
-        // if self.is_empty() {
-        //     return;
-        // }
+        if self.is_empty() {
+            return;
+        }
 
-        // let direction = self.speed.signum();
-        // let reversed = direction < 0.0;
-        // let past_boundary = if reversed {
-        //     self.start_time().unwrap() > self.time
-        // } else {
-        //     self.end_time().unwrap() < self.time
-        // };
+        let start = self.start_time().unwrap();
+        let end = self.end_time().unwrap();
+
+        let direction = self.speed.signum();
+        let reversed = direction < 0.0;
+        let past_boundary = if reversed {
+            if self.pong {
+                end < self.time
+            } else {
+                start > self.time
+            }
+        } else {
+            if self.pong {
+                start > self.time
+            } else {
+                end < self.time
+            }
+        };
+
+        let loop_time_start = if reversed { end } else { start };
+
+        let pong_signum = if self.pong { -1.0 } else { 1.0 };
 
         match self.direction {
             AnimationLoop::Once => {
-                self.time += delta.as_secs_f32() * self.speed;
+                if !past_boundary {
+                    self.time += delta.as_secs_f32() * self.speed;
+                    self.update_value(component);
+                }
             }
             AnimationLoop::Loop => {
-                todo!();
+                if !past_boundary {
+                    self.time += delta.as_secs_f32() * self.speed;
+                    self.update_value(component);
+                } else {
+                    self.time = loop_time_start;
+                }
             }
             AnimationLoop::PingPong => {
-                todo!();
+                if !past_boundary {
+                    self.time += delta.as_secs_f32() * self.speed * pong_signum;
+                    self.update_value(component);
+                } else {
+                    self.pong = !self.pong;
+                    self.time = if self.pong { end } else { start };
+                }
             }
         };
-        self.update_value(component);
     }
     pub fn duration(&self) -> Option<f32> {
         let start = self.start_time();
@@ -82,54 +110,44 @@ impl<C: Animatable + Component> Animator<C> {
         }
     }
     pub fn start_time(&self) -> Option<f32> {
-        let first_keys: Vec<&Key<f32, C::Track>> = self
-            .splines
-            .vec()
-            .iter()
-            .map(|s| s.keys().get(0))
-            .filter(|k| k.is_some())
-            .map(|s| s.unwrap())
-            .collect();
-
-        if first_keys.is_empty() {
+        let keys = self.splines.vec();
+        if keys.is_empty() {
             return None;
         }
+        let mut first_keys = vec![];
+        for spline in self.splines.vec() {
+            if spline.len() > 0 {
+                first_keys.push(spline.get(0).unwrap());
+            }
+        }
 
-        let smallest = first_keys
-            .iter()
-            .fold(first_keys.get(0).unwrap().t, |acc, key| {
-                if key.t < acc {
-                    key.t
-                } else {
-                    acc
-                }
-            });
+        let mut smallest = first_keys.get(0).unwrap().t;
+        for k in first_keys {
+            if k.t < smallest {
+                smallest = k.t;
+            }
+        }
 
         Some(smallest)
     }
     pub fn end_time(&self) -> Option<f32> {
-        let last_keys: Vec<&Key<f32, C::Track>> = self
-            .splines
-            .vec()
-            .iter()
-            .map(|s| s.keys().get(s.keys().len() - 1))
-            .filter(|k| k.is_some())
-            .map(|s| s.unwrap())
-            .collect();
-
-        if last_keys.is_empty() {
+        let keys = self.splines.vec();
+        if keys.is_empty() {
             return None;
         }
+        let mut last_keys = vec![];
+        for spline in self.splines.vec() {
+            if spline.len() > 0 {
+                last_keys.push(spline.get(spline.len() - 1).unwrap());
+            }
+        }
 
-        let largest = last_keys
-            .iter()
-            .fold(last_keys.get(0).unwrap().t, |acc, key| {
-                if key.t > acc {
-                    key.t
-                } else {
-                    acc
-                }
-            });
+        let mut largest = last_keys.get(0).unwrap().t;
+        for k in last_keys {
+            if k.t > largest {
+                largest = k.t;
+            }
+        }
 
         Some(largest)
     }
