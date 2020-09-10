@@ -130,6 +130,10 @@ name = "animation_2d"
 path = "examples/animation/animation_2d.rs"
 
 [[example]]
+name = "animation_custom"
+path = "examples/animation/animation_custom.rs"
+
+[[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
 

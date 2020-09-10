@@ -19,31 +19,17 @@ impl AnimTracks {
     }
 }
 
-pub trait Splines<T: Interpolate<f32>>: Default {
-    fn vec(&self) -> Vec<&Spline<f32, T>>;
+pub trait Splines: Default {
+    fn vec(&self) -> Vec<&Spline<f32, f32>>;
 }
 
-pub struct SplinesOne<T: Interpolate<f32>>(pub Spline<f32, T>);
-
-impl<T: Interpolate<f32>> Default for SplinesOne<T> {
-    fn default() -> Self {
-        Self(Spline::from_vec(vec![]))
-    }
+pub struct SplinesVec3 {
+    pub x: Spline<f32, f32>,
+    pub y: Spline<f32, f32>,
+    pub z: Spline<f32, f32>,
 }
 
-impl<T: Interpolate<f32>> Splines<T> for SplinesOne<T> {
-    fn vec(&self) -> Vec<&Spline<f32, T>> {
-        vec![&self.0]
-    }
-}
-
-pub struct SplinesVec3<T> {
-    pub x: Spline<f32, T>,
-    pub y: Spline<f32, T>,
-    pub z: Spline<f32, T>,
-}
-
-impl<T: Interpolate<f32>> Default for SplinesVec3<T> {
+impl Default for SplinesVec3 {
     fn default() -> Self {
         Self {
             x: Spline::from_vec(vec![]),
@@ -53,62 +39,35 @@ impl<T: Interpolate<f32>> Default for SplinesVec3<T> {
     }
 }
 
-impl<T: Interpolate<f32>> Splines<T> for SplinesVec3<T> {
-    fn vec(&self) -> Vec<&Spline<f32, T>> {
+impl Splines for SplinesVec3 {
+    fn vec(&self) -> Vec<&Spline<f32, f32>> {
         vec![&self.x, &self.y, &self.z]
     }
 }
 
+pub struct SplinesOne(pub Spline<f32, f32>);
+
+impl Default for SplinesOne {
+    fn default() -> Self {
+        Self(Spline::from_vec(vec![]))
+    }
+}
+
+impl Splines for SplinesOne {
+    fn vec(&self) -> Vec<&Spline<f32, f32>> {
+        vec![&self.0]
+    }
+}
+
 pub trait Animatable {
-    type Track: Interpolate<f32>;
-    type Splines: Splines<Self::Track>;
+    type Splines: Splines;
     fn anim_tracks() -> AnimTracks;
-    fn set_values(&mut self, values: Vec<Self::Track>);
-    fn values(&self) -> Vec<Self::Track>;
-}
-
-impl Animatable for f32 {
-    type Track = f32;
-    type Splines = SplinesOne<f32>;
-
-    fn anim_tracks() -> AnimTracks {
-        AnimTracks::Primitive(Color::WHITE)
-    }
-
-    fn set_values(&mut self, values: Vec<Self::Track>) {
-        *self = *values.get(0).unwrap()
-    }
-
-    fn values(&self) -> Vec<Self::Track> {
-        vec![*self]
-    }
-}
-
-impl Animatable for Vec3 {
-    type Track = f32;
-    type Splines = SplinesVec3<Self::Track>;
-    fn anim_tracks() -> AnimTracks {
-        AnimTracks::Struct(vec![
-            ("X", Color::BLUE),
-            ("Y", Color::GREEN),
-            ("Z", Color::RED),
-        ])
-    }
-
-    fn set_values(&mut self, values: Vec<Self::Track>) {
-        self.set_x(*values.get(0).unwrap());
-        self.set_y(*values.get(1).unwrap());
-        self.set_z(*values.get(2).unwrap());
-    }
-
-    fn values(&self) -> Vec<Self::Track> {
-        vec![self.x(), self.y(), self.z()]
-    }
+    fn set_values(&mut self, values: Vec<f32>);
+    fn values(&self) -> Vec<f32>;
 }
 
 impl Animatable for Translation {
-    type Track = f32;
-    type Splines = SplinesVec3<Self::Track>;
+    type Splines = SplinesVec3;
     fn anim_tracks() -> AnimTracks {
         AnimTracks::Struct(vec![
             ("X", Color::BLUE),
@@ -117,13 +76,13 @@ impl Animatable for Translation {
         ])
     }
 
-    fn set_values(&mut self, values: Vec<Self::Track>) {
+    fn set_values(&mut self, values: Vec<f32>) {
         self.set_x(*values.get(0).unwrap());
         self.set_y(*values.get(1).unwrap());
         self.set_z(*values.get(2).unwrap());
     }
 
-    fn values(&self) -> Vec<Self::Track> {
+    fn values(&self) -> Vec<f32> {
         vec![self.x(), self.y(), self.z()]
     }
 }

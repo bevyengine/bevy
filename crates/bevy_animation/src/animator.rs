@@ -1,6 +1,7 @@
 use crate::animatable::{AnimTracks, Animatable, Splines};
 use bevy_ecs::Component;
 use bevy_ecs::Mut;
+use bevy_property::Properties;
 use splines::{Key, Spline};
 
 pub enum AnimationLoop {
@@ -34,7 +35,10 @@ impl<C: Animatable + Component> Default for Animator<C> {
 }
 
 impl<C: Animatable + Component> Animator<C> {
-    pub fn sample(&self, time: f32) -> Vec<Option<C::Track>> {
+    pub fn current(&self) -> Vec<Option<f32>> {
+        self.sample(self.time)
+    }
+    pub fn sample(&self, time: f32) -> Vec<Option<f32>> {
         self.splines.vec().iter().map(|s| s.sample(time)).collect()
     }
     pub fn update_value(&self, component: &mut C) {
