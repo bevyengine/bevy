@@ -1,9 +1,7 @@
-use crate::animatable::{AnimTracks, Animatable};
+use crate::animatable::{AnimTracks, Animatable, Splines};
 use bevy_ecs::Component;
 use bevy_ecs::Mut;
 use splines::{Key, Spline};
-
-type AnimatableSpline<T: Animatable> = Spline<f32, T::Track>;
 
 pub enum AnimationLoop {
     Once,
@@ -16,7 +14,7 @@ pub struct Animator<C: Animatable + Component> {
     pub time: f32,
     pub speed: f32,
     pub direction: AnimationLoop,
-    pub splines: Vec<AnimatableSpline<C>>,
+    pub splines: C::Splines,
     pub pong: bool,
     pub component: std::marker::PhantomData<C>,
 }
@@ -28,13 +26,7 @@ impl<C: Animatable + Component> Default for Animator<C> {
             time: 0.0,
             speed: 1.0,
             direction: AnimationLoop::Once,
-            splines: {
-                let mut splines = vec![];
-                for _ in 0..C::anim_tracks().len() {
-                    splines.push(Spline::from_vec(vec![]));
-                }
-                splines
-            },
+            splines: C::Splines::default(),
             pong: false,
             component: std::marker::PhantomData,
         }
@@ -43,7 +35,7 @@ impl<C: Animatable + Component> Default for Animator<C> {
 
 impl<C: Animatable + Component> Animator<C> {
     pub fn sample(&self, time: f32) -> Vec<Option<C::Track>> {
-        self.splines.iter().map(|s| s.sample(time)).collect()
+        self.splines.vec().iter().map(|s| s.sample(time)).collect()
     }
     pub fn update_value(&self, component: &mut C) {
         let mut values = component.values();
@@ -92,6 +84,7 @@ impl<C: Animatable + Component> Animator<C> {
     pub fn start_time(&self) -> Option<f32> {
         let first_keys: Vec<&Key<f32, C::Track>> = self
             .splines
+            .vec()
             .iter()
             .map(|s| s.keys().get(0))
             .filter(|k| k.is_some())
@@ -117,6 +110,7 @@ impl<C: Animatable + Component> Animator<C> {
     pub fn end_time(&self) -> Option<f32> {
         let last_keys: Vec<&Key<f32, C::Track>> = self
             .splines
+            .vec()
             .iter()
             .map(|s| s.keys().get(s.keys().len() - 1))
             .filter(|k| k.is_some())
@@ -142,7 +136,7 @@ impl<C: Animatable + Component> Animator<C> {
 
     /// Returns true if all splines are empty
     pub fn is_empty(&self) -> bool {
-        self.splines.iter().fold(
+        self.splines.vec().iter().fold(
             true,
             |acc, spline| {
                 if spline.is_empty() {

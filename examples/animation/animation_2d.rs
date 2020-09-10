@@ -20,16 +20,16 @@ fn setup(
             ..Default::default()
         })
         .with(Animator::<Translation> {
-            splines: vec![
-                Spline::from_vec(vec![
+            splines: SplinesVec3 {
+                x: Spline::from_vec(vec![
                     Key::new(0.0, 0.0, Interpolation::Cosine),
                     Key::new(1.0, -30.0, Interpolation::Cosine),
                     Key::new(2.0, 50.0, Interpolation::Cosine),
                     Key::new(3.0, 20.0, Interpolation::Cosine),
                 ]),
-                Spline::from_vec(vec![]),
-                Spline::from_vec(vec![]),
-            ],
+                y: Spline::from_vec(vec![]),
+                z: Spline::from_vec(vec![]),
+            },
             ..Default::default()
         });
 }
