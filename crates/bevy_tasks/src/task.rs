@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-/// Wraps `multitask::Task`, a spawned future.
+/// Wraps `async_executor::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
 ///
@@ -12,11 +12,11 @@ use std::{
 /// more gracefully and wait until it stops running, use the [`cancel()`][Task::cancel()] method.
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
-/// Wraps multitask::Task
+/// Wraps async_executor::Task
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
-    /// Detaches the task to let it keep running in the background. See `multitask::Task::detach`
+    /// Detaches the task to let it keep running in the background. See `async_executor::Task::detach`
     pub fn detach(self) {
         self.0.detach();
     }
@@ -29,7 +29,7 @@ impl<T> Task<T> {
     /// While it's possible to simply drop the [`Task`] to cancel it, this is a cleaner way of
     /// canceling because it also waits for the task to stop running.
     ///
-    /// See `multitask::Task::cancel`
+    /// See `async_executor::Task::cancel`
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
     }
@@ -39,7 +39,7 @@ impl<T> Future for Task<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Safe because Task is pinned and contains multitask::Task by value
+        // Safe because Task is pinned and contains async_executor::Task by value
         unsafe { self.map_unchecked_mut(|x| &mut x.0).poll(cx) }
     }
 }

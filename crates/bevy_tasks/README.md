@@ -8,19 +8,19 @@ a single thread and having that thread await the completion of those tasks. This
 generating the tasks from a slice of data. This library is intended for games and makes no attempt to ensure fairness 
 or ordering of spawned tasks.
 
-It is based on [`multitask`][multitask], a lightweight executor that allows the end user to manage their own threads.
-`multitask` is based on async-task, a core piece of async-std.
+It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
+`async-executor` is based on async-task, a core piece of async-std.
 
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon
-[multitask]: https://github.com/stjepang/multitask
+[async-executor]: https://github.com/stjepang/async-executor
 
 ## Dependencies
 
 A very small dependency list is a key feature of this module
 
 ```
-├── multitask
+├── async-executor
 │   ├── async-task
 │   ├── concurrent-queue
 │   │   └── cache-padded
@@ -28,5 +28,5 @@ A very small dependency list is a key feature of this module
 ├── num_cpus
 │   └── libc
 ├── parking
-└── pollster
+└── futures-lite
 ```

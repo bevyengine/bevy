@@ -2,7 +2,10 @@
 name = "bevy_type_registry"
 version = "0.1.3"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "Provides a type registry for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -21,4 +24,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.1" }
 
 # other
 serde = { version = "1", features = ["derive"] }
-parking_lot = "0.10.2"
+parking_lot = "0.11.0"
