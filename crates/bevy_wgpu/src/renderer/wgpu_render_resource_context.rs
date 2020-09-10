@@ -539,7 +539,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         let buffer_slice = buffer.slice(..);
         let data = buffer_slice.map_async(wgpu::MapMode::Write);
         self.device.poll(wgpu::Maintain::Wait);
-        if pollster::block_on(data).is_err() {
+        if futures_lite::future::block_on(data).is_err() {
             panic!("failed to map buffer to host");
         }
     }

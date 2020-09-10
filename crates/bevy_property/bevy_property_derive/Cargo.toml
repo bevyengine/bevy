@@ -2,7 +2,10 @@
 name = "bevy_property_derive"
 version = "0.1.3"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "Derive implementations for bevy_property"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -16,4 +19,4 @@ proc-macro = true
 syn = "1.0"
 proc-macro2 = "1.0"
 quote = "1.0"
-proc-macro-crate = "0.1.4"
+proc-macro-crate = "0.1.5"

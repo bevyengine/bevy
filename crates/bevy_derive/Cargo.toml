@@ -2,7 +2,10 @@
 name = "bevy_derive"
 version = "0.1.3"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "Provides derive implementations for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -13,8 +16,8 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-Inflector = {version = "0.11.4", default-features = false}
-proc-macro-crate = "0.1.4"
+Inflector = { version = "0.11.4", default-features = false }
+proc-macro-crate = "0.1.5"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"

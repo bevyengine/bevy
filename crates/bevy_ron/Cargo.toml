@@ -24,9 +24,9 @@ name = "bevy_ron"
 [dependencies]
 bevy_utils = { path = "../bevy_utils", version = "0.1" }
 base64 = "0.12"
-bitflags = "1.0.4"
-indexmap = { version = "1.0.2", features = ["serde-1"], optional = true }
-serde = { version = "1.0.60", features = ["serde_derive"] }
+bitflags = "1.2.1"
+indexmap = { version = "1.6.0", features = ["serde-1"], optional = true }
+serde = { version = "1", features = ["serde_derive"] }
 
 [dev-dependencies]
 serde_bytes = "0.11"

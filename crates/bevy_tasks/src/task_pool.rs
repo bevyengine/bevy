@@ -159,7 +159,7 @@ impl TaskPool {
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
         // validate safety.
-        let executor: &async_executor::Executor = &*self.executor as &async_executor::Executor;
+        let executor: &async_executor::Executor = &*self.executor;
         let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
 
         let fut = async move {
