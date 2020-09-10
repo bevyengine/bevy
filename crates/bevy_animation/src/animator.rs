@@ -1,8 +1,5 @@
-use crate::animatable::{AnimTracks, Animatable, Splines};
+use crate::animatable::{Animatable, Splines};
 use bevy_ecs::Component;
-use bevy_ecs::Mut;
-use bevy_property::Properties;
-use splines::{Key, Spline};
 
 pub enum AnimationLoop {
     Once,

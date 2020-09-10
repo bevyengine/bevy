@@ -1,7 +1,6 @@
-use bevy_math::Vec3;
 use bevy_render::color::Color;
 use bevy_transform::components::Translation;
-use splines::{Interpolate, Spline};
+use splines::Spline;
 
 pub enum AnimTracks {
     Primitive(Color),
