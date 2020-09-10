@@ -47,21 +47,21 @@ impl Scene {
     pub fn serialize_ron(
         &self,
         registry: &PropertyTypeRegistry,
-    ) -> Result<String, bevy_ron::Error> {
+    ) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
 
-pub fn serialize_ron<S>(serialize: S) -> Result<String, bevy_ron::Error>
+pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,
 {
-    let pretty_config = bevy_ron::ser::PrettyConfig::default()
-        .decimal_floats(true)
-        .indentor("  ".to_string())
-        .new_line("\n".to_string());
+    let pretty_config = ron::ser::PrettyConfig::default()
+        .with_decimal_floats(true)
+        .with_indentor("  ".to_string())
+        .with_new_line("\n".to_string());
     let mut buf = Vec::new();
-    let mut ron_serializer = bevy_ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
+    let mut ron_serializer = ron::ser::Serializer::new(&mut buf, Some(pretty_config), false)?;
     serialize.serialize(&mut ron_serializer)?;
     Ok(String::from_utf8(buf).unwrap())
 }
