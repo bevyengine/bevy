@@ -253,9 +253,6 @@ mod tests {
             *world.get::<PreviousParent>(child2).unwrap(),
             PreviousParent(Some(parent))
         );
-
-        assert!(world.get::<Transform>(child1).is_ok());
-        assert!(world.get::<Transform>(child2).is_ok());
     }
 
     #[test]
@@ -314,8 +311,5 @@ mod tests {
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(Some(parent))
         );
-
-        assert!(world.get::<Transform>(child3).is_ok());
-        assert!(world.get::<Transform>(child4).is_ok());
     }
 }
