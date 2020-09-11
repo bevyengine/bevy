@@ -47,7 +47,7 @@ fn update_node_entity(
     };
     let global_z = z + parent_global_z;
 
-    let mut position = transform.local_matrix().w_axis();
+    let mut position = transform.local_translation();
     position.set_z(z);
     transform.local_matrix_mut().set_w_axis(position);
 
