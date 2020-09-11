@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use std::{path::Path, sync::Arc};
+use std::{io::Cursor, path::Path, sync::Arc};
 
 /// A source of audio data
 #[derive(Clone)]
@@ -28,5 +28,19 @@ impl AssetLoader<AudioSource> for Mp3Loader {
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "ogg"];
         EXTENSIONS
+    }
+}
+
+pub trait Decodable: Send + Sync + 'static {
+    type Decoder;
+
+    fn decoder(&self) -> Self::Decoder;
+}
+
+impl Decodable for AudioSource {
+    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
+
+    fn decoder(&self) -> Self::Decoder {
+        rodio::Decoder::new(Cursor::new(self.clone())).unwrap()
     }
 }

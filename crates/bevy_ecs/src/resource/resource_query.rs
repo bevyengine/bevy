@@ -11,6 +11,41 @@ use core::{
 };
 use std::marker::PhantomData;
 
+/// A shared borrow of a Resource
+/// that will only return in a query if the Resource has been changed
+pub struct ChangedRes<'a, T: Resource> {
+    value: &'a T,
+}
+
+impl<'a, T: Resource> ChangedRes<'a, T> {
+    /// Creates a reference cell to a Resource from a pointer
+    ///
+    /// # Safety
+    /// The pointer must have correct lifetime / storage
+    pub unsafe fn new(value: NonNull<T>) -> Self {
+        Self {
+            value: &*value.as_ptr(),
+        }
+    }
+}
+
+impl<'a, T: Resource> UnsafeClone for ChangedRes<'a, T> {
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self { value: self.value }
+    }
+}
+
+unsafe impl<T: Resource> Send for ChangedRes<'_, T> {}
+unsafe impl<T: Resource> Sync for ChangedRes<'_, T> {}
+
+impl<'a, T: Resource> Deref for ChangedRes<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
 /// Shared borrow of a Resource
 pub struct Res<'a, T: Resource> {
     value: &'a T,
@@ -55,6 +90,7 @@ impl<'a, T: Resource> Deref for Res<'a, T> {
 pub struct ResMut<'a, T: Resource> {
     _marker: PhantomData<&'a T>,
     value: *mut T,
+    mutated: *mut bool,
 }
 
 impl<'a, T: Resource> ResMut<'a, T> {
@@ -62,9 +98,10 @@ impl<'a, T: Resource> ResMut<'a, T> {
     ///
     /// # Safety
     /// The pointer must have correct lifetime / storage / ownership
-    pub unsafe fn new(value: NonNull<T>) -> Self {
+    pub unsafe fn new(value: NonNull<T>, mutated: NonNull<bool>) -> Self {
         Self {
             value: value.as_ptr(),
+            mutated: mutated.as_ptr(),
             _marker: Default::default(),
         }
     }
@@ -83,7 +120,10 @@ impl<'a, T: Resource> Deref for ResMut<'a, T> {
 
 impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.value }
+        unsafe {
+            *self.mutated = true;
+            &mut *self.value
+        }
     }
 }
 
@@ -91,6 +131,7 @@ impl<'a, T: Resource> UnsafeClone for ResMut<'a, T> {
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
             value: self.value,
+            mutated: self.mutated,
             _marker: Default::default(),
         }
     }
@@ -144,6 +185,11 @@ pub trait FetchResource<'a>: Sized {
 
     #[allow(clippy::missing_safety_doc)]
     unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item;
+
+    #[allow(clippy::missing_safety_doc)]
+    unsafe fn is_some(_resources: &'a Resources, _system_id: Option<SystemId>) -> bool {
+        true
+    }
 }
 
 impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
@@ -175,6 +221,40 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
     }
 }
 
+impl<'a, T: Resource> ResourceQuery for ChangedRes<'a, T> {
+    type Fetch = FetchResourceChanged<T>;
+}
+
+/// Fetches a shared resource reference
+pub struct FetchResourceChanged<T>(NonNull<T>);
+
+impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
+    type Item = ChangedRes<'a, T>;
+
+    unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
+        ChangedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+    }
+
+    unsafe fn is_some(resources: &'a Resources, _system_id: Option<SystemId>) -> bool {
+        let (added, mutated) = resources.get_unsafe_added_and_mutated::<T>(ResourceIndex::Global);
+        *added.as_ptr() || *mutated.as_ptr()
+    }
+
+    fn borrow(resources: &Resources) {
+        resources.borrow::<T>();
+    }
+
+    fn release(resources: &Resources) {
+        resources.release::<T>();
+    }
+
+    fn access() -> TypeAccess {
+        let mut access = TypeAccess::default();
+        access.immutable.insert(TypeId::of::<T>());
+        access
+    }
+}
+
 impl<'a, T: Resource> ResourceQuery for ResMut<'a, T> {
     type Fetch = FetchResourceWrite<T>;
 }
@@ -186,7 +266,8 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        ResMut::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+        let (value, mutated) = resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global);
+        ResMut::new(value, mutated)
     }
 
     fn borrow(resources: &Resources) {
@@ -265,6 +346,11 @@ macro_rules! tuple_impl {
                 ($($name::get(resources, system_id),)*)
             }
 
+            #[allow(unused_variables)]
+            unsafe fn is_some(resources: &'a Resources, system_id: Option<SystemId>) -> bool {
+                true $(&& $name::is_some(resources, system_id))*
+            }
+
             #[allow(unused_mut)]
             fn access() -> TypeAccess {
                 let mut access = TypeAccess::default();
@@ -294,3 +380,113 @@ macro_rules! tuple_impl {
 }
 
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
+
+pub struct OrRes<T>(T);
+
+pub struct FetchResourceOr<T>(NonNull<T>);
+
+macro_rules! tuple_impl_or {
+    ($($name: ident),*) => {
+        impl<'a, $($name: FetchResource<'a>),*> FetchResource<'a> for FetchResourceOr<($($name,)*)> {
+            type Item = OrRes<($($name::Item,)*)>;
+
+            #[allow(unused_variables)]
+            fn borrow(resources: &Resources) {
+                $($name::borrow(resources);)*
+            }
+
+            #[allow(unused_variables)]
+            fn release(resources: &Resources) {
+                $($name::release(resources);)*
+            }
+
+            #[allow(unused_variables)]
+            unsafe fn get(resources: &'a Resources, system_id: Option<SystemId>) -> Self::Item {
+                OrRes(($($name::get(resources, system_id),)*))
+            }
+
+            #[allow(unused_variables)]
+            unsafe fn is_some(resources: &'a Resources, system_id: Option<SystemId>) -> bool {
+                false $(|| $name::is_some(resources, system_id))*
+            }
+
+            #[allow(unused_mut)]
+            fn access() -> TypeAccess {
+                let mut access = TypeAccess::default();
+                $(access.union(&$name::access());)*
+                access
+            }
+        }
+
+        impl<$($name: ResourceQuery),*> ResourceQuery for OrRes<($($name,)*)> {
+            type Fetch = FetchResourceOr<($($name::Fetch,)*)>;
+
+            #[allow(unused_variables)]
+            fn initialize(resources: &mut Resources, system_id: Option<SystemId>) {
+                $($name::initialize(resources, system_id);)*
+            }
+        }
+
+        #[allow(unused_variables)]
+        #[allow(non_snake_case)]
+        impl<$($name: UnsafeClone),*> UnsafeClone for OrRes<($($name,)*)> {
+            unsafe fn unsafe_clone(&self) -> Self {
+                let OrRes(($($name,)*)) = self;
+                OrRes(($($name.unsafe_clone(),)*))
+            }
+        }
+
+        impl<$($name,)*> Deref for OrRes<($($name,)*)> {
+            type Target = ($($name,)*);
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+    };
+}
+
+smaller_tuples_too!(tuple_impl_or, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn changed_resource() {
+        let mut resources = Resources::default();
+        resources.insert(123);
+        assert_eq!(
+            resources.query::<ChangedRes<i32>>().as_deref(),
+            Some(&(123 as i32))
+        );
+        resources.clear_trackers();
+        assert_eq!(resources.query::<ChangedRes<i32>>().as_deref(), None);
+        *resources.query::<ResMut<i32>>().unwrap() += 1;
+        assert_eq!(
+            resources.query::<ChangedRes<i32>>().as_deref(),
+            Some(&(124 as i32))
+        );
+    }
+
+    #[test]
+    fn or_changed_resource() {
+        let mut resources = Resources::default();
+        resources.insert(123);
+        resources.insert(0.2);
+        assert!(resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_some(),);
+        resources.clear_trackers();
+        assert!(resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_none(),);
+        *resources.query::<ResMut<i32>>().unwrap() += 1;
+        assert!(resources
+            .query::<OrRes<(ChangedRes<i32>, ChangedRes<f64>)>>()
+            .is_some(),);
+        assert!(resources
+            .query::<(ChangedRes<i32>, ChangedRes<f64>)>()
+            .is_none(),);
+    }
+}

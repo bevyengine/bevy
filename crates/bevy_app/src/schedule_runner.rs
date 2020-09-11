@@ -51,7 +51,7 @@ impl Plugin for ScheduleRunnerPlugin {
             let mut app_exit_event_reader = EventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
-                    app.schedule.run(&mut app.world, &mut app.resources);
+                    app.update();
                 }
                 RunMode::Loop { wait } => loop {
                     let start_time = Instant::now();
@@ -62,7 +62,7 @@ impl Plugin for ScheduleRunnerPlugin {
                         }
                     }
 
-                    app.schedule.run(&mut app.world, &mut app.resources);
+                    app.update();
 
                     if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
                         if app_exit_event_reader.latest(&app_exit_events).is_some() {

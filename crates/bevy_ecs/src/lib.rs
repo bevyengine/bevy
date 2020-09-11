@@ -11,11 +11,12 @@ pub use world::*;
 
 pub mod prelude {
     pub use crate::{
-        resource::{FromResources, Local, Res, ResMut, Resource, Resources},
+        resource::{ChangedRes, FromResources, Local, OrRes, Res, ResMut, Resource, Resources},
         system::{
             Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
         },
         world::WorldBuilderSource,
-        Added, Bundle, Changed, Component, Entity, Mut, Mutated, Ref, RefMut, With, Without, World,
+        Added, Bundle, Changed, Component, Entity, Mut, Mutated, Or, Ref, RefMut, With, Without,
+        World,
     };
 }

@@ -1,13 +1,13 @@
 use crate::{
     property_serde::DynamicPropertiesDeserializer, DynamicProperties, PropertyTypeRegistry,
 };
-use bevy_ron::de::Deserializer;
+use ron::de::Deserializer;
 use serde::de::DeserializeSeed;
 
 pub fn deserialize_dynamic_properties(
     ron_string: &str,
     property_type_registry: &PropertyTypeRegistry,
-) -> Result<DynamicProperties, bevy_ron::Error> {
+) -> Result<DynamicProperties, ron::Error> {
     let mut deserializer = Deserializer::from_str(&ron_string).unwrap();
     let dynamic_properties_deserializer =
         DynamicPropertiesDeserializer::new(&property_type_registry);

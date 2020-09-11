@@ -1,22 +1,38 @@
 use crate::ColorMaterial;
 use bevy_asset::{Assets, Handle};
-use bevy_core::Byteable;
 use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
-use bevy_render::{
-    renderer::{RenderResource, RenderResources},
-    texture::Texture,
-};
+use bevy_render::{renderer::RenderResources, texture::Texture};
 
-#[repr(C)]
-#[derive(Default, RenderResources, RenderResource)]
-#[render_resources(from_self)]
+#[derive(Default, RenderResources)]
 pub struct Sprite {
     pub size: Vec2,
+    #[render_resources(ignore)]
+    pub resize_mode: SpriteResizeMode,
 }
 
-// SAFE: sprite is repr(C) and only consists of byteables
-unsafe impl Byteable for Sprite {}
+/// Determines how `Sprite` resize should be handled
+#[derive(Debug)]
+pub enum SpriteResizeMode {
+    Manual,
+    Automatic,
+}
+
+impl Default for SpriteResizeMode {
+    fn default() -> Self {
+        SpriteResizeMode::Automatic
+    }
+}
+
+impl Sprite {
+    /// Creates new `Sprite` with `SpriteResizeMode::Manual` value for `resize_mode`
+    pub fn new(size: Vec2) -> Self {
+        Self {
+            size,
+            resize_mode: SpriteResizeMode::Manual,
+        }
+    }
+}
 
 pub fn sprite_system(
     materials: Res<Assets<ColorMaterial>>,
@@ -24,10 +40,15 @@ pub fn sprite_system(
     mut query: Query<(&mut Sprite, &Handle<ColorMaterial>)>,
 ) {
     for (mut sprite, handle) in &mut query.iter() {
-        let material = materials.get(&handle).unwrap();
-        if let Some(texture_handle) = material.texture {
-            if let Some(texture) = textures.get(&texture_handle) {
-                sprite.size = texture.size;
+        match sprite.resize_mode {
+            SpriteResizeMode::Manual => continue,
+            SpriteResizeMode::Automatic => {
+                let material = materials.get(&handle).unwrap();
+                if let Some(texture_handle) = material.texture {
+                    if let Some(texture) = textures.get(&texture_handle) {
+                        sprite.size = texture.size;
+                    }
+                }
             }
         }
     }

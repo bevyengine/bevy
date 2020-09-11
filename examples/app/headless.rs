@@ -20,7 +20,7 @@ fn main() {
         .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
-        .add_system(some_other_system.system())
+        .add_system(counter.system())
         .run();
 }
 
@@ -28,4 +28,14 @@ fn hello_world_system() {
     println!("hello world");
 }
 
-fn some_other_system() {}
+fn counter(mut state: Local<CounterState>) {
+    if state.count % 60 == 0 {
+        println!("{}", state.count);
+    }
+    state.count += 1;
+}
+
+#[derive(Default)]
+struct CounterState {
+    count: u32,
+}

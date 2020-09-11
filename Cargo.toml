@@ -46,6 +46,7 @@ members = [
     "crates/*",
     "crates/bevy_ecs/hecs",
 ]
+exclude = ["benches"]
 
 [dependencies]
 # bevy
@@ -178,6 +179,10 @@ path = "examples/ecs/startup_system.rs"
 [[example]]
 name = "ecs_guide"
 path = "examples/ecs/ecs_guide.rs"
+
+[[example]]
+name = "parallel_query"
+path = "examples/ecs/parallel_query.rs"
 
 [[example]]
 name = "breakout"

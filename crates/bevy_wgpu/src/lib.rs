@@ -5,6 +5,7 @@ mod wgpu_renderer;
 mod wgpu_resources;
 mod wgpu_type_converter;
 
+use futures_lite::future;
 pub use wgpu_render_pass::*;
 pub use wgpu_renderer::*;
 pub use wgpu_resources::*;
@@ -32,7 +33,7 @@ impl Plugin for WgpuPlugin {
 }
 
 pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
-    let mut wgpu_renderer = pollster::block_on(WgpuRenderer::new());
+    let mut wgpu_renderer = future::block_on(WgpuRenderer::new());
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
     resources.insert::<Box<dyn RenderResourceContext>>(Box::new(resource_context.clone()));
     resources.insert(SharedBuffers::new(Box::new(resource_context)));

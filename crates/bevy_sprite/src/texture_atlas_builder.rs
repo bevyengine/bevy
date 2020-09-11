@@ -110,7 +110,7 @@ impl TextureAtlasBuilder {
             }
         }
 
-        let rect_placements = rect_placements.ok_or_else(|| RectanglePackError::NotEnoughSpace)?;
+        let rect_placements = rect_placements.ok_or(RectanglePackError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
         let mut texture_handles = HashMap::default();
