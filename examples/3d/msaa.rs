@@ -27,7 +27,7 @@ fn setup(
         })
         // light
         .spawn(LightComponents {
-            transform: Transform::from_translation((4.0, 8.0, 4.0).into()),
+            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
             ..Default::default()
         })
         // camera

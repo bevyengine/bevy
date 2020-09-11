@@ -102,7 +102,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Transform::from_translation((0.0, 0.0, 0.0).into()),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(material)

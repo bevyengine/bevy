@@ -123,7 +123,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Transform::from_translation((-2.0, 0.0, 0.0).into()),
+            transform: Transform::from_translation(Vec3::new(-2.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(green_material)
@@ -149,7 +149,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            transform: Transform::from_translation((2.0, 0.0, 0.0).into()),
+            transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(blue_material)

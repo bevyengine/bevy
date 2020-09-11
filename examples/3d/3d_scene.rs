@@ -26,7 +26,7 @@ fn setup(
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            transform: Transform::from_translation((0.0, 1.0, 0.0).into()),
+            transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
             ..Default::default()
         })
         // sphere
@@ -36,12 +36,12 @@ fn setup(
                 radius: 0.5,
             })),
             material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
-            transform: Transform::from_translation((1.5, 1.5, 1.5).into()),
+            transform: Transform::from_translation(Vec3::new(1.5, 1.5, 1.5)),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            transform: Transform::from_translation((4.0, 8.0, 4.0).into()),
+            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
             ..Default::default()
         })
         // camera

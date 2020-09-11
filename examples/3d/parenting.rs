@@ -38,7 +38,7 @@ fn setup(
         .spawn(PbrComponents {
             mesh: cube_handle,
             material: cube_material_handle,
-            transform: Transform::from_translation((0.0, 0.0, 1.0).into()),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..Default::default()
         })
         .with(Rotator)
@@ -47,13 +47,13 @@ fn setup(
             parent.spawn(PbrComponents {
                 mesh: cube_handle,
                 material: cube_material_handle,
-                transform: Transform::from_translation((0.0, 0.0, 3.0).into()),
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),
                 ..Default::default()
             });
         })
         // light
         .spawn(LightComponents {
-            transform: Transform::from_translation((4.0, 5.0, -4.0).into()),
+            transform: Transform::from_translation(Vec3::new(4.0, 5.0, -4.0)),
             ..Default::default()
         })
         // camera

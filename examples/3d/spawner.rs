@@ -39,7 +39,7 @@ fn setup(
     commands
         // light
         .spawn(LightComponents {
-            transform: Transform::from_translation((4.0, -4.0, 5.0).into()),
+            transform: Transform::from_translation(Vec3::new(4.0, -4.0, 5.0)),
             ..Default::default()
         })
         // camera
@@ -65,9 +65,11 @@ fn setup(
                 ),
                 ..Default::default()
             }),
-            transform: Transform::from_translation(
-                (rng.gen_range(-50.0, 50.0), rng.gen_range(-50.0, 50.0), 0.0).into(),
-            ),
+            transform: Transform::from_translation(Vec3::new(
+                rng.gen_range(-50.0, 50.0),
+                rng.gen_range(-50.0, 50.0),
+                0.0,
+            )),
             ..Default::default()
         });
     }

@@ -61,15 +61,15 @@ mod test {
         }
 
         // Root entity
-        let parent = world.spawn((Transform::from_translation((1.0, 0.0, 0.0).into()),));
+        let parent = world.spawn((Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),));
         let children = world
             .spawn_batch(vec![
                 (
-                    Transform::from_translation((0.0, 2.0, 0.0).into()),
+                    Transform::from_translation(Vec3::new(0.0, 2.0, 0.)),
                     Parent(parent),
                 ),
                 (
-                    Transform::from_translation((0.0, 0.0, 3.0).into()),
+                    Transform::from_translation(Vec3::new(0.0, 0.0, 3.)),
                     Parent(parent),
                 ),
             ])
@@ -109,12 +109,12 @@ mod test {
         let mut commands = Commands::default();
         let mut children = Vec::new();
         commands
-            .spawn((Transform::from_translation((1.0, 0.0, 0.0).into()),))
+            .spawn((Transform::from_translation(Vec3::new(1.0, 0.0, 0.0)),))
             .with_children(|parent| {
                 parent
-                    .spawn((Transform::from_translation((0.0, 2.0, 0.0).into()),))
+                    .spawn((Transform::from_translation(Vec3::new(0.0, 2.0, 0.0)),))
                     .for_current_entity(|entity| children.push(entity))
-                    .spawn((Transform::from_translation((0.0, 0.0, 3.0).into()),))
+                    .spawn((Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),))
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);
