@@ -9,7 +9,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
-use prelude::{Children, NonUniformScale, Parent, Rotation, Scale, Transform, Translation};
+use prelude::{Children, Parent, Transform};
 
 pub(crate) fn transform_systems() -> Vec<Box<dyn System>> {
     let mut systems = Vec::with_capacity(5);
