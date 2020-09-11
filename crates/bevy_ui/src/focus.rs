@@ -47,7 +47,7 @@ pub fn ui_focus_system(
         Entity,
         &Node,
         &Transform,
-        Option<&mut Interaction>,
+        &mut Interaction,
         Option<&FocusPolicy>,
     )>,
 ) {
@@ -56,11 +56,9 @@ pub fn ui_focus_system(
     }
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _transform, interaction, _focus_policy) in &mut node_query.iter() {
-            if let Some(mut interaction) = interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
-                }
+        for (_entity, _node, _transform, mut interaction, _focus_policy) in &mut node_query.iter() {
+            if *interaction == Interaction::Clicked {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -72,7 +70,7 @@ pub fn ui_focus_system(
         let mut query_iter = node_query.iter();
         let mut moused_over_z_sorted_nodes = query_iter
             .iter()
-            .filter_map(|(entity, node, transform, interaction, focus_policy)| {
+            .filter_map(|(entity, node, transform, mut interaction, focus_policy)| {
                 let position = transform.value.w_axis();
                 let ui_position = position.truncate().truncate();
                 let extents = node.size / 2.0;
@@ -82,29 +80,25 @@ pub fn ui_focus_system(
                 if (min.x()..max.x()).contains(&state.cursor_position.x())
                     && (min.y()..max.y()).contains(&state.cursor_position.y())
                 {
-                    Some((entity, focus_policy, interaction, FloatOrd(position.z())))
+                    return Some((entity, focus_policy, interaction, FloatOrd(position.z())));
                 } else {
-                    if let Some(mut interaction) = interaction {
-                        if *interaction == Interaction::Hovered {
-                            *interaction = Interaction::None;
-                        }
+                    if *interaction == Interaction::Hovered {
+                        *interaction = Interaction::None;
                     }
-                    None
                 }
+                None
             })
             .collect::<Vec<_>>();
 
         moused_over_z_sorted_nodes.sort_by_key(|(_, _, _, z)| -*z);
-        for (entity, focus_policy, interaction, _) in moused_over_z_sorted_nodes {
-            if let Some(mut interaction) = interaction {
-                if mouse_clicked {
-                    // only consider nodes with ClickState "clickable"
-                    if *interaction != Interaction::Clicked {
-                        *interaction = Interaction::Clicked;
-                    }
-                } else if *interaction == Interaction::None {
-                    *interaction = Interaction::Hovered;
+        for (entity, focus_policy, mut interaction, _) in moused_over_z_sorted_nodes {
+            if mouse_clicked {
+                // only consider nodes with ClickState "clickable"
+                if *interaction != Interaction::Clicked {
+                    *interaction = Interaction::Clicked;
                 }
+            } else if *interaction == Interaction::None {
+                *interaction = Interaction::Hovered;
             }
 
             hovered_entity = Some(entity);
