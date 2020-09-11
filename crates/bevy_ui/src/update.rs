@@ -49,7 +49,7 @@ fn update_node_entity(
 
     let mut position = transform.local_translation();
     position.set_z(z);
-    transform.local_matrix_mut().set_w_axis(position);
+    transform.set_local_translation(position);
 
     Some(global_z)
 }

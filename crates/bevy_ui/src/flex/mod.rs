@@ -203,6 +203,6 @@ pub fn flex_node_system(
             }
         }
 
-        transform.local_matrix_mut().set_w_axis(position);
+        transform.set_local_translation(position);
     }
 }
