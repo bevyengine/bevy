@@ -81,10 +81,8 @@ pub fn ui_focus_system(
                     && (min.y()..max.y()).contains(&state.cursor_position.y())
                 {
                     return Some((entity, focus_policy, interaction, FloatOrd(position.z())));
-                } else {
-                    if *interaction == Interaction::Hovered {
-                        *interaction = Interaction::None;
-                    }
+                } else if *interaction == Interaction::Hovered {
+                    *interaction = Interaction::None;
                 }
                 None
             })
