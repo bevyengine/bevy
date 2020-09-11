@@ -4,21 +4,6 @@ struct AnimatableFloat {
     value: f32,
 }
 
-impl Animatable for AnimatableFloat {
-    type Splines = SplinesOne;
-    fn anim_tracks() -> AnimTracks {
-        AnimTracks::Struct(vec![("value", Color::WHITE)])
-    }
-
-    fn set_values(&mut self, values: Vec<f32>) {
-        self.value = *values.get(0).unwrap();
-    }
-
-    fn values(&self) -> Vec<f32> {
-        vec![self.value]
-    }
-}
-
 fn main() {
     App::build()
         .add_default_plugins()
@@ -45,12 +30,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with(AnimatableFloat { value: 0.0 })
-        .with(Animator::<AnimatableFloat> {
-            direction: AnimationLoop::PingPong,
-            splines: SplinesOne(Spline::from_vec(vec![
+        .with(AnimationSpline {
+            spline: Spline::from_vec(vec![
                 Key::new(0.0, 0.0, Interpolation::Cosine),
-                Key::new(20.0, 1000.0, Interpolation::Cosine),
-            ])),
+                Key::new(3.0, 1000.0, Interpolation::Cosine),
+            ]),
+            loop_style: LoopStyle::PingPong,
             ..Default::default()
         });
 }
@@ -59,10 +44,8 @@ fn update_text(float: &AnimatableFloat, mut text: Mut<Text>) {
     text.value = format!("{:.0}", float.value);
 }
 
-fn animate_custom(
-    time: Res<Time>,
-    mut animator: Mut<Animator<AnimatableFloat>>,
-    mut float: Mut<AnimatableFloat>,
-) {
-    animator.progress(&mut float, time.delta);
+fn animate_custom(animator: &AnimationSpline, mut float: Mut<AnimatableFloat>) {
+    if let Some(val) = animator.current() {
+        float.value = val;
+    }
 }

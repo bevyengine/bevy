@@ -1,14 +1,14 @@
-use crate::animator::Animator;
+use crate::animation_spline::{AnimationSpline, AnimationSplineThree};
 use bevy_app::{AppBuilder, Plugin};
 use bevy_core::Time;
-use bevy_ecs::{IntoQuerySystem, Query, Res};
-use bevy_transform::components::Translation;
+use bevy_ecs::{IntoForEachSystem, Mut, Res};
 
 pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(animate_translation.system());
+        app.add_system(advance_animation_spline.system())
+            .add_system(advance_animation_spline_three.system());
     }
 }
 
@@ -18,11 +18,13 @@ impl Default for AnimationPlugin {
     }
 }
 
-fn animate_translation(
+fn advance_animation_spline(time: Res<Time>, mut animation_spline: Mut<AnimationSpline>) {
+    animation_spline.advance(time.delta_seconds);
+}
+
+fn advance_animation_spline_three(
     time: Res<Time>,
-    mut q: Query<(&mut Animator<Translation>, &mut Translation)>,
+    mut animation_spline: Mut<AnimationSplineThree>,
 ) {
-    for (mut animator, mut component) in &mut q.iter() {
-        animator.progress(&mut component, time.delta);
-    }
+    animation_spline.advance(time.delta_seconds);
 }
