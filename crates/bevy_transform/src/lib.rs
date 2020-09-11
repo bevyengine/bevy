@@ -28,10 +28,6 @@ impl Plugin for TransformPlugin {
         app.register_component::<Children>()
             .register_component::<Parent>()
             .register_component::<Transform>()
-            .register_component::<Translation>()
-            .register_component::<Rotation>()
-            .register_component::<Scale>()
-            .register_component::<NonUniformScale>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_systems(transform_systems())
             .add_systems_to_stage(stage::POST_UPDATE, transform_systems());
