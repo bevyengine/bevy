@@ -29,14 +29,6 @@ fn setup(
             transform: Transform::from_translation((0.0, 1.0, 0.0).into()),
             ..Default::default()
         })
-        .with_children(|parent| {
-            parent.spawn(PbrComponents {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-                transform: Transform::from_translation((0.0, 0.75, 0.0).into()),
-                ..Default::default()
-            });
-        })
         // sphere
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Icosphere {

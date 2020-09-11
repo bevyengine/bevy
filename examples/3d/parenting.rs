@@ -51,15 +51,6 @@ fn setup(
                 ..Default::default()
             });
         })
-        .with_children(|parent| {
-            // child cube
-            parent.spawn(PbrComponents {
-                mesh: cube_handle,
-                material: cube_material_handle,
-                transform: Transform::from_translation((3.0, 0.0, 0.0).into()),
-                ..Default::default()
-            });
-        })
         // light
         .spawn(LightComponents {
             transform: Transform::from_translation((4.0, 5.0, -4.0).into()),
