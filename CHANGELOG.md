@@ -33,6 +33,7 @@
 - [iOS: use shaderc-rs for glsl to spirv compilation][324]
 - [Changed the default node size to Auto instead of Undefined to match the Stretch implementation.][304]
 - Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
+- [Load assets from root path when loading directly][478]
 
 ### Fixed
 
@@ -83,6 +84,7 @@
 [423]: https://github.com/bevyengine/bevy/pull/423
 [428]: https://github.com/bevyengine/bevy/pull/428
 [433]: https://github.com/bevyengine/bevy/pull/433
+[478]: https://github.com/bevyengine/bevy/pull/478
 
 
 ## Version 0.1.3 (2020-8-22)
