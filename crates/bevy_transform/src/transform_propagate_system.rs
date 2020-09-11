@@ -2,7 +2,6 @@ use crate::components::*;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 
-// ANSWERME: make this take all transforms and perform in recursion (looking at compute shader)
 pub fn transform_propagate_system(
     mut root_query: Query<Without<Parent, (Option<&Children>, &mut Transform)>>,
     mut transform_query: Query<(&mut Transform, Option<&Children>)>,
@@ -18,7 +17,6 @@ pub fn transform_propagate_system(
     }
 }
 
-// ANSWERME: maybe speed this up with compute
 fn propagate_recursive(
     parent: Mat4,
     transform_query: &mut Query<(&mut Transform, Option<&Children>)>,
