@@ -23,11 +23,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .expect("There should always be a parent at this point.");
         self.world_builder
             .spawn_as_entity(entity, components)
-            .with_bundle((
-                Parent(parent_entity),
-                PreviousParent(Some(parent_entity)),
-                //Transform::default(),
-            ));
+            .with_bundle((Parent(parent_entity), PreviousParent(Some(parent_entity))));
         {
             let world = &mut self.world_builder.world;
             let mut added = false;
