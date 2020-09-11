@@ -14,11 +14,7 @@ impl WorldWriter for InsertChildren {
             world
                 .insert(
                     *child,
-                    (
-                        Parent(self.parent),
-                        PreviousParent(Some(self.parent)),
-                        //Transform::default(),
-                    ),
+                    (Parent(self.parent), PreviousParent(Some(self.parent))),
                 )
                 .unwrap();
         }
@@ -55,11 +51,7 @@ impl WorldWriter for PushChildren {
             world
                 .insert(
                     *child,
-                    (
-                        Parent(self.parent),
-                        PreviousParent(Some(self.parent)),
-                        //Transform::default(),
-                    ),
+                    (Parent(self.parent), PreviousParent(Some(self.parent))),
                 )
                 .unwrap();
         }
