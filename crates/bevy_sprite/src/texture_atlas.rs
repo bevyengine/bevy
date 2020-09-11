@@ -106,7 +106,7 @@ impl TextureAtlas {
             }
         }
         TextureAtlas {
-            size: Vec2::new(tile_size.x() * columns, tile_size.y() * rows),
+            size: Vec2::new(tile_size.x() * columns as f32, tile_size.y() * rows as f32),
             textures: sprites,
             texture,
             texture_handles: None,
