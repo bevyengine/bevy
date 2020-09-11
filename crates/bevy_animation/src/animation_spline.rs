@@ -1,5 +1,4 @@
 use crate::vec3_option::Vec3Option;
-use bevy_math::Vec3;
 use splines::Spline;
 
 pub enum LoopStyle {
