@@ -4,7 +4,6 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup.system())
-        .add_system(animate_sprite.system())
         .run();
 }
 
@@ -21,24 +20,25 @@ fn setup(
             material: materials.add(texture_handle.into()),
             ..Default::default()
         })
-        .with(AnimationSplineThree {
-            x: Spline::from_vec(vec![
+        .with(AnimationSplineTransform {
+            translation_x: Spline::from_vec(vec![
                 Key::new(0.0, 0.0, Interpolation::Cosine),
                 Key::new(1.0, -150.0, Interpolation::Cosine),
                 Key::new(2.0, 100.0, Interpolation::Cosine),
                 Key::new(3.0, 0.0, Interpolation::Cosine),
             ]),
-            y: Spline::from_vec(vec![
+            translation_y: Spline::from_vec(vec![
                 Key::new(0.0, 100.0, Interpolation::Linear),
                 Key::new(1.5, -100.0, Interpolation::Linear),
                 Key::new(3.0, 100.0, Interpolation::Linear),
             ]),
-            z: Spline::from_vec(vec![]),
+            translation_z: Spline::from_vec(vec![]),
+            scale: Spline::from_vec(vec![
+                Key::new(0.0, 1.0, Interpolation::Cosine),
+                Key::new(0.5, 1.5, Interpolation::Cosine),
+                Key::new(1.0, 1.0, Interpolation::Cosine),
+            ]),
             loop_style: LoopStyle::Loop,
             ..Default::default()
         });
-}
-
-fn animate_sprite(mut t: Mut<Translation>, spline: &AnimationSplineThree) {
-    spline.current().alter(&mut t.0);
 }

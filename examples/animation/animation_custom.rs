@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with(AnimatableFloat { value: 0.0 })
-        .with(AnimationSpline {
+        .with(AnimationSplineOne {
             spline: Spline::from_vec(vec![
                 Key::new(0.0, 0.0, Interpolation::Cosine),
                 Key::new(3.0, 1000.0, Interpolation::Cosine),
@@ -44,7 +44,7 @@ fn update_text(float: &AnimatableFloat, mut text: Mut<Text>) {
     text.value = format!("{:.0}", float.value);
 }
 
-fn animate_custom(animator: &AnimationSpline, mut float: Mut<AnimatableFloat>) {
+fn animate_custom(animator: &AnimationSplineOne, mut float: Mut<AnimatableFloat>) {
     if let Some(val) = animator.current() {
         float.value = val;
     }
