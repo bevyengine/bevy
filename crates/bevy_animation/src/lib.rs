@@ -11,11 +11,14 @@ pub mod spline_groups {
 pub use plugin::AnimationPlugin;
 
 pub mod prelude {
-    pub use crate::plugin::AnimationPlugin;
-    pub use crate::spline_group::{LoopStyle, SplineGroup};
-    pub use crate::spline_groups::{
-        one::AnimationSplineOne, three::AnimationSplineThree, transform::AnimationSplineTransform,
+    pub use crate::{
+        plugin::AnimationPlugin,
+        spline_group::{LoopStyle, SplineGroup},
+        spline_groups::{
+            one::AnimationSplineOne, three::AnimationSplineThree,
+            transform::AnimationSplineTransform,
+        },
+        vec3_option::Vec3Option,
     };
-    pub use crate::vec3_option::Vec3Option;
     pub use splines::{Interpolate, Interpolation, Key, Spline};
 }

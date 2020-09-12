@@ -1,5 +1,7 @@
-use crate::spline_group::{LoopStyle, SplineGroup};
-use crate::vec3_option::Vec3Option;
+use crate::{
+    spline_group::{LoopStyle, SplineGroup},
+    vec3_option::Vec3Option,
+};
 use splines::Spline;
 
 pub struct TransformSample {

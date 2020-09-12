@@ -11,6 +11,7 @@ impl Vec3Option {
     pub fn new(x: Option<f32>, y: Option<f32>, z: Option<f32>) -> Self {
         Self { x, y, z }
     }
+
     pub fn alter(&self, vec: &mut Vec3) {
         if let Some(x) = self.x {
             vec.set_x(x);
@@ -22,6 +23,7 @@ impl Vec3Option {
             vec.set_z(z);
         }
     }
+
     pub fn zero() -> Self {
         Self {
             x: Some(0.0),
@@ -29,6 +31,7 @@ impl Vec3Option {
             z: Some(0.0),
         }
     }
+
     pub fn none() -> Self {
         Self {
             x: None,
