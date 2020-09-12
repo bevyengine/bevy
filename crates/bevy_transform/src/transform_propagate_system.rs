@@ -25,10 +25,12 @@ fn propagate_recursive(
     log::trace!("Updating Transform for {:?}", entity);
 
     let global_matrix = {
-        let mut transform = transform_query.get_mut::<Transform>(entity).unwrap();
-
-        transform.apply_parent_matrix(Some(parent));
-        *transform.global_matrix()
+        if let Ok(mut transform) = transform_query.get_mut::<Transform>(entity) {
+            transform.apply_parent_matrix(Some(parent));
+            *transform.global_matrix()
+        } else {
+            return;
+        }
     };
 
     // Collect children
