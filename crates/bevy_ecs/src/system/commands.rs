@@ -227,8 +227,8 @@ impl Commands {
     /// 
     /// # Example
     /// ```
-    /// // An example with only one component
-    /// commands.spawn(MyComponent);
+    /// // An example with only one component (remember to put your component into a tuple)
+    /// commands.spawn((MyComponent,));
     /// 
     /// // An example using tuples
     /// commands.spawn((MyFirstComponent, MySecondComponent))
@@ -272,7 +272,6 @@ impl Commands {
 
     /// Despawns only the specified entity, ignoring any other consideration.
     /// 
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -284,11 +283,10 @@ impl Commands {
 
     /// Adds the given component to the current entity.
     /// 
-    /// 
     /// # Example
     /// ```
     /// commands
-    ///     .spawn(MyFirstComponent)
+    ///     .spawn((MyFirstComponent,))
     ///     .with(MySecondComponent)
     /// ```
     pub fn with(&mut self, component: impl Component) -> &mut Self {
@@ -302,17 +300,16 @@ impl Commands {
     /// Adds a component bundle to an already existing entity.
     /// This is useful e.g. whenever you want to spawn a entity with more than one additional component.
     /// 
-    /// 
     /// # Example
     /// ```
     /// commands
-    ///     .spawn(MyFirstComponent)
+    ///     .spawn((MyFirstComponent,))
     ///     .with_bundle((MySecondComponent, MyThirdComponent, MyFourthComponent));
     /// ```
     /// same as
     /// ```
     /// commands
-    ///     .spawn(MyFirstComponent)
+    ///     .spawn((MyFirstComponent,))
     ///     .with(MySecondComponent)
     ///     .with(MyThirdComponent)
     ///     .with(MyFourthComponent);
@@ -330,7 +327,6 @@ impl Commands {
 
     /// Adds components to an already existing entity.
     /// 
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -345,7 +341,6 @@ impl Commands {
     }
 
     /// Adds a single component to an already existing entity.
-    /// 
     /// 
     /// # Example
     /// ```
