@@ -7,7 +7,7 @@ use crate::{
 use base::MainPass;
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
-use bevy_transform::components::{Rotation, Scale, Transform, Translation};
+use bevy_transform::components::{GlobalTransform, Rotation, Scale, Transform, Translation};
 
 /// A component bundle for "mesh" entities
 #[derive(Bundle, Default)]
@@ -26,6 +26,7 @@ pub struct Camera3dComponents {
     pub perspective_projection: PerspectiveProjection,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
+    pub global_transform: GlobalTransform,
 }
 
 impl Default for Camera3dComponents {
@@ -38,6 +39,7 @@ impl Default for Camera3dComponents {
             perspective_projection: Default::default(),
             visible_entities: Default::default(),
             transform: Default::default(),
+            global_transform: Default::default(),
         }
     }
 }

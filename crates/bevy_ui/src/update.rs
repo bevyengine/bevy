@@ -47,9 +47,9 @@ fn update_node_entity(
     };
     let global_z = z + parent_global_z;
 
-    let mut position = transform.local_translation();
+    let mut position = transform.translation();
     position.set_z(z);
-    transform.set_local_translation(position);
+    transform.set_translation(position);
 
     Some(global_z)
 }

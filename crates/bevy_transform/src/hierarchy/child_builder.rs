@@ -207,7 +207,7 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::BuildChildren;
-    use crate::prelude::{Children, Parent, PreviousParent, Transform};
+    use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{Commands, Entity, Resources, World};
     use smallvec::{smallvec, SmallVec};
 
@@ -289,9 +289,6 @@ mod tests {
             *world.get::<PreviousParent>(child2).unwrap(),
             PreviousParent(Some(parent))
         );
-
-        assert!(world.get::<Transform>(child1).is_ok());
-        assert!(world.get::<Transform>(child2).is_ok());
 
         commands.insert_children(parent, 1, &entities[3..]);
         commands.apply(&mut world, &mut resources);
