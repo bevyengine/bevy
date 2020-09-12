@@ -224,22 +224,18 @@ pub struct Commands {
 
 impl Commands {
     /// Creates a new entity with a given [DynamicBundle] (which is a 'set' of components) in the current [World].
-    /// 
     /// # Example
     /// ```
     /// // An example with only one component (remember to put your component into a tuple)
     /// commands.spawn((MyComponent,));
-    /// 
     /// // An example using tuples
     /// commands.spawn((MyFirstComponent, MySecondComponent))
-    /// 
     /// // An example using a derived Bundle
     /// #[derive(Bundle)]
     /// struct MyBundle {
     ///     a: MyFirstComponent,
     ///     b: MySecondComponent,
     /// }
-    /// 
     /// commands.spawn(MyBundle {
     ///     a: MyFirstComponent,
     ///     b: MySecondComponent,
@@ -271,7 +267,6 @@ impl Commands {
     }
 
     /// Despawns only the specified entity, ignoring any other consideration.
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -282,7 +277,6 @@ impl Commands {
     }
 
     /// Adds the given component to the current entity.
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -299,7 +293,6 @@ impl Commands {
 
     /// Adds a component bundle to an already existing entity.
     /// This is useful e.g. whenever you want to spawn a entity with more than one additional component.
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -326,7 +319,6 @@ impl Commands {
     }
 
     /// Adds components to an already existing entity.
-    /// 
     /// # Example
     /// ```
     /// commands
@@ -341,7 +333,6 @@ impl Commands {
     }
 
     /// Adds a single component to an already existing entity.
-    /// 
     /// # Example
     /// ```
     /// commands
