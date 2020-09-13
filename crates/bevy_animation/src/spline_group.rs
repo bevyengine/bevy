@@ -81,13 +81,9 @@ pub trait SplineGroup {
     }
 
     fn duration(&self) -> Option<f32> {
-        let start = self.start_time();
-        let end = self.end_time();
-        if start.is_none() || end.is_none() {
-            None
-        } else {
-            Some((start.unwrap() - end.unwrap()).abs())
-        }
+        self.start_time()
+            .zip(self.end_time())
+            .map(|(start, end)| (start - end).abs())
     }
 
     fn advance(&mut self, delta_time: f32) {
@@ -105,12 +101,10 @@ pub trait SplineGroup {
             } else {
                 start > self.time()
             }
+        } else if self.pong() {
+            start > self.time()
         } else {
-            if self.pong() {
-                start > self.time()
-            } else {
-                end < self.time()
-            }
+            end < self.time()
         };
 
         let loop_time_start = if reversed { end } else { start };
@@ -164,23 +158,11 @@ pub trait SplineGroup {
 }
 
 fn spline_start_time(spline: &Spline<f32, f32>) -> Option<f32> {
-    if spline.is_empty() {
-        return None;
-    }
-    if let Some(first_key) = spline.get(0) {
-        Some(first_key.t)
-    } else {
-        None
-    }
+    spline.get(0).map(|first_key| first_key.t)
 }
 
 fn spline_end_time(spline: &Spline<f32, f32>) -> Option<f32> {
-    if spline.is_empty() {
-        return None;
-    }
-    if let Some(last_key) = spline.get(spline.len() - 1) {
-        Some(last_key.t)
-    } else {
-        None
-    }
+    spline
+        .get(spline.len().saturating_sub(1))
+        .map(|last_key| last_key.t)
 }

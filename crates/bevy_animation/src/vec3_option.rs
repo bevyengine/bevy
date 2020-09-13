@@ -42,14 +42,10 @@ impl Vec3Option {
 }
 
 fn add_one(l: Option<f32>, r: Option<f32>) -> Option<f32> {
-    if l.is_none() && r.is_none() {
-        None
-    } else if l.is_some() && r.is_none() {
-        l
-    } else if l.is_none() && r.is_some() {
-        r
+    if let (Some(l), Some(r)) = (l, r) {
+        Some(l + r)
     } else {
-        Some(l.unwrap() + r.unwrap())
+        l.or(r)
     }
 }
 
