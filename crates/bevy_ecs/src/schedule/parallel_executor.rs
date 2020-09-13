@@ -377,7 +377,11 @@ impl ExecutorStage {
                     {
                         let mut system = system.lock();
                         log::trace!("run {}", system.name());
+                        #[cfg(feature = "profiler")]
+                        crate::profiler_start(resources, system.name().clone());
                         system.run(world_ref, resources_ref);
+                        #[cfg(feature = "profiler")]
+                        crate::profiler_stop(resources, system.name().clone());
                     }
 
                     // Notify dependents that this task is done
