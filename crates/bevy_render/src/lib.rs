@@ -2,6 +2,7 @@ pub mod batch;
 pub mod camera;
 pub mod color;
 pub mod draw;
+pub mod entity;
 pub mod mesh;
 pub mod pass;
 pub mod pipeline;
@@ -10,7 +11,6 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
-mod entity;
 pub use once_cell;
 
 pub mod prelude {
