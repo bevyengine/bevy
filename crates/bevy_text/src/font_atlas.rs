@@ -39,15 +39,16 @@ impl FontAtlas {
         texture_atlases: &mut Assets<TextureAtlas>,
         character: char,
         texture: &Texture,
-    ) {
+    ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
         if let Some(index) =
             self.dynamic_texture_atlas_builder
                 .add_texture(texture_atlas, textures, texture)
         {
             self.glyph_to_index.insert(character, index);
+            true
         } else {
-            panic!("ran out of space in font atlas");
+            false
         }
     }
 }
