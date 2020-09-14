@@ -7,7 +7,8 @@ use crate::{
 use base::MainPass;
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
-use bevy_transform::components::{GlobalTransform, Rotation, Scale, Transform, Translation};
+use bevy_math::Vec3;
+use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A component bundle for "mesh" entities
 #[derive(Bundle, Default)]
@@ -51,9 +52,7 @@ pub struct Camera2dComponents {
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub global_transform: GlobalTransform,
 }
 
 impl Default for Camera2dComponents {
@@ -71,10 +70,8 @@ impl Default for Camera2dComponents {
                 ..Default::default()
             },
             visible_entities: Default::default(),
-            transform: Default::default(),
-            translation: Translation::new(0.0, 0.0, far - 0.1),
-            rotation: Default::default(),
-            scale: Default::default(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, far - 0.1)),
+            global_transform: Default::default(),
         }
     }
 }

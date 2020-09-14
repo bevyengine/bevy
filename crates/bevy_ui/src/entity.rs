@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::Bundle;
+use bevy_math::Vec3;
 use bevy_render::{
     camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
@@ -13,7 +14,7 @@ use bevy_render::{
     pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
-use bevy_transform::prelude::{GlobalTransform, Rotation, Scale, Transform, Translation};
+use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle, Clone)]
 pub struct NodeComponents {
@@ -193,9 +194,7 @@ pub struct UiCameraComponents {
     pub orthographic_projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub global_transform: GlobalTransform,
 }
 
 impl Default for UiCameraComponents {
@@ -213,11 +212,9 @@ impl Default for UiCameraComponents {
                 window_origin: WindowOrigin::BottomLeft,
                 ..Default::default()
             },
-            translation: Translation::new(0.0, 0.0, far - 0.1),
             visible_entities: Default::default(),
-            transform: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, far - 0.1)),
+            global_transform: Default::default(),
         }
     }
 }
