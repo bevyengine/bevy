@@ -258,12 +258,15 @@ impl AssetServer {
                     .to_str()
                     .expect("extension should be a valid string"),
             ) {
+                let mut asset_info_paths = self.asset_info_paths.write();
                 let handle_id = HandleId::new();
                 let resources = &self.loaders[*index];
                 let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
                 let asset = loader.load_from_file(path)?;
                 let handle = Handle::from(handle_id);
+
                 assets.set(handle, asset);
+                asset_info_paths.insert(path.to_owned(), handle_id);
                 Ok(handle)
             } else {
                 Err(AssetServerError::MissingAssetHandler)
