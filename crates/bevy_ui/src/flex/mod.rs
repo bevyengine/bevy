@@ -3,7 +3,7 @@ mod convert;
 use crate::{CalculatedSize, Node, Style};
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
-use bevy_transform::prelude::{Children, LocalTransform, Parent};
+use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, Windows};
 use stretch::{number::Number, Stretch};
@@ -154,7 +154,7 @@ pub fn flex_node_system(
     mut node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
     mut changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
     mut children_query: Query<With<Node, (Entity, Changed<Children>)>>,
-    mut node_transform_query: Query<(Entity, &mut Node, &mut LocalTransform, Option<&Parent>)>,
+    mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes
     for window in windows.iter() {
@@ -190,10 +190,10 @@ pub fn flex_node_system(
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    for (entity, mut node, mut local, parent) in &mut node_transform_query.iter() {
+    for (entity, mut node, mut transform, parent) in &mut node_transform_query.iter() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(layout.size.width, layout.size.height);
-        let mut position = local.w_axis();
+        let mut position = transform.translation();
         position.set_x(layout.location.x + layout.size.width / 2.0);
         position.set_y(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
@@ -203,6 +203,6 @@ pub fn flex_node_system(
             }
         }
 
-        local.set_w_axis(position);
+        transform.set_translation(position);
     }
 }

@@ -48,7 +48,7 @@ fn setup(
         // paddle
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
-            translation: Translation(Vec3::new(0.0, -215.0, 0.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, -215.0, 0.0)),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
         })
@@ -57,7 +57,7 @@ fn setup(
         // ball
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
-            translation: Translation(Vec3::new(0.0, -50.0, 1.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, -50.0, 1.0)),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
         })
@@ -95,7 +95,7 @@ fn setup(
         // left
         .spawn(SpriteComponents {
             material: wall_material,
-            translation: Translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
+            transform: Transform::from_translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
         })
@@ -103,7 +103,7 @@ fn setup(
         // right
         .spawn(SpriteComponents {
             material: wall_material,
-            translation: Translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
+            transform: Transform::from_translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
         })
@@ -111,7 +111,7 @@ fn setup(
         // bottom
         .spawn(SpriteComponents {
             material: wall_material,
-            translation: Translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
             sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
             ..Default::default()
         })
@@ -119,7 +119,7 @@ fn setup(
         // top
         .spawn(SpriteComponents {
             material: wall_material,
-            translation: Translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
+            transform: Transform::from_translation(Vec3::new(0.0, bounds.y() / 2.0, 0.0)),
             sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
             ..Default::default()
         })
@@ -147,7 +147,7 @@ fn setup(
                 .spawn(SpriteComponents {
                     material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
                     sprite: Sprite::new(brick_size),
-                    translation: Translation(brick_position),
+                    transform: Transform::from_translation(brick_position),
                     ..Default::default()
                 })
                 .with(Collider::Scorable);
@@ -158,9 +158,9 @@ fn setup(
 fn paddle_movement_system(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Paddle, &mut Translation)>,
+    mut query: Query<(&Paddle, &mut Transform)>,
 ) {
-    for (paddle, mut translation) in &mut query.iter() {
+    for (paddle, mut transform) in &mut query.iter() {
         let mut direction = 0.0;
         if keyboard_input.pressed(KeyCode::Left) {
             direction -= 1.0;
@@ -170,19 +170,24 @@ fn paddle_movement_system(
             direction += 1.0;
         }
 
-        *translation.0.x_mut() += time.delta_seconds * direction * paddle.speed;
+        transform.translate(Vec3::unit_x() * time.delta_seconds * direction * paddle.speed);
 
         // bound the paddle within the walls
-        *translation.0.x_mut() = f32::max(-380.0, f32::min(380.0, translation.0.x()));
+        let translation = transform.translation();
+        transform.set_translation(Vec3::new(
+            f32::max(-380.0, f32::min(380.0, translation.x())),
+            translation.y(),
+            translation.z(),
+        ));
     }
 }
 
-fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Translation)>) {
+fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Transform)>) {
     // clamp the timestep to stop the ball from escaping when the game starts
     let delta_seconds = f32::min(0.2, time.delta_seconds);
 
-    for (ball, mut translation) in &mut ball_query.iter() {
-        translation.0 += ball.velocity * delta_seconds;
+    for (ball, mut transform) in &mut ball_query.iter() {
+        transform.translate(ball.velocity * delta_seconds);
     }
 }
 
@@ -195,16 +200,21 @@ fn scoreboard_system(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
 fn ball_collision_system(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
-    mut ball_query: Query<(&mut Ball, &Translation, &Sprite)>,
-    mut collider_query: Query<(Entity, &Collider, &Translation, &Sprite)>,
+    mut ball_query: Query<(&mut Ball, &Transform, &Sprite)>,
+    mut collider_query: Query<(Entity, &Collider, &Transform, &Sprite)>,
 ) {
-    for (mut ball, ball_translation, sprite) in &mut ball_query.iter() {
+    for (mut ball, ball_transform, sprite) in &mut ball_query.iter() {
         let ball_size = sprite.size;
         let velocity = &mut ball.velocity;
 
         // check collision with walls
-        for (collider_entity, collider, translation, sprite) in &mut collider_query.iter() {
-            let collision = collide(ball_translation.0, ball_size, translation.0, sprite.size);
+        for (collider_entity, collider, transform, sprite) in &mut collider_query.iter() {
+            let collision = collide(
+                ball_transform.translation(),
+                ball_size,
+                transform.translation(),
+                sprite.size,
+            );
             if let Some(collision) = collision {
                 // scorable colliders should be despawned and increment the scoreboard on collision
                 if let Collider::Scorable = *collider {

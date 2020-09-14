@@ -15,8 +15,7 @@ fn spawn_system(
         commands
             .spawn(SpriteComponents {
                 material,
-                translation: Translation::new(0.0, 0.0, 0.0),
-                scale: Scale(0.1),
+                transform: Transform::from_scale(Vec3::one() * 0.1),
                 ..Default::default()
             })
             .with(Velocity(
@@ -26,7 +25,7 @@ fn spawn_system(
 }
 
 // Move sprites according to their velocity
-fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Translation, &Velocity)>) {
+fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
     // ComputeTaskPool using batches of 32 sprties
     //
@@ -35,16 +34,19 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Translation,
     // elements will not typically be faster than just using a normal Iterator.
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
-    sprites.iter().par_iter(32).for_each(&pool, |(mut t, v)| {
-        t.0 += v.0.extend(0.0);
-    });
+    sprites
+        .iter()
+        .par_iter(32)
+        .for_each(&pool, |(mut transform, velocity)| {
+            transform.translate(velocity.0.extend(0.0));
+        });
 }
 
 // Bounce sprties outside the window
 fn bounce_system(
     pool: Res<ComputeTaskPool>,
     windows: Res<Windows>,
-    mut sprites: Query<(&Translation, &mut Velocity)>,
+    mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
     let Window { width, height, .. } = windows.get_primary().expect("No primary window");
     let left = *width as f32 / -2.0;
@@ -57,7 +59,12 @@ fn bounce_system(
         // ParallelIterator, since negating a vector is very inexpensive.
         .par_iter(32)
         // Filter out sprites that don't need to be bounced
-        .filter(|(t, _)| !(left < t.x() && t.x() < right && bottom < t.y() && t.y() < top))
+        .filter(|(transform, _)| {
+            !(left < transform.translation().x()
+                && transform.translation().x() < right
+                && bottom < transform.translation().y()
+                && transform.translation().y() < top)
+        })
         // For simplicity, just reverse the velocity; don't use realistic bounces
         .for_each(&pool, |(_, mut v)| {
             v.0 = -v.0;

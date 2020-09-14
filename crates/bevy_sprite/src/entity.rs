@@ -10,7 +10,7 @@ use bevy_render::{
     prelude::Draw,
     render_graph::base::MainPass,
 };
-use bevy_transform::prelude::{Rotation, Scale, Transform, Translation};
+use bevy_transform::prelude::{GlobalTransform, Transform};
 
 #[derive(Bundle)]
 pub struct SpriteComponents {
@@ -21,9 +21,7 @@ pub struct SpriteComponents {
     pub draw: Draw,
     pub render_pipelines: RenderPipelines,
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub global_transform: GlobalTransform,
 }
 
 impl Default for SpriteComponents {
@@ -56,9 +54,7 @@ impl Default for SpriteComponents {
             main_pass: MainPass,
             material: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            global_transform: Default::default(),
         }
     }
 }
@@ -77,9 +73,7 @@ pub struct SpriteSheetComponents {
     pub main_pass: MainPass,
     pub mesh: Handle<Mesh>, // TODO: maybe abstract this out
     pub transform: Transform,
-    pub translation: Translation,
-    pub rotation: Rotation,
-    pub scale: Scale,
+    pub global_transform: GlobalTransform,
 }
 
 impl Default for SpriteSheetComponents {
@@ -112,9 +106,7 @@ impl Default for SpriteSheetComponents {
             sprite: Default::default(),
             texture_atlas: Default::default(),
             transform: Default::default(),
-            translation: Default::default(),
-            rotation: Default::default(),
-            scale: Default::default(),
+            global_transform: Default::default(),
         }
     }
 }

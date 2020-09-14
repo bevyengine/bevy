@@ -1,4 +1,4 @@
-use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity, WorldWriter};
 use smallvec::SmallVec;
 
@@ -14,11 +14,7 @@ impl WorldWriter for InsertChildren {
             world
                 .insert(
                     *child,
-                    (
-                        Parent(self.parent),
-                        PreviousParent(Some(self.parent)),
-                        LocalTransform::default(),
-                    ),
+                    (Parent(self.parent), PreviousParent(Some(self.parent))),
                 )
                 .unwrap();
         }
@@ -55,11 +51,7 @@ impl WorldWriter for PushChildren {
             world
                 .insert(
                     *child,
-                    (
-                        Parent(self.parent),
-                        PreviousParent(Some(self.parent)),
-                        LocalTransform::default(),
-                    ),
+                    (Parent(self.parent), PreviousParent(Some(self.parent))),
                 )
                 .unwrap();
         }
@@ -215,7 +207,7 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::BuildChildren;
-    use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+    use crate::prelude::{Children, Parent, PreviousParent};
     use bevy_ecs::{Commands, Entity, Resources, World};
     use smallvec::{smallvec, SmallVec};
 
@@ -261,9 +253,6 @@ mod tests {
             *world.get::<PreviousParent>(child2).unwrap(),
             PreviousParent(Some(parent))
         );
-
-        assert!(world.get::<LocalTransform>(child1).is_ok());
-        assert!(world.get::<LocalTransform>(child2).is_ok());
     }
 
     #[test]
@@ -301,9 +290,6 @@ mod tests {
             PreviousParent(Some(parent))
         );
 
-        assert!(world.get::<LocalTransform>(child1).is_ok());
-        assert!(world.get::<LocalTransform>(child2).is_ok());
-
         commands.insert_children(parent, 1, &entities[3..]);
         commands.apply(&mut world, &mut resources);
 
@@ -322,8 +308,5 @@ mod tests {
             *world.get::<PreviousParent>(child4).unwrap(),
             PreviousParent(Some(parent))
         );
-
-        assert!(world.get::<LocalTransform>(child3).is_ok());
-        assert!(world.get::<LocalTransform>(child4).is_ok());
     }
 }

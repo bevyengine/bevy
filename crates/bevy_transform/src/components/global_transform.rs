@@ -3,34 +3,34 @@ use bevy_property::Properties;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
-pub struct Transform {
+pub struct GlobalTransform {
     value: Mat4,
 }
 
-impl Transform {
+impl GlobalTransform {
     #[inline(always)]
     pub fn new(value: Mat4) -> Self {
-        Transform { value }
+        GlobalTransform { value }
     }
 
     #[inline(always)]
     pub fn identity() -> Self {
-        Transform {
+        GlobalTransform {
             value: Mat4::identity(),
         }
     }
 
     pub fn from_translation(translation: Vec3) -> Self {
-        Transform::new(Mat4::from_translation(translation))
+        GlobalTransform::new(Mat4::from_translation(translation))
     }
 
     pub fn from_rotation(rotation: Quat) -> Self {
-        Transform::new(Mat4::from_quat(rotation))
+        GlobalTransform::new(Mat4::from_quat(rotation))
     }
 
     // TODO: make sure scale is positive
     pub fn from_scale(scale: Vec3) -> Self {
-        Transform::new(Mat4::from_scale(scale))
+        GlobalTransform::new(Mat4::from_scale(scale))
     }
 
     pub fn with_translation(mut self, translation: Vec3) -> Self {
@@ -106,13 +106,13 @@ impl Transform {
     }
 }
 
-impl Default for Transform {
+impl Default for GlobalTransform {
     fn default() -> Self {
         Self::identity()
     }
 }
 
-impl fmt::Display for Transform {
+impl fmt::Display for GlobalTransform {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
     }

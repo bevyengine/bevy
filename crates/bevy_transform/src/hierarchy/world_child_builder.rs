@@ -1,4 +1,4 @@
-use crate::prelude::{Children, LocalTransform, Parent, PreviousParent};
+use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
 pub struct WorldChildBuilder<'a, 'b> {
@@ -23,11 +23,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .expect("There should always be a parent at this point.");
         self.world_builder
             .spawn_as_entity(entity, components)
-            .with_bundle((
-                Parent(parent_entity),
-                PreviousParent(Some(parent_entity)),
-                LocalTransform::default(),
-            ));
+            .with_bundle((Parent(parent_entity), PreviousParent(Some(parent_entity))));
         {
             let world = &mut self.world_builder.world;
             let mut added = false;
