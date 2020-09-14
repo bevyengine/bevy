@@ -18,6 +18,7 @@ pub struct MeshComponents {
     pub render_pipelines: RenderPipelines,
     pub main_pass: MainPass,
     pub transform: Transform,
+    pub global_transform: GlobalTransform,
 }
 
 /// A component bundle for "3d camera" entities
