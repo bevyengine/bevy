@@ -9,7 +9,7 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that uses that material.
+/// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that material.
 /// In Bevy, "shader defs" are a way to selectively enable parts of a shader based on values set in a component or asset.
 fn main() {
     App::build()
