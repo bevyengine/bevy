@@ -170,15 +170,11 @@ fn paddle_movement_system(
             direction += 1.0;
         }
 
-        transform.translate(Vec3::unit_x() * time.delta_seconds * direction * paddle.speed);
-
+        let translation = transform.translation_mut();
+        // move the paddle horizontally
+        *translation.x_mut() += time.delta_seconds * direction * paddle.speed;
         // bound the paddle within the walls
-        let translation = transform.translation();
-        transform.set_translation(Vec3::new(
-            f32::max(-380.0, f32::min(380.0, translation.x())),
-            translation.y(),
-            translation.z(),
-        ));
+        *translation.x_mut() = translation.x().min(380.0).max(-380.0);
     }
 }
 
