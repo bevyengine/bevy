@@ -13,6 +13,6 @@ edition = "2018"
 [dependencies]
 futures-lite = "1.4.0"
 event-listener = "2.4.0"
-async-executor = "1.1.0"
+async-executor = "1.1.1"
 async-channel = "1.4.2"
 num_cpus = "1"
