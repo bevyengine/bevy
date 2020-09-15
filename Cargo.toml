@@ -2,7 +2,10 @@
 name = "bevy"
 version = "0.1.3"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "A refreshingly simple data-driven game engine and app framework"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -14,8 +17,15 @@ exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 
 [features]
 default = [
-    "bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit",
-    "dynamic_plugins", "png", "hdr", "mp3", "x11"
+    "bevy_audio",
+    "bevy_gltf",
+    "bevy_wgpu",
+    "bevy_winit",
+    "dynamic_plugins",
+    "png",
+    "hdr",
+    "mp3",
+    "x11",
 ]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
@@ -42,10 +52,7 @@ wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
 [workspace]
-members = [
-    "crates/*",
-    "crates/bevy_ecs/hecs",
-]
+members = ["crates/*", "crates/bevy_ecs/hecs"]
 exclude = ["benches"]
 
 [dependencies]
@@ -77,8 +84,8 @@ bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.1" }
 bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
 
 [dev-dependencies]
-rand = "0.7.2"
-serde = { version = "1", features = ["derive"]}
+rand = "0.7.3"
+serde = { version = "1", features = ["derive"] }
 
 [[example]]
 name = "hello_world"
