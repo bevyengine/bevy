@@ -65,11 +65,9 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     for mut text in &mut query.iter() {
         state.timer.tick(time.delta_seconds);
         let c = rand::random::<u8>() as char;
-        if !text.value.contains(c) {
-            if state.timer.finished {
-                text.value = format!("{}{}", text.value, c);
-                state.timer.reset();
-            }
+        if !text.value.contains(c) && state.timer.finished {
+            text.value = format!("{}{}", text.value, c);
+            state.timer.reset();
         }
     }
 }

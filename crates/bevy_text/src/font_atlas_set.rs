@@ -81,10 +81,10 @@ impl FontAtlasSet {
             {
                 if let Some(outlined_glyph) = scaled_font.outline_glyph(glyph.clone()) {
                     let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
-
-                    if !font_atlas.iter_mut().any(|atlas| {
+                    let add_char_to_fontatlas = |atlas: &mut FontAtlas| -> bool {
                         atlas.add_char(textures, texture_atlases, character, &glyph_texture)
-                    }) {
+                    };
+                    if !font_atlas.iter_mut().any(add_char_to_fontatlas) {
                         font_atlas.push(FontAtlas::new(
                             textures,
                             texture_atlases,
