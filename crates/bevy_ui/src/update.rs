@@ -39,7 +39,6 @@ fn update_node_entity(
     parent_result: Option<f32>,
     previous_result: Option<f32>,
 ) -> Option<f32> {
-    let mut transform = node_query.get_mut::<Transform>(entity).ok()?;
     let mut z = UI_Z_STEP;
     let parent_global_z = parent_result.unwrap();
     if let Some(previous_global_z) = previous_result {
@@ -47,9 +46,8 @@ fn update_node_entity(
     };
     let global_z = z + parent_global_z;
 
-    let mut position = transform.translation();
-    position.set_z(z);
-    transform.set_translation(position);
+    let mut transform = node_query.get_mut::<Transform>(entity).ok()?;
+    transform.translation_mut().set_z(z);
 
     Some(global_z)
 }

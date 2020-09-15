@@ -1,7 +1,7 @@
 use crate::{CalculatedSize, Node};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Changed, Query, Res, ResMut};
-use bevy_math::{Size, Vec3};
+use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     prelude::Msaa,
@@ -61,9 +61,7 @@ pub fn draw_text_system(
     mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
     for (mut draw, text, node, global_transform) in &mut query.iter() {
-        let position = Vec3::from(global_transform.value().w_axis().truncate())
-            - (node.size / 2.0).extend(0.0);
-
+        let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
         let mut drawable_text = DrawableText {
             font: fonts.get(&text.font).unwrap(),
             font_atlas_set: font_atlas_sets

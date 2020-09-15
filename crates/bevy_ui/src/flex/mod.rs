@@ -193,7 +193,7 @@ pub fn flex_node_system(
     for (entity, mut node, mut transform, parent) in &mut node_transform_query.iter() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(layout.size.width, layout.size.height);
-        let mut position = transform.translation();
+        let position = transform.translation_mut();
         position.set_x(layout.location.x + layout.size.width / 2.0);
         position.set_y(layout.location.y + layout.size.height / 2.0);
         if let Some(parent) = parent {
@@ -202,7 +202,5 @@ pub fn flex_node_system(
                 *position.y_mut() -= parent_layout.size.height / 2.0;
             }
         }
-
-        transform.set_translation(position);
     }
 }

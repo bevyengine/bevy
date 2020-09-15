@@ -1,4 +1,4 @@
-use bevy_math::{Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Mat3, Mat4, Quat, Vec3, Vec4};
 use bevy_property::Properties;
 use std::fmt;
 
@@ -58,6 +58,10 @@ impl Transform {
 
     pub fn translation(&self) -> Vec3 {
         Vec3::from(self.value.w_axis().truncate())
+    }
+
+    pub fn translation_mut(&mut self) -> &mut Vec4 {
+        self.value.w_axis_mut()
     }
 
     pub fn rotation(&self) -> Quat {
