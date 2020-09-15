@@ -1,7 +1,7 @@
 use crate::{CalculatedSize, Node};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Changed, Query, Res, ResMut};
-use bevy_math::{Size, Vec3};
+use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     prelude::Msaa,
@@ -10,7 +10,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Default, Clone)]
 pub struct Text {
@@ -58,12 +58,10 @@ pub fn draw_text_system(
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
-    mut query: Query<(&mut Draw, &Text, &Node, &Transform)>,
+    mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
-    for (mut draw, text, node, transform) in &mut query.iter() {
-        let position =
-            Vec3::from(transform.value.w_axis().truncate()) - (node.size / 2.0).extend(0.0);
-
+    for (mut draw, text, node, global_transform) in &mut query.iter() {
+        let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
         let mut drawable_text = DrawableText {
             font: fonts.get(&text.font).unwrap(),
             font_atlas_set: font_atlas_sets

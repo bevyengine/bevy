@@ -23,7 +23,7 @@ fn setup(
                 .unwrap(),
             // create a material for the mesh
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            translation: Translation::new(-1.5, 0.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(-1.5, 0.0, 0.0)),
             ..Default::default()
         })
         // mesh
@@ -34,17 +34,17 @@ fn setup(
                 .unwrap(),
             // create a material for the mesh
             material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
-            translation: Translation::new(1.5, 0.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(1.5, 0.0, 0.0)),
             ..Default::default()
         })
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, 5.0, 4.0),
+            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(-2.0, 2.0, 6.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

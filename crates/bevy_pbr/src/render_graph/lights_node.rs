@@ -80,7 +80,7 @@ pub fn lights_node_system(
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     // TODO: this write on RenderResourceBindings will prevent this system from running in parallel with other systems that do the same
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
-    mut query: Query<(&Light, &Transform, &Translation)>,
+    mut query: Query<(&Light, &GlobalTransform)>,
 ) {
     let state = &mut state;
     let render_resource_context = &**render_resource_context;
@@ -132,14 +132,12 @@ pub fn lights_node_system(
             data[0..light_count_size].copy_from_slice([light_count as u32, 0, 0, 0].as_bytes());
 
             // light array
-            for ((light, transform, translation), slot) in query
+            for ((light, global_transform), slot) in query
                 .iter()
                 .iter()
                 .zip(data[light_count_size..current_light_uniform_size].chunks_exact_mut(size))
             {
-                slot.copy_from_slice(
-                    LightRaw::from(&light, &transform.value, &translation).as_bytes(),
-                );
+                slot.copy_from_slice(LightRaw::from(&light, &global_transform).as_bytes());
             }
         },
     );
