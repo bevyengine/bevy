@@ -7,52 +7,72 @@
 - [Task System for Bevy][384]
   - Replaces rayon with a custom designed task system that consists of several "TaskPools".
   - Exports `IOTaskPool`, `ComputePool`, and `AsyncComputePool` in `bevy_tasks` crate.
-- [Added support for binary glTF (.glb).][271]
-- [Added support for 'or' in ECS querying for tuple queries.][358]
-- [Added `Color::hex`][362] to create a `Color` from hex values.
-  - supports RGB , RGBA, RRGGBB, and RRGGBBAA.
-- [Added `Color::rgb_u8` and `Color::rgba_u8`.][381]
+- [Parallel queries for distributing work over with the `ParallelIterator` trait.][292]
+  - e.g. `query.iter().par_iter(batch_size).for_each(/* ... */)`
+- [Support for binary glTF (.glb).][271]
+- [Support for `Or` in ECS queries.][358]
+- [Added methods `unload()` and `unload_sync()` on `SceneSpawner` for unloading scenes.][339].
+- [Custom rodio source for audio.][145]
+  - `AudioOuput` is now able to play anything `Decodable`.
+- [`Color::hex`][362] for creating `Color` from string hex values.
+  - Accepts the forms RGB, RGBA, RRGGBB, and RRGGBBAA.
+- [`Color::rgb_u8` and `Color::rgba_u8`.][381]
 - [Added `bevy_render::pass::ClearColor` to prelude.][396]
-- [Added methods on `Input<T>`][428] for access to all pressed/just_pressed/just_released keys.
-  - `{get_pressed, get_just_pressed, get_just_released}`
+- [`SpriteResizeMode` may choose how `Sprite` resizing should be handled. `Automatic` by default.][430]
+- [Added methods on `Input<T>`][428] for iterator access to keys.
+  - `get_pressed()`, `get_just_pressed()`, `get_just_released()`
+- [Derived `Copy` for `MouseScrollUnit`.][270]
 - [Derived `Clone` for UI component bundles.][390]
-- Tips for faster builds on macos: [#312][312], [#314][314], [#433][433]
+- [Some examples of documentation][338]
+- [Update docs for Updated, Changed and Mutated][451]
+- Tips for faster builds on macOS: [#312][312], [#314][314], [#433][433]
 - Added and documented cargo features
   - [Created document `docs/cargo_features.md`.][249]
   - [Added features for x11 and wayland display servers.][249]
   - [and added a feature to disable libloading.][363] (helpful for WASM support)
-- Added more instructions for linux dependencies: [Arch / Manjaro][275], [NixOS][290], and [Solus][331]
+- Added more instructions for Linux dependencies
+  - [Arch / Manjaro][275], [NixOS][290], [Ubuntu][463] and [Solus][331]
+- [Provide shell.nix for easier compiling with nix-shell][491]
 
 ### Changed
  
+- [Transform rewrite][374]
 - [Bump entities to u128 to avoid collisions][393]
+- [Optimize transform systems to only run on changes.][417]
 - [Send an AssetEvent when modifying using `get_id_mut`][323]
 - [Rename `Assets::get_id_mut` -> `Assets::get_with_id_mut`][332]
 - [Support multiline text in `DrawableText`][183]
-- [Some examples of documentation][338]
 - [iOS: use shaderc-rs for glsl to spirv compilation][324]
 - [Changed the default node size to Auto instead of Undefined to match the Stretch implementation.][304]
-- Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
 - [Load assets from root path when loading directly][478]
+- [Add `render` feature][485], which makes the entire render pipeline optional.
 
 ### Fixed
 
 - [Properly track added and removed RenderResources in RenderResourcesNode.][361]
   - Fixes issues where entities vanished or changed color when new entities were spawned/despawned.
-- [Fixed sprite clipping at same depth][385]; transparent sprites should no longer clip.
+- [Fixed sprite clipping at same depth][385]
+  - Transparent sprites should no longer clip.
 - [Check asset path existence][345]
 - [Fixed deadlock in hot asset reloading][376]
 - [Fixed hot asset reloading on Windows][394]
 - [Allow glTFs to be loaded that don't have uvs and normals][406]
 - [Fixed archetypes_generation being incorrectly updated for systems][383]
 - [Remove child from parent when it is despawned][386]
+- [Initialize App.schedule systems when running the app][444]
+- [Fix missing asset info path for synchronous loading][486]
 
+### Internal Improvements
+- Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
 
+[145]: https://github.com/bevyengine/bevy/pull/145
 [183]: https://github.com/bevyengine/bevy/pull/183
 [249]: https://github.com/bevyengine/bevy/pull/249
+[270]: https://github.com/bevyengine/bevy/pull/270
 [271]: https://github.com/bevyengine/bevy/pull/271
 [275]: https://github.com/bevyengine/bevy/pull/275
 [290]: https://github.com/bevyengine/bevy/pull/290
+[292]: https://github.com/bevyengine/bevy/pull/292
 [304]: https://github.com/bevyengine/bevy/pull/304
 [312]: https://github.com/bevyengine/bevy/pull/312
 [314]: https://github.com/bevyengine/bevy/pull/314
@@ -70,6 +90,7 @@
 [362]: https://github.com/bevyengine/bevy/pull/362
 [363]: https://github.com/bevyengine/bevy/pull/363
 [373]: https://github.com/bevyengine/bevy/pull/373
+[374]: https://github.com/bevyengine/bevy/pull/374
 [376]: https://github.com/bevyengine/bevy/pull/376
 [381]: https://github.com/bevyengine/bevy/pull/381
 [383]: https://github.com/bevyengine/bevy/pull/383
@@ -80,12 +101,20 @@
 [393]: https://github.com/bevyengine/bevy/pull/393
 [394]: https://github.com/bevyengine/bevy/pull/394
 [396]: https://github.com/bevyengine/bevy/pull/396
+[339]: https://github.com/bevyengine/bevy/pull/339
 [406]: https://github.com/bevyengine/bevy/pull/406
+[417]: https://github.com/bevyengine/bevy/pull/417
 [423]: https://github.com/bevyengine/bevy/pull/423
 [428]: https://github.com/bevyengine/bevy/pull/428
+[430]: https://github.com/bevyengine/bevy/pull/430
 [433]: https://github.com/bevyengine/bevy/pull/433
+[444]: https://github.com/bevyengine/bevy/pull/444
+[451]: https://github.com/bevyengine/bevy/pull/451
+[463]: https://github.com/bevyengine/bevy/pull/463
 [478]: https://github.com/bevyengine/bevy/pull/478
-
+[485]: https://github.com/bevyengine/bevy/pull/485
+[486]: https://github.com/bevyengine/bevy/pull/486
+[491]: https://github.com/bevyengine/bevy/pull/491
 
 ## Version 0.1.3 (2020-8-22)
 
