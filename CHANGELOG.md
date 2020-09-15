@@ -114,6 +114,7 @@
 [478]: https://github.com/bevyengine/bevy/pull/478
 [485]: https://github.com/bevyengine/bevy/pull/485
 [486]: https://github.com/bevyengine/bevy/pull/486
+[491]: https://github.com/bevyengine/bevy/pull/491
 
 ## Version 0.1.3 (2020-8-22)
 
