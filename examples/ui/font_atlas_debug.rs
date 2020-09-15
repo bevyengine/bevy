@@ -40,7 +40,9 @@ fn atlas_render_system(
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
-            let texture_atlas = texture_atlases.get(&font_atlas[state.atlas_count as usize].texture_atlas).unwrap();
+            let texture_atlas = texture_atlases
+                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
+                .unwrap();
             state.atlas_count += 1;
             commands.spawn(ImageComponents {
                 material: materials.add(texture_atlas.texture.into()),
@@ -63,8 +65,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     for mut text in &mut query.iter() {
         state.timer.tick(time.delta_seconds);
         let c = rand::random::<u8>() as char;
-        if !text.value.contains(c)
-        {
+        if !text.value.contains(c) {
             if state.timer.finished {
                 text.value = format!("{}{}", text.value, c);
                 state.timer.reset();
