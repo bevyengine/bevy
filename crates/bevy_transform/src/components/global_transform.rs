@@ -28,9 +28,20 @@ impl GlobalTransform {
         GlobalTransform::new(Mat4::from_quat(rotation))
     }
 
-    // TODO: make sure scale is positive
-    pub fn from_scale(scale: Vec3) -> Self {
+    pub fn from_scale(scale: f32) -> Self {
+        GlobalTransform::new(Mat4::from_scale(Vec3::splat(scale)))
+    }
+
+    pub fn from_non_uniform_scale(scale: Vec3) -> Self {
         GlobalTransform::new(Mat4::from_scale(scale))
+    }
+
+    pub fn from_translation_rotation_scale(translation: Vec3, rotation: Quat, scale: f32) -> Self {
+        GlobalTransform::new(Mat4::from_scale_rotation_translation(
+            Vec3::splat(scale),
+            rotation,
+            translation,
+        ))
     }
 
     pub fn with_translation(mut self, translation: Vec3) -> Self {
@@ -43,8 +54,13 @@ impl GlobalTransform {
         self
     }
 
-    pub fn with_scale(mut self, scale: Vec3) -> Self {
+    pub fn with_scale(mut self, scale: f32) -> Self {
         self.apply_scale(scale);
+        self
+    }
+
+    pub fn with_non_uniform_scale(mut self, scale: Vec3) -> Self {
+        self.apply_non_uniform_scale(scale);
         self
     }
 
@@ -83,14 +99,21 @@ impl GlobalTransform {
     }
 
     pub fn set_rotation(&mut self, rotation: Quat) {
-        let rotation = rotation * self.rotation().conjugate();
-        rotation.normalize();
-        self.value = Mat4::from_quat(rotation) * self.value;
+        self.value =
+            Mat4::from_scale_rotation_translation(self.scale(), rotation, self.translation());
     }
 
-    pub fn set_scale(&mut self, scale: Vec3) {
-        let scale = scale / self.scale();
-        self.value = Mat4::from_scale(scale) * self.value;
+    pub fn set_scale(&mut self, scale: f32) {
+        self.value = Mat4::from_scale_rotation_translation(
+            Vec3::splat(scale),
+            self.rotation(),
+            self.translation(),
+        );
+    }
+
+    pub fn set_non_uniform_scale(&mut self, scale: Vec3) {
+        self.value =
+            Mat4::from_scale_rotation_translation(scale, self.rotation(), self.translation());
     }
 
     pub fn translate(&mut self, translation: Vec3) {
@@ -101,7 +124,11 @@ impl GlobalTransform {
         self.value = Mat4::from_quat(rotation) * self.value;
     }
 
-    pub fn apply_scale(&mut self, scale: Vec3) {
+    pub fn apply_scale(&mut self, scale: f32) {
+        self.value = Mat4::from_scale(Vec3::splat(scale)) * self.value;
+    }
+
+    pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
         self.value = Mat4::from_scale(scale) * self.value;
     }
 }
