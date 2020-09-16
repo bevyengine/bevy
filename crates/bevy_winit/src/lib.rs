@@ -71,7 +71,7 @@ where
     target_os = "netbsd",
     target_os = "openbsd"
 )))]
-fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+fn run_return<F>(_event_loop: &mut EventLoop<()>, _event_handler: F)
 where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {

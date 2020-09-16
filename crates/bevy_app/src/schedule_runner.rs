@@ -6,10 +6,10 @@ use crate::{
 };
 use std::time::Duration;
 
+#[cfg(target_arch = "wasm32")]
+use instant::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use std::{thread, time::Instant};
-#[cfg(target_arch = "wasm32")]
-use wasm_timer::Instant;
 
 #[cfg(target_arch = "wasm32")]
 use std::{cell::RefCell, rc::Rc};
