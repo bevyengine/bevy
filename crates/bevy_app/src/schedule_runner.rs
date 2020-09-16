@@ -4,10 +4,17 @@ use crate::{
     event::{EventReader, Events},
     plugin::Plugin,
 };
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
+use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::{thread, time::Instant};
+#[cfg(target_arch = "wasm32")]
+use wasm_timer::Instant;
+
+#[cfg(target_arch = "wasm32")]
+use std::{cell::RefCell, rc::Rc};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{prelude::*, JsCast};
 
 /// Determines the method used to run an [App]'s `Schedule`
 #[derive(Copy, Clone, Debug)]
@@ -53,32 +60,74 @@ impl Plugin for ScheduleRunnerPlugin {
                 RunMode::Once => {
                     app.update();
                 }
-                RunMode::Loop { wait } => loop {
-                    let start_time = Instant::now();
+                RunMode::Loop { wait } => {
+                    let mut tick = move |app: &mut App,
+                                         wait: Option<Duration>|
+                          -> Option<Duration> {
+                        let start_time = Instant::now();
 
-                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                        if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                            break;
+                        if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
+                                return None;
+                            }
+                        }
+
+                        app.update();
+
+                        if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
+                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
+                                return None;
+                            }
+                        }
+
+                        let end_time = Instant::now();
+
+                        if let Some(wait) = wait {
+                            let exe_time = end_time - start_time;
+                            if exe_time < wait {
+                                return Some(wait - exe_time);
+                            }
+                        }
+
+                        None
+                    };
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        loop {
+                            if let Some(delay) = tick(&mut app, wait) {
+                                thread::sleep(delay);
+                            }
                         }
                     }
 
-                    app.update();
-
-                    if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                        if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                            break;
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        fn set_timeout(f: &Closure<dyn FnMut()>, dur: Duration) {
+                            web_sys::window()
+                                .unwrap()
+                                .set_timeout_with_callback_and_timeout_and_arguments_0(
+                                    f.as_ref().unchecked_ref(),
+                                    dur.as_millis() as i32,
+                                )
+                                .expect("should register `setTimeout`");
                         }
-                    }
+                        let asap = Duration::from_millis(1);
 
-                    let end_time = Instant::now();
+                        let mut rc = Rc::new(app);
+                        let f = Rc::new(RefCell::new(None));
+                        let g = f.clone();
 
-                    if let Some(wait) = wait {
-                        let exe_time = end_time - start_time;
-                        if exe_time < wait {
-                            thread::sleep(wait - exe_time);
-                        }
-                    }
-                },
+                        let c = move || {
+                            let mut app = Rc::get_mut(&mut rc).unwrap();
+                            let delay = tick(&mut app, wait).unwrap_or(asap);
+                            set_timeout(f.borrow().as_ref().unwrap(), delay);
+                        };
+
+                        *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));
+                        set_timeout(g.borrow().as_ref().unwrap(), asap);
+                    };
+                }
             }
         });
     }
