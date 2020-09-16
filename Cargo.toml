@@ -83,6 +83,12 @@ bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.2.1" }
 bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.2.1" }
 bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.2.1" }
 
+# bevy (Android)
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.1"
+log = "0.4"
+android_logger = "0.9"
+
 [dev-dependencies]
 rand = "0.7.3"
 serde = { version = "1", features = ["derive"] }
@@ -309,3 +315,17 @@ required-features = ["bevy_winit"]
 name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
+
+[[example]]
+name = "bevy_android"
+path = "examples/android/bevy_android.rs"
+crate-type = ["cdylib"]
+
+[package.metadata.android]
+build_targets = [ "aarch64-linux-android", "armv7-linux-androideabi" ]
+target_sdk_version = 29
+min_sdk_version = 29
+
+[[package.metadata.android.feature]]
+name = "android.hardware.vulkan.level"
+version = "1"
