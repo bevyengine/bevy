@@ -87,11 +87,11 @@ bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
 [dev-dependencies]
 rand = "0.7.3"
 serde = { version = "1", features = ["derive"] }
-
-[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-console_error_panic_hook = "0.1.6"
 log = "0.4"
-console_log = "0.2"
+
+#wasm
+console_error_panic_hook = "0.1.6"
+console_log = { version = "0.2", features = ["color"] }
 
 [[example]]
 name = "hello_world"
@@ -264,4 +264,9 @@ path = "examples/window/window_settings.rs"
 [[example]]
 name = "hello_wasm"
 path = "examples/wasm/hello_wasm.rs"
+required-features = []
+
+[[example]]
+name = "headless_wasm"
+path = "examples/wasm/headless_wasm.rs"
 required-features = []

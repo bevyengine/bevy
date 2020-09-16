@@ -126,9 +126,9 @@ Example | File | Description
 
 #### build & run
 
-    $ cargo build --example hello_wasm --target wasm32-unknown-unknown --no-default-features
-    $ wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/hello_wasm.wasm
+    $ cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
+    $ wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
 
-Then serve example dir to browser. i.e.
+Then serve `examples/wasm` dir to browser. i.e.
 
     $ basic-http-server examples/wasm
