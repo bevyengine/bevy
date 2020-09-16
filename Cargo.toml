@@ -270,3 +270,8 @@ required-features = []
 name = "headless_wasm"
 path = "examples/wasm/headless_wasm.rs"
 required-features = []
+
+[[example]]
+name = "winit_wasm"
+path = "examples/wasm/winit_wasm.rs"
+required-features = []
