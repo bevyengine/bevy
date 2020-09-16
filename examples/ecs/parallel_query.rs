@@ -15,7 +15,7 @@ fn spawn_system(
         commands
             .spawn(SpriteComponents {
                 material,
-                transform: Transform::from_scale(Vec3::one() * 0.1),
+                transform: Transform::from_scale(0.1),
                 ..Default::default()
             })
             .with(Velocity(
