@@ -773,14 +773,22 @@ impl World {
     /// Invoked implicitly by `spawn`, `despawn`, `insert`, and `remove`.
     pub fn flush(&mut self) {
         let arch = &mut self.archetypes[0];
-        for entity in self.entities.flush() {
-            self.entities.meta[entity.id as usize].location.index =
-                unsafe { arch.allocate(entity) };
+        for entity_id in self.entities.flush() {
+            self.entities.meta[entity_id as usize].location.index = unsafe {
+                arch.allocate(Entity {
+                    id: entity_id,
+                    generation: self.entities.meta[entity_id as usize].generation,
+                })
+            };
         }
         for i in 0..self.entities.reserved_len() {
             let id = self.entities.reserved(i);
-            self.entities.meta[id as usize].location.index =
-                unsafe { arch.allocate(Entity { id, generation: 0 }) };
+            self.entities.meta[id as usize].location.index = unsafe {
+                arch.allocate(Entity {
+                    id,
+                    generation: self.entities.meta[id as usize].generation,
+                })
+            };
         }
         self.entities.clear_reserved();
     }

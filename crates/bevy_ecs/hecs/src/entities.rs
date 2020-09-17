@@ -244,18 +244,14 @@ impl Entities {
 
     /// Allocate space for and enumerate pending entities
     #[allow(clippy::reversed_empty_ranges)]
-    pub fn flush(&mut self) -> impl Iterator<Item = Entity> {
+    pub fn flush(&mut self) -> impl Iterator<Item = u32> {
         let pending = self.pending.load(Ordering::Relaxed); // Not racey due to &mut self
-        let to_entity = |index| Entity {
-            id: index,
-            generation: 0,
-        };
         if pending != 0 {
             let first = self.meta.len() as u32;
             self.grow(0);
-            (first..(first + pending)).map(to_entity)
+            first..(first + pending)
         } else {
-            (0..0).map(to_entity)
+            0..0
         }
     }
 
