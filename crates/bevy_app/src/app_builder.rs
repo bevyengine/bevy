@@ -74,6 +74,28 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_startup_stage_after(
+        &mut self,
+        target: &'static str,
+        stage_name: &'static str,
+    ) -> &mut Self {
+        self.app
+            .startup_schedule
+            .add_stage_after(target, stage_name);
+        self
+    }
+
+    pub fn add_startup_stage_before(
+        &mut self,
+        target: &'static str,
+        stage_name: &'static str,
+    ) -> &mut Self {
+        self.app
+            .startup_schedule
+            .add_stage_before(target, stage_name);
+        self
+    }
+
     pub fn add_system(&mut self, system: Box<dyn System>) -> &mut Self {
         self.add_system_to_stage(stage::UPDATE, system)
     }
