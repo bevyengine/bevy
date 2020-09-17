@@ -126,6 +126,10 @@ Example | File | Description
 
 #### build & run
 
+Following is an example for `headless_wasm`. For other examples in wasm/ directory,
+change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
+to point to the correct `.js` file.
+
     $ cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
     $ wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
 

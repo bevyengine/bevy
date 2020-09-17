@@ -46,6 +46,20 @@ impl WinitWindows {
         self.window_id_to_winit.insert(window.id, winit_window.id());
         self.winit_to_window_id.insert(winit_window.id(), window.id);
 
+        #[cfg(target_arch = "wasm32")]
+        {
+            use winit::platform::web::WindowExtWebSys;
+
+            let canvas = winit_window.canvas();
+
+            let window = web_sys::window().unwrap();
+            let document = window.document().unwrap();
+            let body = document.body().unwrap();
+
+            body.append_child(&canvas)
+                .expect("Append canvas to HTML body");
+        }
+
         self.windows.insert(winit_window.id(), winit_window);
     }
 
