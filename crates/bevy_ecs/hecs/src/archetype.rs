@@ -264,8 +264,8 @@ impl Archetype {
             self.entities.resize(
                 self.entities.len() + increment,
                 Entity {
-                    id: !0,
-                    generation: !0,
+                    id: u32::MAX,
+                    generation: u32::MAX,
                 },
             );
 
