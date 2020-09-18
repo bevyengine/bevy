@@ -21,11 +21,11 @@ fn main() {
 fn move_cubes(
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut query: Query<(&mut Translation, &Handle<StandardMaterial>)>,
+    mut query: Query<(&mut Transform, &Handle<StandardMaterial>)>,
 ) {
-    for (mut translation, material_handle) in &mut query.iter() {
+    for (mut transform, material_handle) in &mut query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
-        translation.0 += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
+        transform.translate(Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds);
         material.albedo =
             Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup as f32).sin());
     }
@@ -39,12 +39,12 @@ fn setup(
     commands
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, -4.0, 5.0),
+            transform: Transform::from_translation(Vec3::new(4.0, -4.0, 5.0)),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(0.0, 15.0, 150.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 1.0),
@@ -65,11 +65,11 @@ fn setup(
                 ),
                 ..Default::default()
             }),
-            translation: Translation::new(
+            transform: Transform::from_translation(Vec3::new(
                 rng.gen_range(-50.0, 50.0),
                 rng.gen_range(-50.0, 50.0),
                 0.0,
-            ),
+            )),
             ..Default::default()
         });
     }

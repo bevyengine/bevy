@@ -1,6 +1,6 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
-use bevy_hecs::{Archetype, Ref, RefMut, TypeInfo};
+use bevy_hecs::{Archetype, Entity, Ref, RefMut, TypeInfo, TypeState};
 use bevy_utils::HashMap;
 use core::any::TypeId;
 use std::ptr::NonNull;
@@ -11,8 +11,8 @@ impl<T: Send + Sync + 'static> Resource for T {}
 
 pub(crate) struct ResourceData {
     archetype: Archetype,
-    default_index: Option<u32>,
-    system_id_to_archetype_index: HashMap<u32, u32>,
+    default_index: Option<usize>,
+    system_id_to_archetype_index: HashMap<usize, usize>,
 }
 
 pub enum ResourceIndex {
@@ -94,7 +94,7 @@ impl Resources {
         use std::cmp::Ordering;
         match index.cmp(&archetype.len()) {
             Ordering::Equal => {
-                unsafe { archetype.allocate(index as u128) };
+                unsafe { archetype.allocate(Entity::new(index as u32)) };
             }
             Ordering::Greater => panic!("attempted to access index beyond 'current_capacity + 1'"),
             Ordering::Less => (),
@@ -177,18 +177,18 @@ impl Resources {
 
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn get_unsafe_ref_with_mutated<T: Resource>(
+    pub unsafe fn get_unsafe_ref_with_type_state<T: Resource>(
         &self,
         resource_index: ResourceIndex,
-    ) -> (NonNull<T>, NonNull<bool>) {
+    ) -> (NonNull<T>, &TypeState) {
         self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
                 data.archetype
-                    .get_with_mutated::<T>()
-                    .map(|(resource, mutated)| {
+                    .get_with_type_state::<T>()
+                    .map(|(resource, type_state)| {
                         (
                             NonNull::new_unchecked(resource.as_ptr().add(index)),
-                            NonNull::new_unchecked(mutated.as_ptr().add(index)),
+                            type_state,
                         )
                     })
             })
@@ -203,9 +203,10 @@ impl Resources {
     ) -> (NonNull<bool>, NonNull<bool>) {
         self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
+                let type_state = data.archetype.get_type_state(TypeId::of::<T>())?;
                 Some((
-                    NonNull::new_unchecked(data.archetype.get_added::<T>()?.as_ptr().add(index)),
-                    NonNull::new_unchecked(data.archetype.get_mutated::<T>()?.as_ptr().add(index)),
+                    NonNull::new_unchecked(type_state.added().as_ptr().add(index)),
+                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(index)),
                 ))
             })
             .unwrap_or_else(|| panic!("Resource does not exist {}", std::any::type_name::<T>()))

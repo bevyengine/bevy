@@ -24,10 +24,13 @@ use bevy_render::{
     render_graph::{base, AssetRenderResourcesNode, RenderGraph, RenderResourcesNode},
     shader::Shader,
 };
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::GlobalTransform;
 
 pub(crate) fn add_pbr_graph(graph: &mut RenderGraph, resources: &Resources) {
-    graph.add_system_node(node::TRANSFORM, RenderResourcesNode::<Transform>::new(true));
+    graph.add_system_node(
+        node::TRANSFORM,
+        RenderResourcesNode::<GlobalTransform>::new(true),
+    );
     graph.add_system_node(
         node::STANDARD_MATERIAL,
         AssetRenderResourcesNode::<StandardMaterial>::new(true),

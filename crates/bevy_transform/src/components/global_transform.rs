@@ -1,47 +1,47 @@
-use bevy_math::{Mat3, Mat4, Quat, Vec3, Vec4};
+use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_property::Properties;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
-pub struct Transform {
+pub struct GlobalTransform {
     value: Mat4,
 }
 
-impl Transform {
+impl GlobalTransform {
     #[inline(always)]
     pub fn new(value: Mat4) -> Self {
-        Transform { value }
+        GlobalTransform { value }
     }
 
     #[inline(always)]
     pub fn identity() -> Self {
-        Transform {
+        GlobalTransform {
             value: Mat4::identity(),
         }
     }
 
     pub fn from_translation(translation: Vec3) -> Self {
-        Transform::new(Mat4::from_translation(translation))
+        GlobalTransform::new(Mat4::from_translation(translation))
     }
 
     pub fn from_rotation(rotation: Quat) -> Self {
-        Transform::new(Mat4::from_quat(rotation))
+        GlobalTransform::new(Mat4::from_quat(rotation))
     }
 
     pub fn from_scale(scale: f32) -> Self {
-        Transform::new(Mat4::from_scale(Vec3::splat(scale)))
+        GlobalTransform::new(Mat4::from_scale(Vec3::splat(scale)))
+    }
+
+    pub fn from_non_uniform_scale(scale: Vec3) -> Self {
+        GlobalTransform::new(Mat4::from_scale(scale))
     }
 
     pub fn from_translation_rotation_scale(translation: Vec3, rotation: Quat, scale: f32) -> Self {
-        Transform::new(Mat4::from_scale_rotation_translation(
+        GlobalTransform::new(Mat4::from_scale_rotation_translation(
             Vec3::splat(scale),
             rotation,
             translation,
         ))
-    }
-
-    pub fn from_non_uniform_scale(scale: Vec3) -> Self {
-        Transform::new(Mat4::from_scale(scale))
     }
 
     pub fn with_translation(mut self, translation: Vec3) -> Self {
@@ -74,10 +74,6 @@ impl Transform {
 
     pub fn translation(&self) -> Vec3 {
         Vec3::from(self.value.w_axis().truncate())
-    }
-
-    pub fn translation_mut(&mut self) -> &mut Vec4 {
-        self.value.w_axis_mut()
     }
 
     pub fn rotation(&self) -> Quat {
@@ -137,13 +133,13 @@ impl Transform {
     }
 }
 
-impl Default for Transform {
+impl Default for GlobalTransform {
     fn default() -> Self {
         Self::identity()
     }
 }
 
-impl fmt::Display for Transform {
+impl fmt::Display for GlobalTransform {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.value)
     }

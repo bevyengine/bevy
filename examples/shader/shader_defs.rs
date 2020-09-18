@@ -9,7 +9,7 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that uses that material.
+/// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that material.
 /// In Bevy, "shader defs" are a way to selectively enable parts of a shader based on values set in a component or asset.
 fn main() {
     App::build()
@@ -123,7 +123,7 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            translation: Translation::new(-2.0, 0.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(-2.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(green_material)
@@ -149,13 +149,13 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            translation: Translation::new(2.0, 0.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(blue_material)
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

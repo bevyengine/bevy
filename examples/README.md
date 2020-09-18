@@ -24,7 +24,7 @@ Example | Main | Description
 
 Example | File | Description
 --- | --- | ---
-`load_model` | [`3d/load_model.rs`](./3d/load_model.rs) | Loads and renders a simple model 
+`load_model` | [`3d/load_model.rs`](./3d/load_model.rs) | Loads and renders a simple model
 `msaa` | [`3d/msaa.rs`](./3d/msaa.rs) | Configures MSAA (Multi-Sample Anti-Aliasing) for smoother edges
 `parenting` | [`3d/parenting.rs`](./3d/parenting.rs) | Demonstrates parent->child relationships and relative transformations
 `3d_scene` | [`3d/3d_scene.rs`](./3d/3d_scene.rs) | Simple 3D scene with basic shapes and lighting
@@ -116,3 +116,19 @@ Example | File | Description
 `clear_color` | [`window/clear_color.rs`](./window/clear_color.rs) | Creates a solid color window
 `multiple_windows` | [`window/multiple_windows.rs`](./window/multiple_windows.rs) | Creates two windows and cameras viewing the same mesh
 `window_settings` | [`window/window_settings.rs`](./window/window_settings.rs) | Demonstrates customizing default window settings
+
+## WASM
+
+#### pre-req
+
+    $ rustup target add wasm32-unknown-unknown
+    $ cargo install wasm-bindgen-cli
+
+#### build & run
+
+    $ cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
+    $ wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+
+Then serve `examples/wasm` dir to browser. i.e.
+
+    $ basic-http-server examples/wasm
