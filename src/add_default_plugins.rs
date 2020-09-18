@@ -33,6 +33,9 @@ impl AddDefaultPlugins for AppBuilder {
         #[cfg(feature = "bevy_audio")]
         self.add_plugin(bevy_audio::AudioPlugin::default());
 
+        #[cfg(feature = "bevy_gilrs")]
+        self.add_plugin(bevy_gilrs::GilrsPlugin::default());
+
         #[cfg(feature = "bevy_gltf")]
         self.add_plugin(bevy_gltf::GltfPlugin::default());
 

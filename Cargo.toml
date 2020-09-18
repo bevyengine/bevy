@@ -18,6 +18,7 @@ exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 [features]
 default = [
     "bevy_audio",
+    "bevy_gilrs",
     "bevy_gltf",
     "bevy_wgpu",
     "bevy_winit",
@@ -83,6 +84,7 @@ bevy_text = { path = "crates/bevy_text", optional = true, version = "0.1" }
 bevy_ui = { path = "crates/bevy_ui", optional = true, version = "0.1" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.1" }
 bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
+bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.1" }
 
 [dev-dependencies]
 rand = "0.7.3"
@@ -216,6 +218,10 @@ path = "examples/input/keyboard_input.rs"
 [[example]]
 name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
+
+[[example]]
+name = "gamepad_input"
+path = "examples/input/gamepad_input.rs"
 
 [[example]]
 name = "scene"
