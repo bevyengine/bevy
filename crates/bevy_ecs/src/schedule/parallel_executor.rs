@@ -6,8 +6,7 @@ use crate::{
 use bevy_hecs::{ArchetypesGeneration, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
 use fixedbitset::FixedBitSet;
-use parking_lot::Mutex;
-use std::{ops::Range, sync::Arc};
+use std::ops::Range;
 
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
@@ -109,7 +108,7 @@ impl ExecutorStage {
     pub fn prepare_to_next_thread_local(
         &mut self,
         world: &World,
-        systems: &[Arc<Mutex<Box<dyn System>>>],
+        systems: &mut [Box<dyn System>],
         schedule_changed: bool,
         next_thread_local_index: usize,
     ) -> Range<usize> {
@@ -143,8 +142,7 @@ impl ExecutorStage {
         if schedule_changed || archetypes_generation_changed {
             // update each system's archetype access to latest world archetypes
             for system_index in prepare_system_index_range.clone() {
-                let mut system = systems[system_index].lock();
-                system.update_archetype_access(world);
+                systems[system_index].update_archetype_access(world);
 
                 // Clear this so that the next block of code that populates it doesn't insert
                 // duplicates
@@ -156,7 +154,7 @@ impl ExecutorStage {
             let mut current_archetype_access = ArchetypeAccess::default();
             let mut current_resource_access = TypeAccess::default();
             for system_index in prepare_system_index_range.clone() {
-                let system = systems[system_index].lock();
+                let system = &systems[system_index];
                 let archetype_access = system.archetype_access();
                 match system.thread_local_execution() {
                     ThreadLocalExecution::NextFlush => {
@@ -169,7 +167,7 @@ impl ExecutorStage {
                             for earlier_system_index in
                                 prepare_system_index_range.start..system_index
                             {
-                                let earlier_system = systems[earlier_system_index].lock();
+                                let earlier_system = &systems[earlier_system_index];
 
                                 // due to how prepare ranges work, previous systems should all be "NextFlush"
                                 debug_assert_eq!(
@@ -292,7 +290,7 @@ impl ExecutorStage {
         &self,
         world: &World,
         resources: &Resources,
-        systems: &[Arc<Mutex<Box<dyn System>>>],
+        systems: &mut [Box<dyn System>],
         prepared_system_range: Range<usize>,
         compute_pool: &TaskPool,
     ) {
@@ -300,24 +298,15 @@ impl ExecutorStage {
         log::trace!("running systems {:?}", prepared_system_range);
         compute_pool.scope(|scope| {
             let start_system_index = prepared_system_range.start;
-            for system_index in prepared_system_range {
-                let system = systems[system_index].clone();
-
+            let mut system_index = start_system_index;
+            for system in &mut systems[prepared_system_range] {
                 log::trace!(
                     "prepare {} {} with {} dependents and {} dependencies",
                     system_index,
-                    system.lock().name(),
+                    system.name(),
                     self.system_dependents[system_index].len(),
                     self.system_dependencies[system_index].count_ones(..)
                 );
-
-                for dependency in self.system_dependencies[system_index].ones() {
-                    log::trace!(
-                        "  * system ({}) depends on {}",
-                        system_index,
-                        systems[dependency].lock().name()
-                    );
-                }
 
                 // This event will be awaited, preventing the task from starting until all
                 // our dependencies finish running
@@ -375,7 +364,6 @@ impl ExecutorStage {
                     // Execute the system - in a scope to ensure the system lock is dropped before
                     // triggering dependents
                     {
-                        let mut system = system.lock();
                         log::trace!("run {}", system.name());
                         #[cfg(feature = "profiler")]
                         crate::profiler_start(resources, system.name().clone());
@@ -389,6 +377,7 @@ impl ExecutorStage {
                         trigger_event.decrement();
                     }
                 });
+                system_index += 1;
             }
         });
     }
@@ -397,7 +386,7 @@ impl ExecutorStage {
         &mut self,
         world: &mut World,
         resources: &mut Resources,
-        systems: &[Arc<Mutex<Box<dyn System>>>],
+        systems: &mut [Box<dyn System>],
         schedule_changed: bool,
     ) {
         let start_archetypes_generation = world.archetypes_generation();
@@ -424,7 +413,6 @@ impl ExecutorStage {
                 .resize(systems.len(), Vec::new());
 
             for (system_index, system) in systems.iter().enumerate() {
-                let system = system.lock();
                 if system.thread_local_execution() == ThreadLocalExecution::Immediate {
                     self.thread_local_system_indices.push(system_index);
                 }
@@ -466,7 +454,7 @@ impl ExecutorStage {
                 self.thread_local_system_indices[next_thread_local_index];
             {
                 // if a thread local system is ready to run, run it exclusively on the main thread
-                let mut system = systems[thread_local_system_index].lock();
+                let system = systems[thread_local_system_index].as_mut();
                 log::trace!("running thread local system {}", system.name());
                 system.run(world, resources);
                 system.run_thread_local(world, resources);
@@ -495,8 +483,7 @@ impl ExecutorStage {
         }
 
         // "flush"
-        for system in systems.iter() {
-            let mut system = system.lock();
+        for system in systems.iter_mut() {
             match system.thread_local_execution() {
                 ThreadLocalExecution::NextFlush => system.run_thread_local(world, resources),
                 ThreadLocalExecution::Immediate => { /* already ran */ }
@@ -559,6 +546,7 @@ mod tests {
         schedule.add_system_to_stage("PostArchetypeChange", read.system());
 
         let mut executor = ParallelExecutor::default();
+        schedule.initialize(&mut world, &mut resources);
         executor.run(&mut schedule, &mut world, &mut resources);
     }
 

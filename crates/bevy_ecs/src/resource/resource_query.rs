@@ -266,8 +266,9 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
     type Item = ResMut<'a, T>;
 
     unsafe fn get(resources: &'a Resources, _system_id: Option<SystemId>) -> Self::Item {
-        let (value, mutated) = resources.get_unsafe_ref_with_mutated::<T>(ResourceIndex::Global);
-        ResMut::new(value, mutated)
+        let (value, type_state) =
+            resources.get_unsafe_ref_with_type_state::<T>(ResourceIndex::Global);
+        ResMut::new(value, type_state.mutated())
     }
 
     fn borrow(resources: &Resources) {

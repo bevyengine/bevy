@@ -1,6 +1,6 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
-use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, World};
+use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
 use parking_lot::Mutex;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -28,23 +28,6 @@ where
 {
     fn write(self: Box<Self>, world: &mut World) {
         world.spawn(self.components);
-    }
-}
-
-pub(crate) struct SpawnAsEntity<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    entity: Entity,
-    components: T,
-}
-
-impl<T> WorldWriter for SpawnAsEntity<T>
-where
-    T: DynamicBundle + Send + Sync + 'static,
-{
-    fn write(self: Box<Self>, world: &mut World) {
-        world.spawn_as_entity(self.entity, self.components);
     }
 }
 
@@ -158,24 +141,19 @@ impl<T: Resource> ResourcesWriter for InsertLocalResource<T> {
 pub struct CommandsInternal {
     pub commands: Vec<Command>,
     pub current_entity: Option<Entity>,
+    pub entity_reserver: Option<EntityReserver>,
 }
 
 impl CommandsInternal {
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        self.spawn_as_entity(Entity::new(), components)
-    }
-
-    pub fn spawn_as_entity(
-        &mut self,
-        entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
+        let entity = self
+            .entity_reserver
+            .as_ref()
+            .expect("entity reserver has not been set")
+            .reserve_entity();
         self.current_entity = Some(entity);
         self.commands
-            .push(Command::WriteWorld(Box::new(SpawnAsEntity {
-                entity,
-                components,
-            })));
+            .push(Command::WriteWorld(Box::new(Insert { entity, components })));
         self
     }
 
@@ -224,17 +202,9 @@ pub struct Commands {
 
 impl Commands {
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        self.spawn_as_entity(Entity::new(), components)
-    }
-
-    pub fn spawn_as_entity(
-        &mut self,
-        entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
         {
             let mut commands = self.commands.lock();
-            commands.spawn_as_entity(entity, components);
+            commands.spawn(components);
         }
         self
     }
@@ -348,6 +318,10 @@ impl Commands {
             phantom: PhantomData,
         })
     }
+
+    pub fn set_entity_reserver(&self, entity_reserver: EntityReserver) {
+        self.commands.lock().entity_reserver = Some(entity_reserver);
+    }
 }
 
 #[cfg(test)]
@@ -361,6 +335,7 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         let mut command_buffer = Commands::default();
+        command_buffer.set_entity_reserver(world.get_entity_reserver());
         command_buffer.spawn((1u32, 2u64));
         command_buffer.insert_resource(3.14f32);
         command_buffer.apply(&mut world, &mut resources);

@@ -11,7 +11,7 @@ pub struct Parent(pub Entity);
 // ways to handle cases like this.
 impl FromResources for Parent {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
-        Parent(Entity::from_id(u128::MAX))
+        Parent(Entity::new(u32::MAX))
     }
 }
 

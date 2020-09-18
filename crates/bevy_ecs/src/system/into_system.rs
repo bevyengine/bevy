@@ -11,7 +11,7 @@ pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
 where
     F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
-    Init: FnMut(&mut Resources) + Send + Sync,
+    Init: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
     SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess, &mut State) + Send + Sync,
     State: Send + Sync,
 {
@@ -32,7 +32,7 @@ impl<State, F, ThreadLocalF, Init, SetArchetypeAccess> System
 where
     F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
-    Init: FnMut(&mut Resources) + Send + Sync,
+    Init: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
     SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess, &mut State) + Send + Sync,
     State: Send + Sync,
 {
@@ -65,8 +65,8 @@ where
         (self.thread_local_func)(world, resources, &mut self.state);
     }
 
-    fn initialize(&mut self, resources: &mut Resources) {
-        (self.init_func)(resources);
+    fn initialize(&mut self, world: &mut World, resources: &mut Resources) {
+        (self.init_func)(world, resources, &mut self.state);
     }
 
     fn id(&self) -> SystemId {
@@ -104,21 +104,23 @@ macro_rules! impl_into_foreach_system {
                     name: core::any::type_name::<Self>().into(),
                     id,
                     func: move |world, resources, _archetype_access, state| {
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
                             if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
-                                for ($($component,)*) in world.query::<($($component,)*)>().iter() {
-                                    fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
+                                // SAFE: the scheduler has ensured that there is no archetype clashing here
+                                unsafe {
+                                    for ($($component,)*) in world.query_unchecked::<($($component,)*)>().iter() {
+                                        fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
+                                    }
                                 }
                             }
                         }
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
                     },
                     thread_local_func: move |world, resources, state| {
                         state.apply(world, resources);
                     },
-                    init_func: move |resources| {
+                    init_func: move |world, resources, state| {
                         <($($resource,)*)>::initialize(resources, Some(id));
+                        state.set_entity_reserver(world.get_entity_reserver())
                     },
                     resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
                     archetype_access: ArchetypeAccess::default(),
@@ -174,7 +176,6 @@ macro_rules! impl_into_query_system {
                     id,
                     name: core::any::type_name::<Self>().into(),
                     func: move |world, resources, archetype_access, state| {
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::borrow(&resources);
                         {
                             if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
                                 let mut i = 0;
@@ -187,13 +188,14 @@ macro_rules! impl_into_query_system {
                                 fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
                             }
                         }
-                        <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::release(&resources);
                     },
                     thread_local_func: move |world, resources, state| {
                         state.commands.apply(world, resources);
                     },
-                    init_func: move |resources| {
+                    init_func: move |world, resources, state| {
                         <($($resource,)*)>::initialize(resources, Some(id));
+                        state.commands.set_entity_reserver(world.get_entity_reserver())
+
                     },
                     resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
                     archetype_access: ArchetypeAccess::default(),
@@ -317,7 +319,7 @@ where
                 self.run(world, resources);
             },
             func: |_, _, _, _| {},
-            init_func: |_| {},
+            init_func: |_, _, _| {},
             set_archetype_access: |_, _, _| {},
             thread_local_execution: ThreadLocalExecution::Immediate,
             name: core::any::type_name::<F>().into(),

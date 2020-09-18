@@ -68,7 +68,7 @@ fn iterate_100k(b: &mut Bencher) {
         world.spawn((Position(-(i as f32)), Velocity(i as f32)));
     }
     b.iter(|| {
-        for (mut pos, vel) in &mut world.query::<(&mut Position, &Velocity)>() {
+        for (mut pos, vel) in &mut world.query_mut::<(&mut Position, &Velocity)>() {
             pos.0 += vel.0;
         }
     })
