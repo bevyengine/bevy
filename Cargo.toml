@@ -280,4 +280,4 @@ required-features = []
 [[example]]
 name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
-required-features = []
+required-features = ["bevy_winit"]

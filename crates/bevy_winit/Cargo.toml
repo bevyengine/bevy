@@ -31,3 +31,4 @@ log = { version = "0.4", features = ["release_max_level_info"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 winit = { version = "0.22.2", package = "cart-tmp-winit", features = ["web-sys"] }
+web-sys = "0.3"
