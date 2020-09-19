@@ -9,6 +9,10 @@
   - Exports `IOTaskPool`, `ComputePool`, and `AsyncComputePool` in `bevy_tasks` crate.
 - [Parallel queries for distributing work over with the `ParallelIterator` trait.][292]
   - e.g. `query.iter().par_iter(batch_size).for_each(/* ... */)`
+- [Added gamepad support using Gilrs][280]
+- [Implement WASM support for bevy_winit][503]
+- [Create winit canvas under WebAssembly][506] 
+- [Implement single threaded task scheduler for WebAssembly][496]
 - [Support for binary glTF (.glb).][271]
 - [Support for `Or` in ECS queries.][358]
 - [Added methods `unload()` and `unload_sync()` on `SceneSpawner` for unloading scenes.][339].
@@ -33,11 +37,12 @@
 - Added more instructions for Linux dependencies
   - [Arch / Manjaro][275], [NixOS][290], [Ubuntu][463] and [Solus][331]
 - [Provide shell.nix for easier compiling with nix-shell][491]
+- [Add `AppBuilder::add_startup_stage_|before/after`][505]
 
 ### Changed
  
 - [Transform rewrite][374]
-- [Bump entities to u128 to avoid collisions][393]
+- [Use generational entity ids and other optimizations][504]
 - [Optimize transform systems to only run on changes.][417]
 - [Send an AssetEvent when modifying using `get_id_mut`][323]
 - [Rename `Assets::get_id_mut` -> `Assets::get_with_id_mut`][332]
@@ -61,6 +66,7 @@
 - [Remove child from parent when it is despawned][386]
 - [Initialize App.schedule systems when running the app][444]
 - [Fix missing asset info path for synchronous loading][486]
+- [fix font atlas overflow][495]
 
 ### Internal Improvements
 - Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
@@ -71,6 +77,7 @@
 [270]: https://github.com/bevyengine/bevy/pull/270
 [271]: https://github.com/bevyengine/bevy/pull/271
 [275]: https://github.com/bevyengine/bevy/pull/275
+[280]: https://github.com/bevyengine/bevy/pull/280
 [290]: https://github.com/bevyengine/bevy/pull/290
 [292]: https://github.com/bevyengine/bevy/pull/292
 [304]: https://github.com/bevyengine/bevy/pull/304
@@ -98,7 +105,6 @@
 [385]: https://github.com/bevyengine/bevy/pull/385
 [386]: https://github.com/bevyengine/bevy/pull/386
 [390]: https://github.com/bevyengine/bevy/pull/390
-[393]: https://github.com/bevyengine/bevy/pull/393
 [394]: https://github.com/bevyengine/bevy/pull/394
 [396]: https://github.com/bevyengine/bevy/pull/396
 [339]: https://github.com/bevyengine/bevy/pull/339
@@ -115,6 +121,12 @@
 [485]: https://github.com/bevyengine/bevy/pull/485
 [486]: https://github.com/bevyengine/bevy/pull/486
 [491]: https://github.com/bevyengine/bevy/pull/491
+[495]: https://github.com/bevyengine/bevy/pull/495
+[496]: https://github.com/bevyengine/bevy/pull/496
+[503]: https://github.com/bevyengine/bevy/pull/503
+[504]: https://github.com/bevyengine/bevy/pull/504
+[505]: https://github.com/bevyengine/bevy/pull/505
+[506]: https://github.com/bevyengine/bevy/pull/506
 
 ## Version 0.1.3 (2020-8-22)
 
