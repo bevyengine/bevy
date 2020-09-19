@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -18,11 +18,11 @@ filesystem_watcher = ["notify"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
-bevy_type_registry = { path = "../bevy_type_registry", version = "0.1" }
-bevy_property = { path = "../bevy_property", version = "0.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.1" }
+bevy_app= { path = "../bevy_app", version = "0.2" }
+bevy_ecs= { path = "../bevy_ecs", version = "0.2" }
+bevy_type_registry= { path = "../bevy_type_registry", version = "0.2" }
+bevy_property= { path = "../bevy_property", version = "0.2" }
+bevy_utils= { path = "../bevy_utils", version = "0.2" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
