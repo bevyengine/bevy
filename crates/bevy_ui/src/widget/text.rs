@@ -1,6 +1,7 @@
 use crate::{CalculatedSize, Node};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Changed, Query, Res, ResMut};
+use bevy_core::FloatOrd;
+use bevy_ecs::{Changed, Local, Query, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
@@ -11,6 +12,12 @@ use bevy_render::{
 use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
+use bevy_utils::HashSet;
+
+#[derive(Default)]
+pub struct QueuedTextGlyphs {
+    glyphs: HashSet<(Handle<Font>, FloatOrd, char)>,
+}
 
 #[derive(Default, Clone)]
 pub struct Text {
@@ -20,12 +27,43 @@ pub struct Text {
 }
 
 pub fn text_system(
+    mut queued_text_glyphs: Local<QueuedTextGlyphs>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut query: Query<(Changed<Text>, &mut CalculatedSize)>,
 ) {
+    // add queued glyphs to atlases
+    if !queued_text_glyphs.glyphs.is_empty() {
+        let mut glyphs_to_queue = Vec::new();
+        println!("queue {}", queued_text_glyphs.glyphs.len());
+        for (font_handle, FloatOrd(font_size), character) in queued_text_glyphs.glyphs.drain() {
+            let font_atlases = font_atlas_sets
+                .get_or_insert_with(Handle::from_id(font_handle.id), || {
+                    FontAtlasSet::new(font_handle)
+                });
+
+            // try adding the glyph to an atlas. if it fails, re-queue
+            if let Ok(char_str) = std::str::from_utf8(&[character as u8]) {
+                if font_atlases
+                    .add_glyphs_to_atlas(
+                        &fonts,
+                        &mut texture_atlases,
+                        &mut textures,
+                        font_size,
+                        char_str,
+                    )
+                    .is_none()
+                {
+                    glyphs_to_queue.push((font_handle, FloatOrd(font_size), character));
+                }
+            }
+        }
+
+        queued_text_glyphs.glyphs.extend(glyphs_to_queue);
+    }
+
     for (text, mut calculated_size) in &mut query.iter() {
         let font_atlases = font_atlas_sets
             .get_or_insert_with(Handle::from_id(text.font.id), || {
@@ -37,15 +75,23 @@ pub fn text_system(
         // resource generation needs to happen AFTER the render graph systems. maybe draw systems should execute within the
         // render graph so ordering like this can be taken into account? Maybe the RENDER_GRAPH_SYSTEMS stage should be removed entirely
         // in favor of node.update()? Regardless, in the immediate short term the current approach is fine.
-        let width = font_atlases.add_glyphs_to_atlas(
+        if let Some(width) = font_atlases.add_glyphs_to_atlas(
             &fonts,
             &mut texture_atlases,
             &mut textures,
             text.style.font_size,
             &text.value,
-        );
-
-        calculated_size.size = Size::new(width, text.style.font_size);
+        ) {
+            calculated_size.size = Size::new(width, text.style.font_size);
+        } else {
+            for character in text.value.chars() {
+                queued_text_glyphs.glyphs.insert((
+                    text.font,
+                    FloatOrd(text.style.font_size),
+                    character,
+                ));
+            }
+        }
     }
 }
 
