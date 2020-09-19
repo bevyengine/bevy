@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.1.3"
+version = "0.2.0"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
     "Lachlan Sneff <lachlan.sneff@gmail.com>",

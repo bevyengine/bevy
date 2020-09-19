@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## Version 0.2.0 (2020-9-19)
+
 ### Added
 
 - [Task System for Bevy][384]
@@ -67,6 +69,7 @@
 - [Initialize App.schedule systems when running the app][444]
 - [Fix missing asset info path for synchronous loading][486]
 - [fix font atlas overflow][495]
+- [do not assume font handle is present in assets][490]
 
 ### Internal Improvements
 - Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
@@ -120,6 +123,7 @@
 [478]: https://github.com/bevyengine/bevy/pull/478
 [485]: https://github.com/bevyengine/bevy/pull/485
 [486]: https://github.com/bevyengine/bevy/pull/486
+[490]: https://github.com/bevyengine/bevy/pull/490
 [491]: https://github.com/bevyengine/bevy/pull/491
 [495]: https://github.com/bevyengine/bevy/pull/495
 [496]: https://github.com/bevyengine/bevy/pull/496

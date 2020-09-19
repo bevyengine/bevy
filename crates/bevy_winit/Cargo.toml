@@ -1,6 +1,6 @@
 [package]
 name = "bevy_winit"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -18,12 +18,12 @@ x11 = ["winit/x11"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.1" }
-bevy_input = { path = "../bevy_input", version = "0.1" }
-bevy_math = { path = "../bevy_math", version = "0.1" }
-bevy_window = { path = "../bevy_window", version = "0.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.1" }
+bevy_app= { path = "../bevy_app", version = "0.2" }
+bevy_ecs= { path = "../bevy_ecs", version = "0.2" }
+bevy_input= { path = "../bevy_input", version = "0.2" }
+bevy_math= { path = "../bevy_math", version = "0.2" }
+bevy_window= { path = "../bevy_window", version = "0.2" }
+bevy_utils= { path = "../bevy_utils", version = "0.2" }
 
 # other
 winit = { version = "0.22.2", package = "cart-tmp-winit", default-features = false }
