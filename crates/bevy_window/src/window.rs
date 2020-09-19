@@ -40,6 +40,8 @@ pub struct Window {
     pub vsync: bool,
     pub resizable: bool,
     pub mode: WindowMode,
+    #[cfg(target_arch = "wasm32")]
+    pub canvas: Option<String>,
 }
 
 /// Defines the way a window is displayed
@@ -64,6 +66,8 @@ impl Window {
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             mode: window_descriptor.mode,
+            #[cfg(target_arch = "wasm32")]
+            canvas: window_descriptor.canvas.clone(),
         }
     }
 }
@@ -77,6 +81,8 @@ pub struct WindowDescriptor {
     pub vsync: bool,
     pub resizable: bool,
     pub mode: WindowMode,
+    #[cfg(target_arch = "wasm32")]
+    pub canvas: Option<String>,
 
     // this is a manual implementation of the non exhaustive pattern,
     // especially made to allow ..Default::default()
@@ -93,6 +99,8 @@ impl Default for WindowDescriptor {
             vsync: true,
             resizable: true,
             mode: WindowMode::Windowed,
+            #[cfg(target_arch = "wasm32")]
+            canvas: None,
             __non_exhaustive: (),
         }
     }
