@@ -61,21 +61,23 @@ pub fn draw_text_system(
     mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
     for (mut draw, text, node, global_transform) in &mut query.iter() {
-        let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
-        let mut drawable_text = DrawableText {
-            font: fonts.get(&text.font).unwrap(),
-            font_atlas_set: font_atlas_sets
-                .get(&text.font.as_handle::<FontAtlasSet>())
-                .unwrap(),
-            texture_atlases: &texture_atlases,
-            render_resource_bindings: &mut render_resource_bindings,
-            asset_render_resource_bindings: &mut asset_render_resource_bindings,
-            position,
-            msaa: &msaa,
-            style: &text.style,
-            text: &text.value,
-            container_size: node.size,
-        };
-        drawable_text.draw(&mut draw, &mut draw_context).unwrap();
+        if let Some(font) = fonts.get(&text.font) {
+            let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
+            let mut drawable_text = DrawableText {
+                font,
+                font_atlas_set: font_atlas_sets
+                    .get(&text.font.as_handle::<FontAtlasSet>())
+                    .unwrap(),
+                texture_atlases: &texture_atlases,
+                render_resource_bindings: &mut render_resource_bindings,
+                asset_render_resource_bindings: &mut asset_render_resource_bindings,
+                position,
+                msaa: &msaa,
+                style: &text.style,
+                text: &text.value,
+                container_size: node.size,
+            };
+            drawable_text.draw(&mut draw, &mut draw_context).unwrap();
+        }
     }
 }
