@@ -39,7 +39,7 @@ fn setup(
         .spawn(Camera2dComponents::default())
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
-            scale: Scale(6.0),
+            transform: Transform::from_scale(6.0),
             ..Default::default()
         })
         .with(Timer::from_seconds(0.1, true));

@@ -9,7 +9,7 @@ use bevy::{
     },
 };
 
-/// This example illustrates how to create a custom material asset and a shader that uses that uses that material
+/// This example illustrates how to create a custom material asset and a shader that uses that material
 fn main() {
     App::build()
         .add_default_plugins()
@@ -102,13 +102,13 @@ fn setup(
                     ..Default::default()
                 },
             )]),
-            translation: Translation::new(0.0, 0.0, 0.0),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
             ..Default::default()
         })
         .with(material)
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, -8.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

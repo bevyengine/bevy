@@ -1,6 +1,6 @@
 [package]
 name = "bevy_hecs_macros"
-version = "0.1.3"
+version = "0.2.0"
 description = "Bevy fork of hecs-macros: procedural macro definitions for hecs"
 authors = ["Benjamin Saunders <ben.e.saunders@gmail.com>"]
 edition = "2018"
@@ -11,6 +11,6 @@ proc-macro = true
 
 [dependencies]
 syn = "1.0"
-quote = "1.0.3"
-proc-macro2 = "1.0.1"
-proc-macro-crate = "0.1.4"
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-crate = "0.1.5"

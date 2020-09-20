@@ -1,8 +1,11 @@
 [package]
 name = "bevy_utils"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -10,4 +13,4 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-ahash = "0.4.4"
+ahash = "0.4.5"

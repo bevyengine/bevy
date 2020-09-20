@@ -61,8 +61,7 @@ fn load_atlas(
             .spawn(Camera2dComponents::default())
             // draw a sprite from the atlas
             .spawn(SpriteSheetComponents {
-                scale: Scale(4.0),
-                translation: Translation(Vec3::new(150.0, 0.0, 0.0)),
+                transform: Transform::from_scale(4.0).with_translation(Vec3::new(150.0, 0.0, 0.0)),
                 sprite: TextureAtlasSprite::new(vendor_index as u32),
                 texture_atlas: atlas_handle,
                 ..Default::default()
@@ -70,7 +69,7 @@ fn load_atlas(
             // draw the atlas itself
             .spawn(SpriteComponents {
                 material: materials.add(texture_atlas_texture.into()),
-                translation: Vec3::new(-300.0, 0., 0.0).into(),
+                transform: Transform::from_translation(Vec3::new(-300.0, 0.0, 0.0)),
                 ..Default::default()
             });
 

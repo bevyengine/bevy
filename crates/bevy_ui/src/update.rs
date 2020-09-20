@@ -2,14 +2,14 @@ use super::Node;
 use bevy_ecs::{Entity, Query, With, Without};
 use bevy_transform::{
     hierarchy,
-    prelude::{Children, LocalTransform, Parent},
+    prelude::{Children, Parent, Transform},
 };
 
 pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
     mut root_node_query: Query<With<Node, Without<Parent, Entity>>>,
-    mut node_query: Query<(Entity, &Node, &mut LocalTransform)>,
+    mut node_query: Query<(Entity, &Node, &mut Transform)>,
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
@@ -34,12 +34,11 @@ pub fn ui_z_system(
 }
 
 fn update_node_entity(
-    node_query: &mut Query<(Entity, &Node, &mut LocalTransform)>,
+    node_query: &mut Query<(Entity, &Node, &mut Transform)>,
     entity: Entity,
     parent_result: Option<f32>,
     previous_result: Option<f32>,
 ) -> Option<f32> {
-    let mut transform = node_query.get_mut::<LocalTransform>(entity).ok()?;
     let mut z = UI_Z_STEP;
     let parent_global_z = parent_result.unwrap();
     if let Some(previous_global_z) = previous_result {
@@ -47,9 +46,8 @@ fn update_node_entity(
     };
     let global_z = z + parent_global_z;
 
-    let mut position = transform.w_axis();
-    position.set_z(z);
-    transform.set_w_axis(position);
+    let mut transform = node_query.get_mut::<Transform>(entity).ok()?;
+    transform.translation_mut().set_z(z);
 
     Some(global_z)
 }

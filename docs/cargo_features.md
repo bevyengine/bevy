@@ -18,6 +18,12 @@ GUI support.
 
 Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.
 
+### render
+The render pipeline and all render related plugins.
+
+### dynamic_plugins
+Plugins for dynamic loading (libloading)
+
 ### png 
 
 PNG picture format support. 

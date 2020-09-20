@@ -1,8 +1,11 @@
 [package]
 name = "bevy"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2018"
-authors = ["Bevy Contributors <bevyengine@gmail.com>", "Carter Anderson <mcanders1@gmail.com>"]
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
 description = "A refreshingly simple data-driven game engine and app framework"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -14,8 +17,17 @@ exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
 
 [features]
 default = [
-    "bevy_audio", "bevy_gltf", "bevy_wgpu", "bevy_winit",
-    "dynamic_plugins", "png", "hdr", "mp3", "x11"
+    "bevy_audio",
+    "bevy_gilrs",
+    "bevy_gltf",
+    "bevy_wgpu",
+    "bevy_winit",
+    "render",
+    "dynamic_plugins",
+    "png",
+    "hdr",
+    "mp3",
+    "x11",
 ]
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
@@ -24,7 +36,8 @@ dynamic_plugins = [
     "bevy_app/dynamic_plugins",
     "bevy_type_registry/dynamic_plugins",
 ]
-
+# Rendering support
+render = ["bevy_pbr", "bevy_render", "bevy_sprite", "bevy_text", "bevy_ui"]
 # Image format support for texture loading (PNG and HDR are enabled by default)
 png = ["bevy_render/png"]
 hdr = ["bevy_render/hdr"]
@@ -42,44 +55,46 @@ wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
 [workspace]
-members = [
-    "crates/*",
-    "crates/bevy_ecs/hecs",
-]
+members = ["crates/*", "crates/bevy_ecs/hecs"]
 exclude = ["benches"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "crates/bevy_app", version = "0.1" }
-bevy_animation = { path = "crates/bevy_animation", version = "0.1" }
-bevy_asset = { path = "crates/bevy_asset", version = "0.1" }
-bevy_type_registry = { path = "crates/bevy_type_registry", version = "0.1" }
-bevy_core = { path = "crates/bevy_core", version = "0.1" }
-bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.1" }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.1" }
-bevy_input = { path = "crates/bevy_input", version = "0.1" }
-bevy_math = { path = "crates/bevy_math", version = "0.1" }
-bevy_pbr = { path = "crates/bevy_pbr", version = "0.1" }
-bevy_property = { path = "crates/bevy_property", version = "0.1" }
-bevy_render = { path = "crates/bevy_render", version = "0.1" }
-bevy_scene = { path = "crates/bevy_scene", version = "0.1" }
-bevy_sprite = { path = "crates/bevy_sprite", version = "0.1" }
-bevy_transform = { path = "crates/bevy_transform", version = "0.1" }
-bevy_text = { path = "crates/bevy_text", version = "0.1" }
-bevy_ui = { path = "crates/bevy_ui", version = "0.1" }
-bevy_utils = { path = "crates/bevy_utils", version = "0.1" }
-bevy_window = { path = "crates/bevy_window", version = "0.1" }
-bevy_tasks = { path = "crates/bevy_tasks", version = "0.1" }
-
+bevy_animation= { path = "crates/bevy_animation", version = "0.2" }
+bevy_app= { path = "crates/bevy_app", version = "0.2" }
+bevy_asset= { path = "crates/bevy_asset", version = "0.2" }
+bevy_type_registry= { path = "crates/bevy_type_registry", version = "0.2" }
+bevy_core= { path = "crates/bevy_core", version = "0.2" }
+bevy_diagnostic= { path = "crates/bevy_diagnostic", version = "0.2" }
+bevy_ecs= { path = "crates/bevy_ecs", version = "0.2" }
+bevy_input= { path = "crates/bevy_input", version = "0.2" }
+bevy_math= { path = "crates/bevy_math", version = "0.2" }
+bevy_property= { path = "crates/bevy_property", version = "0.2" }
+bevy_scene= { path = "crates/bevy_scene", version = "0.2" }
+bevy_transform= { path = "crates/bevy_transform", version = "0.2" }
+bevy_utils= { path = "crates/bevy_utils", version = "0.2" }
+bevy_window= { path = "crates/bevy_window", version = "0.2" }
+bevy_tasks= { path = "crates/bevy_tasks", version = "0.2" }
 # bevy (optional)
-bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.1" }
-bevy_gltf = { path = "crates/bevy_gltf", optional = true, version = "0.1" }
-bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.1" }
-bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.1" }
+bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.2" }
+bevy_gltf = { path = "crates/bevy_gltf", optional = true, version = "0.2" }
+bevy_pbr = { path = "crates/bevy_pbr", optional = true, version = "0.2" }
+bevy_render = { path = "crates/bevy_render", optional = true, version = "0.2" }
+bevy_sprite = { path = "crates/bevy_sprite", optional = true, version = "0.2" }
+bevy_text = { path = "crates/bevy_text", optional = true, version = "0.2" }
+bevy_ui = { path = "crates/bevy_ui", optional = true, version = "0.2" }
+bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.2" }
+bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.2" }
+bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.2" }
 
 [dev-dependencies]
-rand = "0.7.2"
-serde = { version = "1", features = ["derive"]}
+rand = "0.7.3"
+serde = { version = "1", features = ["derive"] }
+log = "0.4"
+
+#wasm
+console_error_panic_hook = "0.1.6"
+console_log = { version = "0.2", features = ["color"] }
 
 [[example]]
 name = "hello_world"
@@ -214,6 +229,10 @@ name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
+name = "gamepad_input"
+path = "examples/input/gamepad_input.rs"
+
+[[example]]
 name = "scene"
 path = "examples/scene/scene.rs"
 
@@ -256,3 +275,18 @@ path = "examples/window/multiple_windows.rs"
 [[example]]
 name = "window_settings"
 path = "examples/window/window_settings.rs"
+
+[[example]]
+name = "hello_wasm"
+path = "examples/wasm/hello_wasm.rs"
+required-features = []
+
+[[example]]
+name = "headless_wasm"
+path = "examples/wasm/headless_wasm.rs"
+required-features = []
+
+[[example]]
+name = "winit_wasm"
+path = "examples/wasm/winit_wasm.rs"
+required-features = ["bevy_winit"]
