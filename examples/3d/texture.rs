@@ -59,8 +59,10 @@ fn setup(
         .spawn(PbrComponents {
             mesh: quad_handle,
             material: material_handle,
-            translation: Translation::new(0.0, 0.0, 1.5),
-            rotation: Rotation(Quat::from_rotation_x(-std::f32::consts::PI / 5.0)),
+            transform: Transform::from_translation_rotation(
+                Vec3::new(0.0, 0.0, 1.5),
+                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            ),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -71,8 +73,10 @@ fn setup(
         .spawn(PbrComponents {
             mesh: quad_handle,
             material: red_material_handle,
-            translation: Translation::new(0.0, 0.0, 0.0),
-            rotation: Rotation(Quat::from_rotation_x(-std::f32::consts::PI / 5.0)),
+            transform: Transform::from_translation_rotation(
+                Vec3::new(0.0, 0.0, 0.0),
+                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            ),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -83,8 +87,10 @@ fn setup(
         .spawn(PbrComponents {
             mesh: quad_handle,
             material: blue_material_handle,
-            translation: Translation::new(0.0, 0.0, -1.5),
-            rotation: Rotation(Quat::from_rotation_x(-std::f32::consts::PI / 5.0)),
+            transform: Transform::from_translation_rotation(
+                Vec3::new(0.0, 0.0, -1.5),
+                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+            ),
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -93,7 +99,7 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(3.0, 5.0, 8.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

@@ -17,7 +17,6 @@
 use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
-    ptr::NonNull,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -68,7 +67,7 @@ const UNIQUE_BIT: usize = !(usize::max_value() >> 1);
 #[derive(Clone)]
 pub struct Ref<'a, T: Component> {
     archetype: &'a Archetype,
-    target: NonNull<T>,
+    target: &'a T,
 }
 
 impl<'a, T: Component> Ref<'a, T> {
@@ -77,16 +76,15 @@ impl<'a, T: Component> Ref<'a, T> {
     /// # Safety
     ///
     /// - the index of the component must be valid
-    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
-        let target = NonNull::new_unchecked(
-            archetype
-                .get::<T>()
-                .ok_or_else(MissingComponent::new::<T>)?
-                .as_ptr()
-                .add(index as usize),
-        );
+    pub unsafe fn new(archetype: &'a Archetype, index: usize) -> Result<Self, MissingComponent> {
+        let target = archetype
+            .get::<T>()
+            .ok_or_else(MissingComponent::new::<T>)?;
         archetype.borrow::<T>();
-        Ok(Self { archetype, target })
+        Ok(Self {
+            archetype,
+            target: &*target.as_ptr().add(index as usize),
+        })
     }
 }
 
@@ -103,7 +101,7 @@ impl<'a, T: Component> Deref for Ref<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { self.target.as_ref() }
+        self.target
     }
 }
 
@@ -119,7 +117,7 @@ where
 /// Unique borrow of an entity's component
 pub struct RefMut<'a, T: Component> {
     archetype: &'a Archetype,
-    target: NonNull<T>,
+    target: &'a mut T,
     modified: &'a mut bool,
 }
 
@@ -129,24 +127,15 @@ impl<'a, T: Component> RefMut<'a, T> {
     /// # Safety
     ///
     /// - the index of the component must be valid
-    pub unsafe fn new(archetype: &'a Archetype, index: u32) -> Result<Self, MissingComponent> {
-        let target = NonNull::new_unchecked(
-            archetype
-                .get::<T>()
-                .ok_or_else(MissingComponent::new::<T>)?
-                .as_ptr()
-                .add(index as usize),
-        );
+    pub unsafe fn new(archetype: &'a Archetype, index: usize) -> Result<Self, MissingComponent> {
+        let (target, type_state) = archetype
+            .get_with_type_state::<T>()
+            .ok_or_else(MissingComponent::new::<T>)?;
         archetype.borrow_mut::<T>();
-        let modified = archetype
-            .get_mutated::<T>()
-            .unwrap()
-            .as_ptr()
-            .add(index as usize);
         Ok(Self {
             archetype,
-            target,
-            modified: &mut *modified,
+            target: &mut *target.as_ptr().add(index),
+            modified: &mut *type_state.mutated().as_ptr().add(index),
         })
     }
 }
@@ -164,14 +153,14 @@ impl<'a, T: Component> Deref for RefMut<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { self.target.as_ref() }
+        self.target
     }
 }
 
 impl<'a, T: Component> DerefMut for RefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         *self.modified = true;
-        unsafe { self.target.as_mut() }
+        self.target
     }
 }
 
@@ -188,7 +177,7 @@ where
 #[derive(Copy, Clone)]
 pub struct EntityRef<'a> {
     archetype: Option<&'a Archetype>,
-    index: u32,
+    index: usize,
 }
 
 impl<'a> EntityRef<'a> {
@@ -200,7 +189,7 @@ impl<'a> EntityRef<'a> {
         }
     }
 
-    pub(crate) unsafe fn new(archetype: &'a Archetype, index: u32) -> Self {
+    pub(crate) unsafe fn new(archetype: &'a Archetype, index: usize) -> Self {
         Self {
             archetype: Some(archetype),
             index,

@@ -15,9 +15,9 @@ fn main() {
 struct Rotator;
 
 /// rotates the parent, which will result in the child also rotating
-fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Rotation)>) {
-    for (_rotator, mut rotation) in &mut query.iter() {
-        rotation.0 *= Quat::from_rotation_x(3.0 * time.delta_seconds);
+fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
+    for (_rotator, mut transform) in &mut query.iter() {
+        transform.rotate(Quat::from_rotation_x(3.0 * time.delta_seconds));
     }
 }
 
@@ -38,7 +38,7 @@ fn setup(
         .spawn(PbrComponents {
             mesh: cube_handle,
             material: cube_material_handle,
-            translation: Translation::new(0.0, 0.0, 1.0),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..Default::default()
         })
         .with(Rotator)
@@ -47,18 +47,18 @@ fn setup(
             parent.spawn(PbrComponents {
                 mesh: cube_handle,
                 material: cube_material_handle,
-                translation: Translation::new(0.0, 0.0, 3.0),
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, 3.0)),
                 ..Default::default()
             });
         })
         // light
         .spawn(LightComponents {
-            translation: Translation::new(4.0, 5.0, -4.0),
+            transform: Transform::from_translation(Vec3::new(4.0, 5.0, -4.0)),
             ..Default::default()
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new_sync_disabled(Mat4::face_toward(
+            transform: Transform::new(Mat4::face_toward(
                 Vec3::new(5.0, 10.0, 10.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),

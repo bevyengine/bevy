@@ -1,6 +1,6 @@
 [package]
 name = "bevy_text"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,13 +14,13 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.1" }
-bevy_asset = { path = "../bevy_asset", version = "0.1" }
-bevy_core = { path = "../bevy_core", version = "0.1" }
-bevy_math = { path = "../bevy_math", version = "0.1" }
-bevy_render = { path = "../bevy_render", version = "0.1" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.1" }
+bevy_app= { path = "../bevy_app", version = "0.2" }
+bevy_asset= { path = "../bevy_asset", version = "0.2" }
+bevy_core= { path = "../bevy_core", version = "0.2" }
+bevy_math= { path = "../bevy_math", version = "0.2" }
+bevy_render= { path = "../bevy_render", version = "0.2" }
+bevy_sprite= { path = "../bevy_sprite", version = "0.2" }
+bevy_utils= { path = "../bevy_utils", version = "0.2" }
 
 # other
 ab_glyph = "0.2.5"

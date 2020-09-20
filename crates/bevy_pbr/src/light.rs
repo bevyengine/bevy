@@ -1,11 +1,10 @@
 use bevy_core::Byteable;
-use bevy_math::Mat4;
 use bevy_property::Properties;
 use bevy_render::{
     camera::{CameraProjection, PerspectiveProjection},
     color::Color,
 };
-use bevy_transform::components::Translation;
+use bevy_transform::components::GlobalTransform;
 use std::ops::Range;
 
 /// A point light
@@ -37,7 +36,7 @@ pub(crate) struct LightRaw {
 unsafe impl Byteable for LightRaw {}
 
 impl LightRaw {
-    pub fn from(light: &Light, transform: &Mat4, translation: &Translation) -> LightRaw {
+    pub fn from(light: &Light, global_transform: &GlobalTransform) -> LightRaw {
         let perspective = PerspectiveProjection {
             fov: light.fov,
             aspect_ratio: 1.0,
@@ -45,8 +44,8 @@ impl LightRaw {
             far: light.depth.end,
         };
 
-        let proj = perspective.get_projection_matrix() * *transform;
-        let (x, y, z) = translation.0.into();
+        let proj = perspective.get_projection_matrix() * *global_transform.value();
+        let (x, y, z) = global_transform.translation().into();
         LightRaw {
             proj: proj.to_cols_array_2d(),
             pos: [x, y, z, 1.0],

@@ -33,7 +33,7 @@
 //! let a = world.spawn((123, true, "abc"));
 //! let b = world.spawn((42, false));
 //! // Systems can be simple for loops
-//! for (id, mut number, &flag) in &mut world.query::<(Entity, &mut i32, &bool)>() {
+//! for (id, mut number, &flag) in &mut world.query_mut::<(Entity, &mut i32, &bool)>() {
 //!   if flag { *number *= 2; }
 //! }
 //! assert_eq!(*world.get::<i32>(a).unwrap(), 246);
@@ -75,17 +75,17 @@ mod query_one;
 mod serde;
 mod world;
 
-pub use archetype::Archetype;
-pub use borrow::{EntityRef, Ref, RefMut};
+pub use archetype::{Archetype, TypeState};
+pub use borrow::{Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
-pub use entities::{Entity, Location, NoSuchEntity};
+pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{
-    Access, Added, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryBorrow, QueryIter, With,
-    Without,
+    Access, Added, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryBorrow, QueryIter,
+    ReadOnlyFetch, With, Without,
 };
 pub use query_one::QueryOne;
-pub use world::{ArchetypesGeneration, Component, ComponentError, Iter, SpawnBatchIter, World};
+pub use world::{ArchetypesGeneration, Component, ComponentError, SpawnBatchIter, World};
 
 // Unstable implementation details needed by the macros
 #[doc(hidden)]

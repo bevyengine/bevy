@@ -14,9 +14,12 @@
 
 // modified by Bevy contributors
 
-use crate::alloc::vec::Vec;
+use crate::{
+    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, query_one::ReadOnlyQueryOne,
+    EntityReserver, Mut, RefMut,
+};
 use bevy_utils::{HashMap, HashSet};
-use core::{any::TypeId, convert::TryFrom, fmt, mem, ptr};
+use core::{any::TypeId, fmt, mem, ptr};
 
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -24,8 +27,8 @@ use std::error::Error;
 use crate::{
     archetype::Archetype,
     entities::{Entities, Location},
-    Bundle, DynamicBundle, Entity, EntityRef, MissingComponent, NoSuchEntity, Query, QueryBorrow,
-    QueryOne, Ref, RefMut,
+    Bundle, DynamicBundle, Entity, MissingComponent, NoSuchEntity, Query, QueryBorrow, QueryOne,
+    Ref,
 };
 
 /// An unordered collection of entities, each having any number of distinctly typed components
@@ -80,20 +83,11 @@ impl World {
     /// let b = world.spawn((456, true));
     /// ```
     pub fn spawn(&mut self, components: impl DynamicBundle) -> Entity {
-        let entity = Entity::new();
-        self.spawn_as_entity(entity, components);
-        entity
-    }
+        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
+        // necessary
+        self.flush();
 
-    /// Create an entity with the given Entity id and the given components
-    ///
-    /// Arguments can be tuples, structs annotated with `#[derive(Bundle)]`, or the result of
-    /// calling `build` on an `EntityBuilder`, which is useful if the set of components isn't
-    /// statically known. To spawn an entity with only one component, use a one-element tuple like
-    /// `(x,)`.
-    ///
-    /// Any type that satisfies `Send + Sync + 'static` can be used as a component.
-    pub fn spawn_as_entity(&mut self, entity: Entity, components: impl DynamicBundle) {
+        let entity = self.entities.alloc();
         let archetype_id = components.with_ids(|ids| {
             self.index.get(ids).copied().unwrap_or_else(|| {
                 let x = self.archetypes.len() as u32;
@@ -106,19 +100,18 @@ impl World {
 
         let archetype = &mut self.archetypes[archetype_id as usize];
         unsafe {
-            let index = archetype.allocate(entity.id());
+            let index = archetype.allocate(entity);
             components.put(|ptr, ty, size| {
                 archetype.put_dynamic(ptr, ty, size, index, true);
                 true
             });
-            self.entities.insert(
-                entity,
-                Location {
-                    archetype: archetype_id,
-                    index,
-                },
-            );
+            self.entities.meta[entity.id as usize].location = Location {
+                archetype: archetype_id,
+                index,
+            };
         }
+
+        entity
     }
 
     /// Efficiently spawn a large number of entities with the same components
@@ -139,11 +132,13 @@ impl World {
         I: IntoIterator,
         I::Item: Bundle,
     {
+        // Ensure all entity allocations are accounted for so `self.entities` can realloc if
+        // necessary
+        self.flush();
+
         let iter = iter.into_iter();
         let (lower, upper) = iter.size_hint();
-        let archetype_id = self.reserve_inner::<I::Item>(
-            u32::try_from(upper.unwrap_or(lower)).expect("iterator too large"),
-        );
+        let archetype_id = self.reserve_inner::<I::Item>(upper.unwrap_or(lower) as u32);
 
         SpawnBatchIter {
             inner: iter,
@@ -155,10 +150,12 @@ impl World {
 
     /// Destroy an entity and all its components
     pub fn despawn(&mut self, entity: Entity) -> Result<(), NoSuchEntity> {
+        self.flush();
+
         let loc = self.entities.free(entity)?;
         let archetype = &mut self.archetypes[loc.archetype as usize];
         if let Some(moved) = unsafe { archetype.remove(loc.index) } {
-            self.entities.get_mut(Entity::from_id(moved)).unwrap().index = loc.index;
+            self.entities.get_mut(moved).unwrap().index = loc.index;
         }
         for ty in archetype.types() {
             let removed_entities = self
@@ -175,7 +172,13 @@ impl World {
         self.reserve_inner::<T>(additional);
     }
 
+    /// Reserves an entity.
+    pub fn reserve_entity(&self) -> Entity {
+        self.entities.reserve_entity()
+    }
+
     fn reserve_inner<T: Bundle>(&mut self, additional: u32) -> u32 {
+        self.flush();
         self.entities.reserve(additional);
 
         let archetype_id = T::with_static_ids(|ids| {
@@ -188,7 +191,7 @@ impl World {
             })
         });
 
-        self.archetypes[archetype_id as usize].reserve(additional);
+        self.archetypes[archetype_id as usize].reserve(additional as usize);
         archetype_id
     }
 
@@ -202,7 +205,7 @@ impl World {
                     .removed_components
                     .entry(ty.id())
                     .or_insert_with(Vec::new);
-                removed_entities.extend(archetype.iter_entities().map(|id| Entity::from_id(*id)));
+                removed_entities.extend(archetype.iter_entities().copied());
             }
             archetype.clear();
         }
@@ -212,6 +215,14 @@ impl World {
     /// Whether `entity` still exists
     pub fn contains(&self, entity: Entity) -> bool {
         self.entities.contains(entity)
+    }
+
+    /// Returns true if the given entity has a component with the given type id.
+    pub fn has_component_type(&self, entity: Entity, ty: TypeId) -> bool {
+        self.get_entity_location(entity)
+            .map(|location| &self.archetypes[location.archetype as usize])
+            .map(|archetype| archetype.has_type(ty))
+            .unwrap_or(false)
     }
 
     /// Efficiently iterate over all entities that have certain components
@@ -226,17 +237,6 @@ impl World {
     ///
     /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
     /// documentation for details.
-    ///
-    /// Iterating a query will panic if it would violate an existing unique reference or construct
-    /// an invalid unique reference. This occurs when two simultaneously-active queries could expose
-    /// the same entity. Simultaneous queries can access the same component type if and only if the
-    /// world contains no entities that have all components required by both queries, assuming no
-    /// other component borrows are outstanding.
-    ///
-    /// Iterating a query yields references with lifetimes bound to the `QueryBorrow` returned
-    /// here. To ensure those are invalidated, the return value of this method must be dropped for
-    /// its dynamic borrows from the world to be released. Similarly, lifetime rules ensure that
-    /// references obtained from a query cannot outlive the `QueryBorrow`.
     ///
     /// # Example
     /// ```
@@ -253,15 +253,86 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query<Q: Query>(&self) -> QueryBorrow<'_, Q> {
+    pub fn query<Q: Query>(&self) -> QueryBorrow<'_, Q>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    /// Efficiently iterate over all entities that have certain components
+    ///
+    /// Calling `iter` on the returned value yields `(Entity, Q)` tuples, where `Q` is some query
+    /// type. A query type is `&T`, `&mut T`, a tuple of query types, or an `Option` wrapping a
+    /// query type, where `T` is any component type. Components queried with `&mut` must only appear
+    /// once. Entities which do not have a component type referenced outside of an `Option` will be
+    /// skipped.
+    ///
+    /// Entities are yielded in arbitrary order.
+    ///
+    /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
+    /// documentation for details.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// let b = world.spawn((456, false));
+    /// let c = world.spawn((42, "def"));
+    /// let entities = world.query::<(Entity, &i32, &bool)>()
+    ///     .iter()
+    ///     .map(|(e, &i, &b)| (e, i, b)) // Copy out of the world
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(entities.len(), 2);
+    /// assert!(entities.contains(&(a, 123, true)));
+    /// assert!(entities.contains(&(b, 456, false)));
+    /// ```
+    pub fn query_mut<Q: Query>(&mut self) -> QueryBorrow<'_, Q> {
+        // SAFE: unique mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    /// Efficiently iterate over all entities that have certain components
+    ///
+    /// Calling `iter` on the returned value yields `(Entity, Q)` tuples, where `Q` is some query
+    /// type. A query type is `&T`, `&mut T`, a tuple of query types, or an `Option` wrapping a
+    /// query type, where `T` is any component type. Components queried with `&mut` must only appear
+    /// once. Entities which do not have a component type referenced outside of an `Option` will be
+    /// skipped.
+    ///
+    /// Entities are yielded in arbitrary order.
+    ///
+    /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
+    /// documentation for details.
+    ///
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// let b = world.spawn((456, false));
+    /// let c = world.spawn((42, "def"));
+    /// let entities = world.query::<(Entity, &i32, &bool)>()
+    ///     .iter()
+    ///     .map(|(e, &i, &b)| (e, i, b)) // Copy out of the world
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(entities.len(), 2);
+    /// assert!(entities.contains(&(a, 123, true)));
+    /// assert!(entities.contains(&(b, 456, false)));
+    /// ```
+    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryBorrow<'_, Q> {
         QueryBorrow::new(&self.archetypes)
     }
 
-    /// Prepare a query against a single entity
+    /// Prepare a read only query against a single entity
     ///
-    /// Call `get` on the resulting `QueryOne` to actually execute the query. The `QueryOne` value
-    /// is responsible for releasing the dynamically-checked borrow made by `get`, so it can't be
-    /// dropped while references returned by `get` are live.
+    /// Call `get` on the resulting `QueryOne` to actually execute the query.
     ///
     /// Handy for accessing multiple components simultaneously.
     ///
@@ -271,47 +342,126 @@ impl World {
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
-    /// let mut query = world.query_one::<(&mut i32, &bool)>(a).unwrap();
+    /// let mut query = world.query_one::<(&i32, &bool)>(a).unwrap();
+    /// let (number, flag) = query.get().unwrap();
+    /// assert_eq!(*number, 123);
+    /// ```
+    pub fn query_one<Q: Query>(
+        &self,
+        entity: Entity,
+    ) -> Result<ReadOnlyQueryOne<'_, Q>, NoSuchEntity>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        let loc = self.entities.get(entity)?;
+        Ok(unsafe { ReadOnlyQueryOne::new(&self.archetypes[loc.archetype as usize], loc.index) })
+    }
+
+    /// Prepare a query against a single entity
+    ///
+    /// Call `get` on the resulting `QueryOne` to actually execute the query.
+    ///
+    /// Handy for accessing multiple components simultaneously.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// // The returned query must outlive the borrow made by `get`
+    /// let mut query = world.query_one_mut::<(&mut i32, &bool)>(a).unwrap();
     /// let (mut number, flag) = query.get().unwrap();
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
-    pub fn query_one<Q: Query>(&self, entity: Entity) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
+    pub fn query_one_mut<Q: Query>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
+        // SAFE: unique mutable access to world
+        unsafe { self.query_one_mut_unchecked(entity) }
+    }
+
+    /// Prepare a query against a single entity, without checking the safety of mutable queries
+    ///
+    /// Call `get` on the resulting `QueryOne` to actually execute the query.
+    ///
+    /// Handy for accessing multiple components simultaneously.
+    ///
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_hecs::*;
+    /// let mut world = World::new();
+    /// let a = world.spawn((123, true, "abc"));
+    /// // The returned query must outlive the borrow made by `get`
+    /// let mut query = world.query_one_mut::<(&mut i32, &bool)>(a).unwrap();
+    /// let (mut number, flag) = query.get().unwrap();
+    /// if *flag { *number *= 2; }
+    /// assert_eq!(*number, 246);
+    /// ```
+    pub unsafe fn query_one_mut_unchecked<Q: Query>(
+        &self,
+        entity: Entity,
+    ) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
         let loc = self.entities.get(entity)?;
-        Ok(unsafe { QueryOne::new(&self.archetypes[loc.archetype as usize], loc.index) })
+        Ok(QueryOne::new(
+            &self.archetypes[loc.archetype as usize],
+            loc.index,
+        ))
     }
 
     /// Borrow the `T` component of `entity`
-    ///
-    /// Panics if the component is already uniquely borrowed from another entity with the same
-    /// components.
-    pub fn get<T: Component>(&self, entity: Entity) -> Result<Ref<'_, T>, ComponentError> {
-        let loc = self.entities.get(entity)?;
-        if loc.archetype == 0 {
-            return Err(MissingComponent::new::<T>().into());
+    pub fn get<T: Component>(&self, entity: Entity) -> Result<&'_ T, ComponentError> {
+        unsafe {
+            let loc = self.entities.get(entity)?;
+            if loc.archetype == 0 {
+                return Err(MissingComponent::new::<T>().into());
+            }
+            Ok(&*self.archetypes[loc.archetype as usize]
+                .get::<T>()
+                .ok_or_else(MissingComponent::new::<T>)?
+                .as_ptr()
+                .add(loc.index as usize))
         }
-        Ok(unsafe { Ref::new(&self.archetypes[loc.archetype as usize], loc.index)? })
     }
 
-    /// Uniquely borrow the `T` component of `entity`
-    ///
-    /// Panics if the component is already borrowed from another entity with the same components.
-    pub fn get_mut<T: Component>(&self, entity: Entity) -> Result<RefMut<'_, T>, ComponentError> {
-        let loc = self.entities.get(entity)?;
-        if loc.archetype == 0 {
-            return Err(MissingComponent::new::<T>().into());
-        }
-        Ok(unsafe { RefMut::new(&self.archetypes[loc.archetype as usize], loc.index)? })
+    /// Mutably borrow the `T` component of `entity`
+    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Result<Mut<'_, T>, ComponentError> {
+        // SAFE: uniquely borrows world
+        unsafe { self.get_mut_unchecked(entity) }
     }
 
     /// Access an entity regardless of its component types
     ///
     /// Does not immediately borrow any component.
-    pub fn entity(&self, entity: Entity) -> Result<EntityRef<'_>, NoSuchEntity> {
+    pub fn entity(&mut self, entity: Entity) -> Result<EntityRef<'_>, NoSuchEntity> {
         Ok(match self.entities.get(entity)? {
             Location { archetype: 0, .. } => EntityRef::empty(),
             loc => unsafe { EntityRef::new(&self.archetypes[loc.archetype as usize], loc.index) },
         })
+    }
+
+    /// Borrow the `T` component of `entity` without checking if it can be mutated
+    ///
+    /// # Safety
+    /// This does not check for mutable access correctness. To be safe, make sure this is the only
+    /// thing accessing this entity's T component.
+    pub unsafe fn get_mut_unchecked<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<Mut<'_, T>, ComponentError> {
+        let loc = self.entities.get(entity)?;
+        if loc.archetype == 0 {
+            return Err(MissingComponent::new::<T>().into());
+        }
+        Ok(Mut::new(
+            &self.archetypes[loc.archetype as usize],
+            loc.index,
+        )?)
     }
 
     /// Iterate over all entities in the world
@@ -330,7 +480,7 @@ impl World {
     /// assert!(ids.contains(&a));
     /// assert!(ids.contains(&b));
     /// ```
-    pub fn iter(&self) -> Iter<'_> {
+    pub fn iter(&mut self) -> Iter<'_> {
         Iter::new(&self.archetypes, &self.entities)
     }
 
@@ -364,6 +514,7 @@ impl World {
     ) -> Result<(), NoSuchEntity> {
         use std::collections::hash_map::Entry;
 
+        self.flush();
         let loc = self.entities.get_mut(entity)?;
         unsafe {
             // Assemble Vec<TypeInfo> for the final entity
@@ -407,18 +558,18 @@ impl World {
                 loc.archetype as usize,
                 target as usize,
             );
-            let target_index = target_arch.allocate(entity.id());
+            let target_index = target_arch.allocate(entity);
             loc.archetype = target;
             let old_index = mem::replace(&mut loc.index, target_index);
             if let Some(moved) =
                 source_arch.move_to(old_index, |ptr, ty, size, is_added, is_mutated| {
                     target_arch.put_dynamic(ptr, ty, size, target_index, false);
                     let type_state = target_arch.get_type_state_mut(ty).unwrap();
-                    type_state.added_entities[target_index as usize] = is_added;
-                    type_state.mutated_entities[target_index as usize] = is_mutated;
+                    *type_state.added().as_ptr().add(target_index) = is_added;
+                    *type_state.mutated().as_ptr().add(target_index) = is_mutated;
                 })
             {
-                self.entities.get_mut(Entity::from_id(moved)).unwrap().index = old_index;
+                self.entities.get_mut(moved).unwrap().index = old_index;
             }
 
             components.put(|ptr, ty, size| {
@@ -462,6 +613,7 @@ impl World {
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
         use std::collections::hash_map::Entry;
 
+        self.flush();
         let loc = self.entities.get_mut(entity)?;
         unsafe {
             let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
@@ -490,7 +642,7 @@ impl World {
                 loc.archetype as usize,
                 target as usize,
             );
-            let target_index = target_arch.allocate(entity.id());
+            let target_index = target_arch.allocate(entity);
             loc.archetype = target;
             loc.index = target_index;
             let removed_components = &mut self.removed_components;
@@ -500,8 +652,8 @@ impl World {
                     if let Some(dst) = target_arch.get_dynamic(ty, size, target_index) {
                         ptr::copy_nonoverlapping(src, dst.as_ptr(), size);
                         let state = target_arch.get_type_state_mut(ty).unwrap();
-                        state.added_entities[target_index as usize] = is_added;
-                        state.mutated_entities[target_index as usize] = is_mutated;
+                        *state.added().as_ptr().add(target_index) = is_added;
+                        *state.mutated().as_ptr().add(target_index) = is_mutated;
                     } else {
                         let removed_entities =
                             removed_components.entry(ty).or_insert_with(Vec::new);
@@ -509,7 +661,7 @@ impl World {
                     }
                 })
             {
-                self.entities.get_mut(Entity::from_id(moved)).unwrap().index = old_index;
+                self.entities.get_mut(moved).unwrap().index = old_index;
             }
             Ok(bundle)
         }
@@ -522,24 +674,75 @@ impl World {
         self.remove::<(T,)>(entity).map(|(x,)| x)
     }
 
-    /// Borrow the `T` component of `entity` without safety checks
-    ///
-    /// Should only be used as a building block for safe abstractions.
+    /// Borrow the `T` component at the given location, without safety checks
     ///
     /// # Safety
-    ///
-    /// `entity` must have been previously obtained from this `World`, and no unique borrow of the
-    /// same component of `entity` may be live simultaneous to the returned reference.
-    pub unsafe fn get_unchecked<T: Component>(&self, entity: Entity) -> Result<&T, ComponentError> {
-        let loc = self.entities.get(entity)?;
-        if loc.archetype == 0 {
+    /// This does not check that the location is within bounds of the archetype.
+    pub unsafe fn get_ref_at_location_unchecked<T: Component>(
+        &self,
+        location: Location,
+    ) -> Result<Ref<T>, ComponentError> {
+        if location.archetype == 0 {
             return Err(MissingComponent::new::<T>().into());
         }
-        Ok(&*self.archetypes[loc.archetype as usize]
+        Ok(Ref::new(
+            &self.archetypes[location.archetype as usize],
+            location.index,
+        )?)
+    }
+
+    /// Borrow the `T` component at the given location, without safety checks
+    ///
+    /// # Safety
+    /// This does not check that the location is within bounds of the archetype.
+    /// It also does not check for mutable access correctness. To be safe, make sure this is the only
+    /// thing accessing this entity's T component.
+    pub unsafe fn get_ref_mut_at_location_unchecked<T: Component>(
+        &self,
+        location: Location,
+    ) -> Result<RefMut<T>, ComponentError> {
+        if location.archetype == 0 {
+            return Err(MissingComponent::new::<T>().into());
+        }
+        Ok(RefMut::new(
+            &self.archetypes[location.archetype as usize],
+            location.index,
+        )?)
+    }
+
+    /// Borrow the `T` component at the given location, without safety checks
+    /// # Safety
+    /// This does not check that the location is within bounds of the archetype.
+    pub unsafe fn get_at_location_unchecked<T: Component>(
+        &self,
+        location: Location,
+    ) -> Result<&T, ComponentError> {
+        if location.archetype == 0 {
+            return Err(MissingComponent::new::<T>().into());
+        }
+        Ok(&*self.archetypes[location.archetype as usize]
             .get::<T>()
             .ok_or_else(MissingComponent::new::<T>)?
             .as_ptr()
-            .add(loc.index as usize))
+            .add(location.index as usize))
+    }
+
+    /// Borrow the `T` component at the given location, without safety checks
+    /// # Safety
+    /// This does not check that the location is within bounds of the archetype.
+    /// It also does not check for mutable access correctness. To be safe, make sure this is the only
+    /// thing accessing this entity's T component.
+    pub unsafe fn get_mut_at_location_unchecked<T: Component>(
+        &self,
+        location: Location,
+    ) -> Result<Mut<T>, ComponentError> {
+        if location.archetype == 0 {
+            return Err(MissingComponent::new::<T>().into());
+        }
+        Ok(Mut::new(
+            &self.archetypes[location.archetype as usize],
+            location.index,
+        )?)
     }
 
     /// Uniquely borrow the `T` component of `entity` without safety checks
@@ -563,6 +766,31 @@ impl World {
             .ok_or_else(MissingComponent::new::<T>)?
             .as_ptr()
             .add(loc.index as usize))
+    }
+
+    /// Convert all reserved entities into empty entities that can be iterated and accessed
+    ///
+    /// Invoked implicitly by `spawn`, `despawn`, `insert`, and `remove`.
+    pub fn flush(&mut self) {
+        let arch = &mut self.archetypes[0];
+        for entity_id in self.entities.flush() {
+            self.entities.meta[entity_id as usize].location.index = unsafe {
+                arch.allocate(Entity {
+                    id: entity_id,
+                    generation: self.entities.meta[entity_id as usize].generation,
+                })
+            };
+        }
+        for i in 0..self.entities.reserved_len() {
+            let id = self.entities.reserved(i);
+            self.entities.meta[id as usize].location.index = unsafe {
+                arch.allocate(Entity {
+                    id,
+                    generation: self.entities.meta[id as usize].generation,
+                })
+            };
+        }
+        self.entities.clear_reserved();
     }
 
     /// Inspect the archetypes that entities are organized into
@@ -608,6 +836,11 @@ impl World {
 
         self.removed_components.clear();
     }
+
+    /// Gets an entity reserver, which can be used to reserve entity ids in a multi-threaded context.
+    pub fn get_entity_reserver(&self) -> EntityReserver {
+        self.entities.get_reserver()
+    }
 }
 
 unsafe impl Send for World {}
@@ -619,7 +852,7 @@ impl Default for World {
     }
 }
 
-impl<'a> IntoIterator for &'a World {
+impl<'a> IntoIterator for &'a mut World {
     type IntoIter = Iter<'a>;
     type Item = (Entity, EntityRef<'a>);
 
@@ -682,7 +915,7 @@ pub struct Iter<'a> {
     archetypes: core::slice::Iter<'a, Archetype>,
     entities: &'a Entities,
     current: Option<&'a Archetype>,
-    index: u32,
+    index: usize,
 }
 
 impl<'a> Iter<'a> {
@@ -710,23 +943,21 @@ impl<'a> Iterator for Iter<'a> {
                     self.index = 0;
                 }
                 Some(current) => {
-                    if self.index == current.len() as u32 {
+                    if self.index == current.len() {
                         self.current = None;
                         continue;
                     }
                     let index = self.index;
                     self.index += 1;
-                    let id = current.entity_id(index);
-                    return Some((Entity::from_id(id), unsafe {
-                        EntityRef::new(current, index)
-                    }));
+                    let id = current.get_entity(index);
+                    return Some((id, unsafe { EntityRef::new(current, index) }));
                 }
             }
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.entities.entity_locations.len()))
+        (0, Some(self.entities.meta.len()))
     }
 }
 
@@ -784,20 +1015,17 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let components = self.inner.next()?;
-        let entity = Entity::new();
+        let entity = self.entities.alloc();
         unsafe {
-            let index = self.archetype.allocate(entity.id());
+            let index = self.archetype.allocate(entity);
             components.put(|ptr, ty, size| {
                 self.archetype.put_dynamic(ptr, ty, size, index, true);
                 true
             });
-            self.entities.insert(
-                entity,
-                Location {
-                    archetype: self.archetype_id,
-                    index,
-                },
-            );
+            self.entities.meta[entity.id as usize].location = Location {
+                archetype: self.archetype_id,
+                index,
+            };
         }
         Some(entity)
     }

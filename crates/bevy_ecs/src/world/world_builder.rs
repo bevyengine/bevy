@@ -22,7 +22,7 @@ pub struct WorldBuilder<'a> {
 
 impl<'a> WorldBuilder<'a> {
     pub fn entity(&mut self) -> &mut Self {
-        self.current_entity = Some(Entity::new());
+        self.current_entity = Some(self.world.reserve_entity());
         self
     }
 
@@ -59,12 +59,6 @@ impl<'a> WorldBuilder<'a> {
 
     pub fn spawn(&mut self, components: impl DynamicBundle) -> &mut Self {
         self.current_entity = Some(self.world.spawn(components));
-        self
-    }
-
-    pub fn spawn_as_entity(&mut self, entity: Entity, components: impl DynamicBundle) -> &mut Self {
-        self.world.spawn_as_entity(entity, components);
-        self.current_entity = Some(entity);
         self
     }
 }

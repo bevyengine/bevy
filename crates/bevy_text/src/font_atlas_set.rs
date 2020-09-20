@@ -13,7 +13,7 @@ type FontSizeKey = FloatOrd;
 #[derive(Default)]
 pub struct FontAtlasSet {
     font: Handle<Font>,
-    font_atlases: HashMap<FontSizeKey, FontAtlas>,
+    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ impl FontAtlasSet {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &FontAtlas)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
     }
 
@@ -38,7 +38,9 @@ impl FontAtlasSet {
         self.font_atlases
             .get(&FloatOrd(font_size))
             .map_or(false, |font_atlas| {
-                font_atlas.get_char_index(character).is_some()
+                font_atlas
+                    .iter()
+                    .any(|atlas| atlas.get_char_index(character).is_some())
             })
     }
 
@@ -49,16 +51,22 @@ impl FontAtlasSet {
         textures: &mut Assets<Texture>,
         font_size: f32,
         text: &str,
-    ) -> f32 {
-        let font = fonts.get(&self.font).unwrap();
+    ) -> Option<f32> {
+        let mut width = 0.0;
+        let font = fonts.get(&self.font)?;
         let scaled_font = ab_glyph::Font::as_scaled(&font.font, font_size);
-        let font_atlas = self
+        let font_atlases = self
             .font_atlases
             .entry(FloatOrd(font_size))
-            .or_insert_with(|| FontAtlas::new(textures, texture_atlases, Vec2::new(512.0, 512.0)));
+            .or_insert_with(|| {
+                vec![FontAtlas::new(
+                    textures,
+                    texture_atlases,
+                    Vec2::new(512.0, 512.0),
+                )]
+            });
 
         let mut last_glyph: Option<Glyph> = None;
-        let mut width = 0.0;
         for character in text.chars() {
             if character.is_control() {
                 continue;
@@ -67,17 +75,37 @@ impl FontAtlasSet {
             if let Some(last_glyph) = last_glyph.take() {
                 width += scaled_font.kern(last_glyph.id, glyph.id);
             }
-            if font_atlas.get_char_index(character).is_none() {
+            if !font_atlases
+                .iter()
+                .any(|atlas| atlas.get_char_index(character).is_some())
+            {
                 if let Some(outlined_glyph) = scaled_font.outline_glyph(glyph.clone()) {
                     let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
-                    font_atlas.add_char(textures, texture_atlases, character, &glyph_texture);
+                    let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
+                        atlas.add_char(textures, texture_atlases, character, &glyph_texture)
+                    };
+                    if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
+                        font_atlases.push(FontAtlas::new(
+                            textures,
+                            texture_atlases,
+                            Vec2::new(512.0, 512.0),
+                        ));
+                        if !font_atlases.last_mut().unwrap().add_char(
+                            textures,
+                            texture_atlases,
+                            character,
+                            &glyph_texture,
+                        ) {
+                            panic!("could not add character to newly created FontAtlas");
+                        }
+                    }
                 }
             }
             width += scaled_font.h_advance(glyph.id);
             last_glyph = Some(glyph);
         }
 
-        width
+        Some(width)
     }
 
     pub fn get_glyph_atlas_info(&self, font_size: f32, character: char) -> Option<GlyphAtlasInfo> {
@@ -85,9 +113,14 @@ impl FontAtlasSet {
             .get(&FloatOrd(font_size))
             .and_then(|font_atlas| {
                 font_atlas
-                    .get_char_index(character)
-                    .map(|char_index| GlyphAtlasInfo {
-                        texture_atlas: font_atlas.texture_atlas,
+                    .iter()
+                    .find_map(|atlas| {
+                        atlas
+                            .get_char_index(character)
+                            .map(|char_index| (char_index, atlas.texture_atlas))
+                    })
+                    .map(|(char_index, texture_atlas)| GlyphAtlasInfo {
+                        texture_atlas,
                         char_index,
                     })
             })

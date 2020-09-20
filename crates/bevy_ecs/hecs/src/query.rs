@@ -20,13 +20,16 @@ use core::{
     ptr::NonNull,
 };
 
-use crate::{archetype::Archetype, Component, Entity};
+use crate::{archetype::Archetype, Component, Entity, MissingComponent};
 
 /// A collection of component types to fetch from a `World`
 pub trait Query {
     #[doc(hidden)]
     type Fetch: for<'a> Fetch<'a>;
 }
+
+/// A fetch that is read only. This should only be implemented for read-only fetches.
+pub unsafe trait ReadOnlyFetch {}
 
 /// Streaming iterators over contiguous homogeneous ranges of components
 pub trait Fetch<'a>: Sized {
@@ -76,7 +79,8 @@ pub enum Access {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct EntityFetch(NonNull<u128>);
+pub struct EntityFetch(NonNull<Entity>);
+unsafe impl ReadOnlyFetch for EntityFetch {}
 
 impl Query for Entity {
     type Fetch = EntityFetch;
@@ -107,7 +111,7 @@ impl<'a> Fetch<'a> for EntityFetch {
     unsafe fn next(&mut self) -> Self::Item {
         let id = self.0.as_ptr();
         self.0 = NonNull::new_unchecked(id.add(1));
-        Entity::from_id(*id)
+        *id
     }
 }
 
@@ -117,6 +121,8 @@ impl<'a, T: Component> Query for &'a T {
 
 #[doc(hidden)]
 pub struct FetchRead<T>(NonNull<T>);
+
+unsafe impl<T> ReadOnlyFetch for FetchRead<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
@@ -161,8 +167,24 @@ impl<T: Query> Query for Option<T> {
 
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
-    value: &'a mut T,
-    mutated: &'a mut bool,
+    pub(crate) value: &'a mut T,
+    pub(crate) mutated: &'a mut bool,
+}
+
+impl<'a, T: Component> Mut<'a, T> {
+    /// Creates a new mutable reference to a component. This is unsafe because the index bounds are not checked.
+    ///
+    /// # Safety
+    /// This doesn't check the bounds of index in archetype
+    pub unsafe fn new(archetype: &'a Archetype, index: usize) -> Result<Self, MissingComponent> {
+        let (target, type_state) = archetype
+            .get_with_type_state::<T>()
+            .ok_or_else(MissingComponent::new::<T>)?;
+        Ok(Self {
+            value: &mut *target.as_ptr().add(index),
+            mutated: &mut *type_state.mutated().as_ptr().add(index),
+        })
+    }
 }
 
 unsafe impl<T: Component> Send for Mut<'_, T> {}
@@ -214,11 +236,11 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
-            .get_with_mutated::<T>()
-            .map(|(components, mutated)| {
+            .get_with_type_state::<T>()
+            .map(|(components, type_state)| {
                 Self(
                     NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
                 )
             })
     }
@@ -306,11 +328,11 @@ impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
 /// let mut world = World::new();
 /// world.spawn((123, true, 1., Some(1)));
 /// world.spawn((456, false, 2., Some(0)));
-/// for mut b in world.query::<Mut<i32>>().iter().skip(1).take(1) {
+/// for mut b in world.query_mut::<Mut<i32>>().iter().skip(1).take(1) {
 ///     *b += 1;
 /// }
 /// let components = world
-///     .query::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
+///     .query_mut::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
 ///     .iter()
 ///     .map(|(b, i, f, o)| (*b, *i))
 ///     .collect::<Vec<_>>();
@@ -361,11 +383,11 @@ impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
-            .get_with_mutated::<T>()
-            .map(|(components, mutated)| {
+            .get_with_type_state::<T>()
+            .map(|(components, type_state)| {
                 Self(
                     NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
                 )
             })
     }
@@ -408,6 +430,7 @@ impl<'a, T: Component> Query for Added<'a, T> {
 
 #[doc(hidden)]
 pub struct FetchAdded<T>(NonNull<T>, NonNull<bool>);
+unsafe impl<T> ReadOnlyFetch for FetchAdded<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     type Item = Added<'a, T>;
@@ -425,12 +448,14 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype.get_with_added::<T>().map(|(components, added)| {
-            Self(
-                NonNull::new_unchecked(components.as_ptr().add(offset)),
-                NonNull::new_unchecked(added.as_ptr().add(offset)),
-            )
-        })
+        archetype
+            .get_with_type_state::<T>()
+            .map(|(components, type_state)| {
+                Self(
+                    NonNull::new_unchecked(components.as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
+                )
+            })
     }
 
     fn release(archetype: &Archetype) {
@@ -471,6 +496,7 @@ impl<'a, T: Component> Query for Changed<'a, T> {
 
 #[doc(hidden)]
 pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>, NonNull<bool>);
+unsafe impl<T> ReadOnlyFetch for FetchChanged<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
     type Item = Changed<'a, T>;
@@ -489,12 +515,12 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
         archetype
-            .get_with_added_and_mutated::<T>()
-            .map(|(components, added, mutated)| {
+            .get_with_type_state::<T>()
+            .map(|(components, type_state)| {
                 Self(
                     NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(added.as_ptr().add(offset)),
-                    NonNull::new_unchecked(mutated.as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
+                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
                 )
             })
     }
@@ -520,6 +546,7 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
 
 #[doc(hidden)]
 pub struct TryFetch<T>(Option<T>);
+unsafe impl<T> ReadOnlyFetch for TryFetch<T> where T: ReadOnlyFetch {}
 
 impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     type Item = Option<T::Item>;
@@ -574,6 +601,10 @@ impl<T: Component, Q: Query> Query for Without<T, Q> {
 
 #[doc(hidden)]
 pub struct FetchWithout<T, F>(F, PhantomData<fn(T)>);
+unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWithout<T, F> where
+    F: ReadOnlyFetch
+{
+}
 
 impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
     type Item = F::Item;
@@ -637,6 +668,7 @@ impl<T: Component, Q: Query> Query for With<T, Q> {
 
 #[doc(hidden)]
 pub struct FetchWith<T, F>(F, PhantomData<fn(T)>);
+unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWith<T, F> where F: ReadOnlyFetch {}
 
 impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWith<T, F> {
     type Item = F::Item;
@@ -706,7 +738,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
     /// Like `iter`, but returns child iterators of at most `batch_size` elements
     ///
     /// Useful for distributing work over a threadpool.
-    pub fn iter_batched<'q>(&'q mut self, batch_size: u32) -> BatchedIter<'q, 'w, Q> {
+    pub fn iter_batched<'q>(&'q mut self, batch_size: usize) -> BatchedIter<'q, 'w, Q> {
         self.borrow();
         BatchedIter {
             borrow: self,
@@ -722,12 +754,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
                 "called QueryBorrow::iter twice on the same borrow; construct a new query instead"
             );
         }
-        for x in self.archetypes {
-            // TODO: Release prior borrows on failure?
-            if Q::Fetch::access(x) >= Some(Access::Read) {
-                Q::Fetch::borrow(x);
-            }
-        }
+
         self.borrowed = true;
     }
 
@@ -781,31 +808,19 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
 
     /// Helper to change the type of the query
     fn transform<R: Query>(mut self) -> QueryBorrow<'w, R> {
-        let x = QueryBorrow {
+        let borrow = QueryBorrow {
             archetypes: self.archetypes,
             borrowed: self.borrowed,
             _marker: PhantomData,
         };
-        // Ensure `Drop` won't fire redundantly
+
         self.borrowed = false;
-        x
+        borrow
     }
 }
 
 unsafe impl<'w, Q: Query> Send for QueryBorrow<'w, Q> {}
 unsafe impl<'w, Q: Query> Sync for QueryBorrow<'w, Q> {}
-
-impl<'w, Q: Query> Drop for QueryBorrow<'w, Q> {
-    fn drop(&mut self) {
-        if self.borrowed {
-            for x in self.archetypes {
-                if Q::Fetch::access(x) >= Some(Access::Read) {
-                    Q::Fetch::release(x);
-                }
-            }
-        }
-    }
-}
 
 impl<'q, 'w, Q: Query> IntoIterator for &'q mut QueryBorrow<'w, Q> {
     type IntoIter = QueryIter<'q, 'w, Q>;
@@ -819,7 +834,7 @@ impl<'q, 'w, Q: Query> IntoIterator for &'q mut QueryBorrow<'w, Q> {
 /// Iterator over the set of entities with the components in `Q`
 pub struct QueryIter<'q, 'w, Q: Query> {
     borrow: &'q mut QueryBorrow<'w, Q>,
-    archetype_index: u32,
+    archetype_index: usize,
     iter: Option<ChunkIter<Q>>,
 }
 
@@ -834,7 +849,7 @@ impl<'q, 'w, Q: Query> Iterator for QueryIter<'q, 'w, Q> {
         loop {
             match self.iter {
                 None => {
-                    let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+                    let archetype = self.borrow.archetypes.get(self.archetype_index)?;
                     self.archetype_index += 1;
                     unsafe {
                         self.iter = Q::Fetch::get(archetype, 0).map(|fetch| ChunkIter {
@@ -868,14 +883,14 @@ impl<'q, 'w, Q: Query> ExactSizeIterator for QueryIter<'q, 'w, Q> {
             .archetypes
             .iter()
             .filter(|&x| Q::Fetch::access(x).is_some())
-            .map(|x| x.len() as usize)
+            .map(|x| x.len())
             .sum()
     }
 }
 
 struct ChunkIter<Q: Query> {
     fetch: Q::Fetch,
-    len: u32,
+    len: usize,
 }
 
 impl<Q: Query> ChunkIter<Q> {
@@ -900,9 +915,9 @@ impl<Q: Query> ChunkIter<Q> {
 /// Batched version of `QueryIter`
 pub struct BatchedIter<'q, 'w, Q: Query> {
     borrow: &'q mut QueryBorrow<'w, Q>,
-    archetype_index: u32,
-    batch_size: u32,
-    batch: u32,
+    archetype_index: usize,
+    batch_size: usize,
+    batch: usize,
 }
 
 unsafe impl<'q, 'w, Q: Query> Send for BatchedIter<'q, 'w, Q> {}
@@ -913,14 +928,14 @@ impl<'q, 'w, Q: Query> Iterator for BatchedIter<'q, 'w, Q> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+            let archetype = self.borrow.archetypes.get(self.archetype_index)?;
             let offset = self.batch_size * self.batch;
             if offset >= archetype.len() {
                 self.archetype_index += 1;
                 self.batch = 0;
                 continue;
             }
-            if let Some(fetch) = unsafe { Q::Fetch::get(archetype, offset as usize) } {
+            if let Some(fetch) = unsafe { Q::Fetch::get(archetype, offset) } {
                 self.batch += 1;
                 return Some(Batch {
                     _marker: PhantomData,
@@ -1003,10 +1018,11 @@ macro_rules! tuple_impl {
         impl<$($name: Query),*> Query for ($($name,)*) {
             type Fetch = ($($name::Fetch,)*);
         }
+
+        unsafe impl<$($name: ReadOnlyFetch),*> ReadOnlyFetch for ($($name,)*) {}
     };
 }
 
-//smaller_tuples_too!(tuple_impl, B, A);
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
 #[cfg(test)]
@@ -1067,31 +1083,31 @@ mod tests {
         let e3 = world.spawn((A(0), B(0)));
         world.spawn((A(0), B));
 
-        for (i, mut a) in world.query::<Mut<A>>().iter().enumerate() {
+        for (i, mut a) in world.query_mut::<Mut<A>>().iter().enumerate() {
             if i % 2 == 0 {
                 a.0 += 1;
             }
         }
 
-        fn get_changed_a(world: &World) -> Vec<Entity> {
+        fn get_changed_a(world: &mut World) -> Vec<Entity> {
             world
-                .query::<(Mutated<A>, Entity)>()
+                .query_mut::<(Mutated<A>, Entity)>()
                 .iter()
                 .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
         };
 
-        assert_eq!(get_changed_a(&world), vec![e1, e3]);
+        assert_eq!(get_changed_a(&mut world), vec![e1, e3]);
 
         // ensure changing an entity's archetypes also moves its mutated state
         world.insert(e1, (C,)).unwrap();
 
-        assert_eq!(get_changed_a(&world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_changed_a(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing mutated state
         world.insert(e1, (A(0), B)).unwrap();
         assert_eq!(
-            get_changed_a(&world),
+            get_changed_a(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -1099,7 +1115,7 @@ mod tests {
         // removing an unchanged entity should not change mutated state
         world.despawn(e2).unwrap();
         assert_eq!(
-            get_changed_a(&world),
+            get_changed_a(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -1107,7 +1123,7 @@ mod tests {
         // removing a changed entity should remove it from enumeration
         world.despawn(e1).unwrap();
         assert_eq!(
-            get_changed_a(&world),
+            get_changed_a(&mut world),
             vec![e3],
             "e1 should no longer be returned"
         );
@@ -1115,7 +1131,7 @@ mod tests {
         world.clear_trackers();
 
         assert!(world
-            .query::<(Mutated<A>, Entity)>()
+            .query_mut::<(Mutated<A>, Entity)>()
             .iter()
             .map(|(_a, e)| e)
             .collect::<Vec<Entity>>()
@@ -1129,16 +1145,16 @@ mod tests {
         let e2 = world.spawn((A(0), B(0)));
         world.spawn((A(0), B(0)));
 
-        for mut a in world.query::<Mut<A>>().iter() {
+        for mut a in world.query_mut::<Mut<A>>().iter() {
             a.0 += 1;
         }
 
-        for mut b in world.query::<Mut<B>>().iter().skip(1).take(1) {
+        for mut b in world.query_mut::<Mut<B>>().iter().skip(1).take(1) {
             b.0 += 1;
         }
 
         let a_b_changed = world
-            .query::<(Mutated<A>, Mutated<B>, Entity)>()
+            .query_mut::<(Mutated<A>, Mutated<B>, Entity)>()
             .iter()
             .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
@@ -1154,16 +1170,16 @@ mod tests {
         let _e4 = world.spawn((A(0), B(0)));
 
         // Mutate A in entities e1 and e2
-        for mut a in world.query::<Mut<A>>().iter().take(2) {
+        for mut a in world.query_mut::<Mut<A>>().iter().take(2) {
             a.0 += 1;
         }
         // Mutate B in entities e2 and e3
-        for mut b in world.query::<Mut<B>>().iter().skip(1).take(2) {
+        for mut b in world.query_mut::<Mut<B>>().iter().skip(1).take(2) {
             b.0 += 1;
         }
 
         let a_b_changed = world
-            .query::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
+            .query_mut::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();

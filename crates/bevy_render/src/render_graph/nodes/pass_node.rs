@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{HecsQuery, Resources, World};
+use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
 use std::marker::PhantomData;
 
 struct CameraInfo {
@@ -108,7 +108,10 @@ impl<Q: HecsQuery> PassNode<Q> {
     }
 }
 
-impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
+impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q>
+where
+    Q::Fetch: ReadOnlyFetch,
+{
     fn input(&self) -> &[ResourceSlotInfo] {
         &self.inputs
     }
@@ -190,7 +193,7 @@ impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q> {
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        if let Ok(mut query_one) = world.query_one::<Q>(visible_entity.entity) {
+                        if let Ok(query_one) = world.query_one::<Q>(visible_entity.entity) {
                             if query_one.get().is_none() {
                                 // visible entity does not match the Pass query
                                 continue;

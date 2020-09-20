@@ -40,6 +40,31 @@ The following packages are known to provide the dependencies required to run a b
 
 `nix-shell -p pkgconfig x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools lutris vulkan-headers vulkan-loader vulkan-validation-layers alsaLib`
 
+Alternatively, you can copy the following code block and create a file called `shell.nix`. You can now enter nix-shell just by running `nix-shell`.
+
+```nix
+# shell.nix
+
+{ pkgs ? import <nixpkgs> { } }:
+
+pkgs.mkShell {
+  buildInputs = [
+    pkgs.alsaLib
+    pkgs.lutris
+    pkgs.pkgconfig
+    pkgs.vulkan-headers
+    pkgs.vulkan-loader
+    pkgs.vulkan-tools
+    pkgs.vulkan-validation-layers
+    pkgs.x11
+    pkgs.xorg.libXcursor
+    pkgs.xorg.libXi
+    pkgs.xorg.libXrandr
+  ];
+}
+
+```
+
 At this point, projects should successfully compile but fail on execution. This is due to `glslang_validator` which, unfortunately, needs to have it's binary patched to link correctly. This is a known issue and there are plans to remove this dependency.
 
 1. `find target -type f -name glslang_validator` in order to find glslang_validator in `target/debug/build/bevy-glsl-to-spirv-<hash>/out/glslang_validator`. The directory containing glslang_validator will be referenced again, so save it for later: `export OUT_DIR="$(dirname $(find target -type f -name glslang_validator))"`.

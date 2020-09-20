@@ -11,7 +11,7 @@ pub struct Scene {
 }
 
 pub struct Entity {
-    pub entity: u128,
+    pub entity: u32,
     pub components: Vec<DynamicProperties>,
 }
 
@@ -23,7 +23,7 @@ impl Scene {
             for (index, entity) in archetype.iter_entities().enumerate() {
                 if index == entities.len() {
                     entities.push(Entity {
-                        entity: *entity,
+                        entity: entity.id(),
                         components: Vec::new(),
                     })
                 }

@@ -1,12 +1,23 @@
+mod axis;
+pub mod gamepad;
 mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod system;
 
+pub use axis::*;
 pub use input::*;
 
 pub mod prelude {
-    pub use crate::{keyboard::KeyCode, mouse::MouseButton, Input};
+    pub use crate::{
+        gamepad::{
+            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
+            GamepadEventType,
+        },
+        keyboard::KeyCode,
+        mouse::MouseButton,
+        Axis, Input,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -14,6 +25,7 @@ use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 
 use bevy_ecs::IntoQuerySystem;
+use gamepad::{GamepadAxis, GamepadButton, GamepadEvent};
 
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
@@ -34,6 +46,9 @@ impl Plugin for InputPlugin {
             .add_system_to_stage(
                 bevy_app::stage::EVENT_UPDATE,
                 mouse_button_input_system.system(),
-            );
+            )
+            .add_event::<GamepadEvent>()
+            .init_resource::<Input<GamepadButton>>()
+            .init_resource::<Axis<GamepadAxis>>();
     }
 }
