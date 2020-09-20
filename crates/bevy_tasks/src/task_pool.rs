@@ -83,7 +83,7 @@ pub struct TaskPool {
     /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
     /// pass into the worker threads, and we must create the worker threads before we can create the
     /// Vec<Task<T>> contained within TaskPoolInner
-    executor: Arc<async_executor::Executor>,
+    executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
     inner: Arc<TaskPoolInner>,
@@ -219,20 +219,13 @@ impl Default for TaskPool {
 }
 
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::Executor,
+    executor: &'scope async_executor::Executor<'scope>,
     spawned: Vec<async_executor::Task<T>>,
 }
 
-impl<'scope, T: Send + 'static> Scope<'scope, T> {
+impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        // SAFETY: This function blocks until all futures complete, so we do not read/write the
-        // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
-        // this so we must convert to 'static here to appease the compiler as it is unable to
-        // validate safety.
-        let fut: Pin<Box<dyn Future<Output = T> + 'scope + Send>> = Box::pin(f);
-        let fut: Pin<Box<dyn Future<Output = T> + 'static + Send>> = unsafe { mem::transmute(fut) };
-
-        let task = self.executor.spawn(fut);
+        let task = self.executor.spawn(f);
         self.spawned.push(task);
     }
 }
