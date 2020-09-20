@@ -37,7 +37,6 @@ pub fn text_system(
     // add queued glyphs to atlases
     if !queued_text_glyphs.glyphs.is_empty() {
         let mut glyphs_to_queue = Vec::new();
-        println!("queue {}", queued_text_glyphs.glyphs.len());
         for (font_handle, FloatOrd(font_size), character) in queued_text_glyphs.glyphs.drain() {
             let font_atlases = font_atlas_sets
                 .get_or_insert_with(Handle::from_id(font_handle.id), || {
