@@ -1,6 +1,6 @@
 [package]
 name = "bevy_gltf"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -14,9 +14,9 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app= { path = "../bevy_app", version = "0.2" }
-bevy_asset= { path = "../bevy_asset", version = "0.2" }
-bevy_render= { path = "../bevy_render", version = "0.2" }
+bevy_app = { path = "../bevy_app", version = "0.2.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.2.1" }
+bevy_render = { path = "../bevy_render", version = "0.2.1" }
 
 # other
 gltf = { version = "0.15.2", default-features = false, features = ["utils"] }
