@@ -35,7 +35,7 @@ for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
   (cd $crate; cargo publish)
-  sleep 30
+  sleep 15
 done
 
 cd ..
