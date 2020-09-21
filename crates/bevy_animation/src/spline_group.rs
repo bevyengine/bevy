@@ -1,3 +1,4 @@
+use core::time::Duration;
 use splines::Spline;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -34,21 +35,15 @@ pub trait SplineGroup {
     }
 
     fn is_empty(&self) -> bool {
-        if self.splines().is_empty() {
-            true
-        } else {
-            self.splines()
-                .into_iter()
-                .fold(true, |acc, v| if !v.is_empty() { false } else { acc })
-        }
+        let any_not_empty = self.splines().into_iter().any(|v| !v.is_empty());
+        !any_not_empty
     }
 
     fn start_time(&self) -> Option<f32> {
         let starts: Vec<f32> = self
             .splines()
             .into_iter()
-            .map(|s| spline_start_time(s))
-            .filter_map(|s| s)
+            .filter_map(spline_start_time)
             .collect();
 
         if starts.is_empty() {
@@ -80,10 +75,11 @@ pub trait SplineGroup {
         }
     }
 
-    fn duration(&self) -> Option<f32> {
+    fn duration(&self) -> Option<Duration> {
         self.start_time()
             .zip(self.end_time())
             .map(|(start, end)| (start - end).abs())
+            .map(|s| Duration::from_secs_f32(s))
     }
 
     fn advance(&mut self, delta_time: f32) {
