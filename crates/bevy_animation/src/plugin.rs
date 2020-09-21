@@ -8,8 +8,8 @@ use crate::{
 use bevy_app::{AppBuilder, Plugin};
 use bevy_core::Time;
 use bevy_ecs::{IntoForEachSystem, Mut, Res};
-use bevy_math::Vec3;
-use bevy_transform::components::{Rotation, Scale, Translation};
+use bevy_math::{Quat, Vec3};
+use bevy_transform::components::Transform;
 
 pub struct AnimationPlugin;
 
@@ -40,18 +40,21 @@ fn advance_animation_spline_three(
 
 fn advance_animation_transform(
     time: Res<Time>,
-    mut translation: Mut<Translation>,
-    mut rotation: Mut<Rotation>,
-    mut scale: Mut<Scale>,
+    mut transform: Mut<Transform>,
     mut splines: Mut<AnimationSplineTransform>,
 ) {
+    let mut translation = transform.translation();
+    // let mut rotation = transform.rotation();
+    let mut scale = transform.scale();
     splines.advance(time.delta_seconds);
     let s = splines.current();
-    s.translation.alter(&mut translation.0);
+    s.translation.alter(&mut translation);
     if let Some(sample_scale) = s.scale {
-        scale.0 = sample_scale;
+        scale = Vec3::one() * sample_scale;
     }
     let mut rot = Vec3::zero();
     s.rotation.alter(&mut rot);
-    *rotation = Rotation::from_rotation_xyz(rot.x(), rot.y(), rot.z());
+    *transform = Transform::from_translation(translation)
+        .with_rotation(Quat::from_rotation_ypr(rot.x(), rot.y(), rot.z()))
+        .with_apply_non_uniform_scale(scale);
 }

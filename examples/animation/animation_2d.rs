@@ -38,7 +38,7 @@ fn setup(
                 Key::new(0.5, 1.5, Interpolation::Cosine),
                 Key::new(1.0, 1.0, Interpolation::Cosine),
             ]),
-            loop_style: LoopStyle::Loop,
+            loop_style: LoopStyle::PingPong,
             ..Default::default()
         });
 }

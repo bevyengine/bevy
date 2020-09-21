@@ -95,16 +95,11 @@ pub trait SplineGroup {
         let end = self.end_time().unwrap();
         let direction = self.speed().signum();
         let reversed = direction < 0.0;
-        let past_boundary = if reversed {
-            if self.pong() {
-                end < self.time()
-            } else {
-                start > self.time()
-            }
-        } else if self.pong() {
-            start > self.time()
-        } else {
-            end < self.time()
+        let past_boundary = match (reversed, self.pong()) {
+            (true, true) => end < self.time(),
+            (true, false) => start > self.time(),
+            (false, true) => start > self.time(),
+            (false, false) => end < self.time(),
         };
 
         let loop_time_start = if reversed { end } else { start };
@@ -135,7 +130,7 @@ pub trait SplineGroup {
                     *time += delta_time * speed * pong_signum;
                 } else {
                     new_pong = !pong;
-                    *time = if pong { end } else { start };
+                    *time = if new_pong { end } else { start };
                 }
             }
         };
