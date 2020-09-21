@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use futures_lite::future;
+use futures_lite::{future, pin};
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -180,12 +180,8 @@ impl TaskPool {
             results
         };
 
-        // Move the value to ensure that it is owned
-        let mut fut = fut;
-
-        // Shadow the original binding so that it can't be directly accessed
-        // ever again.
-        let fut = unsafe { Pin::new_unchecked(&mut fut) };
+        // Pin the future on the stack.
+        pin!(fut);
 
         // SAFETY: This function blocks until all futures complete, so we do not read/write the
         // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
