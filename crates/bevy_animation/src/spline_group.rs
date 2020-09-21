@@ -79,7 +79,7 @@ pub trait SplineGroup {
         self.start_time()
             .zip(self.end_time())
             .map(|(start, end)| (start - end).abs())
-            .map(|s| Duration::from_secs_f32(s))
+            .map(Duration::from_secs_f32)
     }
 
     fn advance(&mut self, delta_time: f32) {
