@@ -65,7 +65,7 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
           override: true
-          
+
       - name: Install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
 

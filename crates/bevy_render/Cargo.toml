@@ -49,7 +49,9 @@ parking_lot = "0.11.0"
 bevy-glsl-to-spirv = "0.1.7"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-shaderc = "0.6.2"
+#shaderc = "0.6.2"
+#shaderc = { path = "../../../shaderc-rs/shaderc-rs/" }
+shaderc = { git = "https://github.com/simlay/shaderc-rs", branch = "ios-support" }
 
 [features]
 png = ["image/png"]

@@ -136,3 +136,36 @@ to point to the correct `.js` file.
 Then serve `examples/wasm` dir to browser. i.e.
 
     $ basic-http-server examples/wasm
+
+## iOS
+
+#### pre-req
+
+    $ rustup target add aarch64-apple-ios x86_64-apple-ios
+    $ cargo install cargo-lipo
+
+#### build & run
+
+Using bash:
+    $ cd examples/ios
+    $ make run
+
+In an ideal world, this will boot up, install and run the app for the first
+iOS simulator in your `xcrun simctl devices list`. If this fails, you can
+specify the simulator device UUID via:
+    $ DEVICE_ID=${YOUR_DEVICE_ID} make run
+
+If you'd like to see xcode do stuff, you can run
+    $ open bevy_ios_example.xcodeproj/
+
+which will open xcode. You then must push the zoom zoom play button and wait
+for the magic.
+
+The Xcode build GUI will by default build the rust library for both
+`x86_64-apple-ios`, and `aarch64-apple-ios` which may take a while. If you'd
+like speed this up, you update the `IOS_TARGETS` User-Defined environment
+variable in the "`cargo_ios` target" to be either `x86_64-apple-ios` or
+`aarch64-applo-ios` depending on your goal.
+
+Note: if you update this variable in Xcode, it will also change the default
+used for the `Makefile`.
