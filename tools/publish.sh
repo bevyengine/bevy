@@ -8,7 +8,7 @@ crates=(
     bevy_ecs/hecs
     bevy_ecs
     bevy_app
-    bevy_dynload
+    bevy_dynamic_plugin
     bevy_property/bevy_property_derive
     bevy_property
     bevy_type_registry

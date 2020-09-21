@@ -22,5 +22,5 @@ pub use crate::text::prelude::*;
 #[cfg(feature = "bevy_ui")]
 pub use crate::ui::prelude::*;
 
-#[cfg(feature = "bevy_dynload")]
-pub use crate::dynload::*;
+#[cfg(feature = "dynamic_plugins")]
+pub use crate::dynamic_plugin::*;
