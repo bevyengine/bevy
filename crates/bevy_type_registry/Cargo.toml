@@ -12,9 +12,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
-[features]
-dynamic_plugins = ["bevy_app/dynamic_plugins"]
-
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.2.1" }

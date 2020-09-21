@@ -81,3 +81,6 @@ pub use bevy_winit as winit;
 
 #[cfg(feature = "bevy_wgpu")]
 pub use bevy_wgpu as wgpu;
+
+#[cfg(feature = "bevy_dynload")]
+pub use bevy_dynload as dynload;
