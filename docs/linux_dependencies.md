@@ -6,7 +6,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 
 ## Ubuntu 20.04
 ```bash
-sudo apt-get install pkg-config libx11-dev libasound2-dev
+sudo apt-get install pkg-config libx11-dev libasound2-dev libudev-dev
 ```
 
 ## Fedora 32
