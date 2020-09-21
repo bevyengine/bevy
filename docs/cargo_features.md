@@ -21,8 +21,8 @@ Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.
 ### render
 The render pipeline and all render related plugins.
 
-### dynamic_plugins
-Plugins for dynamic loading (libloading)
+### bevy_dynload
+Allows for dynamic loading of plugins (previously dynamic_plugins)
 
 ### png 
 
