@@ -1,0 +1,24 @@
+[package]
+name = "bevy_ecs_macros"
+version = "0.2.1"
+description = "Procedural macros used by bevy_ecs and bevy_hecs"
+authors = [
+    "Benjamin Saunders <ben.e.saunders@gmail.com>",
+    "Bevy Contributors <bevyengine@gmail.com>",
+]
+edition = "2018"
+license = "Apache-2.0" # What license should go here?
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+
+[features]
+derive = ["syn"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version="1.0", optional=true }
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-crate = "0.1.5"

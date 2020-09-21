@@ -14,20 +14,12 @@
 
 // modified by Bevy contributors
 
-extern crate proc_macro;
-
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::crate_name;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Path};
 
-/// Implement `Bundle` for a monomorphic struct
-///
-/// Using derived `Bundle` impls improves spawn performance and can be convenient when combined with
-/// other derives like `serde::Deserialize`.
-#[allow(clippy::cognitive_complexity)]
-#[proc_macro_derive(Bundle)]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     if !input.generics.params.is_empty() {

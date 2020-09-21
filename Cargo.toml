@@ -55,7 +55,7 @@ wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
 [workspace]
-members = ["crates/*", "crates/bevy_ecs/hecs"]
+members = ["crates/*", "crates/bevy_ecs/hecs", "crates/bevy_ecs/macros"]
 exclude = ["benches"]
 
 [dependencies]

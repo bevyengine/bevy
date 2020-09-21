@@ -99,4 +99,4 @@ pub use lazy_static;
 pub use query::Fetch;
 
 #[cfg(feature = "macros")]
-pub use bevy_hecs_macros::Bundle;
+pub use bevy_ecs_macros::Bundle;
