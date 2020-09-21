@@ -112,6 +112,9 @@ pub fn winit_runner(mut app: App) {
         }
 
         match event {
+            // This event is restricted to only sending resize-events when the width or height are not 0.
+            // This prevents crashing on minimizing/resizing, and should be removed when https://github.com/gfx-rs/wgpu-rs/issues/316
+            // is fixed.
             event::Event::WindowEvent {
                 event: WindowEvent::Resized(size),
                 window_id: winit_window_id,
