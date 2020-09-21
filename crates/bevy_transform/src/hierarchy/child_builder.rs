@@ -94,7 +94,7 @@ impl<'a> ChildBuilder<'a> {
         self
     }
 
-    pub fn for_current_entity(&mut self, mut func: impl FnMut(Entity)) -> &mut Self {
+    pub fn for_current_entity(&mut self, func: impl FnOnce(Entity)) -> &mut Self {
         let current_entity = self
             .commands
             .current_entity
@@ -105,13 +105,13 @@ impl<'a> ChildBuilder<'a> {
 }
 
 pub trait BuildChildren {
-    fn with_children(&mut self, f: impl FnMut(&mut ChildBuilder)) -> &mut Self;
+    fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self;
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self;
 }
 
 impl BuildChildren for Commands {
-    fn with_children(&mut self, mut parent: impl FnMut(&mut ChildBuilder)) -> &mut Self {
+    fn with_children(&mut self, parent: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         {
             let mut commands = self.commands.lock();
             let current_entity = commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
@@ -159,7 +159,7 @@ impl BuildChildren for Commands {
 }
 
 impl<'a> BuildChildren for ChildBuilder<'a> {
-    fn with_children(&mut self, mut spawn_children: impl FnMut(&mut ChildBuilder)) -> &mut Self {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         let current_entity = self.commands.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
         self.commands.current_entity = None;
         let push_children = {

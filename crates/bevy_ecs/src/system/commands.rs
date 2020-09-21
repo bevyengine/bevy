@@ -298,7 +298,7 @@ impl Commands {
         commands.current_entity
     }
 
-    pub fn for_current_entity(&mut self, mut f: impl FnMut(Entity)) -> &mut Self {
+    pub fn for_current_entity(&mut self, f: impl FnOnce(Entity)) -> &mut Self {
         {
             let commands = self.commands.lock();
             let current_entity = commands
