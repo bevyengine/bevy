@@ -1,7 +1,6 @@
 use std::{
     future::Future,
     mem,
-    pin::Pin,
     sync::{Arc, Mutex},
 };
 
@@ -63,10 +62,12 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        let executor = async_executor::LocalExecutor::new();
+        let executor = &async_executor::LocalExecutor::new();
+        let executor: &'scope async_executor::LocalExecutor<'scope> =
+            unsafe { mem::transmute(executor) };
 
         let mut scope = Scope {
-            executor: &executor,
+            executor,
             results: Vec::new(),
         };
 
