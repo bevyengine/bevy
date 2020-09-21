@@ -116,7 +116,7 @@ pub fn winit_runner(mut app: App) {
                 event: WindowEvent::Resized(size),
                 window_id: winit_window_id,
                 ..
-            } => {
+            } => if size.width != 0 && size.height != 0 {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
