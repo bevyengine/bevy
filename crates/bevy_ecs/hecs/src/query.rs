@@ -262,7 +262,6 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
-// Handled
 macro_rules! impl_or_query {
     ( $( $T:ident ),+ ) => {
         impl<$( $T: Query ),+> Query for Or<($( $T ),+)> {

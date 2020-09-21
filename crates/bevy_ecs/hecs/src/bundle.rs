@@ -82,7 +82,6 @@ impl fmt::Display for MissingComponent {
 #[cfg(feature = "std")]
 impl std::error::Error for MissingComponent {}
 
-// HANDLE
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
         impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
@@ -142,7 +141,6 @@ macro_rules! tuple_impl {
     }
 }
 
-// Unneeded
 macro_rules! count {
     () => { 0 };
     ($x: ident $(, $rest: ident)*) => { 1 + count!($($rest),*) };
