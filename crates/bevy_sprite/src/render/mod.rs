@@ -1,4 +1,4 @@
-use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite, TextTextureAtlasSprite};
+use crate::{ColorMaterial, Sprite, TextTextureAtlasSprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
 use bevy_render::{
@@ -186,7 +186,6 @@ impl SpriteRenderGraphBuilder for RenderGraph {
         self.add_node_edge(node::COLOR_MATERIAL, base::node::MAIN_PASS)
             .unwrap();
 
-            
         self.add_system_node(node::SPRITE, RenderResourcesNode::<Sprite>::new(true));
         self.add_node_edge(node::SPRITE, base::node::MAIN_PASS)
             .unwrap();
@@ -200,7 +199,7 @@ impl SpriteRenderGraphBuilder for RenderGraph {
             node::SPRITE_SHEET_SPRITE,
             RenderResourcesNode::<TextureAtlasSprite>::new(true),
         );
-        
+
         self.add_system_node(
             node::TEXT_SPRITE_SHEET_SPRITE,
             RenderResourcesNode::<TextTextureAtlasSprite>::new(true),

@@ -13,7 +13,7 @@ use bevy_render::{
         RenderResourceId,
     },
 };
-use bevy_sprite::{TextureAtlas, TextureAtlasSprite, TextTextureAtlasSprite};
+use bevy_sprite::{TextTextureAtlasSprite, TextureAtlas, TextureAtlasSprite};
 
 #[derive(Clone)]
 pub struct TextStyle {
@@ -45,7 +45,6 @@ pub struct DrawableText<'a> {
 
 impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
-        
         context.set_pipeline(
             draw,
             bevy_sprite::TEXT_SHEET_PIPELINE_HANDLE,

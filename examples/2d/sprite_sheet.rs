@@ -43,4 +43,4 @@ fn setup(
             ..Default::default()
         })
         .with(Timer::from_seconds(0.1, true));
-    }
+}
