@@ -408,6 +408,8 @@ impl Archetype {
         let state = self.state.get_mut(&ty).unwrap();
         if added {
             state.added_entities[index] = true;
+        } else {
+            state.mutated_entities[index] = true;
         }
         let ptr = (*self.data.get())
             .as_ptr()

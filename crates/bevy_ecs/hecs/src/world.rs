@@ -574,7 +574,8 @@ impl World {
             }
 
             components.put(|ptr, ty, size| {
-                target_arch.put_dynamic(ptr, ty, size, target_index, true);
+                let added = !source_arch.has_dynamic(ty);
+                target_arch.put_dynamic(ptr, ty, size, target_index, added);
                 true
             });
         }
