@@ -16,6 +16,11 @@ use std::{
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
+    /// Creates a new task from a given async_executor::Task
+    pub fn new(task: async_executor::Task<T>) -> Self {
+        Self(task)
+    }
+
     /// Detaches the task to let it keep running in the background. See `async_executor::Task::detach`
     pub fn detach(self) {
         self.0.detach();

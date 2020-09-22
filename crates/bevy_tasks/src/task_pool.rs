@@ -8,6 +8,8 @@ use std::{
 
 use futures_lite::{future, pin};
 
+use crate::Task;
+
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {
@@ -197,14 +199,11 @@ impl TaskPool {
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
     /// cancelled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
-    pub fn spawn<T>(
-        &self,
-        future: impl Future<Output = T> + Send + 'static,
-    ) -> impl Future<Output = T> + Send
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {
-        self.executor.spawn(future)
+        Task::new(self.executor.spawn(future))
     }
 }
 

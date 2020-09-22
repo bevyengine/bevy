@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
+use bevy_tasks::TaskPool;
 use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
@@ -11,7 +12,6 @@ use std::{
     env, fs, io,
     path::{Path, PathBuf},
     sync::Arc,
-    thread,
 };
 
 use thiserror::Error;
@@ -36,12 +36,6 @@ pub enum AssetServerError {
     Io(#[from] io::Error),
     #[error("Failed to watch asset folder.")]
     AssetWatchError { path: PathBuf },
-}
-
-struct LoaderThread {
-    // NOTE: these must remain private. the LoaderThread Arc counters are used to determine thread liveness
-    // if there is one reference, the loader thread is dead. if there are two references, the loader thread is active
-    requests: Arc<RwLock<Vec<LoadRequest>>>,
 }
 
 /// Info about a specific asset, such as its path and its current load state
@@ -73,11 +67,10 @@ impl LoadState {
 /// Loads assets from the filesystem on background threads
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
-    loader_threads: RwLock<Vec<LoaderThread>>,
-    max_loader_threads: usize,
     asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
     // TODO: this is a hack to enable retrieving generic AssetLoader<T>s. there must be a better way!
     loaders: Vec<Resources>,
+    task_pool: TaskPool,
     extension_to_handler_index: HashMap<String, usize>,
     extension_to_loader_index: HashMap<String, usize>,
     asset_info: RwLock<HashMap<HandleId, AssetInfo>>,
@@ -86,25 +79,22 @@ pub struct AssetServer {
     filesystem_watcher: Arc<RwLock<Option<FilesystemWatcher>>>,
 }
 
-impl Default for AssetServer {
-    fn default() -> Self {
+impl AssetServer {
+    pub fn new(task_pool: TaskPool) -> Self {
         AssetServer {
-            #[cfg(feature = "filesystem_watcher")]
-            filesystem_watcher: Arc::new(RwLock::new(None)),
-            max_loader_threads: 4,
             asset_folders: Default::default(),
-            loader_threads: Default::default(),
             asset_handlers: Default::default(),
             loaders: Default::default(),
             extension_to_handler_index: Default::default(),
             extension_to_loader_index: Default::default(),
             asset_info_paths: Default::default(),
             asset_info: Default::default(),
+            task_pool,
+            #[cfg(feature = "filesystem_watcher")]
+            filesystem_watcher: Arc::new(RwLock::new(None)),
         }
     }
-}
 
-impl AssetServer {
     pub fn add_handler<T>(&mut self, asset_handler: T)
     where
         T: AssetLoadRequestHandler,
@@ -181,46 +171,6 @@ impl AssetServer {
         }
 
         Ok(())
-    }
-
-    #[cfg(feature = "filesystem_watcher")]
-    pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-        let mut changed = HashSet::default();
-
-        loop {
-            let result = {
-                let rwlock_guard = asset_server.filesystem_watcher.read();
-                if let Some(filesystem_watcher) = rwlock_guard.as_ref() {
-                    filesystem_watcher.receiver.try_recv()
-                } else {
-                    break;
-                }
-            };
-            let event = match result {
-                Ok(result) => result.unwrap(),
-                Err(TryRecvError::Empty) => break,
-                Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
-            };
-            if let notify::event::Event {
-                kind: notify::event::EventKind::Modify(_),
-                paths,
-                ..
-            } = event
-            {
-                for path in paths.iter() {
-                    if !changed.contains(path) {
-                        let root_path = asset_server.get_root_path().unwrap();
-                        let relative_path = path.strip_prefix(root_path).unwrap();
-                        match asset_server.load_untyped(relative_path) {
-                            Ok(_) => {}
-                            Err(AssetServerError::AssetLoadError(error)) => panic!("{:?}", error),
-                            Err(_) => {}
-                        }
-                    }
-                }
-                changed.extend(paths);
-            }
-        }
     }
 
     fn get_root_path(&self) -> Result<PathBuf, AssetServerError> {
@@ -315,12 +265,21 @@ impl AssetServer {
                     }
                 };
 
-                self.send_request_to_loader_thread(LoadRequest {
+                let load_request = LoadRequest {
                     handle_id,
                     path: path.to_owned(),
                     handler_index: *index,
                     version: new_version,
-                });
+                };
+
+                let asset_handlers = self.asset_handlers.clone();
+                self.task_pool
+                    .spawn(async move {
+                        let handlers = asset_handlers.read();
+                        let request_handler = &handlers[load_request.handler_index];
+                        request_handler.handle_request(&load_request);
+                    })
+                    .detach();
 
                 // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
                 // folders instead (when possible)
@@ -370,56 +329,6 @@ impl AssetServer {
         Some(load_state)
     }
 
-    fn send_request_to_loader_thread(&self, load_request: LoadRequest) {
-        // NOTE: This lock makes the call to Arc::strong_count safe. Removing (or reordering) it could result in undefined behavior
-        let mut loader_threads = self.loader_threads.write();
-        if loader_threads.len() < self.max_loader_threads {
-            let loader_thread = LoaderThread {
-                requests: Arc::new(RwLock::new(vec![load_request])),
-            };
-            let requests = loader_thread.requests.clone();
-            loader_threads.push(loader_thread);
-            Self::start_thread(self.asset_handlers.clone(), requests);
-        } else {
-            let most_free_thread = loader_threads
-                .iter()
-                .min_by_key(|l| l.requests.read().len())
-                .unwrap();
-            let mut requests = most_free_thread.requests.write();
-            requests.push(load_request);
-            // if most free thread only has one reference, the thread as spun down. if so, we need to spin it back up!
-            if Arc::strong_count(&most_free_thread.requests) == 1 {
-                Self::start_thread(
-                    self.asset_handlers.clone(),
-                    most_free_thread.requests.clone(),
-                );
-            }
-        }
-    }
-
-    fn start_thread(
-        request_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
-        requests: Arc<RwLock<Vec<LoadRequest>>>,
-    ) {
-        thread::spawn(move || {
-            loop {
-                let request = {
-                    let mut current_requests = requests.write();
-                    if current_requests.len() == 0 {
-                        // if there are no requests, spin down the thread
-                        break;
-                    }
-
-                    current_requests.pop().unwrap()
-                };
-
-                let handlers = request_handlers.read();
-                let request_handler = &handlers[request.handler_index];
-                request_handler.handle_request(&request);
-            }
-        });
-    }
-
     fn load_assets_in_folder_recursive(
         &self,
         path: &Path,
@@ -454,5 +363,45 @@ impl AssetServer {
         }
 
         Ok(handle_ids)
+    }
+}
+
+#[cfg(feature = "filesystem_watcher")]
+pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+    let mut changed = HashSet::default();
+
+    loop {
+        let result = {
+            let rwlock_guard = asset_server.filesystem_watcher.read();
+            if let Some(filesystem_watcher) = rwlock_guard.as_ref() {
+                filesystem_watcher.receiver.try_recv()
+            } else {
+                break;
+            }
+        };
+        let event = match result {
+            Ok(result) => result.unwrap(),
+            Err(TryRecvError::Empty) => break,
+            Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected"),
+        };
+        if let notify::event::Event {
+            kind: notify::event::EventKind::Modify(_),
+            paths,
+            ..
+        } = event
+        {
+            for path in paths.iter() {
+                if !changed.contains(path) {
+                    let root_path = asset_server.get_root_path().unwrap();
+                    let relative_path = path.strip_prefix(root_path).unwrap();
+                    match asset_server.load_untyped(relative_path) {
+                        Ok(_) => {}
+                        Err(AssetServerError::AssetLoadError(error)) => panic!("{:?}", error),
+                        Err(_) => {}
+                    }
+                }
+            }
+            changed.extend(paths);
+        }
     }
 }
