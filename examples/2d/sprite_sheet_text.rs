@@ -54,7 +54,7 @@ fn setup(
                 ..Default::default()
             },
             text: Text {
-                value: "FPS:".to_string(),
+                value: "Text And Sprite Example!".to_string(),
                 font: font_handle,
                 style: TextStyle {
                     font_size: 60.0,
