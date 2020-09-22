@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- [Another fast compile flag for macOS][552]
+
+[552]: https://github.com/bevyengine/bevy/pull/552
+
 ## Version 0.2.1 (2020-9-20)
 
 ### Fixed
