@@ -50,14 +50,11 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
 }
 
 pub trait BuildWorldChildren {
-    fn with_children(&mut self, spawn_children: impl FnMut(&mut WorldChildBuilder)) -> &mut Self;
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
 }
 
 impl<'a> BuildWorldChildren for WorldBuilder<'a> {
-    fn with_children(
-        &mut self,
-        mut spawn_children: impl FnMut(&mut WorldChildBuilder),
-    ) -> &mut Self {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         {
             let current_entity = self.current_entity.expect("Cannot add children because the 'current entity' is not set. You should spawn an entity first.");
             let mut builder = WorldChildBuilder {
@@ -72,10 +69,7 @@ impl<'a> BuildWorldChildren for WorldBuilder<'a> {
 }
 
 impl<'a, 'b> BuildWorldChildren for WorldChildBuilder<'a, 'b> {
-    fn with_children(
-        &mut self,
-        mut spawn_children: impl FnMut(&mut WorldChildBuilder),
-    ) -> &mut Self {
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let current_entity = self
             .world_builder
             .current_entity

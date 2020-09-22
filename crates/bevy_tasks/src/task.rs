@@ -16,6 +16,11 @@ use std::{
 pub struct Task<T>(async_executor::Task<T>);
 
 impl<T> Task<T> {
+    /// Creates a new task from a given async_executor::Task
+    pub fn new(task: async_executor::Task<T>) -> Self {
+        Self(task)
+    }
+
     /// Detaches the task to let it keep running in the background. See `async_executor::Task::detach`
     pub fn detach(self) {
         self.0.detach();
@@ -38,8 +43,7 @@ impl<T> Task<T> {
 impl<T> Future for Task<T> {
     type Output = T;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Safe because Task is pinned and contains async_executor::Task by value
-        unsafe { self.map_unchecked_mut(|x| &mut x.0).poll(cx) }
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        Pin::new(&mut self.0).poll(cx)
     }
 }

@@ -1,7 +1,6 @@
 use std::{
     future::Future,
     mem,
-    pin::Pin,
     sync::{Arc, Mutex},
 };
 
@@ -63,10 +62,9 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
-        let executor = async_executor::LocalExecutor::new();
-
-        let executor: &async_executor::LocalExecutor = &executor;
-        let executor: &'scope async_executor::LocalExecutor = unsafe { mem::transmute(executor) };
+        let executor = &async_executor::LocalExecutor::new();
+        let executor: &'scope async_executor::LocalExecutor<'scope> =
+            unsafe { mem::transmute(executor) };
 
         let mut scope = Scope {
             executor,
@@ -87,26 +85,18 @@ impl TaskPool {
 }
 
 pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::LocalExecutor,
+    executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: Vec<Arc<Mutex<Option<T>>>>,
 }
 
-impl<'scope, T: Send + 'static> Scope<'scope, T> {
+impl<'scope, T: Send + 'scope> Scope<'scope, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
         let result = Arc::new(Mutex::new(None));
         self.results.push(result.clone());
         let f = async move {
             result.lock().unwrap().replace(f.await);
         };
-
-        // SAFETY: This function blocks until all futures complete, so we do not read/write the
-        // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
-        // this so we must convert to 'static here to appease the compiler as it is unable to
-        // validate safety.
-        let fut: Pin<Box<dyn Future<Output = ()> + 'scope>> = Box::pin(f);
-        let fut: Pin<Box<dyn Future<Output = ()> + 'static>> = unsafe { mem::transmute(fut) };
-
-        self.executor.spawn(fut).detach();
+        self.executor.spawn(f).detach();
     }
 }

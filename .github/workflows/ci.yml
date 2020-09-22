@@ -55,6 +55,13 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+      - name: Check wasm
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          target: wasm32-unknown-unknown
+          override: true
+
   clean:
     runs-on: ubuntu-latest
     steps:

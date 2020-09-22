@@ -1,5 +1,5 @@
 use bevy_ecs::Resources;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool, TaskPoolBuilder};
+use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -100,7 +100,7 @@ impl DefaultTaskPoolOptions {
 
         let mut remaining_threads = total_threads;
 
-        if !resources.contains::<IOTaskPool>() {
+        if !resources.contains::<IoTaskPool>() {
             // Determine the number of IO threads we will use
             let io_threads = self
                 .io
@@ -109,7 +109,7 @@ impl DefaultTaskPoolOptions {
             log::trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            resources.insert(IOTaskPool(
+            resources.insert(IoTaskPool(
                 TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string())

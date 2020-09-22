@@ -8,7 +8,6 @@ mod app_builder;
 mod event;
 mod plugin;
 mod schedule_runner;
-mod task_pool_options;
 
 pub use app::*;
 pub use app_builder::*;
@@ -16,7 +15,6 @@ pub use bevy_derive::DynamicPlugin;
 pub use event::*;
 pub use plugin::*;
 pub use schedule_runner::*;
-pub use task_pool_options::*;
 
 pub mod prelude {
     pub use crate::{

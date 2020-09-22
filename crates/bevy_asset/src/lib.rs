@@ -8,6 +8,7 @@ mod loader;
 
 pub use asset_server::*;
 pub use assets::*;
+use bevy_tasks::IoTaskPool;
 pub use handle::*;
 pub use load_request::*;
 pub use loader::*;
@@ -33,15 +34,21 @@ pub struct AssetPlugin;
 
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        let task_pool = app
+            .resources()
+            .get::<IoTaskPool>()
+            .expect("IoTaskPool resource not found")
+            .0
+            .clone();
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
-            .init_resource::<AssetServer>()
+            .add_resource(AssetServer::new(task_pool))
             .register_property::<HandleId>();
 
         #[cfg(feature = "filesystem_watcher")]
         app.add_system_to_stage(
             stage::LOAD_ASSETS,
-            AssetServer::filesystem_watcher_system.system(),
+            asset_server::filesystem_watcher_system.system(),
         );
     }
 }
