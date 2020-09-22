@@ -1,32 +1,16 @@
-use crate::{AssetLoadError, AssetLoader, AssetResult, AssetVersion, Handle, HandleId};
+use super::{ChannelAssetHandler, LoadRequest};
+use crate::{AssetLoadError, AssetLoader, AssetResult, Handle};
 use anyhow::Result;
+use async_trait::async_trait;
 use crossbeam_channel::Sender;
-use fs::File;
-use io::Read;
-use std::{fs, io, path::PathBuf};
-
-/// A request from an [AssetServer](crate::AssetServer) to load an asset.
-#[derive(Debug)]
-pub struct LoadRequest {
-    pub path: PathBuf,
-    pub handle_id: HandleId,
-    pub handler_index: usize,
-    pub version: AssetVersion,
-}
+use std::{fs::File, io::Read};
 
 /// Handles load requests from an AssetServer
-pub trait AssetLoadRequestHandler: Send + Sync + 'static {
-    fn handle_request(&self, load_request: &LoadRequest);
-    fn extensions(&self) -> &[&str];
-}
 
-pub(crate) struct ChannelAssetHandler<TLoader, TAsset>
-where
-    TLoader: AssetLoader<TAsset>,
-    TAsset: 'static,
-{
-    sender: Sender<AssetResult<TAsset>>,
-    loader: TLoader,
+#[async_trait]
+pub trait AssetLoadRequestHandler: Send + Sync + 'static {
+    async fn handle_request(&self, load_request: &LoadRequest);
+    fn extensions(&self) -> &[&str];
 }
 
 impl<TLoader, TAsset> ChannelAssetHandler<TLoader, TAsset>
@@ -53,12 +37,13 @@ where
     }
 }
 
+#[async_trait]
 impl<TLoader, TAsset> AssetLoadRequestHandler for ChannelAssetHandler<TLoader, TAsset>
 where
     TLoader: AssetLoader<TAsset> + 'static,
     TAsset: Send + 'static,
 {
-    fn handle_request(&self, load_request: &LoadRequest) {
+    async fn handle_request(&self, load_request: &LoadRequest) {
         let result = self.load_asset(load_request);
         let asset_result = AssetResult {
             handle: Handle::from(load_request.handle_id),

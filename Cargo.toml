@@ -94,6 +94,7 @@ log = "0.4"
 #wasm
 console_error_panic_hook = "0.1.6"
 console_log = { version = "0.2", features = ["color"] }
+anyhow = "1.0"
 
 [[example]]
 name = "hello_world"
@@ -280,4 +281,9 @@ required-features = []
 [[example]]
 name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
+required-features = ["bevy_winit"]
+
+[[example]]
+name = "assets_wasm"
+path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
