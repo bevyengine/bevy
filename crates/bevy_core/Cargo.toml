@@ -26,6 +26,9 @@ bevy_property = { path = "../bevy_property", version = "0.2.1" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
 bevy_math = { path = "../bevy_math", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.2.1" }
+
+log = { version = "0.4", features = ["release_max_level_info"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = "0.1.6"
