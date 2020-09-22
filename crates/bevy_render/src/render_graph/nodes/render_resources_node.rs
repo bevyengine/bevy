@@ -201,29 +201,6 @@ where
             if let Some(buffer_array) = buffer_array {
                 buffer_array.resize(render_resource_context);
             }
-<<<<<<< HEAD
-
-            let total_size = item_size * new_capacity;
-
-            let buffer = render_resource_context.create_buffer(BufferInfo {
-                size: total_size,
-                buffer_usage: BufferUsage::COPY_DST | BufferUsage::UNIFORM,
-                ..Default::default()
-            });
-
-            buffer_array_status.current_item_capacity = new_capacity;
-
-            log::trace!(
-                "creating buffer for uniform {}. size: {} item_capacity: {} item_size: {}",
-                std::any::type_name::<T>(),
-                total_size,
-                new_capacity,
-                item_size
-            );
-
-            buffer_array_status.buffer = Some(buffer);
-=======
->>>>>>> 25f62f7250a0d750068dc32533b9433f7985af98
         }
     }
 
