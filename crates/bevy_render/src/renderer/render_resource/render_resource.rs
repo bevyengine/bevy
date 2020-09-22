@@ -77,7 +77,7 @@ pub trait RenderResource {
     fn write_buffer_bytes(&self, buffer: &mut [u8]);
     fn buffer_byte_len(&self) -> Option<usize>;
     // TODO: consider making these panic by default, but return non-options
-    fn texture(&self) -> Option<Handle<Texture>>;
+    fn texture(&self) -> Option<&Handle<Texture>>;
 }
 
 pub trait RenderResources: Send + Sync + 'static {
@@ -136,7 +136,7 @@ macro_rules! impl_render_resource_bytes {
                 Some(self.byte_len())
             }
 
-            fn texture(&self) -> Option<Handle<Texture>> {
+            fn texture(&self) -> Option<&Handle<Texture>> {
                 None
             }
         }
@@ -175,7 +175,7 @@ where
         Some(self.byte_len())
     }
 
-    fn texture(&self) -> Option<Handle<Texture>> {
+    fn texture(&self) -> Option<&Handle<Texture>> {
         None
     }
 }
@@ -194,7 +194,7 @@ impl RenderResource for GlobalTransform {
         Some(std::mem::size_of::<[f32; 16]>())
     }
 
-    fn texture(&self) -> Option<Handle<Texture>> {
+    fn texture(&self) -> Option<&Handle<Texture>> {
         None
     }
 }

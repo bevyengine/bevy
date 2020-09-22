@@ -1,5 +1,5 @@
 use crate::{AudioSource, Decodable};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
 use rodio::{Device, Sink};
@@ -39,7 +39,7 @@ where
 
 impl<P> AudioOutput<P>
 where
-    P: Decodable,
+    P: Asset + Decodable,
     <P as Decodable>::Decoder: rodio::Source + Send + Sync,
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
@@ -71,8 +71,10 @@ where
 }
 
 /// Plays audio currently queued in the [AudioOutput] resource
-pub fn play_queued_audio_system<P>(audio_sources: Res<Assets<P>>, audio_output: Res<AudioOutput<P>>)
-where
+pub fn play_queued_audio_system<P: Asset>(
+    audio_sources: Res<Assets<P>>,
+    audio_output: Res<AudioOutput<P>>,
+) where
     P: Decodable,
     <P as Decodable>::Decoder: rodio::Source + Send + Sync,
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,

@@ -1,5 +1,6 @@
 use super::ShaderLayout;
 use bevy_asset::Handle;
+use bevy_type_registry::TypeUuid;
 use std::marker::Copy;
 
 /// The stage of a shader
@@ -98,7 +99,8 @@ impl ShaderSource {
 }
 
 /// A shader, as defined by its [ShaderSource] and [ShaderStage]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, TypeUuid)]
+#[uuid = "d95bc916-6c55-4de3-9622-37e7b6969fda"]
 pub struct Shader {
     pub source: ShaderSource,
     pub stage: ShaderStage,
@@ -164,8 +166,8 @@ impl<'a> Iterator for ShaderStagesIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = match self.state {
-            0 => Some(self.shader_stages.vertex),
-            1 => self.shader_stages.fragment,
+            0 => Some(self.shader_stages.vertex.clone_weak()),
+            1 => self.shader_stages.fragment.as_ref().map(|h| h.clone_weak()),
             _ => None,
         };
         self.state += 1;

@@ -11,6 +11,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
+use bevy_type_registry::TypeUuid;
 use bevy_utils::HashSet;
 use std::borrow::Cow;
 use thiserror::Error;
@@ -112,7 +113,8 @@ pub enum Indices {
     U32(Vec<u32>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, TypeUuid)]
+#[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
     pub attributes: Vec<VertexAttribute>,
@@ -476,10 +478,10 @@ pub mod shape {
 
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
-    handle: Handle<Mesh>,
+    handle: &Handle<Mesh>,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
+        render_resource_context.get_asset_resource(&handle, VERTEX_BUFFER_ASSET_INDEX)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
@@ -520,15 +522,15 @@ pub fn mesh_resource_provider_system(
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
-            AssetEvent::Created { handle } => {
-                changed_meshes.insert(*handle);
+            AssetEvent::Created { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
             }
-            AssetEvent::Modified { handle } => {
-                changed_meshes.insert(*handle);
-                remove_current_mesh_resources(render_resource_context, *handle);
+            AssetEvent::Modified { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
+                remove_current_mesh_resources(render_resource_context, handle);
             }
-            AssetEvent::Removed { handle } => {
-                remove_current_mesh_resources(render_resource_context, *handle);
+            AssetEvent::Removed { ref handle } => {
+                remove_current_mesh_resources(render_resource_context, handle);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_meshes.remove(handle);
@@ -560,12 +562,12 @@ pub fn mesh_resource_provider_system(
             );
 
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(vertex_buffer),
                 VERTEX_BUFFER_ASSET_INDEX,
             );
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(index_buffer),
                 INDEX_BUFFER_ASSET_INDEX,
             );
@@ -574,20 +576,20 @@ pub fn mesh_resource_provider_system(
 
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
     for (handle, mut render_pipelines) in &mut query.iter() {
-        if let Some(mesh) = meshes.get(&handle) {
+        if let Some(mesh) = meshes.get(handle) {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
             }
         }
 
         if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-            render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
+            render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
         {
             render_pipelines.bindings.set_vertex_buffer(
                 "Vertex",
                 vertex_buffer,
                 render_resource_context
-                    .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                    .get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
                     .and_then(|r| {
                         if let RenderResourceId::Buffer(buffer) = r {
                             Some(buffer)

@@ -9,7 +9,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
-use prelude::{Children, Parent, Transform};
+use prelude::{Children, GlobalTransform, Parent, Transform};
 
 pub(crate) fn transform_systems() -> Vec<Box<dyn System>> {
     let mut systems = Vec::with_capacity(5);
@@ -25,9 +25,10 @@ pub struct TransformPlugin;
 
 impl Plugin for TransformPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.register_component::<Children>()
-            .register_component::<Parent>()
+        app.register_component_with::<Children>(|reg| reg.map_entities())
+            .register_component_with::<Parent>(|reg| reg.map_entities())
             .register_component::<Transform>()
+            .register_component::<GlobalTransform>()
             // add transform systems to startup so the first update is "correct"
             .add_startup_systems(transform_systems())
             .add_systems_to_stage(stage::POST_UPDATE, transform_systems());

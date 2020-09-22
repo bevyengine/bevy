@@ -33,12 +33,13 @@ use bevy_render::{
     render_graph::RenderGraph,
     shader::asset_shader_defs_system,
 };
+use bevy_type_registry::TypeUuid;
 use sprite::sprite_system;
 
 #[derive(Default)]
 pub struct SpritePlugin;
 
-pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013514540294236421);
+pub const QUAD_HANDLE: Handle<Mesh> = Handle::weak_from_u64(Mesh::TYPE_UUID, 14240461981130137526);
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -50,18 +51,18 @@ impl Plugin for SpritePlugin {
                 asset_shader_defs_system::<ColorMaterial>.system(),
             );
 
-        let resources = app.resources();
+        let resources = app.resources_mut();
         let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
         render_graph.add_sprite_graph(resources);
 
         let mut meshes = resources.get_mut::<Assets<Mesh>>().unwrap();
-        meshes.set(
+
+        let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
+        color_materials.set_untracked(Handle::<ColorMaterial>::default(), ColorMaterial::default());
+        meshes.set_untracked(
             QUAD_HANDLE,
             // Use a flipped quad because the camera is facing "forward" but quads should face backward
             Mesh::from(shape::Quad::new(Vec2::new(1.0, 1.0))),
-        );
-
-        let mut color_materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
-        color_materials.add_default(ColorMaterial::default());
+        )
     }
 }

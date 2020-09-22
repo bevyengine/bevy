@@ -16,9 +16,10 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
+use bevy_type_registry::TypeUuid;
 
 pub const UI_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(323432002226399387835192542539754486265);
+    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 3234320022263993878);
 
 pub fn build_ui_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -87,7 +88,7 @@ impl UiRenderGraphBuilder for RenderGraph {
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
         let msaa = resources.get::<Msaa>().unwrap();
-        pipelines.set(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
+        pipelines.set_untracked(UI_PIPELINE_HANDLE, build_ui_pipeline(&mut shaders));
 
         let mut ui_pass_node = PassNode::<&Node>::new(PassDescriptor {
             color_attachments: vec![msaa.color_attachment_descriptor(

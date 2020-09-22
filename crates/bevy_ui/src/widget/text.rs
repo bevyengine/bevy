@@ -39,9 +39,7 @@ pub fn text_system(
         if let Ok(mut result) = text_query.entity(entity) {
             if let Some((text, mut calculated_size)) = result.get() {
                 let font_atlases = font_atlas_sets
-                    .get_or_insert_with(Handle::from_id(text.font.id), || {
-                        FontAtlasSet::new(text.font)
-                    });
+                    .get_or_insert_with(text.font.id, || FontAtlasSet::new(text.font.clone_weak()));
                 // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS
                 // stage. That logic runs _before_ the DRAW stage, which means we cant call add_glyphs_to_atlas in the draw stage
                 // without our render resources being a frame behind. Therefore glyph atlasing either needs its own system or the TextureAtlas
@@ -68,9 +66,7 @@ pub fn text_system(
     // add changed text to atlases
     for (entity, text, mut calculated_size) in &mut query.iter() {
         let font_atlases = font_atlas_sets
-            .get_or_insert_with(Handle::from_id(text.font.id), || {
-                FontAtlasSet::new(text.font)
-            });
+            .get_or_insert_with(text.font.id, || FontAtlasSet::new(text.font.clone_weak()));
         // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS
         // stage. That logic runs _before_ the DRAW stage, which means we cant call add_glyphs_to_atlas in the draw stage
         // without our render resources being a frame behind. Therefore glyph atlasing either needs its own system or the TextureAtlas
@@ -107,9 +103,7 @@ pub fn draw_text_system(
             let position = global_transform.translation - (node.size / 2.0).extend(0.0);
             let mut drawable_text = DrawableText {
                 font,
-                font_atlas_set: font_atlas_sets
-                    .get(&text.font.as_handle::<FontAtlasSet>())
-                    .unwrap(),
+                font_atlas_set: font_atlas_sets.get(text.font.id).unwrap(),
                 texture_atlases: &texture_atlases,
                 render_resource_bindings: &mut render_resource_bindings,
                 asset_render_resource_bindings: &mut asset_render_resource_bindings,

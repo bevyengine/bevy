@@ -34,7 +34,7 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.as_handle::<FontAtlasSet>()) {
+    if let Some(set) = font_atlas_sets.get(&state.handle.as_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
@@ -45,7 +45,7 @@ fn atlas_render_system(
                 .unwrap();
             state.atlas_count += 1;
             commands.spawn(ImageComponents {
-                material: materials.add(texture_atlas.texture.into()),
+                material: materials.add(texture_atlas.texture.clone().into()),
                 style: Style {
                     position_type: PositionType::Absolute,
                     position: Rect {
@@ -73,8 +73,8 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
-    let font_handle = asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap();
-    state.handle = font_handle;
+    let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
+    state.handle = font_handle.clone();
     commands
         .spawn(UiCameraComponents::default())
         .spawn(TextComponents {

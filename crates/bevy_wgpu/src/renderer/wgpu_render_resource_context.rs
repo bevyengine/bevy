@@ -245,16 +245,16 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         samplers.remove(&sampler);
     }
 
-    fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
+    fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write();
         let spirv: Cow<[u32]> = shader.get_spirv(None).into();
         let shader_module = self
             .device
             .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
-        shader_modules.insert(shader_handle, shader_module);
+        shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
-    fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>) {
+    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
         if self
             .resources
             .shader_modules
@@ -264,7 +264,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         {
             return;
         }
-        let shader = shaders.get(&shader_handle).unwrap();
+        let shader = shaders.get(shader_handle).unwrap();
         self.create_shader_module_from_source(shader_handle, shader);
     }
 
@@ -380,9 +380,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .map(|c| c.wgpu_into())
             .collect::<Vec<wgpu::ColorStateDescriptor>>();
 
-        self.create_shader_module(pipeline_descriptor.shader_stages.vertex, shaders);
+        self.create_shader_module(&pipeline_descriptor.shader_stages.vertex, shaders);
 
-        if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
+        if let Some(ref fragment_handle) = pipeline_descriptor.shader_stages.fragment {
             self.create_shader_module(fragment_handle, shaders);
         }
 
@@ -392,7 +392,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .unwrap();
 
         let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(fragment_handle) => Some(shader_modules.get(&fragment_handle).unwrap()),
+            Some(ref fragment_handle) => Some(shader_modules.get(fragment_handle).unwrap()),
             None => None,
         };
 

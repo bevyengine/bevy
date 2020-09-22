@@ -1,8 +1,7 @@
 use super::{Texture, TextureFormat};
 use anyhow::Result;
-use bevy_asset::AssetLoader;
+use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_math::Vec2;
-use std::path::Path;
 
 /// Loader for images that can be read by the `image` crate.
 ///
@@ -10,14 +9,14 @@ use std::path::Path;
 #[derive(Clone, Default)]
 pub struct ImageTextureLoader;
 
-impl AssetLoader<Texture> for ImageTextureLoader {
-    fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<Texture> {
+impl AssetLoader for ImageTextureLoader {
+    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<()> {
         use bevy_core::AsBytes;
 
         // Find the image type we expect. A file with the extension "png" should
         // probably load as a PNG.
 
-        let ext = asset_path.extension().unwrap().to_str().unwrap();
+        let ext = load_context.path().extension().unwrap().to_str().unwrap();
 
         // NOTE: If more formats are added they can be added here.
         let img_format = if ext.eq_ignore_ascii_case("png") {
@@ -26,7 +25,7 @@ impl AssetLoader<Texture> for ImageTextureLoader {
             panic!(
                 "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
                 ext,
-                asset_path.display()
+                load_context.path().display()
             )
         };
 
@@ -36,7 +35,7 @@ impl AssetLoader<Texture> for ImageTextureLoader {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        let dyn_img = image::load_from_memory_with_format(bytes.as_slice(), img_format)?;
+        let dyn_img = image::load_from_memory_with_format(bytes, img_format)?;
 
         let width;
         let height;
@@ -143,11 +142,9 @@ impl AssetLoader<Texture> for ImageTextureLoader {
             }
         }
 
-        Ok(Texture::new(
-            Vec2::new(width as f32, height as f32),
-            data,
-            format,
-        ))
+        let texture = Texture::new(Vec2::new(width as f32, height as f32), data, format);
+        load_context.set_default_asset(LoadedAsset::new(texture));
+        Ok(())
     }
 
     fn extensions(&self) -> &[&str] {

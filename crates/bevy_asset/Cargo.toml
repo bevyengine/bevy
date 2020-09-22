@@ -28,16 +28,12 @@ bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
+ron = "0.6.2"
 crossbeam-channel = "0.4.4"
 anyhow = "1.0"
 thiserror = "1.0"
+downcast-rs = "1.2.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
 notify = { version = "5.0.0-pre.2", optional = true }
 parking_lot = "0.11.0"
-async-trait = "0.1.40"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2" }
-web-sys = { version = "0.3", features = ["Request", "Window", "Response"]}
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
+rand = "0.7.3"

@@ -214,7 +214,6 @@ impl Window {
 }
 
 #[derive(Debug, Clone)]
-#[allow(clippy::manual_non_exhaustive)]
 pub struct WindowDescriptor {
     pub width: u32,
     pub height: u32,
@@ -227,11 +226,6 @@ pub struct WindowDescriptor {
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
-
-    // this is a manual implementation of the non exhaustive pattern,
-    // especially made to allow ..Default::default()
-    #[doc(hidden)]
-    pub __non_exhaustive: (),
 }
 
 impl Default for WindowDescriptor {
@@ -248,7 +242,6 @@ impl Default for WindowDescriptor {
             mode: WindowMode::Windowed,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
-            __non_exhaustive: (),
         }
     }
 }

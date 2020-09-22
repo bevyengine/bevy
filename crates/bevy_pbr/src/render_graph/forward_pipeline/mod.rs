@@ -8,9 +8,10 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
+use bevy_type_registry::TypeUuid;
 
 pub const FORWARD_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(131483623140127713893804825450360211204);
+    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 13148362314012771389);
 
 pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {

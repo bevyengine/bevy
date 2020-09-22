@@ -14,7 +14,7 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dComponents::default());
-    let texture = asset_server.load("assets/branding/icon.png").unwrap();
+    let texture = asset_server.load("branding/icon.png");
 
     // Spawn a root entity with no parent
     let parent = commands
@@ -22,7 +22,7 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(0.75)),
             material: materials.add(ColorMaterial {
                 color: Color::WHITE,
-                texture: Some(texture),
+                texture: Some(texture.clone()),
             }),
             ..Default::default()
         })
@@ -37,7 +37,7 @@ fn setup(
                 },
                 material: materials.add(ColorMaterial {
                     color: Color::BLUE,
-                    texture: Some(texture),
+                    texture: Some(texture.clone()),
                 }),
                 ..Default::default()
             });
@@ -58,7 +58,7 @@ fn setup(
             },
             material: materials.add(ColorMaterial {
                 color: Color::RED,
-                texture: Some(texture),
+                texture: Some(texture.clone()),
             }),
             ..Default::default()
         })

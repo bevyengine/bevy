@@ -20,6 +20,7 @@ bevy_core = { path = "../bevy_core", version = "0.2.1" }
 bevy_math = { path = "../bevy_math", version = "0.2.1" }
 bevy_render = { path = "../bevy_render", version = "0.2.1" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.2.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 
 # other

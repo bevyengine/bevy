@@ -1,4 +1,3 @@
-pub mod batch;
 pub mod camera;
 pub mod color;
 pub mod colorspace;
@@ -12,6 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
+use bevy_type_registry::RegisterType;
 pub use once_cell;
 
 pub mod prelude {
@@ -33,7 +33,6 @@ use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
-use bevy_type_registry::RegisterType;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
@@ -83,11 +82,11 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         #[cfg(feature = "png")]
         {
-            app.add_asset_loader::<Texture, ImageTextureLoader>();
+            app.init_asset_loader::<ImageTextureLoader>();
         }
         #[cfg(feature = "hdr")]
         {
-            app.add_asset_loader::<Texture, HdrTextureLoader>();
+            app.init_asset_loader::<HdrTextureLoader>();
         }
 
         if app.resources().get::<ClearColor>().is_none() {
