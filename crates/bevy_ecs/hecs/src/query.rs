@@ -1089,7 +1089,7 @@ mod tests {
             }
         }
 
-        fn get_changed_a(world: &mut World) -> Vec<Entity> {
+        fn get_mutated_a(world: &mut World) -> Vec<Entity> {
             world
                 .query_mut::<(Mutated<A>, Entity)>()
                 .iter()
@@ -1097,17 +1097,17 @@ mod tests {
                 .collect::<Vec<Entity>>()
         };
 
-        assert_eq!(get_changed_a(&mut world), vec![e1, e3]);
+        assert_eq!(get_mutated_a(&mut world), vec![e1, e3]);
 
         // ensure changing an entity's archetypes also moves its mutated state
         world.insert(e1, (C,)).unwrap();
 
-        assert_eq!(get_changed_a(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_mutated_a(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing mutated state
         world.insert(e1, (A(0), B)).unwrap();
         assert_eq!(
-            get_changed_a(&mut world),
+            get_mutated_a(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -1115,7 +1115,7 @@ mod tests {
         // removing an unchanged entity should not change mutated state
         world.despawn(e2).unwrap();
         assert_eq!(
-            get_changed_a(&mut world),
+            get_mutated_a(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -1123,7 +1123,7 @@ mod tests {
         // removing a changed entity should remove it from enumeration
         world.despawn(e1).unwrap();
         assert_eq!(
-            get_changed_a(&mut world),
+            get_mutated_a(&mut world),
             vec![e3],
             "e1 should no longer be returned"
         );
@@ -1134,8 +1134,8 @@ mod tests {
             .query_mut::<(Mutated<A>, Entity)>()
             .iter()
             .map(|(_a, e)| e)
-            .collect::<Vec<Entity>>()
-            .is_empty());
+            .next()
+            .is_none());
     }
 
     #[test]
@@ -1153,12 +1153,12 @@ mod tests {
             b.0 += 1;
         }
 
-        let a_b_changed = world
+        let a_b_mutated = world
             .query_mut::<(Mutated<A>, Mutated<B>, Entity)>()
             .iter()
             .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
-        assert_eq!(a_b_changed, vec![e2]);
+        assert_eq!(a_b_mutated, vec![e2]);
     }
 
     #[test]
@@ -1178,13 +1178,13 @@ mod tests {
             b.0 += 1;
         }
 
-        let a_b_changed = world
+        let a_b_mutated = world
             .query_mut::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
         // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
-        assert_eq!(a_b_changed, vec![e1, e2, e3]);
+        assert_eq!(a_b_mutated, vec![e1, e2, e3]);
     }
 
     #[test]
