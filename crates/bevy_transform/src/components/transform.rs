@@ -153,7 +153,7 @@ impl Transform {
     }
 
     pub fn rotate(&mut self, rotation: Quat) {
-        self.value = Mat4::from_quat(rotation) * self.value;
+        self.value = self.value * Mat4::from_quat(rotation);
     }
 
     pub fn apply_scale(&mut self, scale: f32) {
