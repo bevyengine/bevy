@@ -18,53 +18,59 @@ fn setup(
     let texture = asset_server.load("assets/branding/icon.png").unwrap();
 
     // Spawn a root entity with no parent
-    let parent = commands.spawn(SpriteComponents {
-        transform: Transform::from_scale(0.75),
-        material: materials.add(ColorMaterial {
-            color: Color::WHITE,
-            texture: Some(texture),
-        }),
-        ..Default::default()
-    })
-    // With that entity as a parent, run a lambda that spawns its children
-    .with_children(|parent| {
-        // parent is a ChildBuilder, which has a similar API to Commands
-        parent.spawn(SpriteComponents {
-            transform: Transform::from_translation(Vec3::new(250.0, 0.0, 0.0)).with_scale(0.75),
+    let parent = commands
+        .spawn(SpriteComponents {
+            transform: Transform::from_scale(0.75),
             material: materials.add(ColorMaterial {
-                color: Color::BLUE,
+                color: Color::WHITE,
                 texture: Some(texture),
             }),
             ..Default::default()
-        });
-    })
-    // Store parent entity for next sections
-    .current_entity().unwrap();
+        })
+        // With that entity as a parent, run a lambda that spawns its children
+        .with_children(|parent| {
+            // parent is a ChildBuilder, which has a similar API to Commands
+            parent.spawn(SpriteComponents {
+                transform: Transform::from_translation(Vec3::new(250.0, 0.0, 0.0)).with_scale(0.75),
+                material: materials.add(ColorMaterial {
+                    color: Color::BLUE,
+                    texture: Some(texture),
+                }),
+                ..Default::default()
+            });
+        })
+        // Store parent entity for next sections
+        .current_entity()
+        .unwrap();
 
     // Another way to create a hierarchy is to add a Parent component to an entity,
     // which would be added automatically to parents with other methods.
     // Similarly, adding a Parent component will automatically add a Children component to the parent.
-    commands.spawn(SpriteComponents {
-        transform: Transform::from_translation(Vec3::new(-250.0, 0.0, 0.0)).with_scale(0.75),
-        material: materials.add(ColorMaterial {
-            color: Color::RED,
-            texture: Some(texture),
-        }),
-        ..Default::default()
-    })
-    // Using the entity from the previous section as the parent:
-    .with(Parent(parent));
+    commands
+        .spawn(SpriteComponents {
+            transform: Transform::from_translation(Vec3::new(-250.0, 0.0, 0.0)).with_scale(0.75),
+            material: materials.add(ColorMaterial {
+                color: Color::RED,
+                texture: Some(texture),
+            }),
+            ..Default::default()
+        })
+        // Using the entity from the previous section as the parent:
+        .with(Parent(parent));
 
     // Another way is to use the push_children function to add children after the parent
     // entity has already been spawned.
-    let child = commands.spawn(SpriteComponents {
-        transform: Transform::from_translation(Vec3::new(0.0, 250.0, 0.0)).with_scale(0.75),
-        material: materials.add(ColorMaterial {
-            color: Color::GREEN,
-            texture: Some(texture),
-        }),
-        ..Default::default()
-    }).current_entity().unwrap();
+    let child = commands
+        .spawn(SpriteComponents {
+            transform: Transform::from_translation(Vec3::new(0.0, 250.0, 0.0)).with_scale(0.75),
+            material: materials.add(ColorMaterial {
+                color: Color::GREEN,
+                texture: Some(texture),
+            }),
+            ..Default::default()
+        })
+        .current_entity()
+        .unwrap();
 
     // Pushing takes a slice of children to add:
     commands.push_children(parent, &[child]);
