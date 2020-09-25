@@ -237,7 +237,7 @@ pub mod shape {
                 uvs.push(*uv);
             }
 
-            let indices = Indices::U16(vec![
+            let indices = Indices::U32(vec![
                 0, 1, 2, 2, 3, 0, // top
                 4, 5, 6, 6, 7, 4, // bottom
                 8, 9, 10, 10, 11, 8, // right
@@ -333,7 +333,7 @@ pub mod shape {
                 ]
             };
 
-            let indices = Indices::U16(vec![0, 2, 1, 0, 3, 2]);
+            let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
             let mut positions = Vec::new();
             let mut normals = Vec::new();
@@ -373,7 +373,7 @@ pub mod shape {
                 ([-extent, 0.0, -extent], [0.0, 1.0, 0.0], [0.0, 1.0]),
             ];
 
-            let indices = Indices::U16(vec![0, 2, 1, 0, 3, 2]);
+            let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
             let mut positions = Vec::new();
             let mut normals = Vec::new();

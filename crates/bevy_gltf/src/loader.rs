@@ -5,10 +5,7 @@ use bevy_render::{
 
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use gltf::{
-    buffer::Source,
-    mesh::{util::ReadIndices, Mode},
-};
+use gltf::{buffer::Source, mesh::Mode};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
@@ -101,12 +98,8 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             }
 
             if let Some(indices) = reader.read_indices() {
-                mesh.indices = match indices {
-                    ReadIndices::U8(iter) => Some(Indices::U16(iter.map(|i| i as u16).collect())),
-                    ReadIndices::U16(iter) => Some(Indices::U16(iter.collect())),
-                    ReadIndices::U32(iter) => Some(Indices::U32(iter.collect())),
-                }
-            };
+                mesh.indices = Some(Indices::U32(indices.into_u32().collect()));
+            }
 
             return Ok(mesh);
         }

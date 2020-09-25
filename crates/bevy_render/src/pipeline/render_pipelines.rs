@@ -88,7 +88,7 @@ pub fn draw_render_pipelines_system(
         let (index_range, index_format) = match mesh.indices.as_ref() {
             Some(Indices::U32(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint32),
             Some(Indices::U16(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint16),
-            None => (None, IndexFormat::Uint16),
+            None => (None, IndexFormat::Uint32),
         };
 
         let render_pipelines = &mut *render_pipelines;
