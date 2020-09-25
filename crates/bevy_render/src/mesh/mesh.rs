@@ -1,8 +1,8 @@
 use super::Vertex;
 use crate::{
     pipeline::{
-        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
-        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
+        AsVertexBufferDescriptor, PrimitiveTopology, RenderPipelines, VertexBufferDescriptor,
+        VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
@@ -107,10 +107,16 @@ pub enum MeshToVertexBufferError {
 }
 
 #[derive(Debug)]
+pub enum Indices {
+    U16(Vec<u16>),
+    U32(Vec<u32>),
+}
+
+#[derive(Debug)]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
     pub attributes: Vec<VertexAttribute>,
-    pub indices: Option<Vec<u32>>,
+    pub indices: Option<Indices>,
 }
 
 impl Mesh {
@@ -159,23 +165,17 @@ impl Mesh {
         Ok(bytes)
     }
 
-    pub fn get_index_buffer_bytes(&self, index_format: IndexFormat) -> Option<Vec<u8>> {
-        self.indices.as_ref().map(|indices| match index_format {
-            IndexFormat::Uint16 => indices
-                .iter()
-                .map(|i| *i as u16)
-                .collect::<Vec<u16>>()
-                .as_slice()
-                .as_bytes()
-                .to_vec(),
-            IndexFormat::Uint32 => indices.as_slice().as_bytes().to_vec(),
+    pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
+        self.indices.as_ref().map(|indices| match &indices {
+            Indices::U16(indices) => indices.as_slice().as_bytes().to_vec(),
+            Indices::U32(indices) => indices.as_slice().as_bytes().to_vec(),
         })
     }
 }
 
 /// Generation for some primitive shape meshes.
 pub mod shape {
-    use super::{Mesh, VertexAttribute};
+    use super::{Indices, Mesh, VertexAttribute};
     use crate::pipeline::PrimitiveTopology;
     use bevy_math::*;
     use hexasphere::Hexasphere;
@@ -237,14 +237,14 @@ pub mod shape {
                 uvs.push(*uv);
             }
 
-            let indices = vec![
+            let indices = Indices::U16(vec![
                 0, 1, 2, 2, 3, 0, // top
                 4, 5, 6, 6, 7, 4, // bottom
                 8, 9, 10, 10, 11, 8, // right
                 12, 13, 14, 14, 15, 12, // left
                 16, 17, 18, 18, 19, 16, // front
                 20, 21, 22, 22, 23, 20, // back
-            ];
+            ]);
 
             Mesh {
                 primitive_topology: PrimitiveTopology::TriangleList,
@@ -333,7 +333,7 @@ pub mod shape {
                 ]
             };
 
-            let indices = vec![0, 2, 1, 0, 3, 2];
+            let indices = Indices::U16(vec![0, 2, 1, 0, 3, 2]);
 
             let mut positions = Vec::new();
             let mut normals = Vec::new();
@@ -373,7 +373,7 @@ pub mod shape {
                 ([-extent, 0.0, -extent], [0.0, 1.0, 0.0], [0.0, 1.0]),
             ];
 
-            let indices = vec![0, 2, 1, 0, 3, 2];
+            let indices = Indices::U16(vec![0, 2, 1, 0, 3, 2]);
 
             let mut positions = Vec::new();
             let mut normals = Vec::new();
@@ -454,6 +454,8 @@ pub mod shape {
             for i in 0..20 {
                 hexasphere.get_indices(i, &mut indices);
             }
+
+            let indices = Indices::U32(indices);
 
             Mesh {
                 primitive_topology: PrimitiveTopology::TriangleList,
@@ -544,7 +546,7 @@ pub fn mesh_resource_provider_system(
                 &vertex_bytes,
             );
 
-            let index_bytes = mesh.get_index_buffer_bytes(IndexFormat::Uint16).unwrap();
+            let index_bytes = mesh.get_index_buffer_bytes().unwrap();
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
