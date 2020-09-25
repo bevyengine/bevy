@@ -1,8 +1,8 @@
 use super::Vertex;
 use crate::{
     pipeline::{
-        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
-        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
+        AsVertexBufferDescriptor, PrimitiveTopology, RenderPipelines, VertexBufferDescriptor,
+        VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
