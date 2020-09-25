@@ -1,5 +1,11 @@
 use super::Vertex;
-use crate::{pipeline::{AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines, VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat}, renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId}};
+use crate::{
+    pipeline::{
+        AsVertexBufferDescriptor, IndexFormat, PrimitiveTopology, RenderPipelines,
+        VertexBufferDescriptor, VertexBufferDescriptors, VertexFormat,
+    },
+    renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
+};
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;

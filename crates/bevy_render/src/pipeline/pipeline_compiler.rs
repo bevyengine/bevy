@@ -1,4 +1,6 @@
-use super::{IndexFormat, PipelineDescriptor, VertexBufferDescriptors, state_descriptors::PrimitiveTopology};
+use super::{
+    state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor, VertexBufferDescriptors,
+};
 use crate::{
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},

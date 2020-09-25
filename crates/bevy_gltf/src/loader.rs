@@ -5,7 +5,10 @@ use bevy_render::{
 
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use gltf::{buffer::Source, mesh::{Mode, util::ReadIndices}};
+use gltf::{
+    buffer::Source,
+    mesh::{util::ReadIndices, Mode},
+};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 

@@ -1,5 +1,10 @@
 use super::{IndexFormat, PipelineDescriptor, PipelineSpecialization};
-use crate::{draw::{Draw, DrawContext}, mesh::Indices, mesh::Mesh, prelude::Msaa, renderer::RenderResourceBindings};
+use crate::{
+    draw::{Draw, DrawContext},
+    mesh::{Indices, Mesh},
+    prelude::Msaa,
+    renderer::RenderResourceBindings,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_property::Properties;
