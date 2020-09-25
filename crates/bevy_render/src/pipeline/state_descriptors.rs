@@ -190,6 +190,6 @@ pub enum IndexFormat {
 
 impl Default for IndexFormat {
     fn default() -> Self {
-        IndexFormat::Uint16
+        IndexFormat::Uint32
     }
 }

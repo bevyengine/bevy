@@ -27,7 +27,7 @@ impl Default for PipelineSpecialization {
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
         }
     }
 }
