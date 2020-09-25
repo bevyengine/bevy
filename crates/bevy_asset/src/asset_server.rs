@@ -9,11 +9,10 @@ use bevy_utils::{HashMap, HashSet};
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{
-    env, fs, io,
+    fs, io,
     path::{Path, PathBuf},
     sync::Arc,
 };
-
 use thiserror::Error;
 
 /// The type used for asset versioning
@@ -67,8 +66,7 @@ impl LoadState {
 /// Loads assets from the filesystem on background threads
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
-    asset_handlers: Arc<RwLock<Vec<Box<dyn AssetLoadRequestHandler>>>>,
-    // TODO: this is a hack to enable retrieving generic AssetLoader<T>s. there must be a better way!
+    asset_handlers: RwLock<Vec<Arc<dyn AssetLoadRequestHandler>>>,
     loaders: Vec<Resources>,
     task_pool: TaskPool,
     extension_to_handler_index: HashMap<String, usize>,
@@ -106,7 +104,7 @@ impl AssetServer {
                 .insert(extension.to_string(), handler_index);
         }
 
-        asset_handlers.push(Box::new(asset_handler));
+        asset_handlers.push(Arc::new(asset_handler));
     }
 
     pub fn add_loader<TLoader, TAsset>(&mut self, loader: TLoader)
@@ -173,11 +171,12 @@ impl AssetServer {
         Ok(())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn get_root_path(&self) -> Result<PathBuf, AssetServerError> {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
             Ok(PathBuf::from(manifest_dir))
         } else {
-            match env::current_exe() {
+            match std::env::current_exe() {
                 Ok(exe_path) => exe_path
                     .parent()
                     .ok_or(AssetServerError::InvalidRootPath)
@@ -185,6 +184,11 @@ impl AssetServer {
                 Err(err) => Err(AssetServerError::Io(err)),
             }
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn get_root_path(&self) -> Result<PathBuf, AssetServerError> {
+        Ok(PathBuf::from("/"))
     }
 
     // TODO: add type checking here. people shouldn't be able to request a Handle<Texture> for a Mesh asset
@@ -272,19 +276,22 @@ impl AssetServer {
                     version: new_version,
                 };
 
-                let asset_handlers = self.asset_handlers.clone();
+                let handlers = self.asset_handlers.read();
+                let request_handler = handlers[load_request.handler_index].clone();
+
                 self.task_pool
                     .spawn(async move {
-                        let handlers = asset_handlers.read();
-                        let request_handler = &handlers[load_request.handler_index];
-                        request_handler.handle_request(&load_request);
+                        request_handler.handle_request(&load_request).await;
                     })
                     .detach();
 
                 // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
                 // folders instead (when possible)
                 #[cfg(feature = "filesystem_watcher")]
-                Self::watch_path_for_changes(&mut self.filesystem_watcher.write(), path)?;
+                Self::watch_path_for_changes(
+                    &mut self.filesystem_watcher.write(),
+                    path.to_owned(),
+                )?;
                 Ok(handle_id)
             } else {
                 Err(AssetServerError::MissingAssetHandler)

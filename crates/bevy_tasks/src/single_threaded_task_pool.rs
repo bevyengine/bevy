@@ -82,6 +82,32 @@ impl TaskPool {
             .map(|result| result.lock().unwrap().take().unwrap())
             .collect()
     }
+
+    // Spawns a static future onto the JS event loop. For now it is returning FakeTask
+    // instance with no-op detach method. Returning real Task is possible here, but tricky:
+    // future is running on JS event loop, Task is running on async_executor::LocalExecutor
+    // so some proxy future is needed. Moreover currently we don't have long-living
+    // LocalExecutor here (above `spawn` implementation creates temporary one)
+    // But for typical use cases it seems that current implementation should be sufficient:
+    // caller can spawn long-running future writing results to some channel / event queue
+    // and simply call detach on returned Task (like AssetServer does) - spawned future
+    // can write results to some channel / event queue.
+
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
+    where
+        T: 'static,
+    {
+        wasm_bindgen_futures::spawn_local(async move {
+            future.await;
+        });
+        FakeTask
+    }
+}
+
+pub struct FakeTask;
+
+impl FakeTask {
+    pub fn detach(self) {}
 }
 
 pub struct Scope<'scope, T> {

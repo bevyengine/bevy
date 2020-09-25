@@ -16,3 +16,5 @@ event-listener = "2.4.0"
 async-executor = "1.3.0"
 async-channel = "1.4.2"
 num_cpus = "1"
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
