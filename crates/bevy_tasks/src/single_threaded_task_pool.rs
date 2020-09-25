@@ -91,7 +91,7 @@ impl TaskPool {
     // But for typical use cases it seems that current implementation should be sufficient:
     // caller can spawn long-running future writing results to some channel / event queue
     // and simply call detach on returned Task (like AssetServer does) - spawned future
-    // can write results to some channed / event queue.
+    // can write results to some channel / event queue.
 
     pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
