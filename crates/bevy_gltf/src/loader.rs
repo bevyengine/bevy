@@ -1,11 +1,11 @@
 use bevy_render::{
-    mesh::{Mesh, VertexAttribute},
+    mesh::{Indices, Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
 };
 
 use anyhow::Result;
 use bevy_asset::AssetLoader;
-use gltf::{buffer::Source, mesh::Mode};
+use gltf::{buffer::Source, mesh::{Mode, util::ReadIndices}};
 use std::{fs, io, path::Path};
 use thiserror::Error;
 
@@ -98,7 +98,11 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             }
 
             if let Some(indices) = reader.read_indices() {
-                mesh.indices = Some(indices.into_u32().collect::<Vec<u32>>());
+                mesh.indices = match indices {
+                    ReadIndices::U8(iter) => Some(Indices::U16(iter.map(|i| i as u16).collect())),
+                    ReadIndices::U16(iter) => Some(Indices::U16(iter.collect())),
+                    ReadIndices::U32(iter) => Some(Indices::U32(iter.collect())),
+                }
             };
 
             return Ok(mesh);

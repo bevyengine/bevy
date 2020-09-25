@@ -1,4 +1,4 @@
-use super::{state_descriptors::PrimitiveTopology, PipelineDescriptor, VertexBufferDescriptors};
+use super::{IndexFormat, PipelineDescriptor, VertexBufferDescriptors, state_descriptors::PrimitiveTopology};
 use crate::{
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
@@ -14,6 +14,7 @@ pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: Vec<DynamicBinding>,
+    pub index_format: IndexFormat,
     pub sample_count: u32,
 }
 
@@ -24,6 +25,7 @@ impl Default for PipelineSpecialization {
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
+            index_format: IndexFormat::Uint16,
         }
     }
 }
@@ -161,6 +163,7 @@ impl PipelineCompiler {
 
         specialized_descriptor.sample_count = pipeline_specialization.sample_count;
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
+        specialized_descriptor.index_format = pipeline_specialization.index_format;
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(

@@ -341,8 +341,7 @@ impl<'a> DrawContext<'a> {
         &self,
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
-    ) -> Result<Option<Range<u32>>, DrawError> {
-        let mut indices = None;
+    ) -> Result<(), DrawError> {
         let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
@@ -359,13 +358,6 @@ impl<'a> DrawContext<'a> {
                 {
                     draw.set_vertex_buffer(slot as u32, vertex_buffer, 0);
                     if let Some(index_buffer) = index_buffer {
-                        if let Some(buffer_info) =
-                            self.render_resource_context.get_buffer_info(index_buffer)
-                        {
-                            indices = Some(0..(buffer_info.size / 2) as u32);
-                        } else {
-                            panic!("expected buffer type");
-                        }
                         draw.set_index_buffer(index_buffer, 0);
                     }
 
@@ -373,8 +365,7 @@ impl<'a> DrawContext<'a> {
                 }
             }
         }
-
-        Ok(indices)
+        Ok(())
     }
 }
 
