@@ -90,6 +90,7 @@ bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.2.1" }
 rand = "0.7.3"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
+ron = "0.6"
 
 #wasm
 console_error_panic_hook = "0.1.6"
@@ -171,6 +172,10 @@ path = "examples/asset/hot_asset_reloading.rs"
 [[example]]
 name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
+
+[[example]]
+name = "custom_loader"
+path = "examples/asset/custom_asset_loading.rs"
 
 [[example]]
 name = "audio"
