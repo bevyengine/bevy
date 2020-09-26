@@ -125,7 +125,6 @@ where
     T: Bundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World) {
-        // TODO: need equivalent of world.get::<T>(self.entity).is_ok() check from RemoveOne?
         world.remove::<T>(self.entity).unwrap();
     }
 }
