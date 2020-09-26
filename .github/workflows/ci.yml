@@ -83,11 +83,6 @@ jobs:
         run: cargo +nightly fmt --all -- --check
 
       # type complexity must be ignored because we use huge templates for queries
+      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions  
       - name: Run clippy
-        run: >
-          cargo +nightly clippy
-          --all-targets
-          --all-features
-          --
-          -D warnings
-          -A clippy::type_complexity
+        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip

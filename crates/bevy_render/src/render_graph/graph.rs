@@ -55,7 +55,7 @@ impl RenderGraph {
         let node_id = self.get_node_id(&label)?;
         self.nodes
             .get(&node_id)
-            .ok_or_else(|| RenderGraphError::InvalidNode(label))
+            .ok_or(RenderGraphError::InvalidNode(label))
     }
 
     pub fn get_node_state_mut(
@@ -66,7 +66,7 @@ impl RenderGraph {
         let node_id = self.get_node_id(&label)?;
         self.nodes
             .get_mut(&node_id)
-            .ok_or_else(|| RenderGraphError::InvalidNode(label))
+            .ok_or(RenderGraphError::InvalidNode(label))
     }
 
     pub fn get_node_id(&self, label: impl Into<NodeLabel>) -> Result<NodeId, RenderGraphError> {
@@ -77,7 +77,7 @@ impl RenderGraph {
                 .node_names
                 .get(name)
                 .cloned()
-                .ok_or_else(|| RenderGraphError::InvalidNode(label)),
+                .ok_or(RenderGraphError::InvalidNode(label)),
         }
     }
 
