@@ -15,7 +15,7 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool};
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod countdown_event;
 pub use countdown_event::CountdownEvent;
@@ -27,7 +27,7 @@ pub mod prelude {
     pub use crate::{
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        usages::{AsyncComputeTaskPool, ComputeTaskPool, IOTaskPool},
+        usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }
 

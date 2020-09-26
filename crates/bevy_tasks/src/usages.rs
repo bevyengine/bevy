@@ -41,9 +41,9 @@ impl Deref for AsyncComputeTaskPool {
 /// A newtype for a task pool for IO-intensive work (i.e. tasks that spend very little time in a
 /// "woken" state)
 #[derive(Clone)]
-pub struct IOTaskPool(pub TaskPool);
+pub struct IoTaskPool(pub TaskPool);
 
-impl Deref for IOTaskPool {
+impl Deref for IoTaskPool {
     type Target = TaskPool;
 
     fn deref(&self) -> &Self::Target {

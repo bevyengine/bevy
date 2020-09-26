@@ -13,7 +13,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 struct CameraInfo {
     name: String,
@@ -281,7 +281,7 @@ where
                                         *bind_group,
                                         dynamic_uniform_indices
                                             .as_ref()
-                                            .map(|indices| indices.as_slice()),
+                                            .map(|indices| indices.deref()),
                                     );
                                     draw_state.set_bind_group(*index, *bind_group);
                                 }

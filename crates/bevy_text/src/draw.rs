@@ -66,7 +66,7 @@ impl<'a> Drawable for DrawableText<'a> {
         {
             draw.set_index_buffer(quad_index_buffer, 0);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
-                indices = 0..(buffer_info.size / 2) as u32;
+                indices = 0..(buffer_info.size / 4) as u32;
             } else {
                 panic!("expected buffer type");
             }

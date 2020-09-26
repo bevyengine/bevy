@@ -1,5 +1,5 @@
 use bevy_render::{
-    mesh::{Mesh, VertexAttribute},
+    mesh::{Indices, Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
 };
 
@@ -98,8 +98,8 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
             }
 
             if let Some(indices) = reader.read_indices() {
-                mesh.indices = Some(indices.into_u32().collect::<Vec<u32>>());
-            };
+                mesh.indices = Some(Indices::U32(indices.into_u32().collect()));
+            }
 
             return Ok(mesh);
         }

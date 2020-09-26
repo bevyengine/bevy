@@ -1,6 +1,6 @@
 [package]
 name = "bevy_wgpu"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -18,15 +18,15 @@ trace = ["wgpu/trace"]
 
 [dependencies]
 # bevy
-bevy_app= { path = "../bevy_app", version = "0.2" }
-bevy_asset= { path = "../bevy_asset", version = "0.2" }
-bevy_core= { path = "../bevy_core", version = "0.2" }
-bevy_diagnostic= { path = "../bevy_diagnostic", version = "0.2" }
-bevy_ecs= { path = "../bevy_ecs", version = "0.2" }
-bevy_render= { path = "../bevy_render", version = "0.2" }
-bevy_window= { path = "../bevy_window", version = "0.2" }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.2" }
-bevy_utils= { path = "../bevy_utils", version = "0.2" }
+bevy_app = { path = "../bevy_app", version = "0.2.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.2.1" }
+bevy_core = { path = "../bevy_core", version = "0.2.1" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.2.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
+bevy_render = { path = "../bevy_render", version = "0.2.1" }
+bevy_window = { path = "../bevy_window", version = "0.2.1" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.2.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 
 # other
 wgpu = "0.6"

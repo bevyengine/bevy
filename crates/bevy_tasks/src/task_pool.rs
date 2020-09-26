@@ -6,7 +6,9 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use futures_lite::future;
+use futures_lite::{future, pin};
+
+use crate::Task;
 
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
@@ -180,12 +182,8 @@ impl TaskPool {
             results
         };
 
-        // Move the value to ensure that it is owned
-        let mut fut = fut;
-
-        // Shadow the original binding so that it can't be directly accessed
-        // ever again.
-        let fut = unsafe { Pin::new_unchecked(&mut fut) };
+        // Pin the future on the stack.
+        pin!(fut);
 
         // SAFETY: This function blocks until all futures complete, so we do not read/write the
         // data from futures outside of the 'scope lifetime. However, rust has no way of knowing
@@ -201,14 +199,11 @@ impl TaskPool {
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
     /// cancelled and "detached" allowing it to continue running without having to be polled by the
     /// end-user.
-    pub fn spawn<T>(
-        &self,
-        future: impl Future<Output = T> + Send + 'static,
-    ) -> impl Future<Output = T> + Send
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {
-        self.executor.spawn(future)
+        Task::new(self.executor.spawn(future))
     }
 }
 

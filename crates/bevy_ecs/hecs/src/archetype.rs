@@ -305,6 +305,13 @@ impl Archetype {
                         ty.layout.size() * old_count,
                     );
                 }
+                dealloc(
+                    (*self.data.get()).as_ptr().cast(),
+                    Layout::from_size_align_unchecked(
+                        old_data_size,
+                        self.types.first().map_or(1, |x| x.layout.align()),
+                    ),
+                );
             }
 
             self.data = UnsafeCell::new(new_data);

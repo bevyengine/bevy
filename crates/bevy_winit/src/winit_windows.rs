@@ -38,10 +38,30 @@ impl WinitWindows {
                 .with_resizable(window.resizable),
         };
 
-        let winit_window = winit_window_builder
-            .with_title(&window.title)
-            .build(&event_loop)
-            .unwrap();
+        #[allow(unused_mut)]
+        let mut winit_window_builder = winit_window_builder.with_title(&window.title);
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            use wasm_bindgen::JsCast;
+            use winit::platform::web::WindowBuilderExtWebSys;
+
+            if let Some(selector) = &window.canvas {
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
+                let canvas = document
+                    .query_selector(&selector)
+                    .expect("Cannot query for canvas element");
+                if let Some(canvas) = canvas {
+                    let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
+                    winit_window_builder = winit_window_builder.with_canvas(canvas);
+                } else {
+                    panic!("Cannot find element: {}", selector);
+                }
+            }
+        }
+
+        let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
         self.window_id_to_winit.insert(window.id, winit_window.id());
         self.winit_to_window_id.insert(winit_window.id(), window.id);
@@ -50,14 +70,16 @@ impl WinitWindows {
         {
             use winit::platform::web::WindowExtWebSys;
 
-            let canvas = winit_window.canvas();
+            if window.canvas.is_none() {
+                let canvas = winit_window.canvas();
 
-            let window = web_sys::window().unwrap();
-            let document = window.document().unwrap();
-            let body = document.body().unwrap();
+                let window = web_sys::window().unwrap();
+                let document = window.document().unwrap();
+                let body = document.body().unwrap();
 
-            body.append_child(&canvas)
-                .expect("Append canvas to HTML body");
+                body.append_child(&canvas)
+                    .expect("Append canvas to HTML body");
+            }
         }
 
         self.windows.insert(winit_window.id(), winit_window);

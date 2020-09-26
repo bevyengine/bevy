@@ -55,7 +55,7 @@ impl PipelineDescriptor {
             shader_stages,
             rasterization_state: None,
             primitive_topology: PrimitiveTopology::TriangleList,
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -67,7 +67,7 @@ impl PipelineDescriptor {
             name: None,
             primitive_topology: PrimitiveTopology::TriangleList,
             layout: None,
-            index_format: IndexFormat::Uint16,
+            index_format: IndexFormat::Uint32,
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
@@ -152,6 +152,7 @@ impl PipelineDescriptor {
         if !dynamic_bindings.is_empty() {
             // set binding uniforms to dynamic if render resource bindings use dynamic
             for bind_group in layout.bind_groups.iter_mut() {
+                let mut binding_changed = false;
                 for binding in bind_group.bindings.iter_mut() {
                     let current = DynamicBinding {
                         bind_group: bind_group.index,
@@ -164,8 +165,13 @@ impl PipelineDescriptor {
                         } = binding.bind_type
                         {
                             *dynamic = true;
+                            binding_changed = true;
                         }
                     }
+                }
+
+                if binding_changed {
+                    bind_group.update_id();
                 }
             }
         }

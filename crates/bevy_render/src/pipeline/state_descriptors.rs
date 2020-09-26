@@ -182,7 +182,7 @@ impl Default for BlendOperation {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Property)]
 pub enum IndexFormat {
     Uint16 = 0,
     Uint32 = 1,
@@ -190,6 +190,6 @@ pub enum IndexFormat {
 
 impl Default for IndexFormat {
     fn default() -> Self {
-        IndexFormat::Uint16
+        IndexFormat::Uint32
     }
 }

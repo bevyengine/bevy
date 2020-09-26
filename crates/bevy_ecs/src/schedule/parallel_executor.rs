@@ -41,6 +41,12 @@ impl ParallelExecutor {
         }
     }
 
+    pub fn initialize(&mut self, resources: &mut Resources) {
+        if resources.get::<ComputeTaskPool>().is_none() {
+            resources.insert(ComputeTaskPool(TaskPool::default()));
+        }
+    }
+
     pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule.generation() != self.last_schedule_generation;
