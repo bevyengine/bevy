@@ -82,16 +82,6 @@ impl Transform {
         self
     }
 
-    pub fn with_apply_scale(mut self, scale: f32) -> Self {
-        self.apply_scale(scale);
-        self
-    }
-
-    pub fn with_apply_non_uniform_scale(mut self, scale: Vec3) -> Self {
-        self.apply_non_uniform_scale(scale);
-        self
-    }
-
     pub fn value(&self) -> &Mat4 {
         &self.value
     }
@@ -154,14 +144,6 @@ impl Transform {
 
     pub fn rotate(&mut self, rotation: Quat) {
         self.value = self.value * Mat4::from_quat(rotation);
-    }
-
-    pub fn apply_scale(&mut self, scale: f32) {
-        self.value = Mat4::from_scale(Vec3::splat(scale)) * self.value;
-    }
-
-    pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
-        self.value = Mat4::from_scale(scale) * self.value;
     }
 }
 
