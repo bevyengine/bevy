@@ -112,6 +112,23 @@ where
     }
 }
 
+pub(crate) struct Remove<T>
+where
+    T: Bundle + Send + Sync + 'static,
+{
+    entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> WorldWriter for Remove<T>
+where
+    T: Bundle + Send + Sync + 'static,
+{
+    fn write(self: Box<Self>, world: &mut World) {
+        world.remove::<T>(self.entity).unwrap();
+    }
+}
+
 pub trait ResourcesWriter: Send + Sync {
     fn write(self: Box<Self>, resources: &mut Resources);
 }
@@ -314,6 +331,16 @@ impl Commands {
         T: Component,
     {
         self.write_world(RemoveOne::<T> {
+            entity,
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Bundle + Send + Sync + 'static,
+    {
+        self.write_world(Remove::<T> {
             entity,
             phantom: PhantomData,
         })
