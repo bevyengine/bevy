@@ -4,7 +4,6 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_startup_system(setup.system())
-        .add_system(bevy::input::system::exit_on_esc_system.system())
         .add_system(rotate.system())
         .run();
 }
@@ -98,15 +97,16 @@ fn rotate(
         if time.seconds_since_startup >= 2.0 && children.len() == 3 {
             // Using .despawn() on an entity does not remove it from its parent's list of children!
             // It must be done manually if using .despawn()
+            // NOTE: This is a bug. Eventually Bevy will update the children list automatically
             let child = children.pop().unwrap();
             commands.despawn(child);
         }
 
-        if time.seconds_since_startup >= 4.0 && children.len() == 2 {
+        if time.seconds_since_startup >= 4.0 {
             // Alternatively, you can use .despawn_recursive()
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.despawn_recursive(*children.last().unwrap());
+            commands.despawn_recursive(parent);
         }
     }
 }
