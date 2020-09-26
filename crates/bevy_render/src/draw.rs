@@ -36,7 +36,7 @@ pub enum RenderCommand {
     SetBindGroup {
         index: u32,
         bind_group: BindGroupId,
-        dynamic_uniform_indices: Option<Arc<Vec<u32>>>,
+        dynamic_uniform_indices: Option<Arc<[u32]>>,
     },
     DrawIndexed {
         indices: Range<u32>,

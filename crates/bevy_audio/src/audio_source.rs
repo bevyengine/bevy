@@ -5,7 +5,7 @@ use std::{io::Cursor, path::Path, sync::Arc};
 /// A source of audio data
 #[derive(Clone)]
 pub struct AudioSource {
-    pub bytes: Arc<Vec<u8>>,
+    pub bytes: Arc<[u8]>,
 }
 
 impl AsRef<[u8]> for AudioSource {
@@ -21,7 +21,7 @@ pub struct Mp3Loader;
 impl AssetLoader<AudioSource> for Mp3Loader {
     fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<AudioSource> {
         Ok(AudioSource {
-            bytes: Arc::new(bytes),
+            bytes: bytes.into(),
         })
     }
 

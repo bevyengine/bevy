@@ -81,7 +81,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeInputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeInputSlot {
                 input_slot: index,
                 node: self.id,
             })
@@ -97,7 +97,7 @@ impl Edges {
                     false
                 }
             })
-            .ok_or_else(|| RenderGraphError::UnconnectedNodeOutputSlot {
+            .ok_or(RenderGraphError::UnconnectedNodeOutputSlot {
                 output_slot: index,
                 node: self.id,
             })

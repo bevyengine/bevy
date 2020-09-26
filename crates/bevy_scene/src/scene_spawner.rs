@@ -96,7 +96,7 @@ impl SceneSpawner {
         let scenes = resources.get::<Assets<Scene>>().unwrap();
         let scene = scenes
             .get(&scene_handle)
-            .ok_or_else(|| SceneSpawnError::NonExistentScene {
+            .ok_or(SceneSpawnError::NonExistentScene {
                 handle: scene_handle,
             })?;
 
@@ -108,7 +108,7 @@ impl SceneSpawner {
             for component in scene_entity.components.iter() {
                 let component_registration = component_registry
                     .get_with_name(&component.type_name)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredComponent {
+                    .ok_or(SceneSpawnError::UnregisteredComponent {
                         type_name: component.type_name.to_string(),
                     })?;
                 if world.has_component_type(entity, component_registration.ty) {
