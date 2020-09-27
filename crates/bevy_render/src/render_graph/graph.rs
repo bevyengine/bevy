@@ -283,9 +283,19 @@ impl RenderGraph {
 impl Debug for RenderGraph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for node in self.iter_nodes() {
-            writeln!(f, "{:?}", node.id)?;
+            writeln!(f, "node: {:?} {:?}", node.id, node.name)?;
             writeln!(f, "  in: {:?}", node.input_slots)?;
             writeln!(f, "  out: {:?}", node.output_slots)?;
+            write!(f, "  in edges:");
+            for edge in &node.edges.input_edges {
+                edge.fmt_as_input_edge(f, &self.nodes);
+            };
+            writeln!(f, "");
+            write!(f, "  out edges:");
+            for edge in &node.edges.output_edges {
+                edge.fmt_as_output_edge(f, &self.nodes);
+            };
+            writeln!(f, "");
         }
 
         Ok(())
