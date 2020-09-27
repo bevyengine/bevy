@@ -29,4 +29,4 @@ serde = { version = "1.0", features = ["derive"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "Window" ] }
-instant = "0.1.6"
+instant = { version = "0.1", features = ["wasm-bindgen"] }
