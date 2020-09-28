@@ -111,8 +111,8 @@ impl Transform {
     /// // Moves the transform by two units in the direction it's looking
     /// use bevy::prelude::*;
     /// let transform = Transform {
-    ///		rotation: Quat::from_axis_angle(Vec3::unit_y(), 2.0),
-    /// 	..Default::default()
+    ///	    rotation: Quat::from_axis_angle(Vec3::unit_y(), 2.0),
+    ///     ..Default::default()
     /// };
     /// transform.translate(Vec3::unit_z() * 2.0);
     /// ```
