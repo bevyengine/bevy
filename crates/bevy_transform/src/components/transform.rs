@@ -105,17 +105,6 @@ impl Transform {
     }
 
     /// Translates the transform by the given translation relative to its orientation
-    ///
-    /// # Examples
-    /// ```
-    /// // Moves the transform by two units in the direction it's looking
-    /// use bevy::prelude::*;
-    /// let transform = Transform {
-    ///	    rotation: Quat::from_axis_angle(Vec3::unit_y(), 2.0),
-    ///     ..Default::default()
-    /// };
-    /// transform.translate(Vec3::unit_z() * 2.0);
-    /// ```
     pub fn translate(&mut self, translation: Vec3) {
         self.translation += self.rotation * translation;
     }
