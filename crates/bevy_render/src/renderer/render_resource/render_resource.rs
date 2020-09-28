@@ -186,7 +186,7 @@ impl RenderResources for bevy_transform::prelude::GlobalTransform {
 
     fn get_render_resource(&self, index: usize) -> Option<&dyn RenderResource> {
         if index == 0 {
-            Some(self.value())
+            Some(&self.value)
         } else {
             None
         }
