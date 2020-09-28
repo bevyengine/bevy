@@ -81,6 +81,10 @@ impl<'a> ChildBuilder<'a> {
         self
     }
 
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.commands.current_entity
+    }
+
     pub fn with_bundle(
         &mut self,
         components: impl DynamicBundle + Send + Sync + 'static,
@@ -215,6 +219,7 @@ mod tests {
         let mut parent = None;
         let mut child1 = None;
         let mut child2 = None;
+        let mut child3 = None;
 
         commands
             .spawn((1,))
@@ -224,14 +229,18 @@ mod tests {
                     .spawn((2,))
                     .for_current_entity(|e| child1 = Some(e))
                     .spawn((3,))
-                    .for_current_entity(|e| child2 = Some(e));
+                    .for_current_entity(|e| child2 = Some(e))
+                    .spawn((4,));
+
+                child3 = parent.current_entity();
             });
 
         commands.apply(&mut world, &mut resources);
         let parent = parent.expect("parent should exist");
         let child1 = child1.expect("child1 should exist");
         let child2 = child2.expect("child2 should exist");
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        let child3 = child3.expect("child3 should exist");
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
 
         assert_eq!(
             world.get::<Children>(parent).unwrap().0.clone(),
