@@ -58,7 +58,7 @@ impl fmt::Debug for Entity {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct Entities {
     pub meta: Vec<EntityMeta>,
     // Reserved entities outside the range of `meta`, having implicit generation 0, archetype 0, and
@@ -333,14 +333,14 @@ impl EntityReserver {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct EntityMeta {
     pub generation: u32,
     pub location: Location,
 }
 
 /// A location of an entity in an archetype
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Location {
     /// The archetype index
     pub archetype: u32,

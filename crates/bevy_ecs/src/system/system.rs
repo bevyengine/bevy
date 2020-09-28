@@ -35,7 +35,7 @@ pub trait System: Send + Sync {
 }
 
 /// Provides information about the archetypes a [System] reads and writes
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ArchetypeAccess {
     pub immutable: FixedBitSet,
     pub mutable: FixedBitSet,
