@@ -9,12 +9,13 @@ pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
     pub stride: u64,
     pub step_mode: InputStepMode,
-    pub attributes: Vec<VertexAttributeDescriptor>,
+    pub attributes: Vec<VertexAttributeDescriptor>, //TODO: remove the vec? should it be ever possible to have multiple attributes per buffer?
 }
 
 impl VertexBufferDescriptor {
     pub fn sync_with_descriptor(&mut self, descriptor: &VertexBufferDescriptor) {
         for attribute in self.attributes.iter_mut() {
+            println!("sync attribute {} with reflection", attribute.name);
             let descriptor_attribute = descriptor
                 .attributes
                 .iter()
@@ -52,11 +53,16 @@ pub struct VertexBufferDescriptors {
 }
 
 impl VertexBufferDescriptors {
+    //TODO: still needed?
     pub fn set(&mut self, vertex_buffer_descriptor: VertexBufferDescriptor) {
         self.descriptors.insert(
             vertex_buffer_descriptor.name.to_string(),
             vertex_buffer_descriptor,
         );
+    }
+
+    pub fn set_many(&mut self, vertex_buffer_descriptor: VertexBufferDescriptors) {
+        self.descriptors.extend(vertex_buffer_descriptor.descriptors);
     }
 
     pub fn get(&self, name: &str) -> Option<&VertexBufferDescriptor> {

@@ -107,8 +107,8 @@ pub struct RenderResourceBindings {
     // TODO: remove this. it shouldn't be needed anymore
     pub id: RenderResourceBindingsId,
     bindings: HashMap<String, RenderResourceBinding>,
-    // TODO: remove this
-    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
+    pub vertex_buffers: HashMap<u8, BufferId>,
+    pub index_buffer: Option<BufferId>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
     dirty_bind_groups: HashSet<BindGroupId>,
@@ -140,24 +140,30 @@ impl RenderResourceBindings {
             self.set(name, binding.clone());
         }
 
-        for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
-        {
-            self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
-        }
+        // for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
+        // {
+        //
+        //     self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
+        // }
     }
 
-    pub fn get_vertex_buffer(&self, name: &str) -> Option<(BufferId, Option<BufferId>)> {
-        self.vertex_buffers.get(name).cloned()
+    pub fn get_vertex_buffer(&self, slot: u8) -> Option<(BufferId)> {
+        self.vertex_buffers.get(&slot).cloned()
     }
 
     pub fn set_vertex_buffer(
         &mut self,
-        name: &str,
-        vertex_buffer: BufferId,
-        index_buffer: Option<BufferId>,
+        slot: u8,
+        vertex_buffer: BufferId
     ) {
-        self.vertex_buffers
-            .insert(name.to_string(), (vertex_buffer, index_buffer));
+        self.vertex_buffers.insert(slot, vertex_buffer);
+    }
+
+    pub fn set_index_buffer(
+        &mut self,
+        index_buffer: BufferId,
+    ) {
+        self.index_buffer = Some(index_buffer);
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {

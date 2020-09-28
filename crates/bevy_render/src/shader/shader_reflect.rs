@@ -28,8 +28,11 @@ pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
+
         match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
             Ok(ref mut module) => {
+
+                // init
                 let entry_point_name = module.get_entry_point_name();
                 let shader_stage = module.get_shader_stage();
                 let mut bind_groups = Vec::new();
@@ -38,6 +41,7 @@ impl ShaderLayout {
                     bind_groups.push(bind_group);
                 }
 
+                // obtain attribute descriptors from reflection
                 let mut vertex_attribute_descriptors = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
                     let vertex_attribute_descriptor =
@@ -45,17 +49,20 @@ impl ShaderLayout {
                     if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
                         continue;
                     }
+
                     vertex_attribute_descriptors.push(vertex_attribute_descriptor);
                 }
 
                 vertex_attribute_descriptors
                     .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                let mut visited_buffer_descriptors = HashSet::default();
+                //let mut visited_buffer_descriptors = HashSet::default();
                 let mut vertex_buffer_descriptors = Vec::new();
-                let mut current_descriptor: Option<VertexBufferDescriptor> = None;
+
+                //let mut current_descriptor: Option<VertexBufferDescriptor> = None;
                 for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
                     let mut instance = false;
+                    // obtain buffer name
                     let current_buffer_name = {
                         if bevy_conventions {
                             if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
@@ -82,40 +89,22 @@ impl ShaderLayout {
                             "DefaultVertex".to_string()
                         }
                     };
+                    let current_buffer_name_pure = String::from(vertex_attribute_descriptor.name.clone());
 
-                    if let Some(current) = current_descriptor.as_mut() {
-                        if current.name == current_buffer_name {
-                            current.attributes.push(vertex_attribute_descriptor);
-                            continue;
-                        } else if visited_buffer_descriptors.contains(&current_buffer_name) {
-                            panic!("Vertex attribute buffer names must be consecutive.")
-                        }
-                    }
+                    println!("insert buffer {}", current_buffer_name);
 
-                    if let Some(current) = current_descriptor.take() {
-                        visited_buffer_descriptors.insert(current.name.to_string());
-                        vertex_buffer_descriptors.push(current);
-                    }
-
-                    current_descriptor = Some(VertexBufferDescriptor {
-                        attributes: vec![vertex_attribute_descriptor],
-                        name: current_buffer_name.into(),
-                        step_mode: if instance {
-                            InputStepMode::Instance
-                        } else {
-                            InputStepMode::Vertex
-                        },
-                        stride: 0,
-                    })
-                }
-
-                if let Some(current) = current_descriptor.take() {
-                    visited_buffer_descriptors.insert(current.name.to_string());
-                    vertex_buffer_descriptors.push(current);
-                }
-
-                for vertex_buffer_descriptor in vertex_buffer_descriptors.iter_mut() {
-                    calculate_offsets(vertex_buffer_descriptor);
+                    // create a new buffer descriptor per buffer
+                    vertex_buffer_descriptors.push(
+                        VertexBufferDescriptor {
+                            attributes: vec![vertex_attribute_descriptor],
+                            name: current_buffer_name_pure.into(),
+                            step_mode: if instance {
+                                InputStepMode::Instance
+                            } else {
+                                InputStepMode::Vertex
+                            },
+                            stride: 0,
+                    });
                 }
 
                 ShaderLayout {

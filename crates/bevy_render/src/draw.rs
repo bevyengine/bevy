@@ -121,6 +121,8 @@ pub enum DrawError {
     PipelineHasNoLayout,
     #[error("Failed to get a buffer for the given RenderResource.")]
     BufferAllocationFailure,
+    #[error("Could not get buffer for Vertex Attribute")]
+    NoBufferForVertexAttribute,
 }
 
 pub struct DrawContext<'a> {
@@ -350,21 +352,24 @@ impl<'a> DrawContext<'a> {
         let layout = pipeline_descriptor
             .get_layout()
             .ok_or(DrawError::PipelineHasNoLayout)?;
+
+        println!("{:?}", layout.vertex_buffer_descriptors);
         for (slot, vertex_buffer_descriptor) in layout.vertex_buffer_descriptors.iter().enumerate()
         {
+            println!("trying to get buffer for slot {} -> {}", slot, &vertex_buffer_descriptor.name);
             for bindings in render_resource_bindings.iter() {
-                if let Some((vertex_buffer, index_buffer)) =
-                    bindings.get_vertex_buffer(&vertex_buffer_descriptor.name)
-                {
-                    draw.set_vertex_buffer(slot as u32, vertex_buffer, 0);
-                    if let Some(index_buffer) = index_buffer {
-                        draw.set_index_buffer(index_buffer, 0);
-                    }
-
-                    break;
+                println!("\t binding {:?}", &bindings.id);
+                // TODO: fix this, it is setting the buffer multiply times
+                for vertex_buffer in &bindings.vertex_buffers{
+                    println!("\t \t set slot{:?}", &vertex_buffer.0);
+                    draw.set_vertex_buffer(vertex_buffer.0.clone() as u32 - 1, vertex_buffer.1.clone(), 0);
+                }
+                if let Some(index_buffer) = bindings.index_buffer{
+                    draw.set_index_buffer(index_buffer, 0);
                 }
             }
         }
+        println!("done with vertex_buffer_descriptors");
         Ok(())
     }
 }

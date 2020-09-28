@@ -14,9 +14,13 @@ use bevy_math::*;
 use bevy_utils::HashSet;
 use std::borrow::Cow;
 use thiserror::Error;
+use crate::pipeline::VertexAttributeDescriptor;
+use downcast_rs::Downcast;
 
-pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
-pub const INDEX_BUFFER_ASSET_INDEX: usize = 1;
+use crate::pipeline::InputStepMode;
+
+pub const VERTEX_BUFFER_ASSET_INDEX: usize = 1;
+pub const INDEX_BUFFER_ASSET_INDEX: usize = 0;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
@@ -127,6 +131,15 @@ impl Mesh {
             indices: None,
         }
     }
+    // pub fn get_vertex_attribute_bytes(
+    //     &self,
+    //     fill_missing_attributes: bool,
+    //     attribute_index: u32,
+    // ) -> Result<Vec<u8>, MeshToVertexBufferError>{
+    //     let attribute
+    //     let mut bytes = vec![0; vertex_buffer_descriptor.stride as usize];
+    //
+    // }
 
     pub fn get_vertex_buffer_bytes(
         &self,
@@ -502,16 +515,55 @@ pub fn mesh_resource_provider_system(
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    let vertex_buffer_descriptor = match state.vertex_buffer_descriptor {
-        Some(value) => value,
-        None => {
-            // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
-            let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
-            vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-            state.vertex_buffer_descriptor = Some(vertex_buffer_descriptor);
-            vertex_buffer_descriptor
-        }
-    };
+    if state.vertex_buffer_descriptor.is_none() {
+        // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
+        let mut vertex_buffer_descriptors_: VertexBufferDescriptors = VertexBufferDescriptors{
+            descriptors: Default::default()
+        };
+
+        // TODO: kinda messy
+        vertex_buffer_descriptors_.descriptors.insert(
+            "Vertex_Position".to_string(),
+            VertexBufferDescriptor{
+                name: "Vertex_Position".into(),
+                stride: VertexFormat::Float3.get_size(),
+                step_mode: InputStepMode::Vertex,
+                attributes: vec![VertexAttributeDescriptor{
+                    name: "Vertex_Position".into(),
+                    offset: 0,
+                    format: VertexFormat::Float3,
+                    shader_location: 0
+                }]
+        });
+        vertex_buffer_descriptors_.descriptors.insert(
+            "Vertex_Normal".to_string(),
+            VertexBufferDescriptor{
+                name: "Vertex_Normal".into(),
+                stride: VertexFormat::Float3.get_size(),
+                step_mode: InputStepMode::Vertex,
+                attributes: vec![VertexAttributeDescriptor{
+                    name: "Vertex_Normal".into(),
+                    offset: 0,
+                    format: VertexFormat::Float3,
+                    shader_location: 0
+                }]
+        });
+        vertex_buffer_descriptors_.descriptors.insert(
+            "Vertex_Uv".to_string(),
+            VertexBufferDescriptor{
+                name: "Vertex_Uv".into(),
+                stride: VertexFormat::Float2.get_size(),
+                step_mode: InputStepMode::Vertex,
+                attributes: vec![VertexAttributeDescriptor{
+                    name: "Vertex_Uv".into(),
+                    offset: 0,
+                    format: VertexFormat::Float2,
+                    shader_location: 0
+                }]
+        });
+        vertex_buffer_descriptors.set_many(vertex_buffer_descriptors_);
+    }
+
     let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
@@ -534,32 +586,35 @@ pub fn mesh_resource_provider_system(
 
     for changed_mesh_handle in changed_meshes.iter() {
         if let Some(mesh) = meshes.get(changed_mesh_handle) {
-            let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(&vertex_buffer_descriptor, true)
-                .unwrap();
-            // TODO: use a staging buffer here
-            let vertex_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::VERTEX,
-                    ..Default::default()
-                },
-                &vertex_bytes,
-            );
 
-            let index_bytes = mesh.get_index_buffer_bytes().unwrap();
+            let mut index = 1; // index 0 is reserved by INDEX_BUFFER_ASSET_INDEX
+            for attribute in &mesh.attributes{
+                println!("insert index vertex buffer index {}", index);
+                // TODO: use a staging buffer here
+                let attribute_buffer = render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    &attribute.values.get_bytes(),
+                );
+
+                render_resource_context.set_asset_resource(
+                    *changed_mesh_handle,
+                    RenderResourceId::Buffer(attribute_buffer),
+                    index,
+                );
+                index += 1;
+            }
+
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
                     ..Default::default()
                 },
-                &index_bytes,
+                &mesh.get_index_buffer_bytes().unwrap(),
             );
 
-            render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
-                RenderResourceId::Buffer(vertex_buffer),
-                VERTEX_BUFFER_ASSET_INDEX,
-            );
             render_resource_context.set_asset_resource(
                 *changed_mesh_handle,
                 RenderResourceId::Buffer(index_buffer),
@@ -576,23 +631,22 @@ pub fn mesh_resource_provider_system(
             }
         }
 
-        if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-            render_resource_context.get_asset_resource(*handle, VERTEX_BUFFER_ASSET_INDEX)
-        {
-            render_pipelines.bindings.set_vertex_buffer(
-                "Vertex",
-                vertex_buffer,
-                render_resource_context
-                    .get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
-                    .and_then(|r| {
-                        if let RenderResourceId::Buffer(buffer) = r {
-                            Some(buffer)
-                        } else {
-                            None
-                        }
-                    }),
-            );
+        // set index buffer into binding
+        let index_buffer_resource = render_resource_context.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+            .expect("no index buffer resource found.").get_buffer().expect("resource is not a buffer");
+
+        render_pipelines.bindings.set_index_buffer(index_buffer_resource);
+
+        // set vertex buffers into bindings
+        for index in 1..4 { //TODO: use actual vertex buffer count
+            if let Some(RenderResourceId::Buffer(vertex_buffer)) =
+                render_resource_context.get_asset_resource(*handle, index)
+            {
+                println!("setup vertex buffer {}", index);
+                render_pipelines.bindings.set_vertex_buffer(index as u8, vertex_buffer);
+            }
         }
+
     }
 }
 
