@@ -1,167 +1,143 @@
-use bevy_math::{Mat3, Mat4, Quat, Vec3, Vec4};
+use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_property::Properties;
 use std::fmt;
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct Transform {
-    value: Mat4,
+    pub translation: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
 }
 
 impl Transform {
     #[inline(always)]
-    pub fn new(value: Mat4) -> Self {
-        Transform { value }
-    }
-
-    #[inline(always)]
     pub fn identity() -> Self {
         Transform {
-            value: Mat4::identity(),
+            translation: Vec3::zero(),
+            rotation: Quat::identity(),
+            scale: Vec3::one(),
+        }
+    }
+
+    pub fn from_matrix(matrix: Mat4) -> Self {
+        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+
+        Transform {
+            translation,
+            rotation,
+            scale,
         }
     }
 
     pub fn from_translation(translation: Vec3) -> Self {
-        Transform::new(Mat4::from_translation(translation))
+        Transform {
+            translation,
+            ..Default::default()
+        }
     }
 
     pub fn from_rotation(rotation: Quat) -> Self {
-        Transform::new(Mat4::from_quat(rotation))
+        Transform {
+            rotation,
+            ..Default::default()
+        }
     }
 
     pub fn from_scale(scale: f32) -> Self {
-        Transform::new(Mat4::from_scale(Vec3::splat(scale)))
-    }
-
-    pub fn from_translation_rotation(translation: Vec3, rotation: Quat) -> Self {
-        Transform::new(Mat4::from_scale_rotation_translation(
-            Vec3::splat(1.0),
-            rotation,
-            translation,
-        ))
-    }
-
-    pub fn from_translation_rotation_scale(translation: Vec3, rotation: Quat, scale: f32) -> Self {
-        Transform::new(Mat4::from_scale_rotation_translation(
-            Vec3::splat(scale),
-            rotation,
-            translation,
-        ))
+        Transform {
+            scale: Vec3::one() * scale,
+            ..Default::default()
+        }
     }
 
     pub fn from_non_uniform_scale(scale: Vec3) -> Self {
-        Transform::new(Mat4::from_scale(scale))
+        Transform {
+            scale,
+            ..Default::default()
+        }
+    }
+
+    pub fn from_translation_rotation(translation: Vec3, rotation: Quat) -> Self {
+        Transform {
+            translation,
+            rotation,
+            ..Default::default()
+        }
     }
 
     pub fn with_translation(mut self, translation: Vec3) -> Self {
-        self.set_translation(translation);
+        self.translation = translation;
         self
     }
 
     pub fn with_rotation(mut self, rotation: Quat) -> Self {
-        self.set_rotation(rotation);
+        self.rotation = rotation;
         self
     }
 
     pub fn with_scale(mut self, scale: f32) -> Self {
-        self.set_scale(scale);
+        self.scale = Vec3::one() * scale;
         self
     }
 
     pub fn with_non_uniform_scale(mut self, scale: Vec3) -> Self {
-        self.set_non_uniform_scale(scale);
+        self.scale = scale;
         self
     }
 
-    pub fn with_translate(mut self, translation: Vec3) -> Self {
-        self.translate(translation);
+    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at the origin
+    pub fn looking_at_origin(self) -> Self {
+        self.looking_at(Vec3::zero(), Vec3::unit_y())
+    }
+
+    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at target
+    pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
+        self.look_at(target, up);
         self
     }
 
-    pub fn with_rotate(mut self, rotation: Quat) -> Self {
-        self.rotate(rotation);
-        self
+    pub fn compute_matrix(&self) -> Mat4 {
+        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    pub fn with_apply_scale(mut self, scale: f32) -> Self {
-        self.apply_scale(scale);
-        self
+    pub fn forward(&self) -> Vec3 {
+        self.rotation * Vec3::unit_z()
     }
 
-    pub fn with_apply_non_uniform_scale(mut self, scale: Vec3) -> Self {
-        self.apply_non_uniform_scale(scale);
-        self
-    }
-
-    pub fn value(&self) -> &Mat4 {
-        &self.value
-    }
-
-    pub fn value_mut(&mut self) -> &mut Mat4 {
-        &mut self.value
-    }
-
-    pub fn translation(&self) -> Vec3 {
-        Vec3::from(self.value.w_axis().truncate())
-    }
-
-    pub fn translation_mut(&mut self) -> &mut Vec4 {
-        self.value.w_axis_mut()
-    }
-
-    pub fn rotation(&self) -> Quat {
-        let scale = self.scale();
-
-        Quat::from_rotation_mat3(&Mat3::from_cols(
-            Vec3::from(self.value.x_axis().truncate()) / scale.x(),
-            Vec3::from(self.value.y_axis().truncate()) / scale.y(),
-            Vec3::from(self.value.z_axis().truncate()) / scale.z(),
-        ))
-    }
-
-    pub fn scale(&self) -> Vec3 {
-        Vec3::new(
-            self.value.x_axis().truncate().length(),
-            self.value.y_axis().truncate().length(),
-            self.value.z_axis().truncate().length(),
-        )
-    }
-
-    pub fn set_translation(&mut self, translation: Vec3) {
-        *self.value.w_axis_mut() = translation.extend(1.0);
-    }
-
-    pub fn set_rotation(&mut self, rotation: Quat) {
-        self.value =
-            Mat4::from_scale_rotation_translation(self.scale(), rotation, self.translation());
-    }
-
-    pub fn set_scale(&mut self, scale: f32) {
-        self.value = Mat4::from_scale_rotation_translation(
-            Vec3::splat(scale),
-            self.rotation(),
-            self.translation(),
-        );
-    }
-
-    pub fn set_non_uniform_scale(&mut self, scale: Vec3) {
-        self.value =
-            Mat4::from_scale_rotation_translation(scale, self.rotation(), self.translation());
-    }
-
+    /// Translates the transform by the given translation relative to its orientation
+    ///
+    /// # Examples
+    /// ```
+    /// // Moves the transform by two units in the direction it's looking
+    /// use bevy::prelude::*;
+    /// let transform = Transform {
+    ///		rotation: Quat::from_axis_angle(Vec3::unit_y(), 2.0),
+    /// 	..Default::default()
+    /// };
+    /// transform.translate(Vec3::unit_z() * 2.0);
+    /// ```
     pub fn translate(&mut self, translation: Vec3) {
-        *self.value.w_axis_mut() += translation.extend(0.0);
+        self.translation += self.rotation * translation;
     }
 
+    /// Rotate the transform by the given rotation
     pub fn rotate(&mut self, rotation: Quat) {
-        self.value = Mat4::from_quat(rotation) * self.value;
+        self.rotation = self.rotation * rotation;
     }
 
     pub fn apply_scale(&mut self, scale: f32) {
-        self.value = Mat4::from_scale(Vec3::splat(scale)) * self.value;
+        self.scale *= scale;
     }
 
     pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
-        self.value = Mat4::from_scale(scale) * self.value;
+        self.scale *= scale;
+    }
+
+    pub fn look_at(&mut self, target: Vec3, up: Vec3) {
+        let forward = Vec3::normalize(self.translation - target);
+        let right = up.cross(forward).normalize();
+        let up = forward.cross(right);
+        self.rotation = Quat::from_rotation_mat3(&Mat3::from_cols(right, up, forward));
     }
 }
 
@@ -173,6 +149,6 @@ impl Default for Transform {
 
 impl fmt::Display for Transform {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
+        write!(f, "{}", self.compute_matrix())
     }
 }

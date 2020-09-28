@@ -47,11 +47,7 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(2.0, 2.0, 6.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(2.0, 2.0, 6.0)).looking_at_origin(),
             ..Default::default()
         });
 }

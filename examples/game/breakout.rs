@@ -171,7 +171,7 @@ fn paddle_movement_system(
             direction += 1.0;
         }
 
-        let translation = transform.translation_mut();
+        let translation = &mut transform.translation;
         // move the paddle horizontally
         *translation.x_mut() += time.delta_seconds * direction * paddle.speed;
         // bound the paddle within the walls
@@ -207,9 +207,9 @@ fn ball_collision_system(
         // check collision with walls
         for (collider_entity, collider, transform, sprite) in &mut collider_query.iter() {
             let collision = collide(
-                ball_transform.translation(),
+                ball_transform.translation,
                 ball_size,
-                transform.translation(),
+                transform.translation,
                 sprite.size,
             );
             if let Some(collision) = collision {

@@ -7,7 +7,7 @@ pub fn transform_propagate_system(
     mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
 ) {
     for (children, transform, mut global_transform) in &mut root_query.iter() {
-        global_transform.value = *transform.value();
+        global_transform.value = transform.compute_matrix();
 
         if let Some(children) = children {
             for child in children.0.iter() {
@@ -29,7 +29,7 @@ fn propagate_recursive(
             transform_query.get::<Transform>(entity),
             transform_query.get_mut::<GlobalTransform>(entity),
         ) {
-            global_transform.value = *parent * *transform.value();
+            global_transform.value = *parent * transform.compute_matrix();
             global_transform.value
         } else {
             return;
