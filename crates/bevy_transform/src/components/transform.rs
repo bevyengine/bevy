@@ -111,7 +111,7 @@ impl Transform {
 
     /// Rotate the transform by the given rotation
     pub fn rotate(&mut self, rotation: Quat) {
-        self.rotation = self.rotation * rotation;
+        self.rotation *= rotation;
     }
 
     pub fn apply_scale(&mut self, scale: f32) {
