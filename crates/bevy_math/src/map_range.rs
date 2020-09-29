@@ -35,6 +35,7 @@ pub fn map_range_clamped<T: MapRange>(
     lerp(output_min, output_max, alpha)
 }
 
+/// A trait for mapping from one range to another
 pub trait MapRange
 where
     Self: Copy
@@ -45,9 +46,16 @@ where
         + Mul<Output = Self>
         + Div<Output = Self>,
 {
+    /// New Self with all elements set to 0.0
     fn zero() -> Self;
+
+    /// New Self with all elements set to 1.0
     fn one() -> Self;
+
+    /// Component-wise clamp
     fn clamp(self, min: Self, max: Self) -> Self;
+
+    /// Component-wise alpha of input along line from input_min to input_max
     fn alpha(self, min: Self, max: Self) -> Self;
 }
 
@@ -62,12 +70,10 @@ impl MapRange for f32 {
         1f32
     }
 
-    // // Component-wise clamp
     fn clamp(self, min: f32, max: f32) -> f32 {
         clamp::clamp(self, min, max)
     }
 
-    // Component-wise alpha of input along line from input_min to input_max
     fn alpha(self, min: f32, max: f32) -> f32 {
         alpha(self, min, max)
     }
