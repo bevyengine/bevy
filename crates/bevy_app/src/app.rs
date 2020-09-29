@@ -10,8 +10,7 @@ use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
 /// ## Example
 /// Here is a simple "Hello World" Bevy app:
 /// ```
-///use bevy_app::prelude::*;
-///use bevy_ecs::prelude::*;
+///use bevy::prelude::*;
 ///
 ///fn main() {
 ///    App::build()
