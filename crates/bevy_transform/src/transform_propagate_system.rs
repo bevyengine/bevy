@@ -3,13 +3,11 @@ use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 
 pub fn transform_propagate_system(
-    mut root_query: Query<
-        Without<Parent, (Option<&Children>, &mut Transform, &mut GlobalTransform)>,
-    >,
-    mut transform_query: Query<(&mut Transform, &mut GlobalTransform, Option<&Children>)>,
+    mut root_query: Query<Without<Parent, (Option<&Children>, &Transform, &mut GlobalTransform)>>,
+    mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
 ) {
-    for (children, mut transform, mut global_transform) in &mut root_query.iter() {
-        global_transform.value = transform.matrix();
+    for (children, transform, mut global_transform) in &mut root_query.iter() {
+        global_transform.value = transform.compute_matrix();
 
         if let Some(children) = children {
             for child in children.0.iter() {
@@ -21,17 +19,17 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &Mat4,
-    transform_query: &mut Query<(&mut Transform, &mut GlobalTransform, Option<&Children>)>,
+    transform_query: &mut Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
     entity: Entity,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
 
     let global_matrix = {
-        if let (Ok(mut transform), Ok(mut global_transform)) = (
-            transform_query.get_mut::<Transform>(entity),
+        if let (Ok(transform), Ok(mut global_transform)) = (
+            transform_query.get::<Transform>(entity),
             transform_query.get_mut::<GlobalTransform>(entity),
         ) {
-            global_transform.value = *parent * transform.matrix();
+            global_transform.value = *parent * transform.compute_matrix();
             global_transform.value
         } else {
             return;
