@@ -6,7 +6,6 @@ use crate::{
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
-use bevy_utils::HashSet;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,

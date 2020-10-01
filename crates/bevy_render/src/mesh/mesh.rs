@@ -511,7 +511,7 @@ pub fn mesh_resource_provider_system(
             .extend(vertex_buffer_descriptors_.descriptors);
     }
 
-    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
+    let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
