@@ -206,6 +206,10 @@ name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 
 [[example]]
+name = "hierarchy"
+path = "examples/ecs/hierarchy.rs"
+
+[[example]]
 name = "breakout"
 path = "examples/game/breakout.rs"
 
