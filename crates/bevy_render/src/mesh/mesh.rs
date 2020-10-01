@@ -10,8 +10,6 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
-use bevy_utils::HashSet;
-use downcast_rs::Downcast;
 use std::borrow::Cow;
 use thiserror::Error;
 
