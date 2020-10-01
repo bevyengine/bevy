@@ -1,8 +1,7 @@
-use crate::pipeline::VertexAttributeDescriptor;
 use crate::{
     pipeline::{
-        PrimitiveTopology, RenderPipelines, VertexBufferDescriptor, VertexBufferDescriptors,
-        VertexFormat,
+        PrimitiveTopology, RenderPipelines, VertexAttributeDescriptor, VertexBufferDescriptor,
+        VertexBufferDescriptors, VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
@@ -473,49 +472,41 @@ pub fn mesh_resource_provider_system(
         let mut vertex_buffer_descriptors_: VertexBufferDescriptors = VertexBufferDescriptors {
             descriptors: Default::default(),
         };
-
-        // TODO: kinda messy
         vertex_buffer_descriptors_.descriptors.insert(
             "Vertex_Position".to_string(),
-            VertexBufferDescriptor {
-                name: "Vertex_Position".into(),
-                stride: VertexFormat::Float3.get_size(),
-                step_mode: InputStepMode::Vertex,
-                attribute: VertexAttributeDescriptor {
+            VertexBufferDescriptor::new_from_attribute(
+                VertexAttributeDescriptor {
                     name: "Vertex_Position".into(),
                     offset: 0,
                     format: VertexFormat::Float3,
                     shader_location: 0,
                 },
-            },
+                InputStepMode::Vertex,
+            ),
         );
         vertex_buffer_descriptors_.descriptors.insert(
             "Vertex_Normal".to_string(),
-            VertexBufferDescriptor {
-                name: "Vertex_Normal".into(),
-                stride: VertexFormat::Float3.get_size(),
-                step_mode: InputStepMode::Vertex,
-                attribute: VertexAttributeDescriptor {
+            VertexBufferDescriptor::new_from_attribute(
+                VertexAttributeDescriptor {
                     name: "Vertex_Normal".into(),
                     offset: 0,
                     format: VertexFormat::Float3,
-                    shader_location: 0,
+                    shader_location: 1,
                 },
-            },
+                InputStepMode::Vertex,
+            ),
         );
         vertex_buffer_descriptors_.descriptors.insert(
             "Vertex_Uv".to_string(),
-            VertexBufferDescriptor {
-                name: "Vertex_Uv".into(),
-                stride: VertexFormat::Float2.get_size(),
-                step_mode: InputStepMode::Vertex,
-                attribute: VertexAttributeDescriptor {
+            VertexBufferDescriptor::new_from_attribute(
+                VertexAttributeDescriptor {
                     name: "Vertex_Uv".into(),
                     offset: 0,
                     format: VertexFormat::Float2,
-                    shader_location: 0,
+                    shader_location: 2,
                 },
-            },
+                InputStepMode::Vertex,
+            ),
         );
         vertex_buffer_descriptors
             .descriptors
