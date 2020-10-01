@@ -80,4 +80,5 @@ impl App {
 }
 
 /// An event that indicates the app should exit. This will fully exit the app process.
+#[derive(Clone)]
 pub struct AppExit;
