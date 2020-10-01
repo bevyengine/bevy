@@ -63,20 +63,20 @@ impl Plugin for ScheduleRunnerPlugin {
                 RunMode::Loop { wait } => {
                     let mut tick = move |app: &mut App,
                                          wait: Option<Duration>|
-                          -> Option<Duration> {
+                          -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                                return None;
+                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                                return Err(exit.clone());
                             }
                         }
 
                         app.update();
 
                         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
-                            if app_exit_event_reader.latest(&app_exit_events).is_some() {
-                                return None;
+                            if let Some(exit) = app_exit_event_reader.latest(&app_exit_events) {
+                                return Err(exit.clone());
                             }
                         }
 
@@ -85,17 +85,19 @@ impl Plugin for ScheduleRunnerPlugin {
                         if let Some(wait) = wait {
                             let exe_time = end_time - start_time;
                             if exe_time < wait {
-                                return Some(wait - exe_time);
+                                return Ok(Some(wait - exe_time));
                             }
                         }
 
-                        None
+                        Ok(None)
                     };
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        while let Some(delay) = tick(&mut app, wait) {
-                            thread::sleep(delay);
+                        while let Ok(delay) = tick(&mut app, wait) {
+                            if let Some(delay) = delay {
+                                thread::sleep(delay);
+                            }
                         }
                     }
 
@@ -118,10 +120,14 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         let c = move || {
                             let mut app = Rc::get_mut(&mut rc).unwrap();
-                            let delay = tick(&mut app, wait).unwrap_or(asap);
-                            set_timeout(f.borrow().as_ref().unwrap(), delay);
+                            let delay = tick(&mut app, wait);
+                            match delay {
+                                Ok(delay) => {
+                                    set_timeout(f.borrow().as_ref().unwrap(), delay.unwrap_or(asap))
+                                }
+                                Err(_) => {}
+                            }
                         };
-
                         *g.borrow_mut() = Some(Closure::wrap(Box::new(c) as Box<dyn FnMut()>));
                         set_timeout(g.borrow().as_ref().unwrap(), asap);
                     };
