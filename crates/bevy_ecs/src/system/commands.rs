@@ -162,7 +162,10 @@ pub struct CommandsInternal {
 }
 
 impl CommandsInternal {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
+    pub fn spawn_with_bundle(
+        &mut self,
+        components: impl DynamicBundle + Send + Sync + 'static,
+    ) -> &mut Self {
         let entity = self
             .entity_reserver
             .as_ref()
@@ -171,6 +174,20 @@ impl CommandsInternal {
         self.current_entity = Some(entity);
         self.commands
             .push(Command::WriteWorld(Box::new(Insert { entity, components })));
+        self
+    }
+
+    pub fn spawn_with(&mut self, component: impl Component) -> &mut Self {
+        let entity = self
+            .entity_reserver
+            .as_ref()
+            .expect("entity reserver has not been set")
+            .reserve_entity();
+        self.current_entity = Some(entity);
+        self.commands.push(Command::WriteWorld(Box::new(InsertOne {
+            entity,
+            component,
+        })));
         self
     }
 
