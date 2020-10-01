@@ -81,3 +81,6 @@ pub use bevy_winit as winit;
 
 #[cfg(feature = "bevy_wgpu")]
 pub use bevy_wgpu as wgpu;
+
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub use bevy_dynamic_plugin as dynamic_plugin;

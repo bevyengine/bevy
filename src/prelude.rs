@@ -21,3 +21,6 @@ pub use crate::text::prelude::*;
 
 #[cfg(feature = "bevy_ui")]
 pub use crate::ui::prelude::*;
+
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub use crate::dynamic_plugin::*;
