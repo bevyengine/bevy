@@ -28,10 +28,8 @@ pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {
-
         match ShaderModule::load_u8_data(spirv_data.as_bytes()) {
             Ok(ref mut module) => {
-
                 // init
                 let entry_point_name = module.get_entry_point_name();
                 let shader_stage = module.get_shader_stage();
@@ -56,13 +54,10 @@ impl ShaderLayout {
                 vertex_attribute_descriptors
                     .sort_by(|a, b| a.shader_location.cmp(&b.shader_location));
 
-                //let mut visited_buffer_descriptors = HashSet::default();
                 let mut vertex_buffer_descriptors = Vec::new();
-
-                //let mut current_descriptor: Option<VertexBufferDescriptor> = None;
                 for vertex_attribute_descriptor in vertex_attribute_descriptors.drain(..) {
                     let mut instance = false;
-                    // obtain buffer name
+                    // obtain buffer name and instancing flag
                     let current_buffer_name = {
                         if bevy_conventions {
                             if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
@@ -72,15 +67,14 @@ impl ShaderLayout {
                                     .name
                                     .splitn(3, '_')
                                     .collect::<Vec<&str>>();
+
                                 if parts.len() == 3 {
                                     if parts[0] == "I" {
                                         instance = true;
-                                        parts[1].to_string()
-                                    } else {
-                                        parts[0].to_string()
                                     }
+                                    vertex_attribute_descriptor.name.to_string()
                                 } else if parts.len() == 2 {
-                                    parts[0].to_string()
+                                    vertex_attribute_descriptor.name.to_string()
                                 } else {
                                     panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
                                 }
@@ -89,21 +83,17 @@ impl ShaderLayout {
                             "DefaultVertex".to_string()
                         }
                     };
-                    let current_buffer_name_pure = String::from(vertex_attribute_descriptor.name.clone());
-
-                    println!("insert buffer {}", current_buffer_name);
 
                     // create a new buffer descriptor per buffer
-                    vertex_buffer_descriptors.push(
-                        VertexBufferDescriptor {
-                            attributes: vec![vertex_attribute_descriptor],
-                            name: current_buffer_name_pure.into(),
-                            step_mode: if instance {
-                                InputStepMode::Instance
-                            } else {
-                                InputStepMode::Vertex
-                            },
-                            stride: 0,
+                    vertex_buffer_descriptors.push(VertexBufferDescriptor {
+                        attribute: vertex_attribute_descriptor,
+                        name: current_buffer_name.into(),
+                        step_mode: if instance {
+                            InputStepMode::Instance
+                        } else {
+                            InputStepMode::Vertex
+                        },
+                        stride: 0,
                     });
                 }
 
@@ -116,16 +106,6 @@ impl ShaderLayout {
             Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
         }
     }
-}
-
-fn calculate_offsets(vertex_buffer_descriptor: &mut VertexBufferDescriptor) {
-    let mut offset = 0;
-    for attribute in vertex_buffer_descriptor.attributes.iter_mut() {
-        attribute.offset = offset;
-        offset += attribute.format.get_size();
-    }
-
-    vertex_buffer_descriptor.stride = offset;
 }
 
 fn reflect_vertex_attribute_descriptor(
@@ -380,36 +360,36 @@ mod tests {
             ShaderLayout {
                 entry_point: "main".into(),
                 vertex_buffer_descriptors: vec![
-                    VertexBufferDescriptor {
-                        name: "Vertex".into(),
-                        attributes: vec![
-                            VertexAttributeDescriptor {
-                                name: "Vertex_Position".into(),
-                                format: VertexFormat::Float4,
-                                offset: 0,
-                                shader_location: 0,
-                            },
-                            VertexAttributeDescriptor {
-                                name: "Vertex_Normal".into(),
-                                format: VertexFormat::Uint4,
-                                offset: 16,
-                                shader_location: 1,
-                            }
-                        ],
-                        step_mode: InputStepMode::Vertex,
-                        stride: 32,
-                    },
-                    VertexBufferDescriptor {
-                        name: "TestInstancing".into(),
-                        attributes: vec![VertexAttributeDescriptor {
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
+                            name: "Vertex_Position".into(),
+                            format: VertexFormat::Float4,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        InputStepMode::Vertex
+                    )
+                    .test_zero_stride(),
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
+                            name: "Vertex_Normal".into(),
+                            format: VertexFormat::Uint4,
+                            offset: 0,
+                            shader_location: 1,
+                        },
+                        InputStepMode::Vertex
+                    )
+                    .test_zero_stride(),
+                    VertexBufferDescriptor::new_from_attribute(
+                        VertexAttributeDescriptor {
                             name: "I_TestInstancing_Property".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
                             shader_location: 2,
-                        },],
-                        step_mode: InputStepMode::Instance,
-                        stride: 16,
-                    }
+                        },
+                        InputStepMode::Instance
+                    )
+                    .test_zero_stride(),
                 ],
                 bind_groups: vec![
                     BindGroupDescriptor::new(
@@ -440,33 +420,5 @@ mod tests {
                 ]
             }
         );
-    }
-
-    #[test]
-    #[should_panic(expected = "Vertex attribute buffer names must be consecutive.")]
-    fn test_reflection_consecutive_buffer_validation() {
-        let vertex_shader = Shader::from_glsl(
-            ShaderStage::Vertex,
-            r#"
-            #version 450
-            layout(location = 0) in vec4 Vertex_Position;
-            layout(location = 1) in uvec4 Other_Property;
-            layout(location = 2) in uvec4 Vertex_Normal;
-
-            layout(location = 0) out vec4 v_Position;
-            layout(set = 0, binding = 0) uniform Camera {
-                mat4 ViewProj;
-            };
-            layout(set = 1, binding = 0) uniform texture2D Texture;
-
-            void main() {
-                v_Position = Vertex_Position;
-                gl_Position = ViewProj * v_Position;
-            }
-        "#,
-        )
-        .get_spirv_shader(None);
-
-        let _layout = vertex_shader.reflect_layout(true).unwrap();
     }
 }

@@ -50,7 +50,6 @@ impl PipelineLayout {
         }
 
         for vertex_buffer_descriptor in shader_layouts[0].vertex_buffer_descriptors.iter() {
-            println!("vertex_buffer_descriptor {:?}", vertex_buffer_descriptor.clone());
             vertex_buffer_descriptors.push(vertex_buffer_descriptor.clone());
         }
 
@@ -77,7 +76,8 @@ impl PipelineLayout {
             if let Some(graph_descriptor) =
                 vertex_buffer_descriptors.get(&vertex_buffer_descriptor.name)
             {
-                vertex_buffer_descriptor.sync_with_descriptor(graph_descriptor);
+                vertex_buffer_descriptor.attribute.offset = graph_descriptor.attribute.offset;
+                vertex_buffer_descriptor.stride = graph_descriptor.stride;
             } else if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
                 // GL_VERTEX_INDEX is a special attribute set on our behalf
                 continue;

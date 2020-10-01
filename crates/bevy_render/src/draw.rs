@@ -121,8 +121,6 @@ pub enum DrawError {
     PipelineHasNoLayout,
     #[error("Failed to get a buffer for the given RenderResource.")]
     BufferAllocationFailure,
-    #[error("Could not get buffer for Vertex Attribute")]
-    NoBufferForVertexAttribute,
 }
 
 pub struct DrawContext<'a> {
@@ -344,32 +342,16 @@ impl<'a> DrawContext<'a> {
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
-        let pipeline_descriptor = self
-            .pipelines
-            .get(&pipeline)
-            .ok_or(DrawError::NonExistentPipeline)?;
-        let layout = pipeline_descriptor
-            .get_layout()
-            .ok_or(DrawError::PipelineHasNoLayout)?;
-
-        println!("{:?}", layout.vertex_buffer_descriptors);
-        for (slot, vertex_buffer_descriptor) in layout.vertex_buffer_descriptors.iter().enumerate()
-        {
-            println!("trying to get buffer for slot {} -> {}", slot, &vertex_buffer_descriptor.name);
-            for bindings in render_resource_bindings.iter() {
-                println!("\t binding {:?}", &bindings.id);
-                // TODO: fix this, it is setting the buffer multiply times
-                for vertex_buffer in &bindings.vertex_buffers{
-                    println!("\t \t set slot{:?}", &vertex_buffer.0);
-                    draw.set_vertex_buffer(vertex_buffer.0.clone() as u32 - 1, vertex_buffer.1.clone(), 0);
-                }
-                if let Some(index_buffer) = bindings.index_buffer{
-                    draw.set_index_buffer(index_buffer, 0);
-                }
+        for bindings in render_resource_bindings.iter() {
+            for vertex_buffer in &bindings.vertex_buffers {
+                // TODO: don't to the -1 thing, when VERTEX_BUFFER_ASSET_INDEX in mesh.rs is finally gone
+                draw.set_vertex_buffer(*vertex_buffer.0 as u32 - 1, *vertex_buffer.1, 0);
+            }
+            if let Some(index_buffer) = bindings.index_buffer {
+                draw.set_index_buffer(index_buffer, 0);
             }
         }
-        println!("done with vertex_buffer_descriptors");
+
         Ok(())
     }
 }

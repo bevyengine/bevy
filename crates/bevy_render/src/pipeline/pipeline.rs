@@ -146,6 +146,7 @@ impl PipelineDescriptor {
 
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
         if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
+            // complete the layout with the user defined descriptors
             layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
         }
 

@@ -147,22 +147,15 @@ impl RenderResourceBindings {
         // }
     }
 
-    pub fn get_vertex_buffer(&self, slot: u8) -> Option<(BufferId)> {
+    pub fn get_vertex_buffer(&self, slot: u8) -> Option<BufferId> {
         self.vertex_buffers.get(&slot).cloned()
     }
 
-    pub fn set_vertex_buffer(
-        &mut self,
-        slot: u8,
-        vertex_buffer: BufferId
-    ) {
+    pub fn set_vertex_buffer(&mut self, slot: u8, vertex_buffer: BufferId) {
         self.vertex_buffers.insert(slot, vertex_buffer);
     }
 
-    pub fn set_index_buffer(
-        &mut self,
-        index_buffer: BufferId,
-    ) {
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
         self.index_buffer = Some(index_buffer);
     }
 
