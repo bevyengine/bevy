@@ -22,6 +22,7 @@ use core::{
 
 use crate::{archetype::Archetype, Component, MissingComponent};
 
+#[derive(Debug)]
 pub struct AtomicBorrow(AtomicUsize);
 
 impl AtomicBorrow {

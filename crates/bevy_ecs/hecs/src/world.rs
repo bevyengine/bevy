@@ -38,6 +38,7 @@ use crate::{
 ///
 /// The components of entities who have the same set of component types are stored in contiguous
 /// runs, allowing for extremely fast, cache-friendly iteration.
+#[derive(Debug)]
 pub struct World {
     entities: Entities,
     index: HashMap<Vec<TypeId>, u32>,

@@ -35,6 +35,7 @@ use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 ///
 /// Accessing `Archetype`s is only required for complex dynamic scheduling. To manipulate entities,
 /// go through the `World`.
+#[derive(Debug)]
 pub struct Archetype {
     types: Vec<TypeInfo>,
     state: HashMap<TypeId, TypeState>,
@@ -439,6 +440,7 @@ impl Drop for Archetype {
 }
 
 /// Metadata about a type stored in an archetype
+#[derive(Debug)]
 pub struct TypeState {
     offset: usize,
     borrow: AtomicBorrow,

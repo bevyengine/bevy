@@ -47,6 +47,7 @@ impl<'a, T: Resource> Deref for ChangedRes<'a, T> {
 }
 
 /// Shared borrow of a Resource
+#[derive(Debug)]
 pub struct Res<'a, T: Resource> {
     value: &'a T,
 }
@@ -87,6 +88,7 @@ impl<'a, T: Resource> Deref for Res<'a, T> {
 }
 
 /// Unique borrow of a Resource
+#[derive(Debug)]
 pub struct ResMut<'a, T: Resource> {
     _marker: PhantomData<&'a T>,
     value: *mut T,
@@ -139,6 +141,7 @@ impl<'a, T: Resource> UnsafeClone for ResMut<'a, T> {
 
 /// Local<T> resources are unique per-system. Two instances of the same system will each have their own resource.
 /// Local resources are automatically initialized using the FromResources trait.
+#[derive(Debug)]
 pub struct Local<'a, T: Resource + FromResources> {
     value: *mut T,
     _marker: PhantomData<&'a T>,
