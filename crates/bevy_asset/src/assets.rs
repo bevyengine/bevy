@@ -119,6 +119,10 @@ pub trait AddAsset {
     where
         TLoader: AssetLoader<TAsset> + FromResources,
         TAsset: Send + Sync + 'static;
+    fn add_asset_loader_from_instance<TAsset, TLoader>(&mut self, instance: TLoader) -> &mut Self
+    where
+        TLoader: AssetLoader<TAsset> + FromResources,
+        TAsset: Send + Sync + 'static;
 }
 
 impl AddAsset for AppBuilder {
@@ -135,7 +139,7 @@ impl AddAsset for AppBuilder {
             .add_event::<AssetEvent<T>>()
     }
 
-    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+    fn add_asset_loader_from_instance<TAsset, TLoader>(&mut self, instance: TLoader) -> &mut Self
     where
         TLoader: AssetLoader<TAsset> + FromResources,
         TAsset: Send + Sync + 'static,
@@ -156,7 +160,7 @@ impl AddAsset for AppBuilder {
                 .resources()
                 .get_mut::<AssetServer>()
                 .expect("AssetServer does not exist. Consider adding it as a resource.");
-            asset_server.add_loader(TLoader::from_resources(self.resources()));
+            asset_server.add_loader(instance);
             let handler = ChannelAssetHandler::new(
                 TLoader::from_resources(self.resources()),
                 asset_channel.sender.clone(),
@@ -164,5 +168,15 @@ impl AddAsset for AppBuilder {
             asset_server.add_handler(handler);
         }
         self
+    }
+
+    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+    where
+        TLoader: AssetLoader<TAsset> + FromResources,
+        TAsset: Send + Sync + 'static,
+    {
+        self.add_asset_loader_from_instance::<TAsset, TLoader>(TLoader::from_resources(
+            self.resources(),
+        ))
     }
 }
