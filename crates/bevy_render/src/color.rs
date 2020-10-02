@@ -24,43 +24,15 @@ pub struct Color {
 unsafe impl Byteable for Color {}
 
 impl Color {
-    pub const BLACK: Color = Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-        a: 1.0,
-    };
-    pub const BLUE: Color = Color {
-        r: 0.0,
-        g: 0.0,
-        b: 1.0,
-        a: 1.0,
-    };
-    pub const GREEN: Color = Color {
-        r: 0.0,
-        g: 1.0,
-        b: 0.0,
-        a: 1.0,
-    };
-    pub const NONE: Color = Color {
-        r: 0.0,
-        g: 0.0,
-        b: 0.0,
-        a: 0.0,
-    };
-    pub const RED: Color = Color {
-        r: 1.0,
-        g: 0.0,
-        b: 0.0,
-        a: 1.0,
-    };
-    pub const WHITE: Color = Color {
-        r: 1.0,
-        g: 1.0,
-        b: 1.0,
-        a: 1.0,
-    };
+    pub const BLACK: Color = Color::rgb_linear(0.0, 0.0, 0.0);
+    pub const BLUE: Color = Color::rgb_linear(0.0, 0.0, 1.0);
+    pub const GREEN: Color = Color::rgb_linear(0.0, 1.0, 0.0);
+    pub const NONE: Color = Color::rgba_linear(0.0, 0.0, 0.0, 0.0);
+    pub const RED: Color = Color::rgb_linear(1.0, 0.0, 0.0);
+    pub const WHITE: Color = Color::rgb_linear(1.0, 1.0, 1.0);
 
+    // TODO: cant make rgb and rgba const due traits not allowed in const functions
+    // see issue #57563 https://github.com/rust-lang/rust/issues/57563
     /// New ``Color`` from sRGB colorspace.
     pub fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }.as_srgb_to_linear()
@@ -72,12 +44,12 @@ impl Color {
     }
 
     /// New ``Color`` from linear colorspace.
-    pub fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
+    pub const fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
     }
 
     /// New ``Color`` from linear colorspace.
-    pub fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
+    pub const fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
 
@@ -116,6 +88,7 @@ impl Color {
 
         Err(HexColorError::Length)
     }
+
     /// New ``Color`` from sRGB colorspace.
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
