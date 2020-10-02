@@ -48,6 +48,7 @@ pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
 pub use bevy_input as input;
 pub use bevy_math as math;
+pub use bevy_physics as physics;
 pub use bevy_property as property;
 pub use bevy_scene as scene;
 pub use bevy_tasks as tasks;

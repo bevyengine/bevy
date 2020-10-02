@@ -64,6 +64,7 @@ bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.2.1" }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.2.1" }
 bevy_input = { path = "crates/bevy_input", version = "0.2.1" }
 bevy_math = { path = "crates/bevy_math", version = "0.2.1" }
+bevy_physics = { path = "crates/bevy_physics", version = "0.2.1" }
 bevy_property = { path = "crates/bevy_property", version = "0.2.1" }
 bevy_scene = { path = "crates/bevy_scene", version = "0.2.1" }
 bevy_transform = { path = "crates/bevy_transform", version = "0.2.1" }
@@ -137,6 +138,10 @@ path = "examples/3d/texture.rs"
 [[example]]
 name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
+
+[[example]]
+name = "raycast"
+path = "examples/physics/raycast.rs"
 
 [[example]]
 name = "empty_defaults"
