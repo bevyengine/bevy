@@ -40,7 +40,12 @@ impl Eq for FloatOrd {}
 
 impl Hash for FloatOrd {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write(self.0.as_bytes());
+        if self.0.is_nan() {
+            // Ensure all NaN representations hash to the same value
+            state.write(f32::NAN.as_bytes())
+        } else {
+            state.write(self.0.as_bytes());
+        }
     }
 }
 
