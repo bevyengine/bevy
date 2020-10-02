@@ -69,6 +69,7 @@ impl TypeToIndex {
     fn get<T: 'static>(&self) -> Option<&Vec<usize>> {
         self.0.get(&std::any::TypeId::of::<T>())
     }
+
     fn insert<T: 'static>(&mut self, index: usize) {
         self.0
             .entry(std::any::TypeId::of::<T>())

@@ -36,10 +36,8 @@ where
                 let bytes = Uint8Array::new(&data).to_vec();
                 let asset = self.loader.from_bytes(&path, bytes).unwrap();
                 Ok(asset)
-            },
-            crate::DataOrigin::Read(ref _read) => {
-                unimplemented!()
             }
+            crate::DataOrigin::Read(ref _read) => unimplemented!(),
         }
     }
 }
