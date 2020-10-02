@@ -11,7 +11,7 @@ use bevy_property::Property;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
-/// RGBA color in linear colorspace and 32-bit per component.
+/// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
 pub struct Color {
