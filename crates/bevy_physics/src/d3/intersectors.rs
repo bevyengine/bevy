@@ -58,7 +58,37 @@ impl RayIntersector for Sphere {
 }
 
 impl RayIntersector for Triangle {
-    fn intersect_ray(&self, _ray: &Ray) -> Option<RayHit> {
-        unimplemented!()
+    // using the Moeller-Trumbore intersection algorithm
+    fn intersect_ray(&self, ray: &Ray) -> Option<RayHit> {
+        let edges = (self.1 - self.0, self.2 - self.0);
+        let h = ray.direction().cross(edges.1);
+        let a = edges.0.dot(h);
+
+        if a > -f32::EPSILON && a < f32::EPSILON {
+            return None;
+        }
+
+        let f = 1.0 / a;
+        let s = *ray.origin() - self.0;
+        let u = f * s.dot(h);
+
+        if u < 0.0 || u > 1.0 {
+            return None;
+        }
+
+        let q = s.cross(edges.0);
+        let v = f * ray.direction().dot(q);
+
+        if v < 0.0 || u + v > 1.0 {
+            return None;
+        }
+
+        let t = f * edges.1.dot(q);
+
+        if t > f32::EPSILON {
+            Some(RayHit::new(t, *ray.origin() + *ray.direction() * t))
+        } else {
+            None
+        }
     }
 }

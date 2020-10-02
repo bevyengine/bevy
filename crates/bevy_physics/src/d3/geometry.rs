@@ -52,6 +52,4 @@ impl Default for Sphere {
     }
 }
 
-pub struct Triangle {
-    pub vertices: [Vec3; 3],
-}
+pub struct Triangle(pub Vec3, pub Vec3, pub Vec3);
