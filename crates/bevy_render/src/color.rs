@@ -1,5 +1,6 @@
 use super::texture::Texture;
 use crate::{
+    colorspace::*,
     impl_render_resource_bytes,
     renderer::{RenderResource, RenderResourceType},
 };
@@ -10,7 +11,7 @@ use bevy_property::Property;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
-/// A RGBA color
+/// RGBA color in linear colorspace and 32-bit per component.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
 pub struct Color {
@@ -23,18 +24,60 @@ pub struct Color {
 unsafe impl Byteable for Color {}
 
 impl Color {
-    pub const BLACK: Color = Color::rgb(0.0, 0.0, 0.0);
-    pub const BLUE: Color = Color::rgb(0.0, 0.0, 1.0);
-    pub const GREEN: Color = Color::rgb(0.0, 1.0, 0.0);
-    pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
-    pub const RED: Color = Color::rgb(1.0, 0.0, 0.0);
-    pub const WHITE: Color = Color::rgb(1.0, 1.0, 1.0);
+    pub const BLACK: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const BLUE: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 1.0,
+        a: 1.0,
+    };
+    pub const GREEN: Color = Color {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const NONE: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
+    pub const RED: Color = Color {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+    pub const WHITE: Color = Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
 
-    pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
+    /// New ``Color`` from sRGB colorspace.
+    pub fn rgb(r: f32, g: f32, b: f32) -> Color {
+        Color { r, g, b, a: 1.0 }.as_srgb_to_linear()
+    }
+
+    /// New ``Color`` from sRGB colorspace.
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+        Color { r, g, b, a }.as_srgb_to_linear()
+    }
+
+    /// New ``Color`` from linear colorspace.
+    pub fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
         Color { r, g, b, a: 1.0 }
     }
 
-    pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+    /// New ``Color`` from linear colorspace.
+    pub fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color { r, g, b, a }
     }
 
@@ -73,13 +116,14 @@ impl Color {
 
         Err(HexColorError::Length)
     }
-
+    /// New ``Color`` from sRGB colorspace.
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
 
     // Float operations in const fn are not stable yet
     // see https://github.com/rust-lang/rust/issues/57241
+    /// New ``Color`` from sRGB colorspace.
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         Color::rgba(
             r as f32 / u8::MAX as f32,
@@ -87,6 +131,24 @@ impl Color {
             b as f32 / u8::MAX as f32,
             a as f32 / u8::MAX as f32,
         )
+    }
+
+    fn as_srgb_to_linear(self) -> Color {
+        Color {
+            r: self.r.srgb_to_linear(),
+            g: self.g.srgb_to_linear(),
+            b: self.b.srgb_to_linear(),
+            a: self.a, //alpha is always linear
+        }
+    }
+
+    pub fn to_srgb(self) -> Color {
+        Color {
+            r: self.r.linear_to_srgb(),
+            g: self.g.linear_to_srgb(),
+            b: self.b.linear_to_srgb(),
+            a: self.a, //alpha is always linear
+        }
     }
 }
 
