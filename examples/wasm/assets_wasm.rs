@@ -1,10 +1,15 @@
+#[cfg(target_arch = "wasm32")]
 extern crate console_error_panic_hook;
+
 use bevy::{asset::AssetLoader, prelude::*};
-use std::{panic, path::PathBuf};
+use std::path::PathBuf;
 
 fn main() {
-    panic::set_hook(Box::new(console_error_panic_hook::hook));
-    console_log::init_with_level(log::Level::Debug).expect("cannot initialize console_log");
+    #[cfg(target_arch = "wasm32")]
+    {
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        console_log::init_with_level(log::Level::Debug).expect("cannot initialize console_log");
+    }
 
     App::build()
         .add_default_plugins()

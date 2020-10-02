@@ -29,8 +29,8 @@ impl WinitWindows {
             )),
             WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(&event_loop.primary_monitor(), &window),
-                    false => get_best_videomode(&event_loop.primary_monitor()),
+                    true => get_fitting_videomode(&event_loop.primary_monitor().unwrap(), &window),
+                    false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
             _ => winit_window_builder

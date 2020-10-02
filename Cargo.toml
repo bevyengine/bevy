@@ -88,11 +88,11 @@ rand = "0.7.3"
 serde = { version = "1", features = ["derive"] }
 log = "0.4"
 ron = "0.6"
+anyhow = "1.0"
 
-#wasm
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = { version = "0.2", features = ["color"] }
-anyhow = "1.0"
 
 [[example]]
 name = "hello_world"
