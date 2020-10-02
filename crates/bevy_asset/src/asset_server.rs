@@ -278,7 +278,7 @@ impl AssetServer {
                 assets.set(handle, asset);
                 return Ok(handle);
             }
-            Err(last_error.unwrap())?
+            Err(last_error.unwrap().into())
         } else {
             Err(AssetServerError::MissingAssetHandler)
         }
@@ -311,7 +311,7 @@ impl AssetServer {
                 })
                 .detach();
 
-            return Ok(Handle::from(handle_id));
+            Ok(Handle::from(handle_id))
         } else {
             Err(AssetServerError::MissingAssetHandler)
         }
