@@ -219,6 +219,10 @@ name = "mouse_input_events"
 path = "examples/input/mouse_input_events.rs"
 
 [[example]]
+name = "mouse_capture"
+path = "examples/input/mouse_capture.rs"
+
+[[example]]
 name = "keyboard_input"
 path = "examples/input/keyboard_input.rs"
 
