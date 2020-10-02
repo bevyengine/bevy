@@ -22,17 +22,25 @@ where
     }
 
     fn load_asset(&self, load_request: &LoadRequest) -> Result<TAsset, AssetLoadError> {
-        match File::open(&load_request.path) {
-            Ok(mut file) => {
+        match load_request.path {
+            crate::DataOrigin::Path(ref path) => match File::open(&path) {
+                Ok(mut file) => {
+                    let mut bytes = Vec::new();
+                    file.read_to_end(&mut bytes)?;
+                    let asset = self.loader.from_bytes(&path, bytes)?;
+                    Ok(asset)
+                }
+                Err(e) => Err(AssetLoadError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("{}", path.display()),
+                ))),
+            },
+            crate::DataOrigin::Read(ref read) => {
                 let mut bytes = Vec::new();
-                file.read_to_end(&mut bytes)?;
-                let asset = self.loader.from_bytes(&load_request.path, bytes)?;
+                read.lock().unwrap().read_to_end(&mut bytes)?;
+                let asset = self.loader.from_bytes(std::path::Path::new(""), bytes)?;
                 Ok(asset)
             }
-            Err(e) => Err(AssetLoadError::Io(std::io::Error::new(
-                e.kind(),
-                format!("{}", load_request.path.display()),
-            ))),
         }
     }
 }
@@ -48,7 +56,10 @@ where
         let asset_result = AssetResult {
             handle: Handle::from(load_request.handle_id),
             result,
-            path: load_request.path.clone(),
+            path: match load_request.path {
+                crate::DataOrigin::Path(ref path) => path.clone(),
+                crate::DataOrigin::Read(_) => std::path::Path::new("").to_path_buf(),
+            },
             version: load_request.version,
         };
         self.sender

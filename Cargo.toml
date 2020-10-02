@@ -175,6 +175,10 @@ name = "custom_loader"
 path = "examples/asset/custom_asset_loading.rs"
 
 [[example]]
+name = "read_loading"
+path = "examples/asset/read_loading.rs"
+
+[[example]]
 name = "audio"
 path = "examples/audio/audio.rs"
 

@@ -189,7 +189,7 @@ impl AddAsset for AppBuilder {
                 TLoader::from_resources(self.resources()),
                 asset_channel.sender.clone(),
             );
-            asset_server.add_handler(handler);
+            asset_server.add_handler::<_, TAsset>(handler);
         }
         self
     }

@@ -1,6 +1,6 @@
 use crate::{
     filesystem_watcher::FilesystemWatcher, AssetLoadError, AssetLoadRequestHandler, AssetLoader,
-    Assets, Handle, HandleId, LoadRequest,
+    Assets, DataOrigin, Handle, HandleId, LoadRequest,
 };
 use anyhow::Result;
 use bevy_ecs::{Res, Resource, Resources};
@@ -63,6 +63,20 @@ impl LoadState {
     }
 }
 
+#[derive(Default)]
+struct TypeToIndex(HashMap<std::any::TypeId, Vec<usize>>);
+impl TypeToIndex {
+    fn get<T: 'static>(&self) -> Option<&Vec<usize>> {
+        self.0.get(&std::any::TypeId::of::<T>())
+    }
+    fn insert<T: 'static>(&mut self, index: usize) {
+        self.0
+            .entry(std::any::TypeId::of::<T>())
+            .and_modify(|indexes| indexes.push(index))
+            .or_insert_with(|| vec![index]);
+    }
+}
+
 /// Loads assets from the filesystem on background threads
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
@@ -71,6 +85,8 @@ pub struct AssetServer {
     task_pool: TaskPool,
     extension_to_handler_index: HashMap<String, usize>,
     extension_to_loader_index: HashMap<String, usize>,
+    type_to_handler_index: TypeToIndex,
+    type_to_loader_index: TypeToIndex,
     asset_info: RwLock<HashMap<HandleId, AssetInfo>>,
     asset_info_paths: RwLock<HashMap<PathBuf, HandleId>>,
     #[cfg(feature = "filesystem_watcher")]
@@ -85,6 +101,8 @@ impl AssetServer {
             loaders: Default::default(),
             extension_to_handler_index: Default::default(),
             extension_to_loader_index: Default::default(),
+            type_to_handler_index: Default::default(),
+            type_to_loader_index: Default::default(),
             asset_info_paths: Default::default(),
             asset_info: Default::default(),
             task_pool,
@@ -93,9 +111,10 @@ impl AssetServer {
         }
     }
 
-    pub fn add_handler<T>(&mut self, asset_handler: T)
+    pub fn add_handler<T, TAsset>(&mut self, asset_handler: T)
     where
         T: AssetLoadRequestHandler,
+        TAsset: Send + Sync + 'static,
     {
         let mut asset_handlers = self.asset_handlers.write();
         let handler_index = asset_handlers.len();
@@ -103,6 +122,7 @@ impl AssetServer {
             self.extension_to_handler_index
                 .insert(extension.to_string(), handler_index);
         }
+        self.type_to_handler_index.insert::<TAsset>(handler_index);
 
         asset_handlers.push(Arc::new(asset_handler));
     }
@@ -117,6 +137,7 @@ impl AssetServer {
             self.extension_to_loader_index
                 .insert(extension.to_string(), loader_index);
         }
+        self.type_to_loader_index.insert::<TAsset>(loader_index);
 
         let mut resources = Resources::default();
         resources.insert::<Box<dyn AssetLoader<TAsset>>>(Box::new(loader));
@@ -230,6 +251,101 @@ impl AssetServer {
         }
     }
 
+    pub fn load_sync_from<T: Resource>(
+        &self,
+        assets: &mut Assets<T>,
+        read: &mut dyn std::io::Read,
+    ) -> Result<Handle<T>, AssetServerError>
+    where
+        T: 'static,
+    {
+        if let Some(indexes) = self.type_to_loader_index.get::<T>() {
+            let mut last_error = None;
+            for index in indexes {
+                let handle_id = HandleId::new();
+                let resources = &self.loaders[*index];
+                let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
+                let asset = match loader.load_from_read(read) {
+                    Err(e) => {
+                        last_error = Some(e);
+                        continue;
+                    }
+                    Ok(asset) => asset,
+                };
+                let handle = Handle::from(handle_id);
+
+                assets.set(handle, asset);
+                return Ok(handle);
+            }
+            Err(last_error.unwrap())?
+        } else {
+            Err(AssetServerError::MissingAssetHandler)
+        }
+    }
+
+    pub fn load_from<T: Resource>(
+        &self,
+        read: Box<(dyn std::io::Read + Send + 'static)>,
+    ) -> Result<Handle<T>, AssetServerError> {
+        if let Some(index) = self
+            .type_to_handler_index
+            .get::<T>()
+            .and_then(|indexes| indexes.get(0))
+        {
+            let handle_id = HandleId::new();
+
+            let load_request = LoadRequest {
+                handle_id,
+                path: DataOrigin::Read(std::sync::Arc::new(std::sync::Mutex::from(read))),
+                handler_index: *index,
+                version: 0,
+            };
+
+            let handlers = self.asset_handlers.read();
+            let request_handler = handlers[load_request.handler_index].clone();
+
+            self.task_pool
+                .spawn(async move {
+                    request_handler.handle_request(&load_request).await;
+                })
+                .detach();
+
+            return Ok(Handle::from(handle_id));
+        } else {
+            Err(AssetServerError::MissingAssetHandler)
+        }
+    }
+
+    pub fn load_with_hint_from<T: Resource>(
+        &self,
+        read: Box<(dyn std::io::Read + Send + 'static)>,
+        extension: &str,
+    ) -> Result<Handle<T>, AssetServerError> {
+        if let Some(index) = self.extension_to_handler_index.get(extension) {
+            let handle_id = HandleId::new();
+
+            let load_request = LoadRequest {
+                handle_id,
+                path: DataOrigin::Read(std::sync::Arc::new(std::sync::Mutex::from(read))),
+                handler_index: *index,
+                version: 0,
+            };
+
+            let handlers = self.asset_handlers.read();
+            let request_handler = handlers[load_request.handler_index].clone();
+
+            self.task_pool
+                .spawn(async move {
+                    request_handler.handle_request(&load_request).await;
+                })
+                .detach();
+
+            Ok(Handle::from(handle_id))
+        } else {
+            Err(AssetServerError::MissingAssetHandler)
+        }
+    }
+
     pub fn load_untyped<P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
         if let Some(ref extension) = path.extension() {
@@ -271,7 +387,7 @@ impl AssetServer {
 
                 let load_request = LoadRequest {
                     handle_id,
-                    path: path.to_owned(),
+                    path: DataOrigin::Path(path.to_owned()),
                     handler_index: *index,
                     version: new_version,
                 };

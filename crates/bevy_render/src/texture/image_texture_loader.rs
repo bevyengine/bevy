@@ -11,24 +11,8 @@ use std::path::Path;
 pub struct ImageTextureLoader;
 
 impl AssetLoader<Texture> for ImageTextureLoader {
-    fn from_bytes(&self, asset_path: &Path, bytes: Vec<u8>) -> Result<Texture> {
+    fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Texture> {
         use bevy_core::AsBytes;
-
-        // Find the image type we expect. A file with the extension "png" should
-        // probably load as a PNG.
-
-        let ext = asset_path.extension().unwrap().to_str().unwrap();
-
-        // NOTE: If more formats are added they can be added here.
-        let img_format = if ext.eq_ignore_ascii_case("png") {
-            image::ImageFormat::Png
-        } else {
-            panic!(
-                "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
-                ext,
-                asset_path.display()
-            )
-        };
 
         // Load the image in the expected format.
         // Some formats like PNG allow for R or RG textures too, so the texture
@@ -36,7 +20,7 @@ impl AssetLoader<Texture> for ImageTextureLoader {
         // needs to be added, so the image data needs to be converted in those
         // cases.
 
-        let dyn_img = image::load_from_memory_with_format(bytes.as_slice(), img_format)?;
+        let dyn_img = image::load_from_memory(bytes.as_slice())?;
 
         let width;
         let height;

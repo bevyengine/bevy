@@ -24,16 +24,23 @@ where
     }
 
     async fn load_asset(&self, load_request: &LoadRequest) -> Result<TAsset, AssetLoadError> {
-        // TODO - get rid of some unwraps below (do some retrying maybe?)
-        let window = web_sys::window().unwrap();
-        let resp_value = JsFuture::from(window.fetch_with_str(load_request.path.to_str().unwrap()))
-            .await
-            .unwrap();
-        let resp: Response = resp_value.dyn_into().unwrap();
-        let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
-        let bytes = Uint8Array::new(&data).to_vec();
-        let asset = self.loader.from_bytes(&load_request.path, bytes).unwrap();
-        Ok(asset)
+        match load_request.path {
+            crate::DataOrigin::Path(ref path) => {
+                // TODO - get rid of some unwraps below (do some retrying maybe?)
+                let window = web_sys::window().unwrap();
+                let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
+                    .await
+                    .unwrap();
+                let resp: Response = resp_value.dyn_into().unwrap();
+                let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
+                let bytes = Uint8Array::new(&data).to_vec();
+                let asset = self.loader.from_bytes(&path, bytes).unwrap();
+                Ok(asset)
+            },
+            crate::DataOrigin::Read(ref _read) => {
+                unimplemented!()
+            }
+        }
     }
 }
 
@@ -48,7 +55,10 @@ where
         let asset_result = AssetResult {
             handle: Handle::from(load_request.handle_id),
             result: asset,
-            path: load_request.path.clone(),
+            path: match load_request.path {
+                crate::DataOrigin::Path(ref path) => path.clone(),
+                crate::DataOrigin::Read(_) => std::path::Path::new("").to_path_buf(),
+            },
             version: load_request.version,
         };
         self.sender

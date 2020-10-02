@@ -30,6 +30,12 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
         let asset = self.from_bytes(asset_path, bytes)?;
         Ok(asset)
     }
+    fn load_from_read(&self, asset_read: &mut dyn std::io::Read) -> Result<T, AssetLoadError> {
+        let mut bytes = Vec::new();
+        asset_read.read_to_end(&mut bytes)?;
+        let asset = self.from_bytes(Path::new(""), bytes)?;
+        Ok(asset)
+    }
 }
 
 /// The result of loading an asset of type `T`
