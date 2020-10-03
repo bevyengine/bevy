@@ -1,13 +1,13 @@
 // sRGB
 //==================================================================================================
 pub trait SrgbColorSpace {
-    fn linear_to_srgb(self) -> Self;
-    fn srgb_to_linear(self) -> Self;
+    fn linear_to_nonlinear_srgb(self) -> Self;
+    fn nonlinear_to_linear_srgb(self) -> Self;
 }
 
 //source: https://entropymine.com/imageworsener/srgbformula/
 impl SrgbColorSpace for f32 {
-    fn linear_to_srgb(self) -> f32 {
+    fn linear_to_nonlinear_srgb(self) -> f32 {
         if self <= 0.0 {
             return self;
         }
@@ -19,7 +19,7 @@ impl SrgbColorSpace for f32 {
         }
     }
 
-    fn srgb_to_linear(self) -> f32 {
+    fn nonlinear_to_linear_srgb(self) -> f32 {
         if self <= 0.0 {
             return self;
         }
@@ -36,7 +36,7 @@ fn test_srgb_full_roundtrip() {
     let u8max: f32 = u8::max_value() as f32;
     for color in 0..u8::max_value() {
         let color01 = color as f32 / u8max;
-        let color_roundtrip = color01.linear_to_srgb().srgb_to_linear();
+        let color_roundtrip = color01.linear_to_nonlinear_srgb().nonlinear_to_linear_srgb();
         // roundtrip is not perfect due to numeric precision, even with f64
         // so ensure the error is at least ready for u8 (where sRGB is used)
         assert_eq!(

@@ -35,12 +35,12 @@ impl Color {
     // see issue #57563 https://github.com/rust-lang/rust/issues/57563
     /// New ``Color`` from sRGB colorspace.
     pub fn rgb(r: f32, g: f32, b: f32) -> Color {
-        Color { r, g, b, a: 1.0 }.as_srgb_to_linear()
+        Color { r, g, b, a: 1.0 }.as_nonlinear_srgb_to_linear_srgb()
     }
 
     /// New ``Color`` from sRGB colorspace.
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
-        Color { r, g, b, a }.as_srgb_to_linear()
+        Color { r, g, b, a }.as_nonlinear_srgb_to_linear_srgb()
     }
 
     /// New ``Color`` from linear colorspace.
@@ -106,20 +106,11 @@ impl Color {
         )
     }
 
-    fn as_srgb_to_linear(self) -> Color {
+    fn as_nonlinear_srgb_to_linear_srgb(self) -> Color {
         Color {
-            r: self.r.srgb_to_linear(),
-            g: self.g.srgb_to_linear(),
-            b: self.b.srgb_to_linear(),
-            a: self.a, //alpha is always linear
-        }
-    }
-
-    pub fn to_srgb(self) -> Color {
-        Color {
-            r: self.r.linear_to_srgb(),
-            g: self.g.linear_to_srgb(),
-            b: self.b.linear_to_srgb(),
+            r: self.r.nonlinear_to_linear_srgb(),
+            g: self.g.nonlinear_to_linear_srgb(),
+            b: self.b.nonlinear_to_linear_srgb(),
             a: self.a, //alpha is always linear
         }
     }
