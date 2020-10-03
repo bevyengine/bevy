@@ -36,7 +36,9 @@ fn test_srgb_full_roundtrip() {
     let u8max: f32 = u8::max_value() as f32;
     for color in 0..u8::max_value() {
         let color01 = color as f32 / u8max;
-        let color_roundtrip = color01.linear_to_nonlinear_srgb().nonlinear_to_linear_srgb();
+        let color_roundtrip = color01
+            .linear_to_nonlinear_srgb()
+            .nonlinear_to_linear_srgb();
         // roundtrip is not perfect due to numeric precision, even with f64
         // so ensure the error is at least ready for u8 (where sRGB is used)
         assert_eq!(
