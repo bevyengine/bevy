@@ -1,6 +1,6 @@
 use crate::{serde::SceneSerializer, Scene};
 use anyhow::Result;
-use bevy_ecs::{EntityMap, Resources, World};
+use bevy_ecs::{EntityMap, Resources, World, ComponentId};
 use bevy_property::{DynamicProperties, PropertyTypeRegistry};
 use bevy_type_registry::{ComponentRegistry, TypeRegistry, TypeUuid};
 use serde::Serialize;
@@ -40,7 +40,14 @@ impl DynamicScene {
                     })
                 }
                 for type_info in archetype.types() {
-                    if let Some(component_registration) = component_registry.get(&type_info.id()) {
+                    if let Some(component_registration) =
+                        component_registry.get(match &type_info.id() {
+                            ComponentId::RustTypeId(id) => id,
+                            ComponentId::ExternalId(_) => {
+                                todo!("Handle external type ids in Bevy scene")
+                            }
+                        })
+                    {
                         let properties =
                             component_registration.get_component_properties(&archetype, index);
 
@@ -72,7 +79,7 @@ impl DynamicScene {
                     .ok_or_else(|| DynamicSceneToWorldError::UnregisteredComponent {
                         type_name: component.type_name.to_string(),
                     })?;
-                if world.has_component_type(new_entity, component_registration.ty) {
+                if world.has_component_type(new_entity, component_registration.ty.into()) {
                     component_registration.apply_property_to_entity(world, new_entity, component);
                 } else {
                     component_registration

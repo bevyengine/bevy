@@ -1,7 +1,7 @@
 use crate::{DynamicScene, Scene};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{EntityMap, Resources, World};
+use bevy_ecs::{ComponentId, EntityMap, Resources, World};
 use bevy_type_registry::TypeRegistry;
 use bevy_utils::HashMap;
 use thiserror::Error;
@@ -121,7 +121,7 @@ impl SceneSpawner {
                     .ok_or(SceneSpawnError::UnregisteredComponent {
                         type_name: component.type_name.to_string(),
                     })?;
-                if world.has_component_type(entity, component_registration.ty) {
+                if world.has_component_type(entity, component_registration.ty.into()) {
                     if component.type_name != "Camera" {
                         component_registration.apply_property_to_entity(world, entity, component);
                     }
@@ -161,7 +161,14 @@ impl SceneSpawner {
                     .entry(*scene_entity)
                     .or_insert_with(|| world.reserve_entity());
                 for type_info in archetype.types() {
-                    if let Some(component_registration) = component_registry.get(&type_info.id()) {
+                    if let Some(component_registration) =
+                        component_registry.get(match &type_info.id() {
+                            ComponentId::RustTypeId(id) => id,
+                            ComponentId::ExternalId(_) => {
+                                todo!("Handle external types in Bevy scene")
+                            }
+                        })
+                    {
                         component_registration.component_copy(
                             &scene.world,
                             world,

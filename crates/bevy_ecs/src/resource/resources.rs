@@ -1,6 +1,6 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
-use bevy_hecs::{Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
+use bevy_hecs::{Archetype, AtomicBorrow, ComponentId, Entity, Ref, RefMut, TypeInfo, TypeState};
 use bevy_utils::HashMap;
 use core::any::TypeId;
 use downcast_rs::{impl_downcast, Downcast};
@@ -82,8 +82,8 @@ impl<T: 'static> ResourceStorage for VecResourceStorage<T> {}
 
 /// A collection of resource instances identified by their type.
 pub struct Resources {
-    pub(crate) resource_data: HashMap<TypeId, ResourceData>,
-    thread_local_data: HashMap<TypeId, Box<dyn ResourceStorage>>,
+    pub(crate) resource_data: HashMap<ComponentId, ResourceData>,
+    thread_local_data: HashMap<ComponentId, Box<dyn ResourceStorage>>,
     main_thread_id: ThreadId,
 }
 
@@ -106,7 +106,7 @@ impl Resources {
         self.check_thread_local();
         let entry = self
             .thread_local_data
-            .entry(TypeId::of::<T>())
+            .entry(TypeId::of::<T>().into())
             .or_insert_with(|| Box::new(VecResourceStorage::<T>::default()));
         let resources = entry.downcast_mut::<VecResourceStorage<T>>().unwrap();
         if resources.is_empty() {
@@ -137,7 +137,7 @@ impl Resources {
     pub fn get_thread_local<T: 'static>(&self) -> Option<ResourceRef<'_, T>> {
         self.check_thread_local();
         self.thread_local_data
-            .get(&TypeId::of::<T>())
+            .get(&TypeId::of::<T>().into())
             .and_then(|storage| {
                 let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
                 resources.get(0)
@@ -147,7 +147,7 @@ impl Resources {
     pub fn get_thread_local_mut<T: 'static>(&self) -> Option<ResourceRefMut<'_, T>> {
         self.check_thread_local();
         self.thread_local_data
-            .get(&TypeId::of::<T>())
+            .get(&TypeId::of::<T>().into())
             .and_then(|storage| {
                 let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
                 resources.get_mut(0)
@@ -188,7 +188,7 @@ impl Resources {
 
     fn insert_resource<T: Resource>(&mut self, mut resource: T, resource_index: ResourceIndex) {
         let type_id = TypeId::of::<T>();
-        let data = self.resource_data.entry(type_id).or_insert_with(|| {
+        let data = self.resource_data.entry(type_id.into()).or_insert_with(|| {
             let mut types = Vec::new();
             types.push(TypeInfo::of::<T>());
             ResourceData {
@@ -227,7 +227,7 @@ impl Resources {
             let resource_ptr = (&mut resource as *mut T).cast::<u8>();
             archetype.put_dynamic(
                 resource_ptr,
-                type_id,
+                type_id.into(),
                 core::mem::size_of::<T>(),
                 index,
                 added,
@@ -238,7 +238,7 @@ impl Resources {
 
     fn get_resource<T: Resource>(&self, resource_index: ResourceIndex) -> Option<Ref<'_, T>> {
         self.resource_data
-            .get(&TypeId::of::<T>())
+            .get(&TypeId::of::<T>().into())
             .and_then(|data| unsafe {
                 let index = match resource_index {
                     ResourceIndex::Global => data.default_index?,
@@ -253,7 +253,7 @@ impl Resources {
         resource_index: ResourceIndex,
     ) -> Option<RefMut<'_, T>> {
         self.resource_data
-            .get(&TypeId::of::<T>())
+            .get(&TypeId::of::<T>().into())
             .and_then(|data| unsafe {
                 let index = match resource_index {
                     ResourceIndex::Global => data.default_index?,
@@ -326,7 +326,7 @@ impl Resources {
     ) -> (NonNull<bool>, NonNull<bool>) {
         self.get_resource_data_index::<T>(resource_index)
             .and_then(|(data, index)| {
-                let type_state = data.archetype.get_type_state(TypeId::of::<T>())?;
+                let type_state = data.archetype.get_type_state(TypeId::of::<T>().into())?;
                 Some((
                     NonNull::new_unchecked(type_state.added().as_ptr().add(index)),
                     NonNull::new_unchecked(type_state.mutated().as_ptr().add(index)),
@@ -340,37 +340,39 @@ impl Resources {
         &self,
         resource_index: ResourceIndex,
     ) -> Option<(&ResourceData, usize)> {
-        self.resource_data.get(&TypeId::of::<T>()).and_then(|data| {
-            let index = match resource_index {
-                ResourceIndex::Global => data.default_index?,
-                ResourceIndex::System(id) => {
-                    data.system_id_to_archetype_index.get(&id.0).cloned()?
-                }
-            };
-            Some((data, index as usize))
-        })
+        self.resource_data
+            .get(&TypeId::of::<T>().into())
+            .and_then(|data| {
+                let index = match resource_index {
+                    ResourceIndex::Global => data.default_index?,
+                    ResourceIndex::System(id) => {
+                        data.system_id_to_archetype_index.get(&id.0).cloned()?
+                    }
+                };
+                Some((data, index as usize))
+            })
     }
 
     pub fn borrow<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>().into()) {
             data.archetype.borrow::<T>();
         }
     }
 
     pub fn release<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>().into()) {
             data.archetype.release::<T>();
         }
     }
 
     pub fn borrow_mut<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>().into()) {
             data.archetype.borrow_mut::<T>();
         }
     }
 
     pub fn release_mut<T: Resource>(&self) {
-        if let Some(data) = self.resource_data.get(&TypeId::of::<T>()) {
+        if let Some(data) = self.resource_data.get(&TypeId::of::<T>().into()) {
             data.archetype.release_mut::<T>();
         }
     }
@@ -566,7 +568,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "i32 already borrowed")]
+    #[should_panic(expected = "already borrowed")]
     fn resource_double_mut_panic() {
         let mut resources = Resources::default();
         resources.insert(123);

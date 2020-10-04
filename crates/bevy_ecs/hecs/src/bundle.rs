@@ -14,7 +14,10 @@
 
 // modified by Bevy contributors
 
-use crate::alloc::{vec, vec::Vec};
+use crate::{
+    alloc::{vec, vec::Vec},
+    world::ComponentId,
+};
 use core::{
     any::{type_name, TypeId},
     fmt, mem,
@@ -27,7 +30,7 @@ use crate::{archetype::TypeInfo, Component};
 pub trait DynamicBundle {
     /// Invoke a callback on the fields' type IDs, sorted by descending alignment then id
     #[doc(hidden)]
-    fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T;
+    fn with_ids<T>(&self, f: impl FnOnce(&[ComponentId]) -> T) -> T;
     /// Obtain the fields' TypeInfos, sorted by descending alignment then id
     #[doc(hidden)]
     fn type_info(&self) -> Vec<TypeInfo>;
@@ -36,13 +39,13 @@ pub trait DynamicBundle {
     /// Must invoke `f` only with a valid pointer, its type, and the pointee's size. A `false`
     /// return value indicates that the value was not moved and should be dropped.
     #[doc(hidden)]
-    unsafe fn put(self, f: impl FnMut(*mut u8, TypeId, usize) -> bool);
+    unsafe fn put(self, f: impl FnMut(*mut u8, ComponentId, usize) -> bool);
 }
 
 /// A statically typed collection of components
 pub trait Bundle: DynamicBundle {
     #[doc(hidden)]
-    fn with_static_ids<T>(f: impl FnOnce(&[TypeId]) -> T) -> T;
+    fn with_static_ids<T>(f: impl FnOnce(&[ComponentId]) -> T) -> T;
 
     /// Obtain the fields' TypeInfos, sorted by descending alignment then id
     #[doc(hidden)]
@@ -56,7 +59,7 @@ pub trait Bundle: DynamicBundle {
     /// pointers if any call to `f` returns `None`.
     #[doc(hidden)]
     unsafe fn get(
-        f: impl FnMut(TypeId, usize) -> Option<NonNull<u8>>,
+        f: impl FnMut(ComponentId, usize) -> Option<NonNull<u8>>,
     ) -> Result<Self, MissingComponent>
     where
         Self: Sized;
@@ -85,7 +88,7 @@ impl std::error::Error for MissingComponent {}
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
         impl<$($name: Component),*> DynamicBundle for ($($name,)*) {
-            fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T {
+            fn with_ids<T>(&self, f: impl FnOnce(&[ComponentId]) -> T) -> T {
                 Self::with_static_ids(f)
             }
 
@@ -94,13 +97,13 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            unsafe fn put(self, mut f: impl FnMut(*mut u8, TypeId, usize) -> bool) {
+            unsafe fn put(self, mut f: impl FnMut(*mut u8, ComponentId, usize) -> bool) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
                     if f(
                         (&mut $name as *mut $name).cast::<u8>(),
-                        TypeId::of::<$name>(),
+                        TypeId::of::<$name>().into(),
                         mem::size_of::<$name>()
                     ) {
                         mem::forget($name)
@@ -110,11 +113,11 @@ macro_rules! tuple_impl {
         }
 
         impl<$($name: Component),*> Bundle for ($($name,)*) {
-            fn with_static_ids<T>(f: impl FnOnce(&[TypeId]) -> T) -> T {
+            fn with_static_ids<T>(f: impl FnOnce(&[ComponentId]) -> T) -> T {
                 const N: usize = count!($($name),*);
-                let mut xs: [(usize, TypeId); N] = [$((mem::align_of::<$name>(), TypeId::of::<$name>())),*];
+                let mut xs: [(usize, ComponentId); N] = [$((mem::align_of::<$name>(), TypeId::of::<$name>().into())),*];
                 xs.sort_unstable_by(|x, y| x.0.cmp(&y.0).reverse().then(x.1.cmp(&y.1)));
-                let mut ids = [TypeId::of::<()>(); N];
+                let mut ids = [TypeId::of::<()>().into(); N];
                 for (slot, &(_, id)) in ids.iter_mut().zip(xs.iter()) {
                     *slot = id;
                 }
@@ -128,10 +131,10 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            unsafe fn get(mut f: impl FnMut(TypeId, usize) -> Option<NonNull<u8>>) -> Result<Self, MissingComponent> {
+            unsafe fn get(mut f: impl FnMut(ComponentId, usize) -> Option<NonNull<u8>>) -> Result<Self, MissingComponent> {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = ($(
-                    f(TypeId::of::<$name>(), mem::size_of::<$name>()).ok_or_else(MissingComponent::new::<$name>)?
+                    f(TypeId::of::<$name>().into(), mem::size_of::<$name>()).ok_or_else(MissingComponent::new::<$name>)?
                         .as_ptr()
                         .cast::<$name>(),)*
                 );

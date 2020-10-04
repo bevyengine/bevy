@@ -58,7 +58,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let n = tys.len();
     let code = quote! {
         impl #path::DynamicBundle for #ident {
-            fn with_ids<T>(&self, f: impl FnOnce(&[std::any::TypeId]) -> T) -> T {
+            fn with_ids<T>(&self, f: impl FnOnce(&[#path::ComponentId]) -> T) -> T {
                 Self::with_static_ids(f)
             }
 
@@ -66,9 +66,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 Self::static_type_info()
             }
 
-            unsafe fn put(mut self, mut f: impl FnMut(*mut u8, std::any::TypeId, usize) -> bool) {
+            unsafe fn put(mut self, mut f: impl FnMut(*mut u8, #path::ComponentId, usize) -> bool) {
                 #(
-                    if f((&mut self.#fields as *mut #tys).cast::<u8>(), std::any::TypeId::of::<#tys>(), std::mem::size_of::<#tys>()) {
+                    if f((&mut self.#fields as *mut #tys).cast::<u8>(), std::any::TypeId::of::<#tys>().into(), std::mem::size_of::<#tys>()) {
                         #[allow(clippy::forget_copy)]
                         std::mem::forget(self.#fields);
                     }
@@ -77,22 +77,22 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         }
 
         impl #path::Bundle for #ident {
-            fn with_static_ids<T>(f: impl FnOnce(&[std::any::TypeId]) -> T) -> T {
+            fn with_static_ids<T>(f: impl FnOnce(&[#path::ComponentId]) -> T) -> T {
                 use std::any::TypeId;
                 use std::mem;
 
                 #path::lazy_static::lazy_static! {
-                    static ref ELEMENTS: [TypeId; #n] = {
+                    static ref ELEMENTS: [#path::ComponentId; #n] = {
                         let mut dedup = #path::bevy_utils::HashSet::default();
-                        for &(ty, name) in [#((std::any::TypeId::of::<#tys>(), std::any::type_name::<#tys>())),*].iter() {
+                        for &(ty, name) in [#((#path::ComponentId::from(std::any::TypeId::of::<#tys>()), std::any::type_name::<#tys>())),*].iter() {
                             if !dedup.insert(ty) {
                                 panic!("{} has multiple {} fields; each type must occur at most once!", stringify!(#ident), name);
                             }
                         }
 
-                        let mut tys = [#((mem::align_of::<#tys>(), TypeId::of::<#tys>())),*];
+                        let mut tys = [#((mem::align_of::<#tys>(), #path::ComponentId::from(TypeId::of::<#tys>()))),*];
                         tys.sort_unstable_by(|x, y| x.0.cmp(&y.0).reverse().then(x.1.cmp(&y.1)));
-                        let mut ids = [TypeId::of::<()>(); #n];
+                        let mut ids: [#path::ComponentId; #n] = [TypeId::of::<()>().into(); #n];
                         for (id, info) in ids.iter_mut().zip(tys.iter()) {
                             *id = info.1;
                         }
@@ -104,16 +104,16 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             fn static_type_info() -> Vec<#path::TypeInfo> {
-                let mut info = vec![#(#path::TypeInfo::of::<#tys>()),*];
+                let mut info = vec![#(#path::TypeInfo::of::<#tys>().into()),*];
                 info.sort_unstable();
                 info
             }
 
             unsafe fn get(
-                mut f: impl FnMut(std::any::TypeId, usize) -> Option<std::ptr::NonNull<u8>>,
+                mut f: impl FnMut(#path::ComponentId, usize) -> Option<std::ptr::NonNull<u8>>,
             ) -> Result<Self, #path::MissingComponent> {
                 #(
-                    let #fields = f(std::any::TypeId::of::<#tys>(), std::mem::size_of::<#tys>())
+                    let #fields = f(std::any::TypeId::of::<#tys>().into(), std::mem::size_of::<#tys>())
                             .ok_or_else(#path::MissingComponent::new::<#tys>)?
                             .cast::<#tys>()
                         .as_ptr();

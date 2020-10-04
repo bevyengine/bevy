@@ -19,7 +19,13 @@ use crate::{
     Mut, QueryIter, RefMut,
 };
 use bevy_utils::{HashMap, HashSet};
-use core::{any::TypeId, fmt, mem, ptr};
+use core::{
+    any::TypeId,
+    cmp::{Ord, Ordering},
+    fmt,
+    hash::{Hash, Hasher},
+    mem, ptr,
+};
 
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -40,8 +46,8 @@ use crate::{
 #[derive(Debug)]
 pub struct World {
     entities: Entities,
-    index: HashMap<Vec<TypeId>, u32>,
-    removed_components: HashMap<TypeId, Vec<Entity>>,
+    index: HashMap<Vec<ComponentId>, u32>,
+    removed_components: HashMap<ComponentId, Vec<Entity>>,
     #[allow(missing_docs)]
     pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
@@ -218,10 +224,10 @@ impl World {
     }
 
     /// Returns true if the given entity has a component with the given type id.
-    pub fn has_component_type(&self, entity: Entity, ty: TypeId) -> bool {
+    pub fn has_component_type(&self, entity: Entity, ty: ComponentId) -> bool {
         self.get_entity_location(entity)
             .map(|location| &self.archetypes[location.archetype as usize])
-            .map(|archetype| archetype.has_type(ty))
+            .map(|archetype| archetype.has_component(ty))
             .unwrap_or(false)
     }
 
@@ -470,8 +476,13 @@ impl World {
 
     #[allow(missing_docs)]
     pub fn removed<C: Component>(&self) -> &[Entity] {
+        self.removed_component(std::any::TypeId::of::<C>().into())
+    }
+
+    #[allow(missing_docs)]
+    pub fn removed_component(&self, id: ComponentId) -> &[Entity] {
         self.removed_components
-            .get(&TypeId::of::<C>())
+            .get(&id)
             .map_or(&[], |entities| entities.as_slice())
     }
 
@@ -884,6 +895,64 @@ impl From<NoSuchEntity> for ComponentError {
 impl From<MissingComponent> for ComponentError {
     fn from(x: MissingComponent) -> Self {
         ComponentError::MissingComponent(x)
+    }
+}
+
+/// Uniquely identifies a type of component. This is conceptually similar to
+/// Rust's [`TypeId`], but allows for external type IDs to be defined.
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub enum ComponentId {
+    /// A Rust-native [`TypeId`]
+    RustTypeId(TypeId),
+    /// An arbitrary ID that allows you to identify types defined outside of
+    /// this Rust compilation
+    ExternalId(u64),
+}
+
+#[allow(clippy::derive_hash_xor_eq)] // Fine because we uphold k1 == k2 ⇒ hash(k1) == hash(k2)
+impl Hash for ComponentId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            ComponentId::RustTypeId(id) => {
+                id.hash(state);
+            }
+            ComponentId::ExternalId(id) => {
+                state.write_u64(*id);
+            }
+        }
+    }
+}
+
+impl Ord for ComponentId {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self == other {
+            Ordering::Equal
+        } else {
+            // Sort RustTypeId's as greater than external ids and then sort
+            // matching types by their default Ord implementation.
+            match self {
+                ComponentId::RustTypeId(lhs_rid) => match other {
+                    ComponentId::RustTypeId(rhs_rid) => lhs_rid.cmp(rhs_rid),
+                    ComponentId::ExternalId(_) => Ordering::Less,
+                },
+                ComponentId::ExternalId(lhs_eid) => match other {
+                    ComponentId::RustTypeId(_) => Ordering::Greater,
+                    ComponentId::ExternalId(rhs_edi) => lhs_eid.cmp(rhs_edi),
+                },
+            }
+        }
+    }
+}
+
+impl PartialOrd for ComponentId {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<TypeId> for ComponentId {
+    fn from(item: TypeId) -> Self {
+        ComponentId::RustTypeId(item)
     }
 }
 

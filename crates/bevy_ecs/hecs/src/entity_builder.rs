@@ -14,11 +14,14 @@
 
 // modified by Bevy contributors
 
-use crate::alloc::{
-    alloc::{alloc, dealloc, Layout},
-    boxed::Box,
-    vec,
-    vec::Vec,
+use crate::{
+    alloc::{
+        alloc::{alloc, dealloc, Layout},
+        boxed::Box,
+        vec,
+        vec::Vec,
+    },
+    world::ComponentId,
 };
 
 use bevy_utils::HashSet;
@@ -47,8 +50,8 @@ pub struct EntityBuilder {
     storage: Box<[MaybeUninit<u8>]>,
     cursor: usize,
     info: Vec<(TypeInfo, usize)>,
-    ids: Vec<TypeId>,
-    id_set: HashSet<TypeId>,
+    ids: Vec<ComponentId>,
+    id_set: HashSet<ComponentId>,
 }
 
 impl EntityBuilder {
@@ -65,7 +68,7 @@ impl EntityBuilder {
 
     /// Add `component` to the entity
     pub fn add<T: Component>(&mut self, component: T) -> &mut Self {
-        if !self.id_set.insert(TypeId::of::<T>()) {
+        if !self.id_set.insert(TypeId::of::<T>().into()) {
             return self;
         }
         let end = self.cursor + mem::size_of::<T>();
@@ -166,7 +169,7 @@ pub struct BuiltEntity<'a> {
 }
 
 impl DynamicBundle for BuiltEntity<'_> {
-    fn with_ids<T>(&self, f: impl FnOnce(&[TypeId]) -> T) -> T {
+    fn with_ids<T>(&self, f: impl FnOnce(&[ComponentId]) -> T) -> T {
         f(&self.builder.ids)
     }
 
@@ -175,7 +178,7 @@ impl DynamicBundle for BuiltEntity<'_> {
         self.builder.info.iter().map(|x| x.0).collect()
     }
 
-    unsafe fn put(self, mut f: impl FnMut(*mut u8, TypeId, usize) -> bool) {
+    unsafe fn put(self, mut f: impl FnMut(*mut u8, ComponentId, usize) -> bool) {
         for (ty, offset) in self.builder.info.drain(..) {
             let ptr = self.builder.storage.as_mut_ptr().add(offset).cast();
             if !f(ptr, ty.id(), ty.layout().size()) {

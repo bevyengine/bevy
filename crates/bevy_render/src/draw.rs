@@ -210,11 +210,11 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
 
     fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access.add_write(TypeId::of::<Assets<PipelineDescriptor>>());
-        access.add_write(TypeId::of::<Assets<Shader>>());
-        access.add_write(TypeId::of::<PipelineCompiler>());
-        access.add_read(TypeId::of::<Box<dyn RenderResourceContext>>());
-        access.add_read(TypeId::of::<SharedBuffers>());
+        access.add_write(TypeId::of::<Assets<PipelineDescriptor>>().into());
+        access.add_write(TypeId::of::<Assets<Shader>>().into());
+        access.add_write(TypeId::of::<PipelineCompiler>().into());
+        access.add_read(TypeId::of::<Box<dyn RenderResourceContext>>().into());
+        access.add_read(TypeId::of::<SharedBuffers>().into());
         access
     }
 }

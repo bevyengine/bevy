@@ -84,7 +84,9 @@ pub use query::{
     Added, Batch, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryIter, ReadOnlyFetch, With,
     Without,
 };
-pub use world::{ArchetypesGeneration, Component, ComponentError, SpawnBatchIter, World};
+pub use world::{
+    ArchetypesGeneration, Component, ComponentError, ComponentId, SpawnBatchIter, World,
+};
 
 // Unstable implementation details needed by the macros
 #[doc(hidden)]
