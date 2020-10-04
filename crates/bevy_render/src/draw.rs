@@ -1,8 +1,6 @@
 use crate::pipeline::VertexBufferDescriptor;
 use crate::{
-    pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-    },
+    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
@@ -340,9 +338,7 @@ impl<'a> DrawContext<'a> {
                     .find(|&x| *vertex_buffer.0 == crate::mesh::get_attribute_name_id(&x.name))
                 {
                     draw.set_vertex_buffer(
-                        vertex_attribute_descriptor
-                            .attribute
-                            .shader_location,
+                        vertex_attribute_descriptor.attribute.shader_location,
                         *vertex_buffer.1,
                         0,
                     );

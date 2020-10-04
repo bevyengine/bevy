@@ -1,8 +1,5 @@
 use crate::{
-    pipeline::{
-        PrimitiveTopology, RenderPipelines,
-        VertexFormat,
-    },
+    pipeline::{PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
 use bevy_app::prelude::{EventReader, Events};
@@ -13,8 +10,8 @@ use bevy_math::*;
 use std::borrow::Cow;
 use thiserror::Error;
 
-use std::hash::{Hash, Hasher};
 use bevy_utils::HashMap;
+use std::hash::{Hash, Hasher};
 
 pub const VERTEX_BUFFER_ASSET_INDEX: usize = 1;
 pub const INDEX_BUFFER_ASSET_INDEX: usize = 0;
@@ -173,7 +170,9 @@ impl Mesh {
         self.attributes.remove(&name);
     }
 
-    pub fn iter_attribute(&self) -> std::collections::hash_map::Iter<'_, Cow<'static, str>, VertexAttributeData> {
+    pub fn iter_attribute(
+        &self,
+    ) -> std::collections::hash_map::Iter<'_, Cow<'static, str>, VertexAttributeData> {
         self.attributes.iter()
     }
 
@@ -586,7 +585,7 @@ pub fn mesh_resource_provider_system(
             }
 
             if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-            render_resource_context.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                render_resource_context.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
             {
                 // set index buffer into binding
                 render_pipelines
@@ -598,7 +597,7 @@ pub fn mesh_resource_provider_system(
             for attribute in mesh.iter_attribute() {
                 let attribute_name_id = get_attribute_name_id(&attribute.0);
                 if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-                render_resource_context.get_asset_resource(*handle, attribute_name_id)
+                    render_resource_context.get_asset_resource(*handle, attribute_name_id)
                 {
                     render_pipelines
                         .bindings
@@ -606,7 +605,5 @@ pub fn mesh_resource_provider_system(
                 }
             }
         }
-
-
     }
 }

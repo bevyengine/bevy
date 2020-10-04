@@ -9,8 +9,7 @@ use bevy_core::AsBytes;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectShaderStageFlags, ReflectTypeDescription,
-        ReflectTypeFlags,
+        ReflectShaderStageFlags, ReflectTypeDescription, ReflectTypeFlags,
     },
     ShaderModule,
 };

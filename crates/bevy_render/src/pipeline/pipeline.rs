@@ -6,12 +6,12 @@ use super::{
     },
     BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
 };
+use crate::shader::GL_VERTEX_INDEX;
 use crate::{
     shader::{Shader, ShaderStages},
     texture::TextureFormat,
 };
 use bevy_asset::Assets;
-use crate::shader::GL_VERTEX_INDEX;
 
 #[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
