@@ -1,19 +1,18 @@
 use crate::{
     pipeline::{
-        PrimitiveTopology, RenderPipelines, VertexAttributeDescriptor, VertexBufferDescriptor,
-        VertexBufferDescriptors, VertexFormat,
+        PrimitiveTopology, RenderPipelines,
+        VertexFormat,
     },
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
-use bevy_ecs::{Local, Query, Res, ResMut};
+use bevy_ecs::{Local, Query, Res};
 use bevy_math::*;
 use std::borrow::Cow;
 use thiserror::Error;
 
-use crate::pipeline::InputStepMode;
 use std::hash::{Hash, Hasher};
 use bevy_utils::HashMap;
 
@@ -172,6 +171,10 @@ impl Mesh {
 
     pub fn remove_attribute(&mut self, name: Cow<'static, str>) {
         self.attributes.remove(&name);
+    }
+
+    pub fn iter_attribute(&self) -> std::collections::hash_map::Iter<'_, Cow<'static, str>, VertexAttributeData> {
+        self.attributes.iter()
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
@@ -501,7 +504,6 @@ fn remove_current_mesh_resources(
 #[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
-    vertex_buffer_descriptor: Option<&'static VertexBufferDescriptor>, //TODO: unused
 }
 
 // TODO julian: embed into resource system
@@ -515,56 +517,9 @@ pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
     meshes: Res<Assets<Mesh>>,
-    mut vertex_buffer_descriptors: ResMut<VertexBufferDescriptors>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    if state.vertex_buffer_descriptor.is_none() {
-        // TODO: allow pipelines to specialize on vertex_buffer_descriptor
-        let mut vertex_buffer_descriptors_: VertexBufferDescriptors = VertexBufferDescriptors {
-            descriptors: Default::default(),
-        };
-        vertex_buffer_descriptors_.descriptors.insert(
-            Cow::from("position_os"),
-            VertexBufferDescriptor::new_from_attribute(
-                VertexAttributeDescriptor {
-                    name: "position_os".into(),
-                    offset: 0,
-                    format: VertexFormat::Float3,
-                    shader_location: 0,
-                },
-                InputStepMode::Vertex,
-            ),
-        );
-        vertex_buffer_descriptors_.descriptors.insert(
-            Cow::from("normal_os"),
-            VertexBufferDescriptor::new_from_attribute(
-                VertexAttributeDescriptor {
-                    name: "normal_os".into(),
-                    offset: 0,
-                    format: VertexFormat::Float3,
-                    shader_location: 1,
-                },
-                InputStepMode::Vertex,
-            ),
-        );
-        vertex_buffer_descriptors_.descriptors.insert(
-            Cow::from("uv_vertex"),
-            VertexBufferDescriptor::new_from_attribute(
-                VertexAttributeDescriptor {
-                    name: "uv_vertex".into(),
-                    offset: 0,
-                    format: VertexFormat::Float2,
-                    shader_location: 2,
-                },
-                InputStepMode::Vertex,
-            ),
-        );
-        vertex_buffer_descriptors
-            .descriptors
-            .extend(vertex_buffer_descriptors_.descriptors);
-    }
-
     let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
@@ -622,33 +577,36 @@ pub fn mesh_resource_provider_system(
         }
     }
 
+    // handover buffers to pipeline
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
     for (handle, mut render_pipelines) in &mut query.iter() {
         if let Some(mesh) = meshes.get(&handle) {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
             }
-        }
 
-        if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+            if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
             render_resource_context.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
-        {
-            // set index buffer into binding
-            render_pipelines
-                .bindings
-                .set_index_buffer(index_buffer_resource);
-        }
-
-        // set vertex buffers into bindings
-        for attribute in &vertex_buffer_descriptors.descriptors {
-            let attribute_name_id = get_attribute_name_id(&attribute.0);
-            if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-                render_resource_context.get_asset_resource(*handle, attribute_name_id)
             {
+                // set index buffer into binding
                 render_pipelines
                     .bindings
-                    .set_vertex_buffer(attribute_name_id, vertex_buffer);
+                    .set_index_buffer(index_buffer_resource);
+            }
+
+            // set vertex buffers into bindings
+            for attribute in mesh.iter_attribute() {
+                let attribute_name_id = get_attribute_name_id(&attribute.0);
+                if let Some(RenderResourceId::Buffer(vertex_buffer)) =
+                render_resource_context.get_asset_resource(*handle, attribute_name_id)
+                {
+                    render_pipelines
+                        .bindings
+                        .set_vertex_buffer(attribute_name_id, vertex_buffer);
+                }
             }
         }
+
+
     }
 }

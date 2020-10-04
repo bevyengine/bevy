@@ -1,5 +1,5 @@
 use super::{
-    state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor, VertexBufferDescriptors,
+    state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor,
 };
 use crate::{
     renderer::RenderResourceContext,
@@ -134,7 +134,6 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: Handle<PipelineDescriptor>,
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(&source_pipeline).unwrap();
@@ -159,7 +158,6 @@ impl PipelineCompiler {
         specialized_descriptor.reflect_layout(
             shaders,
             true,
-            Some(vertex_buffer_descriptors),
             &pipeline_specialization.dynamic_bindings,
         );
 

@@ -1,5 +1,4 @@
 use super::VertexFormat;
-use bevy_utils::HashMap;
 use std::borrow::Cow;
 use std::hash::Hash;
 
@@ -42,20 +41,4 @@ pub struct VertexAttributeDescriptor {
     pub offset: u64,
     pub format: VertexFormat,
     pub shader_location: u32,
-}
-
-#[derive(Default)]
-pub struct VertexBufferDescriptors {
-    pub descriptors: HashMap<Cow<'static, str>, VertexBufferDescriptor>,
-}
-
-impl VertexBufferDescriptors {
-    pub fn set_many(&mut self, vertex_buffer_descriptor: VertexBufferDescriptors) {
-        self.descriptors
-            .extend(vertex_buffer_descriptor.descriptors);
-    }
-
-    pub fn get(&self, name: &str) -> Option<&VertexBufferDescriptor> {
-        self.descriptors.get(name)
-    }
 }

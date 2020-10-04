@@ -67,28 +67,8 @@ impl ShaderLayout {
                             if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
                                 GL_VERTEX_INDEX.to_string()
                             } else {
-                                let parts = vertex_attribute_descriptor
-                                    .name
-                                    .splitn(2, '_')
-                                    .collect::<Vec<&str>>();
-
-                                match parts.len() {
-                                    2 => {
-                                        //instancing enabled due "I" prefix
-                                        if parts[0] == "I" {
-                                            instance = true;
-                                        }
-                                        vertex_attribute_descriptor.name.to_string()
-                                    }
-                                    1 => {
-                                        // regular attribute
-                                        vertex_attribute_descriptor.name.to_string()
-                                    }
-                                    _ => {
-                                        // illegal attribute
-                                        panic!("Vertex attributes must follow the form PROPERTYNAME. For example: Position");
-                                    }
-                                }
+                                instance = vertex_attribute_descriptor.name.starts_with("I_");
+                                vertex_attribute_descriptor.name.to_string()
                             }
                         } else {
                             "DefaultVertex".to_string()

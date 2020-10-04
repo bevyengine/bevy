@@ -21,5 +21,5 @@ void main() {
     normal_world = mat3(Model) * normal_os;
     position_world = (Model * vec4(position_os, 1.0)).xyz;
     v_uv = uv_vertex;
-    gl_Position = ViewProj * vec4(position_os, 1.0);
+    gl_Position = ViewProj * vec4(position_world, 1.0);
 }

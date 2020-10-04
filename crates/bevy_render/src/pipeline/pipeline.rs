@@ -4,13 +4,14 @@ use super::{
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, IndexFormat,
         PrimitiveTopology, RasterizationStateDescriptor, StencilStateFaceDescriptor,
     },
-    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor, VertexBufferDescriptors,
+    BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
 };
 use crate::{
     shader::{Shader, ShaderStages},
     texture::TextureFormat,
 };
 use bevy_asset::Assets;
+use crate::shader::GL_VERTEX_INDEX;
 
 #[derive(Clone, Debug)]
 pub struct PipelineDescriptor {
@@ -129,7 +130,6 @@ impl PipelineDescriptor {
         &mut self,
         shaders: &Assets<Shader>,
         bevy_conventions: bool,
-        vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
         dynamic_bindings: &[DynamicBinding],
     ) {
         println!("reflect layout");
@@ -146,9 +146,14 @@ impl PipelineDescriptor {
         }
 
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
-        if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
-            // complete the layout with the user defined descriptors
-            layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
+
+        // just obtain the stride from the attribute itself, since we are always using float format
+        // TODO: support for different formats?
+        for vertex_buffer_descriptor in &mut layout.vertex_buffer_descriptors {
+            if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
+                continue;
+            }
+            vertex_buffer_descriptor.stride = vertex_buffer_descriptor.attribute.format.get_size();
         }
 
         if !dynamic_bindings.is_empty() {
