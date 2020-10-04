@@ -8,9 +8,9 @@ struct Light {
     vec4 color;
 };
 
-layout(location = 0) in vec3 v_Position;
-layout(location = 1) in vec3 v_Normal;
-layout(location = 2) in vec2 v_Uv;
+layout(location = 0) in vec3 position_world;
+layout(location = 1) in vec3 normal_world;
+layout(location = 2) in vec2 v_uv;
 
 layout(location = 0) out vec4 o_Target;
 
@@ -37,18 +37,18 @@ void main() {
 # ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
     output_color *= texture(
         sampler2D(StandardMaterial_albedo_texture, StandardMaterial_albedo_texture_sampler),
-        v_Uv);
+        v_uv);
 # endif
 
 # ifdef STANDARDMATERIAL_SHADED
-    vec3 normal = normalize(v_Normal);
+    vec3 normal = normalize(normal_world);
     vec3 ambient = vec3(0.05, 0.05, 0.05);
     // accumulate color
     vec3 color = ambient;
     for (int i=0; i<int(NumLights.x) && i<MAX_LIGHTS; ++i) {
         Light light = SceneLights[i];
         // compute Lambertian diffuse term
-        vec3 light_dir = normalize(light.pos.xyz - v_Position);
+        vec3 light_dir = normalize(light.pos.xyz - position_world);
         float diffuse = max(0.0, dot(normal, light_dir));
         // add light contribution
         color += diffuse * light.color.xyz;

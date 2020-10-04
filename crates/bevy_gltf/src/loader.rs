@@ -1,5 +1,5 @@
 use bevy_render::{
-    mesh::{Indices, Mesh, VertexAttribute},
+    mesh::{Indices, Mesh, VertexAttributeData},
     pipeline::PrimitiveTopology,
 };
 
@@ -74,27 +74,27 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
         if let Some(primitive) = mesh.primitives().next() {
             let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let primitive_topology = get_primitive_topology(primitive.mode())?;
-            let mut mesh = Mesh::new(primitive_topology);
+            let mut mesh = Mesh::new_empty(primitive_topology);
 
             if let Some(vertex_attribute) = reader
                 .read_positions()
-                .map(|v| VertexAttribute::position(v.collect()))
+                .map(|v| VertexAttributeData::position(v.collect()))
             {
-                mesh.attributes.push(vertex_attribute);
+                mesh.insert_attribute(vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
-                .map(|v| VertexAttribute::normal(v.collect()))
+                .map(|v| VertexAttributeData::normal(v.collect()))
             {
-                mesh.attributes.push(vertex_attribute);
+                mesh.insert_attribute(vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttribute::uv(v.into_f32().collect()))
+                .map(|v| VertexAttributeData::uv(v.into_f32().collect()))
             {
-                mesh.attributes.push(vertex_attribute);
+                mesh.insert_attribute(vertex_attribute);
             }
 
             if let Some(indices) = reader.read_indices() {

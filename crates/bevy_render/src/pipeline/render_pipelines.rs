@@ -114,9 +114,18 @@ pub fn draw_render_pipelines_system(
                     ],
                 )
                 .unwrap();
+
+            // get pipeline layout to find binding spots for vertex buffer
+            let pipeline_descriptor = draw_context.get_pipeline_descriptor().unwrap();
+            let pipeline_layout = pipeline_descriptor.layout.as_ref().unwrap();
             draw_context
-                .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
+                .set_vertex_buffers_from_bindings(
+                    &mut draw,
+                    &[&render_pipelines.bindings],
+                    pipeline_layout.vertex_buffer_descriptors.clone(),
+                ) //TODO julian: no clone?
                 .unwrap();
+
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
             }

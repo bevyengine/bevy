@@ -1,3 +1,4 @@
+use crate::pipeline::VertexBufferDescriptor;
 use crate::{
     pipeline::{
         PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
@@ -341,17 +342,29 @@ impl<'a> DrawContext<'a> {
         &self,
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
+        vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
     ) -> Result<(), DrawError> {
         for bindings in render_resource_bindings.iter() {
             for vertex_buffer in &bindings.vertex_buffers {
-                // TODO: don't to the -1 thing, when VERTEX_BUFFER_ASSET_INDEX in mesh.rs is finally gone
-                draw.set_vertex_buffer(*vertex_buffer.0 as u32 - 1, *vertex_buffer.1, 0);
+                // TODO: big ooof but works
+                if let Some(vertex_attribute_descriptor) = &vertex_buffer_descriptors
+                    .iter()
+                    .find(|&x| *vertex_buffer.0 == crate::mesh::get_attribute_name_id(&x.name))
+                {
+                    draw.set_vertex_buffer(
+                        vertex_attribute_descriptor
+                            .attribute
+                            .shader_location,
+                        *vertex_buffer.1,
+                        0,
+                    );
+                }
             }
+
             if let Some(index_buffer) = bindings.index_buffer {
                 draw.set_index_buffer(index_buffer, 0);
             }
         }
-
         Ok(())
     }
 }

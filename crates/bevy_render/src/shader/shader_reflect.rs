@@ -9,7 +9,7 @@ use bevy_core::AsBytes;
 use spirv_reflect::{
     types::{
         ReflectDescriptorBinding, ReflectDescriptorSet, ReflectDescriptorType, ReflectDimension,
-        ReflectInterfaceVariable, ReflectShaderStageFlags, ReflectTypeDescription,
+        ReflectShaderStageFlags, ReflectTypeDescription,
         ReflectTypeFlags,
     },
     ShaderModule,
@@ -41,13 +41,18 @@ impl ShaderLayout {
                 // obtain attribute descriptors from reflection
                 let mut vertex_attribute_descriptors = Vec::new();
                 for input_variable in module.enumerate_input_variables(None).unwrap() {
-                    let vertex_attribute_descriptor =
-                        reflect_vertex_attribute_descriptor(&input_variable);
-                    if vertex_attribute_descriptor.name == GL_VERTEX_INDEX {
+                    if input_variable.name == GL_VERTEX_INDEX {
                         continue;
                     }
-
-                    vertex_attribute_descriptors.push(vertex_attribute_descriptor);
+                    // reflect vertex attribute descriptor and record it
+                    vertex_attribute_descriptors.push(VertexAttributeDescriptor {
+                        name: input_variable.name.clone().into(),
+                        format: reflect_vertex_format(
+                            input_variable.type_description.as_ref().unwrap(),
+                        ),
+                        offset: 0,
+                        shader_location: input_variable.location,
+                    });
                 }
 
                 vertex_attribute_descriptors
@@ -64,18 +69,25 @@ impl ShaderLayout {
                             } else {
                                 let parts = vertex_attribute_descriptor
                                     .name
-                                    .splitn(3, '_')
+                                    .splitn(2, '_')
                                     .collect::<Vec<&str>>();
 
-                                if parts.len() == 3 {
-                                    if parts[0] == "I" {
-                                        instance = true;
+                                match parts.len() {
+                                    2 => {
+                                        //instancing enabled due "I" prefix
+                                        if parts[0] == "I" {
+                                            instance = true;
+                                        }
+                                        vertex_attribute_descriptor.name.to_string()
                                     }
-                                    vertex_attribute_descriptor.name.to_string()
-                                } else if parts.len() == 2 {
-                                    vertex_attribute_descriptor.name.to_string()
-                                } else {
-                                    panic!("Vertex attributes must follow the form BUFFERNAME_PROPERTYNAME. For example: Vertex_Position");
+                                    1 => {
+                                        // regular attribute
+                                        vertex_attribute_descriptor.name.to_string()
+                                    }
+                                    _ => {
+                                        // illegal attribute
+                                        panic!("Vertex attributes must follow the form PROPERTYNAME. For example: Position");
+                                    }
                                 }
                             }
                         } else {
@@ -83,7 +95,7 @@ impl ShaderLayout {
                         }
                     };
 
-                    // create a new buffer descriptor per buffer
+                    // create a new buffer descriptor per attribute
                     vertex_buffer_descriptors.push(VertexBufferDescriptor {
                         attribute: vertex_attribute_descriptor,
                         name: current_buffer_name.into(),
@@ -104,17 +116,6 @@ impl ShaderLayout {
             }
             Err(err) => panic!("Failed to reflect shader layout: {:?}", err),
         }
-    }
-}
-
-fn reflect_vertex_attribute_descriptor(
-    input_variable: &ReflectInterfaceVariable,
-) -> VertexAttributeDescriptor {
-    VertexAttributeDescriptor {
-        name: input_variable.name.clone().into(),
-        format: reflect_vertex_format(input_variable.type_description.as_ref().unwrap()),
-        offset: 0,
-        shader_location: input_variable.location,
     }
 }
 
@@ -335,8 +336,8 @@ mod tests {
             ShaderStage::Vertex,
             r#"
             #version 450
-            layout(location = 0) in vec4 Vertex_Position;
-            layout(location = 1) in uvec4 Vertex_Normal;
+            layout(location = 0) in vec4 position_os;
+            layout(location = 1) in uvec4 normal_os;
             layout(location = 2) in uvec4 I_TestInstancing_Property;
 
             layout(location = 0) out vec4 v_Position;
@@ -346,7 +347,7 @@ mod tests {
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
             void main() {
-                v_Position = Vertex_Position;
+                v_Position = position_os;
                 gl_Position = ViewProj * v_Position;
             }
         "#,
@@ -361,7 +362,7 @@ mod tests {
                 vertex_buffer_descriptors: vec![
                     VertexBufferDescriptor::new_from_attribute(
                         VertexAttributeDescriptor {
-                            name: "Vertex_Position".into(),
+                            name: "position_os".into(),
                             format: VertexFormat::Float4,
                             offset: 0,
                             shader_location: 0,
@@ -371,7 +372,7 @@ mod tests {
                     .test_zero_stride(),
                     VertexBufferDescriptor::new_from_attribute(
                         VertexAttributeDescriptor {
-                            name: "Vertex_Normal".into(),
+                            name: "normal_os".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
                             shader_location: 1,

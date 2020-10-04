@@ -6,7 +6,6 @@ use crate::{
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{hash::Hash, ops::Range};
-use uuid::Uuid;
 
 #[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -104,10 +103,8 @@ pub enum BindGroupStatus {
 // PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
-    // TODO: remove this. it shouldn't be needed anymore
-    pub id: RenderResourceBindingsId,
     bindings: HashMap<String, RenderResourceBinding>,
-    pub vertex_buffers: HashMap<u8, BufferId>,
+    pub vertex_buffers: HashMap<usize, BufferId>,
     pub index_buffer: Option<BufferId>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -139,19 +136,13 @@ impl RenderResourceBindings {
         for (name, binding) in render_resource_bindings.bindings.iter() {
             self.set(name, binding.clone());
         }
-
-        // for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
-        // {
-        //
-        //     self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
-        // }
     }
 
-    pub fn get_vertex_buffer(&self, slot: u8) -> Option<BufferId> {
+    pub fn get_vertex_buffer(&self, slot: usize) -> Option<BufferId> {
         self.vertex_buffers.get(&slot).cloned()
     }
 
-    pub fn set_vertex_buffer(&mut self, slot: u8, vertex_buffer: BufferId) {
+    pub fn set_vertex_buffer(&mut self, slot: usize, vertex_buffer: BufferId) {
         self.vertex_buffers.insert(slot, vertex_buffer);
     }
 
@@ -270,15 +261,6 @@ impl AssetRenderResourceBindings {
 
     pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {
         self.bindings.get_mut(&HandleUntyped::from(handle))
-    }
-}
-
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
-pub struct RenderResourceBindingsId(Uuid);
-
-impl Default for RenderResourceBindingsId {
-    fn default() -> Self {
-        RenderResourceBindingsId(Uuid::new_v4())
     }
 }
 

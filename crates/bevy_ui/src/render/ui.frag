@@ -1,6 +1,6 @@
 #version 450
 
-layout(location = 0) in vec2 v_Uv;
+layout(location = 0) in vec2 v_uv;
 
 layout(location = 0) out vec4 o_Target;
 
@@ -18,7 +18,7 @@ void main() {
 # ifdef COLORMATERIAL_TEXTURE
     color *= texture(
         sampler2D(ColorMaterial_texture, ColorMaterial_texture_sampler),
-        v_Uv);
+        v_uv);
 # endif
     o_Target = color;
 }
