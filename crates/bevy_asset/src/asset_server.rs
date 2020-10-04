@@ -230,6 +230,43 @@ impl AssetServer {
         }
     }
 
+    /// Loads an asset from a Vec<u8> as if it were being loaded from disk.
+    pub fn load_inline<T: Resource, P: AsRef<Path>>(
+        &self,
+        assets: &mut Assets<T>,
+        path: P,
+        bytes: Vec<u8>,
+    ) -> Result<Handle<T>, AssetServerError>
+    where
+        T: 'static,
+    {
+        let path = path.as_ref();
+        if let Some(ref extension) = path.extension() {
+            if let Some(index) = self.extension_to_loader_index.get(
+                extension
+                    .to_str()
+                    .expect("extension should be a valid string"),
+            ) {
+                let mut asset_info_paths = self.asset_info_paths.write();
+                let handle_id = HandleId::new();
+                let resources = &self.loaders[*index];
+                let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
+                let asset = loader
+                    .from_bytes(&path, bytes)
+                    .map_err(AssetLoadError::from)?;
+                let handle = Handle::from(handle_id);
+
+                assets.set(handle, asset);
+                asset_info_paths.insert(path.to_owned(), handle_id);
+                Ok(handle)
+            } else {
+                Err(AssetServerError::MissingAssetHandler)
+            }
+        } else {
+            Err(AssetServerError::MissingAssetHandler)
+        }
+    }
+
     pub fn load_untyped<P: AsRef<Path>>(&self, path: P) -> Result<HandleId, AssetServerError> {
         let path = path.as_ref();
         if let Some(ref extension) = path.extension() {
