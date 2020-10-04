@@ -6,9 +6,8 @@ use super::{
     },
     BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
 };
-use crate::shader::GL_VERTEX_INDEX;
 use crate::{
-    shader::{Shader, ShaderStages},
+    shader::{Shader, ShaderStages, GL_VERTEX_INDEX},
     texture::TextureFormat,
 };
 use bevy_asset::Assets;

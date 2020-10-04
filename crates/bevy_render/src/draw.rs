@@ -1,6 +1,8 @@
-use crate::pipeline::VertexBufferDescriptor;
 use crate::{
-    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
+    pipeline::{
+        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        VertexBufferDescriptor,
+    },
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,

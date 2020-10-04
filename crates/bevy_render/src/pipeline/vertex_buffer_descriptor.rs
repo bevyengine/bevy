@@ -1,6 +1,5 @@
 use super::VertexFormat;
-use std::borrow::Cow;
-use std::hash::Hash;
+use std::{borrow::Cow, hash::Hash};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexBufferDescriptor {
