@@ -2,15 +2,15 @@ use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
 use bevy_utils::{HashMap, HashSet};
 use parking_lot::RwLock;
-use std::{any::TypeId, sync::Arc};
+use std::{any::TypeId, sync::Arc, fmt};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TypeRegistry {
     pub property: Arc<RwLock<PropertyTypeRegistry>>,
     pub component: Arc<RwLock<ComponentRegistry>>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ComponentRegistry {
     pub registrations: HashMap<TypeId, ComponentRegistration>,
     pub short_names: HashMap<String, TypeId>,
@@ -73,6 +73,31 @@ pub struct ComponentRegistration {
     component_properties_fn: fn(&Archetype, usize) -> &dyn Properties,
     pub short_name: String,
     pub long_name: &'static str,
+}
+
+impl fmt::Debug for ComponentRegistration {
+    fn fmt<'a>(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ComponentRegistration")
+            .field("ty", &self.ty)
+            .field("component_add_fn", 
+                &self.component_add_fn as &fn(
+                    &'a mut World, &'a Resources, Entity, &'a dyn Property
+                )
+            )
+            .field("component_apply_fn",
+            &self.component_apply_fn as &fn(
+                    &'a mut World, Entity, &'a dyn Property
+                )
+            )
+            .field("component_properties_fn", 
+                &self.component_properties_fn as &fn(
+                    &'a Archetype, usize
+                ) -> &dyn Properties
+            )
+            .field("short_name", &self.short_name)
+            .field("long_name", &self.long_name)
+            .finish()
+    }
 }
 
 impl ComponentRegistration {

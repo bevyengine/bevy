@@ -59,6 +59,7 @@ impl TaskPoolBuilder {
     }
 }
 
+#[derive(Debug)]
 struct TaskPoolInner {
     threads: Vec<JoinHandle<()>>,
     shutdown_tx: async_channel::Sender<()>,
@@ -78,7 +79,7 @@ impl Drop for TaskPoolInner {
 
 /// A thread pool for executing tasks. Tasks are futures that are being automatically driven by
 /// the pool on threads owned by the pool.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TaskPool {
     /// The executor for the pool
     ///
@@ -213,6 +214,7 @@ impl Default for TaskPool {
     }
 }
 
+#[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
     spawned: Vec<async_executor::Task<T>>,

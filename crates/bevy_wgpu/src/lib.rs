@@ -15,7 +15,7 @@ use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem, Resources, World};
 use bevy_render::renderer::{free_shared_buffers_system, RenderResourceContext, SharedBuffers};
 use renderer::WgpuRenderResourceContext;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WgpuPlugin;
 
 impl Plugin for WgpuPlugin {

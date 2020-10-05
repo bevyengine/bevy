@@ -103,7 +103,7 @@ impl Diagnostic {
 }
 
 /// A collection of [Diagnostic]s
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Diagnostics {
     diagnostics: HashMap<DiagnosticId, Diagnostic>,
 }

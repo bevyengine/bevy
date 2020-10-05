@@ -5,6 +5,7 @@ use bevy_render::{
     texture::{Texture, TextureFormat},
 };
 
+#[derive(Debug)]
 pub struct Font {
     pub font: FontVec,
 }

@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
+use std::{hash::Hash, marker::PhantomData, ops::DerefMut, fmt};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 
@@ -135,6 +135,24 @@ where
     current_staging_buffer_offset: usize,
     queued_buffer_writes: Vec<QueuedBufferWrite>,
     _marker: PhantomData<T>,
+}
+
+impl<I, T> fmt::Debug for UniformBufferArrays<I, T>
+where
+    I: fmt::Debug,
+    T: renderer::RenderResources,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("UniformBufferArrays")
+            .field("buffer_arrays", &self.buffer_arrays)
+            .field("staging_buffer", &self.staging_buffer)
+            .field("staging_buffer_size", &self.staging_buffer_size)
+            .field("required_staging_buffer_size", &self.required_staging_buffer_size)
+            .field("current_staging_buffer_offset", &self.current_staging_buffer_offset)
+            .field("current_staging_buffer_offset", &self.queued_buffer_writes)
+            .field("_marker", &self._marker)
+            .finish()
+    }
 }
 
 impl<I, T> Default for UniformBufferArrays<I, T>
@@ -359,6 +377,19 @@ where
     _marker: PhantomData<T>,
 }
 
+impl<T> fmt::Debug for RenderResourcesNode<T>
+where
+    T: renderer::RenderResources,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("RenderResourcesNode")
+            .field("command_queue", &self.command_queue)
+            .field("dynamic_uniforms", &self.dynamic_uniforms)
+            .field("_marker", &self._marker)
+            .finish()
+    }
+}
+
 impl<T> RenderResourcesNode<T>
 where
     T: renderer::RenderResources,
@@ -411,6 +442,16 @@ struct RenderResourcesNodeState<I, T: RenderResources> {
     command_queue: CommandQueue,
     uniform_buffer_arrays: UniformBufferArrays<I, T>,
     dynamic_uniforms: bool,
+}
+
+impl<I: fmt::Debug, T: RenderResources> fmt::Debug for RenderResourcesNodeState<I, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("RenderResourcesNodeState")
+            .field("command_queue", &self.command_queue)
+            .field("uniform_buffer_arrays", &self.uniform_buffer_arrays)
+            .field("dynamic_uniforms", &self.dynamic_uniforms)
+            .finish()
+    }
 }
 
 impl<I, T: RenderResources> Default for RenderResourcesNodeState<I, T> {
@@ -512,6 +553,19 @@ where
     command_queue: CommandQueue,
     dynamic_uniforms: bool,
     _marker: PhantomData<T>,
+}
+
+impl<T> fmt::Debug for AssetRenderResourcesNode<T>
+where
+    T: renderer::RenderResources,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("AssetRenderResourcesNode")
+            .field("command_queue", &self.command_queue)
+            .field("dynamic_uniforms", &self.dynamic_uniforms)
+            .field("_marker", &self._marker)
+            .finish()
+    }
 }
 
 impl<T> AssetRenderResourcesNode<T>

@@ -29,7 +29,7 @@ use bevy_type_registry::RegisterType;
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.
 /// Examples of assets: textures, sounds, 3d models, maps, scenes
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AssetPlugin;
 
 impl Plugin for AssetPlugin {

@@ -20,7 +20,7 @@ use bevy_math::{Mat3, Mat4, Quat, Vec2, Vec3};
 use bevy_type_registry::RegisterType;
 
 /// Adds core functionality to Apps.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CorePlugin;
 
 impl Plugin for CorePlugin {

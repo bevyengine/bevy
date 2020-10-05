@@ -50,7 +50,7 @@ pub enum RenderCommand {
 }
 
 /// A component that indicates how to draw an entity.
-#[derive(Properties, Clone)]
+#[derive(Debug, Properties, Clone)]
 pub struct Draw {
     pub is_visible: bool,
     pub is_transparent: bool,
@@ -123,6 +123,7 @@ pub enum DrawError {
     BufferAllocationFailure,
 }
 
+//#[derive(Debug)]
 pub struct DrawContext<'a> {
     pub pipelines: ResMut<'a, Assets<PipelineDescriptor>>,
     pub shaders: ResMut<'a, Assets<Shader>>,
@@ -151,6 +152,7 @@ impl<'a> ResourceQuery for DrawContext<'a> {
     type Fetch = FetchDrawContext;
 }
 
+#[derive(Debug)]
 pub struct FetchDrawContext;
 
 // TODO: derive this impl

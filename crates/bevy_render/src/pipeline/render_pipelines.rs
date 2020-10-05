@@ -9,7 +9,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
 use bevy_property::Properties;
 
-#[derive(Properties, Default, Clone)]
+#[derive(Debug, Properties, Default, Clone)]
 #[non_exhaustive]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
@@ -35,7 +35,7 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Properties, Clone)]
+#[derive(Debug, Properties, Clone)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
     #[property(ignore)]

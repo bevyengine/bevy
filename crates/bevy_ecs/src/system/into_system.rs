@@ -7,6 +7,7 @@ use crate::{
 use bevy_hecs::{Fetch, Query as HecsQuery, World};
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
 where
     F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
@@ -134,6 +135,7 @@ macro_rules! impl_into_foreach_system {
     };
 }
 
+#[derive(Debug)]
 struct QuerySystemState {
     archetype_accesses: Vec<ArchetypeAccess>,
     commands: Commands,

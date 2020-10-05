@@ -2,6 +2,7 @@ use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity, WorldWriter};
 use smallvec::SmallVec;
 
+#[derive(Debug)]
 pub struct InsertChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -35,11 +36,13 @@ impl WorldWriter for InsertChildren {
     }
 }
 
+#[derive(Debug)]
 pub struct PushChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
+#[derive(Debug)]
 pub struct ChildBuilder<'a> {
     commands: &'a mut CommandsInternal,
     push_children: PushChildren,

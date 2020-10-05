@@ -8,6 +8,7 @@ use parking_lot::RwLock;
 use serde::de::DeserializeSeed;
 use std::{path::Path, sync::Arc};
 
+#[derive(Debug)]
 pub struct SceneLoader {
     property_type_registry: Arc<RwLock<PropertyTypeRegistry>>,
 }

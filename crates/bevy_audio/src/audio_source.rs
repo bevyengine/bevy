@@ -3,7 +3,7 @@ use bevy_asset::AssetLoader;
 use std::{io::Cursor, path::Path, sync::Arc};
 
 /// A source of audio data
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AudioSource {
     pub bytes: Arc<[u8]>,
 }
@@ -15,7 +15,7 @@ impl AsRef<[u8]> for AudioSource {
 }
 
 /// Loads mp3 files as [AudioSource] [Assets](bevy_asset::Assets)
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Mp3Loader;
 
 impl AssetLoader<AudioSource> for Mp3Loader {

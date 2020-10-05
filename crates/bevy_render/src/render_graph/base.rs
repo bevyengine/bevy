@@ -14,9 +14,10 @@ use bevy_property::Properties;
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Default, Properties)]
+#[derive(Debug, Default, Properties)]
 pub struct MainPass;
 
+#[derive(Debug)]
 pub struct Msaa {
     pub samples: u32,
 }
@@ -50,6 +51,7 @@ impl Msaa {
     }
 }
 
+#[derive(Debug)]
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
     pub add_3d_camera: bool,

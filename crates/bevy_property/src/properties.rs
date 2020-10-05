@@ -1,4 +1,5 @@
 use crate::{DynamicProperties, Property, PropertyType, PropertyVal};
+use std::fmt;
 
 pub trait Properties: Property {
     fn prop(&self, name: &str) -> Option<&dyn Property>;
@@ -45,6 +46,15 @@ pub trait Properties: Property {
 pub struct PropertyIter<'a> {
     pub(crate) props: &'a dyn Properties,
     pub(crate) index: usize,
+}
+
+impl fmt::Debug for PropertyIter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("PropertyIter")
+            .field("props", &(self.props as *const dyn Properties))
+            .field("index", &self.index)
+            .finish()
+    }
 }
 
 impl<'a> PropertyIter<'a> {

@@ -1,7 +1,7 @@
 use bevy_asset::{self, Handle};
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
-#[derive(RenderResources, ShaderDefs)]
+#[derive(Debug, RenderResources, ShaderDefs)]
 pub struct ColorMaterial {
     pub color: Color,
     #[shader_def]

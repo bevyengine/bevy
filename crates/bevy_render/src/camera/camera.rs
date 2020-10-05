@@ -27,7 +27,7 @@ impl Default for DepthCalculation {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CameraSystemState {
     window_resized_event_reader: EventReader<WindowResized>,
     window_created_event_reader: EventReader<WindowCreated>,

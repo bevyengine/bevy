@@ -6,7 +6,7 @@ use bevy_app::{
 use bevy_ecs::{Local, Res, ResMut};
 
 /// Local "exit on escape" system state
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ExitOnEscapeState {
     reader: EventReader<KeyboardInput>,
 }

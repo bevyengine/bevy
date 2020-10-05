@@ -5,11 +5,12 @@ use bevy_property::{DynamicProperties, PropertyTypeRegistry};
 use bevy_type_registry::ComponentRegistry;
 use serde::Serialize;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Scene {
     pub entities: Vec<Entity>,
 }
 
+#[derive(Debug)]
 pub struct Entity {
     pub entity: u32,
     pub components: Vec<DynamicProperties>,

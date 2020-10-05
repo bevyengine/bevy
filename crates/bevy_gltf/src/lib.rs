@@ -6,7 +6,7 @@ use bevy_asset::AddAsset;
 use bevy_render::mesh::Mesh;
 
 /// Adds support for GLTF file loading to Apps
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct GltfPlugin;
 
 impl Plugin for GltfPlugin {

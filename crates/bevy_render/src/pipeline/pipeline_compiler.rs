@@ -44,11 +44,13 @@ pub struct ShaderSpecialization {
     pub shader_defs: HashSet<String>,
 }
 
+#[derive(Debug)]
 struct SpecializedShader {
     shader: Handle<Shader>,
     specialization: ShaderSpecialization,
 }
 
+#[derive(Debug)]
 struct SpecializedPipeline {
     pipeline: Handle<PipelineDescriptor>,
     specialization: PipelineSpecialization,
@@ -60,7 +62,7 @@ pub struct DynamicBinding {
     pub binding: u32,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PipelineCompiler {
     specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
     specialized_pipelines: HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,

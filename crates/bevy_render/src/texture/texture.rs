@@ -11,7 +11,7 @@ use bevy_utils::HashSet;
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,

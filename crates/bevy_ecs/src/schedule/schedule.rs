@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_hecs::World;
 use bevy_utils::{HashMap, HashSet};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
 /// Schedules are essentially the "execution plan" for an App's systems.
@@ -16,6 +16,28 @@ pub struct Schedule {
     pub(crate) system_ids: HashSet<SystemId>,
     generation: usize,
     last_initialize_generation: usize,
+}
+
+impl fmt::Debug for Schedule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // because `dyn System` isn't debuggable, we turn the `&Box<dyn System>` in
+        // `self.stages` into `*const dyn System` and just use pointers' `Debug`.
+        let stages = self.stages.iter()
+            .map(|(s, xs)| (s.clone(),
+                xs.iter()
+                    .map(|sys| sys.as_ref() as *const dyn System)
+                    .collect::<Vec<_>>()
+            ))
+            .collect::<HashMap<_, _>>();
+        
+        f.debug_struct("Schedule")
+            .field("stages", &stages)
+            .field("stage_order", &self.stage_order)
+            .field("system_ids", &self.system_ids)
+            .field("generation", &self.generation)
+            .field("last_initialize_generation", &self.last_initialize_generation)
+            .finish()
+    }
 }
 
 impl Schedule {

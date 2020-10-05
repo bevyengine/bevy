@@ -35,7 +35,7 @@ use bevy_render::{
 };
 use sprite::sprite_system;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SpritePlugin;
 
 pub const QUAD_HANDLE: Handle<Mesh> = Handle::from_u128(142404619811301375266013514540294236421);

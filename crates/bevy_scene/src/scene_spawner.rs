@@ -7,6 +7,7 @@ use bevy_utils::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
+#[derive(Debug)]
 struct InstanceInfo {
     entity_map: HashMap<u32, bevy_ecs::Entity>,
 }

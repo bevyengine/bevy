@@ -12,12 +12,12 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Text {
     pub value: String,
     pub font: Handle<Font>,

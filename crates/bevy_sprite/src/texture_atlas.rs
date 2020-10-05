@@ -10,7 +10,7 @@ use bevy_render::{
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)
-#[derive(RenderResources)]
+#[derive(Debug, RenderResources)]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Texture>,
@@ -25,7 +25,7 @@ pub struct TextureAtlas {
 
 // NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out
 // Bytes for Byteable as a micro-optimization. https://github.com/bitshifter/glam-rs/issues/36
-#[derive(Bytes, RenderResources, RenderResource)]
+#[derive(Bytes, Debug, RenderResources, RenderResource)]
 #[render_resources(from_self)]
 pub struct TextureAtlasSprite {
     pub color: Color,

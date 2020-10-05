@@ -15,7 +15,7 @@ struct SystemRunInfo {
     stop: Instant,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct SystemProfiles {
     diagnostic_id: DiagnosticId,
     history: Vec<SystemRunInfo>,
@@ -23,7 +23,7 @@ struct SystemProfiles {
 }
 
 /// Profiles systems by recording their run duration as diagnostics.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SystemProfiler {
     system_profiles: Arc<RwLock<HashMap<Cow<'static, str>, SystemProfiles>>>,
 }

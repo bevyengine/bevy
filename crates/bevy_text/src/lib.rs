@@ -17,7 +17,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TextPlugin;
 
 impl Plugin for TextPlugin {

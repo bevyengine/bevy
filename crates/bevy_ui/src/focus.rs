@@ -32,7 +32,7 @@ impl Default for FocusPolicy {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct State {
     cursor_moved_event_reader: EventReader<CursorMoved>,
     cursor_position: Vec2,

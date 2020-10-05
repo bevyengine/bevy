@@ -7,6 +7,7 @@ use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct WindowSwapChainNode {
     window_id: WindowId,
     window_created_event_reader: EventReader<WindowCreated>,

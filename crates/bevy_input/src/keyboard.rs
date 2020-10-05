@@ -24,7 +24,7 @@ impl ElementState {
 }
 
 /// State used by the keyboard input system
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct KeyboardInputState {
     keyboard_input_event_reader: EventReader<KeyboardInput>,
 }

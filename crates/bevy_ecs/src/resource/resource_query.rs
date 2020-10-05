@@ -13,6 +13,7 @@ use std::marker::PhantomData;
 
 /// A shared borrow of a Resource
 /// that will only return in a query if the Resource has been changed
+#[derive(Debug)]
 pub struct ChangedRes<'a, T: Resource> {
     value: &'a T,
 }
@@ -263,6 +264,7 @@ impl<'a, T: Resource> ResourceQuery for ResMut<'a, T> {
 }
 
 /// Fetches a unique resource reference
+#[derive(Debug)]
 pub struct FetchResourceWrite<T>(NonNull<T>);
 
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
@@ -300,6 +302,7 @@ impl<'a, T: Resource + FromResources> ResourceQuery for Local<'a, T> {
 }
 
 /// Fetches a `Local<T>` resource reference
+#[derive(Debug)]
 pub struct FetchResourceLocalMut<T>(NonNull<T>);
 
 impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMut<T> {
@@ -385,8 +388,10 @@ macro_rules! tuple_impl {
 
 smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
+#[derive(Debug)]
 pub struct OrRes<T>(T);
 
+#[derive(Debug)]
 pub struct FetchResourceOr<T>(NonNull<T>);
 
 macro_rules! tuple_impl_or {

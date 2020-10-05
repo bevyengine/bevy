@@ -7,7 +7,7 @@ pub use type_registry::*;
 use bevy_app::prelude::*;
 use bevy_property::DynamicProperties;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct TypeRegistryPlugin;
 
 impl Plugin for TypeRegistryPlugin {

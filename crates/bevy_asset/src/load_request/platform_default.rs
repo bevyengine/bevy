@@ -3,7 +3,7 @@ use crate::{AssetLoadError, AssetLoader, AssetResult, Handle};
 use anyhow::Result;
 use async_trait::async_trait;
 use crossbeam_channel::Sender;
-use std::{fs::File, io::Read};
+use std::{fmt, fs::File, io::Read};
 
 /// Handles load requests from an AssetServer
 
@@ -11,6 +11,12 @@ use std::{fs::File, io::Read};
 pub trait AssetLoadRequestHandler: Send + Sync + 'static {
     async fn handle_request(&self, load_request: &LoadRequest);
     fn extensions(&self) -> &[&str];
+}
+
+impl fmt::Debug for dyn AssetLoadRequestHandler {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self as *const dyn AssetLoadRequestHandler)
+    }
 }
 
 impl<TLoader, TAsset> ChannelAssetHandler<TLoader, TAsset>

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_ecs::{Resources, World};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct SharedBuffersNode;
 
 impl Node for SharedBuffersNode {

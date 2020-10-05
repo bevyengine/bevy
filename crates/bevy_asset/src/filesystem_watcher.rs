@@ -1,11 +1,28 @@
 use crossbeam_channel::Receiver;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Result, Watcher};
-use std::path::Path;
+use std::{path::Path, fmt};
 
 /// Watches for changes to assets on the filesystem. This is used by the `AssetServer` to reload them
 pub struct FilesystemWatcher {
     pub watcher: RecommendedWatcher,
     pub receiver: Receiver<Result<Event>>,
+}
+
+impl fmt::Debug for FilesystemWatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        struct NoDebug;
+
+        impl fmt::Debug for NoDebug {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                write!(f, "Type doesn't implement Debug")
+            }
+        }
+
+        f.debug_struct("FilesystemWatcher")
+            .field("watcher", &NoDebug)
+            .field("receiver", &self.receiver)
+            .finish()
+    }
 }
 
 impl Default for FilesystemWatcher {

@@ -15,7 +15,7 @@ use bevy_render::{
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TextStyle {
     pub font_size: f32,
     pub color: Color,
@@ -30,6 +30,7 @@ impl Default for TextStyle {
     }
 }
 
+#[derive(Debug)]
 pub struct DrawableText<'a> {
     pub font: &'a Font,
     pub font_atlas_set: &'a FontAtlasSet,

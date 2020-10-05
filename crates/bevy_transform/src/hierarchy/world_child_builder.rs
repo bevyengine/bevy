@@ -1,6 +1,7 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
+#[derive(Debug)]
 pub struct WorldChildBuilder<'a, 'b> {
     world_builder: &'b mut WorldBuilder<'a>,
     parent_entities: Vec<Entity>,

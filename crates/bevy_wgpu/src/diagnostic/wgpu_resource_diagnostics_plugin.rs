@@ -4,7 +4,7 @@ use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use bevy_render::renderer::RenderResourceContext;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WgpuResourceDiagnosticsPlugin;
 
 impl Plugin for WgpuResourceDiagnosticsPlugin {

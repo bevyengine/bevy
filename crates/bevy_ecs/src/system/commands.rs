@@ -2,12 +2,29 @@ use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
 use parking_lot::Mutex;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, fmt};
 
 /// A queued command to mutate the current [World] or [Resources]
 pub enum Command {
     WriteWorld(Box<dyn WorldWriter>),
     WriteResources(Box<dyn ResourcesWriter>),
+}
+
+impl fmt::Debug for Command {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Command::WriteWorld(x) => {
+                f.debug_tuple("WriteWorld")
+                    .field(&(x.as_ref() as *const dyn WorldWriter))
+                    .finish()
+            }
+            Command::WriteResources(x) => {
+                f.debug_tuple("WriteResources")
+                    .field(&(x.as_ref() as *const dyn ResourcesWriter))
+                    .finish()
+            }
+        }
+    }
 }
 
 /// A [World] mutation
@@ -49,6 +66,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Despawn {
     entity: Entity,
 }
@@ -76,6 +94,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct InsertOne<T>
 where
     T: Component,
@@ -93,6 +112,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct RemoveOne<T>
 where
     T: Component,
@@ -112,6 +132,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Remove<T>
 where
     T: Bundle + Send + Sync + 'static,
@@ -143,6 +164,7 @@ impl<T: Resource> ResourcesWriter for InsertResource<T> {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct InsertLocalResource<T: Resource> {
     resource: T,
     system_id: SystemId,
@@ -154,7 +176,7 @@ impl<T: Resource> ResourcesWriter for InsertLocalResource<T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CommandsInternal {
     pub commands: Vec<Command>,
     pub current_entity: Option<Entity>,
@@ -212,7 +234,7 @@ impl CommandsInternal {
 }
 
 /// A queue of [Command]s to run on the current [World] and [Resources]
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Commands {
     pub commands: Arc<Mutex<CommandsInternal>>,
 }

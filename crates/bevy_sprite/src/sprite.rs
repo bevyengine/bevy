@@ -4,7 +4,7 @@ use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
 use bevy_render::{renderer::RenderResources, texture::Texture};
 
-#[derive(Default, RenderResources)]
+#[derive(Debug, Default, RenderResources)]
 pub struct Sprite {
     pub size: Vec2,
     #[render_resources(ignore)]

@@ -9,6 +9,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct TextureAtlasBuilder {
     pub textures: Vec<Handle<Texture>>,
     pub rects_to_place: GroupedRectsToPlace<Handle<Texture>>,

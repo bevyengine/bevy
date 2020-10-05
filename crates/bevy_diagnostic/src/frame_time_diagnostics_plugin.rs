@@ -4,7 +4,7 @@ use bevy_core::Time;
 use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 
 /// Adds "frame time" diagnostic to an App, specifically "frame time" and "fps"
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct FrameTimeDiagnosticsPlugin;
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
