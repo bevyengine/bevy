@@ -13,8 +13,11 @@ fn main() {
         .run();
 }
 
-fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text>) {
-    for mut text in &mut query.iter() {
+// A unit struct to help identify the FPS UI component, since there may be many Text components
+struct FpsText;
+
+fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<(&mut Text, &FpsText)>) {
+    for (mut text, _tag) in &mut query.iter() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 text.value = format!("FPS: {:.2}", average);
@@ -43,5 +46,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
             },
             ..Default::default()
-        });
+        })
+        .with(FpsText);
 }
