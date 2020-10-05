@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
-use std::{hash::Hash, ops::Range};
+use std::{borrow::Cow, hash::Hash, ops::Range};
 
 #[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -104,7 +104,7 @@ pub enum BindGroupStatus {
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
     bindings: HashMap<String, RenderResourceBinding>,
-    pub vertex_buffers: HashMap<usize, BufferId>,
+    pub vertex_buffers: HashMap<Cow<'static, str>, BufferId>,
     pub index_buffer: Option<BufferId>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -138,12 +138,16 @@ impl RenderResourceBindings {
         }
     }
 
-    pub fn get_vertex_buffer(&self, slot: usize) -> Option<BufferId> {
-        self.vertex_buffers.get(&slot).cloned()
+    pub fn get_vertex_buffer(&self, attribute_name: Cow<'static, str>) -> Option<BufferId> {
+        self.vertex_buffers.get(&attribute_name).cloned()
     }
 
-    pub fn set_vertex_buffer(&mut self, slot: usize, vertex_buffer: BufferId) {
-        self.vertex_buffers.insert(slot, vertex_buffer);
+    pub fn set_vertex_buffer(
+        &mut self,
+        attribute_name: Cow<'static, str>,
+        vertex_buffer: BufferId,
+    ) {
+        self.vertex_buffers.insert(attribute_name, vertex_buffer);
     }
 
     pub fn set_index_buffer(&mut self, index_buffer: BufferId) {

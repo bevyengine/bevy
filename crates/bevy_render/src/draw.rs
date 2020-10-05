@@ -333,16 +333,19 @@ impl<'a> DrawContext<'a> {
         vertex_buffer_descriptors: &[VertexBufferDescriptor],
     ) -> Result<(), DrawError> {
         for bindings in render_resource_bindings.iter() {
-            for vertex_buffer in &bindings.vertex_buffers {
-                // TODO: big ooof but works
-                if let Some(vertex_attribute_descriptor) = &vertex_buffer_descriptors
-                    .iter()
-                    .find(|&x| *vertex_buffer.0 == crate::mesh::get_attribute_name_id(&x.name))
+            for vertex_buffer_descriptor in vertex_buffer_descriptors {
+                if let Some(vertex_buffer) =
+                    bindings.vertex_buffers.get(&vertex_buffer_descriptor.name)
                 {
                     draw.set_vertex_buffer(
-                        vertex_attribute_descriptor.attribute.shader_location,
-                        *vertex_buffer.1,
+                        vertex_buffer_descriptor.attribute.shader_location,
+                        *vertex_buffer,
                         0,
+                    );
+                } else {
+                    panic!(
+                        "Attribute {} is required by shader, but no vertex buffer was found.",
+                        &vertex_buffer_descriptor.name
                     );
                 }
             }

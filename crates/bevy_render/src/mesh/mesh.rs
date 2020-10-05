@@ -594,14 +594,14 @@ pub fn mesh_resource_provider_system(
             }
 
             // set vertex buffers into bindings
-            for attribute in mesh.iter_attribute() {
-                let attribute_name_id = get_attribute_name_id(&attribute.0);
+            for (name, _attribute) in mesh.iter_attribute() {
+                let attribute_name_id = get_attribute_name_id(&name);
                 if let Some(RenderResourceId::Buffer(vertex_buffer)) =
                     render_resource_context.get_asset_resource(*handle, attribute_name_id)
                 {
                     render_pipelines
                         .bindings
-                        .set_vertex_buffer(attribute_name_id, vertex_buffer);
+                        .set_vertex_buffer(name.clone(), vertex_buffer);
                 }
             }
         }
