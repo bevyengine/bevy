@@ -4,7 +4,7 @@ use bevy_hecs::{
     Without, World,
 };
 use bevy_tasks::ParallelIterator;
-use std::{marker::PhantomData, fmt};
+use std::{fmt, marker::PhantomData};
 
 /// Provides scoped access to a World according to a given [HecsQuery]
 #[derive(Debug)]
@@ -253,7 +253,9 @@ pub struct QueryIter<'q, 'w, Q: HecsQuery> {
 }
 
 impl<'q, 'w, Q: HecsQuery> fmt::Debug for QueryIter<'q, 'w, Q>
-where Q::Fetch: fmt::Debug {
+where
+    Q::Fetch: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("QueryIter")
             .field("borrow", self.borrow)
@@ -319,7 +321,9 @@ struct ChunkIter<Q: HecsQuery> {
 }
 
 impl<Q: HecsQuery> fmt::Debug for ChunkIter<Q>
-where Q::Fetch: fmt::Debug {
+where
+    Q::Fetch: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ChunkIter")
             .field("fetch", &self.fetch)
@@ -397,7 +401,9 @@ pub struct Batch<'q, Q: HecsQuery> {
 }
 
 impl<'q, Q: HecsQuery> fmt::Debug for Batch<'q, Q>
-where Q::Fetch: fmt::Debug {
+where
+    Q::Fetch: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Batch")
             .field("_marker", &self._marker)

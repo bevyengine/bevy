@@ -76,11 +76,13 @@ impl fmt::Debug for PropertyTypeRegistration {
     fn fmt<'a>(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PropertyTypeRegistration")
             .field("ty", &self.ty)
-            .field("deserialize_fn",
-                &self.deserialize_fn as &fn(
-                    deserializer: &'a mut dyn erased_serde::Deserializer<'a>,
-                    property_type_registry: &'a PropertyTypeRegistry,
-                ) -> Result<Box<dyn Property>, erased_serde::Error>
+            .field(
+                "deserialize_fn",
+                &self.deserialize_fn
+                    as &fn(
+                        deserializer: &'a mut dyn erased_serde::Deserializer<'a>,
+                        property_type_registry: &'a PropertyTypeRegistry,
+                    ) -> Result<Box<dyn Property>, erased_serde::Error>,
             )
             .field("short_name", &self.short_name)
             .field("name", &self.name)

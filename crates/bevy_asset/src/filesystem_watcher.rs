@@ -1,6 +1,6 @@
 use crossbeam_channel::Receiver;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Result, Watcher};
-use std::{path::Path, fmt};
+use std::{fmt, path::Path};
 
 /// Watches for changes to assets on the filesystem. This is used by the `AssetServer` to reload them
 pub struct FilesystemWatcher {

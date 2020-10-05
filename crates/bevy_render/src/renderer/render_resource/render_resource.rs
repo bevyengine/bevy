@@ -98,7 +98,10 @@ pub struct RenderResourceIterator<'a> {
 impl fmt::Debug for RenderResourceIterator<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("RenderResourceIterator")
-            .field("render_resources", &(self.render_resources as *const dyn RenderResources))
+            .field(
+                "render_resources",
+                &(self.render_resources as *const dyn RenderResources),
+            )
             .field("index", &self.index)
             .finish()
     }

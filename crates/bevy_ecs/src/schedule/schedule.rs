@@ -22,20 +22,28 @@ impl fmt::Debug for Schedule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // because `dyn System` isn't debuggable, we turn the `&Box<dyn System>` in
         // `self.stages` into `*const dyn System` and just use pointers' `Debug`.
-        let stages = self.stages.iter()
-            .map(|(s, xs)| (s.clone(),
-                xs.iter()
-                    .map(|sys| sys.as_ref() as *const dyn System)
-                    .collect::<Vec<_>>()
-            ))
+        let stages = self
+            .stages
+            .iter()
+            .map(|(s, xs)| {
+                (
+                    s.clone(),
+                    xs.iter()
+                        .map(|sys| sys.as_ref() as *const dyn System)
+                        .collect::<Vec<_>>(),
+                )
+            })
             .collect::<HashMap<_, _>>();
-        
+
         f.debug_struct("Schedule")
             .field("stages", &stages)
             .field("stage_order", &self.stage_order)
             .field("system_ids", &self.system_ids)
             .field("generation", &self.generation)
-            .field("last_initialize_generation", &self.last_initialize_generation)
+            .field(
+                "last_initialize_generation",
+                &self.last_initialize_generation,
+            )
             .finish()
     }
 }

@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_utils::HashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
-use std::{hash::Hash, marker::PhantomData, ops::DerefMut, fmt};
+use std::{fmt, hash::Hash, marker::PhantomData, ops::DerefMut};
 
 pub const BIND_BUFFER_ALIGNMENT: usize = 256;
 
@@ -147,9 +147,15 @@ where
             .field("buffer_arrays", &self.buffer_arrays)
             .field("staging_buffer", &self.staging_buffer)
             .field("staging_buffer_size", &self.staging_buffer_size)
-            .field("required_staging_buffer_size", &self.required_staging_buffer_size)
-            .field("current_staging_buffer_offset", &self.current_staging_buffer_offset)
-            .field("current_staging_buffer_offset", &self.queued_buffer_writes)
+            .field(
+                "required_staging_buffer_size",
+                &self.required_staging_buffer_size,
+            )
+            .field(
+                "current_staging_buffer_offset",
+                &self.current_staging_buffer_offset,
+            )
+            .field("queued_buffer_writes", &self.queued_buffer_writes)
             .field("_marker", &self._marker)
             .finish()
     }

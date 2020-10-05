@@ -2,7 +2,7 @@ use bevy_ecs::{Archetype, Component, Entity, FromResources, Resources, World};
 use bevy_property::{Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry};
 use bevy_utils::{HashMap, HashSet};
 use parking_lot::RwLock;
-use std::{any::TypeId, sync::Arc, fmt};
+use std::{any::TypeId, fmt, sync::Arc};
 
 #[derive(Clone, Debug, Default)]
 pub struct TypeRegistry {
@@ -79,20 +79,18 @@ impl fmt::Debug for ComponentRegistration {
     fn fmt<'a>(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ComponentRegistration")
             .field("ty", &self.ty)
-            .field("component_add_fn", 
-                &self.component_add_fn as &fn(
-                    &'a mut World, &'a Resources, Entity, &'a dyn Property
-                )
+            .field(
+                "component_add_fn",
+                &self.component_add_fn
+                    as &fn(&'a mut World, &'a Resources, Entity, &'a dyn Property),
             )
-            .field("component_apply_fn",
-            &self.component_apply_fn as &fn(
-                    &'a mut World, Entity, &'a dyn Property
-                )
+            .field(
+                "component_apply_fn",
+                &self.component_apply_fn as &fn(&'a mut World, Entity, &'a dyn Property),
             )
-            .field("component_properties_fn", 
-                &self.component_properties_fn as &fn(
-                    &'a Archetype, usize
-                ) -> &dyn Properties
+            .field(
+                "component_properties_fn",
+                &self.component_properties_fn as &fn(&'a Archetype, usize) -> &dyn Properties,
             )
             .field("short_name", &self.short_name)
             .field("long_name", &self.long_name)

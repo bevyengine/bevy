@@ -2,7 +2,7 @@ use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
 use parking_lot::Mutex;
-use std::{marker::PhantomData, sync::Arc, fmt};
+use std::{fmt, marker::PhantomData, sync::Arc};
 
 /// A queued command to mutate the current [World] or [Resources]
 pub enum Command {
@@ -13,16 +13,14 @@ pub enum Command {
 impl fmt::Debug for Command {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Command::WriteWorld(x) => {
-                f.debug_tuple("WriteWorld")
-                    .field(&(x.as_ref() as *const dyn WorldWriter))
-                    .finish()
-            }
-            Command::WriteResources(x) => {
-                f.debug_tuple("WriteResources")
-                    .field(&(x.as_ref() as *const dyn ResourcesWriter))
-                    .finish()
-            }
+            Command::WriteWorld(x) => f
+                .debug_tuple("WriteWorld")
+                .field(&(x.as_ref() as *const dyn WorldWriter))
+                .finish(),
+            Command::WriteResources(x) => f
+                .debug_tuple("WriteResources")
+                .field(&(x.as_ref() as *const dyn ResourcesWriter))
+                .finish(),
         }
     }
 }

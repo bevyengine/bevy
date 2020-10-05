@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ecs::Res;
 use parking_lot::RwLock;
-use std::{sync::Arc, fmt};
+use std::{fmt, sync::Arc};
 
 // TODO: Instead of allocating small "exact size" buffers each frame, this should use multiple large shared buffers and probably
 // a long-living "cpu mapped" staging buffer. Im punting that for now because I don't know the best way to use wgpu's new async
@@ -19,7 +19,10 @@ pub struct SharedBuffers {
 impl fmt::Debug for SharedBuffers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("SharedBuffers")
-            .field("render_resource_context", &(self.render_resource_context.as_ref() as *const dyn RenderResourceContext))
+            .field(
+                "render_resource_context",
+                &(self.render_resource_context.as_ref() as *const dyn RenderResourceContext),
+            )
             .field("buffers", &self.buffers)
             .field("command_queue", &self.command_queue)
             .finish()

@@ -1,7 +1,7 @@
 use super::Batch;
 use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, hash::Hash, fmt};
+use std::{borrow::Cow, fmt, hash::Hash};
 
 // TODO: add sorting by primary / secondary handle to reduce rebinds of data
 
@@ -85,10 +85,12 @@ where
     TData: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let is_index = self.is_index.iter()
+        let is_index = self
+            .is_index
+            .iter()
             .map(|f| f as *const for<'r> fn(&'r TKey) -> bool)
             .collect::<Vec<_>>();
-        
+
         f.debug_struct("Batcher")
             .field("batches", &self.batches)
             .field("is_index", &is_index)

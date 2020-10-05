@@ -13,7 +13,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
-use std::{marker::PhantomData, ops::Deref, fmt};
+use std::{fmt, marker::PhantomData, ops::Deref};
 
 #[derive(Debug)]
 struct CameraInfo {
@@ -39,11 +39,26 @@ impl<Q: HecsQuery> fmt::Debug for PassNode<Q> {
             .field("descriptor", &self.descriptor)
             .field("inputs", &self.inputs)
             .field("cameras", &self.cameras)
-            .field("color_attachment_input_indices", &self.color_attachment_input_indices)
-            .field("color_resolve_target_indices", &self.color_resolve_target_indices)
-            .field("depth_stencil_attachment_input_index", &self.depth_stencil_attachment_input_index)
-            .field("default_clear_color_inputs", &self.default_clear_color_inputs)
-            .field("camera_bind_group_descriptor", &self.camera_bind_group_descriptor)
+            .field(
+                "color_attachment_input_indices",
+                &self.color_attachment_input_indices,
+            )
+            .field(
+                "color_resolve_target_indices",
+                &self.color_resolve_target_indices,
+            )
+            .field(
+                "depth_stencil_attachment_input_index",
+                &self.depth_stencil_attachment_input_index,
+            )
+            .field(
+                "default_clear_color_inputs",
+                &self.default_clear_color_inputs,
+            )
+            .field(
+                "camera_bind_group_descriptor",
+                &self.camera_bind_group_descriptor,
+            )
             .field("_marker", &self._marker)
             .finish()
     }

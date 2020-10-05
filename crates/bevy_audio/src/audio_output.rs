@@ -3,7 +3,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
 use rodio::{Device, Sink};
-use std::{fmt, collections::VecDeque};
+use std::{collections::VecDeque, fmt};
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput<P = AudioSource>
@@ -16,7 +16,7 @@ where
 
 impl<P> fmt::Debug for AudioOutput<P>
 where
-    P: Decodable
+    P: Decodable,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         struct NoDebug;

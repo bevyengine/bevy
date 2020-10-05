@@ -1,11 +1,11 @@
 use crate::{DynamicProperties, Properties, Property, PropertyType, PropertyTypeRegistry};
-use std::fmt;
 use de::SeqAccess;
 use serde::{
     de::{self, DeserializeSeed, MapAccess, Visitor},
     ser::{SerializeMap, SerializeSeq},
     Serialize,
 };
+use std::fmt;
 
 pub const TYPE_FIELD: &str = "type";
 pub const MAP_FIELD: &str = "map";
@@ -20,14 +20,14 @@ pub enum Serializable<'a> {
 impl fmt::Debug for Serializable<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Serializable::Owned(serialize) =>
-                f.debug_tuple("Owned")
-                    .field(&(serialize.as_ref() as *const dyn erased_serde::Serialize))
-                    .finish(),
-            Serializable::Borrowed(serialize) =>
-                f.debug_tuple("Borrowed")
-                    .field(&(*serialize as *const dyn erased_serde::Serialize))
-                    .finish(),
+            Serializable::Owned(serialize) => f
+                .debug_tuple("Owned")
+                .field(&(serialize.as_ref() as *const dyn erased_serde::Serialize))
+                .finish(),
+            Serializable::Borrowed(serialize) => f
+                .debug_tuple("Borrowed")
+                .field(&(*serialize as *const dyn erased_serde::Serialize))
+                .finish(),
         }
     }
 }
@@ -556,14 +556,13 @@ enum DynamicPropertiesOrProperty {
 impl fmt::Debug for DynamicPropertiesOrProperty {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            DynamicPropertiesOrProperty::DynamicProperties(props) =>
-                f.debug_tuple("DynamicProperties")
-                    .field(props)
-                    .finish(),
-            DynamicPropertiesOrProperty::Property(prop) =>
-                f.debug_tuple("Property")
-                    .field(&(prop.as_ref() as *const dyn Property))
-                    .finish()
+            DynamicPropertiesOrProperty::DynamicProperties(props) => {
+                f.debug_tuple("DynamicProperties").field(props).finish()
+            }
+            DynamicPropertiesOrProperty::Property(prop) => f
+                .debug_tuple("Property")
+                .field(&(prop.as_ref() as *const dyn Property))
+                .finish(),
         }
     }
 }

@@ -16,10 +16,12 @@ pub struct DynamicProperties {
 
 impl fmt::Debug for DynamicProperties {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let props = self.props.iter()
+        let props = self
+            .props
+            .iter()
             .map(|p| p.as_ref() as *const dyn Property)
             .collect::<Vec<_>>();
-        
+
         f.debug_struct("DynamicProperties")
             .field("type_name", &self.type_name)
             .field("props", &props)
