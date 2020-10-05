@@ -1,5 +1,6 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
+use futures_lite::future;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -48,7 +49,7 @@ impl Default for App {
 }
 
 fn run_once(mut app: App) {
-    app.update();
+    future::block_on(app.update());
 }
 
 impl App {
@@ -56,14 +57,14 @@ impl App {
         AppBuilder::default()
     }
 
-    pub fn update(&mut self) {
+    pub async fn update(&mut self) {
         self.schedule
             .initialize(&mut self.world, &mut self.resources);
         self.executor
-            .run(&mut self.schedule, &mut self.world, &mut self.resources);
+            .run(&mut self.schedule, &mut self.world, &mut self.resources).await;
     }
 
-    pub fn run(mut self) {
+    pub async fn run(mut self) {
         self.startup_schedule
             .initialize(&mut self.world, &mut self.resources);
         self.startup_executor.initialize(&mut self.resources);
@@ -71,7 +72,7 @@ impl App {
             &mut self.startup_schedule,
             &mut self.world,
             &mut self.resources,
-        );
+        ).await;
 
         self.executor.initialize(&mut self.resources);
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));

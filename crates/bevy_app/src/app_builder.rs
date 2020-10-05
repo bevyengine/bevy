@@ -38,9 +38,9 @@ impl AppBuilder {
         &mut self.app.resources
     }
 
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
         let app = std::mem::take(&mut self.app);
-        app.run();
+        app.run().await;
     }
 
     pub fn set_world(&mut self, world: World) -> &mut Self {

@@ -50,6 +50,9 @@ serialize = ["bevy_input/serialize"]
 wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
+# Support wasm threads (web workers). Requires nightly rust
+wasm_threads = ["bevy_tasks/wasm_threads"]
+
 [workspace]
 members = ["crates/*", "crates/bevy_ecs/hecs"]
 exclude = ["benches"]
@@ -93,6 +96,12 @@ anyhow = "1.0"
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_error_panic_hook = "0.1.6"
 console_log = { version = "0.2", features = ["color"] }
+wasm-bindgen = "0.2"
+futures-lite = "1.4"
+wasm-bindgen-futures = "0.4"
+
+[patch.crates-io]
+getrandom = { path = "../getrandom", features = ["std", "js", "custom"] }
 
 [[example]]
 name = "hello_world"

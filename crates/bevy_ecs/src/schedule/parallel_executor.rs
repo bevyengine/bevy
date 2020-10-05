@@ -47,7 +47,7 @@ impl ParallelExecutor {
         }
     }
 
-    pub fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
+    pub async fn run(&mut self, schedule: &mut Schedule, world: &mut World, resources: &mut Resources) {
         let schedule_generation = schedule.generation();
         let schedule_changed = schedule.generation() != self.last_schedule_generation;
         if schedule_changed {
@@ -59,7 +59,7 @@ impl ParallelExecutor {
         {
             log::trace!("run stage {:?}", stage_name);
             if let Some(stage_systems) = schedule.stages.get_mut(stage_name) {
-                executor_stage.run(world, resources, stage_systems, schedule_changed);
+                executor_stage.run(world, resources, stage_systems, schedule_changed).await;
             }
         }
 
@@ -292,7 +292,7 @@ impl ExecutorStage {
     }
 
     /// Runs the non-thread-local systems in the given prepared_system_range range
-    pub fn run_systems(
+    pub async fn run_systems(
         &self,
         world: &World,
         resources: &Resources,
@@ -302,7 +302,7 @@ impl ExecutorStage {
     ) {
         // Generate tasks for systems in the given range and block until they are complete
         log::trace!("running systems {:?}", prepared_system_range);
-        compute_pool.scope(|scope| {
+        compute_pool.scope_async(|scope| {
             let start_system_index = prepared_system_range.start;
             let mut system_index = start_system_index;
             for system in &mut systems[prepared_system_range] {
@@ -370,7 +370,7 @@ impl ExecutorStage {
                     // Execute the system - in a scope to ensure the system lock is dropped before
                     // triggering dependents
                     {
-                        log::trace!("run {}", system.name());
+                        log::info!("run {} on thread {:?}", system.name(), std::thread::current());
                         #[cfg(feature = "profiler")]
                         crate::profiler_start(resources, system.name().clone());
                         system.run(world_ref, resources_ref);
@@ -385,10 +385,10 @@ impl ExecutorStage {
                 });
                 system_index += 1;
             }
-        });
+        }).await;
     }
 
-    pub fn run(
+    pub async fn run(
         &mut self,
         world: &mut World,
         resources: &mut Resources,
@@ -446,7 +446,7 @@ impl ExecutorStage {
                 systems,
                 prepared_system_range,
                 &*compute_pool,
-            );
+            ).await;
         }
 
         loop {
@@ -485,7 +485,7 @@ impl ExecutorStage {
                 systems,
                 run_ready_system_index_range,
                 &*compute_pool,
-            );
+            ).await;
         }
 
         // "flush"

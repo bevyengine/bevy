@@ -1,0 +1,11 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <script src="./target/headless_wasm.js"></script>
+  <script type="text/javascript">
+    wasm_bindgen('./target/headless_wasm_bg.wasm').then(async (wasm) => {
+      await wasm.run();
+    });
+  </script>
+</html>

@@ -3,8 +3,13 @@ use std::{
     mem,
     pin::Pin,
     sync::Arc,
-    thread::{self, JoinHandle},
 };
+
+#[cfg(target_arch = "wasm32")]
+use wasm_thread::{self as thread, JoinHandle};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread::{self, JoinHandle};
 
 use futures_lite::{future, pin};
 
@@ -106,7 +111,8 @@ impl TaskPool {
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        //let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = 4;
 
         let threads = (0..num_threads)
             .map(|i| {
@@ -159,6 +165,17 @@ impl TaskPool {
         F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
         T: Send + 'static,
     {
+        future::block_on(self.scope_async(f))
+    }
+
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function is async and must be awaited to execute.
+    pub async fn scope_async<'scope, F, T>(&self, f: F) -> Vec<T>
+    where
+        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        T: Send + 'static,
+    {
         // SAFETY: This function blocks until all futures complete, so this future must return
         // before this function returns. However, rust has no way of knowing
         // this so we must convert to 'static here to appease the compiler as it is unable to
@@ -193,7 +210,7 @@ impl TaskPool {
         let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + Send + 'static)> =
             unsafe { mem::transmute(fut) };
 
-        future::block_on(self.executor.spawn(fut))
+        self.executor.spawn(fut).await
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be

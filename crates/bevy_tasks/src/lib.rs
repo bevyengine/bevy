@@ -4,14 +4,14 @@ pub use slice::{ParallelSlice, ParallelSliceMut};
 mod task;
 pub use task::Task;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "wasm_threads"))]
 mod task_pool;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "wasm_threads"))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(feature = "wasm_threads")))]
 mod single_threaded_task_pool;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(feature = "wasm_threads")))]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;

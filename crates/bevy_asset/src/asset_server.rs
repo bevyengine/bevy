@@ -279,11 +279,11 @@ impl AssetServer {
                 let handlers = self.asset_handlers.read();
                 let request_handler = handlers[load_request.handler_index].clone();
 
-                self.task_pool
-                    .spawn(async move {
-                        request_handler.handle_request(&load_request).await;
-                    })
-                    .detach();
+                // self.task_pool
+                //     .spawn(async move {
+                //         request_handler.handle_request(&load_request).await;
+                //     })
+                //     .detach();
 
                 // TODO: watching each asset explicitly is a simpler implementation, its possible it would be more efficient to watch
                 // folders instead (when possible)
