@@ -35,7 +35,8 @@ impl WinitWindows {
             )),
             _ => winit_window_builder
                 .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable),
+                .with_resizable(window.resizable)
+                .with_decorations(window.decorations),
         };
 
         #[allow(unused_mut)]
