@@ -43,7 +43,7 @@ impl Font {
                         color_u8[0],
                         color_u8[1],
                         color_u8[2],
-                        (color.a_linear() * a * 255.0) as u8,
+                        (color.a() * a * 255.0) as u8,
                     ]
                 })
                 .flatten()
@@ -108,7 +108,7 @@ impl Font {
                         color_u8[0],
                         color_u8[1],
                         color_u8[2],
-                        (color.a_linear() * a * 255.0) as u8,
+                        (color.a() * a * 255.0) as u8,
                     ]
                 })
                 .flatten()

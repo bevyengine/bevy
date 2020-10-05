@@ -163,7 +163,7 @@ impl Color {
         self.blue
     }
 
-    pub fn a_linear(&self) -> f32 {
+    pub fn a(&self) -> f32 {
         self.alpha
     }
 
@@ -199,7 +199,7 @@ impl Color {
         self
     }
 
-    pub fn set_a_linear(&mut self, a: f32) -> &mut Self {
+    pub fn set_a(&mut self, a: f32) -> &mut Self {
         self.alpha = a;
         self
     }
@@ -407,12 +407,12 @@ fn decode_rgba(data: &[u8]) -> Result<Color, HexColorError> {
 #[test]
 fn test_color_components_roundtrip() {
     let mut color = Color::NONE;
-    color.set_r(0.5).set_g(0.5).set_b(0.5).set_a_linear(0.5);
+    color.set_r(0.5).set_g(0.5).set_b(0.5).set_a(0.5);
     const EPS: f32 = 0.001;
     assert!((color.r() - 0.5).abs() < EPS);
     assert!((color.g() - 0.5).abs() < EPS);
     assert!((color.b() - 0.5).abs() < EPS);
-    assert!((color.a_linear() - 0.5).abs() < EPS);
+    assert!((color.a() - 0.5).abs() < EPS);
 }
 
 #[test]

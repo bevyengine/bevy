@@ -127,7 +127,7 @@ impl WgpuFrom<Color> for wgpu::Color {
             r: color.r_linear() as f64,
             g: color.g_linear() as f64,
             b: color.b_linear() as f64,
-            a: color.a_linear() as f64,
+            a: color.a() as f64,
         }
     }
 }
