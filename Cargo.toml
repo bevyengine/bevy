@@ -101,7 +101,7 @@ futures-lite = "1.4"
 wasm-bindgen-futures = "0.4"
 
 [patch.crates-io]
-getrandom = { path = "../getrandom", features = ["std", "js", "custom"] }
+getrandom = { git = "https://github.com/chemicstry/getrandom", branch = "wasm_thread_fix" }
 
 [[example]]
 name = "hello_world"
