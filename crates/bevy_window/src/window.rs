@@ -39,6 +39,8 @@ pub struct Window {
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub decorations: bool,
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -65,6 +67,8 @@ impl Window {
             title: window_descriptor.title.clone(),
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
+            #[cfg(not(target_arch = "wasm32"))]
+            decorations: window_descriptor.decorations,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -80,6 +84,8 @@ pub struct WindowDescriptor {
     pub title: String,
     pub vsync: bool,
     pub resizable: bool,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub decorations: bool,
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -98,6 +104,8 @@ impl Default for WindowDescriptor {
             height: 720,
             vsync: true,
             resizable: true,
+            #[cfg(not(target_arch = "wasm32"))]
+            decorations: true,
             mode: WindowMode::Windowed,
             #[cfg(target_arch = "wasm32")]
             canvas: None,
