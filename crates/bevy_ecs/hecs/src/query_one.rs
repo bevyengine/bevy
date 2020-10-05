@@ -37,7 +37,11 @@ impl<'a, Q: Query> QueryOne<'a, Q> {
     pub fn get(&mut self) -> Option<<Q::Fetch as Fetch<'_>>::Item> {
         unsafe {
             let mut fetch = Q::Fetch::get(self.archetype, self.index)?;
-            Some(fetch.next())
+            if fetch.should_skip() {
+                None
+            } else {
+                Some(fetch.next())
+            }
         }
     }
 
@@ -104,7 +108,11 @@ where
     {
         unsafe {
             let mut fetch = Q::Fetch::get(self.archetype, self.index)?;
-            Some(fetch.next())
+            if fetch.should_skip() {
+                None
+            } else {
+                Some(fetch.next())
+            }
         }
     }
 

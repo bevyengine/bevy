@@ -365,3 +365,35 @@ fn remove_tracking() {
         "world clears result in 'removed component' states"
     );
 }
+
+#[test]
+fn added_tracking() {
+    let mut world = World::new();
+    let a = world.spawn((123,));
+
+    assert_eq!(world.query::<&i32>().iter().count(), 1);
+    assert_eq!(world.query::<Added<i32>>().iter().count(), 1);
+    assert_eq!(world.query_mut::<&i32>().iter().count(), 1);
+    assert_eq!(world.query_mut::<Added<i32>>().iter().count(), 1);
+    assert!(world.query_one::<&i32>(a).unwrap().get().is_some());
+    assert!(world.query_one::<Added<i32>>(a).unwrap().get().is_some());
+    assert!(world.query_one_mut::<&i32>(a).unwrap().get().is_some());
+    assert!(world
+        .query_one_mut::<Added<i32>>(a)
+        .unwrap()
+        .get()
+        .is_some());
+
+    world.clear_trackers();
+
+    assert_eq!(world.query::<&i32>().iter().count(), 1);
+    assert_eq!(world.query::<Added<i32>>().iter().count(), 0);
+    assert_eq!(world.query_mut::<&i32>().iter().count(), 1);
+    assert_eq!(world.query_mut::<Added<i32>>().iter().count(), 0);
+    assert!(world.query_one_mut::<&i32>(a).unwrap().get().is_some());
+    assert!(world
+        .query_one_mut::<Added<i32>>(a)
+        .unwrap()
+        .get()
+        .is_none());
+}
