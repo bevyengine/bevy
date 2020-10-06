@@ -163,7 +163,7 @@ impl Mesh {
     }
 
     pub fn get_attribute(&mut self, name: Cow<'static, str>) -> Option<&VertexAttributeData> {
-        self.attributes.get(&name.clone()) //Todo julian: clone??
+        self.attributes.get(&name)
     }
 
     pub fn remove_attribute(&mut self, name: Cow<'static, str>) {
@@ -484,14 +484,18 @@ pub mod shape {
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
     handle: Handle<Mesh>,
+    mesh: &Mesh,
 ) {
-    //TODO: julian, use correct ids
-    if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
-    {
-        render_resource_context.remove_buffer(buffer);
-        render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
+    for attribute in mesh.attributes.iter() {
+        if let Some(RenderResourceId::Buffer(buffer)) =
+            render_resource_context.get_asset_resource(handle, get_attribute_name_id(attribute.0))
+        {
+            render_resource_context.remove_buffer(buffer);
+            render_resource_context
+                .remove_asset_resource(handle, get_attribute_name_id(attribute.0));
+        }
     }
+
     if let Some(RenderResourceId::Buffer(buffer)) =
         render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
     {
@@ -505,11 +509,10 @@ pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
 }
 
-// TODO julian: embed into resource system
 pub fn get_attribute_name_id(name: &str) -> usize {
     let mut hasher = std::collections::hash_map::DefaultHasher::default();
     hasher.write(&name.as_bytes());
-    hasher.finish() as usize //TODO: bad bad bad bad! this will likely break on 32 bit systems
+    hasher.finish() as usize //TODO: this will likely break on 32 bit systems
 }
 
 pub fn mesh_resource_provider_system(
@@ -528,10 +531,18 @@ pub fn mesh_resource_provider_system(
             }
             AssetEvent::Modified { handle } => {
                 changed_meshes.insert(*handle);
-                remove_current_mesh_resources(render_resource_context, *handle);
+                remove_current_mesh_resources(
+                    render_resource_context,
+                    *handle,
+                    meshes.get(handle).unwrap(),
+                );
             }
             AssetEvent::Removed { handle } => {
-                remove_current_mesh_resources(render_resource_context, *handle);
+                remove_current_mesh_resources(
+                    render_resource_context,
+                    *handle,
+                    meshes.get(handle).unwrap(),
+                );
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_meshes.remove(handle);
