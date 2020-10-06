@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::WindowMode};
+use bevy::prelude::*;
 
 /// This example illustrates how to customize the default window settings
 fn main() {
@@ -9,7 +9,6 @@ fn main() {
             height: 300,
             vsync: true,
             resizable: false,
-            mode: WindowMode::Fullscreen { use_size: false },
             ..Default::default()
         })
         .add_default_plugins()
