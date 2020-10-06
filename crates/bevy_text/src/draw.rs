@@ -55,11 +55,21 @@ impl<'a> Drawable for DrawableText<'a> {
         )?;
 
         let render_resource_context = &**context.render_resource_context;
-        if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
-            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
-        {
-            draw.set_vertex_buffer(0, quad_vertex_buffer, 0);
+        let pipeline_layout = context.get_pipeline_layout().unwrap();
+
+        for vertex_buffer_descriptor in &pipeline_layout.vertex_buffer_descriptors {
+            let name_id = mesh::get_attribute_name_id(&vertex_buffer_descriptor.name);
+            if let Some(RenderResourceId::Buffer(vertex_attr_buffer_id)) =
+                render_resource_context.get_asset_resource(bevy_sprite::QUAD_HANDLE, name_id)
+            {
+                draw.set_vertex_buffer(
+                    vertex_buffer_descriptor.attribute.shader_location,
+                    vertex_attr_buffer_id,
+                    0,
+                );
+            }
         }
+
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
             .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)

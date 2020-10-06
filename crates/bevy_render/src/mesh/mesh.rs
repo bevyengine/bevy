@@ -13,7 +13,6 @@ use thiserror::Error;
 use bevy_utils::HashMap;
 use std::hash::{Hash, Hasher};
 
-pub const VERTEX_BUFFER_ASSET_INDEX: usize = 1;
 pub const INDEX_BUFFER_ASSET_INDEX: usize = 0;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
