@@ -81,16 +81,16 @@ impl fmt::Debug for ComponentRegistration {
             .field("ty", &self.ty)
             .field(
                 "component_add_fn",
-                &self.component_add_fn
-                    as &fn(&'a mut World, &'a Resources, Entity, &'a dyn Property),
+                &(self.component_add_fn
+                    as fn(&'a mut World, &'a Resources, Entity, &'a dyn Property)),
             )
             .field(
                 "component_apply_fn",
-                &self.component_apply_fn as &fn(&'a mut World, Entity, &'a dyn Property),
+                &(self.component_apply_fn as fn(&'a mut World, Entity, &'a dyn Property)),
             )
             .field(
                 "component_properties_fn",
-                &self.component_properties_fn as &fn(&'a Archetype, usize) -> &dyn Properties,
+                &(self.component_properties_fn as fn(&'a Archetype, usize) -> &dyn Properties),
             )
             .field("short_name", &self.short_name)
             .field("long_name", &self.long_name)
