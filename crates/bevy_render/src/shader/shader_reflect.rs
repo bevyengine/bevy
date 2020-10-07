@@ -315,8 +315,8 @@ mod tests {
             ShaderStage::Vertex,
             r#"
             #version 450
-            layout(location = 0) in vec4 position_os;
-            layout(location = 1) in uvec4 normal_os;
+            layout(location = 0) in vec4 Vertex_Position;
+            layout(location = 1) in uvec4 Vertex_Normal;
             layout(location = 2) in uvec4 I_TestInstancing_Property;
 
             layout(location = 0) out vec4 v_Position;
@@ -326,7 +326,7 @@ mod tests {
             layout(set = 1, binding = 0) uniform texture2D Texture;
 
             void main() {
-                v_Position = position_os;
+                v_Position = Vertex_Position;
                 gl_Position = ViewProj * v_Position;
             }
         "#,
@@ -341,7 +341,7 @@ mod tests {
                 vertex_buffer_descriptors: vec![
                     VertexBufferDescriptor::new_from_attribute(
                         VertexAttributeDescriptor {
-                            name: "position_os".into(),
+                            name: "Vertex_Position".into(),
                             format: VertexFormat::Float4,
                             offset: 0,
                             shader_location: 0,
@@ -351,7 +351,7 @@ mod tests {
                     .test_zero_stride(),
                     VertexBufferDescriptor::new_from_attribute(
                         VertexAttributeDescriptor {
-                            name: "normal_os".into(),
+                            name: "Vertex_Normal".into(),
                             format: VertexFormat::Uint4,
                             offset: 0,
                             shader_location: 1,
