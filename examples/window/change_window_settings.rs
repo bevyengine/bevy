@@ -1,7 +1,6 @@
-use bevy::prelude::*;
-use bevy::winit::ChangeWindow;
+use bevy::{prelude::*, winit::ChangeWindow};
 
-/// This example illustrates how to customize the default window settings
+/// This example illustrates how to change the window settings from a system
 fn main() {
     App::build()
         .add_resource(WindowDescriptor {

@@ -80,7 +80,7 @@ fn change_window(
             ChangeWindow::SetWindowMode { id, mode } => {
                 let bevy_window = windows.get_mut(*id).unwrap();
                 let window = winit_windows.get_window(bevy_window.id).unwrap();
-                bevy_window.mode = mode.clone();
+                bevy_window.mode = *mode;
                 match mode {
                     bevy_window::WindowMode::BorderlessFullscreen => {
                         window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
