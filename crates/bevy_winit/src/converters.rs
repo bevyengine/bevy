@@ -1,7 +1,9 @@
 use bevy_input::{
     keyboard::{ElementState, KeyCode, KeyboardInput},
     mouse::MouseButton,
+    touch::{TouchInput, TouchPhase},
 };
+use bevy_math::Vec2;
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -24,6 +26,19 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
         winit::event::MouseButton::Right => MouseButton::Right,
         winit::event::MouseButton::Middle => MouseButton::Middle,
         winit::event::MouseButton::Other(val) => MouseButton::Other(val),
+    }
+}
+
+pub fn convert_touch_input(touch_input: winit::event::Touch) -> TouchInput {
+    TouchInput {
+        phase: match touch_input.phase {
+            winit::event::TouchPhase::Started => TouchPhase::Started,
+            winit::event::TouchPhase::Moved => TouchPhase::Moved,
+            winit::event::TouchPhase::Ended => TouchPhase::Ended,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+        },
+        position: Vec2::new(touch_input.location.x as f32, touch_input.location.y as f32),
+        id: touch_input.id,
     }
 }
 

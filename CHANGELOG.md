@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
 
@@ -15,6 +16,7 @@
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
 
+[696]: https://github.com/bevyengine/bevy/pull/696
 [689]: https://github.com/bevyengine/bevy/pull/689
 [552]: https://github.com/bevyengine/bevy/pull/552
 [616]: https://github.com/bevyengine/bevy/pull/616
