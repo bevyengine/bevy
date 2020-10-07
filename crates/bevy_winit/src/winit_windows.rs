@@ -96,7 +96,7 @@ impl WinitWindows {
         self.winit_to_window_id.get(&id).cloned()
     }
 }
-fn get_fitting_videomode(
+pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
     window: &Window,
 ) -> winit::monitor::VideoMode {
@@ -127,7 +127,7 @@ fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
-fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;

@@ -9,7 +9,7 @@ pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
-use bevy_ecs::Resources;
+use bevy_ecs::{IntoQuerySystem, Res, ResMut, Resources};
 use bevy_math::Vec2;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
@@ -29,7 +29,106 @@ impl Plugin for WinitPlugin {
             // stopping us. there are plans to remove the lifetime: https://github.com/rust-windowing/winit/pull/1456
             // .add_event::<winit::event::WindowEvent>()
             .init_resource::<WinitWindows>()
-            .set_runner(winit_runner);
+            .set_runner(winit_runner)
+            .add_event::<ChangeWindow>()
+            .init_resource::<ChangeWindowListener>()
+            .add_system(change_window.system());
+    }
+}
+
+pub enum ChangeWindow {
+    SetWindowMode {
+        id: bevy_window::WindowId,
+        mode: bevy_window::WindowMode,
+    },
+    SetTitle {
+        id: bevy_window::WindowId,
+        title: String,
+    },
+    SetResolution {
+        id: bevy_window::WindowId,
+        width: u32,
+        height: u32,
+    },
+    SetVsync {
+        id: bevy_window::WindowId,
+        vsync: bool,
+    },
+    SetResizable {
+        id: bevy_window::WindowId,
+        resizable: bool,
+    },
+    SetDecorations {
+        id: bevy_window::WindowId,
+        decorations: bool,
+    },
+}
+
+#[derive(Default)]
+pub struct ChangeWindowListener {
+    event_reader: EventReader<ChangeWindow>,
+}
+
+fn change_window(
+    winit_windows: Res<WinitWindows>,
+    mut windows: ResMut<Windows>,
+    mut state: ResMut<ChangeWindowListener>,
+    events: Res<Events<ChangeWindow>>,
+) {
+    for event in state.event_reader.iter(&events) {
+        match event {
+            ChangeWindow::SetWindowMode { id, mode } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                let window = winit_windows.get_window(bevy_window.id).unwrap();
+                bevy_window.mode = mode.clone();
+                match mode {
+                    bevy_window::WindowMode::BorderlessFullscreen => {
+                        window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+                    }
+                    bevy_window::WindowMode::Fullscreen { use_size } => window.set_fullscreen(
+                        Some(winit::window::Fullscreen::Exclusive(match use_size {
+                            true => get_fitting_videomode(
+                                &window.current_monitor().unwrap(),
+                                bevy_window,
+                            ),
+                            false => get_best_videomode(&window.current_monitor().unwrap()),
+                        })),
+                    ),
+                    bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
+                }
+            }
+            ChangeWindow::SetTitle { id, title } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                let window = winit_windows.get_window(bevy_window.id).unwrap();
+                bevy_window.title = title.to_string();
+                window.set_title(title);
+            }
+            ChangeWindow::SetResolution { id, width, height } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                let window = winit_windows.get_window(bevy_window.id).unwrap();
+                bevy_window.width = *width;
+                bevy_window.height = *height;
+                window.set_inner_size(winit::dpi::PhysicalSize::new(*width, *height));
+            }
+            ChangeWindow::SetVsync { id, vsync } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                bevy_window.vsync = *vsync;
+            }
+            ChangeWindow::SetResizable { id, resizable } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                let winit_window_id = bevy_window.id;
+                let window = winit_windows.get_window(winit_window_id).unwrap();
+                bevy_window.resizable = *resizable;
+                window.set_resizable(*resizable);
+            }
+            ChangeWindow::SetDecorations { id, decorations } => {
+                let bevy_window = windows.get_mut(*id).unwrap();
+                let winit_window_id = bevy_window.id;
+                let window = winit_windows.get_window(winit_window_id).unwrap();
+                bevy_window.decorations = *decorations;
+                window.set_decorations(*decorations);
+            }
+        }
     }
 }
 
