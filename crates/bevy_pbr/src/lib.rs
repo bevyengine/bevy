@@ -22,7 +22,7 @@ use material::StandardMaterial;
 use render_graph::add_pbr_graph;
 
 /// NOTE: this isn't PBR yet. consider this name "aspirational" :)
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct PbrPlugin;
 
 impl Plugin for PbrPlugin {

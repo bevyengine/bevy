@@ -29,7 +29,7 @@ use bevy_ecs::IntoQuerySystem;
 use bevy_render::render_graph::RenderGraph;
 use update::ui_z_system;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct UiPlugin;
 
 pub mod stage {

@@ -15,7 +15,7 @@ use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::IntoThreadLocalSystem;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct ScenePlugin;
 
 pub const SCENE_STAGE: &str = "scene";

@@ -5,7 +5,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 use gilrs_system::{gilrs_startup_system, gilrs_update_system, GilrsArcMutexWrapper};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct GilrsPlugin;
 
 impl Plugin for GilrsPlugin {

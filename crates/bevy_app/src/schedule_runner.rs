@@ -30,7 +30,7 @@ impl Default for RunMode {
 }
 
 /// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct ScheduleRunnerPlugin {
     pub run_mode: RunMode,
 }

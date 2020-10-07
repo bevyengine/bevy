@@ -15,7 +15,6 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 
-#[derive(Debug)]
 pub struct WindowPlugin {
     pub add_primary_window: bool,
     pub exit_on_close: bool,

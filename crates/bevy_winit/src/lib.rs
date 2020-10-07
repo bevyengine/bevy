@@ -19,7 +19,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct WinitPlugin;
 
 impl Plugin for WinitPlugin {

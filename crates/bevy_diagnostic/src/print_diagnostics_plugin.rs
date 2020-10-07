@@ -5,7 +5,6 @@ use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 use std::time::Duration;
 
 /// An App Plugin that prints diagnostics to the console
-#[derive(Debug)]
 pub struct PrintDiagnosticsPlugin {
     pub debug: bool,
     pub wait_duration: Duration,

@@ -28,7 +28,7 @@ use bevy_ecs::IntoQuerySystem;
 use gamepad::{GamepadAxis, GamepadButton, GamepadEvent};
 
 /// Adds keyboard and mouse input to an App
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
