@@ -2,15 +2,17 @@ use crate::{AudioSource, Decodable};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Res;
 use parking_lot::RwLock;
-use rodio::{Device, Sink};
-use std::collections::VecDeque;
+use rodio::OutputStreamHandle;
+use std::{collections::VecDeque};
 
 /// Used to play audio on the current "audio device"
 pub struct AudioOutput<P = AudioSource>
 where
     P: Decodable,
 {
-    device: Device,
+    // device: Device,
+    // stream: Arc<Mutex<OutputStream>>,
+    stream_handle: OutputStreamHandle,
     queue: RwLock<VecDeque<Handle<P>>>,
 }
 
@@ -19,8 +21,12 @@ where
     P: Decodable,
 {
     fn default() -> Self {
+        let (stream, stream_handle) =
+            rodio::OutputStream::try_default().expect("Can't get an output stream");
+        std::mem::forget(stream);
         Self {
-            device: rodio::default_output_device().unwrap(),
+            // device: rodio::default_output_device().unwrap(),
+            stream_handle,
             queue: Default::default(),
         }
     }
@@ -33,8 +39,10 @@ where
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     pub fn play_source(&self, audio_source: &P) {
-        let sink = Sink::new(&self.device);
+        let sink = rodio::Sink::try_new(&self.stream_handle).unwrap();
+
         sink.append(audio_source.decoder());
+        
         sink.detach();
     }
 
