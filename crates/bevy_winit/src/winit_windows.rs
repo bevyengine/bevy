@@ -29,7 +29,11 @@ impl WinitWindows {
             )),
             WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(&event_loop.primary_monitor().unwrap(), &window),
+                    true => get_fitting_videomode(
+                        &event_loop.primary_monitor().unwrap(),
+                        window.width,
+                        window.height,
+                    ),
                     false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
@@ -98,7 +102,8 @@ impl WinitWindows {
 }
 pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
-    window: &Window,
+    width: u32,
+    height: u32,
 ) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
@@ -111,11 +116,9 @@ pub fn get_fitting_videomode(
 
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
-        match abs_diff(a.size().width, window.width).cmp(&abs_diff(b.size().width, window.width)) {
+        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
-                match abs_diff(a.size().height, window.height)
-                    .cmp(&abs_diff(b.size().height, window.height))
-                {
+                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
                     Equal => b.refresh_rate().cmp(&a.refresh_rate()),
                     default => default,
                 }

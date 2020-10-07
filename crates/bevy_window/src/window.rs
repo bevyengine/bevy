@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -43,6 +44,17 @@ pub struct Window {
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    pub command_queue: SmallVec<[WindowCommand; 4]>,
+}
+
+#[derive(Debug)]
+pub enum WindowCommand {
+    SetWindowMode { mode: WindowMode },
+    SetTitle { title: String },
+    SetResolution { width: u32, height: u32 },
+    SetVsync { vsync: bool },
+    SetResizable { resizable: bool },
+    SetDecorations { decorations: bool },
 }
 
 /// Defines the way a window is displayed
@@ -70,7 +82,43 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            command_queue: SmallVec::new(),
         }
+    }
+
+    pub fn set_resolution(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+        self.command_queue
+            .push(WindowCommand::SetResolution { width, height });
+    }
+
+    pub fn set_title(&mut self, title: String) {
+        self.title = title.to_string();
+        self.command_queue.push(WindowCommand::SetTitle { title });
+    }
+
+    pub fn set_vsync(&mut self, vsync: bool) {
+        self.vsync = vsync;
+        self.command_queue.push(WindowCommand::SetVsync { vsync });
+    }
+
+    pub fn set_resizable(&mut self, resizable: bool) {
+        self.resizable = resizable;
+        self.command_queue
+            .push(WindowCommand::SetResizable { resizable });
+    }
+
+    pub fn set_decorations(&mut self, decorations: bool) {
+        self.decorations = decorations;
+        self.command_queue
+            .push(WindowCommand::SetDecorations { decorations });
+    }
+
+    pub fn set_mode(&mut self, mode: WindowMode) {
+        self.mode = mode;
+        self.command_queue
+            .push(WindowCommand::SetWindowMode { mode });
     }
 }
 

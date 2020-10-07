@@ -23,7 +23,15 @@ impl Windows {
         self.get(WindowId::primary())
     }
 
+    pub fn get_primary_mut(&mut self) -> Option<&mut Window> {
+        self.get_mut(WindowId::primary())
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
         self.windows.values()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
+        self.windows.values_mut()
     }
 }

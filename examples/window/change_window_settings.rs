@@ -1,4 +1,4 @@
-use bevy::{prelude::*, winit::ChangeWindow};
+use bevy::prelude::*;
 
 /// This example illustrates how to change the window settings from a system
 fn main() {
@@ -16,17 +16,11 @@ fn main() {
         .run();
 }
 
-fn change_title(
-    time: Res<Time>,
-    windows: Res<Windows>,
-    mut change_window_events: ResMut<Events<ChangeWindow>>,
-) {
+fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
     if (time.delta_seconds * 1000.) as i32 % 10 == 1 {
-        let id = windows.get_primary().unwrap().id;
-
-        change_window_events.send(ChangeWindow::SetTitle {
-            id,
-            title: format!("{}", time.delta_seconds),
-        });
+        windows
+            .get_primary_mut()
+            .unwrap()
+            .set_title(format!("{}", time.delta_seconds));
     }
 }
