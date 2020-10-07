@@ -205,7 +205,7 @@ impl AssetServer {
     where
         T: 'static,
     {
-        let path = path.as_ref();
+        let path = self.get_root_path()?.join(path);
         if let Some(ref extension) = path.extension() {
             if let Some(index) = self.extension_to_loader_index.get(
                 extension
@@ -216,7 +216,7 @@ impl AssetServer {
                 let handle_id = HandleId::new();
                 let resources = &self.loaders[*index];
                 let loader = resources.get::<Box<dyn AssetLoader<T>>>().unwrap();
-                let asset = loader.load_from_file(path)?;
+                let asset = loader.load_from_file(path.as_ref())?;
                 let handle = Handle::from(handle_id);
 
                 assets.set(handle, asset);
