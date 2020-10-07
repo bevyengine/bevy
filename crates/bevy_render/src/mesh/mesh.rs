@@ -1,4 +1,5 @@
 use crate::{
+    pipeline,
     pipeline::{PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
@@ -158,7 +159,7 @@ impl Mesh {
 
     pub fn insert_attribute(&mut self, new_vertex_attribute: VertexAttributeData) {
         self.attributes
-            .insert(new_vertex_attribute.name.clone(), new_vertex_attribute); //TODO: is .clone() correct?
+            .insert(new_vertex_attribute.name.clone(), new_vertex_attribute);
     }
 
     pub fn get_attribute(&mut self, name: Cow<'static, str>) -> Option<&VertexAttributeData> {
@@ -486,12 +487,12 @@ fn remove_current_mesh_resources(
     mesh: &Mesh,
 ) {
     for attribute in mesh.attributes.iter() {
-        if let Some(RenderResourceId::Buffer(buffer)) =
-            render_resource_context.get_asset_resource(handle, get_attribute_name_id(attribute.0))
+        if let Some(RenderResourceId::Buffer(buffer)) = render_resource_context
+            .get_asset_resource(handle, pipeline::get_vertex_attribute_name_id(attribute.0))
         {
             render_resource_context.remove_buffer(buffer);
             render_resource_context
-                .remove_asset_resource(handle, get_attribute_name_id(attribute.0));
+                .remove_asset_resource(handle, pipeline::get_vertex_attribute_name_id(attribute.0));
         }
     }
 
@@ -506,12 +507,6 @@ fn remove_current_mesh_resources(
 #[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
-}
-
-pub fn get_attribute_name_id(name: &str) -> usize {
-    let mut hasher = std::collections::hash_map::DefaultHasher::default();
-    hasher.write(&name.as_bytes());
-    hasher.finish() as usize //TODO: this will likely break on 32 bit systems
 }
 
 pub fn mesh_resource_provider_system(
@@ -580,7 +575,7 @@ pub fn mesh_resource_provider_system(
                 render_resource_context.set_asset_resource(
                     *changed_mesh_handle,
                     RenderResourceId::Buffer(attribute_buffer),
-                    get_attribute_name_id(&attribute.name),
+                    pipeline::get_vertex_attribute_name_id(&attribute.name),
                 );
             }
         }
@@ -605,7 +600,7 @@ pub fn mesh_resource_provider_system(
 
             // set vertex buffers into bindings
             for (name, _attribute) in mesh.iter_attribute() {
-                let attribute_name_id = get_attribute_name_id(&name);
+                let attribute_name_id = pipeline::get_vertex_attribute_name_id(&name);
                 if let Some(RenderResourceId::Buffer(vertex_buffer)) =
                     render_resource_context.get_asset_resource(*handle, attribute_name_id)
                 {

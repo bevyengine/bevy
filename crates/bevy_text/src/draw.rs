@@ -5,7 +5,7 @@ use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
-    mesh,
+    mesh, pipeline,
     pipeline::PipelineSpecialization,
     prelude::Msaa,
     renderer::{
@@ -58,7 +58,7 @@ impl<'a> Drawable for DrawableText<'a> {
         let pipeline_layout = context.get_pipeline_layout().unwrap();
 
         for vertex_buffer_descriptor in &pipeline_layout.vertex_buffer_descriptors {
-            let name_id = mesh::get_attribute_name_id(&vertex_buffer_descriptor.name);
+            let name_id = pipeline::get_vertex_attribute_name_id(&vertex_buffer_descriptor.name);
             if let Some(RenderResourceId::Buffer(vertex_attr_buffer_id)) =
                 render_resource_context.get_asset_resource(bevy_sprite::QUAD_HANDLE, name_id)
             {
