@@ -13,7 +13,6 @@ your application however you like!
 
 This is the Bevy project's fork of hecs with changes that accommodate the needs of the Bevy game engine. Some notable changes:
 * Entity indices are now queryable and are not returned in queries by default. This both improves ergonomics and significantly boosts performance in some cases.
-* Entity indices are now UUIDs and are no longer generational. This allows apps to use Entity ids as stable ids during serialization and networking. This also improves query performance because we don't need to look up entity generation information while iterating. It also removes ~300 lines of code dedicated to entity index maintenance. However this new model does come at a small cost: entity creation + `world.get::<Component>(entity)` lookup now requires hashing, which by our benchmarks is about 5x slower than the previous array indexing implementation. Given that this is an uncommon pattern and the major benefits the new design yields, we consider this small corner-case performance cost worth it.
 * Expose more interfaces as public so that we can build higher-level apis on top of the core hecs codebase (multithreading, functions-as-systems, world builders, schedules, etc)
 * Change Tracking 
 
