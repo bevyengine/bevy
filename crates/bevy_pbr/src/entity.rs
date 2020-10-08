@@ -21,8 +21,6 @@ pub struct PbrComponents {
     pub global_transform: GlobalTransform,
 }
 
-
-
 impl Default for PbrComponents {
     fn default() -> Self {
         Self {

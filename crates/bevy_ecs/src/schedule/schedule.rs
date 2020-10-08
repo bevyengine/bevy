@@ -25,25 +25,17 @@ impl fmt::Debug for Schedule {
         let stages = self
             .stage_order
             .iter()
-            .map(|s|
-                (
-                    s,
-                    self
-                        .stages[s]
-                        .iter()
-                        .map(|s| (s.name(), s.id()))
-                )
-            );
-        
+            .map(|s| (s, self.stages[s].iter().map(|s| (s.name(), s.id()))));
+
         for (stage, syss) in stages {
             writeln!(f, "\tStage \"{}\"", stage)?;
 
             for (name, id) in syss {
                 writeln!(f, "\t\tSystem {{ name: \"{}\", id: {:?} }}", name, id)?;
             }
-        };
+        }
 
-        Ok(())
+        writeln!(f, "}}")
     }
 }
 
