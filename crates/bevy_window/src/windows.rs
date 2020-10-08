@@ -8,7 +8,7 @@ pub struct Windows {
 
 impl Windows {
     pub fn add(&mut self, window: Window) {
-        self.windows.insert(window.id, window);
+        self.windows.insert(window.id(), window);
     }
 
     pub fn get(&self, id: WindowId) -> Option<&Window> {

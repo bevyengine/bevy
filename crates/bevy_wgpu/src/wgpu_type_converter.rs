@@ -563,9 +563,9 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: window.width,
-            height: window.height,
-            present_mode: if window.vsync {
+            width: window.width(),
+            height: window.height(),
+            present_mode: if window.vsync() {
                 wgpu::PresentMode::Fifo
             } else {
                 wgpu::PresentMode::Immediate

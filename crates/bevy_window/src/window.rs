@@ -34,16 +34,17 @@ impl Default for WindowId {
 
 #[derive(Debug)]
 pub struct Window {
-    pub id: WindowId,
-    pub width: u32,
-    pub height: u32,
-    pub title: String,
-    pub vsync: bool,
-    pub resizable: bool,
-    pub decorations: bool,
-    pub mode: WindowMode,
+    id: WindowId,
+    width: u32,
+    height: u32,
+    title: String,
+    vsync: bool,
+    resizable: bool,
+    decorations: bool,
+    mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    #[doc(hidden)]
     pub command_queue: SmallVec<[WindowCommand; 4]>,
 }
 
@@ -86,6 +87,21 @@ impl Window {
         }
     }
 
+    #[inline]
+    pub fn id(&self) -> WindowId {
+        self.id
+    }
+
+    #[inline]
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    #[inline]
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
     pub fn set_resolution(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
@@ -93,14 +109,32 @@ impl Window {
             .push(WindowCommand::SetResolution { width, height });
     }
 
+    #[doc(hidden)]
+    pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    pub fn title(&'_ self) -> &'_ str {
+        &self.title
+    }
+
     pub fn set_title(&mut self, title: String) {
         self.title = title.to_string();
         self.command_queue.push(WindowCommand::SetTitle { title });
     }
 
+    pub fn vsync(&self) -> bool {
+        self.vsync
+    }
+
     pub fn set_vsync(&mut self, vsync: bool) {
         self.vsync = vsync;
         self.command_queue.push(WindowCommand::SetVsync { vsync });
+    }
+
+    pub fn resizable(&self) -> bool {
+        self.resizable
     }
 
     pub fn set_resizable(&mut self, resizable: bool) {
@@ -109,10 +143,18 @@ impl Window {
             .push(WindowCommand::SetResizable { resizable });
     }
 
+    pub fn decorations(&self) -> bool {
+        self.decorations
+    }
+
     pub fn set_decorations(&mut self, decorations: bool) {
         self.decorations = decorations;
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
+    }
+
+    pub fn mode(&self) -> WindowMode {
+        self.mode
     }
 
     pub fn set_mode(&mut self, mode: WindowMode) {

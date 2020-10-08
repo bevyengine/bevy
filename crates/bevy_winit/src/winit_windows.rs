@@ -23,7 +23,7 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window.mode {
+        winit_window_builder = match window.mode() {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
@@ -31,20 +31,23 @@ impl WinitWindows {
                 winit::window::Fullscreen::Exclusive(match use_size {
                     true => get_fitting_videomode(
                         &event_loop.primary_monitor().unwrap(),
-                        window.width,
-                        window.height,
+                        window.width(),
+                        window.height(),
                     ),
                     false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable)
-                .with_decorations(window.decorations),
+                .with_inner_size(winit::dpi::PhysicalSize::new(
+                    window.width(),
+                    window.height(),
+                ))
+                .with_resizable(window.resizable())
+                .with_decorations(window.decorations()),
         };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(&window.title);
+        let mut winit_window_builder = winit_window_builder.with_title(window.title());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -68,8 +71,10 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
-        self.window_id_to_winit.insert(window.id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window.id);
+        self.window_id_to_winit
+            .insert(window.id(), winit_window.id());
+        self.winit_to_window_id
+            .insert(winit_window.id(), window.id());
 
         #[cfg(target_arch = "wasm32")]
         {

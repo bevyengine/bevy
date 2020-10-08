@@ -48,11 +48,12 @@ fn bounce_system(
     windows: Res<Windows>,
     mut sprites: Query<(&Transform, &mut Velocity)>,
 ) {
-    let Window { width, height, .. } = windows.get_primary().expect("No primary window");
-    let left = *width as f32 / -2.0;
-    let right = *width as f32 / 2.0;
-    let bottom = *height as f32 / -2.0;
-    let top = *height as f32 / 2.0;
+    let width = windows.get_primary().expect("No primary window").width();
+    let height = windows.get_primary().expect("No primary window").height();
+    let left = width as f32 / -2.0;
+    let right = width as f32 / 2.0;
+    let bottom = height as f32 / -2.0;
+    let top = height as f32 / 2.0;
     sprites
         .iter()
         // Batch size of 32 is chosen to limit the overhead of

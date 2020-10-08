@@ -274,22 +274,25 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
         let surface = surfaces
-            .get(&window.id)
+            .get(&window.id())
             .expect("No surface found for window");
         let swap_chain = self
             .device
             .create_swap_chain(surface, &swap_chain_descriptor);
 
-        window_swap_chains.insert(window.id, swap_chain);
+        window_swap_chains.insert(window.id(), swap_chain);
     }
 
     fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> TextureId {
-        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
+        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
             texture_id
         } else {
-            self.resources.window_swap_chains.write().remove(&window.id);
+            self.resources
+                .window_swap_chains
+                .write()
+                .remove(&window.id());
             self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id)
+            self.try_next_swap_chain_texture(window.id())
                 .expect("Failed to acquire next swap chain texture!")
         }
     }

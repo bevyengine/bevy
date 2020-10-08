@@ -74,8 +74,8 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
     for (entity, mut camera, mut camera_projection) in &mut query.iter() {
         if let Some(window) = windows.get(camera.window) {
-            if changed_window_ids.contains(&window.id) || added_cameras.contains(&entity) {
-                camera_projection.update(window.width as usize, window.height as usize);
+            if changed_window_ids.contains(&window.id()) || added_cameras.contains(&entity) {
+                camera_projection.update(window.width() as usize, window.height() as usize);
                 camera.projection_matrix = camera_projection.get_projection_matrix();
                 camera.depth_calculation = camera_projection.depth_calculation();
             }

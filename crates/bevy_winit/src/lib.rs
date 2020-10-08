@@ -36,10 +36,13 @@ impl Plugin for WinitPlugin {
 
 fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>) {
     for bevy_window in windows.iter_mut() {
+        let id = bevy_window.id();
+        let window_height = bevy_window.height();
+        let window_width = bevy_window.width();
         for command in bevy_window.command_queue.drain(..) {
             match command {
                 bevy_window::WindowCommand::SetWindowMode { mode } => {
-                    let window = winit_windows.get_window(bevy_window.id).unwrap();
+                    let window = winit_windows.get_window(id).unwrap();
                     match mode {
                         bevy_window::WindowMode::BorderlessFullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
@@ -48,8 +51,8 @@ fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>)
                             Some(winit::window::Fullscreen::Exclusive(match use_size {
                                 true => get_fitting_videomode(
                                     &window.current_monitor().unwrap(),
-                                    bevy_window.width,
-                                    bevy_window.height,
+                                    window_width,
+                                    window_height,
                                 ),
                                 false => get_best_videomode(&window.current_monitor().unwrap()),
                             })),
@@ -58,20 +61,20 @@ fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>)
                     }
                 }
                 bevy_window::WindowCommand::SetTitle { title } => {
-                    let window = winit_windows.get_window(bevy_window.id).unwrap();
+                    let window = winit_windows.get_window(id).unwrap();
                     window.set_title(&title);
                 }
                 bevy_window::WindowCommand::SetResolution { width, height } => {
-                    let window = winit_windows.get_window(bevy_window.id).unwrap();
+                    let window = winit_windows.get_window(id).unwrap();
                     window.set_inner_size(winit::dpi::PhysicalSize::new(width, height));
                 }
                 bevy_window::WindowCommand::SetVsync { .. } => (),
                 bevy_window::WindowCommand::SetResizable { resizable } => {
-                    let window = winit_windows.get_window(bevy_window.id).unwrap();
+                    let window = winit_windows.get_window(id).unwrap();
                     window.set_resizable(resizable);
                 }
                 bevy_window::WindowCommand::SetDecorations { decorations } => {
-                    let window = winit_windows.get_window(bevy_window.id).unwrap();
+                    let window = winit_windows.get_window(id).unwrap();
                     window.set_decorations(decorations);
                 }
             }
@@ -164,15 +167,14 @@ pub fn winit_runner(mut app: App) {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                let mut window = windows.get_mut(window_id).unwrap();
-                window.width = size.width;
-                window.height = size.height;
+                let window = windows.get_mut(window_id).unwrap();
+                window.update_resolution_from_backend(size.width, size.height);
 
                 let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
                 resize_events.send(WindowResized {
                     id: window_id,
-                    height: window.height as usize,
-                    width: window.width as usize,
+                    height: window.height() as usize,
+                    width: window.width() as usize,
                 });
             }
             event::Event::WindowEvent {
@@ -277,7 +279,7 @@ fn handle_create_window_events(
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = Window::new(create_window_event.id, &create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
-        let window_id = window.id;
+        let window_id = window.id();
         windows.add(window);
         window_created_events.send(WindowCreated { id: window_id });
     }
