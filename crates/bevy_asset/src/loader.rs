@@ -33,6 +33,7 @@ pub trait AssetLoader<T>: Send + Sync + 'static {
 }
 
 /// The result of loading an asset of type `T`
+#[derive(Debug)]
 pub struct AssetResult<T: 'static> {
     pub result: Result<T, AssetLoadError>,
     pub handle: Handle<T>,
@@ -41,6 +42,7 @@ pub struct AssetResult<T: 'static> {
 }
 
 /// A channel to send and receive [AssetResult]s
+#[derive(Debug)]
 pub struct AssetChannel<T: 'static> {
     pub sender: Sender<AssetResult<T>>,
     pub receiver: Receiver<AssetResult<T>>,

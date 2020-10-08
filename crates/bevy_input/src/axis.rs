@@ -1,5 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
+#[derive(Debug)]
 pub struct Axis<T> {
     axis_data: HashMap<T, f32>,
 }

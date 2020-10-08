@@ -20,7 +20,7 @@ use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
     pub resources: WgpuResources,

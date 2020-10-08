@@ -159,6 +159,7 @@ pub const ENTITY_STRUCT: &str = "Entity";
 pub const ENTITY_FIELD_ENTITY: &str = "entity";
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
+#[derive(Debug)]
 struct SceneEntityVisiter<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }

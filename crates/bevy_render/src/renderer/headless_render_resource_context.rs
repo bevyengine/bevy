@@ -11,7 +11,7 @@ use bevy_window::Window;
 use parking_lot::RwLock;
 use std::{ops::Range, sync::Arc};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,

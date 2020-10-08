@@ -25,6 +25,7 @@ impl<'a> Serializable<'a> {
         }
     }
 }
+
 pub struct PropertyValueSerializer<'a, T>
 where
     T: Property + Serialize,
@@ -277,6 +278,7 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
         }
     }
 }
+
 pub struct SeqPropertyDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
 }

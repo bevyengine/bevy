@@ -12,6 +12,7 @@ use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, 
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct CameraNode {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,
@@ -58,7 +59,7 @@ impl SystemNode for CameraNode {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CameraNodeState {
     command_queue: CommandQueue,
     camera_name: Cow<'static, str>,

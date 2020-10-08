@@ -39,6 +39,7 @@ where
     previous_result
 }
 
+#[derive(Debug)]
 pub struct DespawnRecursive {
     entity: Entity,
 }

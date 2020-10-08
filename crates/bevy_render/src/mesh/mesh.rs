@@ -181,6 +181,7 @@ pub mod shape {
     use hexasphere::Hexasphere;
 
     /// A cube.
+    #[derive(Debug)]
     pub struct Cube {
         /// Half the side length of the cube.
         pub size: f32,
@@ -259,6 +260,7 @@ pub mod shape {
     }
 
     /// A rectangle on the XY plane.
+    #[derive(Debug)]
     pub struct Quad {
         /// Full width and height of the rectangle.
         pub size: Vec2,
@@ -357,6 +359,7 @@ pub mod shape {
     }
 
     /// A square on the XZ plane.
+    #[derive(Debug)]
     pub struct Plane {
         /// The total side length of the square.
         pub size: f32,
@@ -397,6 +400,7 @@ pub mod shape {
     }
 
     /// A sphere made from a subdivided Icosahedron.
+    #[derive(Debug)]
     pub struct Icosphere {
         /// The radius of the sphere.
         pub radius: f32,

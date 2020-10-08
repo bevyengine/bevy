@@ -1,7 +1,7 @@
 use super::Batch;
 use bevy_utils::HashMap;
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, hash::Hash};
+use std::{borrow::Cow, fmt, hash::Hash};
 
 // TODO: add sorting by primary / secondary handle to reduce rebinds of data
 
@@ -28,6 +28,7 @@ impl<TKey: Key> BatchKey<TKey> {
     }
 }
 
+#[derive(Debug)]
 pub struct BatcherKeyState<TKey: Key> {
     batch_key: Option<BatchKey<TKey>>,
     keys: SmallVec<[Option<TKey>; 2]>,
@@ -75,6 +76,28 @@ where
     pub is_index: Vec<fn(&TKey) -> bool>,
     pub key_states: HashMap<TValue, BatcherKeyState<TKey>>,
     pub key_count: usize,
+}
+
+impl<TKey: Key, TValue, TData> fmt::Debug for Batcher<TKey, TValue, TData>
+where
+    TKey: Key + fmt::Debug,
+    TValue: fmt::Debug,
+    TData: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let is_index = self
+            .is_index
+            .iter()
+            .map(|f| f as *const for<'r> fn(&'r TKey) -> bool)
+            .collect::<Vec<_>>();
+
+        f.debug_struct("Batcher")
+            .field("batches", &self.batches)
+            .field("is_index", &is_index)
+            .field("key_states", &self.key_states)
+            .field("key_count", &self.key_count)
+            .finish()
+    }
 }
 
 impl<TKey, TValue, TData> Batcher<TKey, TValue, TData>

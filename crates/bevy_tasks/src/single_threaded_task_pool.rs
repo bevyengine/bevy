@@ -104,12 +104,14 @@ impl TaskPool {
     }
 }
 
+#[derive(Debug)]
 pub struct FakeTask;
 
 impl FakeTask {
     pub fn detach(self) {}
 }
 
+#[derive(Debug)]
 pub struct Scope<'scope, T> {
     executor: &'scope async_executor::LocalExecutor<'scope>,
     // Vector to gather results of all futures spawned during scope run

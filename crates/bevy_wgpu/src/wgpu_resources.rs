@@ -10,7 +10,7 @@ use bevy_window::WindowId;
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::sync::Arc;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct WgpuBindGroupInfo {
     pub bind_groups: HashMap<BindGroupId, wgpu::BindGroup>,
 }
@@ -37,6 +37,7 @@ pub struct WgpuBindGroupInfo {
 ///
 /// Single threaded implementations don't need to worry about these lifetimes constraints at all. RenderPasses can use a RenderContext's
 /// WgpuResources directly. RenderContext already has a lifetime greater than the RenderPass.
+#[derive(Debug)]
 pub struct WgpuResourcesReadLock<'a> {
     pub buffers: RwLockReadGuard<'a, HashMap<BufferId, Arc<wgpu::Buffer>>>,
     pub textures: RwLockReadGuard<'a, HashMap<TextureId, wgpu::TextureView>>,
@@ -59,6 +60,7 @@ impl<'a> WgpuResourcesReadLock<'a> {
 }
 
 /// Stores read only references to WgpuResource collections. See WgpuResourcesReadLock docs for context on why this exists
+#[derive(Debug)]
 pub struct WgpuResourceRefs<'a> {
     pub buffers: &'a HashMap<BufferId, Arc<wgpu::Buffer>>,
     pub textures: &'a HashMap<TextureId, wgpu::TextureView>,
@@ -67,7 +69,7 @@ pub struct WgpuResourceRefs<'a> {
     pub bind_groups: &'a HashMap<BindGroupDescriptorId, WgpuBindGroupInfo>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct WgpuResources {
     pub buffer_infos: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     pub texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,

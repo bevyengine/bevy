@@ -1,5 +1,6 @@
 use crate::iter::ParallelIterator;
 
+#[derive(Debug)]
 pub struct Chain<T, U> {
     pub(crate) left: T,
     pub(crate) right: U,
@@ -25,6 +26,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Map<P, F> {
     pub(crate) iter: P,
     pub(crate) f: F,
@@ -43,6 +45,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Filter<P, F> {
     pub(crate) iter: P,
     pub(crate) predicate: F,
@@ -63,6 +66,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct FilterMap<P, F> {
     pub(crate) iter: P,
     pub(crate) f: F,
@@ -81,6 +85,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct FlatMap<P, F> {
     pub(crate) iter: P,
     pub(crate) f: F,
@@ -103,6 +108,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Flatten<P> {
     pub(crate) iter: P,
 }
@@ -123,6 +129,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Fuse<P> {
     pub(crate) iter: Option<P>,
 }
@@ -148,6 +155,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Inspect<P, F> {
     pub(crate) iter: P,
     pub(crate) f: F,
@@ -166,6 +174,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Copied<P> {
     pub(crate) iter: P,
 }
@@ -183,6 +192,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Cloned<P> {
     pub(crate) iter: P,
 }
@@ -200,6 +210,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct Cycle<P> {
     pub(crate) iter: P,
     pub(crate) curr: Option<P>,

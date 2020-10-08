@@ -6,12 +6,22 @@ use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, Parent, Transform};
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, Windows};
+use std::fmt;
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
     entity_to_stretch: HashMap<Entity, stretch::node::Node>,
     window_nodes: HashMap<WindowId, stretch::node::Node>,
     stretch: Stretch,
+}
+
+impl fmt::Debug for FlexSurface {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("FlexSurface")
+            .field("entity_to_stretch", &self.entity_to_stretch)
+            .field("window_nodes", &self.window_nodes)
+            .finish()
+    }
 }
 
 impl Default for FlexSurface {

@@ -253,7 +253,7 @@ impl RenderResourceBindings {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct AssetRenderResourceBindings {
     pub bindings: HashMap<HandleUntyped, RenderResourceBindings>,
 }

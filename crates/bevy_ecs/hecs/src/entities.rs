@@ -322,6 +322,7 @@ impl Entities {
 }
 
 /// Reserves entities in a way that is usable in multi-threaded contexts.
+#[derive(Debug)]
 pub struct EntityReserver {
     entities: &'static Entities,
 }

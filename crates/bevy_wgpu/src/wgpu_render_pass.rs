@@ -7,6 +7,7 @@ use bevy_render::{
 };
 use std::ops::Range;
 
+#[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,

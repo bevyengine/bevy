@@ -3,7 +3,7 @@ use bevy_asset::AssetLoader;
 use std::{io::Cursor, path::Path, sync::Arc};
 
 /// A source of audio data
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct AudioSource {
     pub bytes: Arc<[u8]>,
 }

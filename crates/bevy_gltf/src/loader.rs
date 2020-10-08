@@ -12,7 +12,7 @@ use thiserror::Error;
 /// Loads meshes from GLTF files into Mesh assets
 ///
 /// NOTE: eventually this will loading into Scenes instead of Meshes
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct GltfLoader;
 
 impl AssetLoader<Mesh> for GltfLoader {

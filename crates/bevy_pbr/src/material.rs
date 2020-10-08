@@ -2,7 +2,7 @@ use bevy_asset::{self, Handle};
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
 
 /// A material with "standard" properties used in PBR lighting
-#[derive(RenderResources, ShaderDefs)]
+#[derive(Debug, RenderResources, ShaderDefs)]
 #[allow(clippy::manual_non_exhaustive)]
 pub struct StandardMaterial {
     pub albedo: Color,

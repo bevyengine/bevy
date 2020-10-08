@@ -40,6 +40,7 @@ pub trait SystemNode: Node {
     fn get_system(&self, commands: &mut Commands) -> Box<dyn System>;
 }
 
+#[derive(Debug)]
 pub struct Edges {
     pub id: NodeId,
     pub input_edges: Vec<Edge>,

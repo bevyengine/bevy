@@ -9,19 +9,21 @@ use std::ptr::NonNull;
 pub trait Resource: Send + Sync + 'static {}
 impl<T: Send + Sync + 'static> Resource for T {}
 
+#[derive(Debug)]
 pub(crate) struct ResourceData {
     archetype: Archetype,
     default_index: Option<usize>,
     system_id_to_archetype_index: HashMap<usize, usize>,
 }
 
+#[derive(Debug)]
 pub enum ResourceIndex {
     Global,
     System(SystemId),
 }
 
 /// A collection of resource instances identified by their type.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Resources {
     pub(crate) resource_data: HashMap<TypeId, ResourceData>,
 }

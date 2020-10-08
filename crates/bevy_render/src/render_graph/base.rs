@@ -17,6 +17,7 @@ use bevy_window::WindowId;
 #[derive(Default, Properties)]
 pub struct MainPass;
 
+#[derive(Debug)]
 pub struct Msaa {
     pub samples: u32,
 }
@@ -50,6 +51,7 @@ impl Msaa {
     }
 }
 
+#[derive(Debug)]
 pub struct BaseRenderGraphConfig {
     pub add_2d_camera: bool,
     pub add_3d_camera: bool,

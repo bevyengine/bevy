@@ -46,7 +46,7 @@ pub struct VertexAttributeDescriptor {
     pub shader_location: u32,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct VertexBufferDescriptors {
     pub descriptors: HashMap<String, VertexBufferDescriptor>,
 }

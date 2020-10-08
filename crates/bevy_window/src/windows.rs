@@ -1,7 +1,7 @@
 use super::{Window, WindowId};
 use bevy_utils::HashMap;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Windows {
     windows: HashMap<WindowId, Window>,
 }

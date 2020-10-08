@@ -8,6 +8,7 @@ use bevy_type_registry::RegisterType;
 use bevy_utils::HashMap;
 
 /// Events that happen on assets of type `T`
+#[derive(Debug)]
 pub enum AssetEvent<T: Resource> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
@@ -15,6 +16,7 @@ pub enum AssetEvent<T: Resource> {
 }
 
 /// Stores Assets of a given type and tracks changes to them.
+#[derive(Debug)]
 pub struct Assets<T: Resource> {
     assets: HashMap<Handle<T>, T>,
     events: Events<AssetEvent<T>>,

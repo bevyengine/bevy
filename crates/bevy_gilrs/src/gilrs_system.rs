@@ -6,10 +6,12 @@ use gilrs::{Button, EventType, Gilrs};
 use std::sync::{Arc, Mutex};
 
 // TODO: remove this if/when bevy_ecs supports thread local resources
+#[derive(Debug)]
 struct GilrsSendWrapper(Gilrs);
 
 unsafe impl Send for GilrsSendWrapper {}
 
+#[derive(Debug)]
 pub struct GilrsArcMutexWrapper(Arc<Mutex<GilrsSendWrapper>>);
 
 impl GilrsArcMutexWrapper {
