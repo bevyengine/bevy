@@ -124,10 +124,10 @@ impl<'a> From<&'a OwnedWgpuVertexBufferDescriptor> for wgpu::VertexBufferDescrip
 impl WgpuFrom<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
         wgpu::Color {
-            r: color.r as f64,
-            g: color.g as f64,
-            b: color.b as f64,
-            a: color.a as f64,
+            r: color.r_linear() as f64,
+            g: color.g_linear() as f64,
+            b: color.b_linear() as f64,
+            a: color.a() as f64,
         }
     }
 }

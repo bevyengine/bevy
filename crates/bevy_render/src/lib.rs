@@ -1,6 +1,7 @@
 pub mod batch;
 pub mod camera;
 pub mod color;
+pub mod colorspace;
 pub mod draw;
 pub mod entity;
 pub mod mesh;
