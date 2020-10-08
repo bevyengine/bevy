@@ -72,7 +72,9 @@ pub(crate) struct Despawn {
 
 impl WorldWriter for Despawn {
     fn write(self: Box<Self>, world: &mut World) {
-        world.despawn(self.entity).unwrap();
+        if let Err(e) = world.despawn(self.entity) {
+            log::debug!("Failed to despawn entity {:?}: {}", self.entity, e);
+        }
     }
 }
 
@@ -385,6 +387,7 @@ mod tests {
         let mut command_buffer = Commands::default();
         command_buffer.set_entity_reserver(world.get_entity_reserver());
         command_buffer.spawn((1u32, 2u64));
+        let entity = command_buffer.current_entity().unwrap();
         command_buffer.insert_resource(3.14f32);
         command_buffer.apply(&mut world, &mut resources);
         let results = world
@@ -394,5 +397,15 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
         assert_eq!(*resources.get::<f32>().unwrap(), 3.14f32);
+        // test entity despawn
+        command_buffer.despawn(entity);
+        command_buffer.despawn(entity); // double despawn shouldn't panic
+        command_buffer.apply(&mut world, &mut resources);
+        let results2 = world
+            .query::<(&u32, &u64)>()
+            .iter()
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results2, vec![]);
     }
 }
