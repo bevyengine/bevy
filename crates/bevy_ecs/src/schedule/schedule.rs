@@ -28,10 +28,10 @@ impl fmt::Debug for Schedule {
             .map(|s| (s, self.stages[s].iter().map(|s| (s.name(), s.id()))));
 
         for (stage, syss) in stages {
-            writeln!(f, "\tStage \"{}\"", stage)?;
+            writeln!(f, "    Stage \"{}\"", stage)?;
 
             for (name, id) in syss {
-                writeln!(f, "\t\tSystem {{ name: \"{}\", id: {:?} }}", name, id)?;
+                writeln!(f, "        System {{ name: \"{}\", id: {:?} }}", name, id)?;
             }
         }
 

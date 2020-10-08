@@ -17,18 +17,9 @@ pub struct FlexSurface {
 
 impl fmt::Debug for FlexSurface {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        struct NoDebug;
-
-        impl fmt::Debug for NoDebug {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "Type doesn't implement Debug")
-            }
-        }
-
         f.debug_struct("FlexSurface")
             .field("entity_to_stretch", &self.entity_to_stretch)
             .field("window_nodes", &self.window_nodes)
-            .field("stretch", &NoDebug)
             .finish()
     }
 }
