@@ -1,14 +1,14 @@
 # Changelog
 
 ## Unreleased
+- [sRGB awareness for ``Color``][616]
 
+[616]: https://github.com/bevyengine/bevy/pull/616
 ### Added
 
 - [Another fast compile flag for macOS][552]
-- [sRGB awareness for ``Color``][616]
 
 [552]: https://github.com/bevyengine/bevy/pull/552
-[616]: https://github.com/bevyengine/bevy/pull/616
 
 ## Version 0.2.1 (2020-9-20)
 
