@@ -24,6 +24,11 @@ sudo pacman -S libx11 pkgconf alsa-lib
 sudo eopkg install pkg-config libx11-devel g++ alsa-lib-devel
 ```
 
+## Void
+```bash
+sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
+```
+
 ## NixOS
 
 Add a `build.rs` file to your project with the following:
