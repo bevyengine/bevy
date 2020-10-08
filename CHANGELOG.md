@@ -9,7 +9,8 @@
 ### Changed
 
 - Breaking Change: [sRGB awareness for `Color`][616]
-  - Color is now assumed to be provided in the non-linear sRGB colorspace, and constructors such as `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood. This allows drop-in use of colors from most application.
+  - Color is now assumed to be provided in the non-linear sRGB colorspace, and constructors such as `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood. 
+  - This allows drop-in use of colors from most applications.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 
