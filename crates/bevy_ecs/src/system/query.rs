@@ -353,7 +353,6 @@ impl<Q: HecsQuery> ChunkIter<Q> {
 }
 
 /// Batched version of `QueryIter`
-#[derive(Debug)]
 pub struct ParIter<'q, 'w, Q: HecsQuery> {
     borrow: &'q mut QueryBorrowChecked<'w, Q>,
     archetype_index: usize,

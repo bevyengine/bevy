@@ -8,7 +8,6 @@ use bevy_ecs::{Resources, World};
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::borrow::Cow;
 
-#[derive(Debug)]
 pub struct WindowTextureNode {
     window_id: WindowId,
     descriptor: TextureDescriptor,

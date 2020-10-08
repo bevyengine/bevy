@@ -1,6 +1,5 @@
 use crate::app_builder::AppBuilder;
 use bevy_ecs::{ParallelExecutor, Resources, Schedule, World};
-use std::fmt;
 
 #[allow(clippy::needless_doctest_main)]
 /// Containers of app logic and data
@@ -32,20 +31,6 @@ pub struct App {
     pub executor: ParallelExecutor,
     pub startup_schedule: Schedule,
     pub startup_executor: ParallelExecutor,
-}
-
-impl fmt::Debug for App {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("App")
-            .field("world", &self.world)
-            .field("resources", &self.resources)
-            .field("runner", &(self.runner.as_ref() as *const dyn Fn(App)))
-            .field("schedule", &self.schedule)
-            .field("executor", &self.executor)
-            .field("startup_schedule", &self.startup_schedule)
-            .field("startup_executor", &self.startup_executor)
-            .finish()
-    }
 }
 
 impl Default for App {

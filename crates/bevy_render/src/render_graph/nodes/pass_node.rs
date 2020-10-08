@@ -59,7 +59,6 @@ impl<Q: HecsQuery> fmt::Debug for PassNode<Q> {
                 "camera_bind_group_descriptor",
                 &self.camera_bind_group_descriptor,
             )
-            .field("_marker", &self._marker)
             .finish()
     }
 }

@@ -6,7 +6,7 @@ use syn::{
     parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
 };
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct VertexAttributes {
     pub ignore: bool,
     pub instance: bool,

@@ -10,7 +10,6 @@ use serde::{
     Deserialize, Serialize,
 };
 
-#[derive(Debug)]
 pub struct SceneSerializer<'a> {
     pub scene: &'a Scene,
     pub registry: &'a PropertyTypeRegistry,
@@ -38,7 +37,6 @@ impl<'a> Serialize for SceneSerializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct EntitySerializer<'a> {
     pub entity: &'a Entity,
     pub registry: &'a PropertyTypeRegistry,
@@ -62,7 +60,6 @@ impl<'a> Serialize for EntitySerializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct ComponentsSerializer<'a> {
     pub components: &'a [DynamicProperties],
     pub registry: &'a PropertyTypeRegistry,
@@ -84,7 +81,6 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct SceneDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
 }
@@ -105,7 +101,6 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 struct SceneEntitySeqVisiter<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
 }
@@ -132,7 +127,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntitySeqVisiter<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct SceneEntityDeserializer<'a> {
     pub property_type_registry: &'a PropertyTypeRegistry,
 }
@@ -154,7 +148,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneEntityDeserializer<'a> {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
     Entity,
@@ -217,7 +211,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisiter<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct ComponentVecDeserializer<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }
@@ -235,7 +228,6 @@ impl<'a, 'de> DeserializeSeed<'de> for ComponentVecDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 struct ComponentSeqVisiter<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }

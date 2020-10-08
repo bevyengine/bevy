@@ -5,7 +5,7 @@ use bevy_app::{
 };
 use bevy_ecs::{Local, Res, ResMut};
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct ExitOnWindowCloseState {
     event_reader: EventReader<WindowCloseRequested>,
 }

@@ -14,7 +14,7 @@ use bevy_property::Properties;
 use bevy_window::WindowId;
 
 /// A component that indicates that an entity should be drawn in the "main pass"
-#[derive(Debug, Default, Properties)]
+#[derive(Default, Properties)]
 pub struct MainPass;
 
 #[derive(Debug)]

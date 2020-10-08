@@ -4,7 +4,6 @@ use bevy_render::texture::{Texture, TextureFormat};
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
 
-#[derive(Debug)]
 pub struct FontAtlas {
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     pub glyph_to_index: HashMap<char, u32>,

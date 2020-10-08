@@ -3,7 +3,7 @@ use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuil
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TaskPoolThreadAssignmentPolicy {
     /// Force using at least this many threads
     pub min_threads: usize,
@@ -33,7 +33,7 @@ impl TaskPoolThreadAssignmentPolicy {
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
 /// insert the default task pools into the resource map manually. If the pools are already inserted,
 /// this helper will do nothing.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DefaultTaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using min_total_threads
     pub min_total_threads: usize,

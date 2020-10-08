@@ -30,6 +30,7 @@ pub trait WorldWriter: Send + Sync {
     fn write(self: Box<Self>, world: &mut World);
 }
 
+#[derive(Debug)]
 pub(crate) struct Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,

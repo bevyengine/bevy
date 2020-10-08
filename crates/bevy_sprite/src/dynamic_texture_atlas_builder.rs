@@ -3,28 +3,10 @@ use bevy_asset::Assets;
 use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use guillotiere::{size2, Allocation, AtlasAllocator};
-use std::fmt;
 
 pub struct DynamicTextureAtlasBuilder {
     pub atlas_allocator: AtlasAllocator,
     pub padding: i32,
-}
-
-impl fmt::Debug for DynamicTextureAtlasBuilder {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        struct NoDebug;
-
-        impl fmt::Debug for NoDebug {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "Type doesn't implement Debug")
-            }
-        }
-
-        f.debug_struct("DynamicTextureAtlasBuilder")
-            .field("atlas_allocator", &NoDebug)
-            .field("padding", &self.padding)
-            .finish()
-    }
 }
 
 impl DynamicTextureAtlasBuilder {

@@ -1,7 +1,6 @@
 use super::{BufferId, SamplerId, TextureId};
 use crate::texture::Texture;
 use bevy_asset::Handle;
-use std::fmt;
 
 use bevy_core::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
@@ -93,18 +92,6 @@ pub trait RenderResources: Send + Sync + 'static {
 pub struct RenderResourceIterator<'a> {
     render_resources: &'a dyn RenderResources,
     index: usize,
-}
-
-impl fmt::Debug for RenderResourceIterator<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("RenderResourceIterator")
-            .field(
-                "render_resources",
-                &(self.render_resources as *const dyn RenderResources),
-            )
-            .field("index", &self.index)
-            .finish()
-    }
 }
 
 impl<'a> RenderResourceIterator<'a> {

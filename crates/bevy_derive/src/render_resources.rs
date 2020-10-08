@@ -5,13 +5,13 @@ use syn::{
     parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Path,
 };
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct RenderResourceFieldAttributes {
     pub ignore: bool,
     pub buffer: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct RenderResourceAttributes {
     pub from_self: bool,
 }

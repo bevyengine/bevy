@@ -10,7 +10,7 @@ use bevy_utils::HashMap;
 // work around rust's f32 order/hash limitations
 type FontSizeKey = FloatOrd;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct FontAtlasSet {
     font: Handle<Font>,
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,

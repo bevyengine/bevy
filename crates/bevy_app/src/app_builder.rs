@@ -7,7 +7,6 @@ use crate::{
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
 /// Configure [App]s using the builder pattern
-#[derive(Debug)]
 pub struct AppBuilder {
     pub app: App,
 }

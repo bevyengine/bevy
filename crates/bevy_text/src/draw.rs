@@ -30,7 +30,6 @@ impl Default for TextStyle {
     }
 }
 
-#[derive(Debug)]
 pub struct DrawableText<'a> {
     pub font: &'a Font,
     pub font_atlas_set: &'a FontAtlasSet,

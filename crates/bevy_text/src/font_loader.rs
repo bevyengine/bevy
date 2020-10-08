@@ -3,7 +3,7 @@ use anyhow::Result;
 use bevy_asset::AssetLoader;
 use std::path::Path;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct FontLoader;
 
 impl AssetLoader<Font> for FontLoader {

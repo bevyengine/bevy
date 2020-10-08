@@ -64,7 +64,6 @@ impl LoadState {
 }
 
 /// Loads assets from the filesystem on background threads
-#[derive(Debug)]
 pub struct AssetServer {
     asset_folders: RwLock<Vec<PathBuf>>,
     asset_handlers: RwLock<Vec<Arc<dyn AssetLoadRequestHandler>>>,

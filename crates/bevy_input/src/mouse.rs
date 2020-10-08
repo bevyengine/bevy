@@ -43,7 +43,7 @@ pub struct MouseWheel {
 }
 
 /// State used by the mouse button input system
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MouseButtonInputState {
     mouse_button_input_event_reader: EventReader<MouseButtonInput>,
 }

@@ -14,7 +14,7 @@ use syn::{
     Data, DataStruct, DeriveInput, Field, Fields, Generics, Ident, Index, Member,
 };
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 struct PropAttributeArgs {
     pub ignore: Option<bool>,
 }
@@ -297,7 +297,6 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
     })
 }
 
-#[derive(Debug)]
 struct PropertyDef {
     type_name: Ident,
     generics: Generics,

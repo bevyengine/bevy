@@ -5,7 +5,6 @@ use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize,
 };
-use std::fmt;
 
 pub const TYPE_FIELD: &str = "type";
 pub const MAP_FIELD: &str = "map";
@@ -15,21 +14,6 @@ pub const VALUE_FIELD: &str = "value";
 pub enum Serializable<'a> {
     Owned(Box<dyn erased_serde::Serialize + 'a>),
     Borrowed(&'a dyn erased_serde::Serialize),
-}
-
-impl fmt::Debug for Serializable<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Serializable::Owned(serialize) => f
-                .debug_tuple("Owned")
-                .field(&(serialize.as_ref() as *const dyn erased_serde::Serialize))
-                .finish(),
-            Serializable::Borrowed(serialize) => f
-                .debug_tuple("Borrowed")
-                .field(&(*serialize as *const dyn erased_serde::Serialize))
-                .finish(),
-        }
-    }
 }
 
 impl<'a> Serializable<'a> {
@@ -42,7 +26,6 @@ impl<'a> Serializable<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct PropertyValueSerializer<'a, T>
 where
     T: Property + Serialize,
@@ -78,7 +61,6 @@ where
     }
 }
 
-#[derive(Debug)]
 pub struct DynamicPropertiesSerializer<'a> {
     pub dynamic_properties: &'a DynamicProperties,
     pub registry: &'a PropertyTypeRegistry,
@@ -118,15 +100,6 @@ impl<'a> Serialize for DynamicPropertiesSerializer<'a> {
 pub struct MapSerializer<'a> {
     pub properties: &'a dyn Properties,
     pub registry: &'a PropertyTypeRegistry,
-}
-
-impl fmt::Debug for MapSerializer<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("MapSerializer")
-            .field("properties", &(self.properties as *const dyn Properties))
-            .field("registry", self.registry)
-            .finish()
-    }
 }
 
 impl<'a> MapSerializer<'a> {
@@ -169,15 +142,6 @@ pub struct MapValueSerializer<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }
 
-impl fmt::Debug for MapValueSerializer<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("MapValueSerializer")
-            .field("properties", &(self.properties as *const dyn Properties))
-            .field("registry", self.registry)
-            .finish()
-    }
-}
-
 impl<'a> Serialize for MapValueSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -195,15 +159,6 @@ impl<'a> Serialize for MapValueSerializer<'a> {
 pub struct SeqSerializer<'a> {
     pub properties: &'a dyn Properties,
     pub registry: &'a PropertyTypeRegistry,
-}
-
-impl fmt::Debug for SeqSerializer<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("SeqSerializer")
-            .field("properties", &(self.properties as *const dyn Properties))
-            .field("registry", self.registry)
-            .finish()
-    }
 }
 
 impl<'a> SeqSerializer<'a> {
@@ -241,15 +196,6 @@ pub struct SeqValueSerializer<'a> {
     pub registry: &'a PropertyTypeRegistry,
 }
 
-impl fmt::Debug for SeqValueSerializer<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("SeqValueSerializer")
-            .field("properties", &(self.properties as *const dyn Properties))
-            .field("registry", self.registry)
-            .finish()
-    }
-}
-
 impl<'a> Serialize for SeqValueSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -263,7 +209,6 @@ impl<'a> Serialize for SeqValueSerializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct DynamicPropertiesDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -287,7 +232,6 @@ impl<'a, 'de> DeserializeSeed<'de> for DynamicPropertiesDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 struct DynamicPropertiesVisiter<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -310,7 +254,6 @@ impl<'a, 'de> Visitor<'de> for DynamicPropertiesVisiter<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct PropertyDeserializer<'a> {
     type_name: Option<&'a str>,
     registry: &'a PropertyTypeRegistry,
@@ -336,7 +279,6 @@ impl<'a, 'de> DeserializeSeed<'de> for PropertyDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct SeqPropertyDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -354,7 +296,6 @@ impl<'a, 'de> DeserializeSeed<'de> for SeqPropertyDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct SeqPropertyVisiter<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -381,7 +322,6 @@ impl<'a, 'de> Visitor<'de> for SeqPropertyVisiter<'a> {
     }
 }
 
-#[derive(Debug)]
 pub struct MapPropertyDeserializer<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -405,7 +345,6 @@ impl<'a, 'de> DeserializeSeed<'de> for MapPropertyDeserializer<'a> {
     }
 }
 
-#[derive(Debug)]
 struct MapPropertyVisiter<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -434,7 +373,6 @@ impl<'a, 'de> Visitor<'de> for MapPropertyVisiter<'a> {
     }
 }
 
-#[derive(Debug)]
 struct AnyPropVisiter<'a> {
     registry: &'a PropertyTypeRegistry,
 }
@@ -551,20 +489,6 @@ impl<'a, 'de> Visitor<'de> for AnyPropVisiter<'a> {
 enum DynamicPropertiesOrProperty {
     DynamicProperties(DynamicProperties),
     Property(Box<dyn Property>),
-}
-
-impl fmt::Debug for DynamicPropertiesOrProperty {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            DynamicPropertiesOrProperty::DynamicProperties(props) => {
-                f.debug_tuple("DynamicProperties").field(props).finish()
-            }
-            DynamicPropertiesOrProperty::Property(prop) => f
-                .debug_tuple("Property")
-                .field(&(prop.as_ref() as *const dyn Property))
-                .finish(),
-        }
-    }
 }
 
 fn visit_map<'de, V>(

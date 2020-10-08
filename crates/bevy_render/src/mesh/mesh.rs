@@ -492,7 +492,7 @@ fn remove_current_mesh_resources(
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
     vertex_buffer_descriptor: Option<&'static VertexBufferDescriptor>,

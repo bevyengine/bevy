@@ -10,7 +10,7 @@ use bevy_render::{
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// A component bundle for "pbr mesh" entities
-#[derive(Debug, Bundle)]
+#[derive(Bundle)]
 pub struct PbrComponents {
     pub mesh: Handle<Mesh>,
     pub material: Handle<StandardMaterial>,
@@ -20,6 +20,8 @@ pub struct PbrComponents {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
+
+
 
 impl Default for PbrComponents {
     fn default() -> Self {

@@ -12,7 +12,6 @@ pub struct PrintDiagnosticsPlugin {
 }
 
 /// State used by the [PrintDiagnosticsPlugin]
-#[derive(Debug)]
 pub struct PrintDiagnosticsState {
     timer: Timer,
     filter: Option<Vec<DiagnosticId>>,

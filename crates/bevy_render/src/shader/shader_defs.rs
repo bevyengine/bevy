@@ -3,7 +3,6 @@ use bevy_asset::{Assets, Handle};
 use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
 use bevy_ecs::{Query, Res};
-use std::fmt;
 
 /// Something that can either be "defined" or "not defined". This is used to determine if a "shader def" should be considered "defined"
 pub trait ShaderDef {
@@ -21,15 +20,6 @@ pub trait ShaderDefs {
 pub struct ShaderDefIterator<'a> {
     shader_defs: &'a dyn ShaderDefs,
     index: usize,
-}
-
-impl fmt::Debug for ShaderDefIterator<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ShaderDefIterator")
-            .field("shader_defs", &(self.shader_defs as *const dyn ShaderDefs))
-            .field("index", &self.index)
-            .finish()
-    }
 }
 
 impl<'a> ShaderDefIterator<'a> {

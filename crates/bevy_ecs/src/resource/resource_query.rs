@@ -201,6 +201,7 @@ impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
 }
 
 /// Fetches a shared resource reference
+#[derive(Debug)]
 pub struct FetchResourceRead<T>(NonNull<T>);
 
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
@@ -230,6 +231,7 @@ impl<'a, T: Resource> ResourceQuery for ChangedRes<'a, T> {
 }
 
 /// Fetches a shared resource reference
+#[derive(Debug)]
 pub struct FetchResourceChanged<T>(NonNull<T>);
 
 impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {

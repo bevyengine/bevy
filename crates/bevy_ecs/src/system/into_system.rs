@@ -135,7 +135,6 @@ macro_rules! impl_into_foreach_system {
     };
 }
 
-#[derive(Debug)]
 struct QuerySystemState {
     archetype_accesses: Vec<ArchetypeAccess>,
     commands: Commands,

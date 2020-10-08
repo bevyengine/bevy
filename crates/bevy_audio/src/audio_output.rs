@@ -19,16 +19,7 @@ where
     P: Decodable,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        struct NoDebug;
-
-        impl fmt::Debug for NoDebug {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "Type doesn't implement Debug")
-            }
-        }
-
         f.debug_struct("AudioOutput")
-            .field("device", &NoDebug)
             .field("queue", &self.queue)
             .finish()
     }

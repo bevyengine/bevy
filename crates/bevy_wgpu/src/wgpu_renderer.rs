@@ -8,7 +8,6 @@ use bevy_render::{
 use bevy_window::{WindowCreated, WindowResized, Windows};
 use std::{ops::Deref, sync::Arc};
 
-#[derive(Debug)]
 pub struct WgpuRenderer {
     pub instance: wgpu::Instance,
     pub device: Arc<wgpu::Device>,
