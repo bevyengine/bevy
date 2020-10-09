@@ -14,7 +14,7 @@ use thiserror::Error;
 use bevy_utils::HashMap;
 use std::hash::{Hash, Hasher};
 
-pub const INDEX_BUFFER_ASSET_INDEX: usize = 0;
+pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),

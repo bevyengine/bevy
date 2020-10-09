@@ -38,7 +38,7 @@ layout(set = 2, binding = 1) uniform TextureAtlasSprite {
 void main() {
     Rect sprite_rect = Textures[TextureAtlasSprite_index];
     vec2 sprite_dimensions = sprite_rect.end - sprite_rect.begin;
-    vec3 Vertex_Position = vec3(Vertex_Position.xy * sprite_dimensions, 0.0);
+    vec3 vertex_Position = vec3(Vertex_Position.xy * sprite_dimensions, 0.0);
     vec2 atlas_positions[4] = vec2[](
         vec2(sprite_rect.begin.x, sprite_rect.end.y),
         sprite_rect.begin,
@@ -47,5 +47,5 @@ void main() {
     );
     v_Uv = (atlas_positions[gl_VertexIndex] + vec2(0.01, 0.01)) / AtlasSize;
     v_Color = TextureAtlasSprite_color;
-    gl_Position = ViewProj * SpriteTransform * vec4(ceil(Vertex_Position), 1.0);
+    gl_Position = ViewProj * SpriteTransform * vec4(ceil(vertex_Position), 1.0);
 }

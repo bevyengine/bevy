@@ -131,7 +131,6 @@ impl PipelineDescriptor {
         bevy_conventions: bool,
         dynamic_bindings: &[DynamicBinding],
     ) {
-        println!("reflect layout");
         let vertex_spirv = shaders.get(&self.shader_stages.vertex).unwrap();
         let fragment_spirv = self
             .shader_stages

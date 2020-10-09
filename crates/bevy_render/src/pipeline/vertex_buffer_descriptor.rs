@@ -45,8 +45,9 @@ pub struct VertexAttributeDescriptor {
     pub shader_location: u32,
 }
 
-pub fn get_vertex_attribute_name_id(name: &str) -> usize {
-    let mut hasher = fnv::FnvHasher::default();
+/// Internally, `bevy_render` uses hashes to identify vertex attribute names.
+pub fn get_vertex_attribute_name_id(name: &str) -> u64 {
+    let mut hasher = bevy_utils::AHasher::default();
     hasher.write(&name.as_bytes());
-    hasher.finish() as usize //TODO: good enough for 32 bit systems?
+    hasher.finish()
 }

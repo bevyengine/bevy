@@ -8,8 +8,8 @@ use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;
 use bevy_utils::HashSet;
 
-pub const TEXTURE_ASSET_INDEX: usize = 0;
-pub const SAMPLER_ASSET_INDEX: usize = 1;
+pub const TEXTURE_ASSET_INDEX: u64 = 0;
+pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Clone)]
 pub struct Texture {
