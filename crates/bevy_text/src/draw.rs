@@ -63,7 +63,11 @@ impl<'a> Drawable for DrawableText<'a> {
                 render_resource_context.get_asset_resource(bevy_sprite::QUAD_HANDLE, name_id)
             {
                 draw.set_vertex_buffer(
-                    vertex_buffer_descriptor.attribute.shader_location,
+                    vertex_buffer_descriptor
+                        .attributes
+                        .get(0)
+                        .unwrap()
+                        .shader_location,
                     vertex_attr_buffer_id,
                     0,
                 );

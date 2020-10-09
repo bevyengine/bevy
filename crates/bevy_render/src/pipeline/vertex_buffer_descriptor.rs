@@ -9,7 +9,7 @@ pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
     pub stride: u64,
     pub step_mode: InputStepMode,
-    pub attribute: VertexAttributeDescriptor,
+    pub attributes: Vec<VertexAttributeDescriptor>,
 }
 
 impl VertexBufferDescriptor {
@@ -21,7 +21,7 @@ impl VertexBufferDescriptor {
             name: attribute.name.clone(),
             stride: attribute.format.get_size(),
             step_mode,
-            attribute: attribute.clone(),
+            attributes: vec![attribute.clone()],
         }
     }
 

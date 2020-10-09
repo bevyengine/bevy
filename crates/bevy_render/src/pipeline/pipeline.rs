@@ -152,7 +152,12 @@ impl PipelineDescriptor {
             if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
                 continue;
             }
-            vertex_buffer_descriptor.stride = vertex_buffer_descriptor.attribute.format.get_size();
+            vertex_buffer_descriptor.stride = vertex_buffer_descriptor
+                .attributes
+                .get(0)
+                .unwrap()
+                .format
+                .get_size();
         }
 
         if !dynamic_bindings.is_empty() {

@@ -338,7 +338,11 @@ impl<'a> DrawContext<'a> {
                     bindings.vertex_buffers.get(&vertex_buffer_descriptor.name)
                 {
                     draw.set_vertex_buffer(
-                        vertex_buffer_descriptor.attribute.shader_location,
+                        vertex_buffer_descriptor
+                            .attributes
+                            .get(0)
+                            .unwrap()
+                            .shader_location,
                         *vertex_buffer,
                         0,
                     );

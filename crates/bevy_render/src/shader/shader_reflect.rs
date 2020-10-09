@@ -76,7 +76,7 @@ impl ShaderLayout {
 
                     // create a new buffer descriptor per attribute
                     vertex_buffer_descriptors.push(VertexBufferDescriptor {
-                        attribute: vertex_attribute_descriptor,
+                        attributes: vec![vertex_attribute_descriptor],
                         name: current_buffer_name.into(),
                         step_mode: if instance {
                             InputStepMode::Instance
