@@ -182,8 +182,8 @@ pub fn winit_runner(mut app: App) {
 
         #[cfg(target_os = "windows")]
         if let Some(window_rename_events) = app.resources.get_mut::<Events<WindowRename>>() {
-            let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
-            for event in window_rename_event_reader.iter(&window_rename_events) {
+            if let Some(event) = window_rename_event_reader.latest(&window_rename_events) {
+                let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let window = winit_windows.get_window(event.id).unwrap();
                 window.set_title(&event.title);
             }
