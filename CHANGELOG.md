@@ -15,10 +15,12 @@
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
 
+
 [552]: https://github.com/bevyengine/bevy/pull/552
 [616]: https://github.com/bevyengine/bevy/pull/616
 [649]: https://github.com/bevyengine/bevy/pull/649
 [651]: https://github.com/bevyengine/bevy/pull/651
+
 
 ## Version 0.2.1 (2020-9-20)
 
