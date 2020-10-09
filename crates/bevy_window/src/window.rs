@@ -48,12 +48,26 @@ pub struct Window {
 
 #[derive(Debug)]
 pub enum WindowCommand {
-    SetWindowMode { mode: WindowMode },
-    SetTitle { title: String },
-    SetResolution { width: u32, height: u32 },
-    SetVsync { vsync: bool },
-    SetResizable { resizable: bool },
-    SetDecorations { decorations: bool },
+    SetWindowMode {
+        mode: WindowMode,
+        resolution: (u32, u32),
+    },
+    SetTitle {
+        title: String,
+    },
+    SetResolution {
+        width: u32,
+        height: u32,
+    },
+    SetVsync {
+        vsync: bool,
+    },
+    SetResizable {
+        resizable: bool,
+    },
+    SetDecorations {
+        decorations: bool,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -157,8 +171,10 @@ impl Window {
 
     pub fn set_mode(&mut self, mode: WindowMode) {
         self.mode = mode;
-        self.command_queue
-            .push(WindowCommand::SetWindowMode { mode });
+        self.command_queue.push(WindowCommand::SetWindowMode {
+            mode,
+            resolution: (self.width, self.height),
+        });
     }
 
     pub fn drain_commands<'a>(&'a mut self) -> impl Iterator<Item = WindowCommand> + 'a {
