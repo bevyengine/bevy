@@ -31,10 +31,17 @@ impl Plugin for WinitPlugin {
             .init_resource::<WinitWindows>()
             .set_runner(winit_runner)
             .add_system(change_window.system());
+
+        #[cfg(target_os = "windows")]
+        app.add_event::<WindowRename>();
     }
 }
 
-fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>) {
+fn change_window(
+    winit_windows: Res<WinitWindows>,
+    mut windows: ResMut<Windows>,
+    #[cfg(target_os = "windows")] mut rename_events: ResMut<Events<WindowRename>>,
+) {
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
         for command in bevy_window.drain_commands() {
@@ -62,8 +69,13 @@ fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>)
                     }
                 }
                 bevy_window::WindowCommand::SetTitle { title } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_title(&title);
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        let window = winit_windows.get_window(id).unwrap();
+                        window.set_title(&title);
+                    }
+                    #[cfg(target_os = "windows")]
+                    rename_events.send(WindowRename { id, title });
                 }
                 bevy_window::WindowCommand::SetResolution { width, height } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -81,6 +93,12 @@ fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>)
             }
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+struct WindowRename {
+    id: bevy_window::WindowId,
+    title: String,
 }
 
 fn run<F>(event_loop: EventLoop<()>, event_handler: F) -> !
@@ -131,6 +149,9 @@ pub fn winit_runner(mut app: App) {
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
+    #[cfg(target_os = "windows")]
+    let mut window_rename_event_reader = EventReader::<WindowRename>::default();
+
     handle_create_window_events(
         &mut app.resources,
         &event_loop,
@@ -156,6 +177,15 @@ pub fn winit_runner(mut app: App) {
         if let Some(app_exit_events) = app.resources.get_mut::<Events<AppExit>>() {
             if app_exit_event_reader.latest(&app_exit_events).is_some() {
                 *control_flow = ControlFlow::Exit;
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        if let Some(window_rename_events) = app.resources.get_mut::<Events<WindowRename>>() {
+            let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+            for event in window_rename_event_reader.iter(&window_rename_events) {
+                let window = winit_windows.get_window(event.id).unwrap();
+                window.set_title(&event.title);
             }
         }
 
