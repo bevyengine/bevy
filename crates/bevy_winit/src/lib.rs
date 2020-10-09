@@ -37,9 +37,7 @@ impl Plugin for WinitPlugin {
 fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>) {
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
-        let window_height = bevy_window.height();
-        let window_width = bevy_window.width();
-        for command in bevy_window.command_queue.drain(..) {
+        for command in bevy_window.drain_commands() {
             match command {
                 bevy_window::WindowCommand::SetWindowMode { mode } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -47,16 +45,19 @@ fn change_window(winit_windows: Res<WinitWindows>, mut windows: ResMut<Windows>)
                         bevy_window::WindowMode::BorderlessFullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
                         }
-                        bevy_window::WindowMode::Fullscreen { use_size } => window.set_fullscreen(
-                            Some(winit::window::Fullscreen::Exclusive(match use_size {
-                                true => get_fitting_videomode(
-                                    &window.current_monitor().unwrap(),
-                                    window_width,
-                                    window_height,
-                                ),
-                                false => get_best_videomode(&window.current_monitor().unwrap()),
-                            })),
-                        ),
+                        bevy_window::WindowMode::Fullscreen { use_size } => {
+                            let window_size = winit_windows.get_window(id).unwrap().inner_size();
+                            window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
+                                match use_size {
+                                    true => get_fitting_videomode(
+                                        &window.current_monitor().unwrap(),
+                                        window_size.width,
+                                        window_size.height,
+                                    ),
+                                    false => get_best_videomode(&window.current_monitor().unwrap()),
+                                },
+                            )))
+                        }
                         bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
                     }
                 }

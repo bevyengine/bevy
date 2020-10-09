@@ -1,4 +1,3 @@
-use smallvec::SmallVec;
 use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -44,8 +43,7 @@ pub struct Window {
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
-    #[doc(hidden)]
-    pub command_queue: SmallVec<[WindowCommand; 4]>,
+    command_queue: Vec<WindowCommand>,
 }
 
 #[derive(Debug)]
@@ -83,7 +81,7 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
-            command_queue: SmallVec::new(),
+            command_queue: Vec::new(),
         }
     }
 
@@ -115,7 +113,7 @@ impl Window {
         self.height = height;
     }
 
-    pub fn title(&'_ self) -> &'_ str {
+    pub fn title(&self) -> &str {
         &self.title
     }
 
@@ -161,6 +159,10 @@ impl Window {
         self.mode = mode;
         self.command_queue
             .push(WindowCommand::SetWindowMode { mode });
+    }
+
+    pub fn drain_commands<'a>(&'a mut self) -> impl Iterator<Item = WindowCommand> + 'a {
+        self.command_queue.drain(..)
     }
 }
 
