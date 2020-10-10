@@ -11,7 +11,7 @@ where
     P: Decodable,
 {
     device: Device,
-    queue: RwLock<VecDeque<Handle<P>>>,
+    queue: RwLock<VecDeque<(Handle<P>, f32)>>,
 }
 
 impl<P> fmt::Debug for AudioOutput<P>
@@ -44,13 +44,22 @@ where
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {
     pub fn play_source(&self, audio_source: &P) {
+        self.play_source_volume(audio_source, 1.0);
+    }
+
+    pub fn play_source_volume(&self, audio_source: &P, volume: f32) {
         let sink = Sink::new(&self.device);
+        sink.set_volume(volume);
         sink.append(audio_source.decoder());
         sink.detach();
     }
 
     pub fn play(&self, audio_source: Handle<P>) {
-        self.queue.write().push_front(audio_source);
+        self.play_volume(audio_source, 1.0);
+    }
+
+    pub fn play_volume(&self, audio_source: Handle<P>, volume: f32) {
+        self.queue.write().push_front((audio_source, volume));
     }
 
     pub fn try_play_queued(&self, audio_sources: &Assets<P>) {
@@ -58,12 +67,12 @@ where
         let len = queue.len();
         let mut i = 0;
         while i < len {
-            let audio_source_handle = queue.pop_back().unwrap();
+            let (audio_source_handle, volume) = queue.pop_back().unwrap();
             if let Some(audio_source) = audio_sources.get(&audio_source_handle) {
-                self.play_source(audio_source);
+                self.play_source_volume(audio_source, volume);
             } else {
                 // audio source hasn't loaded yet. add it back to the queue
-                queue.push_front(audio_source_handle);
+                queue.push_front((audio_source_handle, volume));
             }
             i += 1;
         }
