@@ -1,0 +1,56 @@
+[package]
+name = "bevy_webgl2"
+version = "0.2.1"
+edition = "2018"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+description = "A webgl2 wasm32 render backend for Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+[features]
+default = ["bevy_winit"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.2.1" }
+bevy_asset = { path = "../bevy_asset", version = "0.2.1" }
+bevy_core = { path = "../bevy_core", version = "0.2.1" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.2.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
+bevy_render = { path = "../bevy_render", version = "0.2.1" }
+bevy_window = { path = "../bevy_window", version = "0.2.1" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.2.1" }
+bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
+winit = { version = "0.23.0", features = ["web-sys", "x11"], default-features = false }
+console_error_panic_hook = "0.1"
+console_log = "0.2"
+
+# other
+#futures-lite = "1.4.0"
+log = { version = "0.4", features = ["release_max_level_info"] }
+#crossbeam-channel = "0.4.4"
+#crossbeam-utils = "0.7.2"
+parking_lot = "0.11.0"
+web-sys = {version = "0.3.45", features = [
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'WebGlBuffer',
+  'WebGlRenderingContext',
+  'WebGl2RenderingContext',
+  'WebGlProgram',
+  'WebGlShader',
+  'Window',
+  'WebGlTexture',
+  'WebGlUniformLocation',
+  'WebGlActiveInfo',
+  'WebGlVertexArrayObject',
+]}
+wasm-bindgen = "0.2.68"
+cfg-if = "1.0.0"
+js-sys = "0.3.45"

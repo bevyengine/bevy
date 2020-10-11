@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{PipelineSpecialization, RenderPipeline, RenderPipelines},
     prelude::Draw,
     render_graph::base::MainPass,
 };
@@ -31,18 +31,7 @@ impl Default for SpriteComponents {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 SPRITE_PIPELINE_HANDLE,
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // Sprite
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "Sprite_size".to_string()],
                     ..Default::default()
                 },
             )]),
@@ -83,16 +72,8 @@ impl Default for SpriteSheetComponents {
                 SPRITE_SHEET_PIPELINE_HANDLE,
                 PipelineSpecialization {
                     dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // TextureAtlasSprite
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 1,
-                        },
+                        "Transform".to_string(),
+                        "TextureAtlasSprite".to_string(),
                     ],
                     ..Default::default()
                 },

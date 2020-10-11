@@ -2,6 +2,7 @@ use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
 use bevy_render::{
+    glsl_source,
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
@@ -12,6 +13,8 @@ use bevy_render::{
     texture::TextureFormat,
 };
 use bevy_type_registry::TypeUuid;
+
+use bevy_transform::prelude::GlobalTransform;
 
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
@@ -57,11 +60,11 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                include_str!("sprite_sheet.vert"),
+                glsl_source!("sprite_sheet.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("sprite_sheet.frag"),
+                glsl_source!("sprite_sheet.frag"),
             ))),
         })
     }
@@ -105,17 +108,18 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                include_str!("sprite.vert"),
+                glsl_source!("sprite.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                include_str!("sprite.frag"),
+                glsl_source!("sprite.frag"),
             ))),
         })
     }
 }
 
 pub mod node {
+    pub const TRANSFORM: &str = "transform";
     pub const COLOR_MATERIAL: &str = "color_material";
     pub const SPRITE: &str = "sprite";
     pub const SPRITE_SHEET: &str = "sprite_sheet";
@@ -128,6 +132,10 @@ pub trait SpriteRenderGraphBuilder {
 
 impl SpriteRenderGraphBuilder for RenderGraph {
     fn add_sprite_graph(&mut self, resources: &Resources) -> &mut Self {
+        self.add_system_node(
+            node::TRANSFORM,
+            RenderResourcesNode::<GlobalTransform>::new(true),
+        );
         self.add_system_node(
             node::COLOR_MATERIAL,
             AssetRenderResourcesNode::<ColorMaterial>::new(false),

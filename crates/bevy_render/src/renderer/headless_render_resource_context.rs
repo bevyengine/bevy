@@ -109,6 +109,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn create_render_pipeline(
         &self,
+        _source_pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_handle: Handle<PipelineDescriptor>,
         _pipeline_descriptor: &PipelineDescriptor,
         _shaders: &Assets<Shader>,

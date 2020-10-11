@@ -11,7 +11,7 @@ use bevy_render::{
     camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{PipelineSpecialization, RenderPipeline, RenderPipelines},
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -35,18 +35,7 @@ impl Default for NodeComponents {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
                     ..Default::default()
                 },
             )]),
@@ -81,18 +70,7 @@ impl Default for ImageComponents {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
                     ..Default::default()
                 },
             )]),
@@ -161,18 +139,7 @@ impl Default for ButtonComponents {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
                     ..Default::default()
                 },
             )]),

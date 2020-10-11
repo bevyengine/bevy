@@ -42,6 +42,9 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_wgpu")]
         group.add(bevy_wgpu::WgpuPlugin::default());
+
+        #[cfg(feature = "bevy_webgl2")]
+        self.add_plugin(bevy_webgl2::WebGL2Plugin::default());
     }
 }
 

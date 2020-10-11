@@ -24,3 +24,21 @@ pub struct ShaderLayout {
 }
 
 pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
+
+#[allow(unused_macros)]
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+macro_rules! glsl_source {
+    ($filename:expr) => {
+        include_str!($filename)
+    };
+}
+
+#[allow(unused_macros)]
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! glsl_source {
+    ($filename:expr) => {
+        include_str!(concat!("v300es/", $filename))
+    };
+}

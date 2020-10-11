@@ -32,19 +32,19 @@ use crate::prelude::*;
 use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
+use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem, Res};
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    DynamicBinding, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
+    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
     PrimitiveTopology, ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
     RenderGraph,
 };
-use renderer::{AssetRenderResourceBindings, RenderResourceBindings};
+use renderer::{AssetRenderResourceBindings, RenderResourceBindings, RenderResourceContext};
 use std::ops::Range;
 #[cfg(feature = "hdr")]
 use texture::HdrTextureLoader;
@@ -66,7 +66,7 @@ pub mod stage {
 
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,
 }
 
@@ -95,6 +95,7 @@ impl Plugin for RenderPlugin {
 
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
+            // .disable_stage(stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
             .add_stage_after(stage::DRAW, stage::RENDER)
             .add_stage_after(stage::RENDER, stage::POST_RENDER)
@@ -112,7 +113,6 @@ impl Plugin for RenderPlugin {
             .register_property::<Color>()
             .register_property::<Range<f32>>()
             .register_property::<ShaderSpecialization>()
-            .register_property::<DynamicBinding>()
             .register_property::<PrimitiveTopology>()
             .register_property::<IndexFormat>()
             .register_properties::<PipelineSpecialization>()
@@ -143,14 +143,13 @@ impl Plugin for RenderPlugin {
                 bevy_app::stage::POST_UPDATE,
                 camera::visible_entities_system.system(),
             )
-            // TODO: turn these "resource systems" into graph nodes and remove the RENDER_RESOURCE stage
-            .add_system_to_stage(
-                stage::RENDER_RESOURCE,
-                mesh::mesh_resource_provider_system.system(),
-            )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
                 Texture::texture_resource_system.system(),
+            )
+            .add_system_to_stage(
+                stage::RENDER_RESOURCE,
+                mesh::mesh_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
@@ -160,7 +159,8 @@ impl Plugin for RenderPlugin {
             .add_system_to_stage(
                 stage::POST_RENDER,
                 shader::clear_shader_defs_system.system(),
-            );
+            )
+            .add_system_to_stage(stage::POST_RENDER, flush_render_resource_context.system());
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();
@@ -181,4 +181,8 @@ impl Plugin for RenderPlugin {
             }
         }
     }
+}
+
+fn flush_render_resource_context(render_resource_context: Res<Box<dyn RenderResourceContext>>) {
+    render_resource_context.flush();
 }

@@ -30,6 +30,6 @@ winit = { version = "0.23.0", default-features = false }
 log = { version = "0.4", features = ["release_max_level_info"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { version = "0.23.0", features = ["web-sys"], default-features = false }
+winit = { version = "0.23.0", features = ["web-sys", "x11"], default-features = false }
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"

@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::shape,
-        pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+        pipeline::{PipelineDescriptor, PipelineSpecialization, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
         shader::{asset_shader_defs_system, ShaderDefs, ShaderStage, ShaderStages},
@@ -110,18 +110,7 @@ fn setup(
                 pipeline_handle.clone(),
                 // NOTE: in the future you wont need to manually declare dynamic bindings
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // MyMaterial_color
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "MyMaterial_color".to_string()],
                     ..Default::default()
                 },
             )]),
@@ -136,18 +125,7 @@ fn setup(
                 pipeline_handle,
                 // NOTE: in the future you wont need to manually declare dynamic bindings
                 PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // MyMaterial_color
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
+                    dynamic_bindings: vec!["Transform".to_string(), "MyMaterial_color".to_string()],
                     ..Default::default()
                 },
             )]),

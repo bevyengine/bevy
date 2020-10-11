@@ -18,7 +18,7 @@ use std::borrow::Cow;
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
-    pub dynamic_bindings: Vec<DynamicBinding>,
+    pub dynamic_bindings: Vec<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
@@ -59,12 +59,6 @@ struct SpecializedShader {
 struct SpecializedPipeline {
     pipeline: Handle<PipelineDescriptor>,
     specialization: PipelineSpecialization,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, Property)]
-pub struct DynamicBinding {
-    pub bind_group: u32,
-    pub binding: u32,
 }
 
 #[derive(Debug, Default)]
@@ -163,11 +157,12 @@ impl PipelineCompiler {
                 )
             });
 
-        specialized_descriptor.reflect_layout(
-            shaders,
+        specialized_descriptor.layout = Some(render_resource_context.reflect_pipeline_layout(
+            &shaders,
+            &specialized_descriptor.shader_stages,
             true,
             &pipeline_specialization.dynamic_bindings,
-        );
+        ));
 
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
@@ -228,6 +223,7 @@ impl PipelineCompiler {
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(
+            source_pipeline.clone_weak(),
             specialized_pipeline_handle.clone_weak(),
             pipelines.get(&specialized_pipeline_handle).unwrap(),
             &shaders,

@@ -12,11 +12,6 @@ pub struct TextureCopyNode {
     pub texture_event_reader: EventReader<AssetEvent<Texture>>,
 }
 
-pub const ALIGNMENT: usize = 256;
-fn get_aligned(data_size: f32) -> usize {
-    ALIGNMENT * ((data_size / ALIGNMENT as f32).ceil() as usize)
-}
-
 impl Node for TextureCopyNode {
     fn update(
         &mut self,
@@ -34,7 +29,9 @@ impl Node for TextureCopyNode {
                     if let Some(texture) = textures.get(handle) {
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let width = texture.size.x() as usize;
-                        let aligned_width = get_aligned(texture.size.x());
+                        let aligned_width = render_context
+                            .resources()
+                            .get_aligned_texture_size(texture.size.x() as usize);
                         let format_size = texture.format.pixel_size();
                         let mut aligned_data =
                             vec![0; format_size * aligned_width * texture.size.y() as usize];

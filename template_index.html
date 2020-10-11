@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-179077851-1"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'UA-179077851-1');
+    </script>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="css/bevy-example.css"/>
+  </head>
+  <script type="module">
+    import init from './wasm/${EXAMPLE}.js?ts=${TS}'
+    init()
+  </script>
+  <body>
+  </body>
+</html>

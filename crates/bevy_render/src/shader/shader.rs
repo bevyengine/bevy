@@ -123,11 +123,30 @@ impl Shader {
 
     #[allow(unused_variables)]
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
+        const WEBGL_300ES: &str = "#version 300 es";
+        #[cfg(not(target_arch = "wasm32"))]
+        let source = { ShaderSource::Spirv(self.get_spirv(macros)) };
+        #[cfg(target_arch = "wasm32")]
+        let source = {
+            let mut header = format!("{}\n", WEBGL_300ES);
+            if let Some(macros) = macros {
+                for m in macros.iter() {
+                    header.push_str(&format!("#define {}\n", m));
+                }
+            }
+            let postprocessed = if let ShaderSource::Glsl(source) = &self.source {
+                assert!(source.starts_with("#version"));
+                let eol_index = source.find('\n').expect("end of line");
+
+                source.replace(WEBGL_300ES, &header)
+            } else {
+                panic!("spirv shader is not supported");
+            };
+            log::info!("macros: {:?} postprocessed: {:#?}", macros, postprocessed);
+            ShaderSource::Glsl(postprocessed)
+        };
         Shader {
-            #[cfg(not(target_arch = "wasm32"))]
-            source: ShaderSource::Spirv(self.get_spirv(macros)),
-            #[cfg(target_arch = "wasm32")]
-            source: self.source.clone(),
+            source,
             stage: self.stage,
         }
     }

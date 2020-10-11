@@ -333,6 +333,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
     fn create_render_pipeline(
         &self,
+        _source_pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_handle: Handle<PipelineDescriptor>,
         pipeline_descriptor: &PipelineDescriptor,
         shaders: &Assets<Shader>,

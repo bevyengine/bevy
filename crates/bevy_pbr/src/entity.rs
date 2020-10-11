@@ -4,7 +4,7 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{PipelineSpecialization, RenderPipeline, RenderPipelines},
     render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -28,16 +28,8 @@ impl Default for PbrComponents {
                 FORWARD_PIPELINE_HANDLE,
                 PipelineSpecialization {
                     dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 2,
-                            binding: 0,
-                        },
-                        // StandardMaterial_albedo
-                        DynamicBinding {
-                            bind_group: 3,
-                            binding: 0,
-                        },
+                        "Transform".to_string(),
+                        "StandardMaterial_albedo".to_string(),
                     ],
                     ..Default::default()
                 },

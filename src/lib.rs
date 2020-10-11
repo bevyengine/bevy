@@ -172,3 +172,6 @@ pub mod wgpu {
 pub mod dynamic_plugin {
     pub use bevy_dynamic_plugin::*;
 }
+
+#[cfg(feature = "bevy_webgl2")]
+pub use bevy_webgl2 as webgl2;
