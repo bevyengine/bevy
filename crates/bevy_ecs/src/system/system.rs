@@ -37,21 +37,19 @@ pub trait System: Send + Sync {
 /// Provides information about the archetypes a [System] reads and writes
 #[derive(Debug, Default)]
 pub struct ArchetypeAccess {
-    pub immutable: FixedBitSet,
+    pub accessed: FixedBitSet, // union of both immutable and mutable
     pub mutable: FixedBitSet,
 }
 
 // credit to Ratysz from the Yaks codebase
 impl ArchetypeAccess {
     pub fn is_compatible(&self, other: &ArchetypeAccess) -> bool {
-        self.mutable.is_disjoint(&other.mutable)
-            && self.mutable.is_disjoint(&other.immutable)
-            && self.immutable.is_disjoint(&other.mutable)
+        self.mutable.is_disjoint(&other.accessed) && self.accessed.is_disjoint(&other.mutable)
     }
 
     pub fn union(&mut self, other: &ArchetypeAccess) {
         self.mutable.union_with(&other.mutable);
-        self.immutable.union_with(&other.immutable);
+        self.accessed.union_with(&other.accessed);
     }
 
     pub fn set_access_for_query<Q>(&mut self, world: &World)
@@ -60,20 +58,23 @@ impl ArchetypeAccess {
     {
         let iterator = world.archetypes();
         let bits = iterator.len();
-        self.immutable.grow(bits);
+        self.accessed.grow(bits);
         self.mutable.grow(bits);
         iterator
             .enumerate()
             .filter_map(|(index, archetype)| archetype.access::<Q>().map(|access| (index, access)))
             .for_each(|(archetype, access)| match access {
-                Access::Read => self.immutable.set(archetype, true),
-                Access::Write => self.mutable.set(archetype, true),
+                Access::Read => self.accessed.set(archetype, true),
+                Access::Write => {
+                    self.accessed.set(archetype, true);
+                    self.mutable.set(archetype, true);
+                }
                 Access::Iterate => (),
             });
     }
 
     pub fn clear(&mut self) {
-        self.immutable.clear();
+        self.accessed.clear();
         self.mutable.clear();
     }
 }
@@ -128,16 +129,16 @@ mod tests {
         let e2_archetype = world.get_entity_location(e2).unwrap().archetype as usize;
         let e3_archetype = world.get_entity_location(e3).unwrap().archetype as usize;
 
-        assert!(access.immutable.contains(e1_archetype));
-        assert!(access.immutable.contains(e2_archetype));
-        assert!(access.immutable.contains(e3_archetype));
+        assert!(access.accessed.contains(e1_archetype));
+        assert!(access.accessed.contains(e2_archetype));
+        assert!(access.accessed.contains(e3_archetype));
 
         let mut access = ArchetypeAccess::default();
         access.set_access_for_query::<(&A, &B)>(&world);
 
-        assert!(access.immutable.contains(e1_archetype) == false);
-        assert!(access.immutable.contains(e2_archetype));
-        assert!(access.immutable.contains(e3_archetype));
+        assert!(access.accessed.contains(e1_archetype) == false);
+        assert!(access.accessed.contains(e2_archetype));
+        assert!(access.accessed.contains(e3_archetype));
     }
 
     #[test]
