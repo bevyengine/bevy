@@ -3,7 +3,7 @@ use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
     prelude::Msaa,
-    renderer::RenderResourceBindings,
+    renderer::{RenderResourceBindings, RenderResourceContext},
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
@@ -73,6 +73,7 @@ impl Default for RenderPipelines {
 }
 
 pub fn draw_render_pipelines_system(
+    _render_resource_context: Res<Box<dyn RenderResourceContext>>,
     mut draw_context: DrawContext,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     msaa: Res<Msaa>,
