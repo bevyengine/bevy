@@ -219,8 +219,11 @@ impl CommandsInternal {
     }
 
     pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
-        self.commands
-            .push(Command::WriteWorld(Box::new(world_writer)));
+        self.write_world_boxed(Box::new(world_writer))
+    }
+
+    pub fn write_world_boxed(&mut self, world_writer: Box<dyn WorldWriter + 'static>) -> &mut Self {
+        self.commands.push(Command::WriteWorld(world_writer));
         self
     }
 
@@ -310,6 +313,11 @@ impl Commands {
 
     pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
         self.commands.lock().write_world(world_writer);
+        self
+    }
+
+    pub fn write_world_boxed(&mut self, world_writer: Box<dyn WorldWriter + 'static>) -> &mut Self {
+        self.commands.lock().write_world_boxed(world_writer);
         self
     }
 
