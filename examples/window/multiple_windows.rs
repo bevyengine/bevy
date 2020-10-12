@@ -74,7 +74,7 @@ fn setup(
             TextureAttachment::Input("color_attachment".to_string()),
             TextureAttachment::Input("color_resolve_target".to_string()),
             Operations {
-                load: LoadOp::Clear(Color::rgb(0.1, 0.1, 0.3)),
+                load: LoadOp::Clear(Color::rgb(0.5, 0.5, 0.8)),
                 store: true,
             },
         )],
@@ -159,7 +159,7 @@ fn setup(
 
     // create a material for the mesh
     let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.4, 0.3),
+        albedo: Color::rgb(0.8, 0.7, 0.6),
         ..Default::default()
     });
 

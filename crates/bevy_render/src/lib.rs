@@ -90,6 +90,10 @@ impl Plugin for RenderPlugin {
             app.add_asset_loader::<Texture, HdrTextureLoader>();
         }
 
+        if app.resources().get::<ClearColor>().is_none() {
+            app.resources_mut().insert(ClearColor::default());
+        }
+
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)

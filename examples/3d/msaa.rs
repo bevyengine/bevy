@@ -22,7 +22,7 @@ fn setup(
         // cube
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             ..Default::default()
         })
         // light
