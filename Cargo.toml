@@ -85,8 +85,7 @@ bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.2.1" }
 
 # bevy (Android)
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = "0.1"
-log = "0.4"
+ndk-glue = { version = "0.2", features = ["logger"] }
 android_logger = "0.9"
 
 [dev-dependencies]
