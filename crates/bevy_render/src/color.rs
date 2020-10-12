@@ -143,11 +143,11 @@ impl Color {
     }
 
     pub fn g(&self) -> f32 {
-        self.red.linear_to_nonlinear_srgb()
+        self.green.linear_to_nonlinear_srgb()
     }
 
     pub fn b(&self) -> f32 {
-        self.red.linear_to_nonlinear_srgb()
+        self.blue.linear_to_nonlinear_srgb()
     }
 
     // linear-sRGB Component Getter
