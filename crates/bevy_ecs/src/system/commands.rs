@@ -225,7 +225,7 @@ pub struct Commands {
 impl Commands {
     /// Creates a new entity with a given [DynamicBundle] (which is a 'set' of components) in the current [World].
     /// # Example
-    /// ```
+    /// ```no_run
     /// // An example with only one component (remember to put your component into a tuple)
     /// commands.spawn((MyComponent,));
     /// // An example using tuples
@@ -268,7 +268,7 @@ impl Commands {
 
     /// Despawns only the specified entity, ignoring any other consideration.
     /// # Example
-    /// ```
+    /// ```no_run
     /// commands
     ///     .despawn(EntitiyToDespawn);
     /// ```
@@ -278,7 +278,7 @@ impl Commands {
 
     /// Adds the given component to the current entity.
     /// # Example
-    /// ```
+    /// ```no_run
     /// commands
     ///     .spawn((MyFirstComponent,))
     ///     .with(MySecondComponent)
@@ -294,13 +294,13 @@ impl Commands {
     /// Adds a component bundle to an already existing entity.
     /// This is useful e.g. whenever you want to spawn a entity with more than one additional component.
     /// # Example
-    /// ```
+    /// ```no_run
     /// commands
     ///     .spawn((MyFirstComponent,))
     ///     .with_bundle((MySecondComponent, MyThirdComponent, MyFourthComponent));
     /// ```
     /// same as
-    /// ```
+    /// ```no_run
     /// commands
     ///     .spawn((MyFirstComponent,))
     ///     .with(MySecondComponent)
@@ -320,7 +320,7 @@ impl Commands {
 
     /// Adds components to an already existing entity.
     /// # Example
-    /// ```
+    /// ```no_run
     /// commands
     ///     .insert(MyEntity, (FirstComponent, SecondComponent, ThirdComponent));
     /// ```
@@ -334,12 +334,12 @@ impl Commands {
 
     /// Adds a single component to an already existing entity.
     /// # Example
-    /// ```
+    /// ```no_run
     /// commands
     ///     .insert_one(MyEntity, MyComponent);
     /// ```
     /// same as
-    /// ```
+    /// ```no_run
     /// commands
     ///     .insert(MyEntity, (MyComponent,));
     /// ```
