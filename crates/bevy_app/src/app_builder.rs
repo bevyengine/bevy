@@ -227,12 +227,30 @@ impl AppBuilder {
         self
     }
 
+    pub fn add_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
+    where
+        T: 'static,
+    {
+        self.app.resources.insert_thread_local(resource);
+        self
+    }
+
     pub fn init_resource<R>(&mut self) -> &mut Self
     where
         R: FromResources + Send + Sync + 'static,
     {
         let resource = R::from_resources(&self.app.resources);
         self.app.resources.insert(resource);
+
+        self
+    }
+
+    pub fn init_thread_local_resource<R>(&mut self) -> &mut Self
+    where
+        R: FromResources + 'static,
+    {
+        let resource = R::from_resources(&self.app.resources);
+        self.app.resources.insert_thread_local(resource);
 
         self
     }

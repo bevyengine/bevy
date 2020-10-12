@@ -1,34 +1,16 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_app::Events;
-use bevy_ecs::{Res, ResMut};
+use bevy_ecs::{Resources, World};
 use bevy_input::prelude::*;
 use gilrs::{Button, EventType, Gilrs};
-use std::sync::{Arc, Mutex};
 
-// TODO: remove this if/when bevy_ecs supports thread local resources
-#[derive(Debug)]
-struct GilrsSendWrapper(Gilrs);
-
-unsafe impl Send for GilrsSendWrapper {}
-
-#[derive(Debug)]
-pub struct GilrsArcMutexWrapper(Arc<Mutex<GilrsSendWrapper>>);
-
-impl GilrsArcMutexWrapper {
-    pub fn new(gilrs: Gilrs) -> GilrsArcMutexWrapper {
-        GilrsArcMutexWrapper(Arc::new(Mutex::new(GilrsSendWrapper(gilrs))))
-    }
-}
-
-pub fn gilrs_startup_system(
-    gilrs: Res<GilrsArcMutexWrapper>,
-    mut gamepad_event: ResMut<Events<GamepadEvent>>,
-    mut inputs: ResMut<Input<GamepadButton>>,
-    mut axes: ResMut<Axis<GamepadAxis>>,
-) {
+pub fn gilrs_startup_system(_world: &mut World, resources: &mut Resources) {
+    let gilrs = resources.get_thread_local::<Gilrs>().unwrap();
+    let mut gamepad_event = resources.get_mut::<Events<GamepadEvent>>().unwrap();
+    let mut inputs = resources.get_mut::<Input<GamepadButton>>().unwrap();
+    let mut axes = resources.get_mut::<Axis<GamepadAxis>>().unwrap();
     gamepad_event.update();
     inputs.update();
-    let gilrs = &gilrs.0.lock().unwrap().0;
     for (gilrs_id, gilrs_gamepad) in gilrs.gamepads() {
         connect_gamepad(
             gilrs_gamepad,
@@ -40,15 +22,14 @@ pub fn gilrs_startup_system(
     }
 }
 
-pub fn gilrs_update_system(
-    gilrs: Res<GilrsArcMutexWrapper>,
-    mut gamepad_event: ResMut<Events<GamepadEvent>>,
-    mut inputs: ResMut<Input<GamepadButton>>,
-    mut axes: ResMut<Axis<GamepadAxis>>,
-) {
+pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
+    let mut gilrs = resources.get_thread_local_mut::<Gilrs>().unwrap();
+    let mut gamepad_event = resources.get_mut::<Events<GamepadEvent>>().unwrap();
+    let mut inputs = resources.get_mut::<Input<GamepadButton>>().unwrap();
+    let mut axes = resources.get_mut::<Axis<GamepadAxis>>().unwrap();
+
     gamepad_event.update();
     inputs.update();
-    let gilrs = &mut gilrs.0.lock().unwrap().0;
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {
             EventType::Connected => {
