@@ -20,9 +20,9 @@ impl FromResources for ButtonMaterials {
     fn from_resources(resources: &Resources) -> Self {
         let mut materials = resources.get_mut::<Assets<ColorMaterial>>().unwrap();
         ButtonMaterials {
-            normal: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
-            hovered: materials.add(Color::rgb(0.05, 0.05, 0.05).into()),
-            pressed: materials.add(Color::rgb(0.1, 0.5, 0.1).into()),
+            normal: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
+            hovered: materials.add(Color::rgb(0.25, 0.25, 0.25).into()),
+            pressed: materials.add(Color::rgb(0.35, 0.75, 0.35).into()),
         }
     }
 }
@@ -85,7 +85,7 @@ fn setup(
                     font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                     style: TextStyle {
                         font_size: 40.0,
-                        color: Color::rgb(0.8, 0.8, 0.8),
+                        color: Color::rgb(0.9, 0.9, 0.9),
                     },
                 },
                 ..Default::default()

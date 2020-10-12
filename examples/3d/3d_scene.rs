@@ -19,24 +19,14 @@ fn setup(
         // plane
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
-            material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
+            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
             ..Default::default()
         })
         // cube
         .spawn(PbrComponents {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             transform: Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)),
-            ..Default::default()
-        })
-        // sphere
-        .spawn(PbrComponents {
-            mesh: meshes.add(Mesh::from(shape::Icosphere {
-                subdivisions: 4,
-                radius: 0.5,
-            })),
-            material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
-            transform: Transform::from_translation(Vec3::new(1.5, 1.5, 1.5)),
             ..Default::default()
         })
         // light

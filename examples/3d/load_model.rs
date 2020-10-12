@@ -22,7 +22,7 @@ fn setup(
                 .load("assets/models/monkey/Monkey.gltf")
                 .unwrap(),
             // create a material for the mesh
-            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             transform: Transform::from_translation(Vec3::new(-1.5, 0.0, 0.0)),
             ..Default::default()
         })
@@ -33,7 +33,7 @@ fn setup(
                 .load("assets/models/monkey/Monkey.glb")
                 .unwrap(),
             // create a material for the mesh
-            material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
+            material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
             transform: Transform::from_translation(Vec3::new(1.5, 0.0, 0.0)),
             ..Default::default()
         })

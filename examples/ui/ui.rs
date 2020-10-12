@@ -35,7 +35,7 @@ fn setup(
                         border: Rect::all(Val::Px(2.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.4, 0.4, 0.4).into()),
+                    material: materials.add(Color::rgb(0.65, 0.65, 0.65).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -47,7 +47,7 @@ fn setup(
                                 align_items: AlignItems::FlexEnd,
                                 ..Default::default()
                             },
-                            material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+                            material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
                             ..Default::default()
                         })
                         .with_children(|parent| {
@@ -77,7 +77,7 @@ fn setup(
                         size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.02, 0.02, 0.02).into()),
+                    material: materials.add(Color::rgb(0.15, 0.15, 0.15).into()),
                     ..Default::default()
                 })
                 // absolute positioning
@@ -93,7 +93,7 @@ fn setup(
                         border: Rect::all(Val::Px(20.0)),
                         ..Default::default()
                     },
-                    material: materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
+                    material: materials.add(Color::rgb(0.4, 0.4, 1.0).into()),
                     ..Default::default()
                 })
                 .with_children(|parent| {
@@ -102,7 +102,7 @@ fn setup(
                             size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                             ..Default::default()
                         },
-                        material: materials.add(Color::rgb(0.6, 0.6, 1.0).into()),
+                        material: materials.add(Color::rgb(0.8, 0.8, 1.0).into()),
                         ..Default::default()
                     });
                 })

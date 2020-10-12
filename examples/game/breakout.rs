@@ -9,7 +9,7 @@ fn main() {
     App::build()
         .add_default_plugins()
         .add_resource(Scoreboard { score: 0 })
-        .add_resource(ClearColor(Color::rgb(0.7, 0.7, 0.7)))
+        .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())
         .add_system(paddle_movement_system.system())
         .add_system(ball_collision_system.system())
@@ -47,7 +47,7 @@ fn setup(
         .spawn(UiCameraComponents::default())
         // paddle
         .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
+            material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -215.0, 0.0)),
             sprite: Sprite::new(Vec2::new(120.0, 30.0)),
             ..Default::default()
@@ -56,7 +56,7 @@ fn setup(
         .with(Collider::Solid)
         // ball
         .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(0.8, 0.2, 0.2).into()),
+            material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
             transform: Transform::from_translation(Vec3::new(0.0, -50.0, 1.0)),
             sprite: Sprite::new(Vec2::new(30.0, 30.0)),
             ..Default::default()
@@ -70,7 +70,7 @@ fn setup(
                 font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
                 value: "Score:".to_string(),
                 style: TextStyle {
-                    color: Color::rgb(0.2, 0.2, 0.8),
+                    color: Color::rgb(0.5, 0.5, 1.0),
                     font_size: 40.0,
                 },
             },
@@ -87,7 +87,7 @@ fn setup(
         });
 
     // Add walls
-    let wall_material = materials.add(Color::rgb(0.5, 0.5, 0.5).into());
+    let wall_material = materials.add(Color::rgb(0.8, 0.8, 0.8).into());
     let wall_thickness = 10.0;
     let bounds = Vec2::new(900.0, 600.0);
 
@@ -133,7 +133,7 @@ fn setup(
     let bricks_width = brick_columns as f32 * (brick_size.x() + brick_spacing) - brick_spacing;
     // center the bricks and move them up a bit
     let bricks_offset = Vec3::new(-(bricks_width - brick_size.x()) / 2.0, 100.0, 0.0);
-
+    let brick_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     for row in 0..brick_rows {
         let y_position = row as f32 * (brick_size.y() + brick_spacing);
         for column in 0..brick_columns {
@@ -145,7 +145,7 @@ fn setup(
             commands
                 // brick
                 .spawn(SpriteComponents {
-                    material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
+                    material: brick_material,
                     sprite: Sprite::new(brick_size),
                     transform: Transform::from_translation(brick_position),
                     ..Default::default()
