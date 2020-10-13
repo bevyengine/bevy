@@ -562,7 +562,7 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
     fn from(window: &Window) -> Self {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::default().wgpu_into(),
             width: window.width(),
             height: window.height(),
             present_mode: if window.vsync() {

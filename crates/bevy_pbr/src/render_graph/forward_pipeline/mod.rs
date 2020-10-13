@@ -34,7 +34,7 @@ pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDe
             },
         }),
         color_states: vec![ColorStateDescriptor {
-            format: TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::default(),
             color_blend: BlendDescriptor {
                 src_factor: BlendFactor::SrcAlpha,
                 dst_factor: BlendFactor::OneMinusSrcAlpha,
