@@ -25,6 +25,6 @@ bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 
 # other
-rectangle-pack = "0.1"
+rectangle-pack = "0.2"
 thiserror = "1.0"
 guillotiere = "0.6.0"

@@ -89,7 +89,7 @@ impl TextureAtlasBuilder {
                 rect_placements = None;
                 break;
             }
-            let mut target_bins = std::collections::HashMap::new();
+            let mut target_bins = std::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             atlas_texture = Texture::new_fill(
                 Vec2::new(current_width as f32, current_height as f32),
