@@ -7,9 +7,8 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
-use bevy_property::Properties;
 
-#[derive(Properties, Default, Clone)]
+#[derive(Default, Clone)] //TODO julian: no properties
 #[non_exhaustive]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
@@ -35,10 +34,10 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Properties, Clone)]
+#[derive(Clone)] //TODO julian: properties
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    #[property(ignore)]
+    //#[property(ignore)]  //TODO julian: properties
     pub bindings: RenderResourceBindings,
 }
 
@@ -95,6 +94,12 @@ pub fn draw_render_pipelines_system(
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
             pipeline.specialization.index_format = index_format;
+            pipeline.specialization.mesh_attribute_layout = mesh
+                .attribute_vertex_buffer_descriptor
+                .as_ref()
+                .unwrap()
+                .clone();
+            //TODO julian: is this a good idea?
         }
 
         for render_pipeline in render_pipelines.pipelines.iter() {
@@ -114,17 +119,8 @@ pub fn draw_render_pipelines_system(
                     ],
                 )
                 .unwrap();
-
-            // get pipeline layout to find binding slots for vertex buffers
-            let pipeline_descriptor = draw_context.get_pipeline_descriptor().unwrap();
-            let pipeline_layout = pipeline_descriptor.layout.as_ref().unwrap();
-
             draw_context
-                .set_vertex_buffers_from_bindings(
-                    &mut draw,
-                    &[&render_pipelines.bindings],
-                    &pipeline_layout.vertex_buffer_descriptors,
-                )
+                .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
 
             if let Some(indices) = index_range.clone() {

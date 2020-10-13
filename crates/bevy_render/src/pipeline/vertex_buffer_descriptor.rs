@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
     pub stride: u64,
@@ -37,6 +37,12 @@ pub enum InputStepMode {
     Instance = 1,
 }
 
+impl Default for InputStepMode {
+    fn default() -> Self {
+        InputStepMode::Vertex
+    }
+}
+
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct VertexAttributeDescriptor {
     pub name: Cow<'static, str>,
@@ -44,6 +50,8 @@ pub struct VertexAttributeDescriptor {
     pub format: VertexFormat,
     pub shader_location: u32,
 }
+
+//pub type StaticCowString = Cow<'static, str>; //TODO julian: use this?
 
 /// Internally, `bevy_render` uses hashes to identify vertex attribute names.
 pub fn get_vertex_attribute_name_id(name: &str) -> u64 {

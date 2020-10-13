@@ -7,7 +7,7 @@ use super::{
     BindType, DynamicBinding, PipelineLayout, StencilStateDescriptor,
 };
 use crate::{
-    shader::{Shader, ShaderStages, GL_VERTEX_INDEX},
+    shader::{Shader, ShaderStages},
     texture::TextureFormat,
 };
 use bevy_asset::Assets;
@@ -146,18 +146,18 @@ impl PipelineDescriptor {
         let mut layout = PipelineLayout::from_shader_layouts(&mut layouts);
 
         // just obtain the stride from the attribute itself, since we are always using float format
-        // TODO: support for different formats?
-        for vertex_buffer_descriptor in &mut layout.vertex_buffer_descriptors {
-            if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
-                continue;
-            }
-            vertex_buffer_descriptor.stride = vertex_buffer_descriptor
-                .attributes
-                .get(0)
-                .unwrap()
-                .format
-                .get_size();
-        }
+        // // TODO: support for different formats?
+        // for vertex_buffer_descriptor in &mut layout.vertex_buffer_descriptors {
+        //     if vertex_buffer_descriptor.name == GL_VERTEX_INDEX {
+        //         continue;
+        //     }
+        //     vertex_buffer_descriptor.stride = vertex_buffer_descriptor
+        //         .attributes
+        //         .get(0)
+        //         .unwrap()
+        //         .format
+        //         .get_size();
+        // }
 
         if !dynamic_bindings.is_empty() {
             // set binding uniforms to dynamic if render resource bindings use dynamic

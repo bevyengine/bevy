@@ -37,8 +37,7 @@ use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization,
+    DynamicBinding, PipelineCompiler, PipelineDescriptor, PrimitiveTopology, ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
@@ -100,7 +99,7 @@ impl Plugin for RenderPlugin {
             .add_asset::<PipelineDescriptor>()
             .register_component::<Camera>()
             .register_component::<Draw>()
-            .register_component::<RenderPipelines>()
+            //.register_component::<RenderPipelines>()//TODO julian: why is this a property?
             .register_component::<OrthographicProjection>()
             .register_component::<PerspectiveProjection>()
             .register_component::<MainPass>()
@@ -110,7 +109,7 @@ impl Plugin for RenderPlugin {
             .register_property::<ShaderSpecialization>()
             .register_property::<DynamicBinding>()
             .register_property::<PrimitiveTopology>()
-            .register_properties::<PipelineSpecialization>()
+            //.register_properties::<PipelineSpecialization>() //TODO julian: why is this a property?
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()
             .init_resource::<RenderResourceBindings>()

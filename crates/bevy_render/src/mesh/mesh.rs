@@ -1,17 +1,16 @@
 use crate::{
-    pipeline,
     pipeline::{PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
 use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
-use bevy_ecs::{Local, Query, Res};
+use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
 use std::borrow::Cow;
 use thiserror::Error;
 
-use bevy_utils::HashMap;
+use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
 use std::hash::{Hash, Hasher};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -59,9 +58,9 @@ impl From<&VertexAttributeValues> for VertexFormat {
     }
 }
 
+//TODO: replace by tuple?
 #[derive(Debug)]
 pub struct VertexAttributeData {
-    //TODO: replace by tuple?
     pub name: Cow<'static, str>,
     pub values: VertexAttributeValues, //TODO: the values aren't necessarily needed after been submitted to the GPU
 }
@@ -128,8 +127,9 @@ pub enum Indices {
 #[derive(Debug)]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
-    attributes: HashMap<Cow<'static, str>, VertexAttributeData>,
+    pub attributes: Vec<VertexAttributeData>,
     pub indices: Option<Indices>,
+    pub attribute_vertex_buffer_descriptor: Option<VertexBufferDescriptor>, //TODO julian: should not be Option
 }
 
 impl Mesh {
@@ -140,8 +140,9 @@ impl Mesh {
     ) -> Self {
         let mut mesh = Mesh {
             primitive_topology,
-            attributes: HashMap::default(),
+            attributes: Vec::default(),
             indices,
+            attribute_vertex_buffer_descriptor: None,
         };
         for attribute in attributes.drain(..) {
             mesh.insert_attribute(attribute);
@@ -152,28 +153,22 @@ impl Mesh {
     pub fn new_empty(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
-            attributes: HashMap::default(),
+            attributes: Vec::default(),
             indices: None,
+            attribute_vertex_buffer_descriptor: None,
         }
     }
 
     pub fn insert_attribute(&mut self, new_vertex_attribute: VertexAttributeData) {
-        self.attributes
-            .insert(new_vertex_attribute.name.clone(), new_vertex_attribute);
+        self.attributes.push(new_vertex_attribute);
     }
 
     pub fn get_attribute(&mut self, name: Cow<'static, str>) -> Option<&VertexAttributeData> {
-        self.attributes.get(&name)
+        self.attributes.iter().find(|x| x.name == name)
     }
 
     pub fn remove_attribute(&mut self, name: Cow<'static, str>) {
-        self.attributes.remove(&name);
-    }
-
-    pub fn iter_attribute(
-        &self,
-    ) -> std::collections::hash_map::Iter<'_, Cow<'static, str>, VertexAttributeData> {
-        self.attributes.iter()
+        self.attributes.retain(|x| x.name != name);
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
@@ -481,27 +476,25 @@ pub mod shape {
     }
 }
 
+fn remove_resource_save(
+    render_resource_context: &dyn RenderResourceContext,
+    handle: Handle<Mesh>,
+    index: u64,
+) {
+    if let Some(RenderResourceId::Buffer(buffer)) =
+        render_resource_context.get_asset_resource(handle, index)
+    {
+        render_resource_context.remove_buffer(buffer);
+        render_resource_context.remove_asset_resource(handle, index);
+    }
+}
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
     handle: Handle<Mesh>,
-    mesh: &Mesh,
 ) {
-    for attribute in mesh.attributes.iter() {
-        if let Some(RenderResourceId::Buffer(buffer)) = render_resource_context
-            .get_asset_resource(handle, pipeline::get_vertex_attribute_name_id(attribute.0))
-        {
-            render_resource_context.remove_buffer(buffer);
-            render_resource_context
-                .remove_asset_resource(handle, pipeline::get_vertex_attribute_name_id(attribute.0));
-        }
-    }
-
-    if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
-    {
-        render_resource_context.remove_buffer(buffer);
-        render_resource_context.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
-    }
+    remove_resource_save(render_resource_context, handle, VERTEX_ATTRIBUTE_BUFFER_ID);
+    remove_resource_save(render_resource_context, handle, VERTEX_FALLBACK_BUFFER_ID);
+    remove_resource_save(render_resource_context, handle, INDEX_BUFFER_ASSET_INDEX);
 }
 
 #[derive(Default)]
@@ -509,10 +502,12 @@ pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
 }
 
+const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10; //TODO julian: remove
+const VERTEX_FALLBACK_BUFFER_ID: u64 = 20; //TODO julian: remove
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    meshes: Res<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>, //TODO julian: make res again?
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
@@ -525,18 +520,10 @@ pub fn mesh_resource_provider_system(
             }
             AssetEvent::Modified { handle } => {
                 changed_meshes.insert(*handle);
-                remove_current_mesh_resources(
-                    render_resource_context,
-                    *handle,
-                    meshes.get(handle).unwrap(),
-                );
+                remove_current_mesh_resources(render_resource_context, *handle);
             }
             AssetEvent::Removed { handle } => {
-                remove_current_mesh_resources(
-                    render_resource_context,
-                    *handle,
-                    meshes.get(handle).unwrap(),
-                );
+                remove_current_mesh_resources(render_resource_context, *handle);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_meshes.remove(handle);
@@ -546,8 +533,8 @@ pub fn mesh_resource_provider_system(
 
     // update changed mesh data
     for changed_mesh_handle in changed_meshes.iter() {
-        if let Some(mesh) = meshes.get(changed_mesh_handle) {
-            // TODO: check for individual buffer changes
+        if let Some(mesh) = meshes.get_mut(changed_mesh_handle) {
+            // TODO: check for individual buffer changes in non-interleaved mode
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
@@ -562,22 +549,37 @@ pub fn mesh_resource_provider_system(
                 INDEX_BUFFER_ASSET_INDEX,
             );
 
-            for attribute in mesh.attributes.values() {
-                // TODO: use a staging buffer here
-                let attribute_buffer = render_resource_context.create_buffer_with_data(
+            // Vertex buffer
+            let vertex_count = mesh.attributes.first().unwrap().values.len(); //TODO julian: assert for different lengths of attributes, also move this somewhere else
+            let interleaved_buffer =
+                attributes_to_vertex_buffer_data(&mesh.attributes, vertex_count as u32);
+
+            mesh.attribute_vertex_buffer_descriptor = Some(interleaved_buffer.1);
+            render_resource_context.set_asset_resource(
+                *changed_mesh_handle,
+                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::VERTEX,
                         ..Default::default()
                     },
-                    &attribute.values.get_bytes(),
-                );
+                    &interleaved_buffer.0,
+                )),
+                VERTEX_ATTRIBUTE_BUFFER_ID, //TODO julian: pipeline::get_vertex_attribute_name_id(&attribute.name),
+            );
 
-                render_resource_context.set_asset_resource(
-                    *changed_mesh_handle,
-                    RenderResourceId::Buffer(attribute_buffer),
-                    pipeline::get_vertex_attribute_name_id(&attribute.name),
-                );
-            }
+            // Fallback buffer
+            // TODO julian: can be done with a 1 byte buffer + zero stride?
+            render_resource_context.set_asset_resource(
+                *changed_mesh_handle,
+                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    &vec![0; vertex_count * VertexFormat::Float4.get_size() as usize],
+                )),
+                VERTEX_FALLBACK_BUFFER_ID, //TODO julian: pipeline::get_vertex_attribute_name_id(&attribute.name),
+            );
         }
     }
 
@@ -598,17 +600,69 @@ pub fn mesh_resource_provider_system(
                     .set_index_buffer(index_buffer_resource);
             }
 
-            // set vertex buffers into bindings
-            for (name, _attribute) in mesh.iter_attribute() {
-                let attribute_name_id = pipeline::get_vertex_attribute_name_id(&name);
-                if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-                    render_resource_context.get_asset_resource(*handle, attribute_name_id)
-                {
-                    render_pipelines
-                        .bindings
-                        .set_vertex_buffer(name.clone(), vertex_buffer);
-                }
+            if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+                render_resource_context.get_asset_resource(*handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+            {
+                // set index buffer into binding
+                render_pipelines.bindings.vertex_attribute_buffer =
+                    Some(vertex_attribute_buffer_resource);
+            }
+            if let Some(RenderResourceId::Buffer(vertex_attribute_fallback_resource)) =
+                render_resource_context.get_asset_resource(*handle, VERTEX_FALLBACK_BUFFER_ID)
+            {
+                // set index buffer into binding
+                render_pipelines.bindings.vertex_fallback_buffer =
+                    Some(vertex_attribute_fallback_resource);
             }
         }
     }
+}
+
+pub fn attributes_to_vertex_buffer_data(
+    attributes: &[VertexAttributeData],
+    vertex_count: u32,
+) -> (Vec<u8>, VertexBufferDescriptor) {
+    // get existing attribute data as bytes and generate attribute descriptor
+    let mut attributes_gpu_ready = Vec::<(VertexAttributeDescriptor, Vec<u8>)>::default();
+    let mut accumulated_offset = 0;
+    //TODO: sort attribute data first! different attribute orders will introduce more pipeline specialisation than necessary
+    for attribute_data in attributes {
+        // TODO: allow for custom converter here
+        let vertex_format = VertexFormat::from(&attribute_data.values);
+        attributes_gpu_ready.push((
+            // this is not supposed to be used directly, as we don't know the shader location in advance
+            VertexAttributeDescriptor {
+                name: attribute_data.name.clone(),
+                offset: accumulated_offset,
+                format: vertex_format,
+                shader_location: 0,
+            },
+            attribute_data.values.get_bytes().to_vec(),
+        ));
+        accumulated_offset += vertex_format.get_size();
+    }
+
+    // TODO: make interleaved configurable? or call this function for each interleaved buffer?
+    let mut interleaved_buffer = Vec::<u8>::default();
+
+    // bundle into interleaved buffers
+    for vertex_index in 0..vertex_count {
+        let vertex_index = vertex_index as usize;
+        for attribute in &attributes_gpu_ready {
+            let bytes = &attribute.1;
+            let stride = bytes.len() / vertex_count as usize;
+            // insert one element
+            interleaved_buffer
+                .extend(&bytes[vertex_index * stride..vertex_index * stride + stride]);
+        }
+    }
+
+    let vertex_buffer_descriptor_reference = VertexBufferDescriptor {
+        name: Default::default(), //TODO: naming!
+        stride: accumulated_offset,
+        step_mode: InputStepMode::Vertex,
+        attributes: attributes_gpu_ready.iter().map(|x| x.0.clone()).collect(), //TODO: clone?
+    };
+
+    (interleaved_buffer, vertex_buffer_descriptor_reference)
 }

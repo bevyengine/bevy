@@ -1,8 +1,5 @@
 use crate::{
-    pipeline::{
-        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
-        VertexBufferDescriptor,
-    },
+    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,
@@ -330,32 +327,18 @@ impl<'a> DrawContext<'a> {
         &self,
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
-        vertex_buffer_descriptors: &[VertexBufferDescriptor],
     ) -> Result<(), DrawError> {
         for bindings in render_resource_bindings.iter() {
-            for vertex_buffer_descriptor in vertex_buffer_descriptors {
-                if let Some(vertex_buffer) =
-                    bindings.vertex_buffers.get(&vertex_buffer_descriptor.name)
-                {
-                    draw.set_vertex_buffer(
-                        vertex_buffer_descriptor
-                            .attributes
-                            .get(0)
-                            .unwrap()
-                            .shader_location,
-                        *vertex_buffer,
-                        0,
-                    );
-                } else {
-                    panic!(
-                        "Attribute {} is required by shader, but no vertex buffer was found.",
-                        &vertex_buffer_descriptor.name
-                    );
-                }
-            }
-
             if let Some(index_buffer) = bindings.index_buffer {
                 draw.set_index_buffer(index_buffer, 0);
+            }
+
+            //TODO: wip! actually figure out the binding slot?
+            if let Some(main_vertex_buffer) = bindings.vertex_attribute_buffer {
+                draw.set_vertex_buffer(0, main_vertex_buffer, 0);
+            }
+            if let Some(zeroed_vertex_buffer) = bindings.vertex_fallback_buffer {
+                draw.set_vertex_buffer(1, zeroed_vertex_buffer, 0);
             }
         }
         Ok(())

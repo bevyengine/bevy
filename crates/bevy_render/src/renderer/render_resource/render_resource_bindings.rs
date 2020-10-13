@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
-use std::{borrow::Cow, hash::Hash, ops::Range};
+use std::{hash::Hash, ops::Range};
 
 #[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -104,7 +104,10 @@ pub enum BindGroupStatus {
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
     bindings: HashMap<String, RenderResourceBinding>,
-    pub vertex_buffers: HashMap<Cow<'static, str>, BufferId>,
+    /// A Buffer that contains all attributes a mesh has defined
+    pub vertex_attribute_buffer: Option<BufferId>,
+    /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
+    pub vertex_fallback_buffer: Option<BufferId>,
     pub index_buffer: Option<BufferId>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
@@ -138,17 +141,28 @@ impl RenderResourceBindings {
         }
     }
 
-    pub fn get_vertex_buffer(&self, attribute_name: Cow<'static, str>) -> Option<BufferId> {
-        self.vertex_buffers.get(&attribute_name).cloned()
-    }
-
-    pub fn set_vertex_buffer(
-        &mut self,
-        attribute_name: Cow<'static, str>,
-        vertex_buffer: BufferId,
-    ) {
-        self.vertex_buffers.insert(attribute_name, vertex_buffer);
-    }
+    // TODO julian: needed?
+    // pub fn get_vertex_buffer(&self, attribute_name: Cow<'static, str>) -> Option<BufferId> {
+    //     unimplemented!();
+    //     //TODO:
+    //     // // TODO: hash based lookup?
+    //     // for vertex_buffer in &self.vertex_buffers {
+    //     //     for attribute in &vertex_buffer.0.attributes {
+    //     //         if attribute.name == attribute_name {
+    //     //             Some(vertex_buffer.1.clone())
+    //     //         }
+    //     //     }
+    //     // }
+    //     //
+    //     // None
+    // }
+    // pub fn set_vertex_buffer(
+    //     &mut self,
+    //     buffer_descriptor: VertexBufferDescriptor,
+    //     buffer_id: BufferId,
+    // ) {
+    //     self.vertex_buffers.push((buffer_descriptor, buffer_id));
+    // }
 
     pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
         self.index_buffer = Some(index_buffer);
