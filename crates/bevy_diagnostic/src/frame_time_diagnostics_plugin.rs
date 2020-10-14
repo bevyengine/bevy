@@ -21,10 +21,10 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
 
 impl FrameTimeDiagnosticsPlugin {
     pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
-    pub const FRAME_TIME: DiagnosticId =
-        DiagnosticId::from_u128(54021991829115352065418785002088010276);
     pub const FRAME_COUNT: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010277);
+    pub const FRAME_TIME: DiagnosticId =
+        DiagnosticId::from_u128(54021991829115352065418785002088010276);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20));
