@@ -1,4 +1,4 @@
-use bevy_utils::HashSet;
+use bevy_utils::{HashMap, HashSet};
 use std::hash::Hash;
 
 /// A "press-able" input of type `T`
@@ -7,6 +7,7 @@ pub struct Input<T> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,
     just_released: HashSet<T>,
+    values: HashMap<T, f32>,
 }
 
 impl<T> Default for Input<T> {
@@ -15,6 +16,7 @@ impl<T> Default for Input<T> {
             pressed: Default::default(),
             just_pressed: Default::default(),
             just_released: Default::default(),
+            values: Default::default(),
         }
     }
 }
@@ -52,6 +54,18 @@ where
         self.pressed.remove(&input);
         self.just_pressed.remove(&input);
         self.just_released.remove(&input);
+    }
+
+    pub fn set_value(&mut self, input: T, value: f32) {
+        if value > 0f32 {
+            self.values.insert(input, value);
+        } else {
+            self.values.remove(&input);
+        }
+    }
+
+    pub fn value(&self, input: T) -> Option<f32> {
+        self.values.get(&input).cloned()
     }
 
     pub fn update(&mut self) {

@@ -65,6 +65,14 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
                     ));
                 }
             }
+            EventType::ButtonChanged(gilrs_button, value, _) => {
+                if let Some(button_type) = convert_button(gilrs_button) {
+                    inputs.set_value(
+                        GamepadButton(convert_gamepad_id(gilrs_event.id), button_type),
+                        value,
+                    );
+                }
+            }
             EventType::AxisChanged(gilrs_axis, value, _) => {
                 if let Some(axis_type) = convert_axis(gilrs_axis) {
                     axes.set(

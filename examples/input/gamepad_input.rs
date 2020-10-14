@@ -63,6 +63,13 @@ fn button_system(manager: Res<Lobby>, inputs: Res<Input<GamepadButton>>) {
             } else if inputs.just_released(GamepadButton(*gamepad, *button_type)) {
                 println!("Released {:?}", GamepadButton(*gamepad, *button_type));
             }
+            if let Some(value) = inputs.value(GamepadButton(*gamepad, *button_type)) {
+                println!(
+                    "Value for {:?} is {:?}",
+                    GamepadButton(*gamepad, *button_type),
+                    value
+                );
+            }
         }
     }
 }
