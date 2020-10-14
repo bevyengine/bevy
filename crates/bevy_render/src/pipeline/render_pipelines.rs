@@ -7,8 +7,9 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res, ResMut};
+use bevy_property::Properties;
 
-#[derive(Default, Clone)] //TODO julian: no properties
+#[derive(Properties, Default, Clone)]
 #[non_exhaustive]
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
@@ -34,10 +35,10 @@ impl RenderPipeline {
     }
 }
 
-#[derive(Clone)] //TODO julian: properties
+#[derive(Properties, Clone)]
 pub struct RenderPipelines {
     pub pipelines: Vec<RenderPipeline>,
-    //#[property(ignore)]  //TODO julian: properties
+    #[property(ignore)]
     pub bindings: RenderResourceBindings,
 }
 

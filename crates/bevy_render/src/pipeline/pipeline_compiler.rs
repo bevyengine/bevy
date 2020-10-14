@@ -1,17 +1,18 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
+use crate::pipeline::VERTEX_FALLBACK_LAYOUT_NAME;
 use crate::{
     pipeline::{VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat},
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
-use bevy_property::Property;
+use bevy_property::{Properties, Property};
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-#[derive(Clone, Eq, PartialEq, Debug)] //TODO julian: derive Properties?
+#[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
@@ -169,7 +170,7 @@ impl PipelineCompiler {
             pipeline_specialization.mesh_attribute_layout.clone();
 
         let mut fallback_vertex_buffer_descirptor = VertexBufferDescriptor {
-            name: Cow::from("Fallback"),             //TODO julian: name acordingly
+            name: Cow::from(VERTEX_FALLBACK_LAYOUT_NAME), //TODO julian: name acordingly
             stride: VertexFormat::Float4.get_size(), //TODO julian: use smallest possible format!
             ..Default::default()
         };
@@ -196,11 +197,14 @@ impl PipelineCompiler {
                         shader_location: shader_vertex_attribute.shader_location,
                     });
             }
-        } //TODO julian: also add other buffers, like instancing?...
-        pipeline_layout.vertex_buffer_descriptors = vec![
-            mutated_vertex_buffer_descriptor,
-            fallback_vertex_buffer_descirptor,
-        ];
+        }
+        //TODO julian: also add other buffers, like instancing?...
+        let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
+        vertex_buffer_descriptors.push(mutated_vertex_buffer_descriptor);
+        if !fallback_vertex_buffer_descirptor.attributes.is_empty() {
+            vertex_buffer_descriptors.push(fallback_vertex_buffer_descirptor);
+        }
+        pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
         specialized_descriptor.sample_count = pipeline_specialization.sample_count;
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
         specialized_descriptor.index_format = pipeline_specialization.index_format;

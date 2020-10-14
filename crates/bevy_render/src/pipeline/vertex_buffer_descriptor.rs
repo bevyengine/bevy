@@ -1,10 +1,12 @@
 use super::VertexFormat;
+use bevy_property::Property;
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     hash::{Hash, Hasher},
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Property, Serialize, Deserialize)]
 pub struct VertexBufferDescriptor {
     pub name: Cow<'static, str>,
     pub stride: u64,
@@ -12,6 +14,7 @@ pub struct VertexBufferDescriptor {
     pub attributes: Vec<VertexAttributeDescriptor>,
 }
 
+pub const VERTEX_FALLBACK_LAYOUT_NAME: &str = "Fallback";
 impl VertexBufferDescriptor {
     pub fn new_from_attribute(
         attribute: VertexAttributeDescriptor,
@@ -31,7 +34,7 @@ impl VertexBufferDescriptor {
         self
     }
 }
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum InputStepMode {
     Vertex = 0,
     Instance = 1,
@@ -43,7 +46,7 @@ impl Default for InputStepMode {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct VertexAttributeDescriptor {
     pub name: Cow<'static, str>,
     pub offset: u64,

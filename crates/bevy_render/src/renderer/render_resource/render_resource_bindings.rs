@@ -141,29 +141,6 @@ impl RenderResourceBindings {
         }
     }
 
-    // TODO julian: needed?
-    // pub fn get_vertex_buffer(&self, attribute_name: Cow<'static, str>) -> Option<BufferId> {
-    //     unimplemented!();
-    //     //TODO:
-    //     // // TODO: hash based lookup?
-    //     // for vertex_buffer in &self.vertex_buffers {
-    //     //     for attribute in &vertex_buffer.0.attributes {
-    //     //         if attribute.name == attribute_name {
-    //     //             Some(vertex_buffer.1.clone())
-    //     //         }
-    //     //     }
-    //     // }
-    //     //
-    //     // None
-    // }
-    // pub fn set_vertex_buffer(
-    //     &mut self,
-    //     buffer_descriptor: VertexBufferDescriptor,
-    //     buffer_id: BufferId,
-    // ) {
-    //     self.vertex_buffers.push((buffer_descriptor, buffer_id));
-    // }
-
     pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
         self.index_buffer = Some(index_buffer);
     }
