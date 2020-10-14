@@ -47,6 +47,7 @@ pub enum CursorLockMode {
     Unlocked,
 }
 
+/// Event that should be sent when the cursor should be locked or unlocked.
 #[derive(Debug, Clone)]
 pub struct ChangeCursorLockState {
     pub id: WindowId,
@@ -59,6 +60,7 @@ pub enum CursorShowMode {
     Hide,
 }
 
+/// Event that should be sent when the cursor should be hidden or shown.
 #[derive(Debug, Clone)]
 pub struct ChangeCursorVisibility {
     pub id: WindowId,

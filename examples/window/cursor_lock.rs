@@ -1,5 +1,9 @@
-use bevy::prelude::*;
-use bevy::{window::{WindowId, ChangeCursorLockState, ChangeCursorVisibility, CursorShowMode, CursorLockMode}, winit::WinitWindows};
+use bevy::{
+    prelude::*,
+    window::{
+        ChangeCursorLockState, ChangeCursorVisibility, CursorLockMode, CursorShowMode, WindowId,
+    },
+};
 
 fn main() {
     App::build()
@@ -21,12 +25,12 @@ fn grab_cursor_system(
         let id = WindowId::primary();
 
         lock_state.send(ChangeCursorLockState {
-            id: id,
+            id,
             mode: CursorLockMode::Locked,
         });
 
         show_state.send(ChangeCursorVisibility {
-            id: id,
+            id,
             mode: CursorShowMode::Hide,
         });
     }
