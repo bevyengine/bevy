@@ -37,6 +37,8 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
+            .add_event::<ChangeCursorLockState>()
+            .add_event::<ChangeCursorVisibility>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
