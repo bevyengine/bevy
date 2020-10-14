@@ -24,7 +24,7 @@ impl FrameTimeDiagnosticsPlugin {
     pub const FRAME_COUNT: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010277);
     pub const FRAME_TIME: DiagnosticId =
-        DiagnosticId::from_u128(54021991829115352065418785002088010276);
+        DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20));
