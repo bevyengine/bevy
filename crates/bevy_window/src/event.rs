@@ -40,3 +40,27 @@ pub struct CursorMoved {
     pub id: WindowId,
     pub position: Vec2,
 }
+
+#[derive(Debug, Clone)]
+pub enum CursorLockMode {
+    Locked,
+    Unlocked,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChangeCursorLockState {
+    pub id: WindowId,
+    pub mode: CursorLockMode,
+}
+
+#[derive(Debug, Clone)]
+pub enum CursorShowMode {
+    Show,
+    Hide,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChangeCursorVisibility {
+    pub id: WindowId,
+    pub mode: CursorShowMode,
+}
