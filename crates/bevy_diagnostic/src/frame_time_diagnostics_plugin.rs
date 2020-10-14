@@ -8,7 +8,7 @@ use bevy_ecs::{IntoQuerySystem, Res, ResMut};
 pub struct FrameTimeDiagnosticsPlugin;
 
 pub struct FrameTimeDiagnosticsState {
-    frame_count: f64
+    frame_count: f64,
 }
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
@@ -20,8 +20,7 @@ impl Plugin for FrameTimeDiagnosticsPlugin {
 }
 
 impl FrameTimeDiagnosticsPlugin {
-    pub const FPS: DiagnosticId =
-        DiagnosticId::from_u128(288146834822086093791974408528866909483);
+    pub const FPS: DiagnosticId = DiagnosticId::from_u128(288146834822086093791974408528866909483);
     pub const FRAME_TIME: DiagnosticId =
         DiagnosticId::from_u128(54021991829115352065418785002088010276);
     pub const FRAME_COUNT: DiagnosticId =
