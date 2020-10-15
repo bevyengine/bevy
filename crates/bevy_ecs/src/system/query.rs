@@ -46,12 +46,8 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
                 .archetype_access
-                .immutable
+                .accessed
                 .contains(location.archetype as usize)
-                || self
-                    .archetype_access
-                    .mutable
-                    .contains(location.archetype as usize)
             {
                 // SAFE: we have already checked that the entity/component matches our archetype access. and systems are scheduled to run with safe archetype access
                 unsafe {
@@ -71,12 +67,8 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
                 .archetype_access
-                .immutable
+                .accessed
                 .contains(location.archetype as usize)
-                || self
-                    .archetype_access
-                    .mutable
-                    .contains(location.archetype as usize)
             {
                 // SAFE: we have already checked that the entity matches our archetype. and systems are scheduled to run with safe archetype access
                 Ok(unsafe {
@@ -205,11 +197,7 @@ impl<'w, Q: HecsQuery> QueryBorrowChecked<'w, Q> {
             );
         }
 
-        for index in self.archetype_access.immutable.ones() {
-            Q::Fetch::borrow(&self.archetypes[index]);
-        }
-
-        for index in self.archetype_access.mutable.ones() {
+        for index in self.archetype_access.accessed.ones() {
             Q::Fetch::borrow(&self.archetypes[index]);
         }
 
@@ -224,11 +212,7 @@ impl<'w, Q: HecsQuery> Drop for QueryBorrowChecked<'w, Q> {
     #[inline]
     fn drop(&mut self) {
         if self.borrowed {
-            for index in self.archetype_access.immutable.ones() {
-                Q::Fetch::release(&self.archetypes[index]);
-            }
-
-            for index in self.archetype_access.mutable.ones() {
+            for index in self.archetype_access.accessed.ones() {
                 Q::Fetch::release(&self.archetypes[index]);
             }
         }
