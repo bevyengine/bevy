@@ -32,8 +32,8 @@ fn setup(
             "assets/textures/rpg/chars/gabe/gabe-idle-run.png",
         )
         .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 7, 1);
+
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands
         .spawn(Camera2dComponents::default())
