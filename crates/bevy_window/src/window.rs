@@ -177,7 +177,7 @@ impl Window {
         });
     }
 
-    pub fn drain_commands<'a>(&'a mut self) -> impl Iterator<Item = WindowCommand> + 'a {
+    pub fn drain_commands(&mut self) -> impl Iterator<Item = WindowCommand> + '_ {
         self.command_queue.drain(..)
     }
 }
