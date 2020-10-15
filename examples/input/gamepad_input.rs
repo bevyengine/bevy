@@ -82,12 +82,10 @@ fn axis_system(manager: Res<Lobby>, axes: Res<Axis<GamepadAxis>>) {
     for gamepad in manager.gamepad.iter() {
         for axis_type in axis_types.iter() {
             let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
-            if let Some(delta) = axes.delta(gamepad_axis) {
-                if delta.abs() > 0.05f32 {
-                    if let Some(current) = axes.current(gamepad_axis) {
-                        println!("{:?} is {} with delta {}", gamepad_axis, current, delta);
-                    }
-                }
+            if let (Some(delta), Some(current)) =
+                (axes.delta(gamepad_axis), axes.current(gamepad_axis))
+            {
+                println!("{:?} is {} with delta {}", gamepad_axis, current, delta);
             }
         }
     }
