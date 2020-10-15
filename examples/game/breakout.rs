@@ -242,11 +242,8 @@ fn ball_collision_system(
                 }
 
                 // break if this collide is on a solid, otherwise continue check whether a solid is also in collision
-                match *collider {
-                    Collider::Solid => {
-                        break;
-                    }
-                    _ => {}
+                if let Collider::Solid = *collider {
+                    break;
                 }
             }
         }
