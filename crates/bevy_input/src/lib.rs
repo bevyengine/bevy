@@ -49,6 +49,7 @@ impl Plugin for InputPlugin {
             )
             .add_event::<GamepadEvent>()
             .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>();
+            .init_resource::<Axis<GamepadAxis>>()
+            .init_resource::<Axis<GamepadButton>>();
     }
 }

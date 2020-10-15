@@ -34,7 +34,11 @@ fn connection_system(mut lobby: ResMut<Lobby>, gamepad_event: Res<Events<Gamepad
     }
 }
 
-fn button_system(manager: Res<Lobby>, inputs: Res<Input<GamepadButton>>) {
+fn button_system(
+    manager: Res<Lobby>,
+    inputs: Res<Input<GamepadButton>>,
+    button_axes: Res<Axis<GamepadButton>>,
+) {
     let button_types = [
         GamepadButtonType::South,
         GamepadButtonType::East,
@@ -63,6 +67,15 @@ fn button_system(manager: Res<Lobby>, inputs: Res<Input<GamepadButton>>) {
             } else if inputs.just_released(GamepadButton(*gamepad, *button_type)) {
                 println!("Released {:?}", GamepadButton(*gamepad, *button_type));
             }
+            if let Some(value) = button_axes.get(&GamepadButton(*gamepad, *button_type)) {
+                if value_check(value) {
+                    println!(
+                        "Button as Axis {:?} is {}",
+                        GamepadButton(*gamepad, *button_type),
+                        value
+                    );
+                }
+            }
         }
     }
 }
@@ -81,13 +94,15 @@ fn axis_system(manager: Res<Lobby>, axes: Res<Axis<GamepadAxis>>) {
     for gamepad in manager.gamepad.iter() {
         for axis_type in axis_types.iter() {
             if let Some(value) = axes.get(&GamepadAxis(*gamepad, *axis_type)) {
-                if value.abs() > 0.01f32
-                    && (value - 1.0f32).abs() > 0.01f32
-                    && (value + 1.0f32).abs() > 0.01f32
-                {
+                if value_check(value) {
                     println!("Axis {:?} is {}", GamepadAxis(*gamepad, *axis_type), value);
                 }
             }
         }
     }
+}
+
+fn value_check(value: f32) -> bool {
+    let value = value.abs();
+    value > 0.1f32 && value < 0.9f32
 }

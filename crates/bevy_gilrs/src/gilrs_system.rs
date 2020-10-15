@@ -9,6 +9,7 @@ pub fn gilrs_startup_system(_world: &mut World, resources: &mut Resources) {
     let mut gamepad_event = resources.get_mut::<Events<GamepadEvent>>().unwrap();
     let mut inputs = resources.get_mut::<Input<GamepadButton>>().unwrap();
     let mut axes = resources.get_mut::<Axis<GamepadAxis>>().unwrap();
+    let mut button_axes = resources.get_mut::<Axis<GamepadButton>>().unwrap();
     gamepad_event.update();
     inputs.update();
     for (gilrs_id, gilrs_gamepad) in gilrs.gamepads() {
@@ -18,6 +19,7 @@ pub fn gilrs_startup_system(_world: &mut World, resources: &mut Resources) {
             &mut gamepad_event,
             &mut inputs,
             &mut axes,
+            &mut button_axes,
         );
     }
 }
@@ -27,6 +29,7 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
     let mut gamepad_event = resources.get_mut::<Events<GamepadEvent>>().unwrap();
     let mut inputs = resources.get_mut::<Input<GamepadButton>>().unwrap();
     let mut axes = resources.get_mut::<Axis<GamepadAxis>>().unwrap();
+    let mut button_axes = resources.get_mut::<Axis<GamepadButton>>().unwrap();
 
     gamepad_event.update();
     inputs.update();
@@ -39,6 +42,7 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
                     &mut gamepad_event,
                     &mut inputs,
                     &mut axes,
+                    &mut button_axes,
                 );
             }
             EventType::Disconnected => {
@@ -47,6 +51,7 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
                     &mut gamepad_event,
                     &mut inputs,
                     &mut axes,
+                    &mut button_axes,
                 );
             }
             EventType::ButtonPressed(gilrs_button, _) => {
@@ -63,6 +68,14 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
                         convert_gamepad_id(gilrs_event.id),
                         button_type,
                     ));
+                }
+            }
+            EventType::ButtonChanged(gilrs_button, value, _) => {
+                if let Some(button_type) = convert_button(gilrs_button) {
+                    button_axes.set(
+                        GamepadButton(convert_gamepad_id(gilrs_event.id), button_type),
+                        value,
+                    );
                 }
             }
             EventType::AxisChanged(gilrs_axis, value, _) => {
@@ -118,13 +131,17 @@ fn connect_gamepad(
     events: &mut Events<GamepadEvent>,
     inputs: &mut Input<GamepadButton>,
     axes: &mut Axis<GamepadAxis>,
+    button_axes: &mut Axis<GamepadButton>,
 ) {
     for gilrs_button in ALL_GILRS_BUTTONS.iter() {
         if let Some(button_type) = convert_button(*gilrs_button) {
-            let gamepad_button = GamepadButton(gamepad, button_type);
-            inputs.reset(gamepad_button);
-            if gilrs_gamepad.is_pressed(*gilrs_button) {
-                inputs.press(gamepad_button);
+            if let Some(button_data) = gilrs_gamepad.button_data(*gilrs_button) {
+                let gamepad_button = GamepadButton(gamepad, button_type);
+                inputs.reset(gamepad_button);
+                if button_data.is_pressed() {
+                    inputs.press(gamepad_button);
+                }
+                button_axes.set(gamepad_button, button_data.value());
             }
         }
     }
@@ -142,11 +159,13 @@ fn disconnect_gamepad(
     events: &mut Events<GamepadEvent>,
     inputs: &mut Input<GamepadButton>,
     axes: &mut Axis<GamepadAxis>,
+    button_axes: &mut Axis<GamepadButton>,
 ) {
     for gilrs_button in ALL_GILRS_BUTTONS.iter() {
         if let Some(button_type) = convert_button(*gilrs_button) {
             let gamepad_button = GamepadButton(gamepad, button_type);
             inputs.reset(gamepad_button);
+            button_axes.remove(&gamepad_button);
         }
     }
     for gilrs_axis in ALL_GILRS_AXES.iter() {
