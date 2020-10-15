@@ -23,24 +23,31 @@ impl WinitWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window.mode {
+        winit_window_builder = match window.mode() {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
             WindowMode::Fullscreen { use_size } => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(match use_size {
-                    true => get_fitting_videomode(&event_loop.primary_monitor().unwrap(), &window),
+                    true => get_fitting_videomode(
+                        &event_loop.primary_monitor().unwrap(),
+                        window.width(),
+                        window.height(),
+                    ),
                     false => get_best_videomode(&event_loop.primary_monitor().unwrap()),
                 }),
             )),
             _ => winit_window_builder
-                .with_inner_size(winit::dpi::PhysicalSize::new(window.width, window.height))
-                .with_resizable(window.resizable)
-                .with_decorations(window.decorations),
+                .with_inner_size(winit::dpi::PhysicalSize::new(
+                    window.width(),
+                    window.height(),
+                ))
+                .with_resizable(window.resizable())
+                .with_decorations(window.decorations()),
         };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(&window.title);
+        let mut winit_window_builder = winit_window_builder.with_title(window.title());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -64,8 +71,10 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
-        self.window_id_to_winit.insert(window.id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window.id);
+        self.window_id_to_winit
+            .insert(window.id(), winit_window.id());
+        self.winit_to_window_id
+            .insert(winit_window.id(), window.id());
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -96,9 +105,10 @@ impl WinitWindows {
         self.winit_to_window_id.get(&id).cloned()
     }
 }
-fn get_fitting_videomode(
+pub fn get_fitting_videomode(
     monitor: &winit::monitor::MonitorHandle,
-    window: &Window,
+    width: u32,
+    height: u32,
 ) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
 
@@ -111,11 +121,9 @@ fn get_fitting_videomode(
 
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;
-        match abs_diff(a.size().width, window.width).cmp(&abs_diff(b.size().width, window.width)) {
+        match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
-                match abs_diff(a.size().height, window.height)
-                    .cmp(&abs_diff(b.size().height, window.height))
-                {
+                match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
                     Equal => b.refresh_rate().cmp(&a.refresh_rate()),
                     default => default,
                 }
@@ -127,7 +135,7 @@ fn get_fitting_videomode(
     modes.first().unwrap().clone()
 }
 
-fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
+pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
         use std::cmp::Ordering::*;

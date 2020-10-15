@@ -33,16 +33,41 @@ impl Default for WindowId {
 
 #[derive(Debug)]
 pub struct Window {
-    pub id: WindowId,
-    pub width: u32,
-    pub height: u32,
-    pub title: String,
-    pub vsync: bool,
-    pub resizable: bool,
-    pub decorations: bool,
-    pub mode: WindowMode,
+    id: WindowId,
+    width: u32,
+    height: u32,
+    title: String,
+    vsync: bool,
+    resizable: bool,
+    decorations: bool,
+    mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
+    command_queue: Vec<WindowCommand>,
+}
+
+#[derive(Debug)]
+pub enum WindowCommand {
+    SetWindowMode {
+        mode: WindowMode,
+        resolution: (u32, u32),
+    },
+    SetTitle {
+        title: String,
+    },
+    SetResolution {
+        width: u32,
+        height: u32,
+    },
+    SetVsync {
+        vsync: bool,
+    },
+    SetResizable {
+        resizable: bool,
+    },
+    SetDecorations {
+        decorations: bool,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -70,7 +95,90 @@ impl Window {
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
+            command_queue: Vec::new(),
         }
+    }
+
+    #[inline]
+    pub fn id(&self) -> WindowId {
+        self.id
+    }
+
+    #[inline]
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    #[inline]
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    pub fn set_resolution(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+        self.command_queue
+            .push(WindowCommand::SetResolution { width, height });
+    }
+
+    #[doc(hidden)]
+    pub fn update_resolution_from_backend(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn set_title(&mut self, title: String) {
+        self.title = title.to_string();
+        self.command_queue.push(WindowCommand::SetTitle { title });
+    }
+
+    pub fn vsync(&self) -> bool {
+        self.vsync
+    }
+
+    pub fn set_vsync(&mut self, vsync: bool) {
+        self.vsync = vsync;
+        self.command_queue.push(WindowCommand::SetVsync { vsync });
+    }
+
+    pub fn resizable(&self) -> bool {
+        self.resizable
+    }
+
+    pub fn set_resizable(&mut self, resizable: bool) {
+        self.resizable = resizable;
+        self.command_queue
+            .push(WindowCommand::SetResizable { resizable });
+    }
+
+    pub fn decorations(&self) -> bool {
+        self.decorations
+    }
+
+    pub fn set_decorations(&mut self, decorations: bool) {
+        self.decorations = decorations;
+        self.command_queue
+            .push(WindowCommand::SetDecorations { decorations });
+    }
+
+    pub fn mode(&self) -> WindowMode {
+        self.mode
+    }
+
+    pub fn set_mode(&mut self, mode: WindowMode) {
+        self.mode = mode;
+        self.command_queue.push(WindowCommand::SetWindowMode {
+            mode,
+            resolution: (self.width, self.height),
+        });
+    }
+
+    pub fn drain_commands<'a>(&'a mut self) -> impl Iterator<Item = WindowCommand> + 'a {
+        self.command_queue.drain(..)
     }
 }
 

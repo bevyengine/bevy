@@ -74,9 +74,9 @@ impl WgpuRenderer {
             #[cfg(feature = "bevy_winit")]
             {
                 let winit_windows = resources.get::<bevy_winit::WinitWindows>().unwrap();
-                let winit_window = winit_windows.get_window(window.id).unwrap();
+                let winit_window = winit_windows.get_window(window.id()).unwrap();
                 let surface = unsafe { self.instance.create_surface(winit_window.deref()) };
-                render_resource_context.set_window_surface(window.id, surface);
+                render_resource_context.set_window_surface(window.id(), surface);
             }
         }
     }

@@ -105,7 +105,7 @@ impl FlexSurface {
 
     pub fn update_window(&mut self, window: &Window) {
         let stretch = &mut self.stretch;
-        let node = self.window_nodes.entry(window.id).or_insert_with(|| {
+        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
             stretch
                 .new_node(stretch::style::Style::default(), Vec::new())
                 .unwrap()
@@ -116,8 +116,8 @@ impl FlexSurface {
                 *node,
                 stretch::style::Style {
                     size: stretch::geometry::Size {
-                        width: stretch::style::Dimension::Points(window.width as f32),
-                        height: stretch::style::Dimension::Points(window.height as f32),
+                        width: stretch::style::Dimension::Points(window.width() as f32),
+                        height: stretch::style::Dimension::Points(window.height() as f32),
                     },
                     ..Default::default()
                 },
@@ -189,7 +189,7 @@ pub fn flex_node_system(
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id, root_node_query.iter().iter());
+        flex_surface.set_window_children(primary_window.id(), root_node_query.iter().iter());
     }
 
     // update children
