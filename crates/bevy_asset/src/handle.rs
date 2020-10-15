@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt::Debug,
     hash::{Hash, Hasher},
 };
@@ -13,7 +14,9 @@ pub(crate) const DEFAULT_HANDLE_ID: HandleId =
     HandleId(Uuid::from_u128(240940089166493627844978703213080810552));
 
 /// A unique id that corresponds to a specific asset in the [Assets](crate::Assets) collection.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize, Property)]
+#[derive(
+    Debug, Clone, Copy, Eq, PartialOrd, Ord, PartialEq, Hash, Serialize, Deserialize, Property,
+)]
 pub struct HandleId(pub Uuid);
 
 impl HandleId {
@@ -132,6 +135,18 @@ impl<T> PartialEq for Handle<T> {
 }
 
 impl<T> Eq for Handle<T> {}
+
+impl<T> PartialOrd for Handle<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.id.cmp(&other.id))
+    }
+}
+
+impl<T> Ord for Handle<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
 
 impl<T> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {

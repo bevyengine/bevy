@@ -38,7 +38,7 @@ use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
+    DynamicBinding, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
     PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
 };
 use render_graph::{
@@ -90,6 +90,10 @@ impl Plugin for RenderPlugin {
             app.add_asset_loader::<Texture, HdrTextureLoader>();
         }
 
+        if app.resources().get::<ClearColor>().is_none() {
+            app.resources_mut().insert(ClearColor::default());
+        }
+
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
@@ -111,6 +115,7 @@ impl Plugin for RenderPlugin {
             .register_property::<ShaderSpecialization>()
             .register_property::<DynamicBinding>()
             .register_property::<PrimitiveTopology>()
+            .register_property::<IndexFormat>()
             .register_properties::<PipelineSpecialization>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()

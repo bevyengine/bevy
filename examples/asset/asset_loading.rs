@@ -39,7 +39,7 @@ fn setup(
 
     // You can also add assets directly to their Assets<T> storage:
     let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.5, 0.4, 0.3),
+        albedo: Color::rgb(0.8, 0.7, 0.6),
         ..Default::default()
     });
 

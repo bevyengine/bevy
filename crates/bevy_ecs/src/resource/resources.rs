@@ -1,9 +1,15 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
-use bevy_hecs::{Archetype, Entity, Ref, RefMut, TypeInfo, TypeState};
+use bevy_hecs::{Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
 use bevy_utils::HashMap;
 use core::any::TypeId;
-use std::ptr::NonNull;
+use downcast_rs::{impl_downcast, Downcast};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+    thread::ThreadId,
+};
 
 /// A Resource type
 pub trait Resource: Send + Sync + 'static {}
@@ -22,15 +28,101 @@ pub enum ResourceIndex {
     System(SystemId),
 }
 
+// TODO: consider using this for normal resources (would require change tracking)
+trait ResourceStorage: Downcast {}
+impl_downcast!(ResourceStorage);
+
+struct StoredResource<T: 'static> {
+    value: T,
+    atomic_borrow: AtomicBorrow,
+}
+
+pub struct VecResourceStorage<T: 'static> {
+    stored: Vec<StoredResource<T>>,
+}
+
+impl<T: 'static> VecResourceStorage<T> {
+    fn get(&self, index: usize) -> Option<ResourceRef<'_, T>> {
+        self.stored
+            .get(index)
+            .map(|stored| ResourceRef::new(&stored.value, &stored.atomic_borrow))
+    }
+
+    fn get_mut(&self, index: usize) -> Option<ResourceRefMut<'_, T>> {
+        self.stored.get(index).map(|stored|
+            // SAFE: ResourceRefMut ensures that this borrow is unique
+            unsafe {
+                let value = &stored.value as *const T as *mut T;
+                ResourceRefMut::new(&mut *value, &stored.atomic_borrow)
+            })
+    }
+
+    fn push(&mut self, resource: T) {
+        self.stored.push(StoredResource {
+            atomic_borrow: AtomicBorrow::new(),
+            value: resource,
+        })
+    }
+
+    fn set(&mut self, index: usize, resource: T) {
+        self.stored[index].value = resource;
+    }
+
+    fn is_empty(&self) -> bool {
+        self.stored.is_empty()
+    }
+}
+
+impl<T: 'static> Default for VecResourceStorage<T> {
+    fn default() -> Self {
+        Self {
+            stored: Default::default(),
+        }
+    }
+}
+
+impl<T: 'static> ResourceStorage for VecResourceStorage<T> {}
+
 /// A collection of resource instances identified by their type.
-#[derive(Debug, Default)]
 pub struct Resources {
     pub(crate) resource_data: HashMap<TypeId, ResourceData>,
+    thread_local_data: HashMap<TypeId, Box<dyn ResourceStorage>>,
+    main_thread_id: ThreadId,
+}
+
+impl Default for Resources {
+    fn default() -> Self {
+        Resources {
+            resource_data: Default::default(),
+            thread_local_data: Default::default(),
+            main_thread_id: std::thread::current().id(),
+        }
+    }
 }
 
 impl Resources {
     pub fn insert<T: Resource>(&mut self, resource: T) {
         self.insert_resource(resource, ResourceIndex::Global);
+    }
+
+    pub fn insert_thread_local<T: 'static>(&mut self, resource: T) {
+        self.check_thread_local();
+        let entry = self
+            .thread_local_data
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(VecResourceStorage::<T>::default()));
+        let resources = entry.downcast_mut::<VecResourceStorage<T>>().unwrap();
+        if resources.is_empty() {
+            resources.push(resource);
+        } else {
+            resources.set(0, resource);
+        }
+    }
+
+    fn check_thread_local(&self) {
+        if std::thread::current().id() != self.main_thread_id {
+            panic!("Attempted to access a thread local resource off of the main thread.")
+        }
     }
 
     pub fn contains<T: Resource>(&self) -> bool {
@@ -43,6 +135,26 @@ impl Resources {
 
     pub fn get_mut<T: Resource>(&self) -> Option<RefMut<'_, T>> {
         self.get_resource_mut(ResourceIndex::Global)
+    }
+
+    pub fn get_thread_local<T: 'static>(&self) -> Option<ResourceRef<'_, T>> {
+        self.check_thread_local();
+        self.thread_local_data
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| {
+                let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
+                resources.get(0)
+            })
+    }
+
+    pub fn get_thread_local_mut<T: 'static>(&self) -> Option<ResourceRefMut<'_, T>> {
+        self.check_thread_local();
+        self.thread_local_data
+            .get(&TypeId::of::<T>())
+            .and_then(|storage| {
+                let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
+                resources.get_mut(0)
+            })
     }
 
     /// Returns a clone of the underlying resource, this is helpful when borrowing something
@@ -281,6 +393,93 @@ where
     }
 }
 
+/// Shared borrow of an entity's component
+#[derive(Clone)]
+pub struct ResourceRef<'a, T: 'static> {
+    borrow: &'a AtomicBorrow,
+    resource: &'a T,
+}
+
+impl<'a, T: 'static> ResourceRef<'a, T> {
+    /// Creates a new resource borrow
+    pub fn new(resource: &'a T, borrow: &'a AtomicBorrow) -> Self {
+        borrow.borrow();
+        Self { resource, borrow }
+    }
+}
+
+unsafe impl<T: 'static> Send for ResourceRef<'_, T> {}
+unsafe impl<T: 'static> Sync for ResourceRef<'_, T> {}
+
+impl<'a, T: 'static> Drop for ResourceRef<'a, T> {
+    fn drop(&mut self) {
+        self.borrow.release()
+    }
+}
+
+impl<'a, T: 'static> Deref for ResourceRef<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.resource
+    }
+}
+
+impl<'a, T: 'static> Debug for ResourceRef<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.deref().fmt(f)
+    }
+}
+
+/// Unique borrow of a resource
+pub struct ResourceRefMut<'a, T: 'static> {
+    borrow: &'a AtomicBorrow,
+    resource: &'a mut T,
+}
+
+impl<'a, T: 'static> ResourceRefMut<'a, T> {
+    /// Creates a new entity component mutable borrow
+    pub fn new(resource: &'a mut T, borrow: &'a AtomicBorrow) -> Self {
+        borrow.borrow_mut();
+        Self { resource, borrow }
+    }
+}
+
+unsafe impl<T: 'static> Send for ResourceRefMut<'_, T> {}
+unsafe impl<T: 'static> Sync for ResourceRefMut<'_, T> {}
+
+impl<'a, T: 'static> Drop for ResourceRefMut<'a, T> {
+    fn drop(&mut self) {
+        self.borrow.release_mut();
+    }
+}
+
+impl<'a, T: 'static> Deref for ResourceRefMut<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.resource
+    }
+}
+
+impl<'a, T: 'static> DerefMut for ResourceRefMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.resource
+    }
+}
+
+impl<'a, T: 'static> Debug for ResourceRefMut<'a, T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.deref().fmt(f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Resources;
@@ -334,5 +533,45 @@ mod tests {
         resources.insert(123);
         let _x = resources.get_mut::<i32>();
         let _y = resources.get_mut::<i32>();
+    }
+
+    #[test]
+    fn thread_local_resource() {
+        let mut resources = Resources::default();
+        resources.insert_thread_local(123i32);
+        resources.insert_thread_local(456i64);
+        assert_eq!(*resources.get_thread_local::<i32>().unwrap(), 123);
+        assert_eq!(*resources.get_thread_local_mut::<i64>().unwrap(), 456);
+    }
+
+    #[test]
+    fn thread_local_resource_ref_aliasing() {
+        let mut resources = Resources::default();
+        resources.insert_thread_local(123i32);
+        let a = resources.get_thread_local::<i32>().unwrap();
+        let b = resources.get_thread_local::<i32>().unwrap();
+        assert_eq!(*a, 123);
+        assert_eq!(*b, 123);
+    }
+
+    #[test]
+    #[should_panic]
+    fn thread_local_resource_mut_ref_aliasing() {
+        let mut resources = Resources::default();
+        resources.insert_thread_local(123i32);
+        let _a = resources.get_thread_local::<i32>().unwrap();
+        let _b = resources.get_thread_local_mut::<i32>().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn thread_local_resource_panic() {
+        let mut resources = Resources::default();
+        resources.insert_thread_local(0i32);
+        std::thread::spawn(move || {
+            let _ = resources.get_thread_local_mut::<i32>();
+        })
+        .join()
+        .unwrap();
     }
 }
