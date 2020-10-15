@@ -33,6 +33,7 @@ struct Scoreboard {
 enum Collider {
     Solid,
     Scorable,
+    Paddle,
 }
 
 fn setup(
@@ -53,7 +54,7 @@ fn setup(
             ..Default::default()
         })
         .with(Paddle { speed: 500.0 })
-        .with(Collider::Solid)
+        .with(Collider::Paddle)
         // ball
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(1.0, 0.5, 0.5).into()),
@@ -240,7 +241,10 @@ fn ball_collision_system(
                     *velocity.y_mut() = -velocity.y();
                 }
 
-                break;
+                // break if this collide is on a solid, otherwise continue check whether a solid is also in collision
+                if let Collider::Solid = *collider {
+                    break;
+                }
             }
         }
     }
