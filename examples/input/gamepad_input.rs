@@ -58,10 +58,11 @@ fn button_system(manager: Res<Lobby>, inputs: Res<Input<GamepadButton>>) {
     ];
     for gamepad in manager.gamepad.iter() {
         for button_type in button_types.iter() {
-            if inputs.just_pressed(GamepadButton(*gamepad, *button_type)) {
-                println!("Pressed {:?}", GamepadButton(*gamepad, *button_type));
-            } else if inputs.just_released(GamepadButton(*gamepad, *button_type)) {
-                println!("Released {:?}", GamepadButton(*gamepad, *button_type));
+            let gamepad_button = GamepadButton(*gamepad, *button_type);
+            if inputs.just_pressed(gamepad_button) {
+                println!("{:?} pressed", gamepad_button);
+            } else if inputs.just_released(gamepad_button) {
+                println!("{:?} released", gamepad_button);
             }
         }
     }
@@ -80,12 +81,12 @@ fn axis_system(manager: Res<Lobby>, axes: Res<Axis<GamepadAxis>>) {
     ];
     for gamepad in manager.gamepad.iter() {
         for axis_type in axis_types.iter() {
-            if let Some(value) = axes.get(&GamepadAxis(*gamepad, *axis_type)) {
-                if value.abs() > 0.01f32
-                    && (value - 1.0f32).abs() > 0.01f32
-                    && (value + 1.0f32).abs() > 0.01f32
-                {
-                    println!("Axis {:?} is {}", GamepadAxis(*gamepad, *axis_type), value);
+            let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
+            if let Some(delta) = axes.delta(gamepad_axis) {
+                if delta.abs() > 0.05f32 {
+                    if let Some(current) = axes.current(gamepad_axis) {
+                        println!("{:?} is {} with delta {}", gamepad_axis, current, delta);
+                    }
                 }
             }
         }

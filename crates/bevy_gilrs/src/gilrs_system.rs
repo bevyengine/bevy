@@ -30,6 +30,7 @@ pub fn gilrs_update_system(_world: &mut World, resources: &mut Resources) {
 
     gamepad_event.update();
     inputs.update();
+    axes.update();
     while let Some(gilrs_event) = gilrs.next_event() {
         match gilrs_event.event {
             EventType::Connected => {
@@ -152,7 +153,7 @@ fn disconnect_gamepad(
     for gilrs_axis in ALL_GILRS_AXES.iter() {
         if let Some(axis_type) = convert_axis(*gilrs_axis) {
             let gamepad_axis = GamepadAxis(gamepad, axis_type);
-            axes.remove(&gamepad_axis);
+            axes.remove(gamepad_axis);
         }
     }
     events.send(GamepadEvent(gamepad, GamepadEventType::Disconnected));
