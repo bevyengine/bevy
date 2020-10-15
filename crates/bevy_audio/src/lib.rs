@@ -10,7 +10,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoThreadLocalSystem;
 
 /// Adds support for audio playback to an App
 #[derive(Default)]
@@ -18,12 +18,12 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.init_resource::<AudioOutput<AudioSource>>()
+        app.init_thread_local_resource::<AudioOutput<AudioSource>>()
             .add_asset::<AudioSource>()
             .add_asset_loader::<AudioSource, Mp3Loader>()
             .add_system_to_stage(
                 stage::POST_UPDATE,
-                play_queued_audio_system::<AudioSource>.system(),
+                play_queued_audio_system::<AudioSource>.thread_local_system(),
             );
     }
 }

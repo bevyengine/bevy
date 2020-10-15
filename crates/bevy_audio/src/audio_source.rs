@@ -31,7 +31,7 @@ impl AssetLoader<AudioSource> for Mp3Loader {
     }
 }
 
-pub trait Decodable: Send + Sync + 'static {
+pub trait Decodable: 'static {
     type Decoder;
 
     fn decoder(&self) -> Self::Decoder;
