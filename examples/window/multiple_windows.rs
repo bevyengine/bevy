@@ -134,7 +134,7 @@ fn setup(
                     mip_level_count: 1,
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
-                    format: TextureFormat::Bgra8UnormSrgb,
+                    format: TextureFormat::default(),
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
             ),
