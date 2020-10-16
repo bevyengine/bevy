@@ -12,8 +12,7 @@ use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_window::{
-    ChangeCursorLockState, ChangeCursorVisibility, CreateWindow, CursorLockMode, CursorMoved,
-    CursorShowMode, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -145,9 +144,6 @@ pub fn winit_runner(mut app: App) {
     let mut event_loop = EventLoop::new();
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
-    let mut cursor_lock_state_event_reader = EventReader::<ChangeCursorLockState>::default();
-    let mut cursor_visibility_change_event_reader =
-        EventReader::<ChangeCursorVisibility>::default();
 
     app.resources
         .insert_thread_local(EventLoopProxyPtr(
