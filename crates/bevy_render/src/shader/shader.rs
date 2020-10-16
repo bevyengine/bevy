@@ -180,6 +180,7 @@ impl ShaderStages {
             fragment: None,
         }
     }
+
     pub fn iter(&self) -> ShaderStagesIterator {
         ShaderStagesIterator {
             shader_stages: &self,

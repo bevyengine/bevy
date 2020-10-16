@@ -1,9 +1,9 @@
-use crate::shader::{ShaderLayout, GL_VERTEX_INDEX};
 use crate::{
     pipeline::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
+    shader::{ShaderLayout, GL_VERTEX_INDEX},
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
