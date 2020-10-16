@@ -1,6 +1,8 @@
-use crate::pipeline::VERTEX_FALLBACK_LAYOUT_NAME;
 use crate::{
-    pipeline::{PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization},
+    pipeline::{
+        PipelineCompiler, PipelineDescriptor, PipelineLayout, PipelineSpecialization,
+        VERTEX_FALLBACK_LAYOUT_NAME,
+    },
     renderer::{
         BindGroup, BindGroupId, BufferId, BufferUsage, RenderResource, RenderResourceBinding,
         RenderResourceBindings, RenderResourceContext, SharedBuffers,

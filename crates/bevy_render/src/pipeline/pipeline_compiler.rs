@@ -1,7 +1,9 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
-use crate::pipeline::VERTEX_FALLBACK_LAYOUT_NAME;
 use crate::{
-    pipeline::{VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat},
+    pipeline::{
+        VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        VERTEX_FALLBACK_LAYOUT_NAME,
+    },
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
@@ -170,7 +172,7 @@ impl PipelineCompiler {
             pipeline_specialization.mesh_attribute_layout.clone();
 
         let mut fallback_vertex_buffer_descirptor = VertexBufferDescriptor {
-            name: Cow::from(VERTEX_FALLBACK_LAYOUT_NAME), //TODO julian: name acordingly
+            name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME), //TODO julian: name acordingly
             stride: VertexFormat::Float4.get_size(), //TODO julian: use smallest possible format!
             ..Default::default()
         };

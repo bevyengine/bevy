@@ -27,8 +27,7 @@ pub mod prelude {
     };
 }
 
-use crate::pipeline::PipelineSpecialization;
-use crate::prelude::*;
+use crate::{pipeline::PipelineSpecialization, prelude::*};
 use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;

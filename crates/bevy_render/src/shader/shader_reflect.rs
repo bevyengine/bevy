@@ -75,7 +75,6 @@ impl ShaderLayout {
                     };
 
                     // create a new buffer descriptor, per attribute!
-                    // TODO julian: make a different struct for this kind of VertexBufferDescriptor (always 1 attribute, not intended for actually use)
                     vertex_buffer_descriptors.push(VertexBufferDescriptor {
                         attributes: vec![vertex_attribute_descriptor],
                         name: current_buffer_name.into(),

@@ -1,12 +1,13 @@
 use bevy_render::{
-    mesh::{Indices, Mesh, VertexAttributeData},
+    mesh::{Indices, Mesh},
     pipeline::PrimitiveTopology,
 };
 
 use anyhow::Result;
 use bevy_asset::AssetLoader;
+use bevy_render::mesh::VertexAttributeValues;
 use gltf::{buffer::Source, mesh::Mode};
-use std::{fs, io, path::Path};
+use std::{borrow::Cow, fs, io, path::Path};
 use thiserror::Error;
 
 /// Loads meshes from GLTF files into Mesh assets
@@ -74,27 +75,30 @@ fn load_node(buffer_data: &[Vec<u8>], node: &gltf::Node, depth: i32) -> Result<M
         if let Some(primitive) = mesh.primitives().next() {
             let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
             let primitive_topology = get_primitive_topology(primitive.mode())?;
-            let mut mesh = Mesh::new_empty(primitive_topology);
+            let mut mesh = Mesh::new(primitive_topology, None);
 
             if let Some(vertex_attribute) = reader
                 .read_positions()
-                .map(|v| VertexAttributeData::position(v.collect()))
+                .map(|v| VertexAttributeValues::Float3(v.collect()))
             {
-                mesh.insert_attribute(vertex_attribute);
+                mesh.attributes
+                    .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_normals()
-                .map(|v| VertexAttributeData::normal(v.collect()))
+                .map(|v| VertexAttributeValues::Float3(v.collect()))
             {
-                mesh.insert_attribute(vertex_attribute);
+                mesh.attributes
+                    .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), vertex_attribute);
             }
 
             if let Some(vertex_attribute) = reader
                 .read_tex_coords(0)
-                .map(|v| VertexAttributeData::uv(v.into_f32().collect()))
+                .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
             {
-                mesh.insert_attribute(vertex_attribute);
+                mesh.attributes
+                    .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), vertex_attribute);
             }
 
             if let Some(indices) = reader.read_indices() {
