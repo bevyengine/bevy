@@ -182,7 +182,7 @@ impl Window {
     pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
         self.cursor_locked = lock_mode;
         self.command_queue
-            .push(WindowCommand::SetCursorLockMode {locked: lock_mode});
+            .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
     }
 
     pub fn cursor_visible(&self) -> bool {
@@ -191,8 +191,9 @@ impl Window {
 
     pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
         self.cursor_visible = visibile_mode;
-        self.command_queue
-            .push(WindowCommand::SetCursorVisibility {visible: visibile_mode});
+        self.command_queue.push(WindowCommand::SetCursorVisibility {
+            visible: visibile_mode,
+        });
     }
 
     pub fn mode(&self) -> WindowMode {
