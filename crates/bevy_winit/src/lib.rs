@@ -313,36 +313,3 @@ fn handle_create_window_events(
         window_created_events.send(WindowCreated { id: window_id });
     }
 }
-
-fn handle_cursor_state_change_events(
-    resources: &mut Resources,
-    cursor_lock_state_event_reader: &mut EventReader<ChangeCursorLockState>,
-    cursor_visibility_change_event_reader: &mut EventReader<ChangeCursorVisibility>,
-) {
-    let winit_windows = resources.get_mut::<WinitWindows>().unwrap();
-    let change_cursor_lock_state_events = resources.get::<Events<ChangeCursorLockState>>().unwrap();
-    let change_cursor_visibility_events =
-        resources.get::<Events<ChangeCursorVisibility>>().unwrap();
-
-    for cursor_lock_event in cursor_lock_state_event_reader.iter(&change_cursor_lock_state_events) {
-        let id = cursor_lock_event.id;
-        let window = winit_windows.get_window(id).unwrap();
-        window
-            .set_cursor_grab(match cursor_lock_event.mode {
-                CursorLockMode::Locked => true,
-                CursorLockMode::Unlocked => false,
-            })
-            .unwrap();
-    }
-
-    for cursor_visibility_event in
-        cursor_visibility_change_event_reader.iter(&change_cursor_visibility_events)
-    {
-        let id = cursor_visibility_event.id;
-        let window = winit_windows.get_window(id).unwrap();
-        window.set_cursor_visible(match cursor_visibility_event.mode {
-            CursorShowMode::Show => true,
-            CursorShowMode::Hide => false,
-        });
-    }
-}
