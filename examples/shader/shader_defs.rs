@@ -109,10 +109,7 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 pipeline_handle.clone(),
                 // NOTE: in the future you wont need to manually declare dynamic bindings
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "MyMaterial_color".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             transform: Transform::from_translation(Vec3::new(-2.0, 0.0, 0.0)),
             ..Default::default()
@@ -124,10 +121,7 @@ fn setup(
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 pipeline_handle,
                 // NOTE: in the future you wont need to manually declare dynamic bindings
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "MyMaterial_color".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
             ..Default::default()

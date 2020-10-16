@@ -37,8 +37,8 @@ use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization,
+    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
+    ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},

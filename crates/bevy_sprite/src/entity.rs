@@ -30,10 +30,7 @@ impl Default for SpriteComponents {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 SPRITE_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "Sprite_size".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             draw: Draw {
                 is_transparent: true,
@@ -70,13 +67,7 @@ impl Default for SpriteSheetComponents {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 SPRITE_SHEET_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        "Transform".to_string(),
-                        "TextureAtlasSprite".to_string(),
-                    ],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             draw: Draw {
                 is_transparent: true,

@@ -6,7 +6,6 @@ use super::{
     },
     PipelineLayout, StencilStateDescriptor,
 };
-
 use crate::{shader::ShaderStages, texture::TextureFormat};
 use bevy_type_registry::TypeUuid;
 

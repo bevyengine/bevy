@@ -105,21 +105,20 @@ pub fn draw_render_pipelines_system(
         }
 
         for render_pipeline in render_pipelines.pipelines.iter() {
+            let render_resource_bindings = &mut [
+                &mut render_pipelines.bindings,
+                &mut render_resource_bindings,
+            ];
             draw_context
                 .set_pipeline(
                     &mut draw,
                     &render_pipeline.pipeline,
                     &render_pipeline.specialization,
+                    render_resource_bindings,
                 )
                 .unwrap();
             draw_context
-                .set_bind_groups_from_bindings(
-                    &mut draw,
-                    &mut [
-                        &mut render_pipelines.bindings,
-                        &mut render_resource_bindings,
-                    ],
-                )
+                .set_bind_groups_from_bindings(&mut draw, render_resource_bindings)
                 .unwrap();
             draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])

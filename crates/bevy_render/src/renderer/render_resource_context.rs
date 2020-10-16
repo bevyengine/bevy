@@ -1,7 +1,5 @@
 use crate::{
-    pipeline::{
-        BindGroupDescriptorId, BindType, PipelineDescriptor, PipelineLayout,
-    },
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor, PipelineLayout},
     renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
     shader::{Shader, ShaderLayout, ShaderStages},
     texture::{SamplerDescriptor, TextureDescriptor},
@@ -92,7 +90,6 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         shaders: &Assets<Shader>,
         shader_stages: &ShaderStages,
         enforce_bevy_conventions: bool,
-        dynamic_bindings: &[String],
     ) -> PipelineLayout {
         // TODO: maybe move this default implementation to PipelineLayout?
         let mut shader_layouts: Vec<ShaderLayout> = shader_stages
@@ -105,29 +102,7 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
                     .unwrap()
             })
             .collect();
-        let mut layout = PipelineLayout::from_shader_layouts(&mut shader_layouts);
-        if !dynamic_bindings.is_empty() {
-            // set binding uniforms to dynamic if render resource bindings use dynamic
-            for bind_group in layout.bind_groups.iter_mut() {
-                let mut binding_changed = false;
-                for binding in bind_group.bindings.iter_mut() {
-                    if dynamic_bindings.iter().any(|b| b == &binding.name) {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            *dynamic = true;
-                            binding_changed = true;
-                        }
-                    }
-                }
-
-                if binding_changed {
-                    bind_group.update_id();
-                }
-            }
-        }
-        layout
+        PipelineLayout::from_shader_layouts(&mut shader_layouts)
     }
 }
 

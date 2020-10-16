@@ -26,13 +26,7 @@ impl Default for PbrComponents {
         Self {
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 FORWARD_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        "Transform".to_string(),
-                        "StandardMaterial_albedo".to_string(),
-                    ],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             mesh: Default::default(),
             material: Default::default(),

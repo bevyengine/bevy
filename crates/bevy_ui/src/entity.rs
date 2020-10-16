@@ -34,10 +34,7 @@ impl Default for NodeComponents {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             node: Default::default(),
             style: Default::default(),
@@ -69,10 +66,7 @@ impl Default for ImageComponents {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             node: Default::default(),
             image: Default::default(),
@@ -138,10 +132,7 @@ impl Default for ButtonComponents {
             mesh: QUAD_HANDLE,
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec!["Transform".to_string(), "Node_size".to_string()],
-                    ..Default::default()
-                },
+                PipelineSpecialization::default(),
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),

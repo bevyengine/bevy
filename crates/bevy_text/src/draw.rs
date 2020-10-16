@@ -54,6 +54,7 @@ impl<'a> Drawable for DrawableText<'a> {
                 vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
                 ..Default::default()
             },
+            &mut [self.render_resource_bindings],
         )?;
 
         let render_resource_context = &**context.render_resource_context;
