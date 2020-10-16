@@ -267,6 +267,11 @@ name = "clear_color"
 path = "examples/window/clear_color.rs"
 
 [[example]]
+name = "cursor_lock"
+path = "examples/window/cursor_lock.rs"
+required-features = ["bevy_winit"]
+
+[[example]]
 name = "multiple_windows"
 path = "examples/window/multiple_windows.rs"
 
@@ -293,3 +298,4 @@ required-features = ["bevy_winit"]
 name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
+
