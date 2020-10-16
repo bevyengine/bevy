@@ -1,4 +1,4 @@
-use ab_glyph::{FontVec, Glyph, InvalidFont, OutlinedGlyph, Point, PxScale, ScaleFont};
+use ab_glyph::{FontArc, FontVec, Glyph, InvalidFont, OutlinedGlyph, Point, PxScale, ScaleFont};
 use bevy_math::Vec2;
 use bevy_render::{
     color::Color,
@@ -9,15 +9,13 @@ use bevy_type_registry::TypeUuid;
 #[derive(Debug, TypeUuid)]
 #[uuid = "97059ac6-c9ba-4da9-95b6-bed82c3ce198"]
 pub struct Font {
-    pub font: FontVec,
+    pub font: FontArc,
 }
-
-unsafe impl Send for Font {}
-unsafe impl Sync for Font {}
 
 impl Font {
     pub fn try_from_bytes(font_data: Vec<u8>) -> Result<Self, InvalidFont> {
         let font = FontVec::try_from_vec(font_data)?;
+        let font = FontArc::new(font);
         Ok(Font { font })
     }
 

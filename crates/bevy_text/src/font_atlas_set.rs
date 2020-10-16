@@ -1,5 +1,5 @@
 use crate::{Font, FontAtlas};
-use ab_glyph::{Glyph, ScaleFont};
+use ab_glyph::{Glyph, GlyphId, ScaleFont};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
@@ -8,7 +8,6 @@ use bevy_sprite::TextureAtlas;
 use bevy_type_registry::TypeUuid;
 use bevy_utils::HashMap;
 
-// work around rust's f32 order/hash limitations
 type FontSizeKey = FloatOrd;
 
 #[derive(Default, TypeUuid)]
@@ -16,6 +15,7 @@ type FontSizeKey = FloatOrd;
 pub struct FontAtlasSet {
     font: Handle<Font>,
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+    atlases: Vec<FontAtlas>,
 }
 
 #[derive(Debug)]
@@ -29,6 +29,7 @@ impl FontAtlasSet {
         Self {
             font,
             font_atlases: HashMap::default(),
+            atlases: Vec::new(),
         }
     }
 
@@ -43,6 +44,14 @@ impl FontAtlasSet {
                 font_atlas
                     .iter()
                     .any(|atlas| atlas.get_char_index(character).is_some())
+            })
+    }
+
+    pub fn has_glyph(&self, glyph_id: GlyphId, font_size: f32) -> bool {
+        self.font_atlases
+            .get(&FloatOrd(font_size))
+            .map_or(false, |font_atlas| {
+                font_atlas.iter().any(|atlas| atlas.has_glyph(glyph_id))
             })
     }
 
@@ -126,5 +135,31 @@ impl FontAtlasSet {
                         char_index,
                     })
             })
+    }
+
+    pub fn add_texture_to_atlas(
+        &mut self,
+        textures: &mut Assets<Texture>,
+        texture_atlases: &mut Assets<TextureAtlas>,
+        texture: Texture,
+    ) {
+        if self.atlases.is_empty() {
+            self.atlases.push(FontAtlas::new(
+                textures,
+                texture_atlases,
+                Vec2::new(512., 512.),
+            ));
+        }
+        let atlas = self.atlases.last_mut().unwrap();
+        if !atlas.add_texture(textures, texture_atlases, &texture) {
+            self.atlases.push(FontAtlas::new(
+                textures,
+                texture_atlases,
+                Vec2::new(512., 512.),
+            ));
+            let atlas = self.atlases.last_mut().unwrap();
+            atlas.add_texture(textures, texture_atlases, &texture);
+        }
+        textures.add(texture);
     }
 }

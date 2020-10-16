@@ -1,13 +1,13 @@
 use crate::{Font, FontAtlasSet};
 use ab_glyph::{Glyph, PxScale, ScaleFont};
-use bevy_asset::Assets;
+use bevy_asset::{Assets, Handle};
 use bevy_math::{Mat4, Vec2, Vec3};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     pipeline::{PipelineSpecialization, VertexBufferDescriptor},
-    prelude::Msaa,
+    prelude::{Msaa, Texture},
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
@@ -158,3 +158,68 @@ impl<'a> Drawable for DrawableText<'a> {
         Ok(())
     }
 }
+
+/*
+pub struct NewDrawableText<'a> {
+    pub pipeline: &'a mut TextPipeline,
+    pub font_atlas_set: &'a mut FontAtlasSet,
+    pub texture_atlases: &'a mut Assets<TextureAtlas>,
+    pub textures: &'a mut Assets<Texture>,
+    pub render_resource_bindings: &'a mut RenderResourceBindings,
+    pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
+    pub contents: &'a str,
+    pub font_handle: &'a Handle<Font>,
+    pub font_storage: &'a Assets<Font>,
+    pub text_style: &'a TextStyle,
+    pub container_size: Vec2,
+    pub msaa: &'a Msaa,
+}
+
+impl<'a> Drawable for NewDrawableText<'a> {
+    fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
+        context.set_pipeline(
+            draw,
+            bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
+            &PipelineSpecialization {
+                sample_count: self.msaa.samples,
+                ..Default::default()
+            },
+        )?;
+
+        let render_resource_context = &**context.render_resource_context;
+        if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
+            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
+        {
+            draw.set_vertex_buffer(0, quad_vertex_buffer, 0);
+        }
+        let mut indices = 0..0;
+        if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
+            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
+        {
+            draw.set_index_buffer(quad_index_buffer, 0);
+            if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {
+                indices = 0..(buffer_info.size / 4) as u32;
+            } else {
+                panic!("expected buffer type");
+            }
+        }
+
+        // set global bindings
+        context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
+
+        self.pipeline.queue_text(
+            self.font_handle,
+            self.font_storage,
+            &self.contents,
+            self.text_style.font_size,
+            self.container_size,
+        );
+
+        let actions =
+            self.pipeline
+                .draw_queued(self.textures, self.texture_atlases, self.font_atlas_set);
+
+        todo!()
+    }
+}
+*/
