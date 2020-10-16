@@ -1,0 +1,33 @@
+use crate::{AudioSource, Decodable};
+use bevy_asset::Handle;
+use parking_lot::RwLock;
+use std::{collections::VecDeque, fmt};
+
+/// Holds the various `AudioSource`s that will be played (The external audio API)
+#[derive(Default)]
+pub struct Audio<P = AudioSource>
+where
+    P: Decodable,
+{
+    pub queue: RwLock<VecDeque<Handle<P>>>,
+}
+
+impl<P> fmt::Debug for Audio<P>
+where
+    P: Decodable,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Audio").field("queue", &self.queue).finish()
+    }
+}
+
+impl<P> Audio<P>
+where
+    P: Decodable,
+    <P as Decodable>::Decoder: rodio::Source + Send + Sync,
+    <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
+{
+    pub fn play(&self, audio_source: Handle<P>) {
+        self.queue.write().push_front(audio_source);
+    }
+}
