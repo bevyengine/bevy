@@ -279,11 +279,6 @@ pub fn winit_runner(mut app: App) {
                     event_loop,
                     &mut create_window_event_reader,
                 );
-                handle_cursor_state_change_events(
-                    &mut app.resources,
-                    &mut cursor_lock_state_event_reader,
-                    &mut cursor_visibility_change_event_reader,
-                );
                 app.update();
             }
             _ => (),
