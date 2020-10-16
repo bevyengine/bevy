@@ -10,7 +10,7 @@ pub enum ShaderStage {
     Compute,
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
 impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     fn into(self) -> bevy_glsl_to_spirv::ShaderType {
         match self {
@@ -21,7 +21,7 @@ impl Into<bevy_glsl_to_spirv::ShaderType> for ShaderStage {
     }
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))]
 fn glsl_to_spirv(
     glsl_source: &str,
     stage: ShaderStage,
@@ -116,6 +116,7 @@ impl Shader {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
@@ -123,9 +124,13 @@ impl Shader {
         }
     }
 
+    #[allow(unused_variables)]
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
         Shader {
+            #[cfg(not(target_arch = "wasm32"))]
             source: ShaderSource::Spirv(self.get_spirv(macros)),
+            #[cfg(target_arch = "wasm32")]
+            source: self.source.clone(),
             stage: self.stage,
         }
     }
@@ -143,10 +148,29 @@ impl Shader {
 }
 
 /// All stages in a shader program
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ShaderStages {
     pub vertex: Handle<Shader>,
     pub fragment: Option<Handle<Shader>>,
+}
+
+pub struct ShaderStagesIterator<'a> {
+    shader_stages: &'a ShaderStages,
+    state: u32,
+}
+
+impl<'a> Iterator for ShaderStagesIterator<'a> {
+    type Item = Handle<Shader>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = match self.state {
+            0 => Some(self.shader_stages.vertex),
+            1 => self.shader_stages.fragment,
+            _ => None,
+        };
+        self.state += 1;
+        ret
+    }
 }
 
 impl ShaderStages {
@@ -154,6 +178,13 @@ impl ShaderStages {
         ShaderStages {
             vertex: vertex_shader,
             fragment: None,
+        }
+    }
+
+    pub fn iter(&self) -> ShaderStagesIterator {
+        ShaderStagesIterator {
+            shader_stages: &self,
+            state: 0,
         }
     }
 }

@@ -3,19 +3,19 @@
 ## Unreleased
 
 ### Added
-
+- [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
 
 ### Changed
 
 - Breaking Change: [sRGB awareness for `Color`][616]
-  - Color is now assumed to be provided in the non-linear sRGB colorspace, and constructors such as `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood. 
+  - Color is now assumed to be provided in the non-linear sRGB colorspace, and constructors such as `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood.
   - This allows drop-in use of colors from most applications.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
 
-
+[689]: https://github.com/bevyengine/bevy/pull/689
 [552]: https://github.com/bevyengine/bevy/pull/552
 [616]: https://github.com/bevyengine/bevy/pull/616
 [649]: https://github.com/bevyengine/bevy/pull/649
@@ -43,7 +43,7 @@
   - e.g. `query.iter().par_iter(batch_size).for_each(/* ... */)`
 - [Added gamepad support using Gilrs][280]
 - [Implement WASM support for bevy_winit][503]
-- [Create winit canvas under WebAssembly][506] 
+- [Create winit canvas under WebAssembly][506]
 - [Implement single threaded task scheduler for WebAssembly][496]
 - [Support for binary glTF (.glb).][271]
 - [Support for `Or` in ECS queries.][358]
@@ -72,7 +72,7 @@
 - [Add `AppBuilder::add_startup_stage_|before/after`][505]
 
 ### Changed
- 
+
 - [Transform rewrite][374]
 - [Use generational entity ids and other optimizations][504]
 - [Optimize transform systems to only run on changes.][417]
