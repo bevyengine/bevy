@@ -84,6 +84,14 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_decorations(decorations);
                 }
+                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_grab(locked).unwrap();
+                }
+                bevy_window::WindowCommand::SetCursorVisibility { visible } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_visible(visible);
+                }
             }
         }
     }
