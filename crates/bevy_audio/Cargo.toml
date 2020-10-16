@@ -20,7 +20,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
 
 # other
 anyhow = "1.0"
-rodio = { version = "0.11", default-features = false }
+rodio = { version = "0.12", default-features = false }
 parking_lot = "0.11.0"
 
 [features]
