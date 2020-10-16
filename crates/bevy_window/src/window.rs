@@ -40,6 +40,8 @@ pub struct Window {
     vsync: bool,
     resizable: bool,
     decorations: bool,
+    cursor_visible: bool,
+    cursor_locked: bool,
     mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -68,6 +70,12 @@ pub enum WindowCommand {
     SetDecorations {
         decorations: bool,
     },
+    SetCursorLockMode {
+        locked: bool,
+    },
+    SetCursorVisibility {
+        visible: bool,
+    },
 }
 
 /// Defines the way a window is displayed
@@ -92,6 +100,8 @@ impl Window {
             vsync: window_descriptor.vsync,
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
+            cursor_visible: window_descriptor.cursor_visible,
+            cursor_locked: window_descriptor.cursor_locked,
             mode: window_descriptor.mode,
             #[cfg(target_arch = "wasm32")]
             canvas: window_descriptor.canvas.clone(),
@@ -165,6 +175,27 @@ impl Window {
             .push(WindowCommand::SetDecorations { decorations });
     }
 
+    pub fn cursor_locked(&self) -> bool {
+        self.cursor_locked
+    }
+
+    pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
+        self.cursor_locked = lock_mode;
+        self.command_queue
+            .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
+    }
+
+    pub fn cursor_visible(&self) -> bool {
+        self.cursor_visible
+    }
+
+    pub fn set_cursor_visibility(&mut self, visibile_mode: bool) {
+        self.cursor_visible = visibile_mode;
+        self.command_queue.push(WindowCommand::SetCursorVisibility {
+            visible: visibile_mode,
+        });
+    }
+
     pub fn mode(&self) -> WindowMode {
         self.mode
     }
@@ -191,6 +222,8 @@ pub struct WindowDescriptor {
     pub vsync: bool,
     pub resizable: bool,
     pub decorations: bool,
+    pub cursor_visible: bool,
+    pub cursor_locked: bool,
     pub mode: WindowMode,
     #[cfg(target_arch = "wasm32")]
     pub canvas: Option<String>,
@@ -210,6 +243,8 @@ impl Default for WindowDescriptor {
             vsync: true,
             resizable: true,
             decorations: true,
+            cursor_locked: false,
+            cursor_visible: true,
             mode: WindowMode::Windowed,
             #[cfg(target_arch = "wasm32")]
             canvas: None,

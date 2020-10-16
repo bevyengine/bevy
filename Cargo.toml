@@ -293,3 +293,4 @@ required-features = ["bevy_winit"]
 name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
+
