@@ -104,7 +104,7 @@ pub fn draw_text_system(
 ) {
     for (mut draw, text, node, global_transform) in &mut query.iter() {
         if let Some(font) = fonts.get(&text.font) {
-            let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
+            let position = global_transform.translation - (node.size / 2.0).extend(0.0);
             let mut drawable_text = DrawableText {
                 font,
                 font_atlas_set: font_atlas_sets

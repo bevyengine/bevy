@@ -184,7 +184,7 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
     let delta_seconds = f32::min(0.2, time.delta_seconds);
 
     for (ball, mut transform) in &mut ball_query.iter() {
-        transform.translate(ball.velocity * delta_seconds);
+        transform.translation += ball.velocity * delta_seconds;
     }
 }
 

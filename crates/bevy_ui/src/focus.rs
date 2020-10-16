@@ -76,7 +76,7 @@ pub fn ui_focus_system(
             .iter()
             .filter_map(
                 |(entity, node, global_transform, interaction, focus_policy)| {
-                    let position = global_transform.translation();
+                    let position = global_transform.translation;
                     let ui_position = position.truncate();
                     let extents = node.size / 2.0;
                     let min = ui_position - extents;

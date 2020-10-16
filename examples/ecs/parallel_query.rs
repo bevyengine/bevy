@@ -15,7 +15,7 @@ fn spawn_system(
         commands
             .spawn(SpriteComponents {
                 material,
-                transform: Transform::from_scale(0.1),
+                transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
             })
             .with(Velocity(
@@ -38,7 +38,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
         .iter()
         .par_iter(32)
         .for_each(&pool, |(mut transform, velocity)| {
-            transform.translate(velocity.0.extend(0.0));
+            transform.translation += velocity.0.extend(0.0);
         });
 }
 

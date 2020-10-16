@@ -21,7 +21,7 @@ struct Rotator;
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
     for (_rotator, mut transform) in &mut query.iter() {
-        transform.rotate(Quat::from_rotation_x(3.0 * time.delta_seconds));
+        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
 
