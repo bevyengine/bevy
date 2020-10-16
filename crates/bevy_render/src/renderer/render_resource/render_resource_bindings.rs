@@ -103,7 +103,7 @@ pub enum BindGroupStatus {
 // PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
-    bindings: HashMap<String, RenderResourceBinding>,
+    pub bindings: HashMap<String, RenderResourceBinding>,
     /// A Buffer that contains all attributes a mesh has defined
     pub vertex_attribute_buffer: Option<BufferId>,
     /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.

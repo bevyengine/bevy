@@ -37,8 +37,8 @@ use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    DynamicBinding, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization,
+    IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization, PrimitiveTopology,
+    ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},
@@ -66,7 +66,7 @@ pub mod stage {
 
 /// Adds core render types and systems to an App
 pub struct RenderPlugin {
-    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added  
+    /// configures the "base render graph". If this is not `None`, the "base render graph" will be added
     pub base_render_graph_config: Option<BaseRenderGraphConfig>,
 }
 
@@ -112,7 +112,6 @@ impl Plugin for RenderPlugin {
             .register_property::<Color>()
             .register_property::<Range<f32>>()
             .register_property::<ShaderSpecialization>()
-            .register_property::<DynamicBinding>()
             .register_property::<PrimitiveTopology>()
             .register_property::<IndexFormat>()
             .register_properties::<PipelineSpecialization>()

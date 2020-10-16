@@ -1,10 +1,10 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
     pipeline::{
-        InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        BindType, InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
         VERTEX_FALLBACK_LAYOUT_NAME,
     },
-    renderer::RenderResourceContext,
+    renderer::{RenderResourceBinding, RenderResourceBindings, RenderResourceContext},
     shader::{Shader, ShaderSource},
 };
 use bevy_asset::{Assets, Handle};
@@ -18,7 +18,7 @@ use std::borrow::Cow;
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
-    pub dynamic_bindings: Vec<DynamicBinding>,
+    pub dynamic_bindings: Vec<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
@@ -59,12 +59,6 @@ struct SpecializedShader {
 struct SpecializedPipeline {
     pipeline: Handle<PipelineDescriptor>,
     specialization: PipelineSpecialization,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Default, Serialize, Deserialize, Property)]
-pub struct DynamicBinding {
-    pub bind_group: u32,
-    pub binding: u32,
 }
 
 #[derive(Debug, Default)]
@@ -142,7 +136,8 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: &Handle<PipelineDescriptor>,
-        pipeline_specialization: &PipelineSpecialization,
+        pipeline_specialization: &mut PipelineSpecialization,
+        render_resource_bindings: &mut [&mut RenderResourceBindings],
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
@@ -163,11 +158,37 @@ impl PipelineCompiler {
                 )
             });
 
-        specialized_descriptor.reflect_layout(
-            shaders,
+        let mut layout = render_resource_context.reflect_pipeline_layout(
+            &shaders,
+            &specialized_descriptor.shader_stages,
             true,
-            &pipeline_specialization.dynamic_bindings,
         );
+
+        let dynamic_bindings = self.get_dynamic_bindings(render_resource_bindings);
+
+        if !dynamic_bindings.is_empty() {
+            // set binding uniforms to dynamic if render resource bindings use dynamic
+            for bind_group in layout.bind_groups.iter_mut() {
+                let mut binding_changed = false;
+                for binding in bind_group.bindings.iter_mut() {
+                    if dynamic_bindings.iter().any(|b| b == &binding.name) {
+                        if let BindType::Uniform {
+                            ref mut dynamic, ..
+                        } = binding.bind_type
+                        {
+                            *dynamic = true;
+                            binding_changed = true;
+                        }
+                    }
+                }
+
+                if binding_changed {
+                    bind_group.update_id();
+                }
+            }
+        }
+        pipeline_specialization.dynamic_bindings = dynamic_bindings;
+        specialized_descriptor.layout = Some(layout);
 
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
@@ -244,6 +265,28 @@ impl PipelineCompiler {
         });
 
         weak_specialized_pipeline_handle
+    }
+
+    fn get_dynamic_bindings(
+        &self,
+        render_resource_bindings: &mut [&mut RenderResourceBindings],
+    ) -> Vec<String> {
+        render_resource_bindings
+            .iter()
+            .flat_map(|bindings| {
+                bindings
+                    .bindings
+                    .iter()
+                    .filter(|(_, binding)| {
+                        matches!(binding, RenderResourceBinding::Buffer {
+                            dynamic_index: Some(_),
+                            ..
+                        })
+                    })
+                    .map(|(name, _)| name)
+            })
+            .cloned()
+            .collect()
     }
 
     pub fn iter_compiled_pipelines(

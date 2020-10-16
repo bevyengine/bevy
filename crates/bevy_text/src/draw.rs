@@ -49,11 +49,12 @@ impl<'a> Drawable for DrawableText<'a> {
         context.set_pipeline(
             draw,
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
-            &PipelineSpecialization {
+            &mut PipelineSpecialization {
                 sample_count: self.msaa.samples,
                 vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
                 ..Default::default()
             },
+            &mut [self.render_resource_bindings],
         )?;
 
         let render_resource_context = &**context.render_resource_context;
