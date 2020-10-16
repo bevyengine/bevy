@@ -248,6 +248,43 @@ impl Add<Vec4> for Color {
     }
 }
 
+impl From<[f32; 4]> for Color {
+    fn from([red, green, blue, alpha]: [f32; 4]) -> Self {
+        Color {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl From<Color> for [f32; 4] {
+    fn from(
+        Color {
+            red,
+            green,
+            blue,
+            alpha,
+        }: Color,
+    ) -> Self {
+        [red, green, blue, alpha]
+    }
+}
+
+impl From<Color> for Vec4 {
+    fn from(
+        Color {
+            red,
+            green,
+            blue,
+            alpha,
+        }: Color,
+    ) -> Self {
+        Vec4::new(red, green, blue, alpha)
+    }
+}
+
 impl From<Vec4> for Color {
     fn from(vec4: Vec4) -> Self {
         Color {
@@ -259,11 +296,6 @@ impl From<Vec4> for Color {
     }
 }
 
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
-    }
-}
 impl Mul<f32> for Color {
     type Output = Color;
 
