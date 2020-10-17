@@ -248,51 +248,27 @@ impl Add<Vec4> for Color {
     }
 }
 
-impl From<[f32; 4]> for Color {
-    fn from([red, green, blue, alpha]: [f32; 4]) -> Self {
-        Color {
-            red,
-            green,
-            blue,
-            alpha,
-        }
+impl From<Color> for [f32; 4] {
+    fn from(color: Color) -> Self {
+        [color.r(), color.g(), color.b(), color.a()]
     }
 }
 
-impl From<Color> for [f32; 4] {
-    fn from(
-        Color {
-            red,
-            green,
-            blue,
-            alpha,
-        }: Color,
-    ) -> Self {
-        [red, green, blue, alpha]
+impl From<[f32; 4]> for Color {
+    fn from([r, g, b, a]: [f32; 4]) -> Self {
+        Color::rgba(r, g, b, a)
     }
 }
 
 impl From<Color> for Vec4 {
-    fn from(
-        Color {
-            red,
-            green,
-            blue,
-            alpha,
-        }: Color,
-    ) -> Self {
-        Vec4::new(red, green, blue, alpha)
+    fn from(color: Color) -> Self {
+        Vec4::new(color.r(), color.g(), color.b(), color.a())
     }
 }
 
 impl From<Vec4> for Color {
     fn from(vec4: Vec4) -> Self {
-        Color {
-            red: vec4.x(),
-            green: vec4.y(),
-            blue: vec4.z(),
-            alpha: vec4.w(),
-        }
+        Color::rgba(vec4.x(), vec4.y(), vec4.z(), vec4.w())
     }
 }
 
@@ -381,6 +357,12 @@ impl Bytes for ColorSource {
 pub enum ColorSource {
     Color(Color),
     Texture(Handle<Texture>),
+}
+
+impl From<[f32; 4]> for ColorSource {
+    fn from(f32s: [f32; 4]) -> Self {
+        ColorSource::Color(f32s.into())
+    }
 }
 
 impl From<Vec4> for ColorSource {
