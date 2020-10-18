@@ -1,6 +1,6 @@
 mod asset_server;
 mod assets;
-#[cfg(feature = "filesystem_watcher")]
+#[cfg(all(feature = "filesystem_watcher", not(target_arch = "wasm32")))]
 mod filesystem_watcher;
 mod handle;
 mod info;
@@ -37,7 +37,7 @@ use bevy_type_registry::RegisterType;
 pub struct AssetPlugin;
 
 pub struct AssetServerSettings {
-    asset_folder: String,
+    pub asset_folder: String,
 }
 
 impl Default for AssetServerSettings {
@@ -61,7 +61,11 @@ impl Plugin for AssetPlugin {
             let settings = app
                 .resources_mut()
                 .get_or_insert_with(AssetServerSettings::default);
+
+            #[cfg(not(target_arch = "wasm32"))]
             let source = FileAssetIo::new(&settings.asset_folder);
+            #[cfg(target_arch = "wasm32")]
+            let source = WasmAssetIo::new(&settings.asset_folder);
             AssetServer::new(source, task_pool)
         };
 
@@ -74,7 +78,7 @@ impl Plugin for AssetPlugin {
                 asset_server::free_unused_assets_system.system(),
             );
 
-        #[cfg(feature = "filesystem_watcher")]
+        #[cfg(all(feature = "filesystem_watcher", not(target_arch = "wasm32")))]
         app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
     }
 }

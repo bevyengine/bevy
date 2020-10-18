@@ -1,8 +1,11 @@
 #[cfg(target_arch = "wasm32")]
 extern crate console_error_panic_hook;
 
-use bevy::{asset::AssetLoader, prelude::*, type_registry::TypeUuid};
-use bevy_asset::{LoadContext, LoadedAsset};
+use bevy::{
+    asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
+    prelude::*,
+    type_registry::TypeUuid,
+};
 
 fn main() {
     #[cfg(target_arch = "wasm32")]
@@ -12,17 +15,38 @@ fn main() {
     }
 
     App::build()
+        .add_resource(AssetServerSettings {
+            asset_folder: "/".to_string(),
+        })
         .add_default_plugins()
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
-        .add_startup_system(asset_system.system())
-        .add_system(asset_events.system())
+        .add_startup_system(load_asset.system())
+        .add_system(print_asset.system())
         .run();
 }
 
-fn asset_system(asset_server: Res<AssetServer>) {
-    asset_server.load::<RustSourceCode, _>("assets_wasm.rs");
-    log::info!("hello wasm");
+struct State {
+    handle: Handle<RustSourceCode>,
+    printed: bool,
+}
+
+fn load_asset(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(State {
+        handle: asset_server.load("assets_wasm.rs"),
+        printed: false,
+    });
+}
+
+fn print_asset(mut state: ResMut<State>, rust_sources: Res<Assets<RustSourceCode>>) {
+    if state.printed {
+        return;
+    }
+
+    if let Some(code) = rust_sources.get(&state.handle) {
+        log::info!("code: {}", code.0);
+        state.printed = true;
+    }
 }
 
 #[derive(Debug, TypeUuid)]
@@ -43,27 +67,5 @@ impl AssetLoader for RustSourceCodeLoader {
     fn extensions(&self) -> &[&str] {
         static EXT: &[&str] = &["rs"];
         EXT
-    }
-}
-
-#[derive(Default)]
-pub struct AssetEventsState {
-    reader: EventReader<AssetEvent<RustSourceCode>>,
-}
-
-pub fn asset_events(
-    mut state: Local<AssetEventsState>,
-    rust_sources: Res<Assets<RustSourceCode>>,
-    events: Res<Events<AssetEvent<RustSourceCode>>>,
-) {
-    for event in state.reader.iter(&events) {
-        match event {
-            AssetEvent::Created { handle } => {
-                if let Some(code) = rust_sources.get(handle) {
-                    log::info!("code: {}", code.0);
-                }
-            }
-            _ => continue,
-        };
     }
 }

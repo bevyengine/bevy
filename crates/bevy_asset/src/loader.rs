@@ -8,6 +8,7 @@ use bevy_type_registry::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::HashMap;
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
+use futures_lite::future;
 use std::path::Path;
 
 /// A loader for an asset source
@@ -95,7 +96,9 @@ impl<'a> LoadContext<'a> {
     }
 
     pub fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
-        self.asset_io.load_path(path.as_ref())
+        // TODO: this isn't ideal / won't work on wasm. we could consider making AssetLoaders async too.
+        // or alternatively we could just wait for atelier-assets
+        future::block_on(self.asset_io.load_path(path.as_ref()))
     }
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {
