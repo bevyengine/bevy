@@ -157,6 +157,8 @@ pub fn winit_runner(mut app: App) {
         &mut create_window_event_reader,
     );
 
+    app.initialize();
+
     log::debug!("Entering winit event loop");
 
     let should_return_from_run = app

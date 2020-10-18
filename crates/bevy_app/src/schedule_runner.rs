@@ -55,6 +55,8 @@ impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let run_mode = self.run_mode;
         app.set_runner(move |mut app: App| {
+            app.initialize();
+
             let mut app_exit_event_reader = EventReader::<AppExit>::default();
             match run_mode {
                 RunMode::Once => {
