@@ -15,7 +15,7 @@ fn spawn_system(
         commands
             .spawn(SpriteComponents {
                 material,
-                transform: Transform::from_scale(0.1),
+                transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
             })
             .with(Velocity(
@@ -38,7 +38,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
         .iter()
         .par_iter(32)
         .for_each(&pool, |(mut transform, velocity)| {
-            transform.translate(velocity.0.extend(0.0));
+            transform.translation += velocity.0.extend(0.0);
         });
 }
 
@@ -62,10 +62,10 @@ fn bounce_system(
         .par_iter(32)
         // Filter out sprites that don't need to be bounced
         .filter(|(transform, _)| {
-            !(left < transform.translation().x()
-                && transform.translation().x() < right
-                && bottom < transform.translation().y()
-                && transform.translation().y() < top)
+            !(left < transform.translation.x()
+                && transform.translation.x() < right
+                && bottom < transform.translation.y()
+                && transform.translation.y() < top)
         })
         // For simplicity, just reverse the velocity; don't use realistic bounces
         .for_each(&pool, |(_, mut v)| {

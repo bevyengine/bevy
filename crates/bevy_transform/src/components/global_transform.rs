@@ -1,163 +1,121 @@
 use bevy_math::{Mat3, Mat4, Quat, Vec3};
 use bevy_property::Properties;
-use std::fmt;
+use std::ops::Mul;
+
+use super::Transform;
 
 #[derive(Debug, PartialEq, Clone, Copy, Properties)]
 pub struct GlobalTransform {
-    value: Mat4,
+    pub translation: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
 }
 
 impl GlobalTransform {
-    #[inline(always)]
-    pub fn new(value: Mat4) -> Self {
-        GlobalTransform { value }
-    }
-
-    #[inline(always)]
+    #[inline]
     pub fn identity() -> Self {
         GlobalTransform {
-            value: Mat4::identity(),
+            translation: Vec3::zero(),
+            rotation: Quat::identity(),
+            scale: Vec3::one(),
         }
     }
 
+    #[inline]
+    pub fn from_matrix(matrix: Mat4) -> Self {
+        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+
+        GlobalTransform {
+            translation,
+            rotation,
+            scale,
+        }
+    }
+
+    #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
-        GlobalTransform::new(Mat4::from_translation(translation))
+        GlobalTransform {
+            translation,
+            ..Default::default()
+        }
     }
 
+    #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform::new(Mat4::from_quat(rotation))
-    }
-
-    pub fn from_scale(scale: f32) -> Self {
-        GlobalTransform::new(Mat4::from_scale(Vec3::splat(scale)))
-    }
-
-    pub fn from_translation_rotation(translation: Vec3, rotation: Quat) -> Self {
-        GlobalTransform::new(Mat4::from_scale_rotation_translation(
-            Vec3::splat(1.0),
+        GlobalTransform {
             rotation,
-            translation,
-        ))
+            ..Default::default()
+        }
     }
 
-    pub fn from_translation_rotation_scale(translation: Vec3, rotation: Quat, scale: f32) -> Self {
-        GlobalTransform::new(Mat4::from_scale_rotation_translation(
-            Vec3::splat(scale),
-            rotation,
-            translation,
-        ))
+    #[inline]
+    pub fn from_scale(scale: Vec3) -> Self {
+        GlobalTransform {
+            scale,
+            ..Default::default()
+        }
     }
 
-    pub fn from_non_uniform_scale(scale: Vec3) -> Self {
-        GlobalTransform::new(Mat4::from_scale(scale))
+    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at the origin
+    #[inline]
+    pub fn looking_at_origin(self) -> Self {
+        self.looking_at(Vec3::zero(), Vec3::unit_y())
     }
 
-    pub fn with_translation(mut self, translation: Vec3) -> Self {
-        self.set_translation(translation);
+    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at target
+    #[inline]
+    pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
+        self.look_at(target, up);
         self
     }
 
-    pub fn with_rotation(mut self, rotation: Quat) -> Self {
-        self.set_rotation(rotation);
-        self
+    #[inline]
+    pub fn compute_matrix(&self) -> Mat4 {
+        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
-    pub fn with_scale(mut self, scale: f32) -> Self {
-        self.set_scale(scale);
-        self
+    #[inline]
+    pub fn forward(&self) -> Vec3 {
+        self.rotation * Vec3::unit_z()
     }
 
-    pub fn with_non_uniform_scale(mut self, scale: Vec3) -> Self {
-        self.set_non_uniform_scale(scale);
-        self
-    }
-
-    pub fn with_translate(mut self, translation: Vec3) -> Self {
-        self.translate(translation);
-        self
-    }
-
-    pub fn with_rotate(mut self, rotation: Quat) -> Self {
-        self.rotate(rotation);
-        self
-    }
-
-    pub fn with_apply_scale(mut self, scale: f32) -> Self {
-        self.apply_scale(scale);
-        self
-    }
-
-    pub fn with_apply_non_uniform_scale(mut self, scale: Vec3) -> Self {
-        self.apply_non_uniform_scale(scale);
-        self
-    }
-
-    pub fn value(&self) -> &Mat4 {
-        &self.value
-    }
-
-    pub fn value_mut(&mut self) -> &mut Mat4 {
-        &mut self.value
-    }
-
-    pub fn translation(&self) -> Vec3 {
-        Vec3::from(self.value.w_axis().truncate())
-    }
-
-    pub fn rotation(&self) -> Quat {
-        let scale = self.scale();
-
-        Quat::from_rotation_mat3(&Mat3::from_cols(
-            Vec3::from(self.value.x_axis().truncate()) / scale.x(),
-            Vec3::from(self.value.y_axis().truncate()) / scale.y(),
-            Vec3::from(self.value.z_axis().truncate()) / scale.z(),
-        ))
-    }
-
-    pub fn scale(&self) -> Vec3 {
-        Vec3::new(
-            self.value.x_axis().truncate().length(),
-            self.value.y_axis().truncate().length(),
-            self.value.z_axis().truncate().length(),
-        )
-    }
-
-    pub fn set_translation(&mut self, translation: Vec3) {
-        *self.value.w_axis_mut() = translation.extend(1.0);
-    }
-
-    pub fn set_rotation(&mut self, rotation: Quat) {
-        self.value =
-            Mat4::from_scale_rotation_translation(self.scale(), rotation, self.translation());
-    }
-
-    pub fn set_scale(&mut self, scale: f32) {
-        self.value = Mat4::from_scale_rotation_translation(
-            Vec3::splat(scale),
-            self.rotation(),
-            self.translation(),
-        );
-    }
-
-    pub fn set_non_uniform_scale(&mut self, scale: Vec3) {
-        self.value =
-            Mat4::from_scale_rotation_translation(scale, self.rotation(), self.translation());
-    }
-
-    pub fn translate(&mut self, translation: Vec3) {
-        *self.value.w_axis_mut() += translation.extend(0.0);
-    }
-
+    #[inline]
+    /// Rotate the transform by the given rotation
     pub fn rotate(&mut self, rotation: Quat) {
-        self.value = Mat4::from_quat(rotation) * self.value;
+        self.rotation *= rotation;
     }
 
-    pub fn apply_scale(&mut self, scale: f32) {
-        self.value = Mat4::from_scale(Vec3::splat(scale)) * self.value;
+    #[inline]
+    pub fn mul_transform(&self, transform: Transform) -> GlobalTransform {
+        let translation = self.mul_vec3(transform.translation);
+        let rotation = self.rotation * transform.rotation;
+        let scale = self.scale * transform.scale;
+        GlobalTransform {
+            scale,
+            rotation,
+            translation,
+        }
     }
 
+    #[inline]
+    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
+        value = self.rotation * value;
+        value = self.scale * value;
+        value += self.translation;
+        value
+    }
+
+    #[inline]
     pub fn apply_non_uniform_scale(&mut self, scale: Vec3) {
-        self.value = Mat4::from_scale(scale) * self.value;
+        self.scale *= scale;
+    }
+
+    #[inline]
+    pub fn look_at(&mut self, target: Vec3, up: Vec3) {
+        let forward = Vec3::normalize(self.translation - target);
+        let right = up.cross(forward).normalize();
+        let up = forward.cross(right);
+        self.rotation = Quat::from_rotation_mat3(&Mat3::from_cols(right, up, forward));
     }
 }
 
@@ -167,8 +125,39 @@ impl Default for GlobalTransform {
     }
 }
 
-impl fmt::Display for GlobalTransform {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
+impl From<Transform> for GlobalTransform {
+    fn from(transform: Transform) -> Self {
+        Self {
+            translation: transform.translation,
+            rotation: transform.rotation,
+            scale: transform.scale,
+        }
+    }
+}
+
+impl Mul<GlobalTransform> for GlobalTransform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
+        self.mul_transform(global_transform.into())
+    }
+}
+
+impl Mul<Transform> for GlobalTransform {
+    type Output = GlobalTransform;
+
+    #[inline]
+    fn mul(self, transform: Transform) -> Self::Output {
+        self.mul_transform(transform)
+    }
+}
+
+impl Mul<Vec3> for GlobalTransform {
+    type Output = Vec3;
+
+    #[inline]
+    fn mul(self, value: Vec3) -> Self::Output {
+        self.mul_vec3(value)
     }
 }

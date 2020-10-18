@@ -17,7 +17,7 @@ struct Rotator;
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
     for (_rotator, mut transform) in &mut query.iter() {
-        transform.rotate(Quat::from_rotation_x(3.0 * time.delta_seconds));
+        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
 
@@ -58,11 +58,7 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(5.0, 10.0, 10.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0)).looking_at_origin(),
             ..Default::default()
         });
 }

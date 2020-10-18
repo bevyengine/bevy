@@ -108,11 +108,7 @@ fn setup(
         .with(material)
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(3.0, 5.0, -8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0)).looking_at_origin(),
             ..Default::default()
         });
 }

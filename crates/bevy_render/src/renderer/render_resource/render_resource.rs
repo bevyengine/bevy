@@ -5,6 +5,7 @@ use bevy_asset::Handle;
 use bevy_core::{Byteable, Bytes};
 pub use bevy_derive::{RenderResource, RenderResources};
 use bevy_math::{Mat4, Vec2, Vec3, Vec4};
+use bevy_transform::components::GlobalTransform;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum RenderResourceType {
@@ -179,6 +180,25 @@ where
     }
 }
 
+impl RenderResource for GlobalTransform {
+    fn resource_type(&self) -> Option<RenderResourceType> {
+        Some(RenderResourceType::Buffer)
+    }
+
+    fn write_buffer_bytes(&self, buffer: &mut [u8]) {
+        let mat4 = self.compute_matrix();
+        mat4.write_bytes(buffer);
+    }
+
+    fn buffer_byte_len(&self) -> Option<usize> {
+        Some(std::mem::size_of::<[f32; 16]>())
+    }
+
+    fn texture(&self) -> Option<Handle<Texture>> {
+        None
+    }
+}
+
 impl RenderResources for bevy_transform::prelude::GlobalTransform {
     fn render_resources_len(&self) -> usize {
         1
@@ -186,7 +206,7 @@ impl RenderResources for bevy_transform::prelude::GlobalTransform {
 
     fn get_render_resource(&self, index: usize) -> Option<&dyn RenderResource> {
         if index == 0 {
-            Some(self.value())
+            Some(self)
         } else {
             None
         }

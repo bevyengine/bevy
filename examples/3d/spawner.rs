@@ -25,7 +25,7 @@ fn move_cubes(
 ) {
     for (mut transform, material_handle) in &mut query.iter() {
         let material = materials.get_mut(&material_handle).unwrap();
-        transform.translate(Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds);
+        transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo =
             Color::BLUE * Vec3::splat((3.0 * time.seconds_since_startup as f32).sin());
     }
@@ -44,11 +44,7 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(0.0, 15.0, 150.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 1.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(0.0, 15.0, 150.0)).looking_at_origin(),
             ..Default::default()
         });
 

@@ -19,7 +19,7 @@ fn setup(
     // Spawn a root entity with no parent
     let parent = commands
         .spawn(SpriteComponents {
-            transform: Transform::from_scale(0.75),
+            transform: Transform::from_scale(Vec3::splat(0.75)),
             material: materials.add(ColorMaterial {
                 color: Color::WHITE,
                 texture: Some(texture),
@@ -30,7 +30,11 @@ fn setup(
         .with_children(|parent| {
             // parent is a ChildBuilder, which has a similar API to Commands
             parent.spawn(SpriteComponents {
-                transform: Transform::from_translation(Vec3::new(250.0, 0.0, 0.0)).with_scale(0.75),
+                transform: Transform {
+                    translation: Vec3::new(250.0, 0.0, 0.0),
+                    scale: Vec3::splat(0.75),
+                    ..Default::default()
+                },
                 material: materials.add(ColorMaterial {
                     color: Color::BLUE,
                     texture: Some(texture),
@@ -47,7 +51,11 @@ fn setup(
     // Similarly, adding a Parent component will automatically add a Children component to the parent.
     commands
         .spawn(SpriteComponents {
-            transform: Transform::from_translation(Vec3::new(-250.0, 0.0, 0.0)).with_scale(0.75),
+            transform: Transform {
+                translation: Vec3::new(-250.0, 0.0, 0.0),
+                scale: Vec3::splat(0.75),
+                ..Default::default()
+            },
             material: materials.add(ColorMaterial {
                 color: Color::RED,
                 texture: Some(texture),
@@ -61,7 +69,11 @@ fn setup(
     // entity has already been spawned.
     let child = commands
         .spawn(SpriteComponents {
-            transform: Transform::from_translation(Vec3::new(0.0, 250.0, 0.0)).with_scale(0.75),
+            transform: Transform {
+                translation: Vec3::new(0.0, 250.0, 0.0),
+                scale: Vec3::splat(0.75),
+                ..Default::default()
+            },
             material: materials.add(ColorMaterial {
                 color: Color::GREEN,
                 texture: Some(texture),
