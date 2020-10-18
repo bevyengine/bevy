@@ -231,6 +231,10 @@ name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
 
 [[example]]
+name = "gamepad_input_event"
+path = "examples/input/gamepad_input_event.rs"
+
+[[example]]
 name = "touch_input"
 path = "examples/input/touch_input.rs"
 
