@@ -226,24 +226,24 @@ pub fn gamepad_event_system(
                 for button_type in ALL_BUTTON_TYPES.iter() {
                     let gamepad_button = GamepadButton(*gamepad, *button_type);
                     button.reset(gamepad_button);
-                    button_axis.remove(&gamepad_button);
+                    button_axis.remove(gamepad_button);
                 }
                 for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.remove(&GamepadAxis(*gamepad, *axis_type));
+                    axis.remove(GamepadAxis(*gamepad, *axis_type));
                 }
             }
             GamepadEventType::AxisChanged(axis_type, value) => {
                 let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
                 let value = properties
                     .get_axis_properties(gamepad_axis)
-                    .filter(*value, axis.get(&gamepad_axis));
+                    .filter(*value, axis.get(gamepad_axis));
                 axis.set(gamepad_axis, value);
             }
             GamepadEventType::ButtonChanged(button_type, value) => {
                 let gamepad_button = GamepadButton(*gamepad, *button_type);
                 let filtered_value = properties
                     .get_button_axis_properties(gamepad_button)
-                    .filter(*value, button_axis.get(&gamepad_button));
+                    .filter(*value, button_axis.get(gamepad_button));
                 button_axis.set(gamepad_button, filtered_value);
 
                 let button_property = properties.get_button_properties(gamepad_button);

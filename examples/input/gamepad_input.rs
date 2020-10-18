@@ -77,7 +77,7 @@ fn button_system(
             } else if inputs.just_released(GamepadButton(*gamepad, *button_type)) {
                 println!("{:?} Released", gamepad_button);
             }
-            if let Some(value) = button_axes.get(&gamepad_button) {
+            if let Some(value) = button_axes.get(gamepad_button) {
                 if !approx_eq(
                     data.button.get(&gamepad_button).copied().unwrap_or(0.0),
                     value,
@@ -108,7 +108,7 @@ fn axis_system(
     for gamepad in lobby.gamepads.iter() {
         for axis_type in axis_types.iter() {
             let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
-            if let Some(value) = axes.get(&gamepad_axis) {
+            if let Some(value) = axes.get(gamepad_axis) {
                 if !approx_eq(data.axis.get(&gamepad_axis).copied().unwrap_or(0.0), value) {
                     data.axis.insert(gamepad_axis, value);
                     println!("{:?} is {}", gamepad_axis, value);
