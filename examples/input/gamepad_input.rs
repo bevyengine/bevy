@@ -9,25 +9,25 @@ fn main() {
         .add_system(connection_system.system())
         .add_system(button_system.system())
         .add_system(axis_system.system())
-        .add_resource(Lobby::default())
+        .init_resource::<GamepadLobby>()
         .run();
 }
 
 #[derive(Default)]
-struct Lobby {
-    gamepad: HashSet<Gamepad>,
+struct GamepadLobby {
+    gamepads: HashSet<Gamepad>,
     gamepad_event_reader: EventReader<GamepadEvent>,
 }
 
-fn connection_system(mut lobby: ResMut<Lobby>, gamepad_event: Res<Events<GamepadEvent>>) {
+fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<GamepadEvent>>) {
     for event in lobby.gamepad_event_reader.iter(&gamepad_event) {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
-                lobby.gamepad.insert(*gamepad);
+                lobby.gamepads.insert(*gamepad);
                 println!("Connected {:?}", gamepad);
             }
             GamepadEvent(gamepad, GamepadEventType::Disconnected) => {
-                lobby.gamepad.remove(gamepad);
+                lobby.gamepads.remove(gamepad);
                 println!("Disconnected {:?}", gamepad);
             }
         }
@@ -35,7 +35,7 @@ fn connection_system(mut lobby: ResMut<Lobby>, gamepad_event: Res<Events<Gamepad
 }
 
 fn button_system(
-    manager: Res<Lobby>,
+    lobby: Res<GamepadLobby>,
     inputs: Res<Input<GamepadButton>>,
     button_axes: Res<Axis<GamepadButton>>,
 ) {
@@ -60,7 +60,7 @@ fn button_system(
         GamepadButtonType::DPadLeft,
         GamepadButtonType::DPadRight,
     ];
-    for gamepad in manager.gamepad.iter() {
+    for gamepad in lobby.gamepads.iter() {
         for button_type in button_types.iter() {
             if inputs.just_pressed(GamepadButton(*gamepad, *button_type)) {
                 println!("Pressed {:?}", GamepadButton(*gamepad, *button_type));
@@ -80,7 +80,7 @@ fn button_system(
     }
 }
 
-fn axis_system(manager: Res<Lobby>, axes: Res<Axis<GamepadAxis>>) {
+fn axis_system(lobby: Res<GamepadLobby>, axes: Res<Axis<GamepadAxis>>) {
     let axis_types = [
         GamepadAxisType::LeftStickX,
         GamepadAxisType::LeftStickY,
@@ -91,7 +91,7 @@ fn axis_system(manager: Res<Lobby>, axes: Res<Axis<GamepadAxis>>) {
         GamepadAxisType::DPadX,
         GamepadAxisType::DPadY,
     ];
-    for gamepad in manager.gamepad.iter() {
+    for gamepad in lobby.gamepads.iter() {
         for axis_type in axis_types.iter() {
             if let Some(value) = axes.get(&GamepadAxis(*gamepad, *axis_type)) {
                 if value_check(value) {

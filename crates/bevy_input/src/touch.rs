@@ -98,21 +98,17 @@ pub fn touch_screen_input_system(
     mut touch_state: ResMut<Touches>,
     touch_input_events: Res<Events<TouchInput>>,
 ) {
-    touch_state.just_pressed.clear();
-
-    let released_touch_ids: HashSet<_> = touch_state.just_released.iter().cloned().collect();
-    let cancelled_touch_ids: HashSet<_> = touch_state.just_released.iter().cloned().collect();
-
-    touch_state.just_released.clear();
-    touch_state.just_cancelled.clear();
-
-    for released_id in released_touch_ids {
+    let touch_state = &mut *touch_state;
+    for released_id in touch_state.just_released.iter() {
         touch_state.active_touches.remove(&released_id);
     }
 
-    for cancelled_id in cancelled_touch_ids {
+    for cancelled_id in touch_state.just_cancelled.iter() {
         touch_state.active_touches.remove(&cancelled_id);
     }
+
+    touch_state.just_pressed.clear();
+    touch_state.just_cancelled.clear();
 
     for event in state.touch_event_reader.iter(&touch_input_events) {
         let active_touch = touch_state.active_touches.get(&event.id);

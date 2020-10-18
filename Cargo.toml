@@ -235,8 +235,8 @@ name = "touch_input"
 path = "examples/input/touch_input.rs"
 
 [[example]]
-name = "touch_input_highlevel"
-path = "examples/input/touch_input_highlevel.rs"
+name = "touch_input_events"
+path = "examples/input/touch_input_events.rs"
 
 [[example]]
 name = "scene"
