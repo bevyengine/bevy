@@ -56,12 +56,6 @@ impl Transform {
         }
     }
 
-    /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at the origin
-    #[inline]
-    pub fn looking_at_origin(self) -> Self {
-        self.looking_at(Vec3::zero(), Vec3::unit_y())
-    }
-
     /// Returns transform with the same translation and scale, but rotation so that transform.forward() points at target
     #[inline]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {

@@ -28,6 +28,7 @@ impl Color {
     pub const BLUE: Color = Color::rgb_linear(0.0, 0.0, 1.0);
     pub const GREEN: Color = Color::rgb_linear(0.0, 1.0, 0.0);
     pub const NONE: Color = Color::rgba_linear(0.0, 0.0, 0.0, 0.0);
+    pub const PINK: Color = Color::rgb_linear(1.0, 0.08, 0.58);
     pub const RED: Color = Color::rgb_linear(1.0, 0.0, 0.0);
     pub const WHITE: Color = Color::rgb_linear(1.0, 1.0, 1.0);
 
@@ -259,11 +260,18 @@ impl From<Vec4> for Color {
     }
 }
 
+impl From<[f32; 4]> for Color {
+    fn from(value: [f32; 4]) -> Self {
+        Color::rgba(value[0], value[1], value[2], value[3])
+    }
+}
+
 impl Into<[f32; 4]> for Color {
     fn into(self) -> [f32; 4] {
         [self.red, self.green, self.blue, self.alpha]
     }
 }
+
 impl Mul<f32> for Color {
     type Output = Color;
 

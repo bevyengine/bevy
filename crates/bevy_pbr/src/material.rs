@@ -1,9 +1,10 @@
 use bevy_asset::{self, Handle};
 use bevy_render::{color::Color, renderer::RenderResources, shader::ShaderDefs, texture::Texture};
+use bevy_type_registry::TypeUuid;
 
 /// A material with "standard" properties used in PBR lighting
-#[derive(Debug, RenderResources, ShaderDefs)]
-#[allow(clippy::manual_non_exhaustive)]
+#[derive(Debug, RenderResources, ShaderDefs, TypeUuid)]
+#[uuid = "dace545e-4bc6-4595-a79d-c224fc694975"]
 pub struct StandardMaterial {
     pub albedo: Color,
     #[shader_def]
@@ -11,12 +12,6 @@ pub struct StandardMaterial {
     #[render_resources(ignore)]
     #[shader_def]
     pub shaded: bool,
-
-    // this is a manual implementation of the non exhaustive pattern,
-    // especially made to allow ..Default::default()
-    #[render_resources(ignore)]
-    #[doc(hidden)]
-    pub __non_exhaustive: (),
 }
 
 impl Default for StandardMaterial {
@@ -25,7 +20,6 @@ impl Default for StandardMaterial {
             albedo: Color::rgb(1.0, 1.0, 1.0),
             albedo_texture: None,
             shaded: true,
-            __non_exhaustive: (),
         }
     }
 }

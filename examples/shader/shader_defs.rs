@@ -7,6 +7,7 @@ use bevy::{
         renderer::RenderResources,
         shader::{asset_shader_defs_system, ShaderDefs, ShaderStage, ShaderStages},
     },
+    type_registry::TypeUuid,
 };
 
 /// This example illustrates how to create a custom material asset that uses "shader defs" and a shader that uses that material.
@@ -23,7 +24,8 @@ fn main() {
         .run();
 }
 
-#[derive(RenderResources, ShaderDefs, Default)]
+#[derive(RenderResources, ShaderDefs, Default, TypeUuid)]
+#[uuid = "620f651b-adbe-464b-b740-ba0e547282ba"]
 struct MyMaterial {
     pub color: Color,
     #[render_resources(ignore)]
@@ -103,9 +105,9 @@ fn setup(
     commands
         // cube
         .spawn(MeshComponents {
-            mesh: cube_handle,
+            mesh: cube_handle.clone(),
             render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
-                pipeline_handle,
+                pipeline_handle.clone(),
                 // NOTE: in the future you wont need to manually declare dynamic bindings
                 PipelineSpecialization {
                     dynamic_bindings: vec![
@@ -155,7 +157,8 @@ fn setup(
         .with(blue_material)
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0)).looking_at_origin(),
+            transform: Transform::from_translation(Vec3::new(3.0, 5.0, -8.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

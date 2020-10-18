@@ -157,6 +157,18 @@ impl Resources {
             })
     }
 
+    pub fn get_or_insert_with<T: Resource>(
+        &mut self,
+        get_resource: impl FnOnce() -> T,
+    ) -> RefMut<'_, T> {
+        // NOTE: this double-get is really weird. why cant we use an if-let here?
+        if self.get::<T>().is_some() {
+            return self.get_mut::<T>().unwrap();
+        }
+        self.insert(get_resource());
+        self.get_mut().unwrap()
+    }
+
     /// Returns a clone of the underlying resource, this is helpful when borrowing something
     /// cloneable (like a task pool) without taking a borrow on the resource map
     pub fn get_cloned<T: Resource + Clone>(&self) -> Option<T> {

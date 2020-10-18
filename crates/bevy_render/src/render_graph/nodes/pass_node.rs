@@ -246,9 +246,9 @@ where
                             match render_command {
                                 RenderCommand::SetPipeline { pipeline } => {
                                     // TODO: Filter pipelines
-                                    render_pass.set_pipeline(*pipeline);
+                                    render_pass.set_pipeline(pipeline);
                                     let descriptor = pipelines.get(pipeline).unwrap();
-                                    draw_state.set_pipeline(*pipeline, descriptor);
+                                    draw_state.set_pipeline(pipeline, descriptor);
 
                                     // try to set current camera bind group
                                     let layout = descriptor.get_layout().unwrap();
@@ -303,7 +303,7 @@ where
                                     bind_group,
                                     dynamic_uniform_indices,
                                 } => {
-                                    let pipeline = pipelines.get(&draw_state.pipeline.unwrap()).unwrap();
+                                    let pipeline = pipelines.get(draw_state.pipeline.as_ref().unwrap()).unwrap();
                                     let layout = pipeline.get_layout().unwrap();
                                     let bind_group_descriptor = layout.get_bind_group(*index).unwrap();
                                     render_pass.set_bind_group(
@@ -358,14 +358,14 @@ impl DrawState {
 
     pub fn set_pipeline(
         &mut self,
-        handle: Handle<PipelineDescriptor>,
+        handle: &Handle<PipelineDescriptor>,
         descriptor: &PipelineDescriptor,
     ) {
         self.bind_groups.clear();
         self.vertex_buffers.clear();
         self.index_buffer = None;
 
-        self.pipeline = Some(handle);
+        self.pipeline = Some(handle.clone_weak());
         let layout = descriptor.get_layout().unwrap();
         self.bind_groups.resize(layout.bind_groups.len(), None);
         self.vertex_buffers

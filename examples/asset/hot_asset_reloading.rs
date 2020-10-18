@@ -10,15 +10,9 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Load our mesh:
-    let mesh_handle = asset_server
-        .load("assets/models/monkey/Monkey.gltf")
-        .unwrap();
+    let scene_handle = asset_server.load("models/monkey/Monkey.gltf");
 
     // Tell the asset server to watch for asset changes on disk:
     asset_server.watch_for_changes().unwrap();
@@ -26,20 +20,10 @@ fn setup(
     // Any changes to the mesh will be reloaded automatically! Try making a change to Monkey.gltf.
     // You should see the changes immediately show up in your app.
 
-    // Create a material for the mesh:
-    let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.8, 0.7, 0.6),
-        ..Default::default()
-    });
-
     // Add entities to the world:
     commands
         // mesh
-        .spawn(PbrComponents {
-            mesh: mesh_handle,
-            material: material_handle,
-            ..Default::default()
-        })
+        .spawn_scene(scene_handle)
         // light
         .spawn(LightComponents {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
@@ -47,7 +31,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::from_translation(Vec3::new(2.0, 2.0, 6.0)).looking_at_origin(),
+            transform: Transform::from_translation(Vec3::new(2.0, 2.0, 6.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

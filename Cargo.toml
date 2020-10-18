@@ -111,8 +111,8 @@ name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
 [[example]]
-name = "load_model"
-path = "examples/3d/load_model.rs"
+name = "load_gltf"
+path = "examples/3d/load_gltf.rs"
 
 [[example]]
 name = "msaa"
@@ -171,8 +171,8 @@ name = "asset_loading"
 path = "examples/asset/asset_loading.rs"
 
 [[example]]
-name = "custom_loader"
-path = "examples/asset/custom_asset_loading.rs"
+name = "custom_asset"
+path = "examples/asset/custom_asset.rs"
 
 [[example]]
 name = "audio"

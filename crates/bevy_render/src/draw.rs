@@ -73,8 +73,10 @@ impl Draw {
         self.render_commands.clear();
     }
 
-    pub fn set_pipeline(&mut self, pipeline: Handle<PipelineDescriptor>) {
-        self.render_command(RenderCommand::SetPipeline { pipeline });
+    pub fn set_pipeline(&mut self, pipeline: &Handle<PipelineDescriptor>) {
+        self.render_command(RenderCommand::SetPipeline {
+            pipeline: pipeline.clone_weak(),
+        });
     }
 
     pub fn set_vertex_buffer(&mut self, slot: u32, buffer: BufferId, offset: u64) {
@@ -143,7 +145,7 @@ impl<'a> UnsafeClone for DrawContext<'a> {
             render_resource_context: self.render_resource_context.unsafe_clone(),
             vertex_buffer_descriptors: self.vertex_buffer_descriptors.unsafe_clone(),
             shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline,
+            current_pipeline: self.current_pipeline.clone(),
         }
     }
 }
@@ -252,7 +254,7 @@ impl<'a> DrawContext<'a> {
     pub fn set_pipeline(
         &mut self,
         draw: &mut Draw,
-        pipeline_handle: Handle<PipelineDescriptor>,
+        pipeline_handle: &Handle<PipelineDescriptor>,
         specialization: &PipelineSpecialization,
     ) -> Result<(), DrawError> {
         let specialized_pipeline = if let Some(specialized_pipeline) = self
@@ -271,14 +273,15 @@ impl<'a> DrawContext<'a> {
             )
         };
 
-        draw.set_pipeline(specialized_pipeline);
-        self.current_pipeline = Some(specialized_pipeline);
+        draw.set_pipeline(&specialized_pipeline);
+        self.current_pipeline = Some(specialized_pipeline.clone_weak());
         Ok(())
     }
 
     pub fn get_pipeline_descriptor(&self) -> Result<&PipelineDescriptor, DrawError> {
         self.current_pipeline
-            .and_then(|handle| self.pipelines.get(&handle))
+            .as_ref()
+            .and_then(|handle| self.pipelines.get(handle))
             .ok_or(DrawError::NoPipelineSet)
     }
 
@@ -295,10 +298,13 @@ impl<'a> DrawContext<'a> {
         draw: &mut Draw,
         render_resource_bindings: &mut [&mut RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
+        let pipeline = self
+            .current_pipeline
+            .as_ref()
+            .ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
-            .get(&pipeline)
+            .get(pipeline)
             .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
@@ -325,10 +331,13 @@ impl<'a> DrawContext<'a> {
         index: u32,
         bind_group: &BindGroup,
     ) -> Result<(), DrawError> {
-        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
+        let pipeline = self
+            .current_pipeline
+            .as_ref()
+            .ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
-            .get(&pipeline)
+            .get(pipeline)
             .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()
@@ -344,10 +353,13 @@ impl<'a> DrawContext<'a> {
         draw: &mut Draw,
         render_resource_bindings: &[&RenderResourceBindings],
     ) -> Result<(), DrawError> {
-        let pipeline = self.current_pipeline.ok_or(DrawError::NoPipelineSet)?;
+        let pipeline = self
+            .current_pipeline
+            .as_ref()
+            .ok_or(DrawError::NoPipelineSet)?;
         let pipeline_descriptor = self
             .pipelines
-            .get(&pipeline)
+            .get(pipeline)
             .ok_or(DrawError::NonExistentPipeline)?;
         let layout = pipeline_descriptor
             .get_layout()

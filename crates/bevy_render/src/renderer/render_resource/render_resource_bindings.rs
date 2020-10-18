@@ -3,7 +3,7 @@ use crate::{
     pipeline::{BindGroupDescriptor, BindGroupDescriptorId, PipelineDescriptor},
     renderer::RenderResourceContext,
 };
-use bevy_asset::{Handle, HandleUntyped};
+use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{hash::Hash, ops::Range};
 use uuid::Uuid;
@@ -259,18 +259,21 @@ pub struct AssetRenderResourceBindings {
 }
 
 impl AssetRenderResourceBindings {
-    pub fn get<T>(&self, handle: Handle<T>) -> Option<&RenderResourceBindings> {
-        self.bindings.get(&HandleUntyped::from(handle))
+    pub fn get<T: Asset>(&self, handle: &Handle<T>) -> Option<&RenderResourceBindings> {
+        self.bindings.get(&handle.clone_weak_untyped())
     }
 
-    pub fn get_or_insert_mut<T>(&mut self, handle: Handle<T>) -> &mut RenderResourceBindings {
+    pub fn get_or_insert_mut<T: Asset>(
+        &mut self,
+        handle: &Handle<T>,
+    ) -> &mut RenderResourceBindings {
         self.bindings
-            .entry(HandleUntyped::from(handle))
+            .entry(handle.clone_weak_untyped())
             .or_insert_with(RenderResourceBindings::default)
     }
 
-    pub fn get_mut<T>(&mut self, handle: Handle<T>) -> Option<&mut RenderResourceBindings> {
-        self.bindings.get_mut(&HandleUntyped::from(handle))
+    pub fn get_mut<T: Asset>(&mut self, handle: &Handle<T>) -> Option<&mut RenderResourceBindings> {
+        self.bindings.get_mut(&handle.clone_weak_untyped())
     }
 }
 

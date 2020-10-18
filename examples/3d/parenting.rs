@@ -36,8 +36,8 @@ fn setup(
     commands
         // parent cube
         .spawn(PbrComponents {
-            mesh: cube_handle,
-            material: cube_material_handle,
+            mesh: cube_handle.clone(),
+            material: cube_material_handle.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
             ..Default::default()
         })
@@ -58,7 +58,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0)).looking_at_origin(),
+            transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

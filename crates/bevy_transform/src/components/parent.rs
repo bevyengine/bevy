@@ -1,4 +1,4 @@
-use bevy_ecs::{Entity, FromResources};
+use bevy_ecs::{Entity, FromResources, MapEntities};
 use bevy_property::Properties;
 use std::ops::{Deref, DerefMut};
 
@@ -12,6 +12,16 @@ pub struct Parent(pub Entity);
 impl FromResources for Parent {
     fn from_resources(_resources: &bevy_ecs::Resources) -> Self {
         Parent(Entity::new(u32::MAX))
+    }
+}
+
+impl MapEntities for Parent {
+    fn map_entities(
+        &mut self,
+        entity_map: &bevy_ecs::EntityMap,
+    ) -> Result<(), bevy_ecs::MapEntitiesError> {
+        self.0 = entity_map.get(self.0)?;
+        Ok(())
     }
 }
 

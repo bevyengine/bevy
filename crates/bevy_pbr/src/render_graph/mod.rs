@@ -38,7 +38,7 @@ pub(crate) fn add_pbr_graph(graph: &mut RenderGraph, resources: &Resources) {
     graph.add_system_node(node::LIGHTS, LightsNode::new(10));
     let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
     let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
-    pipelines.set(
+    pipelines.set_untracked(
         FORWARD_PIPELINE_HANDLE,
         build_forward_pipeline(&mut shaders),
     );

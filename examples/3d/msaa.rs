@@ -32,7 +32,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::from_translation(Vec3::new(-3.0, 3.0, 5.0)).looking_at_origin(),
+            transform: Transform::from_translation(Vec3::new(-3.0, 3.0, 5.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

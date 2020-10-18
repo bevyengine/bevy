@@ -7,10 +7,12 @@ use bevy_render::{
     renderer::{RenderResource, RenderResources},
     texture::Texture,
 };
+use bevy_type_registry::TypeUuid;
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)
-#[derive(Debug, RenderResources)]
+#[derive(Debug, RenderResources, TypeUuid)]
+#[uuid = "946dacc5-c2b2-4b30-b81d-af77d79d1db7"]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Texture>,
@@ -138,9 +140,9 @@ impl TextureAtlas {
         self.textures.is_empty()
     }
 
-    pub fn get_texture_index(&self, texture: Handle<Texture>) -> Option<usize> {
+    pub fn get_texture_index(&self, texture: &Handle<Texture>) -> Option<usize> {
         self.texture_handles
             .as_ref()
-            .and_then(|texture_handles| texture_handles.get(&texture).cloned())
+            .and_then(|texture_handles| texture_handles.get(texture).cloned())
     }
 }
