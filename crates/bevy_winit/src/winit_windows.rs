@@ -71,9 +71,7 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
-        winit_window
-            .set_cursor_grab(window.cursor_locked())
-            .unwrap();
+        let _ = winit_window.set_cursor_grab(window.cursor_locked());
         winit_window.set_cursor_visible(window.cursor_visible());
 
         self.window_id_to_winit

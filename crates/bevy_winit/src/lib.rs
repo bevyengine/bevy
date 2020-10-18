@@ -86,7 +86,7 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                 }
                 bevy_window::WindowCommand::SetCursorLockMode { locked } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_cursor_grab(locked).unwrap();
+                    let _ = window.set_cursor_grab(locked);
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
