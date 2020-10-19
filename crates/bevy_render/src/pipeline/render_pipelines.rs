@@ -100,7 +100,6 @@ pub fn draw_render_pipelines_system(
                 .as_ref()
                 .unwrap()
                 .clone();
-            //TODO julian: is this a good idea?
         }
 
         for render_pipeline in render_pipelines.pipelines.iter() {

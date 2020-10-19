@@ -172,8 +172,8 @@ impl PipelineCompiler {
             pipeline_specialization.mesh_attribute_layout.clone();
 
         let mut fallback_vertex_buffer_descirptor = VertexBufferDescriptor {
-            name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME), //TODO julian: name acordingly
-            stride: VertexFormat::Float4.get_size(), //TODO julian: use smallest possible format!
+            name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME),
+            stride: VertexFormat::Float4.get_size(), //TODO: use smallest possible format
             ..Default::default()
         };
         for shader_vertex_attribute in &mut pipeline_layout.vertex_buffer_descriptors.iter_mut() {
@@ -200,7 +200,7 @@ impl PipelineCompiler {
                     });
             }
         }
-        //TODO julian: also add other buffers, like instancing?...
+        //TODO: add other buffers (like instancing) here
         let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
         vertex_buffer_descriptors.push(mutated_vertex_buffer_descriptor);
         if !fallback_vertex_buffer_descirptor.attributes.is_empty() {

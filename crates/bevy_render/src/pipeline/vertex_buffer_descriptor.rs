@@ -54,8 +54,6 @@ pub struct VertexAttributeDescriptor {
     pub shader_location: u32,
 }
 
-//pub type StaticCowString = Cow<'static, str>; //TODO julian: use this?
-
 /// Internally, `bevy_render` uses hashes to identify vertex attribute names.
 pub fn get_vertex_attribute_name_id(name: &str) -> u64 {
     let mut hasher = bevy_utils::AHasher::default();

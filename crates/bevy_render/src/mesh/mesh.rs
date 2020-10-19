@@ -13,6 +13,8 @@ use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDesc
 use bevy_utils::HashMap;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
+pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
+pub const VERTEX_FALLBACK_BUFFER_ID: u64 = 20;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
@@ -90,7 +92,7 @@ pub struct Mesh {
     /// All defined attributes for this mesh. Attribute name (Case-sensitive) maps to attribute values.
     pub attributes: VertexAttributesMap,
     pub indices: Option<Indices>,
-    pub attribute_vertex_buffer_descriptor: Option<VertexBufferDescriptor>, //TODO julian: should not be Option
+    pub attribute_vertex_buffer_descriptor: Option<VertexBufferDescriptor>,
 }
 
 impl Mesh {
@@ -427,8 +429,6 @@ pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
 }
 
-const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10; //TODO julian: remove
-const VERTEX_FALLBACK_BUFFER_ID: u64 = 20; //TODO julian: remove
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
@@ -489,11 +489,11 @@ pub fn mesh_resource_provider_system(
                     },
                     &interleaved_buffer.0,
                 )),
-                VERTEX_ATTRIBUTE_BUFFER_ID, //TODO julian: pipeline::get_vertex_attribute_name_id(&attribute.name),
+                VERTEX_ATTRIBUTE_BUFFER_ID,
             );
 
             // Fallback buffer
-            // TODO julian: can be done with a 1 byte buffer + zero stride?
+            // TODO: can be done with a 1 byte buffer + zero stride?
             render_resource_context.set_asset_resource(
                 *changed_mesh_handle,
                 RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
@@ -503,7 +503,7 @@ pub fn mesh_resource_provider_system(
                     },
                     &vec![0; (vertex_count * VertexFormat::Float4.get_size() as u32) as usize],
                 )),
-                VERTEX_FALLBACK_BUFFER_ID, //TODO julian: pipeline::get_vertex_attribute_name_id(&attribute.name),
+                VERTEX_FALLBACK_BUFFER_ID,
             );
         }
     }
@@ -575,8 +575,7 @@ pub fn attributes_to_vertex_buffer_data(
         accumulated_offset += vertex_format.get_size();
     }
 
-    // TODO: make interleaved configurable? or call this function for each interleaved buffer?
-    let mut interleaved_buffer = Vec::<u8>::default();
+    let mut attributes_interleaved_buffer = Vec::<u8>::default();
 
     // bundle into interleaved buffers
     for vertex_index in 0..vertex_count {
@@ -585,17 +584,20 @@ pub fn attributes_to_vertex_buffer_data(
             let bytes = &attribute.1;
             let stride = bytes.len() / vertex_count as usize;
             // insert one element
-            interleaved_buffer
+            attributes_interleaved_buffer
                 .extend(&bytes[vertex_index * stride..vertex_index * stride + stride]);
         }
     }
 
     let vertex_buffer_descriptor_reference = VertexBufferDescriptor {
-        name: Default::default(), //TODO: naming!
+        name: Default::default(),
         stride: accumulated_offset,
         step_mode: InputStepMode::Vertex,
-        attributes: attributes_gpu_ready.iter().map(|x| x.0.clone()).collect(), //TODO: clone?
+        attributes: attributes_gpu_ready.iter().map(|x| x.0.clone()).collect(),
     };
 
-    (interleaved_buffer, vertex_buffer_descriptor_reference)
+    (
+        attributes_interleaved_buffer,
+        vertex_buffer_descriptor_reference,
+    )
 }

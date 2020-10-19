@@ -2,10 +2,13 @@ use crate::{Font, FontAtlasSet};
 use ab_glyph::{Glyph, PxScale, ScaleFont};
 use bevy_asset::Assets;
 use bevy_math::{Mat4, Vec2, Vec3};
+use bevy_render::pipeline::{
+    InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+};
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
-    mesh, pipeline,
+    mesh,
     pipeline::PipelineSpecialization,
     prelude::Msaa,
     renderer::{
@@ -14,6 +17,7 @@ use bevy_render::{
     },
 };
 use bevy_sprite::{TextureAtlas, TextureAtlasSprite};
+use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct TextStyle {
@@ -50,28 +54,42 @@ impl<'a> Drawable for DrawableText<'a> {
             bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
+                // TODO: hacky. find a way to get the actual VertexLayout from the QuadMesh
+                mesh_attribute_layout: VertexBufferDescriptor {
+                    name: Default::default(),
+                    stride: VertexFormat::Float3.get_size() * 2 + VertexFormat::Float2.get_size(),
+                    step_mode: InputStepMode::Vertex,
+                    attributes: vec![
+                        VertexAttributeDescriptor {
+                            name: Cow::from("Vertex_Position"),
+                            offset: 0,
+                            format: VertexFormat::Float3,
+                            shader_location: 0,
+                        },
+                        VertexAttributeDescriptor {
+                            name: Cow::from("Vertex_Normal"),
+                            offset: VertexFormat::Float3.get_size(),
+                            format: VertexFormat::Float3,
+                            shader_location: 1,
+                        },
+                        VertexAttributeDescriptor {
+                            name: Cow::from("Vertex_Uv"),
+                            offset: VertexFormat::Float3.get_size() * 2,
+                            format: VertexFormat::Float2,
+                            shader_location: 2,
+                        },
+                    ],
+                },
                 ..Default::default()
             },
         )?;
 
         let render_resource_context = &**context.render_resource_context;
-        let pipeline_layout = context.get_pipeline_layout().unwrap();
 
-        for vertex_buffer_descriptor in &pipeline_layout.vertex_buffer_descriptors {
-            let name_id = pipeline::get_vertex_attribute_name_id(&vertex_buffer_descriptor.name);
-            if let Some(RenderResourceId::Buffer(vertex_attr_buffer_id)) =
-                render_resource_context.get_asset_resource(bevy_sprite::QUAD_HANDLE, name_id)
-            {
-                draw.set_vertex_buffer(
-                    vertex_buffer_descriptor
-                        .attributes
-                        .get(0)
-                        .unwrap()
-                        .shader_location,
-                    vertex_attr_buffer_id,
-                    0,
-                );
-            }
+        if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_id)) = render_resource_context
+            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::VERTEX_ATTRIBUTE_BUFFER_ID)
+        {
+            draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
         }
 
         let mut indices = 0..0;
