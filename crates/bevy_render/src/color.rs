@@ -140,6 +140,7 @@ impl Color {
             alpha: self.alpha, // alpha is always linear
         }
     }
+
     // non-linear-sRGB Component Getter
 
     /// Get red in sRGB colorspace.
