@@ -11,6 +11,8 @@ use bevy_property::Property;
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
+// TODO: Separate types for non-linear sRGB and linear sRGB, with conversions between
+// see comment on bevy issue #688 https://github.com/bevyengine/bevy/pull/688#issuecomment-711414011
 /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Property)]
@@ -76,6 +78,7 @@ impl Color {
         }
     }
 
+    /// New ``Color`` from sRGB colorspace.
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         let hex = hex.as_ref();
 
@@ -134,72 +137,90 @@ impl Color {
             red: self.red.nonlinear_to_linear_srgb(),
             green: self.green.nonlinear_to_linear_srgb(),
             blue: self.blue.nonlinear_to_linear_srgb(),
-            alpha: self.alpha, //alpha is always linear
+            alpha: self.alpha, // alpha is always linear
         }
     }
 
     // non-linear-sRGB Component Getter
+
+    /// Get red in sRGB colorspace.
     pub fn r(&self) -> f32 {
         self.red.linear_to_nonlinear_srgb()
     }
 
+    /// Get green in sRGB colorspace.
     pub fn g(&self) -> f32 {
         self.green.linear_to_nonlinear_srgb()
     }
 
+    /// Get blue in sRGB colorspace.
     pub fn b(&self) -> f32 {
         self.blue.linear_to_nonlinear_srgb()
     }
 
     // linear-sRGB Component Getter
-    pub fn g_linear(&self) -> f32 {
-        self.green
-    }
 
+    /// Get red in linear colorspace.
     pub fn r_linear(&self) -> f32 {
         self.red
     }
 
+    /// Get green in linear colorspace.
+    pub fn g_linear(&self) -> f32 {
+        self.green
+    }
+
+    /// Get blue in linear colorspace.
     pub fn b_linear(&self) -> f32 {
         self.blue
     }
 
+    /// Get alpha.
     pub fn a(&self) -> f32 {
         self.alpha
     }
 
     // non-linear-sRGB Component Setter
+
+    /// Set red in sRGB colorspace.
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         self.red = r.nonlinear_to_linear_srgb();
         self
     }
 
+    /// Set green in sRGB colorspace.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         self.green = g.nonlinear_to_linear_srgb();
         self
     }
 
+    /// Set blue in sRGB colorspace.
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         self.blue = b.nonlinear_to_linear_srgb();
         self
     }
 
     // linear-sRGB Component Setter
+
+    /// Set red in linear colorspace.
     pub fn set_r_linear(&mut self, r: f32) -> &mut Self {
         self.red = r;
         self
     }
 
+    /// Set green in linear colorspace.
     pub fn set_g_linear(&mut self, g: f32) -> &mut Self {
         self.green = g;
         self
     }
 
+    /// Set blue in linear colorspace.
     pub fn set_b_linear(&mut self, b: f32) -> &mut Self {
         self.blue = b;
         self
     }
 
+    /// Set alpha.
     pub fn set_a(&mut self, a: f32) -> &mut Self {
         self.alpha = a;
         self
@@ -249,26 +270,27 @@ impl Add<Vec4> for Color {
     }
 }
 
-impl From<Vec4> for Color {
-    fn from(vec4: Vec4) -> Self {
-        Color {
-            red: vec4.x(),
-            green: vec4.y(),
-            blue: vec4.z(),
-            alpha: vec4.w(),
-        }
+impl From<Color> for [f32; 4] {
+    fn from(color: Color) -> Self {
+        [color.r(), color.g(), color.b(), color.a()]
     }
 }
 
 impl From<[f32; 4]> for Color {
-    fn from(value: [f32; 4]) -> Self {
-        Color::rgba(value[0], value[1], value[2], value[3])
+    fn from([r, g, b, a]: [f32; 4]) -> Self {
+        Color::rgba(r, g, b, a)
     }
 }
 
-impl Into<[f32; 4]> for Color {
-    fn into(self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
+impl From<Color> for Vec4 {
+    fn from(color: Color) -> Self {
+        Vec4::new(color.r(), color.g(), color.b(), color.a())
+    }
+}
+
+impl From<Vec4> for Color {
+    fn from(vec4: Vec4) -> Self {
+        Color::rgba(vec4.x(), vec4.y(), vec4.z(), vec4.w())
     }
 }
 
@@ -276,21 +298,15 @@ impl Mul<f32> for Color {
     type Output = Color;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        Color {
-            red: self.red * rhs,
-            green: self.green * rhs,
-            blue: self.blue * rhs,
-            alpha: self.alpha * rhs,
-        }
+        Color::rgba(self.r() * rhs, self.g() * rhs, self.b() * rhs, self.a())
     }
 }
 
 impl MulAssign<f32> for Color {
     fn mul_assign(&mut self, rhs: f32) {
-        self.red *= rhs;
-        self.green *= rhs;
-        self.blue *= rhs;
-        self.alpha *= rhs;
+        self.set_r(self.r() * rhs);
+        self.set_g(self.g() * rhs);
+        self.set_b(self.b() * rhs);
     }
 }
 
@@ -298,21 +314,21 @@ impl Mul<Vec4> for Color {
     type Output = Color;
 
     fn mul(self, rhs: Vec4) -> Self::Output {
-        Color {
-            red: self.red * rhs.x(),
-            green: self.green * rhs.y(),
-            blue: self.blue * rhs.z(),
-            alpha: self.alpha * rhs.w(),
-        }
+        Color::rgba(
+            self.r() * rhs.x(),
+            self.g() * rhs.y(),
+            self.b() * rhs.z(),
+            self.a() * rhs.w(),
+        )
     }
 }
 
 impl MulAssign<Vec4> for Color {
     fn mul_assign(&mut self, rhs: Vec4) {
-        self.red *= rhs.x();
-        self.green *= rhs.y();
-        self.blue *= rhs.z();
-        self.alpha *= rhs.w();
+        self.set_r(self.r() * rhs.x());
+        self.set_g(self.g() * rhs.y());
+        self.set_b(self.b() * rhs.z());
+        self.set_a(self.a() * rhs.w());
     }
 }
 
@@ -320,20 +336,53 @@ impl Mul<Vec3> for Color {
     type Output = Color;
 
     fn mul(self, rhs: Vec3) -> Self::Output {
-        Color {
-            red: self.red * rhs.x(),
-            green: self.green * rhs.y(),
-            blue: self.blue * rhs.z(),
-            alpha: self.alpha,
-        }
+        Color::rgba(
+            self.r() * rhs.x(),
+            self.g() * rhs.y(),
+            self.b() * rhs.z(),
+            self.a(),
+        )
     }
 }
 
 impl MulAssign<Vec3> for Color {
     fn mul_assign(&mut self, rhs: Vec3) {
-        self.red *= rhs.x();
-        self.green *= rhs.y();
-        self.blue *= rhs.z();
+        self.set_r(self.r() * rhs.x());
+        self.set_g(self.g() * rhs.y());
+        self.set_b(self.b() * rhs.z());
+    }
+}
+
+impl Mul<[f32; 4]> for Color {
+    type Output = Color;
+
+    fn mul(self, [r, g, b, a]: [f32; 4]) -> Self::Output {
+        Color::rgba(self.r() * r, self.g() * g, self.b() * b, self.a() * a)
+    }
+}
+
+impl MulAssign<[f32; 4]> for Color {
+    fn mul_assign(&mut self, [r, g, b, a]: [f32; 4]) {
+        self.set_r(self.r() * r);
+        self.set_g(self.g() * g);
+        self.set_b(self.b() * b);
+        self.set_a(self.a() * a);
+    }
+}
+
+impl Mul<[f32; 3]> for Color {
+    type Output = Color;
+
+    fn mul(self, [r, g, b]: [f32; 3]) -> Self::Output {
+        Color::rgba(self.r() * r, self.g() * g, self.b() * b, self.a())
+    }
+}
+
+impl MulAssign<[f32; 3]> for Color {
+    fn mul_assign(&mut self, [r, g, b]: [f32; 3]) {
+        self.set_r(self.r() * r);
+        self.set_g(self.g() * g);
+        self.set_b(self.b() * b);
     }
 }
 
@@ -357,6 +406,12 @@ impl Bytes for ColorSource {
 pub enum ColorSource {
     Color(Color),
     Texture(Handle<Texture>),
+}
+
+impl From<[f32; 4]> for ColorSource {
+    fn from(f32s: [f32; 4]) -> Self {
+        ColorSource::Color(f32s.into())
+    }
 }
 
 impl From<Vec4> for ColorSource {
@@ -448,4 +503,99 @@ fn test_hex_color() {
     assert!(Color::hex("--------").is_err());
 
     assert!(Color::hex("1234567890").is_err());
+}
+
+#[test]
+fn test_conversions_vec4() {
+    let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
+    let starting_color = Color::from(starting_vec4);
+
+    assert_eq!(starting_vec4, Vec4::from(starting_color),);
+
+    let transformation = Vec4::new(0.5, 0.5, 0.5, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::from(starting_vec4 * transformation),
+    );
+}
+
+#[test]
+fn test_mul_and_mulassign_f32() {
+    let transformation = 0.5;
+    let starting_color = Color::rgba(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::rgba(0.4 * 0.5, 0.5 * 0.5, 0.6 * 0.5, 1.0),
+    );
+
+    let mut mutated_color = starting_color;
+    mutated_color *= transformation;
+
+    assert_eq!(starting_color * transformation, mutated_color,);
+}
+
+#[test]
+fn test_mul_and_mulassign_f32by3() {
+    let transformation = [0.4, 0.5, 0.6];
+    let starting_color = Color::rgba(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::rgba(0.4 * 0.4, 0.5 * 0.5, 0.6 * 0.6, 1.0),
+    );
+
+    let mut mutated_color = starting_color;
+    mutated_color *= transformation;
+
+    assert_eq!(starting_color * transformation, mutated_color,);
+}
+
+#[test]
+fn test_mul_and_mulassign_f32by4() {
+    let transformation = [0.4, 0.5, 0.6, 0.9];
+    let starting_color = Color::rgba(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::rgba(0.4 * 0.4, 0.5 * 0.5, 0.6 * 0.6, 1.0 * 0.9),
+    );
+
+    let mut mutated_color = starting_color;
+    mutated_color *= transformation;
+
+    assert_eq!(starting_color * transformation, mutated_color,);
+}
+
+#[test]
+fn test_mul_and_mulassign_vec3() {
+    let transformation = Vec3::new(0.2, 0.3, 0.4);
+    let starting_color = Color::rgba(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::rgba(0.4 * 0.2, 0.5 * 0.3, 0.6 * 0.4, 1.0),
+    );
+
+    let mut mutated_color = starting_color;
+    mutated_color *= transformation;
+
+    assert_eq!(starting_color * transformation, mutated_color,);
+}
+
+#[test]
+fn test_mul_and_mulassign_vec4() {
+    let transformation = Vec4::new(0.2, 0.3, 0.4, 0.5);
+    let starting_color = Color::rgba(0.4, 0.5, 0.6, 1.0);
+
+    assert_eq!(
+        starting_color * transformation,
+        Color::rgba(0.4 * 0.2, 0.5 * 0.3, 0.6 * 0.4, 1.0 * 0.5),
+    );
+
+    let mut mutated_color = starting_color;
+    mutated_color *= transformation;
+
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
