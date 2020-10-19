@@ -9,13 +9,13 @@ pub use file_asset_io::*;
 pub use wasm_asset_io::*;
 
 use anyhow::Result;
-use downcast_rs::{Downcast, impl_downcast};
+use async_trait::async_trait;
+use downcast_rs::{impl_downcast, Downcast};
 use std::{
     io,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use async_trait::async_trait;
 
 /// Errors that occur while loading assets
 #[derive(Error, Debug)]

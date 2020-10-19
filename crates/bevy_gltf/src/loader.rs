@@ -274,9 +274,9 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
-async fn load_buffers<'a>(
+async fn load_buffers(
     gltf: &gltf::Gltf,
-    load_context: &LoadContext<'a>,
+    load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
     const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
