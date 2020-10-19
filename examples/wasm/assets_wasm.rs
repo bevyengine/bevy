@@ -5,6 +5,7 @@ use bevy::{
     asset::{AssetLoader, AssetServerSettings, LoadContext, LoadedAsset},
     prelude::*,
     type_registry::TypeUuid,
+    utils::BoxedFuture,
 };
 
 fn main() {
@@ -57,11 +58,17 @@ pub struct RustSourceCode(pub String);
 pub struct RustSourceCodeLoader;
 
 impl AssetLoader for RustSourceCodeLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<(), anyhow::Error> {
-        load_context.set_default_asset(LoadedAsset::new(RustSourceCode(String::from_utf8(
-            bytes.into(),
-        )?)));
-        Ok(())
+    fn load<'a>(
+        &'a self,
+        bytes: &'a [u8],
+        load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
+        Box::pin(async move {
+            load_context.set_default_asset(LoadedAsset::new(RustSourceCode(String::from_utf8(
+                bytes.into(),
+            )?)));
+            Ok(())
+        })
     }
 
     fn extensions(&self) -> &[&str] {

@@ -1,8 +1,8 @@
 use crate::{
     path::{AssetPath, AssetPathId, SourcePathId},
     Asset, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel, AssetLifecycleEvent,
-    AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext,
-    LoadState, RefChange, RefChangeChannel, SourceInfo, SourceMeta,
+    AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext, LoadState,
+    RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
 use bevy_ecs::Res;
@@ -232,6 +232,7 @@ impl AssetServer {
         );
         asset_loader
             .load(&bytes, &mut load_context)
+            .await
             .map_err(AssetServerError::AssetLoaderError)?;
 
         // if version has changed since we loaded and grabbed a lock, return. theres is a newer version being loaded
