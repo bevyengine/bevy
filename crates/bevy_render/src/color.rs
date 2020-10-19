@@ -140,7 +140,6 @@ impl Color {
             alpha: self.alpha, // alpha is always linear
         }
     }
-
     // non-linear-sRGB Component Getter
 
     /// Get red in sRGB colorspace.
@@ -159,7 +158,6 @@ impl Color {
     }
 
     // linear-sRGB Component Getter
-
     /// Get red in linear colorspace.
     pub fn r_linear(&self) -> f32 {
         self.red
@@ -181,7 +179,6 @@ impl Color {
     }
 
     // non-linear-sRGB Component Setter
-
     /// Set red in sRGB colorspace.
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         self.red = r.nonlinear_to_linear_srgb();
