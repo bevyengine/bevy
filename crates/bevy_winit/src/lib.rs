@@ -4,6 +4,7 @@ mod winit_windows;
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    touch::TouchInput,
 };
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -84,6 +85,14 @@ fn change_window(_: &mut World, resources: &mut Resources) {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_decorations(decorations);
                 }
+                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_grab(locked).unwrap();
+                }
+                bevy_window::WindowCommand::SetCursorVisibility { visible } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_visible(visible);
+                }
             }
         }
     }
@@ -147,6 +156,8 @@ pub fn winit_runner(mut app: App) {
         &event_loop,
         &mut create_window_event_reader,
     );
+
+    app.initialize();
 
     log::debug!("Entering winit event loop");
 
@@ -250,6 +261,11 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                 },
+                WindowEvent::Touch(touch) => {
+                    let mut touch_input_events =
+                        app.resources.get_mut::<Events<TouchInput>>().unwrap();
+                    touch_input_events.send(converters::convert_touch_input(touch));
+                }
                 _ => {}
             },
             event::Event::DeviceEvent { ref event, .. } => {

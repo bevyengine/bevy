@@ -13,15 +13,11 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut textures: ResMut<Assets<Texture>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // load a texture and retrieve its aspect ratio
-    let texture_handle = asset_server
-        .load_sync(&mut textures, "assets/branding/bevy_logo_dark_big.png")
-        .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
-    let aspect = texture.aspect();
+    let texture_handle = asset_server.load("branding/bevy_logo_dark_big.png");
+    let aspect = 0.25;
 
     // create a new quad mesh. this is what we will apply the texture to
     let quad_width = 8.0;
@@ -32,7 +28,7 @@ fn setup(
 
     // this material renders the texture normally
     let material_handle = materials.add(StandardMaterial {
-        albedo_texture: Some(texture_handle),
+        albedo_texture: Some(texture_handle.clone()),
         shaded: false,
         ..Default::default()
     });
@@ -40,9 +36,8 @@ fn setup(
     // this material modulates the texture to make it red (and slightly transparent)
     let red_material_handle = materials.add(StandardMaterial {
         albedo: Color::rgba(1.0, 0.0, 0.0, 0.5),
-        albedo_texture: Some(texture_handle),
+        albedo_texture: Some(texture_handle.clone()),
         shaded: false,
-        ..Default::default()
     });
 
     // and lets make this one blue! (and also slightly transparent)
@@ -50,19 +45,19 @@ fn setup(
         albedo: Color::rgba(0.0, 0.0, 1.0, 0.5),
         albedo_texture: Some(texture_handle),
         shaded: false,
-        ..Default::default()
     });
 
     // add entities to the world
     commands
         // textured quad - normal
         .spawn(PbrComponents {
-            mesh: quad_handle,
+            mesh: quad_handle.clone(),
             material: material_handle,
-            transform: Transform::from_translation_rotation(
-                Vec3::new(0.0, 0.0, 1.5),
-                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 1.5),
+                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+                ..Default::default()
+            },
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -71,12 +66,13 @@ fn setup(
         })
         // textured quad - modulated
         .spawn(PbrComponents {
-            mesh: quad_handle,
+            mesh: quad_handle.clone(),
             material: red_material_handle,
-            transform: Transform::from_translation_rotation(
-                Vec3::new(0.0, 0.0, 0.0),
-                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 0.0),
+                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+                ..Default::default()
+            },
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -87,10 +83,11 @@ fn setup(
         .spawn(PbrComponents {
             mesh: quad_handle,
             material: blue_material_handle,
-            transform: Transform::from_translation_rotation(
-                Vec3::new(0.0, 0.0, -1.5),
-                Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
-            ),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, -1.5),
+                rotation: Quat::from_rotation_x(-std::f32::consts::PI / 5.0),
+                ..Default::default()
+            },
             draw: Draw {
                 is_transparent: true,
                 ..Default::default()
@@ -99,11 +96,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(3.0, 5.0, 8.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

@@ -21,8 +21,7 @@ struct Rotator;
 /// rotates the parent, which will result in the child also rotating
 fn rotator_system(time: Res<Time>, mut query: Query<(&Rotator, &mut Transform)>) {
     for (_rotator, mut transform) in &mut query.iter() {
-        let rotation = transform.rotation() * Quat::from_rotation_x(3.0 * time.delta_seconds);
-        transform.set_rotation(rotation);
+        transform.rotation *= Quat::from_rotation_x(3.0 * time.delta_seconds);
     }
 }
 
@@ -36,7 +35,7 @@ fn camera_order_color_system(
             if let Ok(material_handle) =
                 material_query.get::<Handle<StandardMaterial>>(visible_entity.entity)
             {
-                let material = materials.get_mut(&material_handle).unwrap();
+                let material = materials.get_mut(&*material_handle).unwrap();
                 let value = 1.0 - (visible_entity.order.0 - 10.0) / 7.0;
                 material.albedo = Color::rgb(value, value, value);
             }
@@ -53,7 +52,7 @@ fn setup(
     commands
         // parent cube
         .spawn(PbrComponents {
-            mesh: cube_handle,
+            mesh: cube_handle.clone(),
             material: materials.add(StandardMaterial {
                 shaded: false,
                 ..Default::default()
@@ -66,7 +65,7 @@ fn setup(
             // child cubes
             parent
                 .spawn(PbrComponents {
-                    mesh: cube_handle,
+                    mesh: cube_handle.clone(),
                     material: materials.add(StandardMaterial {
                         shaded: false,
                         ..Default::default()
@@ -86,11 +85,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(5.0, 10.0, 10.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(5.0, 10.0, 10.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

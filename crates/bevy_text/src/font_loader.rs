@@ -1,14 +1,15 @@
 use crate::Font;
 use anyhow::Result;
-use bevy_asset::AssetLoader;
-use std::path::Path;
+use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 
 #[derive(Default)]
 pub struct FontLoader;
 
-impl AssetLoader<Font> for FontLoader {
-    fn from_bytes(&self, _asset_path: &Path, bytes: Vec<u8>) -> Result<Font> {
-        Ok(Font::try_from_bytes(bytes)?)
+impl AssetLoader for FontLoader {
+    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<()> {
+        let font = Font::try_from_bytes(bytes.into())?;
+        load_context.set_default_asset(LoadedAsset::new(font));
+        Ok(())
     }
 
     fn extensions(&self) -> &[&str] {

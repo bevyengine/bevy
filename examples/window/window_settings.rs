@@ -13,6 +13,7 @@ fn main() {
         })
         .add_default_plugins()
         .add_system(change_title.system())
+        .add_system(toggle_cursor.system())
         .run();
 }
 
@@ -23,4 +24,13 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
         "Seconds since startup: {}",
         time.seconds_since_startup.round()
     ));
+}
+
+/// This system toggles the cursor's visibility when the space bar is pressed
+fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+    let window = windows.get_primary_mut().unwrap();
+    if input.just_pressed(KeyCode::Space) {
+        window.set_cursor_lock_mode(!window.cursor_locked());
+        window.set_cursor_visibility(!window.cursor_visible());
+    }
 }

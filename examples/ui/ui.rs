@@ -59,9 +59,7 @@ fn setup(
                                 },
                                 text: Text {
                                     value: "Text Example".to_string(),
-                                    font: asset_server
-                                        .load("assets/fonts/FiraSans-Bold.ttf")
-                                        .unwrap(),
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     style: TextStyle {
                                         font_size: 30.0,
                                         color: Color::WHITE,
@@ -220,12 +218,8 @@ fn setup(
                             size: Size::new(Val::Px(500.0), Val::Auto),
                             ..Default::default()
                         },
-                        material: materials.add(
-                            asset_server
-                                .load("assets/branding/bevy_logo_dark_big.png")
-                                .unwrap()
-                                .into(),
-                        ),
+                        material: materials
+                            .add(asset_server.load("branding/bevy_logo_dark_big.png").into()),
                         draw: Draw {
                             is_transparent: true,
                             ..Default::default()

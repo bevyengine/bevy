@@ -30,6 +30,7 @@ impl Color {
     pub const BLUE: Color = Color::rgb_linear(0.0, 0.0, 1.0);
     pub const GREEN: Color = Color::rgb_linear(0.0, 1.0, 0.0);
     pub const NONE: Color = Color::rgba_linear(0.0, 0.0, 0.0, 0.0);
+    pub const PINK: Color = Color::rgb_linear(1.0, 0.08, 0.58);
     pub const RED: Color = Color::rgb_linear(1.0, 0.0, 0.0);
     pub const WHITE: Color = Color::rgb_linear(1.0, 1.0, 1.0);
 

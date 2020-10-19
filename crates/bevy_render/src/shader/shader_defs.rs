@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle};
 
 use crate::{pipeline::RenderPipelines, Texture};
 pub use bevy_derive::ShaderDefs;
@@ -91,14 +91,14 @@ pub fn clear_shader_defs_system(mut query: Query<&mut RenderPipelines>) {
 }
 
 /// Updates [RenderPipelines] with the latest [ShaderDefs] from a given asset type
-pub fn asset_shader_defs_system<T>(
+pub fn asset_shader_defs_system<T: Asset>(
     assets: Res<Assets<T>>,
     mut query: Query<(&Handle<T>, &mut RenderPipelines)>,
 ) where
     T: ShaderDefs + Send + Sync + 'static,
 {
     for (asset_handle, mut render_pipelines) in &mut query.iter() {
-        let shader_defs = assets.get(&asset_handle).unwrap();
+        let shader_defs = assets.get(asset_handle).unwrap();
         for shader_def in shader_defs.iter_shader_defs() {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline

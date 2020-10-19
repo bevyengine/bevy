@@ -56,7 +56,7 @@ impl RenderPipelines {
         RenderPipelines {
             pipelines: handles
                 .into_iter()
-                .map(|pipeline| RenderPipeline::new(*pipeline))
+                .map(|pipeline| RenderPipeline::new(pipeline.clone_weak()))
                 .collect::<Vec<RenderPipeline>>(),
             ..Default::default()
         }
@@ -84,7 +84,13 @@ pub fn draw_render_pipelines_system(
             continue;
         }
 
-        let mesh = meshes.get(mesh_handle).unwrap();
+        // don't render if the mesh isn't loaded yet
+        let mesh = if let Some(mesh) = meshes.get(mesh_handle) {
+            mesh
+        } else {
+            continue;
+        };
+
         let (index_range, index_format) = match mesh.indices.as_ref() {
             Some(Indices::U32(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint32),
             Some(Indices::U16(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint16),
@@ -101,7 +107,7 @@ pub fn draw_render_pipelines_system(
             draw_context
                 .set_pipeline(
                     &mut draw,
-                    render_pipeline.pipeline,
+                    &render_pipeline.pipeline,
                     &render_pipeline.specialization,
                 )
                 .unwrap();

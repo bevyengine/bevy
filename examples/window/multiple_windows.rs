@@ -15,6 +15,7 @@ use bevy::{
 /// This example creates a second window and draws a mesh from two different cameras.
 fn main() {
     App::build()
+        .add_resource(Msaa { samples: 4 })
         .add_default_plugins()
         .add_startup_system(setup.system())
         .run();
@@ -25,7 +26,6 @@ fn setup(
     mut create_window_events: ResMut<Events<CreateWindow>>,
     mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     msaa: Res<Msaa>,
 ) {
@@ -134,7 +134,7 @@ fn setup(
                     mip_level_count: 1,
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
-                    format: TextureFormat::Bgra8UnormSrgb,
+                    format: TextureFormat::default(),
                     usage: TextureUsage::OUTPUT_ATTACHMENT,
                 },
             ),
@@ -152,25 +152,9 @@ fn setup(
 
     // SETUP SCENE
 
-    // load the mesh
-    let mesh_handle = asset_server
-        .load("assets/models/monkey/Monkey.gltf")
-        .unwrap();
-
-    // create a material for the mesh
-    let material_handle = materials.add(StandardMaterial {
-        albedo: Color::rgb(0.8, 0.7, 0.6),
-        ..Default::default()
-    });
-
     // add entities to the world
     commands
-        // mesh
-        .spawn(PbrComponents {
-            mesh: mesh_handle,
-            material: material_handle,
-            ..Default::default()
-        })
+        .spawn_scene(asset_server.load("models/monkey/Monkey.gltf"))
         // light
         .spawn(LightComponents {
             transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
@@ -178,11 +162,8 @@ fn setup(
         })
         // main camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(0.0, 0.0, 6.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 6.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         })
         // second window camera
@@ -192,11 +173,8 @@ fn setup(
                 window: window_id,
                 ..Default::default()
             },
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(6.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(6.0, 0.0, 0.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }

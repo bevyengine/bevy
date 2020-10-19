@@ -1,92 +1,133 @@
 use crate::{
-    update_asset_storage_system, AssetChannel, AssetLoader, AssetServer, ChannelAssetHandler,
-    Handle, HandleId,
+    update_asset_storage_system, Asset, AssetLoader, AssetServer, Handle, HandleId, RefChange,
 };
 use bevy_app::{prelude::Events, AppBuilder};
-use bevy_ecs::{FromResources, IntoQuerySystem, ResMut, Resource};
+use bevy_ecs::{FromResources, IntoQuerySystem, ResMut};
 use bevy_type_registry::RegisterType;
 use bevy_utils::HashMap;
+use crossbeam_channel::Sender;
+use std::fmt::Debug;
 
 /// Events that happen on assets of type `T`
-#[derive(Debug)]
-pub enum AssetEvent<T: Resource> {
+pub enum AssetEvent<T: Asset> {
     Created { handle: Handle<T> },
     Modified { handle: Handle<T> },
     Removed { handle: Handle<T> },
 }
 
-/// Stores Assets of a given type and tracks changes to them.
-#[derive(Debug)]
-pub struct Assets<T: Resource> {
-    assets: HashMap<Handle<T>, T>,
-    events: Events<AssetEvent<T>>,
+impl<T: Asset> Debug for AssetEvent<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssetEvent::Created { handle } => f
+                .debug_struct(&format!(
+                    "AssetEvent<{}>::Created",
+                    std::any::type_name::<T>()
+                ))
+                .field("handle", &handle.id)
+                .finish(),
+            AssetEvent::Modified { handle } => f
+                .debug_struct(&format!(
+                    "AssetEvent<{}>::Modified",
+                    std::any::type_name::<T>()
+                ))
+                .field("handle", &handle.id)
+                .finish(),
+            AssetEvent::Removed { handle } => f
+                .debug_struct(&format!(
+                    "AssetEvent<{}>::Removed",
+                    std::any::type_name::<T>()
+                ))
+                .field("handle", &handle.id)
+                .finish(),
+        }
+    }
 }
 
-impl<T: Resource> Default for Assets<T> {
-    fn default() -> Self {
+/// Stores Assets of a given type and tracks changes to them.
+#[derive(Debug)]
+pub struct Assets<T: Asset> {
+    assets: HashMap<HandleId, T>,
+    events: Events<AssetEvent<T>>,
+    pub(crate) ref_change_sender: Sender<RefChange>,
+}
+
+impl<T: Asset> Assets<T> {
+    pub(crate) fn new(ref_change_sender: Sender<RefChange>) -> Self {
         Assets {
             assets: HashMap::default(),
             events: Events::default(),
+            ref_change_sender,
         }
     }
-}
 
-impl<T: Resource> Assets<T> {
     pub fn add(&mut self, asset: T) -> Handle<T> {
-        let handle = Handle::new();
-        self.assets.insert(handle, asset);
-        self.events.send(AssetEvent::Created { handle });
-        handle
+        let id = HandleId::random::<T>();
+        self.assets.insert(id, asset);
+        self.events.send(AssetEvent::Created {
+            handle: Handle::weak(id),
+        });
+        self.get_handle(id)
     }
 
-    pub fn set(&mut self, handle: Handle<T>, asset: T) {
-        let exists = self.assets.contains_key(&handle);
-        self.assets.insert(handle, asset);
-
-        if exists {
-            self.events.send(AssetEvent::Modified { handle });
+    pub fn set<H: Into<HandleId>>(&mut self, handle: H, asset: T) -> Handle<T> {
+        let id: HandleId = handle.into();
+        if self.assets.insert(id, asset).is_some() {
+            self.events.send(AssetEvent::Modified {
+                handle: Handle::weak(id),
+            });
         } else {
-            self.events.send(AssetEvent::Created { handle });
+            self.events.send(AssetEvent::Created {
+                handle: Handle::weak(id),
+            });
+        }
+
+        self.get_handle(id)
+    }
+
+    pub fn set_untracked<H: Into<HandleId>>(&mut self, handle: H, asset: T) {
+        let id: HandleId = handle.into();
+        if self.assets.insert(id, asset).is_some() {
+            self.events.send(AssetEvent::Modified {
+                handle: Handle::weak(id),
+            });
+        } else {
+            self.events.send(AssetEvent::Created {
+                handle: Handle::weak(id),
+            });
         }
     }
 
-    pub fn add_default(&mut self, asset: T) -> Handle<T> {
-        let handle = Handle::default();
-        let exists = self.assets.contains_key(&handle);
-        self.assets.insert(handle, asset);
-        if exists {
-            self.events.send(AssetEvent::Modified { handle });
-        } else {
-            self.events.send(AssetEvent::Created { handle });
-        }
-        handle
+    pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
+        self.assets.get(&handle.into())
     }
 
-    pub fn get_with_id(&self, id: HandleId) -> Option<&T> {
-        self.get(&Handle::from_id(id))
+    pub fn contains<H: Into<HandleId>>(&self, handle: H) -> bool {
+        self.assets.contains_key(&handle.into())
     }
 
-    pub fn get_with_id_mut(&mut self, id: HandleId) -> Option<&mut T> {
-        self.get_mut(&Handle::from_id(id))
+    pub fn get_mut<H: Into<HandleId>>(&mut self, handle: H) -> Option<&mut T> {
+        let id: HandleId = handle.into();
+        self.events.send(AssetEvent::Modified {
+            handle: Handle::weak(id),
+        });
+        self.assets.get_mut(&id)
     }
 
-    pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
-        self.assets.get(&handle)
+    pub fn get_handle<H: Into<HandleId>>(&self, handle: H) -> Handle<T> {
+        Handle::strong(handle.into(), self.ref_change_sender.clone())
     }
 
-    pub fn get_mut(&mut self, handle: &Handle<T>) -> Option<&mut T> {
-        self.events.send(AssetEvent::Modified { handle: *handle });
-        self.assets.get_mut(&handle)
-    }
-
-    pub fn get_or_insert_with(
+    pub fn get_or_insert_with<H: Into<HandleId>>(
         &mut self,
-        handle: Handle<T>,
+        handle: H,
         insert_fn: impl FnOnce() -> T,
     ) -> &mut T {
         let mut event = None;
-        let borrowed = self.assets.entry(handle).or_insert_with(|| {
-            event = Some(AssetEvent::Created { handle });
+        let id: HandleId = handle.into();
+        let borrowed = self.assets.entry(id).or_insert_with(|| {
+            event = Some(AssetEvent::Created {
+                handle: Handle::weak(id),
+            });
             insert_fn()
         });
 
@@ -96,12 +137,23 @@ impl<T: Resource> Assets<T> {
         borrowed
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (Handle<T>, &T)> {
+    pub fn iter(&self) -> impl Iterator<Item = (HandleId, &T)> {
         self.assets.iter().map(|(k, v)| (*k, v))
     }
 
-    pub fn remove(&mut self, handle: &Handle<T>) -> Option<T> {
-        self.assets.remove(&handle)
+    pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
+        self.assets.keys().cloned()
+    }
+
+    pub fn remove<H: Into<HandleId>>(&mut self, handle: H) -> Option<T> {
+        let id: HandleId = handle.into();
+        let asset = self.assets.remove(&id);
+        if asset.is_some() {
+            self.events.send(AssetEvent::Removed {
+                handle: Handle::weak(id),
+            });
+        }
+        asset
     }
 
     /// Clears the inner asset map, removing all key-value pairs.
@@ -132,75 +184,67 @@ impl<T: Resource> Assets<T> {
     ) {
         events.extend(assets.events.drain())
     }
+
+    pub fn len(&self) -> usize {
+        self.assets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.assets.is_empty()
+    }
 }
 
 /// [AppBuilder] extension methods for adding new asset types
 pub trait AddAsset {
     fn add_asset<T>(&mut self) -> &mut Self
     where
-        T: Send + Sync + 'static;
-    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+        T: Asset;
+    fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static;
-    fn add_asset_loader_from_instance<TAsset, TLoader>(&mut self, instance: TLoader) -> &mut Self
+        T: AssetLoader + FromResources;
+    fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static;
+        T: AssetLoader;
 }
 
 impl AddAsset for AppBuilder {
     fn add_asset<T>(&mut self) -> &mut Self
     where
-        T: Resource,
+        T: Asset,
     {
-        self.init_resource::<Assets<T>>()
+        let assets = {
+            let asset_server = self.resources().get::<AssetServer>().unwrap();
+            asset_server.register_asset_type::<T>()
+        };
+
+        self.add_resource(assets)
             .register_component::<Handle<T>>()
             .add_system_to_stage(
                 super::stage::ASSET_EVENTS,
                 Assets::<T>::asset_event_system.system(),
             )
+            .add_system_to_stage(
+                crate::stage::LOAD_ASSETS,
+                update_asset_storage_system::<T>.system(),
+            )
             .add_event::<AssetEvent<T>>()
     }
 
-    fn add_asset_loader_from_instance<TAsset, TLoader>(&mut self, instance: TLoader) -> &mut Self
+    fn init_asset_loader<T>(&mut self) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static,
+        T: AssetLoader + FromResources,
     {
-        {
-            if !self.resources().contains::<AssetChannel<TAsset>>() {
-                self.resources_mut().insert(AssetChannel::<TAsset>::new());
-                self.add_system_to_stage(
-                    crate::stage::LOAD_ASSETS,
-                    update_asset_storage_system::<TAsset>.system(),
-                );
-            }
-            let asset_channel = self
-                .resources()
-                .get::<AssetChannel<TAsset>>()
-                .expect("AssetChannel should always exist at this point.");
-            let mut asset_server = self
-                .resources()
-                .get_mut::<AssetServer>()
-                .expect("AssetServer does not exist. Consider adding it as a resource.");
-            asset_server.add_loader(instance);
-            let handler = ChannelAssetHandler::new(
-                TLoader::from_resources(self.resources()),
-                asset_channel.sender.clone(),
-            );
-            asset_server.add_handler(handler);
-        }
-        self
+        self.add_asset_loader(T::from_resources(self.resources()))
     }
 
-    fn add_asset_loader<TAsset, TLoader>(&mut self) -> &mut Self
+    fn add_asset_loader<T>(&mut self, loader: T) -> &mut Self
     where
-        TLoader: AssetLoader<TAsset> + FromResources,
-        TAsset: Send + Sync + 'static,
+        T: AssetLoader,
     {
-        self.add_asset_loader_from_instance::<TAsset, TLoader>(TLoader::from_resources(
-            self.resources(),
-        ))
+        self.resources()
+            .get_mut::<AssetServer>()
+            .expect("AssetServer does not exist. Consider adding it as a resource.")
+            .add_loader(loader);
+        self
     }
 }

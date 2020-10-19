@@ -27,7 +27,6 @@ bevy_window = { path = "../bevy_window", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 
 # rendering
-spirv-reflect = "0.2.3"
 image = { version = "0.23", default-features = false }
 
 # misc
@@ -45,7 +44,10 @@ hex = "0.4.2"
 hexasphere = "1.0.0"
 parking_lot = "0.11.0"
 
-[target.'cfg(not(target_os = "ios"))'.dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+spirv-reflect = "0.2.3"
+
+[target.'cfg(all(not(target_os = "ios"), not(target_arch = "wasm32")))'.dependencies]
 bevy-glsl-to-spirv = "0.1.7"
 
 [target.'cfg(target_os = "ios")'.dependencies]

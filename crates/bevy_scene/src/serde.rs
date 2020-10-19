@@ -1,4 +1,4 @@
-use crate::{Entity, Scene};
+use crate::{DynamicScene, Entity};
 use anyhow::Result;
 use bevy_property::{
     property_serde::{DynamicPropertiesDeserializer, DynamicPropertiesSerializer},
@@ -11,12 +11,12 @@ use serde::{
 };
 
 pub struct SceneSerializer<'a> {
-    pub scene: &'a Scene,
+    pub scene: &'a DynamicScene,
     pub registry: &'a PropertyTypeRegistry,
 }
 
 impl<'a> SceneSerializer<'a> {
-    pub fn new(scene: &'a Scene, registry: &'a PropertyTypeRegistry) -> Self {
+    pub fn new(scene: &'a DynamicScene, registry: &'a PropertyTypeRegistry) -> Self {
         SceneSerializer { scene, registry }
     }
 }
@@ -86,13 +86,13 @@ pub struct SceneDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
-    type Value = Scene;
+    type Value = DynamicScene;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let mut scene = Scene::default();
+        let mut scene = DynamicScene::default();
         scene.entities = deserializer.deserialize_seq(SceneEntitySeqVisiter {
             property_type_registry: self.property_type_registry,
         })?;

@@ -31,7 +31,7 @@ impl Node for TextureCopyNode {
         for event in self.texture_event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    if let Some(texture) = textures.get(&handle) {
+                    if let Some(texture) = textures.get(handle) {
                         let texture_descriptor: TextureDescriptor = texture.into();
                         let width = texture.size.x() as usize;
                         let aligned_width = get_aligned(texture.size.x());
@@ -57,7 +57,7 @@ impl Node for TextureCopyNode {
 
                         let texture_resource = render_context
                             .resources()
-                            .get_asset_resource(*handle, TEXTURE_ASSET_INDEX)
+                            .get_asset_resource(handle, TEXTURE_ASSET_INDEX)
                             .unwrap();
 
                         render_context.copy_buffer_to_texture(

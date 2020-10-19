@@ -17,6 +17,7 @@ keywords = ["bevy"]
 bevy_app = { path = "../bevy_app", version = "0.2.1" }
 bevy_asset = { path = "../bevy_asset", version = "0.2.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
 
 # other
 anyhow = "1.0"
