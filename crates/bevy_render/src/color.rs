@@ -140,6 +140,7 @@ impl Color {
             alpha: self.alpha, // alpha is always linear
         }
     }
+
     // non-linear-sRGB Component Getter
 
     /// Get red in sRGB colorspace.
@@ -158,7 +159,7 @@ impl Color {
     }
 
     // linear-sRGB Component Getter
-    
+
     /// Get red in linear colorspace.
     pub fn r_linear(&self) -> f32 {
         self.red
@@ -180,7 +181,7 @@ impl Color {
     }
 
     // non-linear-sRGB Component Setter
-    
+
     /// Set red in sRGB colorspace.
     pub fn set_r(&mut self, r: f32) -> &mut Self {
         self.red = r.nonlinear_to_linear_srgb();
@@ -297,12 +298,7 @@ impl Mul<f32> for Color {
     type Output = Color;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        Color::rgba(
-            self.r() * rhs,
-            self.g() * rhs,
-            self.b() * rhs,
-            self.a(),
-        )
+        Color::rgba(self.r() * rhs, self.g() * rhs, self.b() * rhs, self.a())
     }
 }
 
@@ -361,12 +357,7 @@ impl Mul<[f32; 4]> for Color {
     type Output = Color;
 
     fn mul(self, [r, g, b, a]: [f32; 4]) -> Self::Output {
-        Color::rgba(
-            self.r() * r,
-            self.g() * g,
-            self.b() * b,
-            self.a() * a,
-        )
+        Color::rgba(self.r() * r, self.g() * g, self.b() * b, self.a() * a)
     }
 }
 
@@ -383,12 +374,7 @@ impl Mul<[f32; 3]> for Color {
     type Output = Color;
 
     fn mul(self, [r, g, b]: [f32; 3]) -> Self::Output {
-        Color::rgba(
-            self.r() * r,
-            self.g() * g,
-            self.b() * b,
-            self.a(),
-        )
+        Color::rgba(self.r() * r, self.g() * g, self.b() * b, self.a())
     }
 }
 
@@ -524,10 +510,7 @@ fn test_conversions_vec4() {
     let starting_vec4 = Vec4::new(0.4, 0.5, 0.6, 1.0);
     let starting_color = Color::from(starting_vec4);
 
-    assert_eq!(
-        starting_vec4,
-        Vec4::from(starting_color),
-    );
+    assert_eq!(starting_vec4, Vec4::from(starting_color),);
 
     let transformation = Vec4::new(0.5, 0.5, 0.5, 1.0);
 
@@ -550,10 +533,7 @@ fn test_mul_and_mulassign_f32() {
     let mut mutated_color = starting_color;
     mutated_color *= transformation;
 
-    assert_eq!(
-        starting_color * transformation,
-        mutated_color,
-    );
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
 
 #[test]
@@ -569,10 +549,7 @@ fn test_mul_and_mulassign_f32by3() {
     let mut mutated_color = starting_color;
     mutated_color *= transformation;
 
-    assert_eq!(
-        starting_color * transformation,
-        mutated_color,
-    );
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
 
 #[test]
@@ -588,10 +565,7 @@ fn test_mul_and_mulassign_f32by4() {
     let mut mutated_color = starting_color;
     mutated_color *= transformation;
 
-    assert_eq!(
-        starting_color * transformation,
-        mutated_color,
-    );
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
 
 #[test]
@@ -607,10 +581,7 @@ fn test_mul_and_mulassign_vec3() {
     let mut mutated_color = starting_color;
     mutated_color *= transformation;
 
-    assert_eq!(
-        starting_color * transformation,
-        mutated_color,
-    );
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
 
 #[test]
@@ -626,8 +597,5 @@ fn test_mul_and_mulassign_vec4() {
     let mut mutated_color = starting_color;
     mutated_color *= transformation;
 
-    assert_eq!(
-        starting_color * transformation,
-        mutated_color,
-    );
+    assert_eq!(starting_color * transformation, mutated_color,);
 }
