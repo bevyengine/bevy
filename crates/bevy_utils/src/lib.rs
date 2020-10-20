@@ -1,5 +1,5 @@
 use ahash::RandomState;
-use futures_lite::Future;
+use std::future::Future;
 use std::pin::Pin;
 
 pub use ahash::AHasher;
