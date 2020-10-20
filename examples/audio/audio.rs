@@ -8,7 +8,7 @@ fn main() {
         .run();
 }
 
-fn setup(asset_server: Res<AssetServer>, audio_output: Res<AudioOutput>) {
+fn setup(asset_server: Res<AssetServer>, audio: Res<Audio>) {
     let music = asset_server.load("sounds/Windless Slopes.mp3");
-    audio_output.play(music);
+    audio.play(music);
 }
