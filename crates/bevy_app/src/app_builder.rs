@@ -170,7 +170,8 @@ impl AppBuilder {
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_startup_stage(startup_stage::STARTUP)
+        self.add_startup_stage(startup_stage::PRE_STARTUP)
+            .add_startup_stage(startup_stage::STARTUP)
             .add_startup_stage(startup_stage::POST_STARTUP)
             .add_stage(stage::FIRST)
             .add_stage(stage::EVENT_UPDATE)

@@ -21,6 +21,7 @@ bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.2.
 bevy_tasks = { path = "../bevy_tasks", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 rand = "0.7.3"
+thiserror = "1.0"
 fixedbitset = "0.3.1"
 downcast-rs = "1.2.0"
 parking_lot = "0.11.0"

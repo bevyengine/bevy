@@ -24,8 +24,8 @@ pub fn image_node_system(
     for (_image, mut calculated_size, material_handle) in &mut query.iter() {
         if let Some(texture) = materials
             .get(material_handle)
-            .and_then(|material| material.texture)
-            .and_then(|texture_handle| textures.get(&texture_handle))
+            .and_then(|material| material.texture.as_ref())
+            .and_then(|texture_handle| textures.get(texture_handle))
         {
             calculated_size.size = Size {
                 width: texture.size.x(),

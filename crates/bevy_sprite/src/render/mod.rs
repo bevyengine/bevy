@@ -11,12 +11,13 @@ use bevy_render::{
     shader::{Shader, ShaderStage, ShaderStages},
     texture::TextureFormat,
 };
+use bevy_type_registry::TypeUuid;
 
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(278534784033876544639935131272264723170);
+    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
 
 pub const SPRITE_SHEET_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
-    Handle::from_u128(90168858051802816124217444474933884151);
+    Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 9016885805180281612);
 
 pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor {
     PipelineDescriptor {
@@ -150,8 +151,8 @@ impl SpriteRenderGraphBuilder for RenderGraph {
 
         let mut pipelines = resources.get_mut::<Assets<PipelineDescriptor>>().unwrap();
         let mut shaders = resources.get_mut::<Assets<Shader>>().unwrap();
-        pipelines.set(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(&mut shaders));
-        pipelines.set(
+        pipelines.set_untracked(SPRITE_PIPELINE_HANDLE, build_sprite_pipeline(&mut shaders));
+        pipelines.set_untracked(
             SPRITE_SHEET_PIPELINE_HANDLE,
             build_sprite_sheet_pipeline(&mut shaders),
         );

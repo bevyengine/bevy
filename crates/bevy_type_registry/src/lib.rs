@@ -1,8 +1,11 @@
 mod register_type;
 mod type_registry;
+mod type_uuid;
 
 pub use register_type::*;
 pub use type_registry::*;
+pub use type_uuid::*;
+pub use uuid::Uuid;
 
 use bevy_app::prelude::*;
 use bevy_property::DynamicProperties;

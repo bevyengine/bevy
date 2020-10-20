@@ -77,14 +77,14 @@ impl PipelineCompiler {
     ) -> Handle<Shader> {
         let specialized_shaders = self
             .specialized_shaders
-            .entry(*shader_handle)
+            .entry(shader_handle.clone_weak())
             .or_insert_with(Vec::new);
 
         let shader = shaders.get(shader_handle).unwrap();
 
         // don't produce new shader if the input source is already spirv
         if let ShaderSource::Spirv(_) = shader.source {
-            return *shader_handle;
+            return shader_handle.clone_weak();
         }
 
         if let Some(specialized_shader) =
@@ -95,7 +95,7 @@ impl PipelineCompiler {
                 })
         {
             // if shader has already been compiled with current configuration, use existing shader
-            specialized_shader.shader
+            specialized_shader.shader.clone_weak()
         } else {
             // if no shader exists with the current configuration, create new shader and compile
             let shader_def_vec = shader_specialization
@@ -105,21 +105,22 @@ impl PipelineCompiler {
                 .collect::<Vec<String>>();
             let compiled_shader = shader.get_spirv_shader(Some(&shader_def_vec));
             let specialized_handle = shaders.add(compiled_shader);
+            let weak_specialized_handle = specialized_handle.clone_weak();
             specialized_shaders.push(SpecializedShader {
                 shader: specialized_handle,
                 specialization: shader_specialization.clone(),
             });
-            specialized_handle
+            weak_specialized_handle
         }
     }
 
     pub fn get_specialized_pipeline(
         &self,
-        pipeline: Handle<PipelineDescriptor>,
+        pipeline: &Handle<PipelineDescriptor>,
         specialization: &PipelineSpecialization,
     ) -> Option<Handle<PipelineDescriptor>> {
         self.specialized_pipelines
-            .get(&pipeline)
+            .get(pipeline)
             .and_then(|specialized_pipelines| {
                 specialized_pipelines
                     .iter()
@@ -127,7 +128,7 @@ impl PipelineCompiler {
                         &current_specialized_pipeline.specialization == specialization
                     })
             })
-            .map(|specialized_pipeline| specialized_pipeline.pipeline)
+            .map(|specialized_pipeline| specialized_pipeline.pipeline.clone_weak())
     }
 
     pub fn compile_pipeline(
@@ -135,11 +136,11 @@ impl PipelineCompiler {
         render_resource_context: &dyn RenderResourceContext,
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
-        source_pipeline: Handle<PipelineDescriptor>,
+        source_pipeline: &Handle<PipelineDescriptor>,
         vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
-        let source_descriptor = pipelines.get(&source_pipeline).unwrap();
+        let source_descriptor = pipelines.get(source_pipeline).unwrap();
         let mut specialized_descriptor = source_descriptor.clone();
         specialized_descriptor.shader_stages.vertex = self.compile_shader(
             shaders,
@@ -171,21 +172,22 @@ impl PipelineCompiler {
 
         let specialized_pipeline_handle = pipelines.add(specialized_descriptor);
         render_resource_context.create_render_pipeline(
-            specialized_pipeline_handle,
+            specialized_pipeline_handle.clone_weak(),
             pipelines.get(&specialized_pipeline_handle).unwrap(),
             &shaders,
         );
 
         let specialized_pipelines = self
             .specialized_pipelines
-            .entry(source_pipeline)
+            .entry(source_pipeline.clone_weak())
             .or_insert_with(Vec::new);
+        let weak_specialized_pipeline_handle = specialized_pipeline_handle.clone_weak();
         specialized_pipelines.push(SpecializedPipeline {
             pipeline: specialized_pipeline_handle,
             specialization: pipeline_specialization.clone(),
         });
 
-        specialized_pipeline_handle
+        weak_specialized_pipeline_handle
     }
 
     pub fn iter_compiled_pipelines(

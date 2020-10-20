@@ -31,7 +31,7 @@ where
 
 impl<P> AudioOutput<P>
 where
-    P: Decodable,
+    P: Asset + Decodable,
     <P as Decodable>::Decoder: rodio::Source + Send + Sync,
     <<P as Decodable>::Decoder as Iterator>::Item: rodio::Sample + Send + Sync,
 {

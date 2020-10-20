@@ -9,13 +9,13 @@ fn spawn_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dComponents::default());
-    let texture_handle = asset_server.load("assets/branding/icon.png").unwrap();
+    let texture_handle = asset_server.load("branding/icon.png");
     let material = materials.add(texture_handle.into());
     for _ in 0..128 {
         commands
             .spawn(SpriteComponents {
-                material,
-                transform: Transform::from_scale(0.1),
+                material: material.clone(),
+                transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..Default::default()
             })
             .with(Velocity(
@@ -38,7 +38,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
         .iter()
         .par_iter(32)
         .for_each(&pool, |(mut transform, velocity)| {
-            transform.translate(velocity.0.extend(0.0));
+            transform.translation += velocity.0.extend(0.0);
         });
 }
 
@@ -62,10 +62,10 @@ fn bounce_system(
         .par_iter(32)
         // Filter out sprites that don't need to be bounced
         .filter(|(transform, _)| {
-            !(left < transform.translation().x()
-                && transform.translation().x() < right
-                && bottom < transform.translation().y()
-                && transform.translation().y() < top)
+            !(left < transform.translation.x()
+                && transform.translation.x() < right
+                && bottom < transform.translation.y()
+                && transform.translation.y() < top)
         })
         // For simplicity, just reverse the velocity; don't use realistic bounces
         .for_each(&pool, |(_, mut v)| {

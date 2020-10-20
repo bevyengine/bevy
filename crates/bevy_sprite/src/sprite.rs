@@ -3,8 +3,10 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Query, Res};
 use bevy_math::Vec2;
 use bevy_render::{renderer::RenderResources, texture::Texture};
+use bevy_type_registry::TypeUuid;
 
-#[derive(Debug, Default, RenderResources)]
+#[derive(Debug, Default, RenderResources, TypeUuid)]
+#[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 pub struct Sprite {
     pub size: Vec2,
     #[render_resources(ignore)]
@@ -43,9 +45,9 @@ pub fn sprite_system(
         match sprite.resize_mode {
             SpriteResizeMode::Manual => continue,
             SpriteResizeMode::Automatic => {
-                let material = materials.get(&handle).unwrap();
-                if let Some(texture_handle) = material.texture {
-                    if let Some(texture) = textures.get(&texture_handle) {
+                let material = materials.get(handle).unwrap();
+                if let Some(ref texture_handle) = material.texture {
+                    if let Some(texture) = textures.get(texture_handle) {
                         sprite.size = texture.size;
                     }
                 }

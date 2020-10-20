@@ -48,6 +48,10 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
         self.world_builder.with(component);
         self
     }
+
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.world_builder.current_entity
+    }
 }
 
 pub trait BuildWorldChildren {

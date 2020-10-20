@@ -120,7 +120,7 @@ pub fn camera_node_system(
 
     let matrix_size = std::mem::size_of::<[[f32; 4]; 4]>();
     let camera_matrix: [f32; 16] =
-        (camera.projection_matrix * global_transform.value().inverse()).to_cols_array();
+        (camera.projection_matrix * global_transform.compute_matrix().inverse()).to_cols_array();
 
     render_resource_context.write_mapped_buffer(
         staging_buffer,

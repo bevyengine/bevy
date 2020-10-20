@@ -4,7 +4,7 @@ use crate::{
     shader::Shader,
     texture::{SamplerDescriptor, TextureDescriptor},
 };
-use bevy_asset::{Assets, Handle, HandleUntyped};
+use bevy_asset::{Asset, Assets, Handle, HandleUntyped};
 use bevy_window::Window;
 use downcast_rs::{impl_downcast, Downcast};
 use std::ops::Range;
@@ -27,8 +27,8 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
     fn map_buffer(&self, id: BufferId);
     fn unmap_buffer(&self, id: BufferId);
     fn create_buffer_with_data(&self, buffer_info: BufferInfo, data: &[u8]) -> BufferId;
-    fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>);
-    fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader);
+    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>);
+    fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader);
     fn remove_buffer(&self, buffer: BufferId);
     fn remove_texture(&self, texture: TextureId);
     fn remove_sampler(&self, sampler: SamplerId);
@@ -63,25 +63,33 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
 }
 
 impl dyn RenderResourceContext {
-    pub fn set_asset_resource<T>(&self, handle: Handle<T>, resource: RenderResourceId, index: usize)
-    where
-        T: 'static,
+    pub fn set_asset_resource<T>(
+        &self,
+        handle: &Handle<T>,
+        resource: RenderResourceId,
+        index: usize,
+    ) where
+        T: Asset,
     {
-        self.set_asset_resource_untyped(handle.into(), resource, index);
+        self.set_asset_resource_untyped(handle.clone_weak_untyped(), resource, index);
     }
 
-    pub fn get_asset_resource<T>(&self, handle: Handle<T>, index: usize) -> Option<RenderResourceId>
+    pub fn get_asset_resource<T>(
+        &self,
+        handle: &Handle<T>,
+        index: usize,
+    ) -> Option<RenderResourceId>
     where
-        T: 'static,
+        T: Asset,
     {
-        self.get_asset_resource_untyped(handle.into(), index)
+        self.get_asset_resource_untyped(handle.clone_weak_untyped(), index)
     }
 
-    pub fn remove_asset_resource<T>(&self, handle: Handle<T>, index: usize)
+    pub fn remove_asset_resource<T>(&self, handle: &Handle<T>, index: usize)
     where
-        T: 'static,
+        T: Asset,
     {
-        self.remove_asset_resource_untyped(handle.into(), index);
+        self.remove_asset_resource_untyped(handle.clone_weak_untyped(), index);
     }
 }
 

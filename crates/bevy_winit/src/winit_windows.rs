@@ -71,6 +71,14 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(&event_loop).unwrap();
 
+        match winit_window.set_cursor_grab(window.cursor_locked()) {
+            Ok(_) => {}
+            Err(winit::error::ExternalError::NotSupported(_)) => {}
+            Err(err) => Err(err).unwrap(),
+        }
+
+        winit_window.set_cursor_visible(window.cursor_visible());
+
         self.window_id_to_winit
             .insert(window.id(), winit_window.id());
         self.winit_to_window_id

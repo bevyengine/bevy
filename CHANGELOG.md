@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
 
@@ -18,6 +19,7 @@
   - Playing an mp3 no longer sometimes panics in debug mode
   - New method of playing audio can be found in the audio example (an intermediary `Audio` struct is used instead of `AudioOutput` directly)
 
+[696]: https://github.com/bevyengine/bevy/pull/696
 [689]: https://github.com/bevyengine/bevy/pull/689
 [552]: https://github.com/bevyengine/bevy/pull/552
 [616]: https://github.com/bevyengine/bevy/pull/616

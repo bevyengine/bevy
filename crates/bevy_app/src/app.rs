@@ -63,7 +63,7 @@ impl App {
             .run(&mut self.schedule, &mut self.world, &mut self.resources);
     }
 
-    pub fn run(mut self) {
+    pub fn initialize(&mut self) {
         self.startup_schedule
             .initialize(&mut self.world, &mut self.resources);
         self.startup_executor.initialize(&mut self.resources);
@@ -72,7 +72,9 @@ impl App {
             &mut self.world,
             &mut self.resources,
         );
+    }
 
+    pub fn run(mut self) {
         self.executor.initialize(&mut self.resources);
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
         (runner)(self);

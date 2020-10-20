@@ -68,7 +68,7 @@ fn setup(
         // scoreboard
         .spawn(TextComponents {
             text: Text {
-                font: asset_server.load("assets/fonts/FiraSans-Bold.ttf").unwrap(),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 value: "Score:".to_string(),
                 style: TextStyle {
                     color: Color::rgb(0.5, 0.5, 1.0),
@@ -95,7 +95,7 @@ fn setup(
     commands
         // left
         .spawn(SpriteComponents {
-            material: wall_material,
+            material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(-bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
@@ -103,7 +103,7 @@ fn setup(
         .with(Collider::Solid)
         // right
         .spawn(SpriteComponents {
-            material: wall_material,
+            material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(bounds.x() / 2.0, 0.0, 0.0)),
             sprite: Sprite::new(Vec2::new(wall_thickness, bounds.y() + wall_thickness)),
             ..Default::default()
@@ -111,7 +111,7 @@ fn setup(
         .with(Collider::Solid)
         // bottom
         .spawn(SpriteComponents {
-            material: wall_material,
+            material: wall_material.clone(),
             transform: Transform::from_translation(Vec3::new(0.0, -bounds.y() / 2.0, 0.0)),
             sprite: Sprite::new(Vec2::new(bounds.x() + wall_thickness, wall_thickness)),
             ..Default::default()
@@ -146,7 +146,7 @@ fn setup(
             commands
                 // brick
                 .spawn(SpriteComponents {
-                    material: brick_material,
+                    material: brick_material.clone(),
                     sprite: Sprite::new(brick_size),
                     transform: Transform::from_translation(brick_position),
                     ..Default::default()
@@ -171,7 +171,7 @@ fn paddle_movement_system(
             direction += 1.0;
         }
 
-        let translation = transform.translation_mut();
+        let translation = &mut transform.translation;
         // move the paddle horizontally
         *translation.x_mut() += time.delta_seconds * direction * paddle.speed;
         // bound the paddle within the walls
@@ -184,7 +184,7 @@ fn ball_movement_system(time: Res<Time>, mut ball_query: Query<(&Ball, &mut Tran
     let delta_seconds = f32::min(0.2, time.delta_seconds);
 
     for (ball, mut transform) in &mut ball_query.iter() {
-        transform.translate(ball.velocity * delta_seconds);
+        transform.translation += ball.velocity * delta_seconds;
     }
 }
 
@@ -207,9 +207,9 @@ fn ball_collision_system(
         // check collision with walls
         for (collider_entity, collider, transform, sprite) in &mut collider_query.iter() {
             let collision = collide(
-                ball_transform.translation(),
+                ball_transform.translation,
                 ball_size,
-                transform.translation(),
+                transform.translation,
                 sprite.size,
             );
             if let Some(collision) = collision {

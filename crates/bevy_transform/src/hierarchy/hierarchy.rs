@@ -1,5 +1,5 @@
 use crate::components::{Children, Parent};
-use bevy_ecs::{Commands, Entity, Query, World, WorldWriter};
+use bevy_ecs::{Command, Commands, Entity, Query, Resources, World};
 
 pub fn run_on_hierarchy<T, S>(
     children_query: &Query<&Children>,
@@ -72,8 +72,8 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity) {
     }
 }
 
-impl WorldWriter for DespawnRecursive {
-    fn write(self: Box<Self>, world: &mut World) {
+impl Command for DespawnRecursive {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         despawn_with_children_recursive(world, self.entity);
     }
 }
@@ -86,7 +86,7 @@ pub trait DespawnRecursiveExt {
 impl DespawnRecursiveExt for Commands {
     /// Despawns the provided entity and its children.
     fn despawn_recursive(&mut self, entity: Entity) -> &mut Self {
-        self.write_world(DespawnRecursive { entity })
+        self.add_command(DespawnRecursive { entity })
     }
 }
 

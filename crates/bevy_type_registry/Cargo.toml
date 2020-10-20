@@ -15,10 +15,12 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.2.1" }
+bevy_derive = { path = "../bevy_derive", version = "0.2.1" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
 bevy_property = { path = "../bevy_property", version = "0.2.1" }
 bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
 
 # other
+uuid = { version = "0.8", features = ["v4", "serde"] }
 serde = { version = "1", features = ["derive"] }
 parking_lot = "0.11.0"
