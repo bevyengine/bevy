@@ -13,4 +13,4 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-ahash = "0.4.5"
+ahash = "0.5.3"
