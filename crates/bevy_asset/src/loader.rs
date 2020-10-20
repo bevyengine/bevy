@@ -5,14 +5,18 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::{Res, ResMut, Resource};
 use bevy_type_registry::{TypeUuid, TypeUuidDynamic};
-use bevy_utils::HashMap;
+use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
 use std::path::Path;
 
 /// A loader for an asset source
 pub trait AssetLoader: Send + Sync + 'static {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<(), anyhow::Error>;
+    fn load<'a>(
+        &'a self,
+        bytes: &'a [u8],
+        load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<(), anyhow::Error>>;
     fn extensions(&self) -> &[&str];
 }
 
@@ -94,8 +98,8 @@ impl<'a> LoadContext<'a> {
         Handle::strong(id.into(), self.ref_change_channel.sender.clone())
     }
 
-    pub fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
-        self.asset_io.load_path(path.as_ref())
+    pub async fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
+        self.asset_io.load_path(path.as_ref()).await
     }
 
     pub fn get_asset_metas(&self) -> Vec<AssetMeta> {

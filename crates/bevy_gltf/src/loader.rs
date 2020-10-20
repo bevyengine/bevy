@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy_asset::{AssetIoError, AssetLoader, AssetPath, LoadContext, LoadedAsset};
-use bevy_ecs::{World, WorldBuilderSource};
+use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
 use bevy_render::{
@@ -47,8 +47,12 @@ pub enum GltfError {
 pub struct GltfLoader;
 
 impl AssetLoader for GltfLoader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<()> {
-        Ok(load_gltf(bytes, load_context)?)
+    fn load<'a>(
+        &'a self,
+        bytes: &'a [u8],
+        load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, Result<()>> {
+        Box::pin(async move { Ok(load_gltf(bytes, load_context).await?) })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -57,10 +61,13 @@ impl AssetLoader for GltfLoader {
     }
 }
 
-fn load_gltf(bytes: &[u8], load_context: &mut LoadContext) -> Result<(), GltfError> {
+async fn load_gltf<'a, 'b>(
+    bytes: &'a [u8],
+    load_context: &'a mut LoadContext<'b>,
+) -> Result<(), GltfError> {
     let gltf = gltf::Gltf::from_slice(bytes)?;
     let mut world = World::default();
-    let buffer_data = load_buffers(&gltf, load_context, load_context.path())?;
+    let buffer_data = load_buffers(&gltf, load_context, load_context.path()).await?;
 
     let world_builder = &mut world.build();
 
@@ -267,9 +274,9 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     }
 }
 
-fn load_buffers(
+async fn load_buffers(
     gltf: &gltf::Gltf,
-    load_context: &LoadContext,
+    load_context: &LoadContext<'_>,
     asset_path: &Path,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
     const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
@@ -287,7 +294,7 @@ fn load_buffers(
                 } else {
                     // TODO: Remove this and add dep
                     let buffer_path = asset_path.parent().unwrap().join(uri);
-                    let buffer_bytes = load_context.read_asset_bytes(buffer_path)?;
+                    let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
                     buffer_data.push(buffer_bytes);
                 }
             }

@@ -1,8 +1,8 @@
 use crate::{
     path::{AssetPath, AssetPathId, SourcePathId},
     Asset, AssetIo, AssetIoError, AssetLifecycle, AssetLifecycleChannel, AssetLifecycleEvent,
-    AssetLoader, Assets, FileAssetIo, Handle, HandleId, HandleUntyped, LabelId, LoadContext,
-    LoadState, RefChange, RefChangeChannel, SourceInfo, SourceMeta,
+    AssetLoader, Assets, Handle, HandleId, HandleUntyped, LabelId, LoadContext, LoadState,
+    RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
 use bevy_ecs::Res;
@@ -35,8 +35,8 @@ pub(crate) struct AssetRefCounter {
     pub(crate) ref_counts: Arc<RwLock<HashMap<HandleId, usize>>>,
 }
 
-pub struct AssetServerInternal<TAssetIo: AssetIo = FileAssetIo> {
-    pub(crate) asset_io: TAssetIo,
+pub struct AssetServerInternal {
+    pub(crate) asset_io: Box<dyn AssetIo>,
     pub(crate) asset_ref_counter: AssetRefCounter,
     pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
     pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
@@ -47,11 +47,11 @@ pub struct AssetServerInternal<TAssetIo: AssetIo = FileAssetIo> {
 }
 
 /// Loads assets from the filesystem on background threads
-pub struct AssetServer<TAssetIo: AssetIo = FileAssetIo> {
-    pub(crate) server: Arc<AssetServerInternal<TAssetIo>>,
+pub struct AssetServer {
+    pub(crate) server: Arc<AssetServerInternal>,
 }
 
-impl<TAssetIo: AssetIo> Clone for AssetServer<TAssetIo> {
+impl Clone for AssetServer {
     fn clone(&self) -> Self {
         Self {
             server: self.server.clone(),
@@ -59,8 +59,8 @@ impl<TAssetIo: AssetIo> Clone for AssetServer<TAssetIo> {
     }
 }
 
-impl<TAssetIo: AssetIo> AssetServer<TAssetIo> {
-    pub fn new(source_io: TAssetIo, task_pool: TaskPool) -> Self {
+impl AssetServer {
+    pub fn new<T: AssetIo>(source_io: T, task_pool: TaskPool) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
@@ -70,7 +70,7 @@ impl<TAssetIo: AssetIo> AssetServer<TAssetIo> {
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
                 task_pool,
-                asset_io: source_io,
+                asset_io: Box::new(source_io),
             }),
         }
     }
@@ -180,7 +180,7 @@ impl<TAssetIo: AssetIo> AssetServer<TAssetIo> {
     }
 
     // TODO: properly set failed LoadState in all failure cases
-    fn load_sync<'a, P: Into<AssetPath<'a>>>(
+    async fn load_async<'a, P: Into<AssetPath<'a>>>(
         &self,
         path: P,
         force: bool,
@@ -221,17 +221,18 @@ impl<TAssetIo: AssetIo> AssetServer<TAssetIo> {
         };
 
         // load the asset bytes
-        let bytes = self.server.asset_io.load_path(asset_path.path())?;
+        let bytes = self.server.asset_io.load_path(asset_path.path()).await?;
 
         // load the asset source using the corresponding AssetLoader
         let mut load_context = LoadContext::new(
             asset_path.path(),
             &self.server.asset_ref_counter.channel,
-            &self.server.asset_io,
+            &*self.server.asset_io,
             version,
         );
         asset_loader
             .load(&bytes, &mut load_context)
+            .await
             .map_err(AssetServerError::AssetLoaderError)?;
 
         // if version has changed since we loaded and grabbed a lock, return. theres is a newer version being loaded
@@ -291,7 +292,7 @@ impl<TAssetIo: AssetIo> AssetServer<TAssetIo> {
         self.server
             .task_pool
             .spawn(async move {
-                server.load_sync(owned_path, force).unwrap();
+                server.load_async(owned_path, force).await.unwrap();
             })
             .detach();
         asset_path.into()

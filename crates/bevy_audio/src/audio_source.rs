@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_type_registry::TypeUuid;
+use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
@@ -21,11 +22,11 @@ impl AsRef<[u8]> for AudioSource {
 pub struct Mp3Loader;
 
 impl AssetLoader for Mp3Loader {
-    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> Result<()> {
+    fn load(&self, bytes: &[u8], load_context: &mut LoadContext) -> BoxedFuture<Result<()>> {
         load_context.set_default_asset(LoadedAsset::new(AudioSource {
             bytes: bytes.into(),
         }));
-        Ok(())
+        Box::pin(async move { Ok(()) })
     }
 
     fn extensions(&self) -> &[&str] {

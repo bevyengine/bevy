@@ -1,4 +1,6 @@
+use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
+use async_trait::async_trait;
 use bevy_ecs::Res;
 use bevy_utils::HashSet;
 use crossbeam_channel::TryRecvError;
@@ -10,33 +12,6 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use thiserror::Error;
-
-use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
-
-/// Errors that occur while loading assets
-#[derive(Error, Debug)]
-pub enum AssetIoError {
-    #[error("Path not found")]
-    NotFound(PathBuf),
-    #[error("Encountered an io error while loading asset.")]
-    Io(#[from] io::Error),
-    #[error("Failed to watch path")]
-    PathWatchError(PathBuf),
-}
-
-/// Handles load requests from an AssetServer
-pub trait AssetIo: Send + Sync + 'static {
-    fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError>;
-    fn save_path(&self, path: &Path, bytes: &[u8]) -> Result<(), AssetIoError>;
-    fn read_directory(
-        &self,
-        path: &Path,
-    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError>;
-    fn is_directory(&self, path: &Path) -> bool;
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError>;
-    fn watch_for_changes(&self) -> Result<(), AssetIoError>;
-}
 
 pub struct FileAssetIo {
     root_path: PathBuf,
@@ -67,8 +42,9 @@ impl FileAssetIo {
     }
 }
 
+#[async_trait]
 impl AssetIo for FileAssetIo {
-    fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError> {
+    async fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError> {
         let mut bytes = Vec::new();
         match File::open(self.root_path.join(path)) {
             Ok(mut file) => {
@@ -96,15 +72,6 @@ impl AssetIo for FileAssetIo {
                 path.strip_prefix(&root_path).unwrap().to_owned()
             },
         )))
-    }
-
-    fn save_path(&self, path: &Path, bytes: &[u8]) -> Result<(), AssetIoError> {
-        let path = self.root_path.join(path);
-        if let Some(parent_path) = path.parent() {
-            fs::create_dir_all(parent_path)?;
-        }
-
-        Ok(fs::write(self.root_path.join(path), bytes)?)
     }
 
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
@@ -139,7 +106,13 @@ impl AssetIo for FileAssetIo {
 #[cfg(feature = "filesystem_watcher")]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let mut changed = HashSet::default();
-    let watcher = asset_server.server.asset_io.filesystem_watcher.read();
+    let asset_io =
+        if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
+            asset_io
+        } else {
+            return;
+        };
+    let watcher = asset_io.filesystem_watcher.read();
     if let Some(ref watcher) = *watcher {
         loop {
             let event = match watcher.receiver.try_recv() {
@@ -155,9 +128,7 @@ pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
             {
                 for path in paths.iter() {
                     if !changed.contains(path) {
-                        let relative_path = path
-                            .strip_prefix(&asset_server.server.asset_io.root_path)
-                            .unwrap();
+                        let relative_path = path.strip_prefix(&asset_io.root_path).unwrap();
                         let _ = asset_server.load_untracked(relative_path, true);
                     }
                 }
