@@ -1,6 +1,5 @@
 use ahash::RandomState;
-use std::future::Future;
-use std::pin::Pin;
+use std::{future::Future, pin::Pin};
 
 pub use ahash::AHasher;
 
