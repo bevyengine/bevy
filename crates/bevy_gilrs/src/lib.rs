@@ -18,10 +18,7 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.add_thread_local_resource(gilrs)
-                    .add_startup_system_to_stage(
-                        bevy_app::startup_stage::STARTUP,
-                        gilrs_event_startup_system.thread_local_system(),
-                    )
+                    .add_startup_system(gilrs_event_startup_system.thread_local_system())
                     .add_system_to_stage(stage::FIRST, girls_event_system.thread_local_system());
             }
             Err(err) => log::error!("Failed to start Gilrs. {}", err),

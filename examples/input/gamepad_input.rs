@@ -1,16 +1,14 @@
 use bevy::prelude::*;
 use bevy_input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashSet;
 
 fn main() {
     App::build()
         .add_default_plugins()
         .init_resource::<GamepadLobby>()
-        .init_resource::<GamepadData>()
         .add_startup_system(connection_system.system())
         .add_system(connection_system.system())
-        .add_system(button_system.system())
-        .add_system(axis_system.system())
+        .add_system(gamepad_system.system())
         .run();
 }
 
@@ -18,12 +16,6 @@ fn main() {
 struct GamepadLobby {
     gamepads: HashSet<Gamepad>,
     gamepad_event_reader: EventReader<GamepadEvent>,
-}
-
-#[derive(Default)]
-struct GamepadData {
-    axis: HashMap<GamepadAxis, f32>,
-    button: HashMap<GamepadButton, f32>,
 }
 
 fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<GamepadEvent>>) {
@@ -42,82 +34,38 @@ fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<
     }
 }
 
-fn button_system(
+fn gamepad_system(
     lobby: Res<GamepadLobby>,
-    inputs: Res<Input<GamepadButton>>,
+    button_inputs: Res<Input<GamepadButton>>,
     button_axes: Res<Axis<GamepadButton>>,
-    mut data: ResMut<GamepadData>,
-) {
-    let button_types = [
-        GamepadButtonType::South,
-        GamepadButtonType::East,
-        GamepadButtonType::North,
-        GamepadButtonType::West,
-        GamepadButtonType::C,
-        GamepadButtonType::Z,
-        GamepadButtonType::LeftTrigger,
-        GamepadButtonType::LeftTrigger2,
-        GamepadButtonType::RightTrigger,
-        GamepadButtonType::RightTrigger2,
-        GamepadButtonType::Select,
-        GamepadButtonType::Start,
-        GamepadButtonType::Mode,
-        GamepadButtonType::LeftThumb,
-        GamepadButtonType::RightThumb,
-        GamepadButtonType::DPadUp,
-        GamepadButtonType::DPadDown,
-        GamepadButtonType::DPadLeft,
-        GamepadButtonType::DPadRight,
-    ];
-    for gamepad in lobby.gamepads.iter() {
-        for button_type in button_types.iter() {
-            let gamepad_button = GamepadButton(*gamepad, *button_type);
-            if inputs.just_pressed(gamepad_button) {
-                println!("{:?} Pressed", gamepad_button);
-            } else if inputs.just_released(GamepadButton(*gamepad, *button_type)) {
-                println!("{:?} Released", gamepad_button);
-            }
-            if let Some(value) = button_axes.get(gamepad_button) {
-                if !approx_eq(
-                    data.button.get(&gamepad_button).copied().unwrap_or(0.0),
-                    value,
-                ) {
-                    data.button.insert(gamepad_button, value);
-                    println!("{:?} is {}", gamepad_button, value);
-                }
-            }
-        }
-    }
-}
-
-fn axis_system(
-    lobby: Res<GamepadLobby>,
     axes: Res<Axis<GamepadAxis>>,
-    mut data: ResMut<GamepadData>,
 ) {
-    let axis_types = [
-        GamepadAxisType::LeftStickX,
-        GamepadAxisType::LeftStickY,
-        GamepadAxisType::LeftZ,
-        GamepadAxisType::RightStickX,
-        GamepadAxisType::RightStickY,
-        GamepadAxisType::RightZ,
-        GamepadAxisType::DPadX,
-        GamepadAxisType::DPadY,
-    ];
     for gamepad in lobby.gamepads.iter() {
-        for axis_type in axis_types.iter() {
-            let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
-            if let Some(value) = axes.get(gamepad_axis) {
-                if !approx_eq(data.axis.get(&gamepad_axis).copied().unwrap_or(0.0), value) {
-                    data.axis.insert(gamepad_axis, value);
-                    println!("{:?} is {}", gamepad_axis, value);
-                }
-            }
+        let south_button = GamepadButton(*gamepad, GamepadButtonType::South);
+        if button_inputs.just_pressed(south_button) {
+            println!(
+                "{:?} of {:?} is just pressed",
+                GamepadButtonType::South,
+                gamepad
+            );
+        } else if button_inputs.just_released(south_button) {
+            println!(
+                "{:?} of {:?} is just released",
+                GamepadButtonType::South,
+                gamepad
+            );
         }
-    }
-}
 
-fn approx_eq(a: f32, b: f32) -> bool {
-    (a - b).abs() < f32::EPSILON
+        println!(
+            "For {:?}: {:?} is {:.4}, {:?} is {:.4}",
+            gamepad,
+            GamepadButtonType::RightTrigger2,
+            button_axes
+                .get(GamepadButton(*gamepad, GamepadButtonType::RightTrigger2))
+                .unwrap_or(0.0),
+            GamepadAxisType::LeftStickX,
+            axes.get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickX))
+                .unwrap_or(0.0)
+        )
+    }
 }
