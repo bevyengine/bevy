@@ -168,7 +168,7 @@ impl<T: Resource> Default for AssetLifecycleChannel<T> {
     }
 }
 
-/// Reads [AssetResult]s from an [AssetChannel] and updates the [Assets] collection and [LoadState] accordingly
+/// Updates the [Assets] collection according to the changes queued up by [AssetServer].
 pub fn update_asset_storage_system<T: Asset + AssetDynamic>(
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<T>>,

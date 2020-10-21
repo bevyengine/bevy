@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+
 - [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
@@ -15,6 +16,9 @@
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
+- Breaking Change: Migrated to rodio 0.12, this means:
+  - Playing an mp3 no longer sometimes panics in debug mode
+  - New method of playing audio can be found in the audio example (an intermediary `Audio` struct is used instead of `AudioOutput` directly)
 
 [696]: https://github.com/bevyengine/bevy/pull/696
 [689]: https://github.com/bevyengine/bevy/pull/689
@@ -22,7 +26,6 @@
 [616]: https://github.com/bevyengine/bevy/pull/616
 [649]: https://github.com/bevyengine/bevy/pull/649
 [651]: https://github.com/bevyengine/bevy/pull/651
-
 
 ## Version 0.2.1 (2020-9-20)
 
@@ -104,6 +107,7 @@
 - [do not assume font handle is present in assets][490]
 
 ### Internal Improvements
+
 - Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
 
 [145]: https://github.com/bevyengine/bevy/pull/145
