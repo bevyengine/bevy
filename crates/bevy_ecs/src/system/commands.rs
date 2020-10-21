@@ -107,7 +107,13 @@ where
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         if world.get::<T>(self.entity).is_ok() {
-            world.remove_one::<T>(self.entity).unwrap();
+            if let Err(e) = world.remove_one::<T>(self.entity) {
+                log::debug!(
+                    "Failed to remove component {:?}: {}",
+                    std::any::type_name::<T>(),
+                    e
+                )
+            }
         }
     }
 }
@@ -126,7 +132,13 @@ where
     T: Bundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.remove::<T>(self.entity).unwrap();
+        if let Err(e) = world.remove::<T>(self.entity) {
+            log::debug!(
+                "Failed to remove component {:?}: {}",
+                std::any::type_name::<T>(),
+                e
+            )
+        }
     }
 }
 
