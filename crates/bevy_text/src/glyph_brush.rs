@@ -1,41 +1,60 @@
 use std::sync::Mutex;
 
+use ab_glyph::FontArc;
 use bevy_asset::{Assets, Handle};
-use bevy_math::Vec2;
-use glyph_brush_layout::{GlyphPositioner, Layout, SectionGeometry, SectionGlyph, ToSectionText};
+use bevy_math::{Size, Vec2};
+use bevy_render::prelude::Texture;
+use bevy_sprite::TextureAtlas;
+use glyph_brush_layout::{
+    FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, ToSectionText,
+};
 
-use crate::{error::TextError, Font};
+use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo};
 
 pub struct GlyphBrush {
     section_queue: Mutex<Vec<Vec<SectionGlyph>>>,
+    fonts: Vec<FontArc>,
+    handles: Vec<Handle<Font>>,
+    latest_font_id: FontId,
+}
+
+impl Default for GlyphBrush {
+    fn default() -> Self {
+        GlyphBrush {
+            section_queue: Mutex::new(Vec::new()),
+            fonts: Vec::new(),
+            handles: Vec::new(),
+            latest_font_id: FontId(0),
+        }
+    }
 }
 
 impl GlyphBrush {
     pub fn compute_glyphs<S: ToSectionText>(
         &self,
-        font_storage: &Assets<Font>,
-        font_handle: &Handle<Font>,
         sections: &[S],
-        bounds: Vec2,
+        bounds: Size,
+        screen_position: Vec2,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         // Todo: handle cache
-        let font = font_storage.get(font_handle).ok_or(TextError::NoSuchFont)?;
         let geom = SectionGeometry {
-            bounds: (bounds.x(), bounds.y()),
+            bounds: (bounds.width, bounds.height),
+            screen_position: (screen_position.x(), screen_position.y()),
             ..Default::default()
         };
-        let section_glyphs = Layout::default().calculate_glyphs(&[&font.font], &geom, sections);
+        let section_glyphs = Layout::default().calculate_glyphs(&self.fonts, &geom, sections);
+        println!("generated {} glyphs", section_glyphs.len());
         Ok(section_glyphs)
     }
 
     pub fn queue_text<S: ToSectionText>(
         &self,
-        font_storage: &Assets<Font>,
-        font_handle: &Handle<Font>,
         sections: &[S],
-        bounds: Vec2,
+        bounds: Size,
+        screen_position: Vec2,
     ) -> Result<(), TextError> {
-        let glyphs = self.compute_glyphs(font_storage, font_handle, sections, bounds)?;
+        let glyphs = self.compute_glyphs(sections, bounds, screen_position)?;
+        println!("computed glyphs: {:?}", glyphs);
         let mut sq = self
             .section_queue
             .lock()
@@ -44,29 +63,69 @@ impl GlyphBrush {
         Ok(())
     }
 
-    pub fn process_queue(&self) -> Result<BrushAction, TextError> {
+    pub fn process_queued(
+        &self,
+        font_atlas_set_storage: &mut Assets<FontAtlasSet>,
+        fonts: &Assets<Font>,
+        texture_atlases: &mut Assets<TextureAtlas>,
+        textures: &mut Assets<Texture>,
+    ) -> Result<BrushAction, TextError> {
         let mut sq = self
             .section_queue
             .lock()
             .expect("Poisoned Mutex on text queue");
-        let mut sq = std::mem::replace(&mut *sq, Vec::new());
-        sq.into_iter().for_each(|glyphs| {
-            glyphs.into_iter().for_each(|glyph| {
-                let size = glyph.glyph.scale.x;
-                let id = glyph.glyph.id;
-                // map FontId -> Handle<Font> ??
-                //glyph.font_id
-            });
-        });
-        Ok(BrushAction::Redraw)
+        let sq = std::mem::replace(&mut *sq, Vec::new());
+        let vertices = sq
+            .into_iter()
+            .map(|glyphs| {
+                let mut vertices = Vec::new();
+                for glyph in glyphs {
+                    println!("processing a glyph: {:?}", glyph);
+                    let handle = self.handles[glyph.font_id.0];
+                    let handle_font_atlas = Handle::<FontAtlasSet>::from(handle.id);
+                    let font_atlas_set = font_atlas_set_storage
+                        .get_or_insert_with(handle_font_atlas, || FontAtlasSet::default());
+                    let position = glyph.glyph.position;
+                    let position = Vec2::new(position.x, position.y);
+                    let atlas_info = font_atlas_set
+                        .get_glyph_atlas_info(glyph.glyph.scale.y, glyph.glyph.id)
+                        .unwrap_or(font_atlas_set.add_glyph_to_atlas(
+                            fonts,
+                            texture_atlases,
+                            textures,
+                            glyph.glyph,
+                        )?);
+                    vertices.push(TextVertex {
+                        position,
+                        atlas_info,
+                    });
+                }
+                Ok(vertices)
+            })
+            .collect::<Result<Vec<_>, TextError>>()?
+            .into_iter()
+            .flatten()
+            .collect();
+        println!("vertices : {:?}", vertices);
+        Ok(BrushAction::Draw(vertices))
+    }
+
+    pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
+        self.fonts.push(font);
+        self.handles.push(handle);
+        let font_id = self.latest_font_id;
+        self.latest_font_id = FontId(font_id.0 + 1);
+        font_id
     }
 }
 
-pub struct GlyphVertex {
-    position: Vec2,
+#[derive(Debug)]
+pub struct TextVertex {
+    pub position: Vec2,
+    pub atlas_info: GlyphAtlasInfo,
 }
 
 pub enum BrushAction {
-    Draw(Vec<GlyphVertex>),
+    Draw(Vec<TextVertex>),
     Redraw,
 }

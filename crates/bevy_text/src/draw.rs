@@ -1,4 +1,4 @@
-use crate::{Font, FontAtlasSet};
+use crate::{glyph_brush::TextVertex, Font, FontAtlasSet};
 use ab_glyph::{Glyph, PxScale, ScaleFont};
 use bevy_asset::{Assets, Handle};
 use bevy_math::{Mat4, Vec2, Vec3};
@@ -46,6 +46,7 @@ pub struct DrawableText<'a> {
 
 impl<'a> Drawable for DrawableText<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
+        /*
         context.set_pipeline(
             draw,
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
@@ -155,27 +156,19 @@ impl<'a> Drawable for DrawableText<'a> {
             caret.set_x(caret.x() + scaled_font.h_advance(glyph.id));
             last_glyph = Some(glyph);
         }
+        */
         Ok(())
     }
 }
 
-/*
-pub struct NewDrawableText<'a> {
-    pub pipeline: &'a mut TextPipeline,
-    pub font_atlas_set: &'a mut FontAtlasSet,
-    pub texture_atlases: &'a mut Assets<TextureAtlas>,
-    pub textures: &'a mut Assets<Texture>,
+pub struct TextDrawer<'a> {
     pub render_resource_bindings: &'a mut RenderResourceBindings,
     pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
-    pub contents: &'a str,
-    pub font_handle: &'a Handle<Font>,
-    pub font_storage: &'a Assets<Font>,
-    pub text_style: &'a TextStyle,
-    pub container_size: Vec2,
     pub msaa: &'a Msaa,
+    pub text_vertices: &'a Vec<TextVertex>,
 }
 
-impl<'a> Drawable for NewDrawableText<'a> {
+impl<'a> Drawable for TextDrawer<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
         context.set_pipeline(
             draw,
@@ -207,19 +200,43 @@ impl<'a> Drawable for NewDrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        self.pipeline.queue_text(
-            self.font_handle,
-            self.font_storage,
-            &self.contents,
-            self.text_style.font_size,
-            self.container_size,
-        );
+        for tv in self.text_vertices {
+            let sprite = TextureAtlasSprite {
+                index: tv.atlas_info.glyph_index,
+                color: Color::WHITE,
+            };
+            let transform = Mat4::from_translation(Vec3::new(tv.position.x(), tv.position.y(), 0.));
 
-        let actions =
-            self.pipeline
-                .draw_queued(self.textures, self.texture_atlases, self.font_atlas_set);
+            let transform_buffer = context
+                .shared_buffers
+                .get_buffer(&transform, BufferUsage::UNIFORM)
+                .unwrap();
+            let sprite_buffer = context
+                .shared_buffers
+                .get_buffer(&sprite, BufferUsage::UNIFORM)
+                .unwrap();
+            let sprite_bind_group = BindGroup::build()
+                .add_binding(0, transform_buffer)
+                .add_binding(1, sprite_buffer)
+                .finish();
+            context.create_bind_group_resource(2, &sprite_bind_group)?;
+            draw.set_bind_group(2, &sprite_bind_group);
+            draw.draw_indexed(indices.clone(), 0, 0..1);
+        }
 
-        todo!()
+        Ok(())
     }
 }
-*/
+
+#[derive(Debug, Default)]
+pub struct TextVertices(Vec<TextVertex>);
+
+impl TextVertices {
+    pub fn borrow(&self) -> &Vec<TextVertex> {
+        &self.0
+    }
+
+    pub fn set(&mut self, vertices: Vec<TextVertex>) {
+        self.0 = vertices;
+    }
+}

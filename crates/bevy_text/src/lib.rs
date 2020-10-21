@@ -4,15 +4,16 @@ mod font;
 mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
-//mod pipeline;
 mod glyph_brush;
+mod pipeline;
 
 pub use draw::*;
 pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
-//pub use pipeline::*;
+pub use glyph_brush::*;
+pub use pipeline::*;
 
 pub mod prelude {
     pub use crate::{Font, TextStyle};
@@ -28,6 +29,8 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
-            .init_asset_loader::<FontLoader>();
+            .init_asset_loader::<FontLoader>()
+            .add_resource(TextPipeline::default())
+            .add_resource(TextVertices::default());
     }
 }
