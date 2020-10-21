@@ -20,6 +20,10 @@ pub enum GamepadEventType {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct GamepadEvent(pub Gamepad, pub GamepadEventType);
 
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct GamepadEventRaw(pub Gamepad, pub GamepadEventType);
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadButtonType {
@@ -66,51 +70,51 @@ pub enum GamepadAxisType {
 pub struct GamepadAxis(pub Gamepad, pub GamepadAxisType);
 
 #[derive(Default, Debug)]
-pub struct GamepadSetting {
-    pub default_button_setting: ButtonSetting,
-    pub default_axis_setting: AxisSetting,
-    pub default_button_axis_setting: ButtonAxisSetting,
-    pub button_settings: HashMap<GamepadButton, ButtonSetting>,
-    pub axis_settings: HashMap<GamepadAxis, AxisSetting>,
-    pub button_axis_settings: HashMap<GamepadButton, ButtonAxisSetting>,
+pub struct GamepadSettings {
+    pub default_button_settings: ButtonSettings,
+    pub default_axis_settings: AxisSettings,
+    pub default_button_axis_settings: ButtonAxisSettings,
+    pub button_settings: HashMap<GamepadButton, ButtonSettings>,
+    pub axis_settings: HashMap<GamepadAxis, AxisSettings>,
+    pub button_axis_settings: HashMap<GamepadButton, ButtonAxisSettings>,
 }
 
-impl GamepadSetting {
-    pub fn get_button_setting(&self, button: GamepadButton) -> &ButtonSetting {
+impl GamepadSettings {
+    pub fn get_button_settings(&self, button: GamepadButton) -> &ButtonSettings {
         self.button_settings
             .get(&button)
-            .unwrap_or(&self.default_button_setting)
+            .unwrap_or(&self.default_button_settings)
     }
 
-    pub fn get_axis_setting(&self, axis: GamepadAxis) -> &AxisSetting {
+    pub fn get_axis_settings(&self, axis: GamepadAxis) -> &AxisSettings {
         self.axis_settings
             .get(&axis)
-            .unwrap_or(&self.default_axis_setting)
+            .unwrap_or(&self.default_axis_settings)
     }
 
-    pub fn get_button_axis_setting(&self, button: GamepadButton) -> &ButtonAxisSetting {
+    pub fn get_button_axis_settings(&self, button: GamepadButton) -> &ButtonAxisSettings {
         self.button_axis_settings
             .get(&button)
-            .unwrap_or(&self.default_button_axis_setting)
+            .unwrap_or(&self.default_button_axis_settings)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct ButtonSetting {
+pub struct ButtonSettings {
     pub press: f32,
     pub release: f32,
 }
 
-impl Default for ButtonSetting {
+impl Default for ButtonSettings {
     fn default() -> Self {
-        ButtonSetting {
+        ButtonSettings {
             press: 0.75,
             release: 0.65,
         }
     }
 }
 
-impl ButtonSetting {
+impl ButtonSettings {
     fn is_pressed(&self, value: f32) -> bool {
         value >= self.press
     }
@@ -121,7 +125,7 @@ impl ButtonSetting {
 }
 
 #[derive(Debug, Clone)]
-pub struct AxisSetting {
+pub struct AxisSettings {
     pub positive_high: f32,
     pub positive_low: f32,
     pub negative_high: f32,
@@ -129,9 +133,9 @@ pub struct AxisSetting {
     pub threshold: f32,
 }
 
-impl Default for AxisSetting {
+impl Default for AxisSettings {
     fn default() -> Self {
-        AxisSetting {
+        AxisSettings {
             positive_high: 0.95,
             positive_low: 0.05,
             negative_high: -0.95,
@@ -141,7 +145,7 @@ impl Default for AxisSetting {
     }
 }
 
-impl AxisSetting {
+impl AxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
@@ -162,15 +166,15 @@ impl AxisSetting {
 }
 
 #[derive(Debug, Clone)]
-pub struct ButtonAxisSetting {
+pub struct ButtonAxisSettings {
     pub high: f32,
     pub low: f32,
     pub threshold: f32,
 }
 
-impl Default for ButtonAxisSetting {
+impl Default for ButtonAxisSettings {
     fn default() -> Self {
-        ButtonAxisSetting {
+        ButtonAxisSettings {
             high: 0.95,
             low: 0.05,
             threshold: 0.01,
@@ -178,7 +182,7 @@ impl Default for ButtonAxisSetting {
     }
 }
 
-impl ButtonAxisSetting {
+impl ButtonAxisSettings {
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
@@ -195,58 +199,73 @@ impl ButtonAxisSetting {
     }
 }
 
-#[derive(Default)]
-pub struct GamepadEventState {
-    gamepad_event_reader: EventReader<GamepadEvent>,
-}
-
+#[allow(clippy::float_cmp)]
 pub fn gamepad_event_system(
-    mut state: Local<GamepadEventState>,
+    mut event_reader: Local<EventReader<GamepadEventRaw>>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    events: Res<Events<GamepadEvent>>,
-    settings: Res<GamepadSetting>,
+    raw_events: Res<Events<GamepadEventRaw>>,
+    mut events: ResMut<Events<GamepadEvent>>,
+    settings: Res<GamepadSettings>,
 ) {
     button_input.update();
-    for event in state.gamepad_event_reader.iter(&events) {
-        let (gamepad, event) = (&event.0, &event.1);
+    for event in event_reader.iter(&raw_events) {
+        let (gamepad, event) = (event.0, &event.1);
         match event {
             GamepadEventType::Connected => {
+                events.send(GamepadEvent(gamepad, event.clone()));
                 for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(*gamepad, *button_type);
+                    let gamepad_button = GamepadButton(gamepad, *button_type);
                     button_input.reset(gamepad_button);
                     button_axis.set(gamepad_button, 0.0);
                 }
                 for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.set(GamepadAxis(*gamepad, *axis_type), 0.0);
+                    axis.set(GamepadAxis(gamepad, *axis_type), 0.0);
                 }
             }
             GamepadEventType::Disconnected => {
+                events.send(GamepadEvent(gamepad, event.clone()));
                 for button_type in ALL_BUTTON_TYPES.iter() {
-                    let gamepad_button = GamepadButton(*gamepad, *button_type);
+                    let gamepad_button = GamepadButton(gamepad, *button_type);
                     button_input.reset(gamepad_button);
                     button_axis.remove(gamepad_button);
                 }
                 for axis_type in ALL_AXIS_TYPES.iter() {
-                    axis.remove(GamepadAxis(*gamepad, *axis_type));
+                    axis.remove(GamepadAxis(gamepad, *axis_type));
                 }
             }
             GamepadEventType::AxisChanged(axis_type, value) => {
-                let gamepad_axis = GamepadAxis(*gamepad, *axis_type);
-                let value = settings
-                    .get_axis_setting(gamepad_axis)
-                    .filter(*value, axis.get(gamepad_axis));
-                axis.set(gamepad_axis, value);
+                let gamepad_axis = GamepadAxis(gamepad, *axis_type);
+                let old_value = axis.get(gamepad_axis);
+                let filtered_value = settings
+                    .get_axis_settings(gamepad_axis)
+                    .filter(*value, old_value);
+                axis.set(gamepad_axis, filtered_value);
+
+                // only send event if axis has changed after going through filters
+                if let Some(old_value) = old_value {
+                    if old_value == filtered_value {
+                        return;
+                    }
+                } else if filtered_value == 0.0 {
+                    return;
+                }
+
+                events.send(GamepadEvent(
+                    gamepad,
+                    GamepadEventType::AxisChanged(*axis_type, filtered_value),
+                ))
             }
             GamepadEventType::ButtonChanged(button_type, value) => {
-                let gamepad_button = GamepadButton(*gamepad, *button_type);
+                let gamepad_button = GamepadButton(gamepad, *button_type);
+                let old_value = button_axis.get(gamepad_button);
                 let filtered_value = settings
-                    .get_button_axis_setting(gamepad_button)
-                    .filter(*value, button_axis.get(gamepad_button));
+                    .get_button_axis_settings(gamepad_button)
+                    .filter(*value, old_value);
                 button_axis.set(gamepad_button, filtered_value);
 
-                let button_property = settings.get_button_setting(gamepad_button);
+                let button_property = settings.get_button_settings(gamepad_button);
                 if button_input.pressed(gamepad_button) {
                     if button_property.is_released(*value) {
                         button_input.release(gamepad_button);
@@ -254,6 +273,20 @@ pub fn gamepad_event_system(
                 } else if button_property.is_pressed(*value) {
                     button_input.press(gamepad_button);
                 }
+
+                // only send event if axis has changed after going through filters
+                if let Some(old_value) = old_value {
+                    if old_value == filtered_value {
+                        return;
+                    }
+                } else if filtered_value == 0.0 {
+                    return;
+                }
+
+                events.send(GamepadEvent(
+                    gamepad,
+                    GamepadEventType::ButtonChanged(*button_type, filtered_value),
+                ))
             }
         }
     }
