@@ -26,6 +26,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
           override: true
 
       - uses: actions/cache@v2
