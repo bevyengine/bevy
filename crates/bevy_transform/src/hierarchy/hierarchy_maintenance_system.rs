@@ -14,13 +14,11 @@ pub fn parent_update_system(
     // them from the `Children` of the `PreviousParent`.
     for (entity, previous_parent) in &mut removed_parent_query.iter() {
         log::trace!("Parent was removed from {:?}", entity);
-        if let Some(previous_parent_entity) = previous_parent.0 {
-            if let Ok(mut previous_parent_children) =
-                children_query.get_mut::<Children>(previous_parent_entity)
-            {
-                log::trace!(" > Removing {:?} from it's prev parent's children", entity);
-                previous_parent_children.0.retain(|e| *e != entity);
-            }
+        if let Ok(mut previous_parent_children) =
+            children_query.get_mut::<Children>(previous_parent.0)
+        {
+            log::trace!(" > Removing {:?} from it's prev parent's children", entity);
+            previous_parent_children.0.retain(|e| *e != entity);
         }
     }
 
@@ -31,28 +29,25 @@ pub fn parent_update_system(
     for (entity, parent, possible_previous_parent) in &mut changed_parent_query.iter() {
         log::trace!("Parent changed for {:?}", entity);
         if let Some(mut previous_parent) = possible_previous_parent {
-            // If the `PreviousParent` is not None.
-            if let Some(previous_parent_entity) = previous_parent.0 {
-                // New and previous point to the same Entity, carry on, nothing to see here.
-                if previous_parent_entity == parent.0 {
-                    log::trace!(" > But the previous parent is the same, ignoring...");
-                    continue;
-                }
+            // New and previous point to the same Entity, carry on, nothing to see here.
+            if previous_parent.0 == parent.0 {
+                log::trace!(" > But the previous parent is the same, ignoring...");
+                continue;
+            }
 
-                // Remove from `PreviousParent.Children`.
-                if let Ok(mut previous_parent_children) =
-                    children_query.get_mut::<Children>(previous_parent_entity)
-                {
-                    log::trace!(" > Removing {:?} from prev parent's children", entity);
-                    (*previous_parent_children).0.retain(|e| *e != entity);
-                }
+            // Remove from `PreviousParent.Children`.
+            if let Ok(mut previous_parent_children) =
+                children_query.get_mut::<Children>(previous_parent.0)
+            {
+                log::trace!(" > Removing {:?} from prev parent's children", entity);
+                (*previous_parent_children).0.retain(|e| *e != entity);
             }
 
             // Set `PreviousParent = Parent`.
-            *previous_parent = PreviousParent(Some(parent.0));
+            *previous_parent = PreviousParent(parent.0);
         } else {
             log::trace!("Adding missing PreviousParent to {:?}", entity);
-            commands.insert_one(entity, PreviousParent(Some(parent.0)));
+            commands.insert_one(entity, PreviousParent(parent.0));
         };
 
         // Add to the parent's `Children` (either the real component, or
