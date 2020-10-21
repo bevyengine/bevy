@@ -1,6 +1,6 @@
 use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
-use bevy_ecs::Res;
+use bevy_ecs::{bevy_utils::BoxedFuture, Res};
 use bevy_utils::HashSet;
 use crossbeam_channel::TryRecvError;
 use fs::File;
@@ -11,7 +11,6 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use bevy_ecs::bevy_utils::BoxedFuture;
 
 pub struct FileAssetIo {
     root_path: PathBuf,

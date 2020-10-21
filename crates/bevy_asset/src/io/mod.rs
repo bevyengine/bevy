@@ -9,13 +9,13 @@ pub use file_asset_io::*;
 pub use wasm_asset_io::*;
 
 use anyhow::Result;
+use bevy_ecs::bevy_utils::BoxedFuture;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
     io,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
-use bevy_ecs::bevy_utils::BoxedFuture;
 
 /// Errors that occur while loading assets
 #[derive(Error, Debug)]
