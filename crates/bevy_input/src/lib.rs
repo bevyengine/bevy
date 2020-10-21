@@ -27,7 +27,7 @@ use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotio
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use bevy_ecs::IntoQuerySystem;
-use gamepad::{GamepadAxis, GamepadButton, GamepadEvent};
+use gamepad::{gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadSetting};
 
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
@@ -50,9 +50,15 @@ impl Plugin for InputPlugin {
                 mouse_button_input_system.system(),
             )
             .add_event::<GamepadEvent>()
+            .init_resource::<GamepadSetting>()
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
+            .add_startup_system_to_stage(
+                bevy_app::startup_stage::POST_STARTUP,
+                gamepad_event_system.system(),
+            )
+            .add_system_to_stage(bevy_app::stage::EVENT_UPDATE, gamepad_event_system.system())
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(

@@ -24,11 +24,11 @@ where
         self.axis_data.insert(axis, value)
     }
 
-    pub fn get(&self, axis: &T) -> Option<f32> {
-        self.axis_data.get(axis).copied()
+    pub fn get(&self, axis: T) -> Option<f32> {
+        self.axis_data.get(&axis).copied()
     }
 
-    pub fn remove(&mut self, axis: &T) -> Option<f32> {
-        self.axis_data.remove(axis)
+    pub fn remove(&mut self, axis: T) -> Option<f32> {
+        self.axis_data.remove(&axis)
     }
 }
