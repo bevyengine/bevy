@@ -19,6 +19,7 @@ pub fn parent_update_system(
         {
             log::trace!(" > Removing {:?} from it's prev parent's children", entity);
             previous_parent_children.0.retain(|e| *e != entity);
+            commands.remove_one::<PreviousParent>(entity);
         }
     }
 
