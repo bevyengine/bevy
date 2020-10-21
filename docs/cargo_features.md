@@ -19,14 +19,16 @@ GUI support.
 Make use of GPU via [WebGPU](https://gpuweb.github.io/gpuweb/) support.
 
 ### render
+
 The render pipeline and all render related plugins.
 
 ### dynamic_plugins
+
 Plugins for dynamic loading (libloading)
 
-### png 
+### png
 
-PNG picture format support. 
+PNG picture format support.
 
 ### hdr
 
@@ -58,7 +60,7 @@ FLAC audio fromat support. It's included in bevy_audio feature.
 
 WAV audio format support.
 
-### vorbis 
+### vorbis
 
 Vorbis audio format support.
 

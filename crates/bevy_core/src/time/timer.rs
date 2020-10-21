@@ -34,6 +34,7 @@ impl Timer {
         }
     }
 
+    /// Advances the timer by `delta` seconds.
     pub fn tick(&mut self, delta: f32) {
         let prev_finished = self.elapsed >= self.duration;
         if !prev_finished {

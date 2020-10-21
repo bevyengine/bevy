@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+
 - [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
@@ -25,7 +26,6 @@
 [616]: https://github.com/bevyengine/bevy/pull/616
 [649]: https://github.com/bevyengine/bevy/pull/649
 [651]: https://github.com/bevyengine/bevy/pull/651
-
 
 ## Version 0.2.1 (2020-9-20)
 
@@ -107,6 +107,7 @@
 - [do not assume font handle is present in assets][490]
 
 ### Internal Improvements
+
 - Many improvements to Bevy's CI [#325][325], [#349][349], [#357][357], [#373][373], [#423][423]
 
 [145]: https://github.com/bevyengine/bevy/pull/145

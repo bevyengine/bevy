@@ -221,6 +221,7 @@ impl AppBuilder {
             .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
+    /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.
     pub fn add_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Send + Sync + 'static,
