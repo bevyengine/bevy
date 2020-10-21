@@ -172,7 +172,7 @@ impl<'a> Drawable for TextDrawer<'a> {
     fn draw(&mut self, draw: &mut Draw, context: &mut DrawContext) -> Result<(), DrawError> {
         context.set_pipeline(
             draw,
-            bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
+            &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
                 ..Default::default()
@@ -181,13 +181,13 @@ impl<'a> Drawable for TextDrawer<'a> {
 
         let render_resource_context = &**context.render_resource_context;
         if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
-            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
+            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
         {
             draw.set_vertex_buffer(0, quad_vertex_buffer, 0);
         }
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
-            .get_asset_resource(bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
+            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
         {
             draw.set_index_buffer(quad_index_buffer, 0);
             if let Some(buffer_info) = render_resource_context.get_buffer_info(quad_index_buffer) {

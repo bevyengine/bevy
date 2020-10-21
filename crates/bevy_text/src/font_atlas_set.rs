@@ -6,6 +6,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::HashMap;
+use bevy_type_registry::TypeUuid;
 
 type FontSizeKey = FloatOrd;
 
@@ -103,7 +104,7 @@ impl FontAtlasSet {
                     .find_map(|atlas| {
                         atlas
                             .get_glyph_index(glyph_id)
-                            .map(|glyph_index| (glyph_index, atlas.texture_atlas))
+                            .map(|glyph_index| (glyph_index, atlas.texture_atlas.clone_weak()))
                     })
                     .map(|(glyph_index, texture_atlas)| GlyphAtlasInfo {
                         texture_atlas,

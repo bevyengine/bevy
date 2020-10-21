@@ -43,9 +43,9 @@ pub fn text_system(
         }
         */
         println!("Queing text : {}", &text.value);
-        let screen_position = trans.translation();
+        let screen_position = trans.translation;
         if let Err(e) = text_pipeline.queue_text(
-            &text.font,
+            text.font.clone(),
             &fonts,
             &text.value,
             text.style.font_size,

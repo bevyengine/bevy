@@ -81,8 +81,8 @@ impl GlyphBrush {
                 let mut vertices = Vec::new();
                 for glyph in glyphs {
                     println!("processing a glyph: {:?}", glyph);
-                    let handle = self.handles[glyph.font_id.0];
-                    let handle_font_atlas = Handle::<FontAtlasSet>::from(handle.id);
+                    let handle = &self.handles[glyph.font_id.0];
+                    let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
                     let font_atlas_set = font_atlas_set_storage
                         .get_or_insert_with(handle_font_atlas, || FontAtlasSet::default());
                     let position = glyph.glyph.position;
