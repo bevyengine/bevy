@@ -40,32 +40,25 @@ fn gamepad_system(
     button_axes: Res<Axis<GamepadButton>>,
     axes: Res<Axis<GamepadAxis>>,
 ) {
-    for gamepad in lobby.gamepads.iter() {
-        let south_button = GamepadButton(*gamepad, GamepadButtonType::South);
-        if button_inputs.just_pressed(south_button) {
-            println!(
-                "{:?} of {:?} is just pressed",
-                GamepadButtonType::South,
-                gamepad
-            );
-        } else if button_inputs.just_released(south_button) {
-            println!(
-                "{:?} of {:?} is just released",
-                GamepadButtonType::South,
-                gamepad
-            );
+    for gamepad in lobby.gamepads.iter().cloned() {
+        if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
+            println!("{:?} just pressed South", gamepad);
+        } else if button_inputs.just_released(GamepadButton(gamepad, GamepadButtonType::South)) {
+            println!("{:?} just released South", gamepad);
         }
 
-        println!(
-            "For {:?}: {:?} is {:.4}, {:?} is {:.4}",
-            gamepad,
-            GamepadButtonType::RightTrigger2,
-            button_axes
-                .get(GamepadButton(*gamepad, GamepadButtonType::RightTrigger2))
-                .unwrap_or(0.0),
-            GamepadAxisType::LeftStickX,
-            axes.get(GamepadAxis(*gamepad, GamepadAxisType::LeftStickX))
-                .unwrap_or(0.0)
-        )
+        let right_trigger = button_axes
+            .get(GamepadButton(gamepad, GamepadButtonType::RightTrigger2))
+            .unwrap();
+        if right_trigger.abs() > 0.01 {
+            println!("{:?} RightTrigger2 value is {}", gamepad, right_trigger);
+        }
+
+        let left_stick_x = axes
+            .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
+            .unwrap();
+        if left_stick_x.abs() > 0.01 {
+            println!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
+        }
     }
 }

@@ -174,7 +174,8 @@ impl AppBuilder {
             .add_startup_stage(startup_stage::STARTUP)
             .add_startup_stage(startup_stage::POST_STARTUP)
             .add_stage(stage::FIRST)
-            .add_stage(stage::EVENT_UPDATE)
+            .add_stage(stage::PRE_EVENT)
+            .add_stage(stage::EVENT)
             .add_stage(stage::PRE_UPDATE)
             .add_stage(stage::UPDATE)
             .add_stage(stage::POST_UPDATE)
@@ -217,7 +218,7 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT_UPDATE, Events::<T>::update_system.system())
+            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
     pub fn add_resource<T>(&mut self, resource: T) -> &mut Self

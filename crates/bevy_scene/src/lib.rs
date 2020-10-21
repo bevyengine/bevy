@@ -30,7 +30,7 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_stage_after(stage::EVENT_UPDATE, SCENE_STAGE)
+            .add_stage_after(stage::EVENT, SCENE_STAGE)
             .add_system_to_stage(SCENE_STAGE, scene_spawner_system.thread_local_system());
     }
 }
