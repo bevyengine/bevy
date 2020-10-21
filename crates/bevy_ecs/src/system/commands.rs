@@ -109,7 +109,7 @@ where
         if world.get::<T>(self.entity).is_ok() {
             if let Err(e) = world.remove_one::<T>(self.entity) {
                 log::debug!(
-                    "Failed to remove component {:?}: {}",
+                    "Failed to remove component {:?} with error: {}",
                     std::any::type_name::<T>(),
                     e
                 )
@@ -134,7 +134,7 @@ where
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         if let Err(e) = world.remove::<T>(self.entity) {
             log::debug!(
-                "Failed to remove component {:?}: {}",
+                "Failed to remove components {:?} with error: {}",
                 std::any::type_name::<T>(),
                 e
             )
