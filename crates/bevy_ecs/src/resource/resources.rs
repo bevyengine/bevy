@@ -234,6 +234,7 @@ impl Resources {
                 core::mem::size_of::<T>(),
                 index,
                 added,
+                !added,
             );
             std::mem::forget(resource);
         }
