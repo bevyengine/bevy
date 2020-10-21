@@ -1,6 +1,5 @@
 use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
-use async_trait::async_trait;
 use bevy_ecs::Res;
 use bevy_utils::HashSet;
 use crossbeam_channel::TryRecvError;
@@ -12,6 +11,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use bevy_ecs::bevy_utils::BoxedFuture;
 
 pub struct FileAssetIo {
     root_path: PathBuf,
@@ -42,23 +42,24 @@ impl FileAssetIo {
     }
 }
 
-#[async_trait]
 impl AssetIo for FileAssetIo {
-    async fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError> {
-        let mut bytes = Vec::new();
-        match File::open(self.root_path.join(path)) {
-            Ok(mut file) => {
-                file.read_to_end(&mut bytes)?;
-            }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    return Err(AssetIoError::NotFound(path.to_owned()));
-                } else {
-                    return Err(e.into());
+    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            match File::open(self.root_path.join(path)) {
+                Ok(mut file) => {
+                    file.read_to_end(&mut bytes)?;
+                }
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::NotFound {
+                        return Err(AssetIoError::NotFound(path.to_owned()));
+                    } else {
+                        return Err(e.into());
+                    }
                 }
             }
-        }
-        Ok(bytes)
+            Ok(bytes)
+        })
     }
 
     fn read_directory(
@@ -103,7 +104,7 @@ impl AssetIo for FileAssetIo {
     }
 }
 
-#[cfg(feature = "filesystem_watcher")]
+#[cfg(all(feature = "filesystem_watcher", not(target_arch = "wasm32")))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let mut changed = HashSet::default();
     let asset_io =
