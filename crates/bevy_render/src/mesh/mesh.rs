@@ -84,15 +84,16 @@ pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
 }
-
-pub type VertexAttributesMap = HashMap<Cow<'static, str>, VertexAttributeValues>;
+// TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
+pub type VertexAttributesHashMap = HashMap<Cow<'static, str>, VertexAttributeValues>;
 #[derive(Debug)]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
-    /// All defined attributes for this mesh. Attribute name (Case-sensitive) maps to attribute values.
-    pub attributes: VertexAttributesMap,
+    /// `HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
+    pub attributes: VertexAttributesHashMap,
     pub indices: Option<Indices>,
-    pub attribute_vertex_buffer_descriptor: Option<VertexBufferDescriptor>,
+    /// The layout of the attributes in the GPU buffer without `shader_location`. `None` will indicate that no data has been uploaded to the GPU yet.
+    pub attribute_buffer_descriptor_reference: Option<VertexBufferDescriptor>,
 }
 
 impl Mesh {
@@ -105,12 +106,8 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices,
-            attribute_vertex_buffer_descriptor: None,
+            attribute_buffer_descriptor_reference: Default::default(),
         }
-    }
-
-    pub fn insert_attribute(&mut self, name: Cow<'static, str>, values: VertexAttributeValues) {
-        self.attributes.insert(name.clone(), values);
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
@@ -196,9 +193,12 @@ pub mod shape {
             ]);
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, Some(indices));
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
             mesh
         }
     }
@@ -290,9 +290,12 @@ pub mod shape {
             }
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, Some(indices));
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
             mesh
         }
     }
@@ -326,9 +329,12 @@ pub mod shape {
             }
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, Some(indices));
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
             mesh
         }
     }
@@ -395,9 +401,12 @@ pub mod shape {
             let indices = Indices::U32(indices);
 
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, Some(indices));
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
-            mesh.insert_attribute(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
             mesh
         }
     }
@@ -479,7 +488,7 @@ pub fn mesh_resource_provider_system(
             let interleaved_buffer =
                 attributes_to_vertex_buffer_data(&mesh.attributes, vertex_count);
 
-            mesh.attribute_vertex_buffer_descriptor = Some(interleaved_buffer.1);
+            mesh.attribute_buffer_descriptor_reference = Some(interleaved_buffer.1);
             render_resource_context.set_asset_resource(
                 *changed_mesh_handle,
                 RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
@@ -543,27 +552,30 @@ pub fn mesh_resource_provider_system(
     }
 }
 
-pub fn attributes_count_vertices(attributes: &VertexAttributesMap) -> Option<u32> {
+pub fn attributes_count_vertices(attributes: &VertexAttributesHashMap) -> Option<u32> {
     let mut vertex_count: Option<u32> = None;
     for attribute in attributes {
         let attribute_len = attribute.1.len();
-        //TODO julian: assert for different lengths of attributes, also move this somewhere else
+        if let Some(previous_vertex_count) = vertex_count {
+            assert_eq!(previous_vertex_count, attribute_len as u32,
+                       "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute.0, attribute_len, previous_vertex_count);
+        }
         vertex_count = Some(attribute_len as u32);
     }
     vertex_count
 }
 pub fn attributes_to_vertex_buffer_data(
-    attributes: &VertexAttributesMap,
+    attributes: &VertexAttributesHashMap,
     vertex_count: u32,
 ) -> (Vec<u8>, VertexBufferDescriptor) {
     // get existing attribute data as bytes and generate attribute descriptor
     let mut attributes_gpu_ready = Vec::<(VertexAttributeDescriptor, Vec<u8>)>::default();
     let mut accumulated_offset = 0;
-    for attribute_data in attributes {
+    for attribute_data in attributes.iter() {
         // TODO: allow for custom converter here
         let vertex_format = VertexFormat::from(attribute_data.1);
         attributes_gpu_ready.push((
-            // this is not supposed to be used directly, as we don't know the shader location in advance
+            // this serves as a reference and is not supposed to be used directly.
             VertexAttributeDescriptor {
                 name: attribute_data.0.clone(),
                 offset: accumulated_offset,

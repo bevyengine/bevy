@@ -2,13 +2,15 @@ use crate::{CalculatedSize, Node};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Changed, Entity, Local, Query, Res, ResMut};
 use bevy_math::Size;
+use bevy_render::mesh::Mesh;
+use bevy_render::pipeline::VertexBufferDescriptor;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     prelude::Msaa,
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
     texture::Texture,
 };
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
 
@@ -98,10 +100,20 @@ pub fn draw_text_system(
     msaa: Res<Msaa>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
+    meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
+    let font_quad_vertex_descriptor = {
+        let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
+        font_quad
+            .attribute_buffer_descriptor_reference
+            .as_ref()
+            .unwrap()
+            .clone()
+    };
+
     for (mut draw, text, node, global_transform) in &mut query.iter() {
         if let Some(font) = fonts.get(&text.font) {
             let position = global_transform.translation() - (node.size / 2.0).extend(0.0);
@@ -118,6 +130,7 @@ pub fn draw_text_system(
                 style: &text.style,
                 text: &text.value,
                 container_size: node.size,
+                font_quad_vertex_descriptor: &font_quad_vertex_descriptor,
             };
             drawable_text.draw(&mut draw, &mut draw_context).unwrap();
         }

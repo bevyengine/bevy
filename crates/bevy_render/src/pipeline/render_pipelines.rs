@@ -96,7 +96,7 @@ pub fn draw_render_pipelines_system(
             pipeline.specialization.sample_count = msaa.samples;
             pipeline.specialization.index_format = index_format;
             pipeline.specialization.mesh_attribute_layout = mesh
-                .attribute_vertex_buffer_descriptor
+                .attribute_buffer_descriptor_reference
                 .as_ref()
                 .unwrap()
                 .clone();
