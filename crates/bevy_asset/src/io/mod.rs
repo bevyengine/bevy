@@ -9,7 +9,7 @@ pub use file_asset_io::*;
 pub use wasm_asset_io::*;
 
 use anyhow::Result;
-use async_trait::async_trait;
+use bevy_ecs::bevy_utils::BoxedFuture;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
     io,
@@ -29,10 +29,8 @@ pub enum AssetIoError {
 }
 
 /// Handles load requests from an AssetServer
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait AssetIo: Downcast + Send + Sync + 'static {
-    async fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError>;
+    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>>;
     fn read_directory(
         &self,
         path: &Path,

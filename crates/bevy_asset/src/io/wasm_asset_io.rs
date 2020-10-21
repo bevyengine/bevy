@@ -1,6 +1,6 @@
 use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
-use async_trait::async_trait;
+use bevy_ecs::bevy_utils::BoxedFuture;
 use js_sys::Uint8Array;
 use std::path::{Path, PathBuf};
 use wasm_bindgen::JsCast;
@@ -19,18 +19,19 @@ impl WasmAssetIo {
     }
 }
 
-#[async_trait(?Send)]
 impl AssetIo for WasmAssetIo {
-    async fn load_path(&self, path: &Path) -> Result<Vec<u8>, AssetIoError> {
-        let path = self.root_path.join(path);
-        let window = web_sys::window().unwrap();
-        let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
-            .await
-            .unwrap();
-        let resp: Response = resp_value.dyn_into().unwrap();
-        let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
-        let bytes = Uint8Array::new(&data).to_vec();
-        Ok(bytes)
+    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(async move {
+            let path = self.root_path.join(path);
+            let window = web_sys::window().unwrap();
+            let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
+                .await
+                .unwrap();
+            let resp: Response = resp_value.dyn_into().unwrap();
+            let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
+            let bytes = Uint8Array::new(&data).to_vec();
+            Ok(bytes)
+        })
     }
 
     fn read_directory(
