@@ -3,6 +3,7 @@ use bevy_asset::{AssetIoError, AssetLoader, AssetPath, LoadContext, LoadedAsset}
 use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
+use bevy_render::mesh::VertexAttributeValues;
 use bevy_render::{
     mesh::{Indices, Mesh},
     pipeline::PrimitiveTopology,
@@ -16,6 +17,7 @@ use bevy_transform::{
 };
 use gltf::{mesh::Mode, Primitive};
 use image::{GenericImageView, ImageFormat};
+use std::borrow::Cow;
 use std::path::Path;
 use thiserror::Error;
 
@@ -78,27 +80,30 @@ async fn load_gltf<'a, 'b>(
                 let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
                 let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology);
+                let mut mesh = Mesh::new(primitive_topology, None);
 
                 if let Some(vertex_attribute) = reader
                     .read_positions()
-                    .map(|v| VertexAttribute::position(v.collect()))
+                    .map(|v| VertexAttributeValues::Float3(v.collect()))
                 {
-                    mesh.attributes.push(vertex_attribute);
+                    mesh.attributes
+                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), vertex_attribute);
                 }
 
                 if let Some(vertex_attribute) = reader
                     .read_normals()
-                    .map(|v| VertexAttribute::normal(v.collect()))
+                    .map(|v| VertexAttributeValues::Float3(v.collect()))
                 {
-                    mesh.attributes.push(vertex_attribute);
+                    mesh.attributes
+                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), vertex_attribute);
                 }
 
                 if let Some(vertex_attribute) = reader
                     .read_tex_coords(0)
-                    .map(|v| VertexAttribute::uv(v.into_f32().collect()))
+                    .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
                 {
-                    mesh.attributes.push(vertex_attribute);
+                    mesh.attributes
+                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), vertex_attribute);
                 }
 
                 if let Some(indices) = reader.read_indices() {

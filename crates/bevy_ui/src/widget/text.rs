@@ -3,7 +3,6 @@ use bevy_asset::{Assets, Handle};
 use bevy_ecs::{Changed, Entity, Local, Query, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::mesh::Mesh;
-use bevy_render::pipeline::VertexBufferDescriptor;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
     prelude::Msaa,

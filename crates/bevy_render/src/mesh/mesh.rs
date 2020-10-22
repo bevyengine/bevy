@@ -8,7 +8,6 @@ use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::HashSet;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
@@ -434,7 +433,7 @@ fn remove_resource_save(
 }
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
-    handle: Handle<Mesh>,
+    handle: &Handle<Mesh>,
 ) {
     remove_resource_save(render_resource_context, handle, VERTEX_ATTRIBUTE_BUFFER_ID);
     remove_resource_save(render_resource_context, handle, VERTEX_FALLBACK_BUFFER_ID);
@@ -486,7 +485,7 @@ pub fn mesh_resource_provider_system(
             );
 
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(index_buffer),
                 INDEX_BUFFER_ASSET_INDEX,
             );

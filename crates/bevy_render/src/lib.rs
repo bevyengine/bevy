@@ -28,7 +28,7 @@ pub mod prelude {
     };
 }
 
-use crate::{pipeline::PipelineSpecialization, prelude::*};
+use crate::prelude::*;
 use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
@@ -38,7 +38,7 @@ use camera::{
 };
 use pipeline::{
     DynamicBinding, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
-    PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
+    PrimitiveTopology, ShaderSpecialization,
 };
 use render_graph::{
     base::{self, BaseRenderGraphBuilder, BaseRenderGraphConfig},

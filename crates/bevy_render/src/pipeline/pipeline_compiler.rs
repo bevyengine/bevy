@@ -142,7 +142,6 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: &Handle<PipelineDescriptor>,
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
