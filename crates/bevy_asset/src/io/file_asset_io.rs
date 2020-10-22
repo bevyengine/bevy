@@ -42,7 +42,7 @@ impl FileAssetIo {
 }
 
 impl AssetIo for FileAssetIo {
-    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+    fn load_path<'a>(&'a self, path: &'a str) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
             let mut bytes = Vec::new();
             match File::open(self.root_path.join(path)) {
@@ -61,28 +61,29 @@ impl AssetIo for FileAssetIo {
         })
     }
 
-    fn read_directory(
-        &self,
-        path: &Path,
-    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
+    fn read_directory(&self, path: &str) -> Result<Box<dyn Iterator<Item = String>>, AssetIoError> {
         let root_path = self.root_path.to_owned();
         Ok(Box::new(fs::read_dir(root_path.join(path))?.map(
             move |entry| {
                 let path = entry.unwrap().path();
-                path.strip_prefix(&root_path).unwrap().to_owned()
+                path.strip_prefix(&root_path)
+                    .unwrap()
+                    .to_owned()
+                    .to_string_lossy()
+                    .to_string()
             },
         )))
     }
 
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(&self, path: &str) -> Result<(), AssetIoError> {
         #[cfg(feature = "filesystem_watcher")]
         {
             let path = self.root_path.join(path);
             let mut watcher = self.filesystem_watcher.write();
             if let Some(ref mut watcher) = *watcher {
-                watcher
-                    .watch(&path)
-                    .map_err(|_error| AssetIoError::PathWatchError(path))?;
+                watcher.watch(&path).map_err(|_error| {
+                    AssetIoError::PathWatchError(path.to_string_lossy().to_string())
+                })?;
             }
         }
 
@@ -98,8 +99,22 @@ impl AssetIo for FileAssetIo {
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
+    fn is_directory(&self, path: &str) -> bool {
         self.root_path.join(path).is_dir()
+    }
+
+    fn extension<'a>(&self, path: &'a str) -> Option<&'a str> {
+        Path::new(path).extension().and_then(|e| e.to_str())
+    }
+
+    fn parent<'a>(&self, path: &'a str) -> Option<&'a str> {
+        Path::new(path).parent().and_then(|e| e.to_str())
+    }
+
+    fn sibling(&self, path: &str, sibling: &str) -> Option<String> {
+        Path::new(path)
+            .parent()
+            .map(|e| e.join(sibling).to_string_lossy().to_string())
     }
 }
 

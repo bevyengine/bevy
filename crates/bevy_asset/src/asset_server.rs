@@ -10,7 +10,7 @@ use bevy_tasks::TaskPool;
 use bevy_utils::HashMap;
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
-use std::{collections::hash_map::Entry, path::Path, sync::Arc};
+use std::{collections::hash_map::Entry, sync::Arc};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -125,13 +125,13 @@ impl AssetServer {
             .ok_or_else(|| AssetServerError::MissingAssetLoader(Some(extension.to_string())))
     }
 
-    fn get_path_asset_loader<P: AsRef<Path>>(
+    fn get_path_asset_loader<P: AsRef<str>>(
         &self,
         path: P,
     ) -> Result<Arc<Box<dyn AssetLoader>>, AssetServerError> {
-        path.as_ref()
-            .extension()
-            .and_then(|e| e.to_str())
+        self.server
+            .asset_io
+            .extension(path.as_ref())
             .ok_or(AssetServerError::MissingAssetLoader(None))
             .and_then(|extension| self.get_asset_loader(extension))
     }
@@ -298,15 +298,13 @@ impl AssetServer {
         asset_path.into()
     }
 
-    pub fn load_folder<P: AsRef<Path>>(
+    pub fn load_folder<P: AsRef<str>>(
         &self,
         path: P,
     ) -> Result<Vec<HandleUntyped>, AssetServerError> {
         let path = path.as_ref();
         if !self.server.asset_io.is_directory(path) {
-            return Err(AssetServerError::AssetFolderNotADirectory(
-                path.to_str().unwrap().to_string(),
-            ));
+            return Err(AssetServerError::AssetFolderNotADirectory(path.to_string()));
         }
 
         let mut handles = Vec::new();
@@ -317,8 +315,7 @@ impl AssetServer {
                 if self.get_path_asset_loader(&child_path).is_err() {
                     continue;
                 }
-                let handle =
-                    self.load_untyped(child_path.to_str().expect("Path should be a valid string"));
+                let handle = self.load_untyped(child_path);
                 handles.push(handle);
             }
         }

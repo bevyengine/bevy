@@ -16,7 +16,6 @@ use bevy_transform::{
 };
 use gltf::{mesh::Mode, Primitive};
 use image::{GenericImageView, ImageFormat};
-use std::path::Path;
 use thiserror::Error;
 
 /// An error that occurs when loading a GLTF file
@@ -150,8 +149,7 @@ async fn load_gltf<'a, 'b>(
                     Some(load_context.get_handle(path))
                 }
                 gltf::image::Source::Uri { uri, .. } => {
-                    let parent = load_context.path().parent().unwrap();
-                    let image_path = parent.join(uri);
+                    let image_path = load_context.sibling_path(uri).unwrap();
                     let asset_path = AssetPath::new(image_path, None);
                     let handle = load_context.get_handle(asset_path.clone());
                     dependencies.push(asset_path);
@@ -277,7 +275,7 @@ fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
 async fn load_buffers(
     gltf: &gltf::Gltf,
     load_context: &LoadContext<'_>,
-    asset_path: &Path,
+    asset_path: &str,
 ) -> Result<Vec<Vec<u8>>, GltfError> {
     const OCTET_STREAM_URI: &str = "data:application/octet-stream;base64,";
 
@@ -293,8 +291,8 @@ async fn load_buffers(
                     }
                 } else {
                     // TODO: Remove this and add dep
-                    let buffer_path = asset_path.parent().unwrap().join(uri);
-                    let buffer_bytes = load_context.read_asset_bytes(buffer_path).await?;
+                    let buffer_path = load_context.sibling_of(asset_path, uri);
+                    let buffer_bytes = load_context.read_asset_bytes(buffer_path.unwrap()).await?;
                     buffer_data.push(buffer_bytes);
                 }
             }

@@ -8,7 +8,6 @@ use bevy_type_registry::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
-use std::path::Path;
 
 /// A loader for an asset source
 pub trait AssetLoader: Send + Sync + 'static {
@@ -57,13 +56,13 @@ pub struct LoadContext<'a> {
     pub(crate) ref_change_channel: &'a RefChangeChannel,
     pub(crate) asset_io: &'a dyn AssetIo,
     pub(crate) labeled_assets: HashMap<Option<String>, LoadedAsset>,
-    pub(crate) path: &'a Path,
+    pub(crate) path: &'a str,
     pub(crate) version: usize,
 }
 
 impl<'a> LoadContext<'a> {
     pub(crate) fn new(
-        path: &'a Path,
+        path: &'a str,
         ref_change_channel: &'a RefChangeChannel,
         asset_io: &'a dyn AssetIo,
         version: usize,
@@ -77,7 +76,23 @@ impl<'a> LoadContext<'a> {
         }
     }
 
-    pub fn path(&self) -> &Path {
+    pub fn parent(&self) -> Option<&str> {
+        self.asset_io.parent(self.path)
+    }
+
+    pub fn sibling_path(&self, sibling: &str) -> Option<String> {
+        self.asset_io.sibling(self.path, sibling)
+    }
+
+    pub fn sibling_of(&self, path: &str, sibling: &str) -> Option<String> {
+        self.asset_io.sibling(path, sibling)
+    }
+
+    pub fn extension(&self) -> Option<&str> {
+        self.asset_io.extension(self.path)
+    }
+
+    pub fn path(&self) -> &str {
         &self.path
     }
 
@@ -98,7 +113,7 @@ impl<'a> LoadContext<'a> {
         Handle::strong(id.into(), self.ref_change_channel.sender.clone())
     }
 
-    pub async fn read_asset_bytes<P: AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
+    pub async fn read_asset_bytes<P: AsRef<str>>(&self, path: P) -> Result<Vec<u8>, AssetIoError> {
         self.asset_io.load_path(path.as_ref()).await
     }
 

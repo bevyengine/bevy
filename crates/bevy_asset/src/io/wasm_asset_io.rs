@@ -20,7 +20,7 @@ impl WasmAssetIo {
 }
 
 impl AssetIo for WasmAssetIo {
-    fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+    fn load_path<'a>(&'a self, path: &'a str) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
             let path = self.root_path.join(path);
             let window = web_sys::window().unwrap();
@@ -36,12 +36,12 @@ impl AssetIo for WasmAssetIo {
 
     fn read_directory(
         &self,
-        _path: &Path,
-    ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        Ok(Box::new(std::iter::empty::<PathBuf>()))
+        _path: &str,
+    ) -> Result<Box<dyn Iterator<Item = String>>, AssetIoError> {
+        Ok(Box::new(std::iter::empty::<String>()))
     }
 
-    fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(&self, _path: &str) -> Result<(), AssetIoError> {
         Ok(())
     }
 
@@ -49,7 +49,21 @@ impl AssetIo for WasmAssetIo {
         Ok(())
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
+    fn is_directory(&self, path: &str) -> bool {
         self.root_path.join(path).is_dir()
+    }
+
+    fn extension<'a>(&self, path: &'a str) -> Option<&'a str> {
+        Path::new(path).extension().and_then(|e| e.to_str())
+    }
+
+    fn parent<'a>(&self, path: &'a str) -> Option<&'a str> {
+        Path::new(path).parent().and_then(|e| e.to_str())
+    }
+
+    fn sibling(&self, path: &str, sibling: &str) -> Option<String> {
+        Path::new(path)
+            .parent()
+            .map(|e| e.join(sibling).to_string_lossy().to_string())
     }
 }

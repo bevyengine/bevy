@@ -9,13 +9,13 @@ use std::{
 
 #[derive(Debug, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
-    path: Cow<'a, Path>,
+    path: Cow<'a, str>,
     label: Option<Cow<'a, str>>,
 }
 
 impl<'a> AssetPath<'a> {
     #[inline]
-    pub fn new_ref(path: &'a Path, label: Option<&'a str>) -> AssetPath<'a> {
+    pub fn new_ref(path: &'a str, label: Option<&'a str>) -> AssetPath<'a> {
         AssetPath {
             path: Cow::Borrowed(path),
             label: label.map(|val| Cow::Borrowed(val)),
@@ -23,7 +23,7 @@ impl<'a> AssetPath<'a> {
     }
 
     #[inline]
-    pub fn new(path: PathBuf, label: Option<String>) -> AssetPath<'a> {
+    pub fn new(path: String, label: Option<String>) -> AssetPath<'a> {
         AssetPath {
             path: Cow::Owned(path),
             label: label.map(Cow::Owned),
@@ -41,14 +41,14 @@ impl<'a> AssetPath<'a> {
     }
 
     #[inline]
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> &str {
         &self.path
     }
 
     #[inline]
     pub fn to_owned(&self) -> AssetPath<'static> {
         AssetPath {
-            path: Cow::Owned(self.path.to_path_buf()),
+            path: Cow::Owned(self.path.to_string()),
             label: self
                 .label
                 .as_ref()
@@ -72,8 +72,8 @@ pub struct SourcePathId(u64);
 )]
 pub struct LabelId(u64);
 
-impl<'a> From<&'a Path> for SourcePathId {
-    fn from(value: &'a Path) -> Self {
+impl<'a> From<&'a str> for SourcePathId {
+    fn from(value: &'a str) -> Self {
         let mut hasher = get_hasher();
         value.hash(&mut hasher);
         SourcePathId(hasher.finish())
@@ -143,7 +143,7 @@ impl<'a> From<&'a str> for AssetPath<'a> {
         let path = Path::new(parts.next().expect("path must be set"));
         let label = parts.next();
         AssetPath {
-            path: Cow::Borrowed(path),
+            path: Cow::Borrowed(path.to_str().unwrap()),
             label: label.map(|label| Cow::Borrowed(label)),
         }
     }
@@ -152,7 +152,7 @@ impl<'a> From<&'a str> for AssetPath<'a> {
 impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
         AssetPath {
-            path: Cow::Borrowed(path),
+            path: Cow::Borrowed(path.to_str().unwrap()),
             label: None,
         }
     }
@@ -160,6 +160,15 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
 
 impl<'a> From<PathBuf> for AssetPath<'a> {
     fn from(path: PathBuf) -> Self {
+        AssetPath {
+            path: Cow::Owned(path.to_string_lossy().to_string()),
+            label: None,
+        }
+    }
+}
+
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(path: String) -> Self {
         AssetPath {
             path: Cow::Owned(path),
             label: None,

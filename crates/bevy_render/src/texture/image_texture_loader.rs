@@ -22,7 +22,7 @@ impl AssetLoader for ImageTextureLoader {
             // Find the image type we expect. A file with the extension "png" should
             // probably load as a PNG.
 
-            let ext = load_context.path().extension().unwrap().to_str().unwrap();
+            let ext = load_context.extension().unwrap();
 
             // NOTE: If more formats are added they can be added here.
             let img_format = if ext.eq_ignore_ascii_case("png") {
@@ -31,7 +31,7 @@ impl AssetLoader for ImageTextureLoader {
                 panic!(
                     "Unexpected image format {:?} for file {}, this is an error in `bevy_render`.",
                     ext,
-                    load_context.path().display()
+                    load_context.path()
                 )
             };
 
