@@ -126,13 +126,23 @@ where
     T: Bundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        if let Err(e) = world.remove::<T>(self.entity) {
-            log::warn!(
-                "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
-                std::any::type_name::<T>(),
-                e
-            );
-            if let Err(e) = world.remove_one_by_one::<T>(self.entity) {
+        match world.remove::<T>(self.entity) {
+            Ok(_) => (),
+            Err(bevy_hecs::ComponentError::MissingComponent(e)) => {
+                log::warn!(
+                    "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
+                    std::any::type_name::<T>(),
+                    e
+                );
+                if let Err(e) = world.remove_one_by_one::<T>(self.entity) {
+                    log::debug!(
+                        "Failed to remove components {:?} with error: {}",
+                        std::any::type_name::<T>(),
+                        e
+                    );
+                }
+            }
+            Err(e) => {
                 log::debug!(
                     "Failed to remove components {:?} with error: {}",
                     std::any::type_name::<T>(),
