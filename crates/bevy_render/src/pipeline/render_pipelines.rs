@@ -79,7 +79,7 @@ pub fn draw_render_pipelines_system(
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in &mut query.iter() {
+    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
         if !draw.is_visible {
             continue;
         }

@@ -1,9 +1,9 @@
 use super::Schedule;
 use crate::{
     resource::Resources,
-    system::{ArchetypeAccess, System, ThreadLocalExecution, TypeAccess},
+    system::{System, ThreadLocalExecution},
 };
-use bevy_hecs::{ArchetypesGeneration, World};
+use bevy_hecs::{ArchetypesGeneration, TypeAccess, World};
 use bevy_tasks::{ComputeTaskPool, CountdownEvent, TaskPool};
 use fixedbitset::FixedBitSet;
 use std::ops::Range;
@@ -11,8 +11,8 @@ use std::ops::Range;
 /// Executes each schedule stage in parallel by analyzing system dependencies.
 /// System execution order is undefined except under the following conditions:
 /// * systems in earlier stages run before systems in later stages
-/// * in a given stage, systems that mutate archetype X cannot run before systems registered before them that read/write archetype X
-/// * in a given stage, systems the read archetype X cannot run before systems registered before them that write archetype X
+/// * in a given stage, systems that mutate [archetype+component] X cannot run before systems registered before them that read/write [archetype+component] X
+/// * in a given stage, systems the read [archetype+component] X cannot run before systems registered before them that write [archetype+component] X
 /// * in a given stage, systems that mutate resource Y cannot run before systems registered before them that read/write resource Y
 /// * in a given stage, systems the read resource Y cannot run before systems registered before them that write resource Y
 
@@ -69,6 +69,28 @@ impl ParallelExecutor {
         }
 
         self.last_schedule_generation = schedule_generation;
+    }
+
+    pub fn print_order(&self, schedule: &Schedule) {
+        println!("----------------------------");
+        for (stage_name, executor_stage) in schedule.stage_order.iter().zip(self.stages.iter()) {
+            println!("stage {:?}", stage_name);
+            if let Some(stage_systems) = schedule.stages.get(stage_name) {
+                for (i, system) in stage_systems.iter().enumerate() {
+                    println!("  {}-{}", i, system.name());
+                    println!(
+                        "      dependencies({:?})",
+                        executor_stage.system_dependencies[i]
+                            .ones()
+                            .collect::<Vec<usize>>()
+                    );
+                    println!(
+                        "      dependants({:?})",
+                        executor_stage.system_dependents[i]
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -146,9 +168,9 @@ impl ExecutorStage {
             self.last_archetypes_generation != world.archetypes_generation();
 
         if schedule_changed || archetypes_generation_changed {
-            // update each system's archetype access to latest world archetypes
+            // update each system's [archetype+component] access to latest world archetypes
             for system_index in prepare_system_index_range.clone() {
-                systems[system_index].update_archetype_access(world);
+                systems[system_index].update(world);
 
                 // Clear this so that the next block of code that populates it doesn't insert
                 // duplicates
@@ -157,11 +179,11 @@ impl ExecutorStage {
             }
 
             // calculate dependencies between systems and build execution order
-            let mut current_archetype_access = ArchetypeAccess::default();
+            let mut current_archetype_access = TypeAccess::default();
             let mut current_resource_access = TypeAccess::default();
             for system_index in prepare_system_index_range.clone() {
                 let system = &systems[system_index];
-                let archetype_access = system.archetype_access();
+                let archetype_access = system.archetype_component_access();
                 match system.thread_local_execution() {
                     ThreadLocalExecution::NextFlush => {
                         let resource_access = system.resource_access();
@@ -183,7 +205,7 @@ impl ExecutorStage {
 
                                 // if earlier system is incompatible, make the current system dependent
                                 if !earlier_system
-                                    .archetype_access()
+                                    .archetype_component_access()
                                     .is_compatible(archetype_access)
                                     || !earlier_system
                                         .resource_access()
@@ -538,14 +560,14 @@ mod tests {
             commands.spawn((1u32,));
         }
 
-        fn read(query: Query<&u32>, mut entities: Query<Entity>) {
+        fn read(query: Query<&u32>, entities: Query<Entity>) {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
                 query.get::<u32>(entity).unwrap();
             }
 
-            assert_eq!(1, entities.iter().iter().count());
+            assert_eq!(1, entities.iter().count());
         }
 
         schedule.add_system_to_stage("PreArchetypeChange", insert.system());
@@ -569,14 +591,14 @@ mod tests {
             world.spawn((1u32,));
         }
 
-        fn read(query: Query<&u32>, mut entities: Query<Entity>) {
+        fn read(query: Query<&u32>, entities: Query<Entity>) {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
                 query.get::<u32>(entity).unwrap();
             }
 
-            assert_eq!(1, entities.iter().iter().count());
+            assert_eq!(1, entities.iter().count());
         }
 
         schedule.add_system_to_stage("update", insert.thread_local_system());
@@ -625,7 +647,6 @@ mod tests {
 
         fn read_u32(completed_systems: Res<CompletedSystems>, _query: Query<&u32>) {
             let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(!completed_systems.contains(READ_U32_WRITE_U64_SYSTEM_NAME));
             completed_systems.insert(READ_U32_SYSTEM_NAME);
         }
 
@@ -639,7 +660,6 @@ mod tests {
             _query: Query<(&u32, &mut u64)>,
         ) {
             let mut completed_systems = completed_systems.completed_systems.lock();
-            assert!(completed_systems.contains(READ_U32_SYSTEM_NAME));
             assert!(!completed_systems.contains(READ_U64_SYSTEM_NAME));
             completed_systems.insert(READ_U32_WRITE_U64_SYSTEM_NAME);
         }
@@ -734,7 +754,7 @@ mod tests {
 
             assert_eq!(
                 executor.stages[0].system_dependents,
-                vec![vec![2], vec![], vec![3], vec![]]
+                vec![vec![], vec![], vec![3], vec![]]
             );
             assert_eq!(
                 executor.stages[1].system_dependents,
@@ -746,8 +766,6 @@ mod tests {
             );
 
             let stage_0_len = executor.stages[0].system_dependencies.len();
-            let mut read_u32_write_u64_deps = FixedBitSet::with_capacity(stage_0_len);
-            read_u32_write_u64_deps.insert(0);
             let mut read_u64_deps = FixedBitSet::with_capacity(stage_0_len);
             read_u64_deps.insert(2);
 
@@ -756,7 +774,7 @@ mod tests {
                 vec![
                     FixedBitSet::with_capacity(stage_0_len),
                     FixedBitSet::with_capacity(stage_0_len),
-                    read_u32_write_u64_deps,
+                    FixedBitSet::with_capacity(stage_0_len),
                     read_u64_deps,
                 ]
             );

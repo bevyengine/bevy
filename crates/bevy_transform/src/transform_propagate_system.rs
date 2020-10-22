@@ -2,10 +2,15 @@ use crate::components::*;
 use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
-    mut root_query: Query<Without<Parent, (Option<&Children>, &Transform, &mut GlobalTransform)>>,
-    mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
+    mut root_query: Query<
+        Without<
+            Parent,
+            With<GlobalTransform, (Option<&Children>, &Transform, &mut GlobalTransform)>,
+        >,
+    >,
+    mut transform_query: Query<With<Parent, (&Transform, &mut GlobalTransform, Option<&Children>)>>,
 ) {
-    for (children, transform, mut global_transform) in &mut root_query.iter() {
+    for (children, transform, mut global_transform) in root_query.iter_mut() {
         *global_transform = GlobalTransform::from(*transform);
 
         if let Some(children) = children {
@@ -18,16 +23,15 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
+    transform_query: &mut Query<
+        With<Parent, (&Transform, &mut GlobalTransform, Option<&Children>)>,
+    >,
     entity: Entity,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
 
     let global_matrix = {
-        if let (Ok(transform), Ok(mut global_transform)) = (
-            transform_query.get::<Transform>(entity),
-            transform_query.get_mut::<GlobalTransform>(entity),
-        ) {
+        if let Ok((transform, mut global_transform, _)) = transform_query.entity_mut(entity) {
             *global_transform = parent.mul_transform(*transform);
             *global_transform
         } else {

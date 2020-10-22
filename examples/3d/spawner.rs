@@ -23,7 +23,7 @@ fn move_cubes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut query: Query<(&mut Transform, &Handle<StandardMaterial>)>,
 ) {
-    for (mut transform, material_handle) in &mut query.iter() {
+    for (mut transform, material_handle) in query.iter_mut() {
         let material = materials.get_mut(material_handle).unwrap();
         transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo =
