@@ -20,7 +20,7 @@ pub struct WgpuPlugin;
 
 impl Plugin for WgpuPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let render_system = wgpu_render_system(app.resources_mut());
+        let render_system = get_wgpu_render_system(app.resources_mut());
         app.add_system_to_stage(
             bevy_render::stage::RENDER,
             render_system.thread_local_system(),
@@ -32,12 +32,33 @@ impl Plugin for WgpuPlugin {
     }
 }
 
-pub fn wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
-    let mut wgpu_renderer = future::block_on(WgpuRenderer::new());
+pub fn get_wgpu_render_system(resources: &mut Resources) -> impl FnMut(&mut World, &mut Resources) {
+    let options = resources
+        .get_cloned::<WgpuOptions>()
+        .unwrap_or_else(WgpuOptions::default);
+    let mut wgpu_renderer = future::block_on(WgpuRenderer::new(options));
     let resource_context = WgpuRenderResourceContext::new(wgpu_renderer.device.clone());
     resources.insert::<Box<dyn RenderResourceContext>>(Box::new(resource_context.clone()));
     resources.insert(SharedBuffers::new(Box::new(resource_context)));
     move |world, resources| {
         wgpu_renderer.update(world, resources);
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct WgpuOptions {
+    power_pref: WgpuPowerOptions,
+}
+
+#[derive(Clone)]
+pub enum WgpuPowerOptions {
+    HighPerformance,
+    Adaptive,
+    LowPower,
+}
+
+impl Default for WgpuPowerOptions {
+    fn default() -> Self {
+        WgpuPowerOptions::HighPerformance
     }
 }

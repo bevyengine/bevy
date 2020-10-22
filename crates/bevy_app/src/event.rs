@@ -43,7 +43,7 @@ enum State {
 ///
 /// // events are only processed once per reader
 /// assert_eq!(reader.iter(&events).count(), 0);
-/// ```  
+/// ```
 ///
 /// # Details
 ///
@@ -229,7 +229,7 @@ impl<T: bevy_ecs::Resource> Events<T> {
     }
 
     /// Creates a draining iterator that removes all events.
-    pub fn drain<'a>(&'a mut self) -> impl Iterator<Item = T> + 'a {
+    pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
         let map = |i: EventInstance<T>| i.event;
         match self.state {
             State::A => self

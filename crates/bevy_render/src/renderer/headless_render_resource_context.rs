@@ -11,7 +11,7 @@ use bevy_window::Window;
 use parking_lot::RwLock;
 use std::{ops::Range, sync::Arc};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
@@ -76,7 +76,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         buffer
     }
 
-    fn create_shader_module(&self, _shader_handle: Handle<Shader>, _shaders: &Assets<Shader>) {}
+    fn create_shader_module(&self, _shader_handle: &Handle<Shader>, _shaders: &Assets<Shader>) {}
 
     fn remove_buffer(&self, buffer: BufferId) {
         self.buffer_info.write().remove(&buffer);
@@ -122,7 +122,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     ) {
     }
 
-    fn create_shader_module_from_source(&self, _shader_handle: Handle<Shader>, _shader: &Shader) {}
+    fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
 
     fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
         self.asset_resources.write().remove(&(handle, index));

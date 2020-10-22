@@ -28,7 +28,7 @@ impl BindGroup {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BindGroupBuilder {
     pub indexed_bindings: Vec<IndexedBindGroupEntry>,
     pub dynamic_uniform_indices: Vec<u32>,

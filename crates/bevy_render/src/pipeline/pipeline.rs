@@ -11,8 +11,10 @@ use crate::{
     texture::TextureFormat,
 };
 use bevy_asset::Assets;
+use bevy_type_registry::TypeUuid;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, TypeUuid)]
+#[uuid = "ebfc1d11-a2a4-44cb-8f12-c49cc631146c"]
 pub struct PipelineDescriptor {
     pub name: Option<String>,
     pub layout: Option<PipelineLayout>,
@@ -91,7 +93,7 @@ impl PipelineDescriptor {
                 },
             }),
             color_states: vec![ColorStateDescriptor {
-                format: TextureFormat::Bgra8UnormSrgb,
+                format: TextureFormat::default(),
                 color_blend: BlendDescriptor {
                     src_factor: BlendFactor::SrcAlpha,
                     dst_factor: BlendFactor::OneMinusSrcAlpha,
@@ -136,7 +138,7 @@ impl PipelineDescriptor {
             .shader_stages
             .fragment
             .as_ref()
-            .map(|handle| shaders.get(&handle).unwrap());
+            .map(|handle| shaders.get(handle).unwrap());
 
         let mut layouts = vec![vertex_spirv.reflect_layout(bevy_conventions).unwrap()];
         if let Some(ref fragment_spirv) = fragment_spirv {

@@ -125,10 +125,10 @@ impl<'a> From<&'a OwnedWgpuVertexBufferDescriptor> for wgpu::VertexBufferDescrip
 impl WgpuFrom<Color> for wgpu::Color {
     fn from(color: Color) -> Self {
         wgpu::Color {
-            r: color.r as f64,
-            g: color.g as f64,
-            b: color.b as f64,
-            a: color.a as f64,
+            r: color.r_linear() as f64,
+            g: color.g_linear() as f64,
+            b: color.b_linear() as f64,
+            a: color.a() as f64,
         }
     }
 }
@@ -563,10 +563,10 @@ impl WgpuFrom<&Window> for wgpu::SwapChainDescriptor {
     fn from(window: &Window) -> Self {
         wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: window.width,
-            height: window.height,
-            present_mode: if window.vsync {
+            format: TextureFormat::default().wgpu_into(),
+            width: window.width(),
+            height: window.height(),
+            present_mode: if window.vsync() {
                 wgpu::PresentMode::Fifo
             } else {
                 wgpu::PresentMode::Immediate

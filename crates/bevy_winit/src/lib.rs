@@ -4,12 +4,13 @@ mod winit_windows;
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    touch::TouchInput,
 };
 pub use winit_config::*;
 pub use winit_windows::*;
 
 use bevy_app::{prelude::*, AppExit};
-use bevy_ecs::Resources;
+use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_window::{
     CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
@@ -22,6 +23,9 @@ use winit::{
 #[derive(Default)]
 pub struct WinitPlugin;
 
+#[derive(Debug)]
+pub struct EventLoopProxyPtr(pub usize);
+
 impl Plugin for WinitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
@@ -29,7 +33,68 @@ impl Plugin for WinitPlugin {
             // stopping us. there are plans to remove the lifetime: https://github.com/rust-windowing/winit/pull/1456
             // .add_event::<winit::event::WindowEvent>()
             .init_resource::<WinitWindows>()
-            .set_runner(winit_runner);
+            .set_runner(winit_runner)
+            .add_system(change_window.thread_local_system());
+    }
+}
+
+fn change_window(_: &mut World, resources: &mut Resources) {
+    let winit_windows = resources.get::<WinitWindows>().unwrap();
+    let mut windows = resources.get_mut::<Windows>().unwrap();
+
+    for bevy_window in windows.iter_mut() {
+        let id = bevy_window.id();
+        for command in bevy_window.drain_commands() {
+            match command {
+                bevy_window::WindowCommand::SetWindowMode {
+                    mode,
+                    resolution: (width, height),
+                } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    match mode {
+                        bevy_window::WindowMode::BorderlessFullscreen => {
+                            window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+                        }
+                        bevy_window::WindowMode::Fullscreen { use_size } => window.set_fullscreen(
+                            Some(winit::window::Fullscreen::Exclusive(match use_size {
+                                true => get_fitting_videomode(
+                                    &window.current_monitor().unwrap(),
+                                    width,
+                                    height,
+                                ),
+                                false => get_best_videomode(&window.current_monitor().unwrap()),
+                            })),
+                        ),
+                        bevy_window::WindowMode::Windowed => window.set_fullscreen(None),
+                    }
+                }
+                bevy_window::WindowCommand::SetTitle { title } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_title(&title);
+                }
+                bevy_window::WindowCommand::SetResolution { width, height } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_inner_size(winit::dpi::PhysicalSize::new(width, height));
+                }
+                bevy_window::WindowCommand::SetVsync { .. } => (),
+                bevy_window::WindowCommand::SetResizable { resizable } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_resizable(resizable);
+                }
+                bevy_window::WindowCommand::SetDecorations { decorations } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_decorations(decorations);
+                }
+                bevy_window::WindowCommand::SetCursorLockMode { locked } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_grab(locked).unwrap();
+                }
+                bevy_window::WindowCommand::SetCursorVisibility { visible } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_visible(visible);
+                }
+            }
+        }
     }
 }
 
@@ -81,11 +146,18 @@ pub fn winit_runner(mut app: App) {
     let mut create_window_event_reader = EventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = EventReader::<AppExit>::default();
 
+    app.resources
+        .insert_thread_local(EventLoopProxyPtr(
+            Box::into_raw(Box::new(event_loop.create_proxy())) as usize,
+        ));
+
     handle_create_window_events(
         &mut app.resources,
         &event_loop,
         &mut create_window_event_reader,
     );
+
+    app.initialize();
 
     log::debug!("Entering winit event loop");
 
@@ -118,15 +190,14 @@ pub fn winit_runner(mut app: App) {
                 let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
-                let mut window = windows.get_mut(window_id).unwrap();
-                window.width = size.width;
-                window.height = size.height;
+                let window = windows.get_mut(window_id).unwrap();
+                window.update_resolution_from_backend(size.width, size.height);
 
                 let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
                 resize_events.send(WindowResized {
                     id: window_id,
-                    height: window.height as usize,
-                    width: window.width as usize,
+                    height: window.height() as usize,
+                    width: window.width() as usize,
                 });
             }
             event::Event::WindowEvent {
@@ -190,6 +261,11 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                 },
+                WindowEvent::Touch(touch) => {
+                    let mut touch_input_events =
+                        app.resources.get_mut::<Events<TouchInput>>().unwrap();
+                    touch_input_events.send(converters::convert_touch_input(touch));
+                }
                 _ => {}
             },
             event::Event::DeviceEvent { ref event, .. } => {
@@ -231,7 +307,7 @@ fn handle_create_window_events(
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = Window::new(create_window_event.id, &create_window_event.descriptor);
         winit_windows.create_window(event_loop, &window);
-        let window_id = window.id;
+        let window_id = window.id();
         windows.add(window);
         window_created_events.send(WindowCreated { id: window_id });
     }

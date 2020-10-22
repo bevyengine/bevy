@@ -2,7 +2,7 @@ use super::Camera;
 use bevy_ecs::{Entity, Query, ResMut};
 use bevy_utils::HashMap;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ActiveCameras {
     pub cameras: HashMap<String, Option<Entity>>,
 }

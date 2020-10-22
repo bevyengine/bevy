@@ -15,6 +15,7 @@ impl WorldBuilderSource for World {
 }
 
 /// Modify a [World] using the builder pattern
+#[derive(Debug)]
 pub struct WorldBuilder<'a> {
     pub world: &'a mut World,
     pub current_entity: Option<Entity>,

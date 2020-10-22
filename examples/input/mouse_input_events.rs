@@ -7,7 +7,6 @@ use bevy::{
 fn main() {
     App::build()
         .add_default_plugins()
-        .init_resource::<State>()
         .add_system(print_mouse_events_system.system())
         .run();
 }
@@ -22,7 +21,7 @@ struct State {
 
 /// This system prints out all mouse events as they come in
 fn print_mouse_events_system(
-    mut state: ResMut<State>,
+    mut state: Local<State>,
     mouse_button_input_events: Res<Events<MouseButtonInput>>,
     mouse_motion_events: Res<Events<MouseMotion>>,
     cursor_moved_events: Res<Events<CursorMoved>>,

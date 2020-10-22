@@ -1,6 +1,7 @@
 use crate::prelude::{Children, Parent, PreviousParent};
 use bevy_ecs::{Component, DynamicBundle, Entity, WorldBuilder};
 
+#[derive(Debug)]
 pub struct WorldChildBuilder<'a, 'b> {
     world_builder: &'b mut WorldBuilder<'a>,
     parent_entities: Vec<Entity>,
@@ -46,6 +47,10 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         self.world_builder.with(component);
         self
+    }
+
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.world_builder.current_entity
     }
 }
 

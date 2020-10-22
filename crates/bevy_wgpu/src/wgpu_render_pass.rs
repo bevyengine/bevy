@@ -7,6 +7,7 @@ use bevy_render::{
 };
 use std::ops::Range;
 
+#[derive(Debug)]
 pub struct WgpuRenderPass<'a> {
     pub render_pass: wgpu::RenderPass<'a>,
     pub render_context: &'a WgpuRenderContext,
@@ -81,11 +82,11 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
         }
     }
 
-    fn set_pipeline(&mut self, pipeline_handle: Handle<PipelineDescriptor>) {
+    fn set_pipeline(&mut self, pipeline_handle: &Handle<PipelineDescriptor>) {
         let pipeline = self
             .wgpu_resources
             .render_pipelines
-            .get(&pipeline_handle)
+            .get(pipeline_handle)
             .expect(
             "Attempted to use a pipeline that does not exist in this RenderPass's RenderContext",
         );

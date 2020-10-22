@@ -26,9 +26,9 @@
 //! and it gets more powerful every day!
 //!
 //! ### This Crate
-//! The "bevy" crate is just a container crate that makes it easier to consume Bevy components.
+//! The `bevy` crate is just a container crate that makes it easier to consume Bevy components.
 //! The defaults provide a "full" engine experience, but you can easily enable / disable features
-//! in your project's Cargo.toml to meet your specific needs. See Bevy's Cargo.toml for a full list of features available.
+//! in your project's `Cargo.toml` to meet your specific needs. See Bevy's `Cargo.toml` for a full list of features available.
 //!
 //! If you prefer it, you can also consume the individual bevy crates directly.
 
@@ -53,6 +53,7 @@ pub use bevy_scene as scene;
 pub use bevy_tasks as tasks;
 pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;
+pub use bevy_utils as utils;
 pub use bevy_window as window;
 
 #[cfg(feature = "bevy_audio")]
@@ -81,3 +82,6 @@ pub use bevy_winit as winit;
 
 #[cfg(feature = "bevy_wgpu")]
 pub use bevy_wgpu as wgpu;
+
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub use bevy_dynamic_plugin as dynamic_plugin;

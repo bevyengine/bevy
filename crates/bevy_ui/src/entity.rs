@@ -16,7 +16,7 @@ use bevy_render::{
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Debug)]
 pub struct NodeComponents {
     pub node: Node,
     pub style: Style,
@@ -60,7 +60,7 @@ impl Default for NodeComponents {
     }
 }
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Debug)]
 pub struct ImageComponents {
     pub node: Node,
     pub style: Style,
@@ -108,7 +108,7 @@ impl Default for ImageComponents {
     }
 }
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Debug)]
 pub struct TextComponents {
     pub node: Node,
     pub style: Style,
@@ -138,7 +138,7 @@ impl Default for TextComponents {
     }
 }
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Clone, Debug)]
 pub struct ButtonComponents {
     pub node: Node,
     pub button: Button,
@@ -188,7 +188,7 @@ impl Default for ButtonComponents {
     }
 }
 
-#[derive(Bundle)]
+#[derive(Bundle, Debug)]
 pub struct UiCameraComponents {
     pub camera: Camera,
     pub orthographic_projection: OrthographicProjection,

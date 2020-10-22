@@ -7,6 +7,7 @@ use instant::Instant;
 use std::time::Instant;
 
 /// Tracks elapsed time since the last update and since the App has started
+#[derive(Debug)]
 pub struct Time {
     pub delta: Duration,
     pub instant: Option<Instant>,

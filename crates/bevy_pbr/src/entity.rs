@@ -53,7 +53,7 @@ impl Default for PbrComponents {
 }
 
 /// A component bundle for "light" entities
-#[derive(Bundle, Default)]
+#[derive(Debug, Bundle, Default)]
 pub struct LightComponents {
     pub light: Light,
     pub transform: Transform,

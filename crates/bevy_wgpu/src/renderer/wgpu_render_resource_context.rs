@@ -20,7 +20,7 @@ use futures_lite::future;
 use std::{borrow::Cow, ops::Range, sync::Arc};
 use wgpu::util::DeviceExt;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WgpuRenderResourceContext {
     pub device: Arc<wgpu::Device>,
     pub resources: WgpuResources,
@@ -245,16 +245,16 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         samplers.remove(&sampler);
     }
 
-    fn create_shader_module_from_source(&self, shader_handle: Handle<Shader>, shader: &Shader) {
+    fn create_shader_module_from_source(&self, shader_handle: &Handle<Shader>, shader: &Shader) {
         let mut shader_modules = self.resources.shader_modules.write();
         let spirv: Cow<[u32]> = shader.get_spirv(None).into();
         let shader_module = self
             .device
             .create_shader_module(wgpu::ShaderModuleSource::SpirV(spirv));
-        shader_modules.insert(shader_handle, shader_module);
+        shader_modules.insert(shader_handle.clone_weak(), shader_module);
     }
 
-    fn create_shader_module(&self, shader_handle: Handle<Shader>, shaders: &Assets<Shader>) {
+    fn create_shader_module(&self, shader_handle: &Handle<Shader>, shaders: &Assets<Shader>) {
         if self
             .resources
             .shader_modules
@@ -264,7 +264,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         {
             return;
         }
-        let shader = shaders.get(&shader_handle).unwrap();
+        let shader = shaders.get(shader_handle).unwrap();
         self.create_shader_module_from_source(shader_handle, shader);
     }
 
@@ -274,22 +274,25 @@ impl RenderResourceContext for WgpuRenderResourceContext {
 
         let swap_chain_descriptor: wgpu::SwapChainDescriptor = window.wgpu_into();
         let surface = surfaces
-            .get(&window.id)
+            .get(&window.id())
             .expect("No surface found for window");
         let swap_chain = self
             .device
             .create_swap_chain(surface, &swap_chain_descriptor);
 
-        window_swap_chains.insert(window.id, swap_chain);
+        window_swap_chains.insert(window.id(), swap_chain);
     }
 
     fn next_swap_chain_texture(&self, window: &bevy_window::Window) -> TextureId {
-        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id) {
+        if let Some(texture_id) = self.try_next_swap_chain_texture(window.id()) {
             texture_id
         } else {
-            self.resources.window_swap_chains.write().remove(&window.id);
+            self.resources
+                .window_swap_chains
+                .write()
+                .remove(&window.id());
             self.create_swap_chain(window);
-            self.try_next_swap_chain_texture(window.id)
+            self.try_next_swap_chain_texture(window.id())
                 .expect("Failed to acquire next swap chain texture!")
         }
     }
@@ -377,9 +380,9 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .map(|c| c.wgpu_into())
             .collect::<Vec<wgpu::ColorStateDescriptor>>();
 
-        self.create_shader_module(pipeline_descriptor.shader_stages.vertex, shaders);
+        self.create_shader_module(&pipeline_descriptor.shader_stages.vertex, shaders);
 
-        if let Some(fragment_handle) = pipeline_descriptor.shader_stages.fragment {
+        if let Some(ref fragment_handle) = pipeline_descriptor.shader_stages.fragment {
             self.create_shader_module(fragment_handle, shaders);
         }
 
@@ -389,7 +392,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
             .unwrap();
 
         let fragment_shader_module = match pipeline_descriptor.shader_stages.fragment {
-            Some(fragment_handle) => Some(shader_modules.get(&fragment_handle).unwrap()),
+            Some(ref fragment_handle) => Some(shader_modules.get(fragment_handle).unwrap()),
             None => None,
         };
 

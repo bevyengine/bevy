@@ -1,5 +1,3 @@
-#[cfg(feature = "dynamic_plugins")]
-use crate::plugin::dynamically_load_plugin;
 use crate::{
     app::{App, AppExit},
     event::Events,
@@ -172,10 +170,12 @@ impl AppBuilder {
     }
 
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_startup_stage(startup_stage::STARTUP)
+        self.add_startup_stage(startup_stage::PRE_STARTUP)
+            .add_startup_stage(startup_stage::STARTUP)
             .add_startup_stage(startup_stage::POST_STARTUP)
             .add_stage(stage::FIRST)
-            .add_stage(stage::EVENT_UPDATE)
+            .add_stage(stage::PRE_EVENT)
+            .add_stage(stage::EVENT)
             .add_stage(stage::PRE_UPDATE)
             .add_stage(stage::UPDATE)
             .add_stage(stage::POST_UPDATE)
@@ -218,14 +218,23 @@ impl AppBuilder {
         T: Send + Sync + 'static,
     {
         self.add_resource(Events::<T>::default())
-            .add_system_to_stage(stage::EVENT_UPDATE, Events::<T>::update_system.system())
+            .add_system_to_stage(stage::EVENT, Events::<T>::update_system.system())
     }
 
+    /// Adds a resource to the current [App] and overwrites any resource previously added of the same type.
     pub fn add_resource<T>(&mut self, resource: T) -> &mut Self
     where
         T: Send + Sync + 'static,
     {
         self.app.resources.insert(resource);
+        self
+    }
+
+    pub fn add_thread_local_resource<T>(&mut self, resource: T) -> &mut Self
+    where
+        T: 'static,
+    {
+        self.app.resources.insert_thread_local(resource);
         self
     }
 
@@ -239,16 +248,18 @@ impl AppBuilder {
         self
     }
 
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
-        self.app.runner = Box::new(run_fn);
+    pub fn init_thread_local_resource<R>(&mut self) -> &mut Self
+    where
+        R: FromResources + 'static,
+    {
+        let resource = R::from_resources(&self.app.resources);
+        self.app.resources.insert_thread_local(resource);
+
         self
     }
 
-    #[cfg(feature = "dynamic_plugins")]
-    pub fn load_plugin(&mut self, path: &str) -> &mut Self {
-        let (_lib, plugin) = dynamically_load_plugin(path);
-        log::debug!("loaded plugin: {}", plugin.name());
-        plugin.build(self);
+    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static) -> &mut Self {
+        self.app.runner = Box::new(run_fn);
         self
     }
 

@@ -7,6 +7,8 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
+use bevy_type_registry::TypeUuid;
+use bevy_utils::HashSet;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
@@ -86,7 +88,9 @@ pub enum Indices {
 }
 // TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
 pub type VertexAttributesHashMap = HashMap<Cow<'static, str>, VertexAttributeValues>;
-#[derive(Debug)]
+
+#[derive(Debug, TypeUuid)]
+#[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
     /// `HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
@@ -127,6 +131,7 @@ pub mod shape {
     use std::borrow::Cow;
 
     /// A cube.
+    #[derive(Debug)]
     pub struct Cube {
         /// Half the side length of the cube.
         pub size: f32,
@@ -204,6 +209,7 @@ pub mod shape {
     }
 
     /// A rectangle on the XY plane.
+    #[derive(Debug)]
     pub struct Quad {
         /// Full width and height of the rectangle.
         pub size: Vec2,
@@ -301,6 +307,7 @@ pub mod shape {
     }
 
     /// A square on the XZ plane.
+    #[derive(Debug)]
     pub struct Plane {
         /// The total side length of the square.
         pub size: f32,
@@ -340,6 +347,7 @@ pub mod shape {
     }
 
     /// A sphere made from a subdivided Icosahedron.
+    #[derive(Debug)]
     pub struct Icosphere {
         /// The radius of the sphere.
         pub radius: f32,
@@ -414,11 +422,11 @@ pub mod shape {
 
 fn remove_resource_save(
     render_resource_context: &dyn RenderResourceContext,
-    handle: Handle<Mesh>,
+    handle: &Handle<Mesh>,
     index: u64,
 ) {
     if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, index)
+        render_resource_context.get_asset_resource(&handle, index)
     {
         render_resource_context.remove_buffer(buffer);
         render_resource_context.remove_asset_resource(handle, index);
@@ -449,15 +457,15 @@ pub fn mesh_resource_provider_system(
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
-            AssetEvent::Created { handle } => {
-                changed_meshes.insert(*handle);
+            AssetEvent::Created { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
             }
-            AssetEvent::Modified { handle } => {
-                changed_meshes.insert(*handle);
-                remove_current_mesh_resources(render_resource_context, *handle);
+            AssetEvent::Modified { ref handle } => {
+                changed_meshes.insert(handle.clone_weak());
+                remove_current_mesh_resources(render_resource_context, handle);
             }
-            AssetEvent::Removed { handle } => {
-                remove_current_mesh_resources(render_resource_context, *handle);
+            AssetEvent::Removed { ref handle } => {
+                remove_current_mesh_resources(render_resource_context, handle);
                 // if mesh was modified and removed in the same update, ignore the modification
                 // events are ordered so future modification events are ok
                 changed_meshes.remove(handle);
@@ -490,7 +498,7 @@ pub fn mesh_resource_provider_system(
 
             mesh.attribute_buffer_descriptor_reference = Some(interleaved_buffer.1);
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::VERTEX,
@@ -504,7 +512,7 @@ pub fn mesh_resource_provider_system(
             // Fallback buffer
             // TODO: can be done with a 1 byte buffer + zero stride?
             render_resource_context.set_asset_resource(
-                *changed_mesh_handle,
+                changed_mesh_handle,
                 RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
                     BufferInfo {
                         buffer_usage: BufferUsage::VERTEX,
@@ -520,13 +528,13 @@ pub fn mesh_resource_provider_system(
     // handover buffers to pipeline
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
     for (handle, mut render_pipelines) in &mut query.iter() {
-        if let Some(mesh) = meshes.get(&handle) {
+        if let Some(mesh) = meshes.get(handle) {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
             }
 
             if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
-                render_resource_context.get_asset_resource(*handle, INDEX_BUFFER_ASSET_INDEX)
+                render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
             {
                 // set index buffer into binding
                 render_pipelines
@@ -535,14 +543,14 @@ pub fn mesh_resource_provider_system(
             }
 
             if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
-                render_resource_context.get_asset_resource(*handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+                render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
             {
                 // set index buffer into binding
                 render_pipelines.bindings.vertex_attribute_buffer =
                     Some(vertex_attribute_buffer_resource);
             }
             if let Some(RenderResourceId::Buffer(vertex_attribute_fallback_resource)) =
-                render_resource_context.get_asset_resource(*handle, VERTEX_FALLBACK_BUFFER_ID)
+                render_resource_context.get_asset_resource(handle, VERTEX_FALLBACK_BUFFER_ID)
             {
                 // set index buffer into binding
                 render_pipelines.bindings.vertex_fallback_buffer =

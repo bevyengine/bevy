@@ -52,7 +52,7 @@ impl Labels {
 }
 
 /// Maintains a mapping from [Entity](bevy_ecs::prelude::Entity) ids to entity labels and entity labels to [Entities](bevy_ecs::prelude::Entity).
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EntityLabels {
     label_entities: HashMap<Cow<'static, str>, Vec<Entity>>,
     entity_labels: HashMap<Entity, HashSet<Cow<'static, str>>>,

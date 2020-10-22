@@ -1,15 +1,18 @@
 use crate::prelude::{Children, Parent, PreviousParent};
-use bevy_ecs::{Commands, CommandsInternal, Component, DynamicBundle, Entity, WorldWriter};
+use bevy_ecs::{
+    Command, Commands, CommandsInternal, Component, DynamicBundle, Entity, Resources, World,
+};
 use smallvec::SmallVec;
 
+#[derive(Debug)]
 pub struct InsertChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
     index: usize,
 }
 
-impl WorldWriter for InsertChildren {
-    fn write(self: Box<Self>, world: &mut bevy_ecs::World) {
+impl Command for InsertChildren {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         for child in self.children.iter() {
             world
                 .insert(
@@ -35,6 +38,7 @@ impl WorldWriter for InsertChildren {
     }
 }
 
+#[derive(Debug)]
 pub struct PushChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
@@ -45,8 +49,8 @@ pub struct ChildBuilder<'a> {
     push_children: PushChildren,
 }
 
-impl WorldWriter for PushChildren {
-    fn write(self: Box<Self>, world: &mut bevy_ecs::World) {
+impl Command for PushChildren {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         for child in self.children.iter() {
             world
                 .insert(
@@ -79,6 +83,10 @@ impl<'a> ChildBuilder<'a> {
             .children
             .push(self.commands.current_entity.unwrap());
         self
+    }
+
+    pub fn current_entity(&self) -> Option<Entity> {
+        self.commands.current_entity
     }
 
     pub fn with_bundle(
@@ -129,7 +137,7 @@ impl BuildChildren for Commands {
             };
 
             commands.current_entity = Some(current_entity);
-            commands.write_world(push_children);
+            commands.add_command(push_children);
         }
         self
     }
@@ -137,7 +145,7 @@ impl BuildChildren for Commands {
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
         {
             let mut commands = self.commands.lock();
-            commands.write_world(PushChildren {
+            commands.add_command(PushChildren {
                 children: SmallVec::from(children),
                 parent,
             });
@@ -148,7 +156,7 @@ impl BuildChildren for Commands {
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
         {
             let mut commands = self.commands.lock();
-            commands.write_world(InsertChildren {
+            commands.add_command(InsertChildren {
                 children: SmallVec::from(children),
                 index,
                 parent,
@@ -176,12 +184,12 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
         };
 
         self.commands.current_entity = Some(current_entity);
-        self.commands.write_world(push_children);
+        self.commands.add_command(push_children);
         self
     }
 
     fn push_children(&mut self, parent: Entity, children: &[Entity]) -> &mut Self {
-        self.commands.write_world(PushChildren {
+        self.commands.add_command(PushChildren {
             children: SmallVec::from(children),
             parent,
         });
@@ -189,7 +197,7 @@ impl<'a> BuildChildren for ChildBuilder<'a> {
     }
 
     fn insert_children(&mut self, parent: Entity, index: usize, children: &[Entity]) -> &mut Self {
-        self.commands.write_world(InsertChildren {
+        self.commands.add_command(InsertChildren {
             children: SmallVec::from(children),
             index,
             parent,
@@ -215,6 +223,7 @@ mod tests {
         let mut parent = None;
         let mut child1 = None;
         let mut child2 = None;
+        let mut child3 = None;
 
         commands
             .spawn((1,))
@@ -224,14 +233,18 @@ mod tests {
                     .spawn((2,))
                     .for_current_entity(|e| child1 = Some(e))
                     .spawn((3,))
-                    .for_current_entity(|e| child2 = Some(e));
+                    .for_current_entity(|e| child2 = Some(e))
+                    .spawn((4,));
+
+                child3 = parent.current_entity();
             });
 
         commands.apply(&mut world, &mut resources);
         let parent = parent.expect("parent should exist");
         let child1 = child1.expect("child1 should exist");
         let child2 = child2.expect("child2 should exist");
-        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        let child3 = child3.expect("child3 should exist");
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2, child3];
 
         assert_eq!(
             world.get::<Children>(parent).unwrap().0.clone(),

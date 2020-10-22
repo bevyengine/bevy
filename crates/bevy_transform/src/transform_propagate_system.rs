@@ -1,24 +1,23 @@
 use crate::components::*;
 use bevy_ecs::prelude::*;
-use bevy_math::Mat4;
 
 pub fn transform_propagate_system(
     mut root_query: Query<Without<Parent, (Option<&Children>, &Transform, &mut GlobalTransform)>>,
     mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
 ) {
     for (children, transform, mut global_transform) in &mut root_query.iter() {
-        *global_transform.value_mut() = *transform.value();
+        *global_transform = GlobalTransform::from(*transform);
 
         if let Some(children) = children {
             for child in children.0.iter() {
-                propagate_recursive(*global_transform.value(), &mut transform_query, *child);
+                propagate_recursive(&global_transform, &mut transform_query, *child);
             }
         }
     }
 }
 
 fn propagate_recursive(
-    parent: Mat4,
+    parent: &GlobalTransform,
     transform_query: &mut Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
     entity: Entity,
 ) {
@@ -29,8 +28,8 @@ fn propagate_recursive(
             transform_query.get::<Transform>(entity),
             transform_query.get_mut::<GlobalTransform>(entity),
         ) {
-            *global_transform.value_mut() = parent * *transform.value();
-            *global_transform.value()
+            *global_transform = parent.mul_transform(*transform);
+            *global_transform
         } else {
             return;
         }
@@ -43,7 +42,7 @@ fn propagate_recursive(
         .unwrap_or_default();
 
     for child in children {
-        propagate_recursive(global_matrix, transform_query, child);
+        propagate_recursive(&global_matrix, transform_query, child);
     }
 }
 
@@ -52,7 +51,7 @@ mod test {
     use super::*;
     use crate::{hierarchy::BuildChildren, transform_systems};
     use bevy_ecs::{Resources, Schedule, World};
-    use bevy_math::{Mat4, Vec3};
+    use bevy_math::Vec3;
 
     #[test]
     fn did_propagate() {
@@ -92,15 +91,15 @@ mod test {
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[0]).unwrap().value(),
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
+            *world.get::<GlobalTransform>(children[0]).unwrap(),
+            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Transform::from_translation(Vec3::new(0.0, 2.0, 0.0))
         );
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[1]).unwrap().value(),
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
+            *world.get::<GlobalTransform>(children[1]).unwrap(),
+            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Transform::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
     }
 
@@ -141,15 +140,15 @@ mod test {
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[0]).unwrap().value(),
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 2.0, 0.0))
+            *world.get::<GlobalTransform>(children[0]).unwrap(),
+            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Transform::from_translation(Vec3::new(0.0, 2.0, 0.0))
         );
 
         assert_eq!(
-            *world.get::<GlobalTransform>(children[1]).unwrap().value(),
-            Mat4::from_translation(Vec3::new(1.0, 0.0, 0.0))
-                * Mat4::from_translation(Vec3::new(0.0, 0.0, 3.0))
+            *world.get::<GlobalTransform>(children[1]).unwrap(),
+            GlobalTransform::from_translation(Vec3::new(1.0, 0.0, 0.0))
+                * Transform::from_translation(Vec3::new(0.0, 0.0, 3.0))
         );
     }
 }
