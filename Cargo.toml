@@ -49,6 +49,7 @@ bevy_wgpu = ["bevy_internal/bevy_wgpu"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 profiler = ["bevy_internal/profiler"]
+trace = ["bevy_internal/trace"]
 wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
