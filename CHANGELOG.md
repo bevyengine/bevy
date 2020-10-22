@@ -7,6 +7,7 @@
 - [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
+- [Mesh overhaul with custom vertex attributes][599]
 
 ### Changed
 
@@ -15,11 +16,18 @@
   - This allows drop-in use of colors from most applications.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
   - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
+- Breaking Change: [Mesh overhaul with custom vertex attributes][616] for `Mesh`
+  - Any attribute can now be added over `mesh.attributes.insert()`. For example: `mesh.attributes.insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into())`.
+  - Attributes are matched over their names. For example, the attribute `Vertex_Position` will be bound for the attribute location that has the name `Vertex_Position`.
+  - For missing attributes (requested by shader, but not defined by mesh), Bevy will provide a zero-filled fallback buffer.
+  - Removed `VertexAttribute`, `Vertex`, `AsVertexBufferDescriptor`.
+ 
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
 - Breaking Change: Migrated to rodio 0.12, this means:
   - Playing an mp3 no longer sometimes panics in debug mode
   - New method of playing audio can be found in the audio example (an intermediary `Audio` struct is used instead of `AudioOutput` directly)
 
+[599]: https://github.com/bevyengine/bevy/pull/599
 [696]: https://github.com/bevyengine/bevy/pull/696
 [689]: https://github.com/bevyengine/bevy/pull/689
 [552]: https://github.com/bevyengine/bevy/pull/552
