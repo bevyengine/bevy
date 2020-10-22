@@ -162,7 +162,7 @@ impl<'w, Q: HecsQuery> QueryBorrowChecked<'w, Q> {
         QueryIter {
             borrow: self,
             archetype_index: 0,
-            iter: None,
+            iter: ChunkIter::EMPTY,
         }
     }
 
@@ -233,20 +233,7 @@ impl<'q, 'w, Q: HecsQuery> IntoIterator for &'q mut QueryBorrowChecked<'w, Q> {
 pub struct QueryIter<'q, 'w, Q: HecsQuery> {
     borrow: &'q mut QueryBorrowChecked<'w, Q>,
     archetype_index: usize,
-    iter: Option<ChunkIter<Q>>,
-}
-
-impl<'q, 'w, Q: HecsQuery> fmt::Debug for QueryIter<'q, 'w, Q>
-where
-    Q::Fetch: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("QueryIter")
-            .field("borrow", self.borrow)
-            .field("archetype_index", &self.archetype_index)
-            .field("iter", &self.iter)
-            .finish()
-    }
+    iter: ChunkIter<Q>,
 }
 
 unsafe impl<'q, 'w, Q: HecsQuery> Send for QueryIter<'q, 'w, Q> {}
@@ -258,26 +245,21 @@ impl<'q, 'w, Q: HecsQuery> Iterator for QueryIter<'q, 'w, Q> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.iter {
+            match unsafe { self.iter.next() } {
                 None => {
-                    let archetype = self.borrow.archetypes.get(self.archetype_index as usize)?;
+                    let archetype = self.borrow.archetypes.get(self.archetype_index)?;
                     self.archetype_index += 1;
                     unsafe {
-                        self.iter = Q::Fetch::get(archetype, 0).map(|fetch| ChunkIter {
-                            fetch,
-                            len: archetype.len(),
+                        self.iter = Q::Fetch::get(archetype, 0).map_or(ChunkIter::EMPTY, |fetch| {
+                            ChunkIter {
+                                fetch,
+                                len: archetype.len(),
+                                position: 0,
+                            }
                         });
                     }
                 }
-                Some(ref mut iter) => match unsafe { iter.next() } {
-                    None => {
-                        self.iter = None;
-                        continue;
-                    }
-                    Some(components) => {
-                        return Some(components);
-                    }
-                },
+                Some(components) => return Some(components),
             }
         }
     }
@@ -301,41 +283,35 @@ impl<'q, 'w, Q: HecsQuery> ExactSizeIterator for QueryIter<'q, 'w, Q> {
 
 struct ChunkIter<Q: HecsQuery> {
     fetch: Q::Fetch,
+    position: usize,
     len: usize,
 }
 
-impl<Q: HecsQuery> fmt::Debug for ChunkIter<Q>
-where
-    Q::Fetch: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ChunkIter")
-            .field("fetch", &self.fetch)
-            .field("len", &self.len)
-            .finish()
-    }
-}
-
 impl<Q: HecsQuery> ChunkIter<Q> {
-    #[inline]
+    #[allow(clippy::declare_interior_mutable_const)] // no trait bounds on const fns
+    const EMPTY: Self = Self {
+        fetch: Q::Fetch::DANGLING,
+        position: 0,
+        len: 0,
+    };
+
     unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
-            if self.len == 0 {
+            if self.position == self.len {
                 return None;
             }
 
-            self.len -= 1;
-            if self.fetch.should_skip() {
-                // we still need to progress the iterator
-                let _ = self.fetch.next();
+            if self.fetch.should_skip(self.position as usize) {
+                self.position += 1;
                 continue;
             }
 
-            break Some(self.fetch.next());
+            let item = Some(self.fetch.fetch(self.position as usize));
+            self.position += 1;
+            return item;
         }
     }
 }
-
 /// Batched version of `QueryIter`
 pub struct ParIter<'q, 'w, Q: HecsQuery> {
     borrow: &'q mut QueryBorrowChecked<'w, Q>,
@@ -363,6 +339,7 @@ impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for ParIter<'q, 'w, Q>
                     state: ChunkIter {
                         fetch,
                         len: self.batch_size.min(archetype.len() - offset),
+                        position: 0,
                     },
                 });
             } else {
@@ -381,18 +358,6 @@ impl<'q, 'w, Q: HecsQuery> ParallelIterator<Batch<'q, Q>> for ParIter<'q, 'w, Q>
 pub struct Batch<'q, Q: HecsQuery> {
     _marker: PhantomData<&'q ()>,
     state: ChunkIter<Q>,
-}
-
-impl<'q, Q: HecsQuery> fmt::Debug for Batch<'q, Q>
-where
-    Q::Fetch: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Batch")
-            .field("_marker", &self._marker)
-            .field("state", &self.state)
-            .finish()
-    }
 }
 
 impl<'q, 'w, Q: HecsQuery> Iterator for Batch<'q, Q> {
@@ -438,10 +403,14 @@ impl<'a, Q: HecsQuery> QueryOneChecked<'a, Q> {
     /// pre-existing borrow.
     pub fn get(&mut self) -> Option<<Q::Fetch as Fetch<'_>>::Item> {
         unsafe {
-            let mut fetch = Q::Fetch::get(self.archetype, self.index as usize)?;
+            let fetch = Q::Fetch::get(self.archetype, self.index as usize)?;
             self.borrowed = true;
-            Q::Fetch::borrow(self.archetype);
-            Some(fetch.next())
+            if fetch.should_skip(0) {
+                None
+            } else {
+                Q::Fetch::borrow(self.archetype);
+                Some(fetch.fetch(0))
+            }
         }
     }
 
