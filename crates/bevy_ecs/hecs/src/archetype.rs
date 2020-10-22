@@ -21,13 +21,15 @@ use crate::{
     },
     Entity,
 };
-use bevy_utils::{HashMap, HashMapExt};
+use bevy_utils::AHasher;
 use core::{
     any::{type_name, TypeId},
     cell::UnsafeCell,
+    hash::{BuildHasherDefault, Hasher},
     mem,
     ptr::{self, NonNull},
 };
+use std::collections::HashMap;
 
 use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 
@@ -38,7 +40,7 @@ use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
 #[derive(Debug)]
 pub struct Archetype {
     types: Vec<TypeInfo>,
-    state: HashMap<TypeId, TypeState>,
+    state: TypeIdMap<TypeState>,
     len: usize,
     entities: Vec<Entity>,
     // UnsafeCell allows unique references into `data` to be constructed while shared references
@@ -60,7 +62,7 @@ impl Archetype {
             types.windows(2).all(|x| x[0] < x[1]),
             "type info unsorted or contains duplicates"
         );
-        let mut state = HashMap::with_capacity(types.len());
+        let mut state = HashMap::with_capacity_and_hasher(types.len(), Default::default());
         for ty in &types {
             state.insert(ty.id, TypeState::new());
         }
@@ -549,3 +551,47 @@ fn align(x: usize, alignment: usize) -> usize {
     debug_assert!(alignment.is_power_of_two());
     (x + alignment - 1) & (!alignment + 1)
 }
+
+/// A hasher optimized for hashing a single TypeId.
+///
+/// TypeId is already thoroughly hashed, so there's no reason to hash it again.
+/// Just leave the bits unchanged.
+#[derive(Default)]
+pub(crate) struct TypeIdHasher {
+    hash: u64,
+}
+
+impl Hasher for TypeIdHasher {
+    fn write_u64(&mut self, n: u64) {
+        // Only a single value can be hashed, so the old hash should be zero.
+        debug_assert_eq!(self.hash, 0);
+        self.hash = n;
+    }
+
+    // Tolerate TypeId being either u64 or u128.
+    fn write_u128(&mut self, n: u128) {
+        debug_assert_eq!(self.hash, 0);
+        self.hash = n as u64;
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        debug_assert_eq!(self.hash, 0);
+
+        // This will only be called if TypeId is neither u64 nor u128, which is not anticipated.
+        // In that case we'll just fall back to using a different hash implementation.
+        let mut hasher = AHasher::default();
+        hasher.write(bytes);
+        self.hash = hasher.finish();
+    }
+
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
+/// A HashMap with TypeId keys
+///
+/// Because TypeId is already a fully-hashed u64 (including data in the high seven bits,
+/// which hashbrown needs), there is no need to hash it again. Instead, this uses the much
+/// faster no-op hash.
+pub(crate) type TypeIdMap<V> = HashMap<TypeId, V, BuildHasherDefault<TypeIdHasher>>;
