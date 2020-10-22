@@ -86,8 +86,10 @@ to view all changes since the `2.1.1` release.
 [560]: https://github.com/bevyengine/bevy/pull/560
 [565]: https://github.com/bevyengine/bevy/pull/565
 [568]: https://github.com/bevyengine/bevy/pull/568
+[572]: https://github.com/bevyengine/bevy/pull/572
 [579]: https://github.com/bevyengine/bevy/pull/579
 [595]: https://github.com/bevyengine/bevy/pull/595
+[596]: https://github.com/bevyengine/bevy/pull/596
 [597]: https://github.com/bevyengine/bevy/pull/597
 [610]: https://github.com/bevyengine/bevy/pull/610
 [616]: https://github.com/bevyengine/bevy/pull/616
@@ -103,8 +105,6 @@ to view all changes since the `2.1.1` release.
 [661]: https://github.com/bevyengine/bevy/pull/661
 [664]: https://github.com/bevyengine/bevy/pull/664
 [671]: https://github.com/bevyengine/bevy/pull/671
-[572]: https://github.com/bevyengine/bevy/pull/572
-[596]: https://github.com/bevyengine/bevy/pull/596
 [674]: https://github.com/bevyengine/bevy/pull/674
 [675]: https://github.com/bevyengine/bevy/pull/675
 [678]: https://github.com/bevyengine/bevy/pull/678
