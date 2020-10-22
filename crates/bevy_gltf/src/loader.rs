@@ -3,9 +3,8 @@ use bevy_asset::{AssetIoError, AssetLoader, AssetPath, LoadContext, LoadedAsset}
 use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
-use bevy_render::mesh::VertexAttributeValues;
 use bevy_render::{
-    mesh::{Indices, Mesh},
+    mesh::{Indices, Mesh, VertexAttributeValues},
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
     texture::TextureFormat,
@@ -17,8 +16,7 @@ use bevy_transform::{
 };
 use gltf::{mesh::Mode, Primitive};
 use image::{GenericImageView, ImageFormat};
-use std::borrow::Cow;
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 use thiserror::Error;
 
 /// An error that occurs when loading a GLTF file

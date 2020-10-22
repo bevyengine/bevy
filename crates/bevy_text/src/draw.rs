@@ -2,12 +2,11 @@ use crate::{Font, FontAtlasSet};
 use ab_glyph::{Glyph, PxScale, ScaleFont};
 use bevy_asset::Assets;
 use bevy_math::{Mat4, Vec2, Vec3};
-use bevy_render::pipeline::VertexBufferDescriptor;
 use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
-    pipeline::PipelineSpecialization,
+    pipeline::{PipelineSpecialization, VertexBufferDescriptor},
     prelude::Msaa,
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
