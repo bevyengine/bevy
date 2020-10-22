@@ -1,5 +1,13 @@
 # Changelog
 
+While we try to keep the `Unreleased` changes updated, it is often behind master and does not include
+all merged pull requests. To see a list of all changes since the latest release, you may compare 
+master using the [git tags for releases](https://github.com/bevyengine/bevy/tags).
+
+For example,
+[https://github.com/bevyengine/bevy/compare/v0.2.1...master](https://github.com/bevyengine/bevy/compare/v0.2.1...master)
+to view all changes since the `2.1.1` release.
+
 ## Unreleased
 
 ### Added
