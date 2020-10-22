@@ -127,8 +127,8 @@ to view all changes since the `2.1.1` release.
 - [Remove UI queue print][521]
 - [Use async executor 1.3.0][526]
 
-[521]: [https://github.com/bevyengine/bevy/pull/521]
-[526]: [https://github.com/bevyengine/bevy/pull/526]
+[521]: https://github.com/bevyengine/bevy/pull/521
+[526]: https://github.com/bevyengine/bevy/pull/526
 
 ## Version 0.2.0 (2020-9-19)
 
