@@ -126,7 +126,20 @@ where
     T: Bundle + Send + Sync + 'static,
 {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
-        world.remove::<T>(self.entity).unwrap();
+        if let Err(e) = world.remove::<T>(self.entity) {
+            log::warn!(
+                "Failed to remove components {:?} with error: {}. Falling back to inefficient one-by-one component removing.",
+                std::any::type_name::<T>(),
+                e
+            );
+            if let Err(e) = world.remove_one_by_one::<T>(self.entity) {
+                log::debug!(
+                    "Failed to remove components {:?} with error: {}",
+                    std::any::type_name::<T>(),
+                    e
+                );
+            }
+        }
     }
 }
 
@@ -328,5 +341,35 @@ mod tests {
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);
+    }
+
+    #[test]
+    fn remove_components() {
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        let mut command_buffer = Commands::default();
+        command_buffer.set_entity_reserver(world.get_entity_reserver());
+        command_buffer.spawn((1u32, 2u64));
+        let entity = command_buffer.current_entity().unwrap();
+        command_buffer.apply(&mut world, &mut resources);
+        let results_before = world
+            .query::<(&u32, &u64)>()
+            .iter()
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results_before, vec![(1u32, 2u64)]);
+
+        // test component removal
+        command_buffer.remove_one::<u32>(entity);
+        command_buffer.remove::<(u32, u64)>(entity);
+        command_buffer.apply(&mut world, &mut resources);
+        let results_after = world
+            .query::<(&u32, &u64)>()
+            .iter()
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results_after, vec![]);
+        let results_after_u64 = world.query::<&u64>().iter().map(|a| *a).collect::<Vec<_>>();
+        assert_eq!(results_after_u64, vec![]);
     }
 }

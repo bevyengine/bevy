@@ -671,17 +671,35 @@ impl World {
     /// assert_eq!(*world.get::<bool>(e).unwrap(), true);
     /// ```
     pub fn remove<T: Bundle>(&mut self, entity: Entity) -> Result<T, ComponentError> {
-        use std::collections::hash_map::Entry;
-
         self.flush();
         let loc = self.entities.get_mut(entity)?;
         unsafe {
-            let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+            let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+
+            let old_index = loc.index;
+            let source_arch = &self.archetypes[loc.archetype as usize];
+            let bundle = T::get(|ty, size| source_arch.get_dynamic(ty, size, old_index))?;
+            match self.remove_bundle_internal(entity, to_remove) {
+                Ok(_) => Ok(bundle),
+                Err(err) => Err(err),
+            }
+        }
+    }
+
+    fn remove_bundle_internal<S: core::hash::BuildHasher>(
+        &mut self,
+        entity: Entity,
+        to_remove: std::collections::HashSet<TypeId, S>,
+    ) -> Result<(), ComponentError> {
+        use std::collections::hash_map::Entry;
+
+        let loc = self.entities.get_mut(entity)?;
+        unsafe {
             let info = self.archetypes[loc.archetype as usize]
                 .types()
                 .iter()
                 .cloned()
-                .filter(|x| !removed.contains(&x.id()))
+                .filter(|x| !to_remove.contains(&x.id()))
                 .collect::<Vec<_>>();
             let elements = info.iter().map(|x| x.id()).collect::<Vec<_>>();
             let target = match self.index.entry(elements) {
@@ -695,8 +713,6 @@ impl World {
                 }
             };
             let old_index = loc.index;
-            let source_arch = &self.archetypes[loc.archetype as usize];
-            let bundle = T::get(|ty, size| source_arch.get_dynamic(ty, size, old_index))?;
             let (source_arch, target_arch) = index2(
                 &mut self.archetypes,
                 loc.archetype as usize,
@@ -723,8 +739,35 @@ impl World {
             {
                 self.entities.get_mut(moved).unwrap().index = old_index;
             }
-            Ok(bundle)
+            Ok(())
         }
+    }
+
+    /// Remove components from `entity`
+    ///
+    /// Fallback method for `remove` when one of the component in `T` is not present in `entity`.
+    /// In this case, the missing component will be skipped.
+    ///
+    /// See `remove`.
+    pub fn remove_one_by_one<T: Bundle>(&mut self, entity: Entity) -> Result<(), ComponentError> {
+        self.flush();
+
+        let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+        for component_to_remove in to_remove.into_iter() {
+            let loc = self.entities.get(entity)?;
+            if loc.archetype == 0 {
+                return Err(ComponentError::NoSuchEntity);
+            }
+            if self.archetypes[loc.archetype as usize].has_dynamic(component_to_remove) {
+                let mut single_component_hashset = std::collections::HashSet::new();
+                single_component_hashset.insert(component_to_remove);
+                match self.remove_bundle_internal(entity, single_component_hashset) {
+                    Ok(_) | Err(ComponentError::MissingComponent(_)) => (),
+                    Err(err) => return Err(err),
+                };
+            }
+        }
+        Ok(())
     }
 
     /// Remove the `T` component from `entity`
