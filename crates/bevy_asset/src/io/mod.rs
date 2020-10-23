@@ -1,12 +1,16 @@
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
 mod file_asset_io;
 #[cfg(target_arch = "wasm32")]
 mod wasm_asset_io;
+#[cfg(target_os = "android")]
+mod android_asset_io;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
 pub use file_asset_io::*;
 #[cfg(target_arch = "wasm32")]
 pub use wasm_asset_io::*;
+#[cfg(target_os = "android")]
+pub use android_asset_io::*;
 
 use anyhow::Result;
 use bevy_ecs::bevy_utils::BoxedFuture;
