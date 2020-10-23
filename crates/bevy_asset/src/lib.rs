@@ -1,6 +1,9 @@
 mod asset_server;
 mod assets;
-#[cfg(all(feature = "filesystem_watcher", all(not(target_arch = "wasm32"), not(target_os = "android"))))]
+#[cfg(all(
+    feature = "filesystem_watcher",
+    all(not(target_arch = "wasm32"), not(target_os = "android"))
+))]
 mod filesystem_watcher;
 mod handle;
 mod info;
@@ -80,7 +83,10 @@ impl Plugin for AssetPlugin {
                 asset_server::free_unused_assets_system.system(),
             );
 
-        #[cfg(all(feature = "filesystem_watcher", all(not(target_arch = "wasm32"), not(target_os = "android"))))]
+        #[cfg(all(
+            feature = "filesystem_watcher",
+            all(not(target_arch = "wasm32"), not(target_os = "android"))
+        ))]
         app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
     }
 }

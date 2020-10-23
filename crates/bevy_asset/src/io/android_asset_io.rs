@@ -1,8 +1,10 @@
 use crate::{AssetIo, AssetIoError};
 use anyhow::Result;
 use bevy_ecs::bevy_utils::BoxedFuture;
-use std::path::{Path, PathBuf};
-use std::ffi::CString;
+use std::{
+    ffi::CString,
+    path::{Path, PathBuf},
+};
 
 pub struct AndroidAssetIo {
     root_path: PathBuf,
