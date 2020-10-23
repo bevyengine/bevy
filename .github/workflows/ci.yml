@@ -55,12 +55,33 @@ jobs:
           CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+  build-wasm:
+    strategy:
+      matrix:
+        toolchain: [stable, nightly]
+        os: [ubuntu-20.04]
+    runs-on: ${{ matrix.os }}
+    needs: clean
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: wasm32-unknown-unknown
+          override: true
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-check-test-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Check wasm
         uses: actions-rs/cargo@v1
         with:
           command: check
-          target: wasm32-unknown-unknown
-          override: true
+          args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
 
   clean:
     runs-on: ubuntu-latest
@@ -72,7 +93,7 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
           override: true
-          
+
       - name: Install alsa
         run: sudo apt-get install --no-install-recommends libasound2-dev
 
@@ -83,6 +104,6 @@ jobs:
         run: cargo +nightly fmt --all -- --check
 
       # type complexity must be ignored because we use huge templates for queries
-      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions  
+      # -A clippy::manual-strip: strip_prefix support was added in 1.45. we want to support earlier rust versions
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::type_complexity -A clippy::manual-strip

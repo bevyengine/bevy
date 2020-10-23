@@ -36,6 +36,10 @@ pub trait Fetch<'a>: Sized {
     /// Type of value to be fetched
     type Item;
 
+    /// A value on which `get` may never be called
+    #[allow(clippy::declare_interior_mutable_const)] // no const fn in traits
+    const DANGLING: Self;
+
     /// How this query will access `archetype`, if at all
     fn access(archetype: &Archetype) -> Option<Access>;
 
@@ -49,22 +53,22 @@ pub trait Fetch<'a>: Sized {
     /// Release dynamic borrows acquired by `borrow`
     fn release(archetype: &Archetype);
 
-    /// if this returns true, the current item will be skipped during iteration
+    /// if this returns true, the nth item should be skipped during iteration
     ///
     /// # Safety
     /// shouldn't be called if there is no current item
-    unsafe fn should_skip(&self) -> bool {
+    unsafe fn should_skip(&self, _n: usize) -> bool {
         false
     }
 
-    /// Access the next item in this archetype without bounds checking
+    /// Access the `n`th item in this archetype without bounds checking
     ///
     /// # Safety
     /// - Must only be called after `borrow`
     /// - `release` must not be called while `'a` is still live
     /// - Bounds-checking must be performed externally
     /// - Any resulting borrows must be legal (e.g. no &mut to something another iterator might access)
-    unsafe fn next(&mut self) -> Self::Item;
+    unsafe fn fetch(&self, n: usize) -> Self::Item;
 }
 
 /// Type of access a `Query` may have to an `Archetype`
@@ -89,6 +93,8 @@ impl Query for Entity {
 impl<'a> Fetch<'a> for EntityFetch {
     type Item = Entity;
 
+    const DANGLING: Self = Self(NonNull::dangling());
+
     #[inline]
     fn access(_archetype: &Archetype) -> Option<Access> {
         Some(Access::Iterate)
@@ -108,10 +114,8 @@ impl<'a> Fetch<'a> for EntityFetch {
     fn release(_archetype: &Archetype) {}
 
     #[inline]
-    unsafe fn next(&mut self) -> Self::Item {
-        let id = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(id.add(1));
-        *id
+    unsafe fn fetch(&self, n: usize) -> Self::Item {
+        *self.0.as_ptr().add(n)
     }
 }
 
@@ -126,6 +130,8 @@ unsafe impl<T> ReadOnlyFetch for FetchRead<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
+
+    const DANGLING: Self = Self(NonNull::dangling());
 
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
@@ -150,10 +156,8 @@ impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     }
 
     #[inline]
-    unsafe fn next(&mut self) -> &'a T {
-        let x = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(x.add(1));
-        &*x
+    unsafe fn fetch(&self, n: usize) -> &'a T {
+        &*self.0.as_ptr().add(n)
     }
 }
 
@@ -222,6 +226,8 @@ pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
 impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     type Item = Mut<'a, T>;
 
+    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
+
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
             Some(Access::Write)
@@ -250,14 +256,10 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 
     #[inline]
-    unsafe fn next(&mut self) -> Mut<'a, T> {
-        let component = self.0.as_ptr();
-        let mutated = self.1.as_ptr();
-        self.0 = NonNull::new_unchecked(component.add(1));
-        self.1 = NonNull::new_unchecked(mutated.add(1));
+    unsafe fn fetch(&self, n: usize) -> Mut<'a, T> {
         Mut {
-            value: &mut *component,
-            mutated: &mut *mutated,
+            value: &mut *self.0.as_ptr().add(n),
+            mutated: &mut *self.1.as_ptr().add(n),
         }
     }
 }
@@ -270,6 +272,8 @@ macro_rules! impl_or_query {
 
         impl<'a, $( $T: Fetch<'a> ),+> Fetch<'a> for FetchOr<($( $T ),+)> {
             type Item = ($( $T::Item ),+);
+
+            const DANGLING: Self = Self(($( $T::DANGLING ),+));
 
             fn access(archetype: &Archetype) -> Option<Access> {
                 let mut max_access = None;
@@ -296,15 +300,15 @@ macro_rules! impl_or_query {
             }
 
             #[allow(non_snake_case)]
-            unsafe fn next(&mut self) -> Self::Item {
-                let ($( $T ),+) = &mut self.0;
-                ($( $T.next() ),+)
+            unsafe fn fetch(&self, n: usize) -> Self::Item {
+                let ($( $T ),+) = &self.0;
+                ($( $T.fetch(n) ),+)
             }
 
              #[allow(non_snake_case)]
-            unsafe fn should_skip(&self) -> bool {
+            unsafe fn should_skip(&self, n: usize) -> bool {
                 let ($( $T ),+) = &self.0;
-                true $( && $T.should_skip() )+
+                true $( && $T.should_skip(n) )+
             }
         }
     };
@@ -369,6 +373,8 @@ pub struct FetchMutated<T>(NonNull<T>, NonNull<bool>);
 impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
     type Item = Mutated<'a, T>;
 
+    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
+
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
             Some(Access::Read)
@@ -396,17 +402,16 @@ impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
         archetype.release::<T>();
     }
 
-    unsafe fn should_skip(&self) -> bool {
+    unsafe fn should_skip(&self, n: usize) -> bool {
         // skip if the current item wasn't mutated
-        !*self.1.as_ref()
+        !*self.1.as_ptr().add(n)
     }
 
     #[inline]
-    unsafe fn next(&mut self) -> Self::Item {
-        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
-        let value = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(value.add(1));
-        Mutated { value: &*value }
+    unsafe fn fetch(&self, n: usize) -> Self::Item {
+        Mutated {
+            value: &*self.0.as_ptr().add(n),
+        }
     }
 }
 
@@ -435,6 +440,8 @@ unsafe impl<T> ReadOnlyFetch for FetchAdded<T> {}
 impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
     type Item = Added<'a, T>;
 
+    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
+
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
             Some(Access::Read)
@@ -462,17 +469,16 @@ impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
         archetype.release::<T>();
     }
 
-    unsafe fn should_skip(&self) -> bool {
+    unsafe fn should_skip(&self, n: usize) -> bool {
         // skip if the current item wasn't added
-        !*self.1.as_ref()
+        !*self.1.as_ptr().add(n)
     }
 
     #[inline]
-    unsafe fn next(&mut self) -> Self::Item {
-        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
-        let value = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(value.add(1));
-        Added { value: &*value }
+    unsafe fn fetch(&self, n: usize) -> Self::Item {
+        Added {
+            value: &*self.0.as_ptr().add(n),
+        }
     }
 }
 
@@ -500,6 +506,12 @@ unsafe impl<T> ReadOnlyFetch for FetchChanged<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
     type Item = Changed<'a, T>;
+
+    const DANGLING: Self = Self(
+        NonNull::dangling(),
+        NonNull::dangling(),
+        NonNull::dangling(),
+    );
 
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
@@ -529,18 +541,16 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
         archetype.release::<T>();
     }
 
-    unsafe fn should_skip(&self) -> bool {
+    unsafe fn should_skip(&self, n: usize) -> bool {
         // skip if the current item wasn't added or mutated
-        !*self.1.as_ref() && !self.2.as_ref()
+        !*self.1.as_ptr().add(n) && !*self.2.as_ptr().add(n)
     }
 
     #[inline]
-    unsafe fn next(&mut self) -> Self::Item {
-        self.1 = NonNull::new_unchecked(self.1.as_ptr().add(1));
-        self.2 = NonNull::new_unchecked(self.2.as_ptr().add(1));
-        let value = self.0.as_ptr();
-        self.0 = NonNull::new_unchecked(value.add(1));
-        Changed { value: &*value }
+    unsafe fn fetch(&self, n: usize) -> Self::Item {
+        Changed {
+            value: &*self.0.as_ptr().add(n),
+        }
     }
 }
 
@@ -550,6 +560,8 @@ unsafe impl<T> ReadOnlyFetch for TryFetch<T> where T: ReadOnlyFetch {}
 
 impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     type Item = Option<T::Item>;
+
+    const DANGLING: Self = Self(None);
 
     fn access(archetype: &Archetype) -> Option<Access> {
         Some(T::access(archetype).unwrap_or(Access::Iterate))
@@ -567,12 +579,12 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
         T::release(archetype)
     }
 
-    unsafe fn next(&mut self) -> Option<T::Item> {
-        Some(self.0.as_mut()?.next())
+    unsafe fn fetch(&self, n: usize) -> Option<T::Item> {
+        Some(self.0.as_ref()?.fetch(n))
     }
 
-    unsafe fn should_skip(&self) -> bool {
-        self.0.as_ref().map_or(false, |fetch| fetch.should_skip())
+    unsafe fn should_skip(&self, n: usize) -> bool {
+        self.0.as_ref().map_or(false, |fetch| fetch.should_skip(n))
     }
 }
 
@@ -609,6 +621,8 @@ unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWithout<T, F>
 impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
     type Item = F::Item;
 
+    const DANGLING: Self = Self(F::DANGLING, PhantomData);
+
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
             None
@@ -632,12 +646,12 @@ impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
         F::release(archetype)
     }
 
-    unsafe fn next(&mut self) -> F::Item {
-        self.0.next()
+    unsafe fn fetch(&self, n: usize) -> F::Item {
+        self.0.fetch(n)
     }
 
-    unsafe fn should_skip(&self) -> bool {
-        self.0.should_skip()
+    unsafe fn should_skip(&self, n: usize) -> bool {
+        self.0.should_skip(n)
     }
 }
 
@@ -673,6 +687,8 @@ unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWith<T, F> wh
 impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWith<T, F> {
     type Item = F::Item;
 
+    const DANGLING: Self = Self(F::DANGLING, PhantomData);
+
     fn access(archetype: &Archetype) -> Option<Access> {
         if archetype.has::<T>() {
             F::access(archetype)
@@ -696,12 +712,12 @@ impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWith<T, F> {
         F::release(archetype)
     }
 
-    unsafe fn next(&mut self) -> F::Item {
-        self.0.next()
+    unsafe fn fetch(&self, n: usize) -> F::Item {
+        self.0.fetch(n)
     }
 
-    unsafe fn should_skip(&self) -> bool {
-        self.0.should_skip()
+    unsafe fn should_skip(&self, n: usize) -> bool {
+        self.0.should_skip(n)
     }
 }
 
@@ -731,7 +747,7 @@ impl<'w, Q: Query> QueryBorrow<'w, Q> {
         QueryIter {
             borrow: self,
             archetype_index: 0,
-            iter: None,
+            iter: ChunkIter::EMPTY,
         }
     }
 
@@ -835,7 +851,7 @@ impl<'q, 'w, Q: Query> IntoIterator for &'q mut QueryBorrow<'w, Q> {
 pub struct QueryIter<'q, 'w, Q: Query> {
     borrow: &'q mut QueryBorrow<'w, Q>,
     archetype_index: usize,
-    iter: Option<ChunkIter<Q>>,
+    iter: ChunkIter<Q>,
 }
 
 unsafe impl<'q, 'w, Q: Query> Send for QueryIter<'q, 'w, Q> {}
@@ -847,26 +863,21 @@ impl<'q, 'w, Q: Query> Iterator for QueryIter<'q, 'w, Q> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.iter {
+            match unsafe { self.iter.next() } {
                 None => {
                     let archetype = self.borrow.archetypes.get(self.archetype_index)?;
                     self.archetype_index += 1;
                     unsafe {
-                        self.iter = Q::Fetch::get(archetype, 0).map(|fetch| ChunkIter {
-                            fetch,
-                            len: archetype.len(),
+                        self.iter = Q::Fetch::get(archetype, 0).map_or(ChunkIter::EMPTY, |fetch| {
+                            ChunkIter {
+                                fetch,
+                                len: archetype.len(),
+                                position: 0,
+                            }
                         });
                     }
                 }
-                Some(ref mut iter) => match unsafe { iter.next() } {
-                    None => {
-                        self.iter = None;
-                        continue;
-                    }
-                    Some(components) => {
-                        return Some(components);
-                    }
-                },
+                Some(components) => return Some(components),
             }
         }
     }
@@ -890,24 +901,32 @@ impl<'q, 'w, Q: Query> ExactSizeIterator for QueryIter<'q, 'w, Q> {
 
 struct ChunkIter<Q: Query> {
     fetch: Q::Fetch,
+    position: usize,
     len: usize,
 }
 
 impl<Q: Query> ChunkIter<Q> {
+    #[allow(clippy::declare_interior_mutable_const)] // no trait bounds on const fns
+    const EMPTY: Self = Self {
+        fetch: Q::Fetch::DANGLING,
+        position: 0,
+        len: 0,
+    };
+
     unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
-            if self.len == 0 {
+            if self.position == self.len {
                 return None;
             }
 
-            self.len -= 1;
-            if self.fetch.should_skip() {
-                // we still need to progress the iterator
-                let _ = self.fetch.next();
+            if self.fetch.should_skip(self.position as usize) {
+                self.position += 1;
                 continue;
             }
 
-            break Some(self.fetch.next());
+            let item = Some(self.fetch.fetch(self.position as usize));
+            self.position += 1;
+            return item;
         }
     }
 }
@@ -941,6 +960,7 @@ impl<'q, 'w, Q: Query> Iterator for BatchedIter<'q, 'w, Q> {
                     _marker: PhantomData,
                     state: ChunkIter {
                         fetch,
+                        position: 0,
                         len: self.batch_size.min(archetype.len() - offset),
                     },
                 });
@@ -978,6 +998,7 @@ macro_rules! tuple_impl {
     ($($name: ident),*) => {
         impl<'a, $($name: Fetch<'a>),*> Fetch<'a> for ($($name,)*) {
             type Item = ($($name::Item,)*);
+            const DANGLING: Self = ($($name::DANGLING,)*);
 
             #[allow(unused_variables, unused_mut)]
             fn access(archetype: &Archetype) -> Option<Access> {
@@ -1002,16 +1023,17 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables)]
-            unsafe fn next(&mut self) -> Self::Item {
+            unsafe fn fetch(&self, n: usize) -> Self::Item {
                 #[allow(non_snake_case)]
                 let ($($name,)*) = self;
-                ($($name.next(),)*)
+                ($($name.fetch(n),)*)
             }
 
-            unsafe fn should_skip(&self) -> bool {
+            #[allow(unused_variables)]
+            unsafe fn should_skip(&self, n: usize) -> bool {
                 #[allow(non_snake_case)]
                 let ($($name,)*) = self;
-                $($name.should_skip()||)* false
+                $($name.should_skip(n)||)* false
             }
         }
 
