@@ -79,6 +79,7 @@ impl<'a> Drawable for DrawableText<'a> {
         let font = &self.font.font;
         let scale = PxScale::from(self.style.font_size);
         let scaled_font = ab_glyph::Font::as_scaled(&font, scale);
+        let offset = (scaled_font.ascent() + scaled_font.descent()) / 2.0;
         let mut caret = self.position;
         let mut last_glyph: Option<Glyph> = None;
 
@@ -119,12 +120,11 @@ impl<'a> Drawable for DrawableText<'a> {
                     )?;
 
                     let bounds = outlined.px_bounds();
-                    let offset = scaled_font.descent() + glyph_height;
                     let transform = Mat4::from_translation(
                         caret
                             + Vec3::new(
-                                0.0 + glyph_width / 2.0 + bounds.min.x,
-                                glyph_height / 2.0 - bounds.min.y - offset,
+                                glyph_width / 2.0 + bounds.min.x,
+                                glyph_height / 2.0 - bounds.max.y + offset,
                                 0.0,
                             ),
                     );
