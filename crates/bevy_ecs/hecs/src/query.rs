@@ -165,10 +165,6 @@ impl<'a, T: Component> Query for &'a mut T {
     type Fetch = FetchMut<T>;
 }
 
-impl<T: Query> Query for Option<T> {
-    type Fetch = TryFetch<T::Fetch>;
-}
-
 /// Unique borrow of an entity's component
 pub struct Mut<'a, T: Component> {
     pub(crate) value: &'a mut T,
@@ -554,32 +550,36 @@ impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
     }
 }
 
-#[doc(hidden)]
-pub struct TryFetch<T>(Option<T>);
-unsafe impl<T> ReadOnlyFetch for TryFetch<T> where T: ReadOnlyFetch {}
+impl<Q: Query> Query for Option<Q> {
+    type Fetch = TryFetch<Q::Fetch>;
+}
 
-impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
-    type Item = Option<T::Item>;
+#[doc(hidden)]
+pub struct TryFetch<F>(Option<F>);
+unsafe impl<F> ReadOnlyFetch for TryFetch<F> where F: ReadOnlyFetch {}
+
+impl<'a, F: Fetch<'a>> Fetch<'a> for TryFetch<F> {
+    type Item = Option<F::Item>;
 
     const DANGLING: Self = Self(None);
 
     fn access(archetype: &Archetype) -> Option<Access> {
-        Some(T::access(archetype).unwrap_or(Access::Iterate))
+        Some(F::access(archetype).unwrap_or(Access::Iterate))
     }
 
     fn borrow(archetype: &Archetype) {
-        T::borrow(archetype)
+        F::borrow(archetype)
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        Some(Self(T::get(archetype, offset)))
+        Some(Self(F::get(archetype, offset)))
     }
 
     fn release(archetype: &Archetype) {
-        T::release(archetype)
+        F::release(archetype)
     }
 
-    unsafe fn fetch(&self, n: usize) -> Option<T::Item> {
+    unsafe fn fetch(&self, n: usize) -> Option<F::Item> {
         Some(self.0.as_ref()?.fetch(n))
     }
 
