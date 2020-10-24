@@ -1,6 +1,6 @@
 use super::{FromResources, Resources};
 use crate::{system::SystemId, Resource, ResourceIndex};
-use bevy_hecs::{smaller_tuples_too, TypeAccess};
+use bevy_hecs::{smaller_tuples_too, ComponentId, TypeAccess};
 use core::{
     ops::{Deref, DerefMut},
     ptr::NonNull,
@@ -181,7 +181,7 @@ pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
     type Item: UnsafeClone;
 
-    fn access() -> TypeAccess<TypeId>;
+    fn access() -> TypeAccess<ComponentId>;
     fn borrow(resources: &Resources);
     fn release(resources: &Resources);
 
@@ -217,7 +217,7 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
         resources.release::<T>();
     }
 
-    fn access() -> TypeAccess<TypeId> {
+    fn access() -> TypeAccess<ComponentId> {
         let mut access = TypeAccess::default();
         access.add_read(TypeId::of::<T>().into());
         access
@@ -252,7 +252,7 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
         resources.release::<T>();
     }
 
-    fn access() -> TypeAccess<TypeId> {
+    fn access() -> TypeAccess<ComponentId> {
         let mut access = TypeAccess::default();
         access.add_read(TypeId::of::<T>().into());
         access
@@ -284,7 +284,7 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
         resources.release_mut::<T>();
     }
 
-    fn access() -> TypeAccess<TypeId> {
+    fn access() -> TypeAccess<ComponentId> {
         let mut access = TypeAccess::default();
         access.add_write(TypeId::of::<T>().into());
         access
@@ -330,7 +330,7 @@ impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMu
         resources.release_mut::<T>();
     }
 
-    fn access() -> TypeAccess<TypeId> {
+    fn access() -> TypeAccess<ComponentId> {
         let mut access = TypeAccess::default();
         access.add_write(TypeId::of::<T>().into());
         access
@@ -363,7 +363,7 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_mut)]
-            fn access() -> TypeAccess<TypeId> {
+            fn access() -> TypeAccess<ComponentId> {
                 let mut access = TypeAccess::default();
                 $(access.union(&$name::access());)*
                 access
@@ -424,7 +424,7 @@ macro_rules! tuple_impl_or {
             }
 
             #[allow(unused_mut)]
-            fn access() -> TypeAccess<TypeId> {
+            fn access() -> TypeAccess<ComponentId> {
                 let mut access = TypeAccess::default();
                 $(access.union(&$name::access());)*
                 access

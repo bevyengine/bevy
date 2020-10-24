@@ -1,7 +1,7 @@
 use core::{any::TypeId, hash::Hash};
 use std::{boxed::Box, vec::Vec};
 
-use crate::{Archetype, World};
+use crate::{Archetype, ComponentId, World};
 use bevy_utils::HashSet;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -14,7 +14,7 @@ pub enum Access {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponent {
     pub archetype_index: u32,
-    pub component: TypeId,
+    pub component: ComponentId,
 }
 
 impl ArchetypeComponent {
@@ -22,12 +22,12 @@ impl ArchetypeComponent {
     pub fn new<T: 'static>(archetype_index: u32) -> Self {
         ArchetypeComponent {
             archetype_index,
-            component: TypeId::of::<T>(),
+            component: TypeId::of::<T>().into(),
         }
     }
 
     #[inline]
-    pub fn new_ty(archetype_index: u32, component: TypeId) -> Self {
+    pub fn new_component(archetype_index: u32, component: ComponentId) -> Self {
         ArchetypeComponent {
             archetype_index,
             component,
@@ -35,31 +35,32 @@ impl ArchetypeComponent {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum QueryAccess {
     None,
-    Read(TypeId, &'static str),
-    Write(TypeId, &'static str),
+    Read(ComponentId, &'static str),
+    Write(ComponentId, &'static str),
     Optional(Box<QueryAccess>),
-    With(TypeId, Box<QueryAccess>),
-    Without(TypeId, Box<QueryAccess>),
+    With(ComponentId, Box<QueryAccess>),
+    Without(ComponentId, Box<QueryAccess>),
     Union(Vec<QueryAccess>),
 }
 
 impl QueryAccess {
     pub fn read<T: 'static>() -> QueryAccess {
-        QueryAccess::Read(TypeId::of::<T>(), std::any::type_name::<T>())
+        QueryAccess::Read(TypeId::of::<T>().into(), std::any::type_name::<T>())
     }
 
     pub fn write<T: 'static>() -> QueryAccess {
-        QueryAccess::Write(TypeId::of::<T>(), std::any::type_name::<T>())
+        QueryAccess::Write(TypeId::of::<T>().into(), std::any::type_name::<T>())
     }
 
     pub fn with<T: 'static>(access: QueryAccess) -> QueryAccess {
-        QueryAccess::With(TypeId::of::<T>(), Box::new(access))
+        QueryAccess::With(TypeId::of::<T>().into(), Box::new(access))
     }
 
     pub fn without<T: 'static>(access: QueryAccess) -> QueryAccess {
-        QueryAccess::Without(TypeId::of::<T>(), Box::new(access))
+        QueryAccess::Without(TypeId::of::<T>().into(), Box::new(access))
     }
 
     pub fn optional(access: QueryAccess) -> QueryAccess {
@@ -82,29 +83,29 @@ impl QueryAccess {
         }
     }
 
-    pub fn get_type_name(&self, type_id: TypeId) -> Option<&'static str> {
+    pub fn get_type_name(&self, component_id: ComponentId) -> Option<&'static str> {
         match self {
             QueryAccess::None => None,
-            QueryAccess::Read(current_type_id, name) => {
-                if type_id == *current_type_id {
+            QueryAccess::Read(current_component_id, name) => {
+                if component_id == *current_component_id {
                     Some(*name)
                 } else {
                     None
                 }
             }
-            QueryAccess::Write(current_type_id, name) => {
-                if type_id == *current_type_id {
+            QueryAccess::Write(current_component_id, name) => {
+                if component_id == *current_component_id {
                     Some(*name)
                 } else {
                     None
                 }
             }
-            QueryAccess::Optional(query_access) => query_access.get_type_name(type_id),
-            QueryAccess::With(_, query_access) => query_access.get_type_name(type_id),
-            QueryAccess::Without(_, query_access) => query_access.get_type_name(type_id),
+            QueryAccess::Optional(query_access) => query_access.get_type_name(component_id),
+            QueryAccess::With(_, query_access) => query_access.get_type_name(component_id),
+            QueryAccess::Without(_, query_access) => query_access.get_type_name(component_id),
             QueryAccess::Union(query_accesses) => {
                 for query_access in query_accesses.iter() {
-                    if let Some(name) = query_access.get_type_name(type_id) {
+                    if let Some(name) = query_access.get_type_name(component_id) {
                         return Some(name);
                     }
                 }
@@ -125,9 +126,10 @@ impl QueryAccess {
         match self {
             QueryAccess::None => Some(Access::None),
             QueryAccess::Read(ty, _) => {
-                if archetype.has_type(*ty) {
+                if archetype.has_component(*ty) {
                     if let Some(type_access) = type_access {
-                        type_access.add_read(ArchetypeComponent::new_ty(archetype_index, *ty));
+                        type_access
+                            .add_read(ArchetypeComponent::new_component(archetype_index, *ty));
                     }
                     Some(Access::Read)
                 } else {
@@ -135,9 +137,10 @@ impl QueryAccess {
                 }
             }
             QueryAccess::Write(ty, _) => {
-                if archetype.has_type(*ty) {
+                if archetype.has_component(*ty) {
                     if let Some(type_access) = type_access {
-                        type_access.add_write(ArchetypeComponent::new_ty(archetype_index, *ty));
+                        type_access
+                            .add_write(ArchetypeComponent::new_component(archetype_index, *ty));
                     }
                     Some(Access::Write)
                 } else {
@@ -157,14 +160,14 @@ impl QueryAccess {
                 }
             }
             QueryAccess::With(ty, query_access) => {
-                if archetype.has_type(*ty) {
+                if archetype.has_component(*ty) {
                     query_access.get_access(archetype, archetype_index, type_access)
                 } else {
                     None
                 }
             }
             QueryAccess::Without(ty, query_access) => {
-                if !archetype.has_type(*ty) {
+                if !archetype.has_component(*ty) {
                     query_access.get_access(archetype, archetype_index, type_access)
                 } else {
                     None
@@ -308,7 +311,7 @@ mod tests {
         let e3_c = ArchetypeComponent::new::<C>(e3_archetype);
 
         let mut a_type_access = TypeAccess::default();
-        <(&A,) as Query>::Fetch::access()
+        <(&A,) as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_type_access));
 
         assert_eq!(
@@ -317,7 +320,7 @@ mod tests {
         );
 
         let mut a_b_type_access = TypeAccess::default();
-        <(&A, &B) as Query>::Fetch::access()
+        <(&A, &B) as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_b_type_access));
 
         assert_eq!(
@@ -326,7 +329,7 @@ mod tests {
         );
 
         let mut a_bmut_type_access = TypeAccess::default();
-        <(&A, &mut B) as Query>::Fetch::access()
+        <(&A, &mut B) as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_bmut_type_access));
 
         assert_eq!(
@@ -335,7 +338,7 @@ mod tests {
         );
 
         let mut a_option_bmut_type_access = TypeAccess::default();
-        <(Entity, &A, Option<&mut B>) as Query>::Fetch::access()
+        <(Entity, &A, Option<&mut B>) as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_option_bmut_type_access));
 
         assert_eq!(
@@ -344,7 +347,7 @@ mod tests {
         );
 
         let mut a_with_b_type_access = TypeAccess::default();
-        <With<B, &A> as Query>::Fetch::access()
+        <With<B, &A> as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_with_b_type_access));
 
         assert_eq!(
@@ -353,7 +356,7 @@ mod tests {
         );
 
         let mut a_with_b_option_c_type_access = TypeAccess::default();
-        <With<B, (&A, Option<&mut C>)> as Query>::Fetch::access()
+        <With<B, (&A, Option<&mut C>)> as Query>::Fetch::access(&())
             .get_world_archetype_access(&world, Some(&mut a_with_b_option_c_type_access));
 
         assert_eq!(

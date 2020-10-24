@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{HecsQuery, ReadOnlyFetch, Resources, World};
+use bevy_ecs::{Fetch, HecsQuery, ReadOnlyFetch, Resources, World};
 use std::{fmt, marker::PhantomData, ops::Deref};
 
 #[derive(Debug)]
@@ -141,7 +141,7 @@ impl<Q: HecsQuery> PassNode<Q> {
 
 impl<Q: HecsQuery + Send + Sync + 'static> Node for PassNode<Q>
 where
-    Q::Fetch: ReadOnlyFetch,
+    Q::Fetch: ReadOnlyFetch + for<'a> Fetch<'a, State = ()>,
 {
     fn input(&self) -> &[ResourceSlotInfo] {
         &self.inputs

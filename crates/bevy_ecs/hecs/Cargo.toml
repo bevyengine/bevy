@@ -25,6 +25,8 @@ std = []
 # Enables derive(Bundle)
 macros = ["bevy_hecs_macros", "lazy_static"]
 serialize = ["serde"]
+# Enables the dynamic components and systems APIs
+dynamic-api = ["std"]
 
 [dependencies]
 bevy_hecs_macros = { path = "macros", version = "0.3.0", optional = true }

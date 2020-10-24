@@ -74,15 +74,15 @@ mod query;
 mod serde;
 mod world;
 
-pub use access::{ArchetypeComponent, QueryAccess, TypeAccess};
+pub use access::{Access, ArchetypeComponent, QueryAccess, TypeAccess};
 pub use archetype::{Archetype, TypeState};
 pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{
-    Added, Batch, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryIter, ReadOnlyFetch, With,
-    Without,
+    Added, Batch, BatchedIter, Changed, DynamicFetch, DynamicFetchResult, DynamicQuery, Mut,
+    Mutated, Or, Query, QueryIter, ReadOnlyFetch, With, Without,
 };
 pub use world::{
     ArchetypesGeneration, Component, ComponentError, ComponentId, SpawnBatchIter, World,

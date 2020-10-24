@@ -39,6 +39,9 @@ render = ["bevy_pbr", "bevy_render", "bevy_sprite", "bevy_text", "bevy_ui"]
 png = ["bevy_render/png"]
 hdr = ["bevy_render/hdr"]
 
+# Enable the dynamic systems and components API ( useful for developing scripting solutions )
+dynamic-api = ["bevy_ecs/dynamic-api", "bevy_scene/dynamic-api"]
+
 # Audio format support (MP3 is enabled by default)
 mp3 = ["bevy_audio/mp3"]
 flac = ["bevy_audio/flac"]
@@ -90,6 +93,8 @@ serde = { version = "1", features = ["derive"] }
 log = "0.4"
 ron = "0.6"
 anyhow = "1.0"
+lazy_static = "1.4.0"
+
 
 # bevy (Android)
 [target.'cfg(target_os = "android")'.dependencies]
@@ -215,6 +220,16 @@ path = "examples/ecs/parallel_query.rs"
 [[example]]
 name = "hierarchy"
 path = "examples/ecs/hierarchy.rs"
+
+[[example]]
+name = "dynamic_systems"
+path = "examples/ecs/dynamic_systems.rs"
+required-features = ["dynamic-api"]
+
+[[example]]
+name = "dynamic_components"
+path = "examples/ecs/dynamic_components.rs"
+required-features = ["dynamic-api"]
 
 [[example]]
 name = "breakout"

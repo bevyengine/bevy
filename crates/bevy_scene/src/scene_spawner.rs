@@ -1,7 +1,9 @@
 use crate::{DynamicScene, Scene};
 use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::{ComponentId, EntityMap, Resources, World};
+#[cfg(feature = "dynamic-api")]
+use bevy_ecs::ComponentId;
+use bevy_ecs::{EntityMap, Resources, World};
 use bevy_type_registry::TypeRegistry;
 use bevy_utils::HashMap;
 use thiserror::Error;
@@ -161,14 +163,17 @@ impl SceneSpawner {
                     .entry(*scene_entity)
                     .or_insert_with(|| world.reserve_entity());
                 for type_info in archetype.types() {
-                    if let Some(component_registration) =
-                        component_registry.get(match &type_info.id() {
-                            ComponentId::RustTypeId(id) => id,
-                            ComponentId::ExternalId(_) => {
-                                todo!("Handle external types in Bevy scene")
-                            }
-                        })
-                    {
+                    #[cfg(feature = "dynamic-api")]
+                    let id = match type_info.id() {
+                        ComponentId::RustTypeId(id) => id,
+                        ComponentId::ExternalId(_) => {
+                            todo!("Handle external type ids in Bevy scene")
+                        }
+                    };
+                    #[cfg(not(feature = "dynamic-api"))]
+                    let id = type_info.id().0;
+
+                    if let Some(component_registration) = component_registry.get(&id) {
                         component_registration.component_copy(
                             &scene.world,
                             world,

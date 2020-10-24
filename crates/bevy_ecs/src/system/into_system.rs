@@ -2,10 +2,10 @@ pub use super::Query;
 use crate::{
     resource::{FetchResource, ResourceQuery, Resources, UnsafeClone},
     system::{Commands, System, SystemId, ThreadLocalExecution},
-    QueryAccess, QuerySet, QueryTuple, TypeAccess,
+    QuerySet, QueryTuple, TypeAccess,
 };
-use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, World};
-use std::{any::TypeId, borrow::Cow};
+use bevy_hecs::{ArchetypeComponent, ComponentId, Fetch, Query as HecsQuery, QueryAccess, World};
+use std::borrow::Cow;
 
 #[derive(Debug)]
 pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, Update>
@@ -21,7 +21,7 @@ where
     pub thread_local_func: ThreadLocalF,
     pub init_func: Init,
     pub thread_local_execution: ThreadLocalExecution,
-    pub resource_access: TypeAccess<TypeId>,
+    pub resource_access: TypeAccess<ComponentId>,
     pub name: Cow<'static, str>,
     pub id: SystemId,
     pub archetype_component_access: TypeAccess<ArchetypeComponent>,
@@ -48,7 +48,7 @@ where
         &self.archetype_component_access
     }
 
-    fn resource_access(&self) -> &TypeAccess<TypeId> {
+    fn resource_access(&self) -> &TypeAccess<ComponentId> {
         &self.resource_access
     }
 
@@ -95,7 +95,10 @@ macro_rules! impl_into_foreach_system {
                     $(<<$resource as ResourceQuery>::Fetch as FetchResource>::Item,)*
                     $(<<$component as HecsQuery>::Fetch as Fetch>::Item,)*)+
                 Send + Sync + 'static,
-            $($component: HecsQuery,)*
+            $(
+                $component: HecsQuery,
+                $component::Fetch: for<'a> Fetch<'a, State = ()>,
+            )*
             $($resource: ResourceQuery,)*
         {
             #[allow(non_snake_case)]
@@ -106,7 +109,7 @@ macro_rules! impl_into_foreach_system {
                 Box::new(SystemFn {
                     state: ForEachState {
                         commands: Commands::default(),
-                        query_access: <($($component,)*) as HecsQuery>::Fetch::access(),
+                        query_access: <($($component,)*) as HecsQuery>::Fetch::access(&()),
                     },
                     thread_local_execution: ThreadLocalExecution::NextFlush,
                     name: core::any::type_name::<Self>().into(),
@@ -167,7 +170,10 @@ macro_rules! impl_into_query_system {
                     $(QuerySet<$query_set>,)*
                 ) +
                 Send + Sync +'static,
-            $($query: HecsQuery,)*
+            $(
+                $query: HecsQuery,
+                $query::Fetch: for<'a> Fetch<'a, State = ()>,
+            )*
             $($query_set: QueryTuple,)*
             $($resource: ResourceQuery,)*
         {
@@ -179,7 +185,7 @@ macro_rules! impl_into_query_system {
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
                 let query_accesses = vec![
-                    $(vec![<$query::Fetch as Fetch>::access()],)*
+                    $(vec![<$query::Fetch as Fetch>::access(&())],)*
                     $($query_set::get_accesses(),)*
                 ];
                 let query_type_names = vec![

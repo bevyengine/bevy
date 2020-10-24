@@ -15,17 +15,11 @@
 // modified by Bevy contributors
 
 use crate::{
-    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, BatchedIter, EntityReserver, Fetch,
-    Mut, QueryIter, RefMut,
+    alloc::vec::Vec, archetype::ComponentIdMap, borrow::EntityRef, query::ReadOnlyFetch,
+    BatchedIter, EntityReserver, Fetch, Mut, QueryIter, RefMut, TypeInfo,
 };
 use bevy_utils::{HashMap, HashSet};
-use core::{
-    any::TypeId,
-    cmp::{Ord, Ordering},
-    fmt,
-    hash::{Hash, Hasher},
-    mem, ptr,
-};
+use core::{any::TypeId, cmp::Ord, fmt, hash::Hash, mem, ptr};
 
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -47,10 +41,11 @@ use crate::{
 pub struct World {
     entities: Entities,
     index: HashMap<Vec<ComponentId>, u32>,
-    removed_components: HashMap<ComponentId, Vec<Entity>>,
+    removed_components: ComponentIdMap<Vec<Entity>>,
     #[allow(missing_docs)]
     pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
+    dynamic_component_info: HashMap<u64, TypeInfo>,
 }
 
 impl World {
@@ -66,7 +61,8 @@ impl World {
             index,
             archetypes,
             archetype_generation: 0,
-            removed_components: HashMap::default(),
+            removed_components: ComponentIdMap::default(),
+            dynamic_component_info: HashMap::default(),
         }
     }
 
@@ -255,12 +251,20 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q>
+    #[inline]
+    pub fn query<Q: Query>(&self) -> QueryIter<'static, '_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.query_stateful(&())
+    }
+
+    pub fn query_stateful<'s, Q: Query, S>(&self, state: &'s S) -> QueryIter<'s, '_, Q, S>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: read-only access to world and read only query prevents mutable access
-        unsafe { self.query_unchecked() }
+        unsafe { self.query_unchecked_stateful(state) }
     }
 
     /// Efficiently iterate over all entities that have certain components
@@ -287,26 +291,61 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q> {
+    #[inline]
+    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'static, '_, Q, ()> {
+        self.query_mut_stateful(&())
+    }
+
+    /// See [`query_mut`], except that this allows you to pass in query state if the query supports
+    /// it.
+    pub fn query_mut_stateful<'s, Q: Query, S>(&mut self, state: &'s S) -> QueryIter<'s, '_, Q, S> {
         // SAFE: unique mutable access
-        unsafe { self.query_unchecked() }
+        unsafe { self.query_unchecked_stateful(state) }
     }
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
-    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q>
+    #[inline]
+    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'static, '_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        self.query_batched_stateful(batch_size, &())
+    }
+
+    /// See [`query_batched`], except that this allows you to pass in query state if the query
+    /// supports it.
+    pub fn query_batched_stateful<'s, Q: Query, S>(
+        &self,
+        batch_size: usize,
+        state: &'s S,
+    ) -> BatchedIter<'s, '_, Q, S>
     where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: read-only access to world and read only query prevents mutable access
-        unsafe { self.query_batched_unchecked(batch_size) }
+        unsafe { self.query_batched_unchecked_stateful(batch_size, state) }
     }
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
-    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q> {
+    #[inline]
+    pub fn query_batched_mut<Q: Query>(
+        &mut self,
+        batch_size: usize,
+    ) -> BatchedIter<'static, '_, Q, ()> {
+        self.query_batched_mut_stateful(batch_size, &())
+    }
+
+    /// See [`query_batched_mut`], except that this allows you to pass in query
+    /// state if the query supports it.
+    pub fn query_batched_mut_stateful<'s, Q: Query, S>(
+        &mut self,
+        batch_size: usize,
+        state: &'s S,
+    ) -> BatchedIter<'s, '_, Q, S> {
         // SAFE: unique mutable access
-        unsafe { self.query_batched_unchecked(batch_size) }
+        unsafe { self.query_batched_unchecked_stateful(batch_size, state) }
     }
 
     /// Efficiently iterate over all entities that have certain components
@@ -322,8 +361,22 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'_, Q> {
-        QueryIter::new(&self.archetypes)
+    #[inline]
+    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'static, '_, Q, ()> {
+        self.query_unchecked_stateful(&())
+    }
+
+    /// See [`query_unchecked`], except that this allows you to pass in query state if the query
+    /// supports it.
+    ///
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked_stateful<'s, Q: Query, S>(
+        &self,
+        state: &'s S,
+    ) -> QueryIter<'s, '_, Q, S> {
+        QueryIter::new(&self.archetypes, state)
     }
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
@@ -336,8 +389,23 @@ impl World {
     pub unsafe fn query_batched_unchecked<Q: Query>(
         &self,
         batch_size: usize,
-    ) -> BatchedIter<'_, Q> {
-        BatchedIter::new(&self.archetypes, batch_size)
+    ) -> BatchedIter<'static, '_, Q, ()> {
+        self.query_batched_unchecked_stateful(batch_size, &())
+    }
+
+    /// See [`query_batched_unchecked`], except that this allows you to pass in query state if the
+    /// query supports it.
+    ///
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    #[inline]
+    pub unsafe fn query_batched_unchecked_stateful<'s, Q: Query, S>(
+        &self,
+        batch_size: usize,
+        state: &'s S,
+    ) -> BatchedIter<'s, '_, Q, S> {
+        BatchedIter::new(&self.archetypes, batch_size, state)
     }
 
     /// Prepare a read only query against a single entity
@@ -353,15 +421,29 @@ impl World {
     /// let (number, flag) = world.query_one::<(&i32, &bool)>(a).unwrap();
     /// assert_eq!(*number, 123);
     /// ```
+    #[inline]
     pub fn query_one<Q: Query>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
     where
-        Q::Fetch: ReadOnlyFetch,
+        Q::Fetch: ReadOnlyFetch + for<'a> Fetch<'a, State = ()>,
+    {
+        self.query_one_stateful::<Q, ()>(entity, &())
+    }
+
+    /// See [`query_one_mut`], except that this allows you to pass in query state if the query
+    /// supports it.
+    pub fn query_one_stateful<'s, Q: Query, S>(
+        &self,
+        entity: Entity,
+        state: &'s S,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: ReadOnlyFetch + for<'a> Fetch<'a, State = S>,
     {
         // SAFE: read-only access to world and read only query prevents mutable access
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked_stateful::<Q, S>(entity, state) }
     }
 
     /// Prepare a query against a single entity
@@ -378,12 +460,30 @@ impl World {
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
+    #[inline]
     pub fn query_one_mut<Q: Query>(
         &mut self,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: for<'a> Fetch<'a, State = ()>,
+    {
+        self.query_one_mut_stateful::<Q, ()>(entity, &())
+    }
+
+    /// See [`query_one_mut`], except that this allows you to pass in query state if the query
+    /// supports it.
+    #[inline]
+    pub fn query_one_mut_stateful<'s, Q: Query, S>(
+        &mut self,
+        entity: Entity,
+        state: &'s S,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: for<'a> Fetch<'a, State = S>,
+    {
         // SAFE: unique mutable access to world
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked_stateful::<Q, S>(entity, state) }
     }
 
     /// Prepare a query against a single entity, without checking the safety of mutable queries
@@ -393,14 +493,35 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
     pub unsafe fn query_one_unchecked<Q: Query>(
         &self,
         entity: Entity,
-    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: for<'a> Fetch<'a, State = ()>,
+    {
+        self.query_one_unchecked_stateful::<Q, ()>(entity, &())
+    }
+
+    /// See [`query_one_unchecked`], except that this allows you to pass in query state if the query
+    /// supports it.
+    ///
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_one_unchecked_stateful<'s, Q: Query, S>(
+        &self,
+        entity: Entity,
+        state: &'s S,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: for<'a> Fetch<'a, State = S>,
+    {
         let loc = self.entities.get(entity)?;
-        <Q::Fetch as Fetch>::get(&self.archetypes[loc.archetype as usize], 0)
-            .filter(|fetch| !fetch.should_skip(loc.index))
-            .map(|fetch| fetch.fetch(loc.index))
+        <Q::Fetch as Fetch>::get(state, &self.archetypes[loc.archetype as usize], 0)
+            .filter(|fetch| !fetch.should_skip(state, loc.index))
+            .map(|fetch| fetch.fetch(state, loc.index))
             .ok_or(NoSuchEntity)
     }
 
@@ -516,6 +637,25 @@ impl World {
             let arch = &mut self.archetypes[loc.archetype as usize];
             let mut info = arch.types().to_vec();
             for ty in components.type_info() {
+                #[cfg(feature = "dynamic-api")]
+                // If this is a dynamic component
+                if let ComponentId::ExternalId(id) = ty.id() {
+                    // If we've previously registered a component under this ID
+                    if let Some(registered) = self.dynamic_component_info.get(&id) {
+                        // Verify the type info is consistent with the information previously associated
+                        // to the type id.
+                        assert_eq!(
+                            &ty, registered,
+                            "Attempted to insert dynamic component with a different layout than \
+                            previously inserted component with the same type ID."
+                        );
+                    // If we've never added this component before
+                    } else {
+                        // Register the type with its info
+                        self.dynamic_component_info.insert(id, ty);
+                    }
+                }
+
                 if let Some(ptr) = arch.get_dynamic(ty.id(), ty.layout().size(), loc.index) {
                     ty.drop(ptr.as_ptr());
                 } else {
@@ -898,8 +1038,12 @@ impl From<MissingComponent> for ComponentError {
     }
 }
 
+#[cfg(feature = "dynamic-api")]
+use std::{cmp::Ordering, hash::Hasher};
+
 /// Uniquely identifies a type of component. This is conceptually similar to
 /// Rust's [`TypeId`], but allows for external type IDs to be defined.
+#[cfg(feature = "dynamic-api")]
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum ComponentId {
     /// A Rust-native [`TypeId`]
@@ -909,6 +1053,7 @@ pub enum ComponentId {
     ExternalId(u64),
 }
 
+#[cfg(feature = "dynamic-api")]
 #[allow(clippy::derive_hash_xor_eq)] // Fine because we uphold k1 == k2 ⇒ hash(k1) == hash(k2)
 impl Hash for ComponentId {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -923,6 +1068,7 @@ impl Hash for ComponentId {
     }
 }
 
+#[cfg(feature = "dynamic-api")]
 impl Ord for ComponentId {
     fn cmp(&self, other: &Self) -> Ordering {
         if self == other {
@@ -944,15 +1090,31 @@ impl Ord for ComponentId {
     }
 }
 
+#[cfg(feature = "dynamic-api")]
 impl PartialOrd for ComponentId {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[cfg(feature = "dynamic-api")]
 impl From<TypeId> for ComponentId {
     fn from(item: TypeId) -> Self {
         ComponentId::RustTypeId(item)
+    }
+}
+
+/// A component identifier
+///
+/// Without the `dynamic-api` feature enabled, this is just a newtype around a Rust [`TypeId`].
+#[cfg(not(feature = "dynamic-api"))]
+#[derive(Eq, PartialEq, Debug, Hash, Ord, PartialOrd, Clone, Copy)]
+pub struct ComponentId(pub TypeId);
+
+#[cfg(not(feature = "dynamic-api"))]
+impl From<TypeId> for ComponentId {
+    fn from(item: TypeId) -> Self {
+        ComponentId(item)
     }
 }
 
@@ -1095,5 +1257,48 @@ where
 {
     fn len(&self) -> usize {
         self.inner.len()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    #[should_panic(expected = "Attempted to insert dynamic component with a different layout")]
+    #[cfg(feature = "dynamic-api")]
+    fn inconsistent_dynamic_component_info_panics() {
+        use super::*;
+        use crate::EntityBuilder;
+        use core::alloc::Layout;
+
+        let mut world = World::new();
+
+        let mut builder = EntityBuilder::new();
+        // Create an entity with a dynamic component with an id of 1 and  size of 2
+        let bundle1 = builder
+            .add_dynamic(
+                TypeInfo::of_external(1, Layout::from_size_align(2, 1).unwrap(), |_| ()),
+                &[1, 2],
+            )
+            .build();
+        let mut builder = EntityBuilder::new();
+
+        // Insert the entity
+        let entity = world.reserve_entity();
+        world.insert(entity, bundle1).unwrap();
+
+        // Create an entity with a dynamic component with an id of 1 and  size of 3. This is an
+        // error because the component cannot have the same id of a previously inserted component
+        // and also have a different layout.
+        let bundle2 = builder
+            .add_dynamic(
+                TypeInfo::of_external(1, Layout::from_size_align(3, 1).unwrap(), |_| ()),
+                &[1, 2, 3],
+            )
+            .build();
+
+        // Insert the entity
+        let entity = world.reserve_entity();
+        // This should panic
+        world.insert(entity, bundle2).unwrap();
     }
 }

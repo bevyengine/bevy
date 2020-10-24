@@ -15,6 +15,7 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 profiler = []
+dynamic-api = ["bevy_hecs/dynamic-api"]
 
 [dependencies]
 bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.3.0" }

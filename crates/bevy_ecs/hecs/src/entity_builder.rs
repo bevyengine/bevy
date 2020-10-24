@@ -14,6 +14,8 @@
 
 // modified by Bevy contributors
 
+use bevy_utils::HashSet;
+
 use crate::{
     alloc::{
         alloc::{alloc, dealloc, Layout},
@@ -24,12 +26,8 @@ use crate::{
     world::ComponentId,
 };
 
-use bevy_utils::HashSet;
-use core::{
-    any::TypeId,
-    mem::{self, MaybeUninit},
-    ptr,
-};
+use core::{intrinsics::copy_nonoverlapping, mem::MaybeUninit, ptr};
+use ptr::slice_from_raw_parts;
 
 use crate::{archetype::TypeInfo, Component, DynamicBundle};
 
@@ -68,24 +66,59 @@ impl EntityBuilder {
 
     /// Add `component` to the entity
     pub fn add<T: Component>(&mut self, component: T) -> &mut Self {
-        if !self.id_set.insert(TypeId::of::<T>().into()) {
+        self.add_with_typeinfo(
+            TypeInfo::of::<T>(),
+            unsafe {
+                &*slice_from_raw_parts(
+                    &component as *const T as *const u8,
+                    std::mem::size_of::<T>(),
+                )
+            },
+            true,
+        );
+        std::mem::forget(component);
+        self
+    }
+
+    /// Add a dynamic component given the component ID, the layout and the raw data slice
+    #[cfg(feature = "dynamic-api")]
+    pub fn add_dynamic(&mut self, info: TypeInfo, data: &[u8]) -> &mut Self {
+        self.add_with_typeinfo(info, data, false);
+        self
+    }
+
+    fn add_with_typeinfo(
+        &mut self,
+        type_info: TypeInfo,
+        data: &[u8],
+        skip_size_check: bool,
+    ) -> &mut Self {
+        if !skip_size_check {
+            assert_eq!(
+                type_info.layout.size(),
+                data.len(),
+                "Data length does not match component size"
+            );
+        }
+
+        if !self.id_set.insert(type_info.id()) {
             return self;
         }
-        let end = self.cursor + mem::size_of::<T>();
+        let end = self.cursor + type_info.layout().size();
         if end > self.storage.len() {
             self.grow(end);
         }
-        if mem::size_of::<T>() != 0 {
+        if type_info.layout().size() != 0 {
             unsafe {
-                self.storage
-                    .as_mut_ptr()
-                    .add(self.cursor)
-                    .cast::<T>()
-                    .write_unaligned(component);
+                copy_nonoverlapping(
+                    data.as_ptr(),
+                    self.storage.as_mut_ptr().add(self.cursor) as *mut u8,
+                    data.len(),
+                );
             }
         }
-        self.info.push((TypeInfo::of::<T>(), self.cursor));
-        self.cursor += mem::size_of::<T>();
+        self.info.push((type_info, self.cursor));
+        self.cursor += type_info.layout().size();
         self
     }
 
@@ -193,5 +226,25 @@ impl Drop for BuiltEntity<'_> {
         // Ensures components aren't leaked if `store` was never called, and prepares the builder
         // for reuse.
         self.builder.clear();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[cfg(feature = "dynamic-api")]
+    use super::*;
+
+    #[cfg(feature = "dynamic-api")]
+    #[test]
+    #[should_panic(expected = "Data length does not match component size")]
+    fn dynamic_data_invalid_length_panics() {
+        const ID1: u64 = 242237625853274575;
+        let layout1 = Layout::from_size_align(2, 1).unwrap();
+
+        let mut builder = EntityBuilder::new();
+
+        // This should panic because we said above that the component size was 2, and we are trying
+        // to stick 3 bytes into it.
+        builder.add_dynamic(TypeInfo::of_external(ID1, layout1, |_| ()), &[1, 2, 3]);
     }
 }

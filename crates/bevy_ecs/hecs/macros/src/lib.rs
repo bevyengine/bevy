@@ -186,7 +186,12 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
         let query_fn = &query_fns[0..query_count];
         let query_fn_mut = &query_fn_muts[0..query_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QueryTuple for (#(Query<#lifetime, #query>,)*) {
+            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QueryTuple for (#(Query<#lifetime, #query>,)*)
+            where
+                #(
+                    #query::Fetch: for<'a> Fetch<'a, State = ()>
+                ),*
+            {
                 unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
                     (
                         #(
@@ -200,12 +205,17 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
 
                 fn get_accesses() -> Vec<QueryAccess> {
                     vec![
-                        #(<#query::Fetch as Fetch>::access(),)*
+                        #(<#query::Fetch as Fetch>::access(&()),)*
                     ]
                 }
             }
 
-            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QuerySet<(#(Query<#lifetime, #query>,)*)> {
+            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QuerySet<(#(Query<#lifetime, #query>,)*)>
+            where
+                #(
+                    #query::Fetch: for<'a> Fetch<'a, State = ()>
+                ),*
+            {
                 #(#query_fn)*
                 #(#query_fn_mut)*
             }

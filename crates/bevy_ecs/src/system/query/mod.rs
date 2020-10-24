@@ -9,90 +9,223 @@ use bevy_hecs::{
 use bevy_tasks::ParallelIterator;
 use std::marker::PhantomData;
 
-/// Provides scoped access to a World according to a given [HecsQuery]
+/// Provides scoped access to a World according to a given [`HecsQuery`]
 #[derive(Debug)]
 pub struct Query<'a, Q: HecsQuery> {
-    pub(crate) world: &'a World,
-    pub(crate) component_access: &'a TypeAccess<ArchetypeComponent>,
-    _marker: PhantomData<Q>,
+    pub(crate) query: StatefulQuery<'a, Q, ()>,
 }
 
-/// An error that occurs when using a [Query]
-#[derive(Debug)]
-pub enum QueryError {
-    CannotReadArchetype,
-    CannotWriteArchetype,
-    ComponentError(ComponentError),
-    NoSuchEntity,
-}
-
-impl<'a, Q: HecsQuery> Query<'a, Q> {
+impl<'a, Q: HecsQuery> Query<'a, Q>
+where
+    Q::Fetch: for<'b> Fetch<'b, State = ()>,
+{
     #[inline]
     pub fn new(world: &'a World, component_access: &'a TypeAccess<ArchetypeComponent>) -> Self {
         Self {
-            world,
-            component_access,
-            _marker: PhantomData::default(),
+            query: StatefulQuery {
+                world,
+                component_access,
+                state: (),
+                _marker: PhantomData::default(),
+            },
         }
     }
 
     /// Iterates over the query results. This can only be called for read-only queries
-    pub fn iter(&self) -> QueryIter<'_, Q>
+    pub fn iter(&self) -> QueryIter<'_, '_, Q, ()>
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
-        unsafe { self.world.query_unchecked() }
+        self.query.iter()
     }
 
     /// Iterates over the query results
-    pub fn iter_mut(&mut self) -> QueryIter<'_, Q> {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
-        unsafe { self.world.query_unchecked() }
+    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, ()> {
+        self.query.iter_mut()
     }
 
     /// Iterates over the query results
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
-    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, Q> {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
-        self.world.query_unchecked()
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, '_, Q, ()> {
+        self.query.iter_unsafe()
     }
 
     #[inline]
-    pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, Q>
+    pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, '_, Q, ()>
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
-        unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
+        self.query.par_iter(batch_size)
     }
 
     #[inline]
-    pub fn par_iter_mut(&mut self, batch_size: usize) -> ParIter<'_, Q> {
-        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
-        unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
+    pub fn par_iter_mut(&mut self, batch_size: usize) -> ParIter<'_, '_, Q, ()> {
+        self.query.par_iter_mut(batch_size)
     }
 
     /// Gets the query result for the given `entity`
     pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
     where
+        Q::Fetch: ReadOnlyFetch + for<'b> Fetch<'b, State = ()>,
+    {
+        self.query.get(entity)
+    }
+
+    /// Gets the query result for the given `entity`
+    pub fn get_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
+    where
+        Q::Fetch: for<'b> Fetch<'b, State = ()>,
+    {
+        self.query.get_mut(entity)
+    }
+
+    /// Gets the query result for the given `entity`
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    pub unsafe fn get_unsafe(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
+    where
+        Q::Fetch: for<'b> Fetch<'b, State = ()>,
+    {
+        self.query.get_unsafe(entity)
+    }
+
+    /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryError> {
+        self.query.get_component::<T>(entity)
+    }
+
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type or if the given component type does not match this query.
+    pub fn get_component_mut<T: Component>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<Mut<'_, T>, QueryError> {
+        self.query.get_component_mut::<T>(entity)
+    }
+
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    pub unsafe fn get_component_unsafe<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<Mut<'_, T>, QueryError> {
+        self.query.get_component_unsafe(entity)
+    }
+
+    pub fn removed<C: Component>(&self) -> &[Entity] {
+        self.query.removed::<C>()
+    }
+
+    /// Sets the entity's component to the given value. This will fail if the entity does not already have
+    /// the given component type or if the given component type does not match this query.
+    pub fn set<T: Component>(&mut self, entity: Entity, component: T) -> Result<(), QueryError> {
+        self.query.set(entity, component)
+    }
+}
+
+/// Provides scoped access to a World according to a given [`HecsQuery`]. Essentially identical to
+/// [`Query`] except that it supports passing extra state into the query, useful for special kinds
+/// of queries such as [`DynamicQuery`].
+#[derive(Debug)]
+pub struct StatefulQuery<'a, Q: HecsQuery, S> {
+    pub(crate) world: &'a World,
+    pub(crate) component_access: &'a TypeAccess<ArchetypeComponent>,
+    pub(crate) state: S,
+    _marker: PhantomData<Q>,
+}
+
+impl<'a, Q: HecsQuery, S> StatefulQuery<'a, Q, S>
+where
+    Q::Fetch: for<'b> Fetch<'b, State = S>,
+{
+    #[inline]
+    pub fn new(
+        world: &'a World,
+        component_access: &'a TypeAccess<ArchetypeComponent>,
+        state: S,
+    ) -> Self {
+        Self {
+            world,
+            component_access,
+            state,
+            _marker: PhantomData::default(),
+        }
+    }
+
+    /// Iterates over the query results. This can only be called for read-only queries
+    pub fn iter(&self) -> QueryIter<'_, '_, Q, S>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        unsafe { self.world.query_unchecked_stateful(&self.state) }
+    }
+
+    /// Iterates over the query results
+    pub fn iter_mut(&mut self) -> QueryIter<'_, '_, Q, S> {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        unsafe { self.world.query_unchecked_stateful(&self.state) }
+    }
+
+    /// Iterates over the query results
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, '_, Q, S> {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        self.world.query_unchecked_stateful(&self.state)
+    }
+
+    #[inline]
+    pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, '_, Q, S>
+    where
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe {
+            ParIter::new(
+                self.world
+                    .query_batched_unchecked_stateful(batch_size, &self.state),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn par_iter_mut(&mut self, batch_size: usize) -> ParIter<'_, '_, Q, S> {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        unsafe {
+            ParIter::new(
+                self.world
+                    .query_batched_unchecked_stateful(batch_size, &self.state),
+            )
+        }
+    }
+
+    /// Gets the query result for the given `entity`
+    pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
+    where
+        Q::Fetch: ReadOnlyFetch + for<'b> Fetch<'b, State = S>,
+    {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        unsafe {
             self.world
-                .query_one_unchecked::<Q>(entity)
+                .query_one_unchecked_stateful::<Q, S>(entity, &self.state)
                 .map_err(|_err| QueryError::NoSuchEntity)
         }
     }
 
     /// Gets the query result for the given `entity`
-    pub fn get_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
+    where
+        Q::Fetch: for<'b> Fetch<'b, State = S>,
+    {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.world
-                .query_one_unchecked::<Q>(entity)
+                .query_one_unchecked_stateful::<Q, S>(entity, &self.state)
                 .map_err(|_err| QueryError::NoSuchEntity)
         }
     }
@@ -105,7 +238,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
         self.world
-            .query_one_unchecked::<Q>(entity)
+            .query_one_unchecked_stateful::<Q, S>(entity, &self.state)
             .map_err(|_err| QueryError::NoSuchEntity)
     }
 
@@ -164,10 +297,13 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     pub unsafe fn get_component_unsafe<T: Component>(
         &self,
         entity: Entity,
-    ) -> Result<Mut<'_, T>, QueryError> {
+    ) -> Result<Mut<'_, T>, QueryError>
+    where
+        Q::Fetch: for<'b> Fetch<'b, State = S>,
+    {
         self.world
             .get_mut_unchecked(entity)
-            .map_err(QueryError::ComponentError)
+            .map_err(|_err| QueryError::NoSuchEntity)
     }
 
     pub fn removed<C: Component>(&self) -> &[Entity] {
@@ -183,24 +319,42 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 }
 
-/// Parallel version of QueryIter
-pub struct ParIter<'w, Q: HecsQuery> {
-    batched_iter: BatchedIter<'w, Q>,
+/// An error that occurs when using a [Query]
+#[derive(Debug)]
+pub enum QueryError {
+    CannotReadArchetype,
+    CannotWriteArchetype,
+    ComponentError(ComponentError),
+    NoSuchEntity,
 }
 
-impl<'w, Q: HecsQuery> ParIter<'w, Q> {
-    pub fn new(batched_iter: BatchedIter<'w, Q>) -> Self {
+/// Parallel version of QueryIter
+pub struct ParIter<'s, 'w, Q: HecsQuery, S> {
+    batched_iter: BatchedIter<'s, 'w, Q, S>,
+}
+
+impl<'s, 'w, Q: HecsQuery, S> ParIter<'s, 'w, Q, S>
+where
+    Q::Fetch: for<'a> Fetch<'a, State = S>,
+{
+    pub fn new(batched_iter: BatchedIter<'s, 'w, Q, S>) -> Self {
         Self { batched_iter }
     }
 }
 
-unsafe impl<'w, Q: HecsQuery> Send for ParIter<'w, Q> {}
+unsafe impl<'s, 'w, Q: HecsQuery, S> Send for ParIter<'s, 'w, Q, S> where
+    Q::Fetch: for<'a> Fetch<'a, State = S>
+{
+}
 
-impl<'w, Q: HecsQuery> ParallelIterator<Batch<'w, Q>> for ParIter<'w, Q> {
+impl<'s, 'w, Q: HecsQuery, S> ParallelIterator<Batch<'s, 'w, Q, S>> for ParIter<'s, 'w, Q, S>
+where
+    Q::Fetch: for<'a> Fetch<'a, State = S>,
+{
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]
-    fn next_batch(&mut self) -> Option<Batch<'w, Q>> {
+    fn next_batch(&mut self) -> Option<Batch<'s, 'w, Q, S>> {
         self.batched_iter.next()
     }
 }

@@ -1,6 +1,8 @@
 use crate::{serde::SceneSerializer, Scene};
 use anyhow::Result;
-use bevy_ecs::{EntityMap, Resources, World, ComponentId};
+#[cfg(feature = "dynamic-api")]
+use bevy_ecs::ComponentId;
+use bevy_ecs::{EntityMap, Resources, World};
 use bevy_property::{DynamicProperties, PropertyTypeRegistry};
 use bevy_type_registry::{ComponentRegistry, TypeRegistry, TypeUuid};
 use serde::Serialize;
@@ -40,14 +42,17 @@ impl DynamicScene {
                     })
                 }
                 for type_info in archetype.types() {
-                    if let Some(component_registration) =
-                        component_registry.get(match &type_info.id() {
-                            ComponentId::RustTypeId(id) => id,
-                            ComponentId::ExternalId(_) => {
-                                todo!("Handle external type ids in Bevy scene")
-                            }
-                        })
-                    {
+                    #[cfg(feature = "dynamic-api")]
+                    let id = match type_info.id() {
+                        ComponentId::RustTypeId(id) => id,
+                        ComponentId::ExternalId(_) => {
+                            todo!("Handle external type ids in Bevy scene")
+                        }
+                    };
+                    #[cfg(not(feature = "dynamic-api"))]
+                    let id = type_info.id().0;
+
+                    if let Some(component_registration) = component_registry.get(&id) {
                         let properties =
                             component_registration.get_component_properties(&archetype, index);
 

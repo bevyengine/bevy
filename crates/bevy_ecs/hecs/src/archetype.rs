@@ -26,7 +26,7 @@ use bevy_utils::AHasher;
 use core::{
     any::TypeId,
     cell::UnsafeCell,
-    hash::{BuildHasherDefault, Hasher},
+    hash::{BuildHasherDefault, Hash, Hasher},
     mem,
     ptr::{self, NonNull},
 };
@@ -243,7 +243,8 @@ impl Archetype {
         size: usize,
         index: usize,
     ) -> Option<NonNull<u8>> {
-        debug_assert!(index < self.len);
+        // TODO(zicklag): I'm pretty sure that it is valid for the index to be zero
+        debug_assert!(index < self.len || index == 0);
         Some(NonNull::new_unchecked(
             (*self.data.get())
                 .as_ptr()
@@ -500,11 +501,14 @@ impl TypeState {
 }
 
 /// Metadata required to store a component
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct TypeInfo {
-    id: ComponentId,
-    layout: Layout,
-    drop: unsafe fn(*mut u8),
+    /// The ID unique to the component type
+    pub(crate) id: ComponentId,
+    /// The memory layout of the component
+    pub(crate) layout: Layout,
+    /// The drop function for the component
+    pub(crate) drop: unsafe fn(*mut u8),
 }
 
 impl TypeInfo {
@@ -518,6 +522,16 @@ impl TypeInfo {
             id: TypeId::of::<T>().into(),
             layout: Layout::new::<T>(),
             drop: drop_ptr::<T>,
+        }
+    }
+
+    /// Get the [`TypeInfo`] for an external type with the given layout and drop function
+    #[cfg(feature = "dynamic-api")]
+    pub fn of_external(external_id: u64, layout: Layout, drop: unsafe fn(*mut u8)) -> Self {
+        TypeInfo {
+            id: ComponentId::ExternalId(external_id),
+            layout,
+            drop,
         }
     }
 
@@ -538,6 +552,16 @@ impl TypeInfo {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for TypeInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        state.write_usize(self.layout.size());
+        state.write_usize(self.layout.align());
+        self.drop.hash(state);
+    }
+}
+
 impl PartialOrd for TypeInfo {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
@@ -554,14 +578,6 @@ impl Ord for TypeInfo {
             .then_with(|| self.id.cmp(&other.id))
     }
 }
-
-impl PartialEq for TypeInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for TypeInfo {}
 
 fn align(x: usize, alignment: usize) -> usize {
     debug_assert!(alignment.is_power_of_two());
