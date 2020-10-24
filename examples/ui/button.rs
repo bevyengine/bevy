@@ -31,7 +31,7 @@ fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<(
         &Button,
-        Mutated<Interaction>,
+        Mutated<&Interaction>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,

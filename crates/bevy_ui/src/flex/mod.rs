@@ -161,9 +161,9 @@ pub fn flex_node_system(
     windows: Res<Windows>,
     mut flex_surface: ResMut<FlexSurface>,
     mut root_node_query: Query<With<Node, Without<Parent, Entity>>>,
-    mut node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
-    mut changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
-    mut children_query: Query<With<Node, (Entity, Changed<Children>)>>,
+    mut node_query: Query<With<Node, (Entity, Changed<&Style>, Option<&CalculatedSize>)>>,
+    mut changed_size_query: Query<With<Node, (Entity, &Style, Changed<&CalculatedSize>)>>,
+    mut children_query: Query<With<Node, (Entity, Changed<&Children>)>>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes

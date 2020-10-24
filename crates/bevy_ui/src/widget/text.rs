@@ -30,7 +30,7 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    mut query: Query<(Entity, Changed<Text>, &mut CalculatedSize)>,
+    mut query: Query<(Entity, Changed<&Text>, &mut CalculatedSize)>,
     mut text_query: Query<(&Text, &mut CalculatedSize)>,
 ) {
     // add queued text to atlases
