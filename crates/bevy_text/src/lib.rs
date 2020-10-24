@@ -30,7 +30,6 @@ impl Plugin for TextPlugin {
         app.add_asset::<Font>()
             .add_asset::<FontAtlasSet>()
             .init_asset_loader::<FontLoader>()
-            .add_resource(TextPipeline::default())
-            .add_resource(TextVertices::default());
+            .add_resource(TextPipeline::default());
     }
 }

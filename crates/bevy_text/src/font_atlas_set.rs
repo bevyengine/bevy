@@ -3,10 +3,10 @@ use ab_glyph::{Glyph, GlyphId};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
-use bevy_render::texture::Texture;
+use bevy_render::texture::{Texture, TextureFormat};
 use bevy_sprite::TextureAtlas;
-use bevy_utils::HashMap;
 use bevy_type_registry::TypeUuid;
+use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
 
@@ -17,7 +17,7 @@ pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlyphAtlasInfo {
     pub texture_atlas: Handle<TextureAtlas>,
     pub glyph_index: u32,
@@ -64,11 +64,16 @@ impl FontAtlasSet {
             });
         let font_size = glyph.scale.y;
         let glyph_id = glyph.id;
-        let outline = font
-            .font
-            .outline_glyph(glyph)
-            .ok_or(TextError::FailedToOutlineGlyph)?;
-        let glyph_texture = Font::get_outlined_glyph_texture(outline);
+        let outline = font.font.outline_glyph(glyph);
+        let glyph_texture = if let Some(outline) = outline {
+            Font::get_outlined_glyph_texture(outline)
+        } else {
+            Texture::new(
+                Vec2::new(1., 1.),
+                vec![0, 0, 0, 0],
+                TextureFormat::Rgba8UnormSrgb,
+            )
+        };
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(textures, texture_atlases, glyph_id, &glyph_texture)
         };

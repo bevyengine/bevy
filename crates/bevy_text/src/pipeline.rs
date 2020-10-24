@@ -8,9 +8,7 @@ use bevy_sprite::TextureAtlas;
 
 use glyph_brush_layout::FontId;
 
-use crate::{
-    error::TextError, glyph_brush::BrushAction, glyph_brush::GlyphBrush, Font, FontAtlasSet,
-};
+use crate::{error::TextError, glyph_brush::GlyphBrush, Font, FontAtlasSet, TextVertex};
 
 pub struct TextPipeline {
     pub brush: GlyphBrush,
@@ -34,7 +32,9 @@ impl TextPipeline {
         size: f32,
         bounds: Size,
     ) -> Result<Vec2, TextError> {
-        let font = font_storage.get(font_handle.clone()).ok_or(TextError::NoSuchFont)?;
+        let font = font_storage
+            .get(font_handle.clone())
+            .ok_or(TextError::NoSuchFont)?;
         let font_id = self.get_or_insert_font_id(font_handle, font);
 
         let section = glyph_brush_layout::SectionText {
@@ -43,7 +43,9 @@ impl TextPipeline {
             text,
         };
 
-        let glyphs = self.brush.compute_glyphs(&[section], bounds, Vec2::new(0.,0.))?;
+        let glyphs = self
+            .brush
+            .compute_glyphs(&[section], bounds, Vec2::new(0., 0.))?;
         /*
         self.measure_brush
             .borrow_mut()
@@ -72,10 +74,10 @@ impl TextPipeline {
         bounds: Size,
         screen_position: Vec2,
     ) -> Result<(), TextError> {
-        let font = font_storage.get(font_handle.clone()).ok_or(TextError::NoSuchFont)?;
+        let font = font_storage
+            .get(font_handle.clone())
+            .ok_or(TextError::NoSuchFont)?;
         let font_id = self.get_or_insert_font_id(font_handle, font);
-
-        println!("the font id is {:?}", font_id);
 
         let section = glyph_brush_layout::SectionText {
             font_id,
@@ -84,8 +86,6 @@ impl TextPipeline {
         };
 
         self.brush.queue_text(&[section], bounds, screen_position)?;
-
-        println!("queued text");
 
         Ok(())
     }
@@ -96,7 +96,7 @@ impl TextPipeline {
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Texture>,
-    ) -> Result<BrushAction, TextError> {
+    ) -> Result<Vec<TextVertex>, TextError> {
         self.brush
             .process_queued(font_atlas_set_storage, fonts, texture_atlases, textures)
     }
