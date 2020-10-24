@@ -20,7 +20,7 @@ use core::{
     ptr::NonNull,
 };
 
-use crate::{archetype::Archetype, Component, Entity, MissingComponent};
+use crate::{archetype::Archetype, Component, Entity, MissingComponent, TypeState};
 
 /// A collection of component types to fetch from a `World`
 pub trait Query {
@@ -28,7 +28,18 @@ pub trait Query {
     type Fetch: for<'a> Fetch<'a>;
 }
 
-/// A fetch that is read only. This should only be implemented for read-only fetches.
+/// A fetch which only accesses a single type
+pub trait SingleTypeFetch: Sized {
+    type Fetched: 'static;
+    /// Safety: Same as Fetch<'a>::get
+    unsafe fn get_using_type_state(
+        state: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self>;
+}
+
+/// A fetch that is read only. This must only be implemented for read-only fetches.
 pub unsafe trait ReadOnlyFetch {}
 
 /// Streaming iterators over contiguous homogeneous ranges of components
@@ -128,6 +139,18 @@ pub struct FetchRead<T>(NonNull<T>);
 
 unsafe impl<T> ReadOnlyFetch for FetchRead<T> {}
 
+impl<'a, T: Component> SingleTypeFetch for FetchRead<T> {
+    type Fetched = T;
+
+    unsafe fn get_using_type_state(
+        _: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self> {
+        Self::get(archetype, offset)
+    }
+}
+
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
 
@@ -218,6 +241,18 @@ impl<'a, T: Component> Query for Mut<'a, T> {
 }
 #[doc(hidden)]
 pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
+
+impl<'a, T: Component> SingleTypeFetch for FetchMut<T> {
+    type Fetched = T;
+
+    unsafe fn get_using_type_state(
+        _: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self> {
+        Self::get(archetype, offset)
+    }
+}
 
 impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     type Item = Mut<'a, T>;
@@ -346,206 +381,312 @@ pub struct FetchOr<T>(T);
 
 /// Query transformer that retrieves components of type `T` that have been mutated since the start of the frame.
 /// Added components do not count as mutated.
-pub struct Mutated<'a, T> {
-    value: &'a T,
+pub struct Mutated<'a, Q: Query>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    value: <Q::Fetch as Fetch<'a>>::Item,
 }
 
-impl<'a, T: Component> Deref for Mutated<'a, T> {
-    type Target = T;
+impl<'a, Q: Query> Deref for Mutated<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item: Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched>,
+{
+    type Target = <Q::Fetch as SingleTypeFetch>::Fetched;
 
     #[inline]
-    fn deref(&self) -> &T {
-        self.value
+    fn deref(&self) -> &Self::Target {
+        &*self.value
     }
 }
 
-impl<'a, T: Component> Query for Mutated<'a, T> {
-    type Fetch = FetchMutated<T>;
+impl<'a, Q: Query> DerefMut for Mutated<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item:
+        Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched> + DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.value
+    }
+}
+
+impl<'a, Q: Query> Query for Mutated<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetch = FetchMutated<Q>;
 }
 
 #[doc(hidden)]
-pub struct FetchMutated<T>(NonNull<T>, NonNull<bool>);
+pub struct FetchMutated<Q: Query>(Q::Fetch, NonNull<bool>);
 
-impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
-    type Item = Mutated<'a, T>;
+impl<'a, Q: Query> SingleTypeFetch for FetchMutated<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetched = <Q::Fetch as SingleTypeFetch>::Fetched;
 
-    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
+    unsafe fn get_using_type_state(
+        state: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self> {
+        Some(Self(
+            <Q::Fetch as SingleTypeFetch>::get_using_type_state(state, archetype, offset)?,
+            NonNull::new_unchecked(state.mutated().as_ptr().add(offset)),
+        ))
+    }
+}
+
+unsafe impl<Q: Query> ReadOnlyFetch for FetchMutated<Q> where Q::Fetch: ReadOnlyFetch {}
+
+impl<'a, Q: Query> Fetch<'a> for FetchMutated<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Item = Mutated<'a, Q>;
+
+    const DANGLING: Self = Self(<Q::Fetch as Fetch<'a>>::DANGLING, NonNull::dangling());
 
     fn access(archetype: &Archetype) -> Option<Access> {
-        if archetype.has::<T>() {
-            Some(Access::Read)
-        } else {
-            None
-        }
+        Q::Fetch::access(archetype)
     }
 
     fn borrow(archetype: &Archetype) {
-        archetype.borrow::<T>();
+        Q::Fetch::borrow(archetype)
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
-                )
-            })
+        let state = archetype
+            .get_type_state(std::any::TypeId::of::<<Q::Fetch as SingleTypeFetch>::Fetched>())?;
+        Self::get_using_type_state(state, archetype, offset)
     }
 
     fn release(archetype: &Archetype) {
-        archetype.release::<T>();
+        Q::Fetch::release(archetype)
     }
 
     unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't mutated
-        !*self.1.as_ptr().add(n)
+        // Should not skip = !0.should_skip() && added
+        // Should skip = 0.should_skip() || !added
+        self.0.should_skip(n) || !*self.1.as_ptr().add(n)
     }
 
     #[inline]
     unsafe fn fetch(&self, n: usize) -> Self::Item {
         Mutated {
-            value: &*self.0.as_ptr().add(n),
+            value: self.0.fetch(n),
         }
     }
 }
 
 /// Query transformer that retrieves components of type `T` that have been added since the start of the frame.
-pub struct Added<'a, T> {
-    value: &'a T,
+pub struct Added<'a, Q: Query>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    value: <Q::Fetch as Fetch<'a>>::Item,
 }
 
-impl<'a, T: Component> Deref for Added<'a, T> {
-    type Target = T;
+impl<'a, Q: Query> Deref for Added<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item: Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched>,
+{
+    type Target = <Q::Fetch as SingleTypeFetch>::Fetched;
 
     #[inline]
-    fn deref(&self) -> &T {
-        self.value
+    fn deref(&self) -> &Self::Target {
+        &*self.value
     }
 }
 
-impl<'a, T: Component> Query for Added<'a, T> {
-    type Fetch = FetchAdded<T>;
+impl<'a, Q: Query> DerefMut for Added<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item:
+        Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched> + DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.value
+    }
+}
+
+impl<'a, Q: Query> Query for Added<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetch = FetchAdded<Q>;
 }
 
 #[doc(hidden)]
-pub struct FetchAdded<T>(NonNull<T>, NonNull<bool>);
-unsafe impl<T> ReadOnlyFetch for FetchAdded<T> {}
+pub struct FetchAdded<Q: Query>(Q::Fetch, NonNull<bool>);
 
-impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
-    type Item = Added<'a, T>;
+impl<'a, Q: Query> SingleTypeFetch for FetchAdded<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetched = <Q::Fetch as SingleTypeFetch>::Fetched;
 
-    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
+    unsafe fn get_using_type_state(
+        state: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self> {
+        Some(Self(
+            <Q::Fetch as SingleTypeFetch>::get_using_type_state(state, archetype, offset)?,
+            NonNull::new_unchecked(state.added().as_ptr().add(offset)),
+        ))
+    }
+}
+
+unsafe impl<Q: Query> ReadOnlyFetch for FetchAdded<Q> where Q::Fetch: ReadOnlyFetch {}
+
+impl<'a, Q: Query> Fetch<'a> for FetchAdded<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Item = Added<'a, Q>;
+
+    const DANGLING: Self = Self(<Q::Fetch as Fetch<'a>>::DANGLING, NonNull::dangling());
 
     fn access(archetype: &Archetype) -> Option<Access> {
-        if archetype.has::<T>() {
-            Some(Access::Read)
-        } else {
-            None
-        }
+        Q::Fetch::access(archetype)
     }
 
     fn borrow(archetype: &Archetype) {
-        archetype.borrow::<T>();
+        Q::Fetch::borrow(archetype)
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
-                )
-            })
+        let state = archetype
+            .get_type_state(std::any::TypeId::of::<<Q::Fetch as SingleTypeFetch>::Fetched>())?;
+        Self::get_using_type_state(state, archetype, offset)
     }
 
     fn release(archetype: &Archetype) {
-        archetype.release::<T>();
+        Q::Fetch::release(archetype)
     }
 
     unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't added
-        !*self.1.as_ptr().add(n)
+        // Should not skip = !0.should_skip() && added
+        // Should skip = 0.should_skip() || !added
+        self.0.should_skip(n) || !*self.1.as_ptr().add(n)
     }
 
     #[inline]
     unsafe fn fetch(&self, n: usize) -> Self::Item {
         Added {
-            value: &*self.0.as_ptr().add(n),
+            value: self.0.fetch(n),
         }
     }
 }
 
 /// Query transformer that retrieves components of type `T` that have either been mutated or added since the start of the frame.
-pub struct Changed<'a, T> {
-    value: &'a T,
+pub struct Changed<'a, Q: Query>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    value: <Q::Fetch as Fetch<'a>>::Item,
 }
 
-impl<'a, T: Component> Deref for Changed<'a, T> {
-    type Target = T;
+impl<'a, Q: Query> Deref for Changed<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item: Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched>,
+{
+    type Target = <Q::Fetch as SingleTypeFetch>::Fetched;
 
     #[inline]
-    fn deref(&self) -> &T {
-        self.value
+    fn deref(&self) -> &Self::Target {
+        &*self.value
     }
 }
 
-impl<'a, T: Component> Query for Changed<'a, T> {
-    type Fetch = FetchChanged<T>;
+impl<'a, Q: Query> DerefMut for Changed<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+    <Q::Fetch as Fetch<'a>>::Item:
+        Deref<Target = <Q::Fetch as SingleTypeFetch>::Fetched> + DerefMut,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.value
+    }
+}
+
+impl<'a, Q: Query> Query for Changed<'a, Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetch = FetchChanged<Q>;
 }
 
 #[doc(hidden)]
-pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>, NonNull<bool>);
-unsafe impl<T> ReadOnlyFetch for FetchChanged<T> {}
+pub struct FetchChanged<Q: Query>(Q::Fetch, NonNull<bool>, NonNull<bool>);
 
-impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
-    type Item = Changed<'a, T>;
+unsafe impl<Q: Query> ReadOnlyFetch for FetchChanged<Q> where Q::Fetch: ReadOnlyFetch {}
+
+impl<'a, Q: Query> SingleTypeFetch for FetchChanged<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Fetched = <Q::Fetch as SingleTypeFetch>::Fetched;
+
+    unsafe fn get_using_type_state(
+        state: &TypeState,
+        archetype: &Archetype,
+        offset: usize,
+    ) -> Option<Self> {
+        Some(Self(
+            <Q::Fetch as SingleTypeFetch>::get_using_type_state(state, archetype, offset)?,
+            NonNull::new_unchecked(state.added().as_ptr().add(offset)),
+            NonNull::new_unchecked(state.mutated().as_ptr().add(offset)),
+        ))
+    }
+}
+
+impl<'a, Q: Query> Fetch<'a> for FetchChanged<Q>
+where
+    Q::Fetch: SingleTypeFetch,
+{
+    type Item = Changed<'a, Q>;
 
     const DANGLING: Self = Self(
-        NonNull::dangling(),
+        <Q::Fetch as Fetch<'a>>::DANGLING,
         NonNull::dangling(),
         NonNull::dangling(),
     );
 
     fn access(archetype: &Archetype) -> Option<Access> {
-        if archetype.has::<T>() {
-            Some(Access::Read)
-        } else {
-            None
-        }
+        Q::Fetch::access(archetype)
     }
 
     fn borrow(archetype: &Archetype) {
-        archetype.borrow::<T>();
+        Q::Fetch::borrow(archetype)
     }
 
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
-                )
-            })
+        let state = archetype
+            .get_type_state(std::any::TypeId::of::<<Q::Fetch as SingleTypeFetch>::Fetched>())?;
+        Self::get_using_type_state(state, archetype, offset)
     }
 
     fn release(archetype: &Archetype) {
-        archetype.release::<T>();
+        Q::Fetch::release(archetype)
     }
 
     unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't added or mutated
-        !*self.1.as_ptr().add(n) && !*self.2.as_ptr().add(n)
+        // Should not skip = shouldn't skip(0) && (added || mutated)
+        // Should skip = 0.should_skip() || !(added||mutated)
+        self.0.should_skip(n) || !(*self.1.as_ptr().add(n) || *self.2.as_ptr().add(n))
     }
 
     #[inline]
     unsafe fn fetch(&self, n: usize) -> Self::Item {
         Changed {
-            value: &*self.0.as_ptr().add(n),
+            value: self.0.fetch(n),
         }
     }
 }
@@ -1072,7 +1213,7 @@ mod tests {
 
         fn get_added<Com: Component>(world: &World) -> Vec<Entity> {
             world
-                .query::<(Added<Com>, Entity)>()
+                .query::<(Added<&Com>, Entity)>()
                 .iter()
                 .map(|(_added, e)| e)
                 .collect::<Vec<Entity>>()
@@ -1090,7 +1231,7 @@ mod tests {
         assert_eq!(get_added::<B>(&world), vec![e2]);
 
         let added = world
-            .query::<(Entity, Added<A>, Added<B>)>()
+            .query::<(Entity, Added<&A>, Added<&B>)>()
             .iter()
             .map(|a| a.0)
             .collect::<Vec<Entity>>();
@@ -1113,7 +1254,7 @@ mod tests {
 
         fn get_changed_a(world: &mut World) -> Vec<Entity> {
             world
-                .query_mut::<(Mutated<A>, Entity)>()
+                .query_mut::<(Mutated<&A>, Entity)>()
                 .iter()
                 .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
@@ -1153,7 +1294,7 @@ mod tests {
         world.clear_trackers();
 
         assert!(world
-            .query_mut::<(Mutated<A>, Entity)>()
+            .query_mut::<(Mutated<&A>, Entity)>()
             .iter()
             .map(|(_a, e)| e)
             .collect::<Vec<Entity>>()
@@ -1176,7 +1317,7 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query_mut::<(Mutated<A>, Mutated<B>, Entity)>()
+            .query_mut::<(Mutated<&A>, Mutated<&B>, Entity)>()
             .iter()
             .map(|(_a, _b, e)| e)
             .collect::<Vec<Entity>>();
@@ -1201,7 +1342,7 @@ mod tests {
         }
 
         let a_b_changed = world
-            .query_mut::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
+            .query_mut::<(Or<(Mutated<&A>, Mutated<&B>)>, Entity)>()
             .iter()
             .map(|((_a, _b), e)| e)
             .collect::<Vec<Entity>>();
@@ -1216,7 +1357,7 @@ mod tests {
 
         fn get_changed(world: &World) -> Vec<Entity> {
             world
-                .query::<(Changed<A>, Entity)>()
+                .query::<(Changed<&A>, Entity)>()
                 .iter()
                 .map(|(_a, e)| e)
                 .collect::<Vec<Entity>>()
