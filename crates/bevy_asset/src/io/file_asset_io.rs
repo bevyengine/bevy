@@ -50,10 +50,10 @@ impl AssetIo for FileAssetIo {
                     file.read_to_end(&mut bytes)?;
                 }
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        return Err(AssetIoError::NotFound(path.to_owned()));
+                    return if e.kind() == std::io::ErrorKind::NotFound {
+                        Err(AssetIoError::NotFound(path.to_owned()))
                     } else {
-                        return Err(e.into());
+                        Err(e.into())
                     }
                 }
             }
