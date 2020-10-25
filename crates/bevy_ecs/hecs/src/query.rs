@@ -367,7 +367,7 @@ impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
 ///     *b += 1;
 /// }
 /// let components = world
-///     .query_mut::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
+///     .query_mut::<Or<(Mutated<&bool>, Mutated<&i32>, Mutated<&f64>, Mutated<&Option<i32>>)>>()
 ///     .iter()
 ///     .map(|(b, i, f, o)| (*b, *i))
 ///     .collect::<Vec<_>>();
