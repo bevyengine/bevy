@@ -34,8 +34,12 @@ impl Default for AnimationSplineThree {
 impl SplineGroup for AnimationSplineThree {
     type Sample = Vec3Option;
 
-    fn splines(&self) -> Vec<&Spline<f32, f32>> {
-        vec![&self.x, &self.y, &self.z]
+    fn spline_key_times(&self) -> Vec<Box<dyn DoubleEndedIterator<Item = f32> + '_>> {
+        vec![
+            Box::new(self.x.keys().iter().map(|key| key.t)),
+            Box::new(self.y.keys().iter().map(|key| key.t)),
+            Box::new(self.z.keys().iter().map(|key| key.t)),
+        ]
     }
 
     fn loop_style(&self) -> LoopStyle {

@@ -32,6 +32,13 @@ fn setup(
                 Key::new(1.5, -100.0, Interpolation::Linear),
                 Key::new(3.0, 100.0, Interpolation::Linear),
             ]),
+            rotation: Spline::from_vec(vec![
+                Key::new(0.0, Quat::identity().into(), Interpolation::Linear),
+                Key::new(0.5, Quat::from_xyzw(0., 0., 1., 0.).into(), Interpolation::Linear),
+                Key::new(1.0, Quat::from_xyzw(0., 0., 0., -1.).into(), Interpolation::Linear),
+                Key::new(1.5, Quat::from_xyzw(0., 0., -1., 0.).into(), Interpolation::Linear),
+                Key::new(2.0, Quat::from_xyzw(0., 0., 0., 1.).into(), Interpolation::Linear),
+            ]),
             translation_z: Spline::from_vec(vec![]),
             scale: Spline::from_vec(vec![
                 Key::new(0.0, 1.0, Interpolation::Cosine),

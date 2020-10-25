@@ -26,8 +26,8 @@ impl Default for AnimationSplineOne {
 impl SplineGroup for AnimationSplineOne {
     type Sample = Option<f32>;
 
-    fn splines(&self) -> Vec<&Spline<f32, f32>> {
-        vec![&self.spline]
+    fn spline_key_times(&self) -> Vec<Box<dyn DoubleEndedIterator<Item = f32> + '_>> {
+        vec![Box::new(self.spline.keys().iter().map(|key| key.t))]
     }
 
     fn loop_style(&self) -> LoopStyle {
