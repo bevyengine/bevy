@@ -116,7 +116,7 @@ impl Entities {
                         id,
                     }
                 }
-            }
+            };
         }
     }
 
