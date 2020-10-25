@@ -306,3 +306,6 @@ name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
 
+[[bin]]
+name = "resize"
+path = "tests/window_resize.rs"

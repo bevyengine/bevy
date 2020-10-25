@@ -183,7 +183,7 @@ pub fn winit_runner(mut app: App) {
 
         match event {
             event::Event::WindowEvent {
-                event: WindowEvent::Resized(size),
+                event: WindowEvent::Resized(mut size),
                 window_id: winit_window_id,
                 ..
             } => {
@@ -191,6 +191,10 @@ pub fn winit_runner(mut app: App) {
                 let mut windows = app.resources.get_mut::<Windows>().unwrap();
                 let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
                 let window = windows.get_mut(window_id).unwrap();
+
+                if size.width == 0 { size.width = 1 }
+                if size.height == 0 { size.height = 1 }
+
                 window.update_resolution_from_backend(size.width, size.height);
 
                 let mut resize_events = app.resources.get_mut::<Events<WindowResized>>().unwrap();
