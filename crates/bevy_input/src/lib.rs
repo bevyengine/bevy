@@ -55,6 +55,18 @@ impl Plugin for InputPlugin {
     }
 }
 
+/// Adds keyboard and mouse input to an App
+#[derive(Default)]
+pub struct KeyboardInputPlugin;
+
+impl Plugin for KeyboardInputPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_event::<KeyboardInput>()
+            .init_resource::<Input<KeyCode>>()
+            .add_system_to_stage(bevy_app::stage::EVENT, keyboard_input_system.system());
+    }
+}
+
 /// Adds mouse input to an App
 #[derive(Default)]
 pub struct MouseInputPlugin;
