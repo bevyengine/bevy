@@ -39,13 +39,9 @@ pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<KeyboardInput>()
-            .add_event::<MouseButtonInput>()
-            .add_event::<MouseMotion>()
-            .add_event::<MouseWheel>()
+            .add_plugin(MouseInputPlugin)
             .init_resource::<Input<KeyCode>>()
             .add_system_to_stage(bevy_app::stage::EVENT, keyboard_input_system.system())
-            .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(bevy_app::stage::EVENT, mouse_button_input_system.system())
             .add_event::<GamepadEvent>()
             .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
@@ -65,8 +61,7 @@ pub struct MouseInputPlugin;
 
 impl Plugin for MouseInputPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app
-            .add_event::<MouseButtonInput>()
+        app.add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
