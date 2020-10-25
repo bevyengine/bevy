@@ -91,7 +91,7 @@ impl Plugin for MouseInputPlugin {
 #[derive(Default)]
 pub struct TouchInputPlugin;
 
-impl Plugin for InputPlugin {
+impl Plugin for TouchInputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<TouchInput>()
             .init_resource::<Touches>()
