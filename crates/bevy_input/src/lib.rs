@@ -41,9 +41,7 @@ impl Plugin for InputPlugin {
         app.add_plugin(KeyboardInputPlugin)
             .add_plugin(MouseInputPlugin)
             .add_plugin(GamepadInputPlugin)
-            .add_event::<TouchInput>()
-            .init_resource::<Touches>()
-            .add_system_to_stage(bevy_app::stage::EVENT, touch_screen_input_system.system());
+            .add_plugin(TouchInputPlugin);
     }
 }
 
