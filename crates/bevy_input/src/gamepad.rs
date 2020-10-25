@@ -146,22 +146,22 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
+    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
-                return old_value;
+                return None;
             }
         }
         if new_value <= self.positive_low && new_value >= self.negative_low {
-            return 0.0;
+            return Some(0.0);
         }
         if new_value >= self.positive_high {
-            return 1.0;
+            return Some(1.0);
         }
         if new_value <= self.negative_high {
-            return -1.0;
+            return Some(-1.0);
         }
-        new_value
+        Some(new_value)
     }
 }
 
@@ -183,23 +183,22 @@ impl Default for ButtonAxisSettings {
 }
 
 impl ButtonAxisSettings {
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
+    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
-                return old_value;
+                return None;
             }
         }
         if new_value <= self.low {
-            return 0.0;
+            return Some(0.0);
         }
         if new_value >= self.high {
-            return 1.0;
+            return Some(1.0);
         }
-        new_value
+        Some(new_value)
     }
 }
 
-#[allow(clippy::float_cmp)]
 pub fn gamepad_event_system(
     mut event_reader: Local<EventReader<GamepadEventRaw>>,
     mut button_input: ResMut<Input<GamepadButton>>,
@@ -237,33 +236,29 @@ pub fn gamepad_event_system(
             }
             GamepadEventType::AxisChanged(axis_type, value) => {
                 let gamepad_axis = GamepadAxis(gamepad, *axis_type);
-                let old_value = axis.get(gamepad_axis);
-                let filtered_value = settings
+                if let Some(filtered_value) = settings
                     .get_axis_settings(gamepad_axis)
-                    .filter(*value, old_value);
-                axis.set(gamepad_axis, filtered_value);
-
-                // only send event if axis has changed after going through filters
-                if let Some(old_value) = old_value {
-                    if old_value == filtered_value {
-                        return;
-                    }
-                } else if filtered_value == 0.0 {
-                    return;
+                    .filter(*value, axis.get(gamepad_axis))
+                {
+                    axis.set(gamepad_axis, filtered_value);
+                    events.send(GamepadEvent(
+                        gamepad,
+                        GamepadEventType::AxisChanged(*axis_type, filtered_value),
+                    ))
                 }
-
-                events.send(GamepadEvent(
-                    gamepad,
-                    GamepadEventType::AxisChanged(*axis_type, filtered_value),
-                ))
             }
             GamepadEventType::ButtonChanged(button_type, value) => {
                 let gamepad_button = GamepadButton(gamepad, *button_type);
-                let old_value = button_axis.get(gamepad_button);
-                let filtered_value = settings
+                if let Some(filtered_value) = settings
                     .get_button_axis_settings(gamepad_button)
-                    .filter(*value, old_value);
-                button_axis.set(gamepad_button, filtered_value);
+                    .filter(*value, button_axis.get(gamepad_button))
+                {
+                    button_axis.set(gamepad_button, filtered_value);
+                    events.send(GamepadEvent(
+                        gamepad,
+                        GamepadEventType::ButtonChanged(*button_type, filtered_value),
+                    ))
+                }
 
                 let button_property = settings.get_button_settings(gamepad_button);
                 if button_input.pressed(gamepad_button) {
@@ -273,20 +268,6 @@ pub fn gamepad_event_system(
                 } else if button_property.is_pressed(*value) {
                     button_input.press(gamepad_button);
                 }
-
-                // only send event if axis has changed after going through filters
-                if let Some(old_value) = old_value {
-                    if old_value == filtered_value {
-                        return;
-                    }
-                } else if filtered_value == 0.0 {
-                    return;
-                }
-
-                events.send(GamepadEvent(
-                    gamepad,
-                    GamepadEventType::ButtonChanged(*button_type, filtered_value),
-                ))
             }
         }
     }
