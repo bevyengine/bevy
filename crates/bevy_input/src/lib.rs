@@ -88,3 +88,15 @@ impl Plugin for MouseInputPlugin {
             .add_system_to_stage(bevy_app::stage::EVENT, mouse_button_input_system.system());
     }
 }
+
+/// Adds keyboard, mouse, gamepad, and touch input to an App
+#[derive(Default)]
+pub struct TouchInputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_event::<TouchInput>()
+            .init_resource::<Touches>()
+            .add_system_to_stage(bevy_app::stage::EVENT, touch_screen_input_system.system());
+    }
+}
