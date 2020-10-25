@@ -1,4 +1,4 @@
-use crate::keyboard::{ElementState, KeyCode, KeyboardInput};
+use crate::{device_codes::KeyCode, events::KeyboardEvent, state::ElementState};
 use bevy_app::{
     prelude::{EventReader, Events},
     AppExit,
@@ -8,13 +8,13 @@ use bevy_ecs::{Local, Res, ResMut};
 /// Local "exit on escape" system state
 #[derive(Default)]
 pub struct ExitOnEscapeState {
-    reader: EventReader<KeyboardInput>,
+    reader: EventReader<KeyboardEvent>,
 }
 
 /// Sends the AppExit event whenever the "esc" key is pressed.
 pub fn exit_on_esc_system(
     mut state: Local<ExitOnEscapeState>,
-    keyboard_input_events: Res<Events<KeyboardInput>>,
+    keyboard_input_events: Res<Events<KeyboardEvent>>,
     mut app_exit_events: ResMut<Events<AppExit>>,
 ) {
     for event in state.reader.iter(&keyboard_input_events) {

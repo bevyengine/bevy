@@ -2,7 +2,7 @@ use crate::Node;
 use bevy_app::{EventReader, Events};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_input::{mouse::MouseButton, Input};
+use bevy_input::{mouse::MouseButton, Button};
 use bevy_math::Vec2;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::CursorMoved;
@@ -41,7 +41,7 @@ pub struct State {
 
 pub fn ui_focus_system(
     mut state: Local<State>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<Button<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     mut node_query: Query<(
         Entity,

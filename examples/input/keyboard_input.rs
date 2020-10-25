@@ -1,5 +1,5 @@
 use bevy::{
-    input::{keyboard::KeyCode, Input},
+    input::{keyboard::KeyCode, Button},
     prelude::*,
 };
 
@@ -11,7 +11,7 @@ fn main() {
 }
 
 /// This system prints 'A' key state
-fn keyboard_input_system(keyboard_input: Res<Input<KeyCode>>) {
+fn keyboard_input_system(keyboard_input: Res<Button<KeyCode>>) {
     if keyboard_input.pressed(KeyCode::A) {
         println!("'A' currently pressed");
     }

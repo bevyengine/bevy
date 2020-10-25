@@ -27,7 +27,7 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
 }
 
 /// This system toggles the cursor's visibility when the space bar is pressed
-fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+fn toggle_cursor(input: Res<Button<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.get_primary_mut().unwrap();
     if input.just_pressed(KeyCode::Space) {
         window.set_cursor_lock_mode(!window.cursor_locked());
