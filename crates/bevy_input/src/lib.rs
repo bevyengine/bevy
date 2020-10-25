@@ -32,7 +32,7 @@ use gamepad::{
     GamepadSettings,
 };
 
-/// Adds keyboard and mouse input to an App
+/// Adds keyboard, mouse, gamepad, and touch input to an App
 #[derive(Default)]
 pub struct InputPlugin;
 
@@ -40,20 +40,14 @@ impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(KeyboardInputPlugin)
             .add_plugin(MouseInputPlugin)
-            .add_event::<GamepadEvent>()
-            .add_event::<GamepadEventRaw>()
-            .init_resource::<GamepadSettings>()
-            .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>()
-            .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(bevy_app::stage::EVENT, gamepad_event_system.system())
+            .add_plugin(GamepadInputPlugin)
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(bevy_app::stage::EVENT, touch_screen_input_system.system());
     }
 }
 
-/// Adds keyboard and mouse input to an App
+/// Adds gamepad input to an App
 #[derive(Default)]
 pub struct GamepadInputPlugin;
 
@@ -69,7 +63,7 @@ impl Plugin for GamepadInputPlugin {
     }
 }
 
-/// Adds keyboard and mouse input to an App
+/// Adds keyboard input to an App
 #[derive(Default)]
 pub struct KeyboardInputPlugin;
 
