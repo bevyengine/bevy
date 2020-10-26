@@ -1,8 +1,11 @@
 use super::keyboard::ElementState;
-use crate::Input;
+use crate::core::Input;
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
+
+pub mod mouseplugin;
+pub use mouseplugin::MouseInputPlugin;
 
 /// A mouse button input event
 #[derive(Debug, Clone)]

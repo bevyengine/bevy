@@ -2,7 +2,7 @@
 //! Implements a bevy plugin that adds the resources and systems to facilitate mouse input
 
 use crate::{
-    input::Input,
+    core::Input,
     mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel},
 };
 use bevy_app::prelude::*;

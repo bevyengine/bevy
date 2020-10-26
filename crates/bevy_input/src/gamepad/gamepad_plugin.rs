@@ -2,12 +2,11 @@
 //! Implements a bevy plugin that adds the resources and systems to facilitate gamepad input
 
 use crate::{
-    axis::Axis,
+    core::{Axis, Input},
     gamepad::{
         gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
         GamepadSettings,
     },
-    input::Input,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;

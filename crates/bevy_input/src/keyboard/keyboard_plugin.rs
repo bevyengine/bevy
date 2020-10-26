@@ -2,7 +2,7 @@
 //! Implements a bevy plugin that adds the resources and systems to facilitate keyboard input
 
 use crate::{
-    input::Input,
+    core::input::Input,
     keyboard::{keyboard_input_system, KeyCode, KeyboardInput},
 };
 use bevy_app::prelude::*;

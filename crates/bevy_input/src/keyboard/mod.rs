@@ -1,6 +1,16 @@
-use crate::Input;
+use crate::core::Input;
 use bevy_app::prelude::*;
 use bevy_ecs::{Local, Res, ResMut};
+
+pub mod keyboard_plugin;
+
+// Export public exports module
+pub use prelude::*;
+
+/// Public exports module
+pub mod prelude {
+    pub use super::keyboard_plugin::KeyboardInputPlugin;
+}
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]

@@ -1,25 +1,22 @@
-mod axis;
+pub mod abstract_device;
+pub mod core;
 pub mod gamepad;
-mod input;
 pub mod keyboard;
 pub mod mouse;
-mod plugins;
-pub mod system;
 pub mod touch;
 
-pub use axis::*;
-pub use input::*;
-pub use plugins::prelude::*;
+// Export public exports module
+pub use prelude::*;
 
+/// Public exports module
 pub mod prelude {
     pub use crate::{
+        core::{Axis, Input, InputPlugin},
         gamepad::{
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
             GamepadEventType,
         },
-        keyboard::KeyCode,
-        mouse::MouseButton,
-        plugins::prelude::*,
-        Axis, Input,
+        keyboard::{KeyCode, KeyboardInputPlugin},
+        mouse::{MouseButton, MouseInputPlugin},
     };
 }

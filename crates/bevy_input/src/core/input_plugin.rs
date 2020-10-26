@@ -1,7 +1,10 @@
 //! Input Plugin Module.
 //! Implements a bevy plugin that adds the resources and systems for mouse, keyboard, touch, and gamepad input
 
-use super::prelude::*;
+use crate::{
+    gamepad::GamepadInputPlugin, keyboard::KeyboardInputPlugin, mouse::MouseInputPlugin,
+    touch::TouchInputPlugin,
+};
 use bevy_app::prelude::*;
 
 /// Adds keyboard, mouse, gamepad, and touch input to an App
