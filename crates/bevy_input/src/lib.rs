@@ -1,4 +1,3 @@
-pub mod abstract_device;
 pub mod core;
 pub mod gamepad;
 pub mod keyboard;
