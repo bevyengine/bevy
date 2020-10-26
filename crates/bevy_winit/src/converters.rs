@@ -1,5 +1,6 @@
 use bevy_input::{
-    keyboard::{ElementState, KeyCode, KeyboardInput},
+    core::ElementState,
+    keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
     touch::{TouchInput, TouchPhase},
 };

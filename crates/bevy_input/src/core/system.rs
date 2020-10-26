@@ -1,4 +1,7 @@
-use crate::keyboard::{ElementState, KeyCode, KeyboardInput};
+use crate::{
+    core::ElementState,
+    keyboard::{KeyCode, KeyboardInput},
+};
 use bevy_app::{
     prelude::{EventReader, Events},
     AppExit,
