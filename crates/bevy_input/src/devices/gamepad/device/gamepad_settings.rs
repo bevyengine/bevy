@@ -1,4 +1,6 @@
-use bevy_input::gamepad::ButtonSettings;
+use crate::devices::gamepad::{
+    AxisSettings, ButtonAxisSettings, ButtonSettings, GamepadAxis, GamepadButton,
+};
 
 #[derive(Default, Debug)]
 pub struct GamepadSettings {
