@@ -1,4 +1,4 @@
-use crate::core::{ElementState, Input};
+use crate::{core::{ElementState, Input}, devices::mouse::{MouseButtonInputState, MouseButton, MouseButtonInput}};
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
