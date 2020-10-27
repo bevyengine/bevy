@@ -1,8 +1,8 @@
 use crate::{
     core::{Axis, Input},
     devices::gamepad::{
-        GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw, GamepadEventType,
-        GamepadSettings,
+        axis::axis_type::ALL_AXIS_TYPES, button::button_type::ALL_BUTTON_TYPES, GamepadAxis,
+        GamepadButton, GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings,
     },
 };
 use bevy_app::{EventReader, Events};

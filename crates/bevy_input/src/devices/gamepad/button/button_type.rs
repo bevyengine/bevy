@@ -22,7 +22,7 @@ pub enum GamepadButtonType {
     DPadRight,
 }
 
-const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
+pub(crate) const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
     GamepadButtonType::South,
     GamepadButtonType::East,
     GamepadButtonType::North,
