@@ -1,5 +1,8 @@
 use crate::devices::touch::{Touch, TouchInput, TouchPhase, Touches};
+use bevy_app::{EventReader, Events};
+use bevy_ecs::{Local, Res, ResMut};
 
+// TODO look into the design of systems like these
 /// Updates the Touches resource with the latest TouchInput events
 pub fn touch_screen_input_system(
     mut state: Local<TouchSystemState>,
