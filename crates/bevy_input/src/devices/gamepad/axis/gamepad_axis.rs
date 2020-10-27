@@ -1,5 +1,6 @@
 //! Gamepad input axis implementation module
-use crate::axis_type::GamepadAxisType;
+
+use crate::devices::gamepad::{Gamepad, GamepadAxisType};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
