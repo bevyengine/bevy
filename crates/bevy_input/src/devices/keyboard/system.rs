@@ -2,7 +2,7 @@
 
 use crate::{
     core::{ElementState, Input},
-    keyboard_devices::prelude::*,
+    devices::keyboard::{KeyCode, KeyboardInput, KeyboardInputState},
 };
 use bevy_app::prelude::*;
 use bevy_ecs::{Local, Res, ResMut};
