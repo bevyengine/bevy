@@ -1,0 +1,46 @@
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub enum GamepadButtonType {
+    South,
+    East,
+    North,
+    West,
+    C,
+    Z,
+    LeftTrigger,
+    LeftTrigger2,
+    RightTrigger,
+    RightTrigger2,
+    Select,
+    Start,
+    Mode,
+    LeftThumb,
+    RightThumb,
+    DPadUp,
+    DPadDown,
+    DPadLeft,
+    DPadRight,
+}
+
+const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
+    GamepadButtonType::South,
+    GamepadButtonType::East,
+    GamepadButtonType::North,
+    GamepadButtonType::West,
+    GamepadButtonType::C,
+    GamepadButtonType::Z,
+    GamepadButtonType::LeftTrigger,
+    GamepadButtonType::LeftTrigger2,
+    GamepadButtonType::RightTrigger,
+    GamepadButtonType::RightTrigger2,
+    GamepadButtonType::Select,
+    GamepadButtonType::Start,
+    GamepadButtonType::Mode,
+    GamepadButtonType::LeftThumb,
+    GamepadButtonType::RightThumb,
+    GamepadButtonType::DPadUp,
+    GamepadButtonType::DPadDown,
+    GamepadButtonType::DPadLeft,
+    GamepadButtonType::DPadRight,
+];
+

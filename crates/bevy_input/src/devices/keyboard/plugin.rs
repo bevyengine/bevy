@@ -1,14 +1,14 @@
 //! Keyboard Input Plugin Module.
-//! Implements a bevy plugin that adds the resources and systems to facilitate keyboard input
+//! Implements a bevy plugin that adds the resources and systems to facilitate keyboard_device input
 
 use crate::{
     core::input::Input,
-    keyboard::{keyboard_input_system, KeyCode, KeyboardInput},
+    keyboard_devices::{keyboard_input_system, KeyCode, KeyboardInput},
 };
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 
-/// Adds keyboard input to an App
+/// Adds keyboard_device input to an App
 #[derive(Default)]
 pub struct KeyboardInputPlugin;
 

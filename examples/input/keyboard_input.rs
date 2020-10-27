@@ -1,5 +1,5 @@
 use bevy::{
-    input::{keyboard::KeyCode, Input},
+    input::{keyboard_devices::KeyCode, Input},
     prelude::*,
 };
 

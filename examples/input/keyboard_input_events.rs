@@ -1,4 +1,4 @@
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use bevy::{input::keyboard_devices::KeyboardInput, prelude::*};
 
 fn main() {
     App::build()
@@ -12,7 +12,7 @@ struct State {
     event_reader: EventReader<KeyboardInput>,
 }
 
-/// This system prints out all keyboard events as they come in
+/// This system prints out all keyboard_devices events as they come in
 fn print_keyboard_event_system(
     mut state: Local<State>,
     keyboard_input_events: Res<Events<KeyboardInput>>,

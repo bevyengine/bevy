@@ -1,9 +1,9 @@
 //! Gamepad Input Plugin Module.
-//! Implements a bevy plugin that adds the resources and systems to facilitate gamepad input
+//! Implements a bevy plugin that adds the resources and systems to facilitate gamepad_device input
 
 use crate::{
     core::{Axis, Input},
-    gamepad::{
+    gamepad_device::{
         gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
         GamepadSettings,
     },
@@ -11,7 +11,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 
-/// Adds gamepad input to an App
+/// Adds gamepad_device input to an App
 #[derive(Default)]
 pub struct GamepadInputPlugin;
 

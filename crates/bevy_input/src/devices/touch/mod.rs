@@ -3,8 +3,8 @@ use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
 use bevy_utils::{HashMap, HashSet};
 
-pub mod touchplugin;
-pub use touchplugin::TouchInputPlugin;
+pub mod touch_plugin;
+pub use touch_plugin::TouchInputPlugin;
 
 /// A touch input event
 #[derive(Debug, Clone)]

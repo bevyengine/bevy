@@ -1,6 +1,6 @@
 //! Keyboard Keycode module
 
-/// The key code of a keyboard input.
+/// The key code of a keyboard_device input.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u32)]

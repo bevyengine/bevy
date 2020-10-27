@@ -1,8 +1,5 @@
 pub mod core;
-pub mod gamepad;
-pub mod keyboard;
-pub mod mouse;
-pub mod touch;
+pub mod devices;
 
 // Export public exports module
 pub use prelude::*;
