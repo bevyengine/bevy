@@ -2,7 +2,7 @@ use crate::Node;
 use bevy_app::{EventReader, Events};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_input::{mouse::MouseButton, Input};
+use bevy_input::{devices::mouse::MouseButton, Input};
 use bevy_math::Vec2;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::CursorMoved;
