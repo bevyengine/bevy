@@ -15,6 +15,7 @@ pub mod prelude {
             },
             keyboard::{KeyCode, KeyboardInputPlugin},
             mouse::{MouseButton, MouseInputPlugin},
+            touch::{Touch, TouchInputPlugin},
         },
     };
 }
