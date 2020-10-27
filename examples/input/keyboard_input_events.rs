@@ -1,4 +1,4 @@
-use bevy::{input::keyboard_devices::KeyboardInput, prelude::*};
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 fn main() {
     App::build()

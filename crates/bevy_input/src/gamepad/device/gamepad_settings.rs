@@ -1,4 +1,4 @@
-use crate::devices::gamepad::{
+use crate::gamepad::{
     AxisSettings, ButtonAxisSettings, ButtonSettings, GamepadAxis, GamepadButton,
 };
 use bevy_ecs::bevy_utils::HashMap;

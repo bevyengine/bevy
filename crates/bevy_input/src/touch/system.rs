@@ -1,4 +1,4 @@
-use crate::devices::touch::{Touch, TouchInput, TouchPhase, Touches};
+use crate::touch::{Touch, TouchInput, TouchPhase, Touches};
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 

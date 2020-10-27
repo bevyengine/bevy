@@ -1,7 +1,7 @@
 //! Touch Input Plugin Module.
 //! Implements a bevy plugin that adds the resources and systems to facilitate touch input
 
-use crate::devices::touch::{touch_screen_input_system, TouchInput, Touches};
+use crate::touch::{touch_screen_input_system, TouchInput, Touches};
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
 

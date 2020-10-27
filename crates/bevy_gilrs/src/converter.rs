@@ -1,4 +1,4 @@
-use bevy_input::devices::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
+use bevy_input::gamepad::{Gamepad, GamepadAxisType, GamepadButtonType};
 
 pub fn convert_gamepad_id(gamepad_id: gilrs::GamepadId) -> Gamepad {
     Gamepad(gamepad_id.into())

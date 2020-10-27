@@ -1,6 +1,6 @@
 //! Keyboard input implementation module
 
-use crate::{core::ElementState, devices::keyboard::KeyCode};
+use crate::{core::ElementState, keyboard::KeyCode};
 use bevy_app::prelude::*;
 
 /// A key input event from a keyboard_device device

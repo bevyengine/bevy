@@ -1,6 +1,6 @@
 use crate::{
     core::{ElementState, Input},
-    devices::mouse::{MouseButton, MouseButtonInput, MouseButtonInputState},
+    mouse::{MouseButton, MouseButtonInput, MouseButtonInputState},
 };
 use bevy_app::prelude::Events;
 use bevy_ecs::{Local, Res, ResMut};

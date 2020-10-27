@@ -1,7 +1,7 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_app::Events;
 use bevy_ecs::{Resources, World};
-use bevy_input::{devices::gamepad::GamepadEventRaw, prelude::*};
+use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{EventType, Gilrs};
 
 pub fn gilrs_event_system(_world: &mut World, resources: &mut Resources) {

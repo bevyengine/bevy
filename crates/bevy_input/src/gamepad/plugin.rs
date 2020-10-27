@@ -3,7 +3,7 @@
 
 use crate::{
     core::{Axis, Input},
-    devices::gamepad::{
+    gamepad::{
         gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
         GamepadSettings,
     },

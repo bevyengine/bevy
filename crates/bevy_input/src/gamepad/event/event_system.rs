@@ -1,6 +1,6 @@
 use crate::{
     core::{Axis, Input},
-    devices::gamepad::{
+    gamepad::{
         axis::axis_type::ALL_AXIS_TYPES, button::button_type::ALL_BUTTON_TYPES, GamepadAxis,
         GamepadButton, GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings,
     },

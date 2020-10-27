@@ -1,5 +1,8 @@
 pub mod core;
-pub mod devices;
+pub mod gamepad;
+pub mod keyboard;
+pub mod mouse;
+pub mod touch;
 
 // Export public exports module
 pub use prelude::*;
@@ -7,15 +10,7 @@ pub use prelude::*;
 /// Public exports module
 pub mod prelude {
     pub use crate::{
-        core::{Axis, Input, InputPlugin},
-        devices::{
-            gamepad::{
-                Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
-                GamepadEvent, GamepadEventType,
-            },
-            keyboard::{KeyCode, KeyboardInputPlugin},
-            mouse::{MouseButton, MouseInputPlugin},
-            touch::{Touch, TouchInputPlugin},
-        },
+        core::prelude::*, gamepad::prelude::*, keyboard::prelude::*, mouse::prelude::*,
+        touch::prelude::*,
     };
 }

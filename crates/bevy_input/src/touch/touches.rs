@@ -1,4 +1,4 @@
-use crate::devices::touch::Touch;
+use crate::touch::Touch;
 use bevy_utils::{HashMap, HashSet};
 
 #[derive(Default)]
