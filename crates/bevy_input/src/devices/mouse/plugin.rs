@@ -3,7 +3,9 @@
 
 use crate::{
     core::Input,
-    mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel},
+    devices::mouse::{
+        mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel,
+    },
 };
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
