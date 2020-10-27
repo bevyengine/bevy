@@ -1,5 +1,4 @@
 //! Gamepad input axis type module
-use crate::GamepadAxisType;
 use core::{default::Default, option::Option::Some};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
