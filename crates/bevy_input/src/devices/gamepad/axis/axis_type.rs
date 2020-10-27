@@ -14,7 +14,7 @@ pub enum GamepadAxisType {
     DPadY,
 }
 
-const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
+pub(crate) const ALL_AXIS_TYPES: [GamepadAxisType; 8] = [
     GamepadAxisType::LeftStickX,
     GamepadAxisType::LeftStickY,
     GamepadAxisType::LeftZ,
