@@ -25,7 +25,7 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
+    pub(crate) fn filter(&self, new_value: f32, old_value: Option<f32>) -> f32 {
         if let Some(old_value) = old_value {
             if (new_value - old_value).abs() <= self.threshold {
                 return old_value;

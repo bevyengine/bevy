@@ -16,11 +16,11 @@ impl Default for ButtonSettings {
 }
 
 impl ButtonSettings {
-    fn is_pressed(&self, value: f32) -> bool {
+    pub(crate) fn is_pressed(&self, value: f32) -> bool {
         value >= self.press
     }
 
-    fn is_released(&self, value: f32) -> bool {
+    pub(crate) fn is_released(&self, value: f32) -> bool {
         value <= self.release
     }
 }

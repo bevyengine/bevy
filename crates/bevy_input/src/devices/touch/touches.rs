@@ -6,10 +6,10 @@ use bevy_utils::{HashMap, HashSet};
 
 #[derive(Default)]
 pub struct Touches {
-    active_touches: HashMap<u64, Touch>,
-    just_pressed: HashSet<u64>,
-    just_released: HashSet<u64>,
-    just_cancelled: HashSet<u64>,
+    pub(crate) active_touches: HashMap<u64, Touch>,
+    pub(crate) just_pressed: HashSet<u64>,
+    pub(crate) just_released: HashSet<u64>,
+    pub(crate) just_cancelled: HashSet<u64>,
 }
 
 impl Touches {
