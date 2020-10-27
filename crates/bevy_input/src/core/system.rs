@@ -1,6 +1,6 @@
 use crate::{
     core::ElementState,
-    keyboard_devices::{KeyCode, KeyboardInput},
+    devices::keyboard::{KeyCode, KeyboardInput},
 };
 use bevy_app::{
     prelude::{EventReader, Events},
