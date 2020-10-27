@@ -1,7 +1,4 @@
 use crate::devices::touch::Touch;
-use bevy_app::{EventReader, Events};
-use bevy_ecs::{Local, Res, ResMut};
-use bevy_math::Vec2;
 use bevy_utils::{HashMap, HashSet};
 
 #[derive(Default)]

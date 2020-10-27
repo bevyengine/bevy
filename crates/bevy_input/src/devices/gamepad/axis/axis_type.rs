@@ -1,5 +1,4 @@
 //! Gamepad input axis type module
-use core::{default::Default, option::Option::Some};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
