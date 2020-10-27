@@ -288,12 +288,17 @@ name = "text"
 path = "examples/ui/text.rs"
 
 [[example]]
+name = "text_debug"
+path = "examples/ui/text_debug.rs"
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
 [[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
+
 
 [[example]]
 name = "clear_color"
@@ -336,3 +341,4 @@ path = "examples/android/android.rs"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 min_sdk_version = 16
 target_sdk_version = 29
+

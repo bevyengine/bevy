@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use ab_glyph::FontArc;
+use ab_glyph::{Font as _, FontArc, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
 use bevy_math::{Size, Vec2};
 use bevy_render::prelude::Texture;
@@ -34,12 +34,12 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Size,
-        screen_position: Vec2,
+        // screen_position: Vec2,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         // Todo: handle cache
         let geom = SectionGeometry {
             bounds: (bounds.width, bounds.height),
-            screen_position: (screen_position.x(), screen_position.y()),
+            // screen_position: (screen_position.x(), screen_position.y()),
             ..Default::default()
         };
         let section_glyphs = Layout::default().calculate_glyphs(&self.fonts, &geom, sections);
@@ -50,9 +50,10 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Size,
-        screen_position: Vec2,
+        // screen_position: Vec2,
     ) -> Result<(), TextError> {
-        let glyphs = self.compute_glyphs(sections, bounds, screen_position)?;
+        // let glyphs = self.compute_glyphs(sections, bounds, screen_position)?;
+        let glyphs = self.compute_glyphs(sections, bounds)?;
         let mut sq = self
             .section_queue
             .lock()
@@ -75,32 +76,60 @@ impl GlyphBrush {
         let sq = std::mem::replace(&mut *sq, Vec::new());
         let vertices = sq
             .into_iter()
-            .map(|glyphs| {
+            .map(|section_glyphs| {
                 let mut vertices = Vec::new();
-                for glyph in glyphs {
-                    let handle = &self.handles[glyph.font_id.0];
-                    let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
-                    let font_atlas_set = font_atlas_set_storage
-                        .get_or_insert_with(handle_font_atlas, || {
-                            FontAtlasSet::new(handle.clone())
+
+                let mut max_y: f32 = 0.0;
+                for section_glyph in section_glyphs.iter() {
+                    let handle = &self.handles[section_glyph.font_id.0];
+                    let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
+                    let glyph = &section_glyph.glyph;
+                    let scaled_font = ab_glyph::Font::as_scaled(&font.font, glyph.scale.y);
+                    // glyph.position.y = baseline
+                    max_y = max_y.max(glyph.position.y - scaled_font.descent());
+                }
+                max_y = max_y.floor();
+
+                for section_glyph in section_glyphs {
+                    let handle = &self.handles[section_glyph.font_id.0];
+                    let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
+                    let glyph_id = section_glyph.glyph.id;
+                    let font_size = section_glyph.glyph.scale.y;
+                    if let Some(outlined_glyph) = font.font.outline_glyph(section_glyph.glyph) {
+                        let bounds = outlined_glyph.px_bounds();
+                        let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
+                        let font_atlas_set = font_atlas_set_storage
+                            .get_or_insert_with(handle_font_atlas, || {
+                                FontAtlasSet::new(handle.clone())
+                            });
+
+                        let atlas_info = font_atlas_set
+                            .get_glyph_atlas_info(font_size, glyph_id)
+                            .map(|gaf| Ok(gaf))
+                            .unwrap_or_else(|| {
+                                font_atlas_set.add_glyph_to_atlas(
+                                    texture_atlases,
+                                    textures,
+                                    outlined_glyph,
+                                )
+                            })?;
+
+                        let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                        let glyph_rect = texture_atlas.textures[atlas_info.glyph_index as usize];
+                        let glyph_width = glyph_rect.width();
+                        let glyph_height = glyph_rect.height();
+
+                        let x = bounds.min.x + glyph_width / 2.0;
+                        // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
+                        // max_y = text block height, and up is negative (whereas for transform, up is positive)
+                        let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;
+                        let position = Vec2::new(x, y);
+
+                        vertices.push(TextVertex {
+                            position,
+                            atlas_info,
                         });
-                    let position = glyph.glyph.position;
-                    let position = Vec2::new(position.x + glyph.glyph.scale.x/2., position.y - glyph.glyph.scale.y - glyph.glyph.scale.y /2. );
-                    let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(glyph.glyph.scale.y, glyph.glyph.id)
-                        .map(|gaf| Ok(gaf))
-                        .unwrap_or_else(|| {
-                            font_atlas_set.add_glyph_to_atlas(
-                                fonts,
-                                texture_atlases,
-                                textures,
-                                glyph.glyph,
-                            )
-                        })?;
-                    vertices.push(TextVertex {
-                        position,
-                        atlas_info,
-                    });
+                    }
                 }
                 Ok(vertices)
             })

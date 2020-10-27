@@ -54,69 +54,69 @@ impl Font {
     }
 
     // adapted from ab_glyph example: https://github.com/alexheretic/ab-glyph/blob/master/dev/examples/image.rs
-    pub fn render_text(
-        &self,
-        text: &str,
-        color: Color,
-        font_size: f32,
-        width: usize,
-        height: usize,
-    ) -> Texture {
-        let scale = PxScale::from(font_size);
+    // pub fn render_text(
+    //     &self,
+    //     text: &str,
+    //     color: Color,
+    //     font_size: f32,
+    //     width: usize,
+    //     height: usize,
+    // ) -> Texture {
+    //     let scale = PxScale::from(font_size);
 
-        let scaled_font = ab_glyph::Font::as_scaled(&self.font, scale);
+    //     let scaled_font = ab_glyph::Font::as_scaled(&self.font, scale);
 
-        let mut glyphs = Vec::new();
-        layout_paragraph(
-            scaled_font,
-            ab_glyph::point(0.0, 0.0),
-            width as f32,
-            text,
-            &mut glyphs,
-        );
+    //     let mut glyphs = Vec::new();
+    //     layout_paragraph(
+    //         scaled_font,
+    //         ab_glyph::point(0.0, 0.0),
+    //         width as f32,
+    //         text,
+    //         &mut glyphs,
+    //     );
 
-        let color_u8 = [
-            (color.r() * 255.0) as u8,
-            (color.g() * 255.0) as u8,
-            (color.b() * 255.0) as u8,
-        ];
+    //     let color_u8 = [
+    //         (color.r() * 255.0) as u8,
+    //         (color.g() * 255.0) as u8,
+    //         (color.b() * 255.0) as u8,
+    //     ];
 
-        // TODO: this offset is a bit hackey
-        let mut alpha = vec![0.0; width * height];
-        for glyph in glyphs {
-            if let Some(outlined) = scaled_font.outline_glyph(glyph) {
-                let bounds = outlined.px_bounds();
-                // Draw the glyph into the image per-pixel by using the draw closure
-                outlined.draw(|x, y, v| {
-                    // Offset the position by the glyph bounding box
-                    // Turn the coverage into an alpha value (blended with any previous)
-                    let offset_x = x as usize + bounds.min.x as usize;
-                    let offset_y = y as usize + bounds.min.y as usize;
-                    if offset_x >= width || offset_y >= height {
-                        return;
-                    }
-                    alpha[offset_y * width + offset_x] = v;
-                });
-            }
-        }
+    //     // TODO: this offset is a bit hackey
+    //     let mut alpha = vec![0.0; width * height];
+    //     for glyph in glyphs {
+    //         if let Some(outlined) = scaled_font.outline_glyph(glyph) {
+    //             let bounds = outlined.px_bounds();
+    //             // Draw the glyph into the image per-pixel by using the draw closure
+    //             outlined.draw(|x, y, v| {
+    //                 // Offset the position by the glyph bounding box
+    //                 // Turn the coverage into an alpha value (blended with any previous)
+    //                 let offset_x = x as usize + bounds.min.x as usize;
+    //                 let offset_y = y as usize + bounds.min.y as usize;
+    //                 if offset_x >= width || offset_y >= height {
+    //                     return;
+    //                 }
+    //                 alpha[offset_y * width + offset_x] = v;
+    //             });
+    //         }
+    //     }
 
-        Texture::new(
-            Vec2::new(width as f32, height as f32),
-            alpha
-                .iter()
-                .map(|a| {
-                    vec![
-                        color_u8[0],
-                        color_u8[1],
-                        color_u8[2],
-                        (color.a() * a * 255.0) as u8,
-                    ]
-                })
-                .flatten()
-                .collect::<Vec<u8>>(),
-            TextureFormat::Rgba8UnormSrgb,
-        )
-    }
+    //     Texture::new(
+    //         Vec2::new(width as f32, height as f32),
+    //         alpha
+    //             .iter()
+    //             .map(|a| {
+    //                 vec![
+    //                     color_u8[0],
+    //                     color_u8[1],
+    //                     color_u8[2],
+    //                     (color.a() * a * 255.0) as u8,
+    //                 ]
+    //             })
+    //             .flatten()
+    //             .collect::<Vec<u8>>(),
+    //         TextureFormat::Rgba8UnormSrgb,
+    //     )
+    // }
 }
 
 fn layout_paragraph<F, SF>(
