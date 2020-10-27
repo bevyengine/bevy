@@ -1,6 +1,7 @@
 use crate::devices::gamepad::{
     AxisSettings, ButtonAxisSettings, ButtonSettings, GamepadAxis, GamepadButton,
 };
+use bevy_ecs::bevy_utils::HashMap;
 
 #[derive(Default, Debug)]
 pub struct GamepadSettings {
