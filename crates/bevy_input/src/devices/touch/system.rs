@@ -1,4 +1,4 @@
-use bevy_input::devices::touch::{Touch, TouchInput, TouchPhase, TouchSystemState, Touches};
+use crate::devices::touch::{Touch, TouchInput, TouchPhase, Touches};
 
 /// Updates the Touches resource with the latest TouchInput events
 pub fn touch_screen_input_system(
