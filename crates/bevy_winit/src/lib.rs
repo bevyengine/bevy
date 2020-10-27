@@ -1,7 +1,7 @@
 mod converters;
 mod winit_config;
 mod winit_windows;
-use bevy_input::{
+use bevy_input::devices::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     touch::TouchInput,
