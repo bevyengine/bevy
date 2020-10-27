@@ -1,4 +1,4 @@
-use bevy_input::devices::touch::{TouchSystemState, Touches, TouchInput, TouchPhase, Touch};
+use bevy_input::devices::touch::{Touch, TouchInput, TouchPhase, TouchSystemState, Touches};
 
 /// Updates the Touches resource with the latest TouchInput events
 pub fn touch_screen_input_system(
@@ -54,4 +54,3 @@ pub fn touch_screen_input_system(
 pub struct TouchSystemState {
     touch_event_reader: EventReader<TouchInput>,
 }
-

@@ -9,5 +9,8 @@ pub mod button_type;
 pub use prelude::*;
 
 pub mod prelude {
-    pub use super::{axis_settings::ButtonAxisSettings, button_device::GamepadButton, button_settings::ButtonSettings, button_type::GamepadButtonType};
+    pub use super::{
+        axis_settings::ButtonAxisSettings, button_device::GamepadButton,
+        button_settings::ButtonSettings, button_type::GamepadButtonType,
+    };
 }

@@ -1,8 +1,8 @@
 use crate::core::{ElementState, Input};
 use bevy_app::prelude::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
-use bevy_math::Vec2;
 use bevy_input::core::element_state::ElementState;
+use bevy_math::Vec2;
 
 /// A mouse button input event
 #[derive(Debug, Clone)]
@@ -26,4 +26,3 @@ pub enum MouseButton {
 pub struct MouseButtonInputState {
     pub(crate) mouse_button_input_event_reader: EventReader<MouseButtonInput>,
 }
-

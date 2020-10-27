@@ -9,4 +9,3 @@ use glam::f32::vec2::Vec2;
 pub struct MouseMotion {
     pub delta: Vec2,
 }
-

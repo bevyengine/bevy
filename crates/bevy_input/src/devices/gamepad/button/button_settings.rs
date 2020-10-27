@@ -24,5 +24,3 @@ impl ButtonSettings {
         value <= self.release
     }
 }
-
-

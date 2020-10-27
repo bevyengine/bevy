@@ -29,4 +29,3 @@ impl GamepadSettings {
             .unwrap_or(&self.default_button_axis_settings)
     }
 }
-

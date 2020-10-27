@@ -16,7 +16,6 @@ pub mod prelude {
         motion::MouseMotion,
         plugin::MouseInputPlugin,
         system::mouse_button_input_system,
-        wheel::{MouseWheel, MouseScrollUnit},
+        wheel::{MouseScrollUnit, MouseWheel},
     };
 }
-

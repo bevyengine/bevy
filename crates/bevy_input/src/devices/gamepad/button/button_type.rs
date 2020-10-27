@@ -43,4 +43,3 @@ const ALL_BUTTON_TYPES: [GamepadButtonType; 19] = [
     GamepadButtonType::DPadLeft,
     GamepadButtonType::DPadRight,
 ];
-

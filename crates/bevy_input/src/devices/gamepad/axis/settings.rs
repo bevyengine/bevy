@@ -1,8 +1,7 @@
 //! Gamepad input axis configuration module
 
-use core::default::Default;
-use core::option::Option::Some;
 use crate::GamepadAxisType;
+use core::{default::Default, option::Option::Some};
 
 #[derive(Debug, Clone)]
 pub struct AxisSettings {

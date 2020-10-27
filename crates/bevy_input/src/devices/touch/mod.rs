@@ -10,6 +10,10 @@ pub use prelude::*;
 
 /// Public exports module
 pub mod prelude {
-    pub use super::{plugin::TouchInputPlugin, system::{touch_screen_input_system, TouchSystemState}, touch::{Touch,TouchInput, TouchPhase}, touches::{Touches}};
+    pub use super::{
+        plugin::TouchInputPlugin,
+        system::{touch_screen_input_system, TouchSystemState},
+        touch::{Touch, TouchInput, TouchPhase},
+        touches::Touches,
+    };
 }
-

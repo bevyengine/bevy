@@ -1,8 +1,8 @@
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
+use bevy_input::devices::touch::Touch;
 use bevy_math::Vec2;
 use bevy_utils::{HashMap, HashSet};
-use bevy_input::devices::touch::Touch;
 
 #[derive(Default)]
 pub struct Touches {
@@ -47,4 +47,3 @@ impl Touches {
             .map(move |id| self.active_touches.get(id).unwrap())
     }
 }
-

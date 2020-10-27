@@ -7,5 +7,7 @@ pub use prelude::*;
 
 /// Public exports module
 pub mod prelude {
-    pub use super::{gamepad::Gamepad, gamepad_settings::GamepadSettings, gamepad_plugin::GamepadInputPlugin};
+    pub use super::{
+        gamepad::Gamepad, gamepad_plugin::GamepadInputPlugin, gamepad_settings::GamepadSettings,
+    };
 }

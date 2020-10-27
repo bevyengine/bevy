@@ -43,4 +43,3 @@ impl Touch {
         self.position - self.start_position
     }
 }
-

@@ -1,5 +1,4 @@
-use core::default::Default;
-use core::option::Option::Some;
+use core::{default::Default, option::Option::Some};
 
 #[derive(Debug, Clone)]
 pub struct ButtonAxisSettings {
@@ -34,4 +33,3 @@ impl ButtonAxisSettings {
         new_value
     }
 }
-
