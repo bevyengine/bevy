@@ -3,7 +3,7 @@
 
 use crate::{
     core::input::Input,
-    keyboard_devices::{keyboard_input_system, KeyCode, KeyboardInput},
+    devices::keyboard::{keyboard_input_system, KeyCode, KeyboardInput},
 };
 use bevy_app::prelude::*;
 use bevy_ecs::IntoQuerySystem;
