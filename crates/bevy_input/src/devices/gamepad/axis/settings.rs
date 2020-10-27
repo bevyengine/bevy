@@ -1,6 +1,5 @@
 //! Gamepad input axis configuration module
 
-use crate::GamepadAxisType;
 use core::{default::Default, option::Option::Some};
 
 #[derive(Debug, Clone)]
