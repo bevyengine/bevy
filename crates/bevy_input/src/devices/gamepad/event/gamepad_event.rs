@@ -1,4 +1,4 @@
-use bevy_input::devices::gamepad::event::GamepadEventType;
+use crate::devices::gamepad::{Gamepad, GamepadEventType};
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
