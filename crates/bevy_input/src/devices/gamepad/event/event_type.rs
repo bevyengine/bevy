@@ -1,3 +1,5 @@
+use crate::devices::gamepad::{GamepadAxisType, GamepadButtonType};
+
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum GamepadEventType {
