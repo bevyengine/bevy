@@ -8,11 +8,13 @@ pub use prelude::*;
 pub mod prelude {
     pub use crate::{
         core::{Axis, Input, InputPlugin},
-        gamepad::{
-            Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
-            GamepadEventType,
+        devices::{
+            gamepad::{
+                Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
+                GamepadEvent, GamepadEventType,
+            },
+            keyboard::{KeyCode, KeyboardInputPlugin},
+            mouse::{MouseButton, MouseInputPlugin},
         },
-        keyboard::{KeyCode, KeyboardInputPlugin},
-        mouse::{MouseButton, MouseInputPlugin},
     };
 }
