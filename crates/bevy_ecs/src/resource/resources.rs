@@ -48,13 +48,10 @@ impl<T: 'static> VecResourceStorage<T> {
             .map(|stored| ResourceRef::new(&stored.value, &stored.atomic_borrow))
     }
 
-    fn get_mut(&self, index: usize) -> Option<ResourceRefMut<'_, T>> {
-        self.stored.get(index).map(|stored|
-            // SAFE: ResourceRefMut ensures that this borrow is unique
-            unsafe {
-                let value = &stored.value as *const T as *mut T;
-                ResourceRefMut::new(&mut *value, &stored.atomic_borrow)
-            })
+    fn get_mut(&mut self, index: usize) -> Option<ResourceRefMut<'_, T>> {
+        self.stored
+            .get_mut(index)
+            .map(|stored| ResourceRefMut::new(&mut stored.value, &stored.atomic_borrow))
     }
 
     fn push(&mut self, resource: T) {
@@ -147,12 +144,12 @@ impl Resources {
             })
     }
 
-    pub fn get_thread_local_mut<T: 'static>(&self) -> Option<ResourceRefMut<'_, T>> {
+    pub fn get_thread_local_mut<T: 'static>(&mut self) -> Option<ResourceRefMut<'_, T>> {
         self.check_thread_local();
         self.thread_local_data
-            .get(&TypeId::of::<T>())
+            .get_mut(&TypeId::of::<T>())
             .and_then(|storage| {
-                let resources = storage.downcast_ref::<VecResourceStorage<T>>().unwrap();
+                let resources = storage.downcast_mut::<VecResourceStorage<T>>().unwrap();
                 resources.get_mut(0)
             })
     }
@@ -566,14 +563,14 @@ mod tests {
         assert_eq!(*b, 123);
     }
 
-    #[test]
-    #[should_panic]
-    fn thread_local_resource_mut_ref_aliasing() {
-        let mut resources = Resources::default();
-        resources.insert_thread_local(123i32);
-        let _a = resources.get_thread_local::<i32>().unwrap();
-        let _b = resources.get_thread_local_mut::<i32>().unwrap();
-    }
+    // #[test]
+    // #[should_panic]
+    // fn thread_local_resource_mut_ref_aliasing() {
+    //     let mut resources = Resources::default();
+    //     resources.insert_thread_local(123i32);
+    //     let _a = resources.get_thread_local::<i32>().unwrap();
+    //     let _b = resources.get_thread_local_mut::<i32>().unwrap();
+    // }
 
     #[test]
     #[should_panic]
