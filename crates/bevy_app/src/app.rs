@@ -48,6 +48,7 @@ impl Default for App {
 }
 
 fn run_once(mut app: App) {
+    app.initialize();
     app.update();
 }
 
