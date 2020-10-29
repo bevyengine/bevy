@@ -37,51 +37,100 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-mod default_plugins;
 pub mod prelude;
 
-pub use bevy_app as app;
-pub use bevy_asset as asset;
-pub use bevy_core as core;
-pub use bevy_diagnostic as diagnostic;
-pub use bevy_ecs as ecs;
-pub use bevy_input as input;
-pub use bevy_math as math;
-pub use bevy_property as property;
-pub use bevy_scene as scene;
-pub use bevy_tasks as tasks;
-pub use bevy_transform as transform;
-pub use bevy_type_registry as type_registry;
-pub use bevy_utils as utils;
-pub use bevy_window as window;
+mod default_plugins;
 pub use default_plugins::*;
 
+pub mod app {
+    pub use bevy_app::*;
+}
+pub mod asset {
+    pub use bevy_asset::*;
+}
+pub mod core {
+    pub use bevy_core::*;
+}
+pub mod diagnostic {
+    pub use bevy_diagnostic::*;
+}
+pub mod ecs {
+    pub use bevy_ecs::*;
+}
+pub mod input {
+    pub use bevy_input::*;
+}
+pub mod math {
+    pub use bevy_math::*;
+}
+pub mod property {
+    pub use bevy_property::*;
+}
+pub mod scene {
+    pub use bevy_scene::*;
+}
+pub mod tasks {
+    pub use bevy_tasks::*;
+}
+pub mod transform {
+    pub use bevy_transform::*;
+}
+pub mod type_registry {
+    pub use bevy_type_registry::*;
+}
+pub mod utils {
+    pub use bevy_utils::*;
+}
+pub mod window {
+    pub use bevy_window::*;
+}
+
 #[cfg(feature = "bevy_audio")]
-pub use bevy_audio as audio;
+pub mod audio {
+    pub use bevy_audio::*;
+}
 
 #[cfg(feature = "bevy_gltf")]
-pub use bevy_gltf as gltf;
+pub mod gltf {
+    pub use bevy_gltf::*;
+}
 
 #[cfg(feature = "bevy_pbr")]
-pub use bevy_pbr as pbr;
+pub mod pbr {
+    pub use bevy_pbr::*;
+}
 
 #[cfg(feature = "bevy_render")]
-pub use bevy_render as render;
+pub mod render {
+    pub use bevy_render::*;
+}
 
 #[cfg(feature = "bevy_sprite")]
-pub use bevy_sprite as sprite;
+pub mod sprite {
+    pub use bevy_sprite::*;
+}
 
 #[cfg(feature = "bevy_text")]
-pub use bevy_text as text;
+pub mod text {
+    pub use bevy_text::*;
+}
 
 #[cfg(feature = "bevy_ui")]
-pub use bevy_ui as ui;
+pub mod ui {
+    pub use bevy_ui::*;
+}
 
 #[cfg(feature = "bevy_winit")]
-pub use bevy_winit as winit;
+pub mod winit {
+    pub use bevy_winit::*;
+}
 
 #[cfg(feature = "bevy_wgpu")]
-pub use bevy_wgpu as wgpu;
+pub mod wgpu {
+    pub use bevy_wgpu::*;
+}
 
 #[cfg(feature = "bevy_dynamic_plugin")]
-pub use bevy_dynamic_plugin as dynamic_plugin;
+pub mod dynamic_plugin {
+    pub use bevy_dynamic_plugin::*;
+}
