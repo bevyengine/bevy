@@ -3,35 +3,23 @@ use bevy_ecs::{Commands, Entity, IntoQuerySystem, Query, System, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 
-pub fn missing_previous_parent_system(
-    mut commands: Commands,
-    mut query: Query<Without<PreviousParent, (Entity, &Parent)>>,
-) {
-    // Add missing `PreviousParent` components
-    for (entity, _parent) in &mut query.iter() {
-        log::trace!("Adding missing PreviousParent to {:?}", entity);
-        commands.insert_one(entity, PreviousParent(None));
-    }
-}
-
 pub fn parent_update_system(
     mut commands: Commands,
     mut removed_parent_query: Query<Without<Parent, (Entity, &PreviousParent)>>,
     // TODO: ideally this only runs when the Parent component has changed
-    mut changed_parent_query: Query<(Entity, &Parent, &mut PreviousParent)>,
+    mut changed_parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
     children_query: Query<&mut Children>,
 ) {
     // Entities with a missing `Parent` (ie. ones that have a `PreviousParent`), remove
     // them from the `Children` of the `PreviousParent`.
     for (entity, previous_parent) in &mut removed_parent_query.iter() {
         log::trace!("Parent was removed from {:?}", entity);
-        if let Some(previous_parent_entity) = previous_parent.0 {
-            if let Ok(mut previous_parent_children) =
-                children_query.get_mut::<Children>(previous_parent_entity)
-            {
-                log::trace!(" > Removing {:?} from it's prev parent's children", entity);
-                previous_parent_children.0.retain(|e| *e != entity);
-            }
+        if let Ok(mut previous_parent_children) =
+            children_query.get_mut::<Children>(previous_parent.0)
+        {
+            log::trace!(" > Removing {:?} from it's prev parent's children", entity);
+            previous_parent_children.0.retain(|e| *e != entity);
+            commands.remove_one::<PreviousParent>(entity);
         }
     }
 
@@ -39,28 +27,29 @@ pub fn parent_update_system(
     let mut children_additions = HashMap::<Entity, SmallVec<[Entity; 8]>>::default();
 
     // Entities with a changed Parent (that also have a PreviousParent, even if None)
-    for (entity, parent, mut previous_parent) in &mut changed_parent_query.iter() {
+    for (entity, parent, possible_previous_parent) in &mut changed_parent_query.iter() {
         log::trace!("Parent changed for {:?}", entity);
-
-        // If the `PreviousParent` is not None.
-        if let Some(previous_parent_entity) = previous_parent.0 {
+        if let Some(mut previous_parent) = possible_previous_parent {
             // New and previous point to the same Entity, carry on, nothing to see here.
-            if previous_parent_entity == parent.0 {
+            if previous_parent.0 == parent.0 {
                 log::trace!(" > But the previous parent is the same, ignoring...");
                 continue;
             }
 
             // Remove from `PreviousParent.Children`.
             if let Ok(mut previous_parent_children) =
-                children_query.get_mut::<Children>(previous_parent_entity)
+                children_query.get_mut::<Children>(previous_parent.0)
             {
                 log::trace!(" > Removing {:?} from prev parent's children", entity);
                 (*previous_parent_children).0.retain(|e| *e != entity);
             }
-        }
 
-        // Set `PreviousParent = Parent`.
-        *previous_parent = PreviousParent(Some(parent.0));
+            // Set `PreviousParent = Parent`.
+            *previous_parent = PreviousParent(parent.0);
+        } else {
+            log::trace!("Adding missing PreviousParent to {:?}", entity);
+            commands.insert_one(entity, PreviousParent(parent.0));
+        };
 
         // Add to the parent's `Children` (either the real component, or
         // `children_additions`).
@@ -99,10 +88,7 @@ pub fn parent_update_system(
 }
 
 pub fn hierarchy_maintenance_systems() -> Vec<Box<dyn System>> {
-    vec![
-        missing_previous_parent_system.system(),
-        parent_update_system.system(),
-    ]
+    vec![parent_update_system.system()]
 }
 
 #[cfg(test)]
