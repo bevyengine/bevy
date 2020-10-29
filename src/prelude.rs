@@ -1,7 +1,7 @@
 pub use crate::{
     app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, input::prelude::*,
     math::prelude::*, property::prelude::*, scene::prelude::*, transform::prelude::*,
-    type_registry::RegisterType, window::prelude::*, AddDefaultPlugins,
+    type_registry::RegisterType, window::prelude::*, AddDefaultPlugins, DefaultPlugins,
 };
 
 #[cfg(feature = "bevy_audio")]
