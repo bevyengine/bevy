@@ -49,7 +49,7 @@ parking_lot = "0.11.0"
 bevy-glsl-to-spirv = "0.1.7"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-shaderc = { git = "https://github.com/google/shaderc-rs", branch = "master"}
+shaderc = "0.6.3"
 
 [features]
 png = ["image/png"]
