@@ -103,7 +103,10 @@ impl AssetIo for FileAssetIo {
     }
 }
 
-#[cfg(all(feature = "filesystem_watcher", not(target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "filesystem_watcher",
+    all(not(target_arch = "wasm32"), not(target_os = "android"))
+))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let mut changed = HashSet::default();
     let asset_io =
