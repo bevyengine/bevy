@@ -30,7 +30,9 @@
 //! The defaults provide a "full" engine experience, but you can easily enable / disable features
 //! in your project's `Cargo.toml` to meet your specific needs. See Bevy's `Cargo.toml` for a full list of features available.
 //!
-//! If you prefer it, you can also consume the individual bevy crates directly.
+//! If you prefer, you can also consume the individual bevy crates directly.
+//! Each module in this crates, except for the prelude, can be found on crates.io
+//! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/0.2.1/bevy_app/).
 
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
