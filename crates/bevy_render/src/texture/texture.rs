@@ -18,6 +18,7 @@ pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,
     pub format: TextureFormat,
+    pub sampler: SamplerDescriptor,
 }
 
 impl Default for Texture {
@@ -26,6 +27,7 @@ impl Default for Texture {
             data: Default::default(),
             size: Default::default(),
             format: TextureFormat::Rgba8UnormSrgb,
+            sampler: Default::default(),
         }
     }
 }
@@ -37,7 +39,12 @@ impl Texture {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        Self { data, size, format }
+        Self {
+            data,
+            size,
+            format,
+            ..Default::default()
+        }
     }
 
     pub fn new_fill(size: Vec2, pixel: &[u8], format: TextureFormat) -> Self {
@@ -104,8 +111,7 @@ impl Texture {
                 let texture_descriptor: TextureDescriptor = texture.into();
                 let texture_resource = render_resource_context.create_texture(texture_descriptor);
 
-                let sampler_descriptor: SamplerDescriptor = texture.into();
-                let sampler_resource = render_resource_context.create_sampler(&sampler_descriptor);
+                let sampler_resource = render_resource_context.create_sampler(&texture.sampler);
 
                 render_resource_context.set_asset_resource(
                     texture_handle,
