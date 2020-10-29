@@ -1,5 +1,5 @@
 use super::*;
-use crate::devices::{GamepadAxis, GamepadButton};
+use crate::core::*;
 use bevy_utils::HashMap;
 
 #[derive(Default, Debug)]

@@ -1,17 +1,12 @@
-use crate::{
-    core::{Axis, Button},
-    device_codes::*,
-    devices::{Gamepad, GamepadAxis, GamepadButton},
-    events::{GamepadEvent, GamepadEventRaw, GamepadEventType},
-    settings::GamepadSettings,
-};
+use super::*;
+use crate::core::*;
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 
 #[allow(clippy::float_cmp)]
 pub fn gamepad_event_system(
     mut event_reader: Local<EventReader<GamepadEventRaw>>,
-    mut button_input: ResMut<Button<GamepadButton>>,
+    mut button_input: ResMut<BinaryInput<GamepadButton>>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     raw_events: Res<Events<GamepadEventRaw>>,

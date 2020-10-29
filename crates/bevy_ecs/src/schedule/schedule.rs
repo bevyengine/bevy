@@ -150,7 +150,7 @@ impl Schedule {
                 for system in stage_systems.iter_mut() {
                     #[cfg(feature = "profiler")]
                     crate::profiler_start(resources, system.name().clone());
-                    system.update_archetype_access(world);
+                    system.update(world);
                     match system.thread_local_execution() {
                         ThreadLocalExecution::NextFlush => system.run(world, resources),
                         ThreadLocalExecution::Immediate => {

@@ -1,4 +1,4 @@
-use crate::device_codes::TouchPhaseCode;
+use super::*;
 use bevy_math::Vec2;
 
 /// A touch input event

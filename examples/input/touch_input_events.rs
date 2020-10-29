@@ -1,4 +1,4 @@
-use bevy::{input::touch::*, prelude::*};
+use bevy::{input::devices::touch::*, prelude::*};
 
 fn main() {
     App::build()
@@ -9,10 +9,10 @@ fn main() {
 
 #[derive(Default)]
 struct State {
-    event_reader: EventReader<TouchInput>,
+    event_reader: EventReader<TouchEvent>,
 }
 
-fn touch_event_system(mut state: Local<State>, touch_events: Res<Events<TouchInput>>) {
+fn touch_event_system(mut state: Local<State>, touch_events: Res<Events<TouchEvent>>) {
     for event in state.event_reader.iter(&touch_events) {
         println!("{:?}", event);
     }

@@ -30,14 +30,14 @@ impl FromResources for ButtonMaterials {
 fn button_system(
     button_materials: Res<ButtonMaterials>,
     mut interaction_query: Query<(
-        &Button,
+        &bevy_ui::widget::Button,
         Mutated<Interaction>,
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
-    text_query: Query<&mut Text>,
+    mut text_query: Query<&mut Text>,
 ) {
-    for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
+    for (_button, interaction, mut material, children) in interaction_query.iter_mut() {
         let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {

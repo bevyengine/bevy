@@ -1,7 +1,5 @@
-use crate::{
-    device_codes::{MouseButtonCode, MouseScrollUnitCode},
-    state::ElementState,
-};
+use super::*;
+use crate::core::*;
 use bevy_math::Vec2;
 
 /// A mouse button input event

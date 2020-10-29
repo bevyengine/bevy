@@ -1,15 +1,12 @@
-use crate::{
-    core::Button,
-    events::MouseButtonEvent,
-    state::{ElementState, MouseButtonInputState},
-};
+use super::*;
+use crate::core::*;
 use bevy_app::Events;
 use bevy_ecs::{Local, Res, ResMut};
 
 /// Updates the Input<MouseButton> resource with the latest MouseButtonInput events
 pub fn mouse_button_input_system(
     mut state: Local<MouseButtonInputState>,
-    mut mouse_button_input: ResMut<Button<MouseButton>>,
+    mut mouse_button_input: ResMut<BinaryInput<MouseButtonCode>>,
     mouse_button_input_events: Res<Events<MouseButtonEvent>>,
 ) {
     mouse_button_input.update();

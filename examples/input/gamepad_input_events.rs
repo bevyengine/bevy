@@ -1,5 +1,4 @@
-use bevy::prelude::*;
-use bevy_input::gamepad::{GamepadEvent, GamepadEventType};
+use bevy::{input::prelude::*, prelude::*};
 
 fn main() {
     App::build()

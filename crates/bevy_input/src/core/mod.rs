@@ -5,9 +5,13 @@
 //!  - Shared between all devices
 
 pub(crate) mod axis;
-pub(crate) mod button;
+pub(crate) mod binary_input;
 pub mod plugins;
+pub mod settings;
+pub mod state;
 
 pub use axis::Axis;
-pub use button::Button;
-pub use plugins::{GamepadPlugin, InputPlugin, KeyboardPlugin, MousePlugin, TouchPlugin};
+pub use binary_input::BinaryInput;
+pub use plugins::{GamepadPlugin, KeyboardPlugin, MousePlugin, TouchPlugin};
+pub use settings::*;
+pub use state::ElementState;

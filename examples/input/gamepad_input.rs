@@ -1,13 +1,11 @@
 use bevy::prelude::*;
-use bevy_input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType};
 use bevy_utils::HashSet;
 
 fn main() {
     App::build()
         .add_default_plugins()
         .init_resource::<GamepadLobby>()
-        .add_startup_system(connection_system.system())
-        .add_system(connection_system.system())
+        .add_system_to_stage(stage::PRE_UPDATE, connection_system.system())
         .add_system(gamepad_system.system())
         .run();
 }
@@ -36,7 +34,7 @@ fn connection_system(mut lobby: ResMut<GamepadLobby>, gamepad_event: Res<Events<
 
 fn gamepad_system(
     lobby: Res<GamepadLobby>,
-    button_inputs: Res<Button<GamepadButton>>,
+    button_inputs: Res<BinaryInput<GamepadButton>>,
     button_axes: Res<Axis<GamepadButton>>,
     axes: Res<Axis<GamepadAxis>>,
 ) {

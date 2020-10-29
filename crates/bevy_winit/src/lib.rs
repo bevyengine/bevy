@@ -1,11 +1,7 @@
 mod converters;
 mod winit_config;
 mod winit_windows;
-use bevy_input::{
-    keyboard::KeyboardInput,
-    mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touch::TouchInput,
-};
+use bevy_input::prelude::*;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -216,7 +212,7 @@ pub fn winit_runner(mut app: App) {
                 }
                 WindowEvent::KeyboardInput { ref input, .. } => {
                     let mut keyboard_input_events =
-                        app.resources.get_mut::<Events<KeyboardInput>>().unwrap();
+                        app.resources.get_mut::<Events<KeyboardEvent>>().unwrap();
                     keyboard_input_events.send(converters::convert_keyboard_input(input));
                 }
                 WindowEvent::CursorMoved { position, .. } => {
@@ -235,8 +231,8 @@ pub fn winit_runner(mut app: App) {
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
                     let mut mouse_button_input_events =
-                        app.resources.get_mut::<Events<MouseButtonInput>>().unwrap();
-                    mouse_button_input_events.send(MouseButtonInput {
+                        app.resources.get_mut::<Events<MouseButtonEvent>>().unwrap();
+                    mouse_button_input_events.send(MouseButtonEvent {
                         button: converters::convert_mouse_button(button),
                         state: converters::convert_element_state(state),
                     });
@@ -244,18 +240,18 @@ pub fn winit_runner(mut app: App) {
                 WindowEvent::MouseWheel { delta, .. } => match delta {
                     event::MouseScrollDelta::LineDelta(x, y) => {
                         let mut mouse_wheel_input_events =
-                            app.resources.get_mut::<Events<MouseWheel>>().unwrap();
-                        mouse_wheel_input_events.send(MouseWheel {
-                            unit: MouseScrollUnit::Line,
+                            app.resources.get_mut::<Events<MouseWheelEvent>>().unwrap();
+                        mouse_wheel_input_events.send(MouseWheelEvent {
+                            unit: MouseScrollUnitCode::Line,
                             x,
                             y,
                         });
                     }
                     event::MouseScrollDelta::PixelDelta(p) => {
                         let mut mouse_wheel_input_events =
-                            app.resources.get_mut::<Events<MouseWheel>>().unwrap();
-                        mouse_wheel_input_events.send(MouseWheel {
-                            unit: MouseScrollUnit::Pixel,
+                            app.resources.get_mut::<Events<MouseWheelEvent>>().unwrap();
+                        mouse_wheel_input_events.send(MouseWheelEvent {
+                            unit: MouseScrollUnitCode::Pixel,
                             x: p.x as f32,
                             y: p.y as f32,
                         });
@@ -263,7 +259,7 @@ pub fn winit_runner(mut app: App) {
                 },
                 WindowEvent::Touch(touch) => {
                     let mut touch_input_events =
-                        app.resources.get_mut::<Events<TouchInput>>().unwrap();
+                        app.resources.get_mut::<Events<TouchEvent>>().unwrap();
                     touch_input_events.send(converters::convert_touch_input(touch));
                 }
                 _ => {}
@@ -271,8 +267,8 @@ pub fn winit_runner(mut app: App) {
             event::Event::DeviceEvent { ref event, .. } => {
                 if let DeviceEvent::MouseMotion { delta } = event {
                     let mut mouse_motion_events =
-                        app.resources.get_mut::<Events<MouseMotion>>().unwrap();
-                    mouse_motion_events.send(MouseMotion {
+                        app.resources.get_mut::<Events<MouseMotionEvent>>().unwrap();
+                    mouse_motion_events.send(MouseMotionEvent {
                         delta: Vec2::new(delta.0 as f32, delta.1 as f32),
                     });
                 }

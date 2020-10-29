@@ -1,7 +1,4 @@
-use bevy::{
-    input::{keyboard::KeyCode, Button},
-    prelude::*,
-};
+use bevy::{input::prelude::*, prelude::*};
 
 fn main() {
     App::build()
@@ -11,7 +8,7 @@ fn main() {
 }
 
 /// This system prints 'A' key state
-fn keyboard_input_system(keyboard_input: Res<Button<KeyCode>>) {
+fn keyboard_input_system(keyboard_input: Res<BinaryInput<KeyCode>>) {
     if keyboard_input.pressed(KeyCode::A) {
         println!("'A' currently pressed");
     }

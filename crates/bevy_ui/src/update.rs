@@ -8,18 +8,13 @@ use bevy_transform::{
 pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
-    mut root_node_query: Query<With<Node, Without<Parent, Entity>>>,
+    root_node_query: Query<With<Node, Without<Parent, Entity>>>,
     mut node_query: Query<(Entity, &Node, &mut Transform)>,
     children_query: Query<&Children>,
 ) {
     let mut current_global_z = 0.0;
 
-    // PERF: we can probably avoid an allocation here by making root_node_query and node_query non-overlapping
-    let root_nodes = (&mut root_node_query.iter())
-        .iter()
-        .collect::<Vec<Entity>>();
-
-    for entity in root_nodes {
+    for entity in root_node_query.iter() {
         if let Some(result) = hierarchy::run_on_hierarchy(
             &children_query,
             &mut node_query,
@@ -46,8 +41,9 @@ fn update_node_entity(
     };
     let global_z = z + parent_global_z;
 
-    let mut transform = node_query.get_mut::<Transform>(entity).ok()?;
-    transform.translation.set_z(z);
+    if let Ok(mut transform) = node_query.get_mut::<Transform>(entity) {
+        transform.translation.set_z(z);
+    }
 
     Some(global_z)
 }

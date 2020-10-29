@@ -2,7 +2,7 @@ use crate::Node;
 use bevy_app::{EventReader, Events};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_input::{mouse::MouseButton, Button};
+use bevy_input::prelude::*;
 use bevy_math::Vec2;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::CursorMoved;
@@ -41,7 +41,7 @@ pub struct State {
 
 pub fn ui_focus_system(
     mut state: Local<State>,
-    mouse_button_input: Res<Button<MouseButton>>,
+    mouse_button_input: Res<BinaryInput<MouseButtonCode>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     mut node_query: Query<(
         Entity,
@@ -55,9 +55,8 @@ pub fn ui_focus_system(
         state.cursor_position = cursor_moved.position;
     }
 
-    if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _global_transform, interaction, _focus_policy) in
-            &mut node_query.iter()
+    if mouse_button_input.just_released(MouseButtonCode::Left) {
+        for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
@@ -67,13 +66,12 @@ pub fn ui_focus_system(
         }
     }
 
-    let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left);
+    let mouse_clicked = mouse_button_input.just_pressed(MouseButtonCode::Left);
     let mut hovered_entity = None;
 
     {
-        let mut query_iter = node_query.iter();
-        let mut moused_over_z_sorted_nodes = query_iter
-            .iter()
+        let mut moused_over_z_sorted_nodes = node_query
+            .iter_mut()
             .filter_map(
                 |(entity, node, global_transform, interaction, focus_policy)| {
                     let position = global_transform.translation;

@@ -3,13 +3,13 @@ use std::hash::Hash;
 
 /// A "press-able" input of type `T`
 #[derive(Debug)]
-pub struct Button<T> {
+pub struct BinaryInput<T> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,
     just_released: HashSet<T>,
 }
 
-impl<T> Default for Button<T> {
+impl<T> Default for BinaryInput<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -19,7 +19,7 @@ impl<T> Default for Button<T> {
     }
 }
 
-impl<T> Button<T>
+impl<T> BinaryInput<T>
 where
     T: Copy + Eq + Hash,
 {

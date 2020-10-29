@@ -207,7 +207,7 @@ impl CommandsInternal {
     }
 }
 
-/// A queue of [Command]s to run on the current [World] and [Resources]
+/// A queue of [Command]s to run on the current [World] and [Resources]. Todo: remove arc here
 #[derive(Default, Clone)]
 pub struct Commands {
     pub commands: Arc<Mutex<CommandsInternal>>,
@@ -357,7 +357,6 @@ mod tests {
         command_buffer.apply(&mut world, &mut resources);
         let results = world
             .query::<(&u32, &u64)>()
-            .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
@@ -368,7 +367,6 @@ mod tests {
         command_buffer.apply(&mut world, &mut resources);
         let results2 = world
             .query::<(&u32, &u64)>()
-            .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
         assert_eq!(results2, vec![]);

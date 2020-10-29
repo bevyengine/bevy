@@ -2,10 +2,7 @@
 extern crate console_error_panic_hook;
 
 use bevy::{
-    input::{
-        keyboard::KeyboardInput,
-        mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    },
+    input::devices::{keyboard::*, mouse::*},
     prelude::*,
 };
 
@@ -56,20 +53,20 @@ struct CounterState {
 
 #[derive(Default)]
 struct TrackInputState {
-    keys: EventReader<KeyboardInput>,
+    keys: EventReader<KeyboardEvent>,
     cursor: EventReader<CursorMoved>,
-    motion: EventReader<MouseMotion>,
-    mousebtn: EventReader<MouseButtonInput>,
-    scroll: EventReader<MouseWheel>,
+    motion: EventReader<MouseMotionEvent>,
+    mousebtn: EventReader<MouseButtonEvent>,
+    scroll: EventReader<MouseWheelEvent>,
 }
 
 fn track_input_events(
     mut state: ResMut<TrackInputState>,
-    ev_keys: Res<Events<KeyboardInput>>,
+    ev_keys: Res<Events<KeyboardEvent>>,
     ev_cursor: Res<Events<CursorMoved>>,
-    ev_motion: Res<Events<MouseMotion>>,
-    ev_mousebtn: Res<Events<MouseButtonInput>>,
-    ev_scroll: Res<Events<MouseWheel>>,
+    ev_motion: Res<Events<MouseMotionEvent>>,
+    ev_mousebtn: Res<Events<MouseButtonEvent>>,
+    ev_scroll: Res<Events<MouseWheelEvent>>,
 ) {
     // Keyboard input
     for ev in state.keys.iter(&ev_keys) {

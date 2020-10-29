@@ -1,8 +1,4 @@
-use bevy::{
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
-    prelude::*,
-    window::CursorMoved,
-};
+use bevy::{input::prelude::*, prelude::*, window::CursorMoved};
 
 fn main() {
     App::build()
@@ -13,19 +9,19 @@ fn main() {
 
 #[derive(Default)]
 struct State {
-    mouse_button_event_reader: EventReader<MouseButtonInput>,
-    mouse_motion_event_reader: EventReader<MouseMotion>,
+    mouse_button_event_reader: EventReader<MouseButtonEvent>,
+    mouse_motion_event_reader: EventReader<MouseMotionEvent>,
     cursor_moved_event_reader: EventReader<CursorMoved>,
-    mouse_wheel_event_reader: EventReader<MouseWheel>,
+    mouse_wheel_event_reader: EventReader<MouseWheelEvent>,
 }
 
 /// This system prints out all mouse events as they come in
 fn print_mouse_events_system(
     mut state: Local<State>,
-    mouse_button_input_events: Res<Events<MouseButtonInput>>,
-    mouse_motion_events: Res<Events<MouseMotion>>,
+    mouse_button_input_events: Res<Events<MouseButtonEvent>>,
+    mouse_motion_events: Res<Events<MouseMotionEvent>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
-    mouse_wheel_events: Res<Events<MouseWheel>>,
+    mouse_wheel_events: Res<Events<MouseWheelEvent>>,
 ) {
     for event in state
         .mouse_button_event_reader

@@ -1,4 +1,4 @@
-use bevy::{input::touch::*, prelude::*};
+use bevy::{input::devices::Touches, prelude::*};
 
 fn main() {
     App::build()

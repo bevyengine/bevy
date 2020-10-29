@@ -1,8 +1,19 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_app::Events;
 use bevy_ecs::{Resources, World};
-use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
+use bevy_input::prelude::*;
 use gilrs::{EventType, Gilrs};
+
+pub fn gilrs_event_startup_system(_world: &mut World, resources: &mut Resources) {
+    let gilrs = resources.get_thread_local::<Gilrs>().unwrap();
+    let mut event = resources.get_mut::<Events<GamepadEventRaw>>().unwrap();
+    for (id, _) in gilrs.gamepads() {
+        event.send(GamepadEventRaw(
+            convert_gamepad_id(id),
+            GamepadEventType::Connected,
+        ));
+    }
+}
 
 pub fn gilrs_event_system(_world: &mut World, resources: &mut Resources) {
     let mut gilrs = resources.get_thread_local_mut::<Gilrs>().unwrap();

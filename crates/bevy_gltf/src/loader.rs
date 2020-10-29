@@ -7,14 +7,18 @@ use bevy_render::{
     mesh::{Indices, Mesh, VertexAttribute},
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
-    texture::TextureFormat,
+    texture::{AddressMode, FilterMode, SamplerDescriptor, TextureFormat},
 };
 use bevy_scene::Scene;
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
 };
-use gltf::{mesh::Mode, Primitive};
+use gltf::{
+    mesh::Mode,
+    texture::{MagFilter, MinFilter, WrappingMode},
+    Primitive,
+};
 use image::{GenericImageView, ImageFormat};
 use std::path::Path;
 use thiserror::Error;
@@ -24,6 +28,8 @@ use thiserror::Error;
 pub enum GltfError {
     #[error("Unsupported primitive mode.")]
     UnsupportedPrimitive { mode: Mode },
+    #[error("Unsupported min filter.")]
+    UnsupportedMinFilter { filter: MinFilter },
     #[error("Invalid GLTF file.")]
     Gltf(#[from] gltf::Error),
     #[error("Binary blob is missing.")]
@@ -133,6 +139,7 @@ async fn load_gltf<'a, 'b>(
                     data: image.clone().into_vec(),
                     size: bevy_math::f32::vec2(size.0 as f32, size.1 as f32),
                     format: TextureFormat::Rgba8Unorm,
+                    sampler: texture_sampler(&texture)?,
                 }),
             );
         }
@@ -261,6 +268,43 @@ fn material_label(material: &gltf::Material) -> String {
 
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
+}
+
+fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
+    let gltf_sampler = texture.sampler();
+
+    Ok(SamplerDescriptor {
+        address_mode_u: texture_address_mode(&gltf_sampler.wrap_s()),
+        address_mode_v: texture_address_mode(&gltf_sampler.wrap_t()),
+
+        mag_filter: gltf_sampler
+            .mag_filter()
+            .map(|mf| match mf {
+                MagFilter::Nearest => FilterMode::Nearest,
+                MagFilter::Linear => FilterMode::Linear,
+            })
+            .unwrap_or(SamplerDescriptor::default().mag_filter),
+
+        min_filter: gltf_sampler
+            .min_filter()
+            .map(|mf| match mf {
+                MinFilter::Nearest => Ok(FilterMode::Nearest),
+                MinFilter::Linear => Ok(FilterMode::Linear),
+                filter => Err(GltfError::UnsupportedMinFilter { filter }),
+            })
+            .transpose()?
+            .unwrap_or(SamplerDescriptor::default().min_filter),
+
+        ..Default::default()
+    })
+}
+
+fn texture_address_mode(gltf_address_mode: &gltf::texture::WrappingMode) -> AddressMode {
+    match gltf_address_mode {
+        WrappingMode::ClampToEdge => AddressMode::ClampToEdge,
+        WrappingMode::Repeat => AddressMode::Repeat,
+        WrappingMode::MirroredRepeat => AddressMode::MirrorRepeat,
+    }
 }
 
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {

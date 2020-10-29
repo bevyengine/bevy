@@ -8,7 +8,7 @@ fn main() {
 }
 
 // This system prints messages when you press or release the left mouse button:
-fn mouse_click_system(mouse_button_input: Res<Button<MouseButtonCode>>) {
+fn mouse_click_system(mouse_button_input: Res<BinaryInput<MouseButtonCode>>) {
     if mouse_button_input.pressed(MouseButtonCode::Left) {
         println!("left mouse currently pressed");
     }

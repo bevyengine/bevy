@@ -13,36 +13,31 @@
 //!  - [Bevy Input Examples](https://github.com/bevyengine/bevy/tree/master/examples/input)
 //!
 
-use crate::{
-    device_codes::{GamepadAxisCode, GamepadButtonCode, KeyCode, MouseButtonCode},
-    devices::Touches,
-    events::{
-        GamepadEvent, GamepadEventRaw, KeyboardEvent, MouseButtonEvent, MouseMotionEvent,
-        MouseWheelEvent, TouchEvent,
-    },
-    settings::GamepadSettings,
-    systems::{
-        gamepad_event_system, keyboard_input_system, mouse_button_input_system,
-        touch_screen_input_system,
-    },
-    Axis, Button,
-};
-use bevy_app::{AppBuilder, Plugin};
+use super::*;
+use crate::devices::*;
+use bevy_app::*;
 use bevy_ecs::IntoQuerySystem;
 
-/// Adds keyboard, mouse, gamepad, and touch input to an App
-///
-/// General purpose input [plugin](https://github.com/bevyengine/bevy/tree/master/examples/input).
-/// Provides the necessary resources and systems to use all supported input devices
-#[derive(Default)]
-pub struct InputPlugin;
+/// Adds input device support to an App
+#[derive(Debug, Default)]
+pub struct InputPlugins;
 
-impl Plugin for InputPlugin {
+impl Plugin for InputPlugins {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(KeyboardPlugin)
             .add_plugin(MousePlugin)
             .add_plugin(GamepadPlugin)
             .add_plugin(TouchPlugin);
+    }
+}
+
+impl PluginGroup for InputPlugins {
+    fn build(&mut self, group: &mut bevy_app::PluginGroupBuilder) {
+        group
+            .add(KeyboardPlugin)
+            .add(MousePlugin)
+            .add(GamepadPlugin)
+            .add(TouchPlugin);
     }
 }
 
@@ -55,7 +50,7 @@ impl Plugin for GamepadPlugin {
         app.add_event::<GamepadEvent>()
             .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
-            .init_resource::<Button<GamepadButtonCode>>()
+            .init_resource::<BinaryInput<GamepadButtonCode>>()
             .init_resource::<Axis<GamepadAxisCode>>()
             .init_resource::<Axis<GamepadButtonCode>>()
             .add_system_to_stage(bevy_app::stage::EVENT, gamepad_event_system.system());
@@ -69,7 +64,7 @@ pub struct KeyboardPlugin;
 impl Plugin for KeyboardPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<KeyboardEvent>()
-            .init_resource::<Button<KeyCode>>()
+            .init_resource::<BinaryInput<KeyCode>>()
             .add_system_to_stage(bevy_app::stage::EVENT, keyboard_input_system.system());
     }
 }
@@ -83,7 +78,7 @@ impl Plugin for MousePlugin {
         app.add_event::<MouseButtonEvent>()
             .add_event::<MouseMotionEvent>()
             .add_event::<MouseWheelEvent>()
-            .init_resource::<Button<MouseButtonCode>>()
+            .init_resource::<BinaryInput<MouseButtonCode>>()
             .add_system_to_stage(bevy_app::stage::EVENT, mouse_button_input_system.system());
     }
 }

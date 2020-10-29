@@ -1,4 +1,4 @@
-use crate::{device_codes::*, devices::Gamepad};
+use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

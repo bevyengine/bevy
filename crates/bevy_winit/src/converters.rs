@@ -1,12 +1,8 @@
-use bevy_input::{
-    keyboard::{ElementState, KeyCode, KeyboardInput},
-    mouse::MouseButton,
-    touch::{TouchInput, TouchPhase},
-};
+use bevy_input::prelude::*;
 use bevy_math::Vec2;
 
-pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
-    KeyboardInput {
+pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardEvent {
+    KeyboardEvent {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
@@ -20,22 +16,22 @@ pub fn convert_element_state(element_state: winit::event::ElementState) -> Eleme
     }
 }
 
-pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButton {
+pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseButtonCode {
     match mouse_button {
-        winit::event::MouseButton::Left => MouseButton::Left,
-        winit::event::MouseButton::Right => MouseButton::Right,
-        winit::event::MouseButton::Middle => MouseButton::Middle,
-        winit::event::MouseButton::Other(val) => MouseButton::Other(val),
+        winit::event::MouseButton::Left => MouseButtonCode::Left,
+        winit::event::MouseButton::Right => MouseButtonCode::Right,
+        winit::event::MouseButton::Middle => MouseButtonCode::Middle,
+        winit::event::MouseButton::Other(val) => MouseButtonCode::Other(val),
     }
 }
 
-pub fn convert_touch_input(touch_input: winit::event::Touch) -> TouchInput {
-    TouchInput {
+pub fn convert_touch_input(touch_input: winit::event::Touch) -> TouchEvent {
+    TouchEvent {
         phase: match touch_input.phase {
-            winit::event::TouchPhase::Started => TouchPhase::Started,
-            winit::event::TouchPhase::Moved => TouchPhase::Moved,
-            winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Started => TouchPhaseCode::Started,
+            winit::event::TouchPhase::Moved => TouchPhaseCode::Moved,
+            winit::event::TouchPhase::Ended => TouchPhaseCode::Ended,
+            winit::event::TouchPhase::Cancelled => TouchPhaseCode::Cancelled,
         },
         position: Vec2::new(touch_input.location.x as f32, touch_input.location.y as f32),
         id: touch_input.id,

@@ -34,9 +34,9 @@ fn despawn() {
     let mut world = World::new();
     let e = world.spawn(("abc", 123));
     let f = world.spawn(("def", 456));
-    assert_eq!(world.query::<()>().iter().count(), 2);
+    assert_eq!(world.query::<()>().count(), 2);
     world.despawn(e).unwrap();
-    assert_eq!(world.query::<()>().iter().count(), 1);
+    assert_eq!(world.query::<()>().count(), 1);
     assert!(world.get::<&str>(e).is_err());
     assert!(world.get::<i32>(e).is_err());
     assert_eq!(*world.get::<&str>(f).unwrap(), "def");
@@ -51,14 +51,13 @@ fn query_all() {
 
     let ents = world
         .query::<(Entity, &i32, &&str)>()
-        .iter()
         .map(|(e, &i, &s)| (e, i, s))
         .collect::<Vec<_>>();
     assert_eq!(ents.len(), 2);
     assert!(ents.contains(&(e, 123, "abc")));
     assert!(ents.contains(&(f, 456, "def")));
 
-    let ents = world.query::<Entity>().iter().collect::<Vec<_>>();
+    let ents = world.query::<Entity>().collect::<Vec<_>>();
     assert_eq!(ents.len(), 2);
     assert!(ents.contains(&e));
     assert!(ents.contains(&f));
@@ -71,7 +70,6 @@ fn query_single_component() {
     let f = world.spawn(("def", 456, true));
     let ents = world
         .query::<(Entity, &i32)>()
-        .iter()
         .map(|(e, &i)| (e, i))
         .collect::<Vec<_>>();
     assert_eq!(ents.len(), 2);
@@ -84,7 +82,7 @@ fn query_missing_component() {
     let mut world = World::new();
     world.spawn(("abc", 123));
     world.spawn(("def", 456));
-    assert!(world.query::<(&bool, &i32)>().iter().next().is_none());
+    assert!(world.query::<(&bool, &i32)>().next().is_none());
 }
 
 #[test]
@@ -94,7 +92,6 @@ fn query_sparse_component() {
     let f = world.spawn(("def", 456, true));
     let ents = world
         .query::<(Entity, &bool)>()
-        .iter()
         .map(|(e, &b)| (e, b))
         .collect::<Vec<_>>();
     assert_eq!(ents, &[(f, true)]);
@@ -107,7 +104,6 @@ fn query_optional_component() {
     let f = world.spawn(("def", 456, true));
     let ents = world
         .query::<(Entity, Option<&bool>, &i32)>()
-        .iter()
         .map(|(e, b, &i)| (e, b.copied(), i))
         .collect::<Vec<_>>();
     assert_eq!(ents.len(), 2);
@@ -140,7 +136,6 @@ fn dynamic_components() {
     assert_eq!(
         world
             .query::<(Entity, &i32, &bool)>()
-            .iter()
             .map(|(e, &i, &b)| (e, i, b))
             .collect::<Vec<_>>(),
         &[(e, 42, true)]
@@ -149,7 +144,6 @@ fn dynamic_components() {
     assert_eq!(
         world
             .query::<(Entity, &i32, &bool)>()
-            .iter()
             .map(|(e, &i, &b)| (e, i, b))
             .collect::<Vec<_>>(),
         &[]
@@ -157,7 +151,6 @@ fn dynamic_components() {
     assert_eq!(
         world
             .query::<(Entity, &bool, &&str)>()
-            .iter()
             .map(|(e, &b, &s)| (e, b, s))
             .collect::<Vec<_>>(),
         &[(e, true, "abc")]
@@ -223,17 +216,6 @@ fn clear() {
 }
 
 #[test]
-#[should_panic(expected = "twice on the same borrow")]
-fn alias() {
-    let mut world = World::new();
-    world.spawn(("abc", 123));
-    world.spawn(("def", 456, true));
-    let mut q = world.query_mut::<Entity>();
-    let _a = q.iter().collect::<Vec<_>>();
-    let _b = q.iter().collect::<Vec<_>>();
-}
-
-#[test]
 fn remove_missing() {
     let mut world = World::new();
     let e = world.spawn(("abc", 123));
@@ -246,22 +228,15 @@ fn query_batched() {
     let a = world.spawn(());
     let b = world.spawn(());
     let c = world.spawn((42,));
-    assert_eq!(world.query::<()>().iter_batched(1).count(), 3);
-    assert_eq!(world.query::<()>().iter_batched(2).count(), 2);
-    assert_eq!(
-        world.query::<()>().iter_batched(2).flat_map(|x| x).count(),
-        3
-    );
+    assert_eq!(world.query_batched::<()>(1).count(), 3);
+    assert_eq!(world.query_batched::<()>(2).count(), 2);
+    assert_eq!(world.query_batched::<()>(2).flat_map(|x| x).count(), 3);
     // different archetypes are always in different batches
-    assert_eq!(world.query::<()>().iter_batched(3).count(), 2);
-    assert_eq!(
-        world.query::<()>().iter_batched(3).flat_map(|x| x).count(),
-        3
-    );
-    assert_eq!(world.query::<()>().iter_batched(4).count(), 2);
+    assert_eq!(world.query_batched::<()>(3).count(), 2);
+    assert_eq!(world.query_batched::<()>(3).flat_map(|x| x).count(), 3);
+    assert_eq!(world.query_batched::<()>(4).count(), 2);
     let entities = world
-        .query::<Entity>()
-        .iter_batched(1)
+        .query_batched::<Entity>(1)
         .flat_map(|x| x)
         .map(|e| e)
         .collect::<Vec<_>>();
@@ -276,7 +251,7 @@ fn query_batched() {
 fn spawn_batch() {
     let mut world = World::new();
     world.spawn_batch((0..100).map(|x| (x, "abc")));
-    let entities = world.query::<&i32>().iter().map(|&x| x).collect::<Vec<_>>();
+    let entities = world.query::<&i32>().map(|&x| x).collect::<Vec<_>>();
     assert_eq!(entities.len(), 100);
 }
 
@@ -286,13 +261,10 @@ fn query_one() {
     let a = world.spawn(("abc", 123));
     let b = world.spawn(("def", 456));
     let c = world.spawn(("ghi", 789, true));
-    assert_eq!(world.query_one::<&i32>(a).unwrap().get(), Some(&123));
-    assert_eq!(world.query_one::<&i32>(b).unwrap().get(), Some(&456));
-    assert!(world.query_one::<(&i32, &bool)>(a).unwrap().get().is_none());
-    assert_eq!(
-        world.query_one::<(&i32, &bool)>(c).unwrap().get(),
-        Some((&789, &true))
-    );
+    assert_eq!(world.query_one::<&i32>(a), Ok(&123));
+    assert_eq!(world.query_one::<&i32>(b), Ok(&456));
+    assert!(world.query_one::<(&i32, &bool)>(a).is_err());
+    assert_eq!(world.query_one::<(&i32, &bool)>(c), Ok((&789, &true)));
     world.despawn(a).unwrap();
     assert!(world.query_one::<&i32>(a).is_err());
 }
@@ -371,29 +343,21 @@ fn added_tracking() {
     let mut world = World::new();
     let a = world.spawn((123,));
 
-    assert_eq!(world.query::<&i32>().iter().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().iter().count(), 1);
-    assert_eq!(world.query_mut::<&i32>().iter().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().iter().count(), 1);
-    assert!(world.query_one::<&i32>(a).unwrap().get().is_some());
-    assert!(world.query_one::<Added<i32>>(a).unwrap().get().is_some());
-    assert!(world.query_one_mut::<&i32>(a).unwrap().get().is_some());
-    assert!(world
-        .query_one_mut::<Added<i32>>(a)
-        .unwrap()
-        .get()
-        .is_some());
+    assert_eq!(world.query::<&i32>().count(), 1);
+    assert_eq!(world.query::<Added<i32>>().count(), 1);
+    assert_eq!(world.query_mut::<&i32>().count(), 1);
+    assert_eq!(world.query_mut::<Added<i32>>().count(), 1);
+    assert!(world.query_one::<&i32>(a).is_ok());
+    assert!(world.query_one::<Added<i32>>(a).is_ok());
+    assert!(world.query_one_mut::<&i32>(a).is_ok());
+    assert!(world.query_one_mut::<Added<i32>>(a).is_ok());
 
     world.clear_trackers();
 
-    assert_eq!(world.query::<&i32>().iter().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().iter().count(), 0);
-    assert_eq!(world.query_mut::<&i32>().iter().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().iter().count(), 0);
-    assert!(world.query_one_mut::<&i32>(a).unwrap().get().is_some());
-    assert!(world
-        .query_one_mut::<Added<i32>>(a)
-        .unwrap()
-        .get()
-        .is_none());
+    assert_eq!(world.query::<&i32>().count(), 1);
+    assert_eq!(world.query::<Added<i32>>().count(), 0);
+    assert_eq!(world.query_mut::<&i32>().count(), 1);
+    assert_eq!(world.query_mut::<Added<i32>>().count(), 0);
+    assert!(world.query_one_mut::<&i32>(a).is_ok());
+    assert!(world.query_one_mut::<Added<i32>>(a).is_err());
 }

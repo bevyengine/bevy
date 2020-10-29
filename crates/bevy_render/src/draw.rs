@@ -215,20 +215,14 @@ impl<'a> FetchResource<'a> for FetchDrawContext {
         }
     }
 
-    fn access() -> TypeAccess {
+    fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access
-            .mutable
-            .insert(TypeId::of::<Assets<PipelineDescriptor>>());
-        access.mutable.insert(TypeId::of::<Assets<Shader>>());
-        access.mutable.insert(TypeId::of::<PipelineCompiler>());
-        access
-            .immutable
-            .insert(TypeId::of::<Box<dyn RenderResourceContext>>());
-        access
-            .immutable
-            .insert(TypeId::of::<VertexBufferDescriptors>());
-        access.immutable.insert(TypeId::of::<SharedBuffers>());
+        access.add_write(TypeId::of::<Assets<PipelineDescriptor>>());
+        access.add_write(TypeId::of::<Assets<Shader>>());
+        access.add_write(TypeId::of::<PipelineCompiler>());
+        access.add_read(TypeId::of::<Box<dyn RenderResourceContext>>());
+        access.add_read(TypeId::of::<VertexBufferDescriptors>());
+        access.add_read(TypeId::of::<SharedBuffers>());
         access
     }
 }
@@ -388,7 +382,7 @@ pub trait Drawable {
 }
 
 pub fn clear_draw_system(mut query: Query<&mut Draw>) {
-    for mut draw in &mut query.iter() {
+    for mut draw in query.iter_mut() {
         draw.clear_render_commands();
     }
 }

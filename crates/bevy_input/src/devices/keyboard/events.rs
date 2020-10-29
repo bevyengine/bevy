@@ -1,4 +1,5 @@
-use crate::{device_codes::*, state::ElementState};
+use super::*;
+use crate::core::*;
 
 /// A key input event from a keyboard device
 #[derive(Debug, Clone)]

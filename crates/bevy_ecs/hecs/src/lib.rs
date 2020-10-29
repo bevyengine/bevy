@@ -40,7 +40,6 @@
 //! assert_eq!(*world.get::<i32>(b).unwrap(), 42);
 //! ```
 
-#![warn(missing_docs)]
 #![no_std]
 
 #[cfg(feature = "std")]
@@ -64,27 +63,27 @@ macro_rules! smaller_tuples_too {
     };
 }
 
+mod access;
 mod archetype;
 mod borrow;
 mod bundle;
 mod entities;
 mod entity_builder;
 mod query;
-mod query_one;
 #[cfg(feature = "serde")]
 mod serde;
 mod world;
 
+pub use access::{ArchetypeComponent, QueryAccess, TypeAccess};
 pub use archetype::{Archetype, TypeState};
 pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
 pub use query::{
-    Access, Added, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryBorrow, QueryIter,
-    ReadOnlyFetch, With, Without,
+    Added, Batch, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryIter, ReadOnlyFetch, With,
+    Without,
 };
-pub use query_one::QueryOne;
 pub use world::{ArchetypesGeneration, Component, ComponentError, SpawnBatchIter, World};
 
 // Unstable implementation details needed by the macros
@@ -99,4 +98,4 @@ pub use lazy_static;
 pub use query::Fetch;
 
 #[cfg(feature = "macros")]
-pub use bevy_hecs_macros::Bundle;
+pub use bevy_hecs_macros::{impl_query_set, Bundle};
