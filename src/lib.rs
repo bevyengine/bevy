@@ -39,61 +39,84 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+/// `use bevy::prelude::*;` to import common components, bundles, and plugins.
 pub mod prelude;
 
 mod default_plugins;
 pub use default_plugins::*;
 
 pub mod app {
+    //! Build bevy applications, create plugins, and read events.
     pub use bevy_app::*;
 }
+
 pub mod asset {
+    //! Load and store assets and resources for Apps
     pub use bevy_asset::*;
 }
+
 pub mod core {
+    //! Contains core plugins and utilities for time.
     pub use bevy_core::*;
 }
+
 pub mod diagnostic {
+    //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;
 }
+
 pub mod ecs {
+    //! Bevy's entity-componenet-system.
     pub use bevy_ecs::*;
 }
+
 pub mod input {
+    //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
     pub use bevy_input::*;
 }
+
 pub mod math {
     pub use bevy_math::*;
 }
+
 pub mod property {
+    //! Dynamically interact with struct fields and names.
     pub use bevy_property::*;
 }
+
 pub mod scene {
     pub use bevy_scene::*;
 }
+
 pub mod tasks {
     pub use bevy_tasks::*;
 }
+
 pub mod transform {
     pub use bevy_transform::*;
 }
+
 pub mod type_registry {
     pub use bevy_type_registry::*;
 }
+
 pub mod utils {
     pub use bevy_utils::*;
 }
+
 pub mod window {
     pub use bevy_window::*;
 }
 
 #[cfg(feature = "bevy_audio")]
 pub mod audio {
+    //! Provides types and plugins audio playback.
     pub use bevy_audio::*;
 }
 
 #[cfg(feature = "bevy_gltf")]
 pub mod gltf {
+    //! Support for GLTF file loading to Apps.
     pub use bevy_gltf::*;
 }
 
