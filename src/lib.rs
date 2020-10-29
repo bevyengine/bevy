@@ -37,10 +37,9 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-mod add_default_plugins;
+mod default_plugins;
 pub mod prelude;
 
-pub use add_default_plugins::*;
 pub use bevy_app as app;
 pub use bevy_asset as asset;
 pub use bevy_core as core;
@@ -55,6 +54,7 @@ pub use bevy_transform as transform;
 pub use bevy_type_registry as type_registry;
 pub use bevy_utils as utils;
 pub use bevy_window as window;
+pub use default_plugins::*;
 
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
