@@ -31,7 +31,7 @@
 //! in your project's `Cargo.toml` to meet your specific needs. See Bevy's `Cargo.toml` for a full list of features available.
 //!
 //! If you prefer, you can also consume the individual bevy crates directly.
-//! Each module in this crates, except for the prelude, can be found on crates.io
+//! Each module in the root of this crate, except for the prelude, can be found on crates.io
 //! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/0.2.1/bevy_app/).
 
 #![doc(
@@ -46,7 +46,7 @@ mod default_plugins;
 pub use default_plugins::*;
 
 pub mod app {
-    //! Build bevy applications, create plugins, and read events.
+    //! Build bevy apps, create plugins, and read events.
     pub use bevy_app::*;
 }
 
@@ -110,18 +110,19 @@ pub mod window {
 
 #[cfg(feature = "bevy_audio")]
 pub mod audio {
-    //! Provides types and plugins audio playback.
+    //! Provides types and plugins for audio playback.
     pub use bevy_audio::*;
 }
 
 #[cfg(feature = "bevy_gltf")]
 pub mod gltf {
-    //! Support for GLTF file loading to Apps.
+    //! Support for GLTF file loading.
     pub use bevy_gltf::*;
 }
 
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
+    //! Physically based rendering
     pub use bevy_pbr::*;
 }
 
@@ -132,6 +133,7 @@ pub mod render {
 
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
+    // Items for sprites, rects, texture atlases, etc.
     pub use bevy_sprite::*;
 }
 
