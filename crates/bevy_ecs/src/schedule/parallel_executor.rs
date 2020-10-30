@@ -564,7 +564,7 @@ mod tests {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
-                query.get::<u32>(entity).unwrap();
+                query.get_component::<u32>(entity).unwrap();
             }
 
             assert_eq!(1, entities.iter().count());
@@ -595,7 +595,7 @@ mod tests {
             for entity in &mut entities.iter() {
                 // query.get() does a "system permission check" that will fail if the entity is from a
                 // new archetype which hasnt been "prepared yet"
-                query.get::<u32>(entity).unwrap();
+                query.get_component::<u32>(entity).unwrap();
             }
 
             assert_eq!(1, entities.iter().count());

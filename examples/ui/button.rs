@@ -38,7 +38,7 @@ fn button_system(
     mut text_query: Query<&mut Text>,
 ) {
     for (_button, interaction, mut material, children) in interaction_query.iter_mut() {
-        let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
+        let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {
                 text.value = "Press".to_string();

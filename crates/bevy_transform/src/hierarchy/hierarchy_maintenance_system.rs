@@ -14,7 +14,7 @@ pub fn parent_update_system(
     // them from the `Children` of the `PreviousParent`.
     for (entity, previous_parent) in removed_parent_query.iter() {
         log::trace!("Parent was removed from {:?}", entity);
-        if let Ok(mut previous_parent_children) = children_query.entity_mut(previous_parent.0) {
+        if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
             log::trace!(" > Removing {:?} from it's prev parent's children", entity);
             previous_parent_children.0.retain(|e| *e != entity);
             commands.remove_one::<PreviousParent>(entity);
@@ -35,9 +35,7 @@ pub fn parent_update_system(
             }
 
             // Remove from `PreviousParent.Children`.
-            if let Ok(mut previous_parent_children) =
-                children_query.get_mut::<Children>(previous_parent.0)
-            {
+            if let Ok(mut previous_parent_children) = children_query.get_mut(previous_parent.0) {
                 log::trace!(" > Removing {:?} from prev parent's children", entity);
                 (*previous_parent_children).0.retain(|e| *e != entity);
             }
@@ -52,7 +50,7 @@ pub fn parent_update_system(
         // Add to the parent's `Children` (either the real component, or
         // `children_additions`).
         log::trace!("Adding {:?} to it's new parent {:?}", entity, parent.0);
-        if let Ok(mut new_parent_children) = children_query.get_mut::<Children>(parent.0) {
+        if let Ok(mut new_parent_children) = children_query.get_mut(parent.0) {
             // This is the parent
             log::trace!(
                 " > The new parent {:?} already has a `Children`, adding to it.",

@@ -75,7 +75,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 
     /// Gets the query result for the given `entity`
-    pub fn entity(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
+    pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -88,7 +88,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 
     /// Gets the query result for the given `entity`
-    pub fn entity_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe {
             self.world
@@ -111,7 +111,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
 
     /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
     /// the given component type or if the given component type does not match this query.
-    pub fn get<T: Component>(&self, entity: Entity) -> Result<&T, QueryError> {
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryError> {
         if let Some(location) = self.world.get_entity_location(entity) {
             if self
                 .component_access
@@ -133,7 +133,10 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
 
     /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
     /// the given component type or if the given component type does not match this query.
-    pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Result<Mut<'_, T>, QueryError> {
+    pub fn get_component_mut<T: Component>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<Mut<'_, T>, QueryError> {
         let location = match self.world.get_entity_location(entity) {
             None => return Err(QueryError::ComponentError(ComponentError::NoSuchEntity)),
             Some(location) => location,
@@ -174,7 +177,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// Sets the entity's component to the given value. This will fail if the entity does not already have
     /// the given component type or if the given component type does not match this query.
     pub fn set<T: Component>(&mut self, entity: Entity, component: T) -> Result<(), QueryError> {
-        let mut current = self.get_mut::<T>(entity)?;
+        let mut current = self.get_component_mut::<T>(entity)?;
         *current = component;
         Ok(())
     }
