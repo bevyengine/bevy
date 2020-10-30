@@ -27,12 +27,6 @@ impl VertexBufferDescriptor {
             attributes: vec![attribute.clone()],
         }
     }
-
-    // just for tests, since a reflected layout doesn't know about the stride
-    pub fn test_zero_stride(mut self) -> VertexBufferDescriptor {
-        self.stride = 0;
-        self
-    }
 }
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum InputStepMode {

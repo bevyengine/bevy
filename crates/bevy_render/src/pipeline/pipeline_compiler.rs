@@ -174,7 +174,7 @@ impl PipelineCompiler {
         let mut mutated_vertex_buffer_descriptor =
             pipeline_specialization.mesh_attribute_layout.clone();
 
-        let mut fallback_vertex_buffer_descirptor = VertexBufferDescriptor {
+        let mut fallback_vertex_buffer_descriptor = VertexBufferDescriptor {
             name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME),
             stride: VertexFormat::Float4.get_size(), //TODO: use smallest possible format
             ..Default::default()
@@ -193,7 +193,7 @@ impl PipelineCompiler {
                 // copy shader location from reflected layout
                 target_vertex_attribute.shader_location = shader_vertex_attribute.shader_location;
             } else {
-                fallback_vertex_buffer_descirptor
+                fallback_vertex_buffer_descriptor
                     .attributes
                     .push(VertexAttributeDescriptor {
                         name: Default::default(),
@@ -206,8 +206,8 @@ impl PipelineCompiler {
         //TODO: add other buffers (like instancing) here
         let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
         vertex_buffer_descriptors.push(mutated_vertex_buffer_descriptor);
-        if !fallback_vertex_buffer_descirptor.attributes.is_empty() {
-            vertex_buffer_descriptors.push(fallback_vertex_buffer_descirptor);
+        if !fallback_vertex_buffer_descriptor.attributes.is_empty() {
+            vertex_buffer_descriptors.push(fallback_vertex_buffer_descriptor);
         }
         pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
         specialized_descriptor.sample_count = pipeline_specialization.sample_count;

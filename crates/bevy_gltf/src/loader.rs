@@ -78,7 +78,7 @@ async fn load_gltf<'a, 'b>(
                 let reader = primitive.reader(|buffer| Some(&buffer_data[buffer.index()]));
                 let primitive_topology = get_primitive_topology(primitive.mode())?;
 
-                let mut mesh = Mesh::new(primitive_topology, None);
+                let mut mesh = Mesh::new(primitive_topology);
 
                 if let Some(vertex_attribute) = reader
                     .read_positions()

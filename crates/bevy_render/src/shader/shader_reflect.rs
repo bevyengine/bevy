@@ -300,6 +300,12 @@ mod tests {
     use super::*;
     use crate::shader::{Shader, ShaderStage};
 
+    impl VertexBufferDescriptor {
+        pub fn test_zero_stride(mut self) -> VertexBufferDescriptor {
+            self.stride = 0;
+            self
+        }
+    }
     #[test]
     fn test_reflection() {
         let vertex_shader = Shader::from_glsl(
