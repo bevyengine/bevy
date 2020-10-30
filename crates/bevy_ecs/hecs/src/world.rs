@@ -15,8 +15,8 @@
 // modified by Bevy contributors
 
 use crate::{
-    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, query_one::ReadOnlyQueryOne,
-    EntityReserver, Mut, RefMut,
+    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, BatchedIter, EntityReserver, Fetch,
+    Mut, QueryIter, RefMut,
 };
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, fmt, mem, ptr};
@@ -27,8 +27,7 @@ use std::error::Error;
 use crate::{
     archetype::Archetype,
     entities::{Entities, Location},
-    Bundle, DynamicBundle, Entity, MissingComponent, NoSuchEntity, Query, QueryBorrow, QueryOne,
-    Ref,
+    Bundle, DynamicBundle, Entity, MissingComponent, NoSuchEntity, Query, Ref,
 };
 
 /// An unordered collection of entities, each having any number of distinctly typed components
@@ -236,9 +235,6 @@ impl World {
     ///
     /// Entities are yielded in arbitrary order.
     ///
-    /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
-    /// documentation for details.
-    ///
     /// # Example
     /// ```
     /// # use bevy_hecs::*;
@@ -247,14 +243,13 @@ impl World {
     /// let b = world.spawn((456, false));
     /// let c = world.spawn((42, "def"));
     /// let entities = world.query::<(Entity, &i32, &bool)>()
-    ///     .iter()
     ///     .map(|(e, &i, &b)| (e, i, b)) // Copy out of the world
     ///     .collect::<Vec<_>>();
     /// assert_eq!(entities.len(), 2);
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query<Q: Query>(&self) -> QueryBorrow<'_, Q>
+    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -272,9 +267,6 @@ impl World {
     ///
     /// Entities are yielded in arbitrary order.
     ///
-    /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
-    /// documentation for details.
-    ///
     /// # Example
     /// ```
     /// # use bevy_hecs::*;
@@ -282,17 +274,33 @@ impl World {
     /// let a = world.spawn((123, true, "abc"));
     /// let b = world.spawn((456, false));
     /// let c = world.spawn((42, "def"));
-    /// let entities = world.query::<(Entity, &i32, &bool)>()
-    ///     .iter()
-    ///     .map(|(e, &i, &b)| (e, i, b)) // Copy out of the world
+    /// let entities = world.query_mut::<(Entity, &mut i32, &bool)>()
+    ///     .map(|(e, i, &b)| (e, *i, b)) // Copy out of the world
     ///     .collect::<Vec<_>>();
     /// assert_eq!(entities.len(), 2);
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
-    pub fn query_mut<Q: Query>(&mut self) -> QueryBorrow<'_, Q> {
+    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
+    }
+
+    /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
+    /// where each batch is `batch_size`. This is generally used for parallel iteration.
+    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
+    }
+
+    /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
+    /// where each batch is `batch_size`. This is generally used for parallel iteration.
+    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q> {
+        // SAFE: unique mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
     }
 
     /// Efficiently iterate over all entities that have certain components
@@ -305,35 +313,28 @@ impl World {
     ///
     /// Entities are yielded in arbitrary order.
     ///
-    /// The returned `QueryBorrow` can be further transformed with combinator methods; see its
-    /// documentation for details.
+    /// # Safety
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'_, Q> {
+        QueryIter::new(&self.archetypes)
+    }
+
+    /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
+    /// where each batch is `batch_size`. This is generally used for parallel iteration.
     ///
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_hecs::*;
-    /// let mut world = World::new();
-    /// let a = world.spawn((123, true, "abc"));
-    /// let b = world.spawn((456, false));
-    /// let c = world.spawn((42, "def"));
-    /// let entities = world.query::<(Entity, &i32, &bool)>()
-    ///     .iter()
-    ///     .map(|(e, &i, &b)| (e, i, b)) // Copy out of the world
-    ///     .collect::<Vec<_>>();
-    /// assert_eq!(entities.len(), 2);
-    /// assert!(entities.contains(&(a, 123, true)));
-    /// assert!(entities.contains(&(b, 456, false)));
-    /// ```
-    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryBorrow<'_, Q> {
-        QueryBorrow::new(&self.archetypes)
+    #[inline]
+    pub unsafe fn query_batched_unchecked<Q: Query>(
+        &self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q> {
+        BatchedIter::new(&self.archetypes, batch_size)
     }
 
     /// Prepare a read only query against a single entity
-    ///
-    /// Call `get` on the resulting `QueryOne` to actually execute the query.
     ///
     /// Handy for accessing multiple components simultaneously.
     ///
@@ -343,24 +344,21 @@ impl World {
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
-    /// let mut query = world.query_one::<(&i32, &bool)>(a).unwrap();
-    /// let (number, flag) = query.get().unwrap();
+    /// let (number, flag) = world.query_one::<(&i32, &bool)>(a).unwrap();
     /// assert_eq!(*number, 123);
     /// ```
     pub fn query_one<Q: Query>(
         &self,
         entity: Entity,
-    ) -> Result<ReadOnlyQueryOne<'_, Q>, NoSuchEntity>
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
     where
         Q::Fetch: ReadOnlyFetch,
     {
-        let loc = self.entities.get(entity)?;
-        Ok(unsafe { ReadOnlyQueryOne::new(&self.archetypes[loc.archetype as usize], loc.index) })
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_one_unchecked::<Q>(entity) }
     }
 
     /// Prepare a query against a single entity
-    ///
-    /// Call `get` on the resulting `QueryOne` to actually execute the query.
     ///
     /// Handy for accessing multiple components simultaneously.
     ///
@@ -370,49 +368,34 @@ impl World {
     /// let mut world = World::new();
     /// let a = world.spawn((123, true, "abc"));
     /// // The returned query must outlive the borrow made by `get`
-    /// let mut query = world.query_one_mut::<(&mut i32, &bool)>(a).unwrap();
-    /// let (mut number, flag) = query.get().unwrap();
+    /// let (mut number, flag) = world.query_one_mut::<(&mut i32, &bool)>(a).unwrap();
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
     pub fn query_one_mut<Q: Query>(
         &mut self,
         entity: Entity,
-    ) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         // SAFE: unique mutable access to world
-        unsafe { self.query_one_mut_unchecked(entity) }
+        unsafe { self.query_one_unchecked::<Q>(entity) }
     }
 
     /// Prepare a query against a single entity, without checking the safety of mutable queries
-    ///
-    /// Call `get` on the resulting `QueryOne` to actually execute the query.
     ///
     /// Handy for accessing multiple components simultaneously.
     ///
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_hecs::*;
-    /// let mut world = World::new();
-    /// let a = world.spawn((123, true, "abc"));
-    /// // The returned query must outlive the borrow made by `get`
-    /// let mut query = world.query_one_mut::<(&mut i32, &bool)>(a).unwrap();
-    /// let (mut number, flag) = query.get().unwrap();
-    /// if *flag { *number *= 2; }
-    /// assert_eq!(*number, 246);
-    /// ```
-    pub unsafe fn query_one_mut_unchecked<Q: Query>(
+    pub unsafe fn query_one_unchecked<Q: Query>(
         &self,
         entity: Entity,
-    ) -> Result<QueryOne<'_, Q>, NoSuchEntity> {
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         let loc = self.entities.get(entity)?;
-        Ok(QueryOne::new(
-            &self.archetypes[loc.archetype as usize],
-            loc.index,
-        ))
+        <Q::Fetch as Fetch>::get(&self.archetypes[loc.archetype as usize], 0)
+            .filter(|fetch| !fetch.should_skip(loc.index))
+            .map(|fetch| fetch.fetch(loc.index))
+            .ok_or(NoSuchEntity)
     }
 
     /// Borrow the `T` component of `entity`

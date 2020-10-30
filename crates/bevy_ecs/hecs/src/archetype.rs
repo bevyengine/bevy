@@ -31,7 +31,7 @@ use core::{
 };
 use std::collections::HashMap;
 
-use crate::{borrow::AtomicBorrow, query::Fetch, Access, Component, Query};
+use crate::{borrow::AtomicBorrow, Component};
 
 /// A collection of entities having the same component types
 ///
@@ -416,11 +416,6 @@ impl Archetype {
             .add(state.offset + size * index)
             .cast::<u8>();
         ptr::copy_nonoverlapping(component, ptr, size);
-    }
-
-    /// How, if at all, `Q` will access entities in this archetype
-    pub fn access<Q: Query>(&self) -> Option<Access> {
-        Q::Fetch::access(self)
     }
 }
 

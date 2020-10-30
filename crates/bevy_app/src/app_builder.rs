@@ -2,7 +2,7 @@ use crate::{
     app::{App, AppExit},
     event::Events,
     plugin::Plugin,
-    stage, startup_stage,
+    stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
 use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
 
@@ -269,6 +269,25 @@ impl AppBuilder {
     {
         log::debug!("added plugin: {}", plugin.name());
         plugin.build(self);
+        self
+    }
+
+    pub fn add_plugin_group<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
+        let mut plugin_group_builder = PluginGroupBuilder::default();
+        group.build(&mut plugin_group_builder);
+        plugin_group_builder.finish(self);
+        self
+    }
+
+    pub fn add_plugin_group_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
+    where
+        T: PluginGroup,
+        F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
+    {
+        let mut plugin_group_builder = PluginGroupBuilder::default();
+        group.build(&mut plugin_group_builder);
+        func(&mut plugin_group_builder);
+        plugin_group_builder.finish(self);
         self
     }
 }

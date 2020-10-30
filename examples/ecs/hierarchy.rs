@@ -91,18 +91,21 @@ fn setup(
 fn rotate(
     mut commands: Commands,
     time: Res<Time>,
-    mut parents_query: Query<(Entity, &mut Transform, &mut Children, &Sprite)>,
-    children_query: Query<(&mut Transform, &Sprite)>,
+    mut parents_query: Query<(Entity, &mut Children, &Sprite)>,
+    mut transform_query: Query<With<Sprite, &mut Transform>>,
 ) {
     let angle = std::f32::consts::PI / 2.0;
-    for (parent, mut transform, mut children, _) in &mut parents_query.iter() {
-        transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds));
+    for (parent, mut children, _) in parents_query.iter_mut() {
+        if let Ok(mut transform) = transform_query.entity_mut(parent) {
+            transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds));
+        }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children.iter() {
-            let mut transform = children_query.get_mut::<Transform>(*child).unwrap();
-            transform.rotate(Quat::from_rotation_z(angle * 2.0 * time.delta_seconds));
+            if let Ok(mut transform) = transform_query.entity_mut(*child) {
+                transform.rotate(Quat::from_rotation_z(angle * 2.0 * time.delta_seconds));
+            }
         }
 
         // To demonstrate removing children, we'll start to remove the children after a couple of seconds
@@ -115,7 +118,6 @@ fn rotate(
         }
 
         if time.seconds_since_startup >= 4.0 {
-            // Alternatively, you can use .despawn_recursive()
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
             commands.despawn_recursive(parent);

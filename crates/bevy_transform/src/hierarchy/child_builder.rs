@@ -15,10 +15,7 @@ impl Command for InsertChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         for child in self.children.iter() {
             world
-                .insert(
-                    *child,
-                    (Parent(self.parent), PreviousParent(Some(self.parent))),
-                )
+                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
                 .unwrap();
         }
         {
@@ -53,10 +50,7 @@ impl Command for PushChildren {
     fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         for child in self.children.iter() {
             world
-                .insert(
-                    *child,
-                    (Parent(self.parent), PreviousParent(Some(self.parent))),
-                )
+                .insert(*child, (Parent(self.parent), PreviousParent(self.parent)))
                 .unwrap();
         }
         {
@@ -255,11 +249,11 @@ mod tests {
 
         assert_eq!(
             *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
         assert_eq!(
             *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
     }
 
@@ -291,11 +285,11 @@ mod tests {
 
         assert_eq!(
             *world.get::<PreviousParent>(child1).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
         assert_eq!(
             *world.get::<PreviousParent>(child2).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
 
         commands.insert_children(parent, 1, &entities[3..]);
@@ -310,11 +304,11 @@ mod tests {
         assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
         assert_eq!(
             *world.get::<PreviousParent>(child3).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
         assert_eq!(
             *world.get::<PreviousParent>(child4).unwrap(),
-            PreviousParent(Some(parent))
+            PreviousParent(parent)
         );
     }
 }

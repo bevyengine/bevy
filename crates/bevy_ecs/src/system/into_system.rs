@@ -1,19 +1,19 @@
 pub use super::Query;
-use super::TypeAccess;
 use crate::{
     resource::{FetchResource, ResourceQuery, Resources, UnsafeClone},
-    system::{ArchetypeAccess, Commands, System, SystemId, ThreadLocalExecution},
+    system::{Commands, System, SystemId, ThreadLocalExecution},
+    QueryAccess, QuerySet, QueryTuple, TypeAccess,
 };
-use bevy_hecs::{Fetch, Query as HecsQuery, World};
-use std::borrow::Cow;
+use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, World};
+use std::{any::TypeId, borrow::Cow};
 
 #[derive(Debug)]
-pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
+pub(crate) struct SystemFn<State, F, ThreadLocalF, Init, Update>
 where
-    F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
+    F: FnMut(&World, &Resources, &mut State) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
     Init: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
-    SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess, &mut State) + Send + Sync,
+    Update: FnMut(&World, &mut TypeAccess<ArchetypeComponent>, &mut State) + Send + Sync,
     State: Send + Sync,
 {
     pub state: State,
@@ -21,35 +21,34 @@ where
     pub thread_local_func: ThreadLocalF,
     pub init_func: Init,
     pub thread_local_execution: ThreadLocalExecution,
-    pub resource_access: TypeAccess,
+    pub resource_access: TypeAccess<TypeId>,
     pub name: Cow<'static, str>,
     pub id: SystemId,
-    pub archetype_access: ArchetypeAccess,
-    pub set_archetype_access: SetArchetypeAccess,
+    pub archetype_component_access: TypeAccess<ArchetypeComponent>,
+    pub update_func: Update,
 }
 
-impl<State, F, ThreadLocalF, Init, SetArchetypeAccess> System
-    for SystemFn<State, F, ThreadLocalF, Init, SetArchetypeAccess>
+impl<State, F, ThreadLocalF, Init, Update> System for SystemFn<State, F, ThreadLocalF, Init, Update>
 where
-    F: FnMut(&World, &Resources, &ArchetypeAccess, &mut State) + Send + Sync,
+    F: FnMut(&World, &Resources, &mut State) + Send + Sync,
     ThreadLocalF: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
     Init: FnMut(&mut World, &mut Resources, &mut State) + Send + Sync,
-    SetArchetypeAccess: FnMut(&World, &mut ArchetypeAccess, &mut State) + Send + Sync,
+    Update: FnMut(&World, &mut TypeAccess<ArchetypeComponent>, &mut State) + Send + Sync,
     State: Send + Sync,
 {
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
     }
 
-    fn update_archetype_access(&mut self, world: &World) {
-        (self.set_archetype_access)(world, &mut self.archetype_access, &mut self.state);
+    fn update(&mut self, world: &World) {
+        (self.update_func)(world, &mut self.archetype_component_access, &mut self.state);
     }
 
-    fn archetype_access(&self) -> &ArchetypeAccess {
-        &self.archetype_access
+    fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent> {
+        &self.archetype_component_access
     }
 
-    fn resource_access(&self) -> &TypeAccess {
+    fn resource_access(&self) -> &TypeAccess<TypeId> {
         &self.resource_access
     }
 
@@ -59,7 +58,7 @@ where
 
     #[inline]
     fn run(&mut self, world: &World, resources: &Resources) {
-        (self.func)(world, resources, &self.archetype_access, &mut self.state);
+        (self.func)(world, resources, &mut self.state);
     }
 
     fn run_thread_local(&mut self, world: &mut World, resources: &mut Resources) {
@@ -78,6 +77,11 @@ where
 /// Converts `Self` into a For-Each system
 pub trait IntoForEachSystem<CommandBuffer, R, C> {
     fn system(self) -> Box<dyn System>;
+}
+
+struct ForEachState {
+    commands: Commands,
+    query_access: QueryAccess,
 }
 
 macro_rules! impl_into_foreach_system {
@@ -100,34 +104,38 @@ macro_rules! impl_into_foreach_system {
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
                 Box::new(SystemFn {
-                    state: Commands::default(),
+                    state: ForEachState {
+                        commands: Commands::default(),
+                        query_access: <($($component,)*) as HecsQuery>::Fetch::access(),
+                    },
                     thread_local_execution: ThreadLocalExecution::NextFlush,
                     name: core::any::type_name::<Self>().into(),
                     id,
-                    func: move |world, resources, _archetype_access, state| {
+                    func: move |world, resources, state| {
                         {
+                            let state_commands = &state.commands;
                             if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
                                 // SAFE: the scheduler has ensured that there is no archetype clashing here
                                 unsafe {
-                                    for ($($component,)*) in world.query_unchecked::<($($component,)*)>().iter() {
-                                        fn_call!(self, ($($commands, state)*), ($($resource),*), ($($component),*))
+                                    for ($($component,)*) in world.query_unchecked::<($($component,)*)>() {
+                                        fn_call!(self, ($($commands, state_commands)*), ($($resource),*), ($($component),*))
                                     }
                                 }
                             }
                         }
                     },
                     thread_local_func: move |world, resources, state| {
-                        state.apply(world, resources);
+                        state.commands.apply(world, resources);
                     },
                     init_func: move |world, resources, state| {
                         <($($resource,)*)>::initialize(resources, Some(id));
-                        state.set_entity_reserver(world.get_entity_reserver())
+                        state.commands.set_entity_reserver(world.get_entity_reserver())
                     },
                     resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
-                    archetype_access: ArchetypeAccess::default(),
-                    set_archetype_access: |world, archetype_access, _state| {
-                        archetype_access.clear();
-                        archetype_access.set_access_for_query::<($($component,)*)>(world);
+                    archetype_component_access: TypeAccess::default(),
+                    update_func: |world, archetype_component_access, state| {
+                        archetype_component_access.clear();
+                        state.query_access.get_world_archetype_access(world, Some(archetype_component_access));
                     },
                 })
             }
@@ -136,26 +144,31 @@ macro_rules! impl_into_foreach_system {
 }
 
 struct QuerySystemState {
-    archetype_accesses: Vec<ArchetypeAccess>,
+    query_accesses: Vec<Vec<QueryAccess>>,
+    query_type_names: Vec<&'static str>,
+    archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
     commands: Commands,
 }
 
 /// Converts `Self` into a Query System
-pub trait IntoQuerySystem<Commands, R, Q> {
+pub trait IntoQuerySystem<Commands, R, Q, QS> {
     fn system(self) -> Box<dyn System>;
 }
 
 macro_rules! impl_into_query_system {
-    (($($commands: ident)*), ($($resource: ident),*), ($($query: ident),*)) => {
-        impl<Func, $($resource,)* $($query,)*> IntoQuerySystem<($($commands,)*), ($($resource,)*), ($($query,)*)> for Func where
+    (($($commands: ident)*), ($($resource: ident),*), ($($query: ident),*), ($($query_set: ident),*)) => {
+        impl<Func, $($resource,)* $($query,)* $($query_set,)*> IntoQuerySystem<($($commands,)*), ($($resource,)*), ($($query,)*), ($($query_set,)*)> for Func where
             Func:
-                FnMut($($commands,)* $($resource,)* $(Query<$query>,)*) +
+                FnMut($($commands,)* $($resource,)* $(Query<$query>,)* $(QuerySet<$query_set>,)*) +
                 FnMut(
                     $($commands,)*
                     $(<<$resource as ResourceQuery>::Fetch as FetchResource>::Item,)*
-                    $(Query<$query>,)*) +
+                    $(Query<$query>,)*
+                    $(QuerySet<$query_set>,)*
+                ) +
                 Send + Sync +'static,
             $($query: HecsQuery,)*
+            $($query_set: QueryTuple,)*
             $($resource: ResourceQuery,)*
         {
             #[allow(non_snake_case)]
@@ -165,28 +178,46 @@ macro_rules! impl_into_query_system {
             #[allow(unused_mut)]
             fn system(mut self) -> Box<dyn System> {
                 let id = SystemId::new();
-                $(let $query = ArchetypeAccess::default();)*
+                let query_accesses = vec![
+                    $(vec![<$query::Fetch as Fetch>::access()],)*
+                    $($query_set::get_accesses(),)*
+                ];
+                let query_type_names = vec![
+                    $(std::any::type_name::<$query>(),)*
+                    $(std::any::type_name::<$query_set>(),)*
+                ];
+                let archetype_component_accesses = vec![TypeAccess::default(); query_accesses.len()];
                 Box::new(SystemFn {
                     state: QuerySystemState {
-                        archetype_accesses: vec![
-                            $($query,)*
-                        ],
+                        query_accesses,
+                        query_type_names,
+                        archetype_component_accesses,
                         commands: Commands::default(),
                     },
                     thread_local_execution: ThreadLocalExecution::NextFlush,
                     id,
                     name: core::any::type_name::<Self>().into(),
-                    func: move |world, resources, archetype_access, state| {
+                    func: move |world, resources, state| {
                         {
                             if let Some(($($resource,)*)) = resources.query_system::<($($resource,)*)>(id) {
                                 let mut i = 0;
                                 $(
-                                    let $query = Query::<$query>::new(world, &state.archetype_accesses[i]);
+                                    let $query = Query::<$query>::new(
+                                        world,
+                                        &state.archetype_component_accesses[i]
+                                    );
+                                    i += 1;
+                                )*
+                                $(
+                                    let $query_set = QuerySet::<$query_set>::new(
+                                        world,
+                                        &state.archetype_component_accesses[i]
+                                    );
                                     i += 1;
                                 )*
 
                                 let commands = &state.commands;
-                                fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*))
+                                fn_call!(self, ($($commands, commands)*), ($($resource),*), ($($query),*), ($($query_set),*))
                             }
                         }
                     },
@@ -199,18 +230,40 @@ macro_rules! impl_into_query_system {
 
                     },
                     resource_access: <<($($resource,)*) as ResourceQuery>::Fetch as FetchResource>::access(),
-                    archetype_access: ArchetypeAccess::default(),
-                    set_archetype_access: |world, archetype_access, state| {
-                        archetype_access.clear();
-                        let mut i = 0;
-                        let mut access: &mut ArchetypeAccess;
-                        $(
-                            access = &mut state.archetype_accesses[i];
-                            access.clear();
-                            access.set_access_for_query::<$query>(world);
-                            archetype_access.union(access);
-                            i += 1;
-                         )*
+                    archetype_component_access: TypeAccess::default(),
+                    update_func: |world, archetype_component_access, state| {
+                        archetype_component_access.clear();
+                        let mut conflict_index = None;
+                        let mut conflict_name = None;
+                        for (i, (query_accesses, component_access)) in state.query_accesses.iter().zip(state.archetype_component_accesses.iter_mut()).enumerate() {
+                            component_access.clear();
+                            for query_access in query_accesses.iter() {
+                                query_access.get_world_archetype_access(world, Some(component_access));
+                            }
+                            if !component_access.is_compatible(archetype_component_access) {
+                                conflict_index = Some(i);
+                                conflict_name = component_access.get_conflict(archetype_component_access).and_then(|archetype_component|
+                                    query_accesses
+                                        .iter()
+                                        .filter_map(|query_access| query_access.get_type_name(archetype_component.component))
+                                        .next());
+                                break;
+                            }
+                            archetype_component_access.union(component_access);
+                        }
+                        if let Some(conflict_index) = conflict_index {
+                            let mut conflicts_with_index = None;
+                            for prior_index in 0..conflict_index {
+                                if !state.archetype_component_accesses[conflict_index].is_compatible(&state.archetype_component_accesses[prior_index]) {
+                                    conflicts_with_index = Some(prior_index);
+                                }
+                            }
+                            panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}",
+                                core::any::type_name::<Self>(),
+                                state.query_type_names[conflict_index],
+                                conflict_name.unwrap_or("Unknown"),
+                                conflicts_with_index.map(|index| state.query_type_names[index]).unwrap_or("Unknown"));
+                        }
                     },
                 })
             }
@@ -219,6 +272,9 @@ macro_rules! impl_into_query_system {
 }
 
 macro_rules! fn_call {
+    ($self:ident, ($($commands: ident, $commands_var: ident)*), ($($resource: ident),*), ($($a: ident),*), ($($b: ident),*)) => {
+        unsafe { $self($($commands_var.clone(),)* $($resource.unsafe_clone(),)* $($a,)* $($b,)*) }
+    };
     ($self:ident, ($($commands: ident, $commands_var: ident)*), ($($resource: ident),*), ($($a: ident),*)) => {
         unsafe { $self($($commands_var.clone(),)* $($resource.unsafe_clone(),)* $($a,)*) }
     };
@@ -230,9 +286,18 @@ macro_rules! fn_call {
 macro_rules! impl_into_query_systems {
     (($($resource: ident,)*), ($($query: ident),*)) => {
         #[rustfmt::skip]
-        impl_into_query_system!((), ($($resource),*), ($($query),*));
+        impl_into_query_system!((), ($($resource),*), ($($query),*), ());
         #[rustfmt::skip]
-        impl_into_query_system!((Commands), ($($resource),*), ($($query),*));
+        impl_into_query_system!((), ($($resource),*), ($($query),*), (QS1));
+        #[rustfmt::skip]
+        impl_into_query_system!((), ($($resource),*), ($($query),*), (QS1, QS2));
+
+        #[rustfmt::skip]
+        impl_into_query_system!((Commands), ($($resource),*), ($($query),*), ());
+        #[rustfmt::skip]
+        impl_into_query_system!((Commands), ($($resource),*), ($($query),*), (QS1));
+        #[rustfmt::skip]
+        impl_into_query_system!((Commands), ($($resource),*), ($($query),*), (QS1, QS2));
     }
 }
 
@@ -319,14 +384,14 @@ where
             thread_local_func: move |world, resources, _| {
                 self.run(world, resources);
             },
-            func: |_, _, _, _| {},
+            func: |_, _, _| {},
             init_func: |_, _, _| {},
-            set_archetype_access: |_, _, _| {},
+            update_func: |_, _, _| {},
             thread_local_execution: ThreadLocalExecution::Immediate,
             name: core::any::type_name::<F>().into(),
             id: SystemId::new(),
             resource_access: TypeAccess::default(),
-            archetype_access: ArchetypeAccess::default(),
+            archetype_component_access: TypeAccess::default(),
         })
     }
 }
@@ -351,10 +416,11 @@ mod tests {
     use crate::{
         resource::{ResMut, Resources},
         schedule::Schedule,
-        ChangedRes, Mut,
+        ChangedRes, Mut, QuerySet,
     };
     use bevy_hecs::{Entity, With, World};
 
+    #[derive(Debug, Eq, PartialEq)]
     struct A;
     struct B;
     struct C;
@@ -364,12 +430,12 @@ mod tests {
     fn query_system_gets() {
         fn query_system(
             mut ran: ResMut<bool>,
-            mut entity_query: Query<With<A, Entity>>,
+            entity_query: Query<With<A, Entity>>,
             b_query: Query<&B>,
             a_c_query: Query<(&A, &C)>,
             d_query: Query<&D>,
         ) {
-            let entities = entity_query.iter().iter().collect::<Vec<Entity>>();
+            let entities = entity_query.iter().collect::<Vec<Entity>>();
             assert!(
                 b_query.get::<B>(entities[0]).is_err(),
                 "entity 0 should not have B"
@@ -379,8 +445,9 @@ mod tests {
                 "entity 1 should have B"
             );
             assert!(
-                b_query.get::<A>(entities[1]).is_ok(),
-                "entity 1 should have A, and it should (unintuitively) be accessible from b_query because b_query grabs read access to the (A,B) archetype");
+                b_query.get::<A>(entities[1]).is_err(),
+                "entity 1 should have A, but b_query shouldn't have access to it"
+            );
             assert!(
                 b_query.get::<D>(entities[3]).is_err(),
                 "entity 3 should have D, but it shouldn't be accessible from b_query"
@@ -446,5 +513,84 @@ mod tests {
         *resources.get_mut::<bool>().unwrap() = true;
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_mut_system() {
+        fn sys(_q1: Query<&mut A>, _q2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        world.spawn((A,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", sys.system());
+
+        schedule.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_immut_system() {
+        fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        world.spawn((A,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", sys.system());
+
+        schedule.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    fn query_set_system() {
+        fn sys(_set: QuerySet<(Query<&mut A>, Query<&B>)>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        world.spawn((A,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", sys.system());
+
+        schedule.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_with_query_set_system() {
+        fn sys(_query: Query<&mut A>, _set: QuerySet<(Query<&mut A>, Query<&B>)>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        world.spawn((A,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", sys.system());
+
+        schedule.run(&mut world, &mut resources);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflicting_query_sets_system() {
+        fn sys(_set_1: QuerySet<(Query<&mut A>,)>, _set_2: QuerySet<(Query<&mut A>, Query<&B>)>) {}
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        world.spawn((A,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", sys.system());
+
+        schedule.run(&mut world, &mut resources);
     }
 }
