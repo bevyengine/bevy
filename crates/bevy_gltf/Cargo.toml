@@ -16,10 +16,17 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.2.1" }
 bevy_asset = { path = "../bevy_asset", version = "0.2.1" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
+bevy_pbr = { path = "../bevy_pbr", version = "0.2.1" }
 bevy_render = { path = "../bevy_render", version = "0.2.1" }
+bevy_transform = { path = "../bevy_transform", version = "0.2.1" }
+bevy_math = { path = "../bevy_math", version = "0.2.1" }
+bevy_scene = { path = "../bevy_scene", version = "0.2.1" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.2.1" }
 
 # other
 gltf = { version = "0.15.2", default-features = false, features = ["utils"] }
+image = { version = "0.23", default-features = false }
 thiserror = "1.0"
 anyhow = "1.0"
 base64 = "0.12.3"

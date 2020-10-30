@@ -4,6 +4,7 @@ mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod system;
+pub mod touch;
 
 pub use axis::*;
 pub use input::*;
@@ -23,9 +24,14 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use touch::{touch_screen_input_system, TouchInput, Touches};
 
+use bevy_app::startup_stage::STARTUP;
 use bevy_ecs::IntoQuerySystem;
-use gamepad::{GamepadAxis, GamepadButton, GamepadEvent};
+use gamepad::{
+    gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
+    GamepadSettings,
+};
 
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
@@ -38,17 +44,19 @@ impl Plugin for InputPlugin {
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<KeyCode>>()
-            .add_system_to_stage(
-                bevy_app::stage::EVENT_UPDATE,
-                keyboard_input_system.system(),
-            )
+            .add_system_to_stage(bevy_app::stage::EVENT, keyboard_input_system.system())
             .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(
-                bevy_app::stage::EVENT_UPDATE,
-                mouse_button_input_system.system(),
-            )
+            .add_system_to_stage(bevy_app::stage::EVENT, mouse_button_input_system.system())
             .add_event::<GamepadEvent>()
+            .add_event::<GamepadEventRaw>()
+            .init_resource::<GamepadSettings>()
             .init_resource::<Input<GamepadButton>>()
-            .init_resource::<Axis<GamepadAxis>>();
+            .init_resource::<Axis<GamepadAxis>>()
+            .init_resource::<Axis<GamepadButton>>()
+            .add_system_to_stage(bevy_app::stage::EVENT, gamepad_event_system.system())
+            .add_startup_system_to_stage(STARTUP, gamepad_event_system.system())
+            .add_event::<TouchInput>()
+            .init_resource::<Touches>()
+            .add_system_to_stage(bevy_app::stage::EVENT, touch_screen_input_system.system());
     }
 }

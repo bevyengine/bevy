@@ -16,5 +16,5 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
 bevy_input = { path = "../bevy_input", version = "0.2.1" }
 
 # other
-gilrs = "0.7.4"
+gilrs = "0.8.0"
 log = { version = "0.4", features = ["release_max_level_info"] }

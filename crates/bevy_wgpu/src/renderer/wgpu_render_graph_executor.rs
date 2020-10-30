@@ -8,6 +8,7 @@ use bevy_utils::HashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub struct WgpuRenderGraphExecutor {
     pub max_thread_count: usize,
 }

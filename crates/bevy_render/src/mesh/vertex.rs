@@ -2,7 +2,7 @@ use crate::pipeline::AsVertexBufferDescriptor;
 use bevy_core::Byteable;
 
 #[repr(C)]
-#[derive(Clone, Copy, AsVertexBufferDescriptor)]
+#[derive(Debug, Clone, Copy, AsVertexBufferDescriptor)]
 #[as_crate(bevy_render)]
 pub struct Vertex {
     pub position: [f32; 3],

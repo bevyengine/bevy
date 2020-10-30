@@ -58,7 +58,7 @@ impl fmt::Debug for Entity {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct Entities {
     pub meta: Vec<EntityMeta>,
     // Reserved entities outside the range of `meta`, having implicit generation 0, archetype 0, and
@@ -83,18 +83,18 @@ impl Entities {
     pub fn reserve_entity(&self) -> Entity {
         loop {
             let index = self.free_cursor.load(Ordering::Relaxed);
-            match index.checked_sub(1) {
+            return match index.checked_sub(1) {
                 // The freelist is empty, so increment `pending` to arrange for a new entity with a
                 // predictable ID to be allocated on the next `flush` call
                 None => {
                     let n = self.pending.fetch_add(1, Ordering::Relaxed);
-                    return Entity {
+                    Entity {
                         generation: 0,
                         id: u32::try_from(self.meta.len())
                             .ok()
                             .and_then(|x| x.checked_add(n))
                             .expect("too many entities"),
-                    };
+                    }
                 }
                 // The freelist has entities in it, so move the last entry to the reserved list, to
                 // be consumed by the caller as part of a higher-level flush.
@@ -111,12 +111,12 @@ impl Entities {
                     let id = self.free[next as usize];
                     let reservation = self.reserved_cursor.fetch_add(1, Ordering::Relaxed);
                     self.reserved[reservation as usize].store(id, Ordering::Relaxed);
-                    return Entity {
+                    Entity {
                         generation: self.meta[id as usize].generation,
                         id,
-                    };
+                    }
                 }
-            }
+            };
         }
     }
 
@@ -322,6 +322,7 @@ impl Entities {
 }
 
 /// Reserves entities in a way that is usable in multi-threaded contexts.
+#[derive(Debug)]
 pub struct EntityReserver {
     entities: &'static Entities,
 }
@@ -333,14 +334,14 @@ impl EntityReserver {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct EntityMeta {
     pub generation: u32,
     pub location: Location,
 }
 
 /// A location of an entity in an archetype
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Location {
     /// The archetype index
     pub archetype: u32,

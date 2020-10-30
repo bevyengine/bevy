@@ -1,4 +1,4 @@
-use bevy_ecs::{Entity, FromResources};
+use bevy_ecs::{Entity, FromResources, MapEntities};
 use bevy_property::Properties;
 use std::ops::{Deref, DerefMut};
 
@@ -15,8 +15,18 @@ impl FromResources for Parent {
     }
 }
 
+impl MapEntities for Parent {
+    fn map_entities(
+        &mut self,
+        entity_map: &bevy_ecs::EntityMap,
+    ) -> Result<(), bevy_ecs::MapEntitiesError> {
+        self.0 = entity_map.get(self.0)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PreviousParent(pub Option<Entity>);
+pub struct PreviousParent(pub Entity);
 
 impl Deref for Parent {
     type Target = Entity;

@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_utils::HashMap;
 use serde::de::DeserializeSeed;
-use std::{any::Any, borrow::Cow};
+use std::{any::Any, borrow::Cow, fmt};
 
 pub struct DynamicProperties {
     pub type_name: String,
@@ -12,6 +12,24 @@ pub struct DynamicProperties {
     pub prop_names: Vec<Cow<'static, str>>,
     pub prop_indices: HashMap<Cow<'static, str>, usize>,
     pub property_type: PropertyType,
+}
+
+impl fmt::Debug for DynamicProperties {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let props = self
+            .props
+            .iter()
+            .map(|p| p.as_ref() as *const dyn Property)
+            .collect::<Vec<_>>();
+
+        f.debug_struct("DynamicProperties")
+            .field("type_name", &self.type_name)
+            .field("props", &props)
+            .field("prop_names", &self.prop_names)
+            .field("prop_indices", &self.prop_indices)
+            .field("property_type", &self.property_type)
+            .finish()
+    }
 }
 
 impl DynamicProperties {

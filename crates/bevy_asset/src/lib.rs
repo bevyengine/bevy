@@ -1,17 +1,24 @@
 mod asset_server;
 mod assets;
-#[cfg(feature = "filesystem_watcher")]
+#[cfg(all(
+    feature = "filesystem_watcher",
+    all(not(target_arch = "wasm32"), not(target_os = "android"))
+))]
 mod filesystem_watcher;
 mod handle;
-mod load_request;
+mod info;
+mod io;
 mod loader;
+mod path;
 
 pub use asset_server::*;
 pub use assets::*;
 use bevy_tasks::IoTaskPool;
 pub use handle::*;
-pub use load_request::*;
+pub use info::*;
+pub use io::*;
 pub use loader::*;
+pub use path::*;
 
 /// The names of asset stages in an App Schedule
 pub mod stage {
@@ -20,7 +27,7 @@ pub mod stage {
 }
 
 pub mod prelude {
-    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+    pub use crate::{AddAsset, AssetEvent, AssetServer, Assets, Handle, HandleUntyped};
 }
 
 use bevy_app::{prelude::Plugin, AppBuilder};
@@ -32,6 +39,18 @@ use bevy_type_registry::RegisterType;
 #[derive(Default)]
 pub struct AssetPlugin;
 
+pub struct AssetServerSettings {
+    pub asset_folder: String,
+}
+
+impl Default for AssetServerSettings {
+    fn default() -> Self {
+        Self {
+            asset_folder: "assets".to_string(),
+        }
+    }
+}
+
 impl Plugin for AssetPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let task_pool = app
@@ -40,15 +59,34 @@ impl Plugin for AssetPlugin {
             .expect("IoTaskPool resource not found")
             .0
             .clone();
+
+        let asset_server = {
+            let settings = app
+                .resources_mut()
+                .get_or_insert_with(AssetServerSettings::default);
+
+            #[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
+            let source = FileAssetIo::new(&settings.asset_folder);
+            #[cfg(target_arch = "wasm32")]
+            let source = WasmAssetIo::new(&settings.asset_folder);
+            #[cfg(target_os = "android")]
+            let source = AndroidAssetIo::new(&settings.asset_folder);
+            AssetServer::new(source, task_pool)
+        };
+
         app.add_stage_before(bevy_app::stage::PRE_UPDATE, stage::LOAD_ASSETS)
             .add_stage_after(bevy_app::stage::POST_UPDATE, stage::ASSET_EVENTS)
-            .add_resource(AssetServer::new(task_pool))
-            .register_property::<HandleId>();
+            .add_resource(asset_server)
+            .register_property::<HandleId>()
+            .add_system_to_stage(
+                bevy_app::stage::PRE_UPDATE,
+                asset_server::free_unused_assets_system.system(),
+            );
 
-        #[cfg(feature = "filesystem_watcher")]
-        app.add_system_to_stage(
-            stage::LOAD_ASSETS,
-            asset_server::filesystem_watcher_system.system(),
-        );
+        #[cfg(all(
+            feature = "filesystem_watcher",
+            all(not(target_arch = "wasm32"), not(target_os = "android"))
+        ))]
+        app.add_system_to_stage(stage::LOAD_ASSETS, io::filesystem_watcher_system.system());
     }
 }

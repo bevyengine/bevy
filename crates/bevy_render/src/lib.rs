@@ -1,6 +1,6 @@
-pub mod batch;
 pub mod camera;
 pub mod color;
+pub mod colorspace;
 pub mod draw;
 pub mod entity;
 pub mod mesh;
@@ -11,6 +11,7 @@ pub mod renderer;
 pub mod shader;
 pub mod texture;
 
+use bevy_type_registry::RegisterType;
 pub use once_cell;
 
 pub mod prelude {
@@ -32,12 +33,11 @@ use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
-use bevy_type_registry::RegisterType;
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };
 use pipeline::{
-    DynamicBinding, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
+    DynamicBinding, IndexFormat, PipelineCompiler, PipelineDescriptor, PipelineSpecialization,
     PrimitiveTopology, ShaderSpecialization, VertexBufferDescriptors,
 };
 use render_graph::{
@@ -82,11 +82,15 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut AppBuilder) {
         #[cfg(feature = "png")]
         {
-            app.add_asset_loader::<Texture, ImageTextureLoader>();
+            app.init_asset_loader::<ImageTextureLoader>();
         }
         #[cfg(feature = "hdr")]
         {
-            app.add_asset_loader::<Texture, HdrTextureLoader>();
+            app.init_asset_loader::<HdrTextureLoader>();
+        }
+
+        if app.resources().get::<ClearColor>().is_none() {
+            app.resources_mut().insert(ClearColor::default());
         }
 
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
@@ -110,6 +114,7 @@ impl Plugin for RenderPlugin {
             .register_property::<ShaderSpecialization>()
             .register_property::<DynamicBinding>()
             .register_property::<PrimitiveTopology>()
+            .register_property::<IndexFormat>()
             .register_properties::<PipelineSpecialization>()
             .init_resource::<RenderGraph>()
             .init_resource::<PipelineCompiler>()

@@ -6,16 +6,19 @@ use bevy_app::prelude::{EventReader, Events};
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;
+use bevy_type_registry::TypeUuid;
 use bevy_utils::HashSet;
 
 pub const TEXTURE_ASSET_INDEX: usize = 0;
 pub const SAMPLER_ASSET_INDEX: usize = 1;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, TypeUuid)]
+#[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
 pub struct Texture {
     pub data: Vec<u8>,
     pub size: Vec2,
     pub format: TextureFormat,
+    pub sampler: SamplerDescriptor,
 }
 
 impl Default for Texture {
@@ -24,6 +27,7 @@ impl Default for Texture {
             data: Default::default(),
             size: Default::default(),
             format: TextureFormat::Rgba8UnormSrgb,
+            sampler: Default::default(),
         }
     }
 }
@@ -35,7 +39,12 @@ impl Texture {
             data.len(),
             "Pixel data, size and format have to match",
         );
-        Self { data, size, format }
+        Self {
+            data,
+            size,
+            format,
+            ..Default::default()
+        }
     }
 
     pub fn new_fill(size: Vec2, pixel: &[u8], format: TextureFormat) -> Self {
@@ -82,14 +91,14 @@ impl Texture {
         for event in state.event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } => {
-                    changed_textures.insert(*handle);
+                    changed_textures.insert(handle);
                 }
                 AssetEvent::Modified { handle } => {
-                    changed_textures.insert(*handle);
-                    Self::remove_current_texture_resources(render_resource_context, *handle);
+                    changed_textures.insert(handle);
+                    Self::remove_current_texture_resources(render_resource_context, handle);
                 }
                 AssetEvent::Removed { handle } => {
-                    Self::remove_current_texture_resources(render_resource_context, *handle);
+                    Self::remove_current_texture_resources(render_resource_context, handle);
                     // if texture was modified and removed in the same update, ignore the modification
                     // events are ordered so future modification events are ok
                     changed_textures.remove(handle);
@@ -98,20 +107,19 @@ impl Texture {
         }
 
         for texture_handle in changed_textures.iter() {
-            if let Some(texture) = textures.get(texture_handle) {
+            if let Some(texture) = textures.get(*texture_handle) {
                 let texture_descriptor: TextureDescriptor = texture.into();
                 let texture_resource = render_resource_context.create_texture(texture_descriptor);
 
-                let sampler_descriptor: SamplerDescriptor = texture.into();
-                let sampler_resource = render_resource_context.create_sampler(&sampler_descriptor);
+                let sampler_resource = render_resource_context.create_sampler(&texture.sampler);
 
                 render_resource_context.set_asset_resource(
-                    *texture_handle,
+                    texture_handle,
                     RenderResourceId::Texture(texture_resource),
                     TEXTURE_ASSET_INDEX,
                 );
                 render_resource_context.set_asset_resource(
-                    *texture_handle,
+                    texture_handle,
                     RenderResourceId::Sampler(sampler_resource),
                     SAMPLER_ASSET_INDEX,
                 );
@@ -121,7 +129,7 @@ impl Texture {
 
     fn remove_current_texture_resources(
         render_resource_context: &dyn RenderResourceContext,
-        handle: Handle<Texture>,
+        handle: &Handle<Texture>,
     ) {
         if let Some(RenderResourceId::Texture(resource)) =
             render_resource_context.get_asset_resource(handle, TEXTURE_ASSET_INDEX)
@@ -145,7 +153,7 @@ pub struct TextureResourceSystemState {
 
 impl RenderResource for Option<Handle<Texture>> {
     fn resource_type(&self) -> Option<RenderResourceType> {
-        self.map(|_texture| RenderResourceType::Texture)
+        self.as_ref().map(|_texture| RenderResourceType::Texture)
     }
 
     fn write_buffer_bytes(&self, _buffer: &mut [u8]) {}
@@ -154,8 +162,8 @@ impl RenderResource for Option<Handle<Texture>> {
         None
     }
 
-    fn texture(&self) -> Option<Handle<Texture>> {
-        *self
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        self.as_ref()
     }
 }
 
@@ -170,7 +178,7 @@ impl RenderResource for Handle<Texture> {
         None
     }
 
-    fn texture(&self) -> Option<Handle<Texture>> {
-        Some(*self)
+    fn texture(&self) -> Option<&Handle<Texture>> {
+        Some(self)
     }
 }

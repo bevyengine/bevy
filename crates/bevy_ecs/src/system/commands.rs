@@ -4,17 +4,12 @@ use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World}
 use parking_lot::Mutex;
 use std::{marker::PhantomData, sync::Arc};
 
-/// A queued command to mutate the current [World] or [Resources]
-pub enum Command {
-    WriteWorld(Box<dyn WorldWriter>),
-    WriteResources(Box<dyn ResourcesWriter>),
-}
-
 /// A [World] mutation
-pub trait WorldWriter: Send + Sync {
-    fn write(self: Box<Self>, world: &mut World);
+pub trait Command: Send + Sync {
+    fn write(self: Box<Self>, world: &mut World, resources: &mut Resources);
 }
 
+#[derive(Debug)]
 pub(crate) struct Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
@@ -22,11 +17,11 @@ where
     components: T,
 }
 
-impl<T> WorldWriter for Spawn<T>
+impl<T> Command for Spawn<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         world.spawn(self.components);
     }
 }
@@ -39,23 +34,26 @@ where
     components_iter: I,
 }
 
-impl<I> WorldWriter for SpawnBatch<I>
+impl<I> Command for SpawnBatch<I>
 where
     I: IntoIterator + Send + Sync,
     I::Item: Bundle,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         world.spawn_batch(self.components_iter);
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Despawn {
     entity: Entity,
 }
 
-impl WorldWriter for Despawn {
-    fn write(self: Box<Self>, world: &mut World) {
-        world.despawn(self.entity).unwrap();
+impl Command for Despawn {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+        if let Err(e) = world.despawn(self.entity) {
+            log::debug!("Failed to despawn entity {:?}: {}", self.entity, e);
+        }
     }
 }
 
@@ -67,15 +65,16 @@ where
     components: T,
 }
 
-impl<T> WorldWriter for Insert<T>
+impl<T> Command for Insert<T>
 where
     T: DynamicBundle + Send + Sync + 'static,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         world.insert(self.entity, self.components).unwrap();
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct InsertOne<T>
 where
     T: Component,
@@ -84,15 +83,16 @@ where
     component: T,
 }
 
-impl<T> WorldWriter for InsertOne<T>
+impl<T> Command for InsertOne<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         world.insert(self.entity, (self.component,)).unwrap();
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct RemoveOne<T>
 where
     T: Component,
@@ -101,14 +101,32 @@ where
     phantom: PhantomData<T>,
 }
 
-impl<T> WorldWriter for RemoveOne<T>
+impl<T> Command for RemoveOne<T>
 where
     T: Component,
 {
-    fn write(self: Box<Self>, world: &mut World) {
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
         if world.get::<T>(self.entity).is_ok() {
             world.remove_one::<T>(self.entity).unwrap();
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Remove<T>
+where
+    T: Bundle + Send + Sync + 'static,
+{
+    entity: Entity,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Command for Remove<T>
+where
+    T: Bundle + Send + Sync + 'static,
+{
+    fn write(self: Box<Self>, world: &mut World, _resources: &mut Resources) {
+        world.remove::<T>(self.entity).unwrap();
     }
 }
 
@@ -120,26 +138,27 @@ pub struct InsertResource<T: Resource> {
     resource: T,
 }
 
-impl<T: Resource> ResourcesWriter for InsertResource<T> {
-    fn write(self: Box<Self>, resources: &mut Resources) {
+impl<T: Resource> Command for InsertResource<T> {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
         resources.insert(self.resource);
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct InsertLocalResource<T: Resource> {
     resource: T,
     system_id: SystemId,
 }
 
-impl<T: Resource> ResourcesWriter for InsertLocalResource<T> {
-    fn write(self: Box<Self>, resources: &mut Resources) {
+impl<T: Resource> Command for InsertLocalResource<T> {
+    fn write(self: Box<Self>, _world: &mut World, resources: &mut Resources) {
         resources.insert_local(self.system_id, self.resource);
     }
 }
 
 #[derive(Default)]
 pub struct CommandsInternal {
-    pub commands: Vec<Command>,
+    pub commands: Vec<Box<dyn Command>>,
     pub current_entity: Option<Entity>,
     pub entity_reserver: Option<EntityReserver>,
 }
@@ -152,8 +171,7 @@ impl CommandsInternal {
             .expect("entity reserver has not been set")
             .reserve_entity();
         self.current_entity = Some(entity);
-        self.commands
-            .push(Command::WriteWorld(Box::new(Insert { entity, components })));
+        self.commands.push(Box::new(Insert { entity, components }));
         self
     }
 
@@ -162,34 +180,29 @@ impl CommandsInternal {
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add components because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Command::WriteWorld(Box::new(Insert {
+        self.commands.push(Box::new(Insert {
             entity: current_entity,
             components,
-        })));
+        }));
         self
     }
 
     pub fn with(&mut self, component: impl Component) -> &mut Self {
         let current_entity =  self.current_entity.expect("Cannot add component because the 'current entity' is not set. You should spawn an entity first.");
-        self.commands.push(Command::WriteWorld(Box::new(InsertOne {
+        self.commands.push(Box::new(InsertOne {
             entity: current_entity,
             component,
-        })));
+        }));
         self
     }
 
-    pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
-        self.commands
-            .push(Command::WriteWorld(Box::new(world_writer)));
+    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+        self.commands.push(Box::new(command));
         self
     }
 
-    pub fn write_resources<W: ResourcesWriter + 'static>(
-        &mut self,
-        resources_writer: W,
-    ) -> &mut Self {
-        self.commands
-            .push(Command::WriteResources(Box::new(resources_writer)));
+    pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
+        self.commands.push(command);
         self
     }
 }
@@ -214,12 +227,12 @@ impl Commands {
         I: IntoIterator + Send + Sync + 'static,
         I::Item: Bundle,
     {
-        self.write_world(SpawnBatch { components_iter })
+        self.add_command(SpawnBatch { components_iter })
     }
 
     /// Despawns only the specified entity, ignoring any other consideration.
     pub fn despawn(&mut self, entity: Entity) -> &mut Self {
-        self.write_world(Despawn { entity })
+        self.add_command(Despawn { entity })
     }
 
     pub fn with(&mut self, component: impl Component) -> &mut Self {
@@ -246,15 +259,15 @@ impl Commands {
         entity: Entity,
         components: impl DynamicBundle + Send + Sync + 'static,
     ) -> &mut Self {
-        self.write_world(Insert { entity, components })
+        self.add_command(Insert { entity, components })
     }
 
     pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
-        self.write_world(InsertOne { entity, component })
+        self.add_command(InsertOne { entity, component })
     }
 
     pub fn insert_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
-        self.write_resources(InsertResource { resource })
+        self.add_command(InsertResource { resource })
     }
 
     pub fn insert_local_resource<T: Resource>(
@@ -262,34 +275,26 @@ impl Commands {
         system_id: SystemId,
         resource: T,
     ) -> &mut Self {
-        self.write_resources(InsertLocalResource {
+        self.add_command(InsertLocalResource {
             system_id,
             resource,
         })
     }
 
-    pub fn write_world<W: WorldWriter + 'static>(&mut self, world_writer: W) -> &mut Self {
-        self.commands.lock().write_world(world_writer);
+    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+        self.commands.lock().add_command(command);
         self
     }
 
-    pub fn write_resources<W: ResourcesWriter + 'static>(
-        &mut self,
-        resources_writer: W,
-    ) -> &mut Self {
-        self.commands.lock().write_resources(resources_writer);
+    pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
+        self.commands.lock().add_command_boxed(command);
         self
     }
 
     pub fn apply(&self, world: &mut World, resources: &mut Resources) {
         let mut commands = self.commands.lock();
         for command in commands.commands.drain(..) {
-            match command {
-                Command::WriteWorld(writer) => {
-                    writer.write(world);
-                }
-                Command::WriteResources(writer) => writer.write(resources),
-            }
+            command.write(world, resources);
         }
     }
 
@@ -313,7 +318,17 @@ impl Commands {
     where
         T: Component,
     {
-        self.write_world(RemoveOne::<T> {
+        self.add_command(RemoveOne::<T> {
+            entity,
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Bundle + Send + Sync + 'static,
+    {
+        self.add_command(Remove::<T> {
             entity,
             phantom: PhantomData,
         })
@@ -337,6 +352,7 @@ mod tests {
         let mut command_buffer = Commands::default();
         command_buffer.set_entity_reserver(world.get_entity_reserver());
         command_buffer.spawn((1u32, 2u64));
+        let entity = command_buffer.current_entity().unwrap();
         command_buffer.insert_resource(3.14f32);
         command_buffer.apply(&mut world, &mut resources);
         let results = world
@@ -346,5 +362,15 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(results, vec![(1u32, 2u64)]);
         assert_eq!(*resources.get::<f32>().unwrap(), 3.14f32);
+        // test entity despawn
+        command_buffer.despawn(entity);
+        command_buffer.despawn(entity); // double despawn shouldn't panic
+        command_buffer.apply(&mut world, &mut resources);
+        let results2 = world
+            .query::<(&u32, &u64)>()
+            .iter()
+            .map(|(a, b)| (*a, *b))
+            .collect::<Vec<_>>();
+        assert_eq!(results2, vec![]);
     }
 }

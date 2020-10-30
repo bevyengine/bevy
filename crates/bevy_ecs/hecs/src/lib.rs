@@ -76,7 +76,7 @@ mod serde;
 mod world;
 
 pub use archetype::{Archetype, TypeState};
-pub use borrow::{Ref, RefMut};
+pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};

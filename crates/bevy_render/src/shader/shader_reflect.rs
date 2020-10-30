@@ -3,6 +3,7 @@ use crate::{
         BindGroupDescriptor, BindType, BindingDescriptor, BindingShaderStage, InputStepMode,
         UniformProperty, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
     },
+    shader::{ShaderLayout, GL_VERTEX_INDEX},
     texture::{TextureComponentType, TextureViewDimension},
 };
 use bevy_core::AsBytes;
@@ -15,16 +16,6 @@ use spirv_reflect::{
     },
     ShaderModule,
 };
-
-/// Defines the memory layout of a shader
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ShaderLayout {
-    pub bind_groups: Vec<BindGroupDescriptor>,
-    pub vertex_buffer_descriptors: Vec<VertexBufferDescriptor>,
-    pub entry_point: String,
-}
-
-pub const GL_VERTEX_INDEX: &str = "gl_VertexIndex";
 
 impl ShaderLayout {
     pub fn from_spirv(spirv_data: &[u32], bevy_conventions: bool) -> ShaderLayout {

@@ -1,0 +1,23 @@
+[package]
+name = "bevy_dynamic_plugin"
+version = "0.2.1"
+authors = [
+    "Bevy Contributors <bevyengine@gmail.com>",
+    "Carter Anderson <mcanders1@gmail.com>",
+]
+edition = "2018"
+description = "Provides dynamic plugin loading capabilities for non-wasm platforms"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT"
+keywords = ["bevy"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.2.1" }
+
+# other
+log = { version = "0.4", features = ["release_max_level_info"] }
+libloading = { version = "0.6" }

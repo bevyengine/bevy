@@ -2,6 +2,7 @@ use bevy_utils::HashSet;
 use std::hash::Hash;
 
 /// A "press-able" input of type `T`
+#[derive(Debug)]
 pub struct Input<T> {
     pressed: HashSet<T>,
     just_pressed: HashSet<T>,

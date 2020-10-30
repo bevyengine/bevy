@@ -9,6 +9,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct TextureAtlasBuilder {
     pub textures: Vec<Handle<Texture>>,
     pub rects_to_place: GroupedRectsToPlace<Handle<Texture>>,
@@ -88,7 +89,7 @@ impl TextureAtlasBuilder {
                 rect_placements = None;
                 break;
             }
-            let mut target_bins = std::collections::HashMap::new();
+            let mut target_bins = std::collections::BTreeMap::new();
             target_bins.insert(0, TargetBin::new(current_width, current_height, 1));
             atlas_texture = Texture::new_fill(
                 Vec2::new(current_width as f32, current_height as f32),
@@ -122,7 +123,7 @@ impl TextureAtlasBuilder {
                     packed_location.width() as f32,
                     packed_location.height() as f32,
                 );
-            texture_handles.insert(*texture_handle, texture_rects.len());
+            texture_handles.insert(texture_handle.clone_weak(), texture_rects.len());
             texture_rects.push(Rect { min, max });
             self.place_texture(&mut atlas_texture, texture, packed_location);
         }

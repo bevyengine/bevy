@@ -12,11 +12,6 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT"
 keywords = ["bevy"]
 
-[features]
-dynamic_plugins = [
-    "bevy_app/dynamic_plugins",
-    "bevy_type_registry/dynamic_plugins",
-]
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.2.1" }
@@ -31,4 +26,4 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.2.1" }
 log = { version = "0.4", features = ["release_max_level_info"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-instant = "0.1.6"
+instant = { version = "0.1", features = ["wasm-bindgen"] }

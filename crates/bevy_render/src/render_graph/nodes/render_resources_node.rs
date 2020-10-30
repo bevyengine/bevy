@@ -9,7 +9,7 @@ use crate::{
     texture,
 };
 
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Asset, Assets, Handle, HandleId};
 use bevy_ecs::{
     Commands, Entity, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World,
 };
@@ -547,7 +547,7 @@ const EXPECT_ASSET_MESSAGE: &str = "Only assets that exist should be in the modi
 
 impl<T> SystemNode for AssetRenderResourcesNode<T>
 where
-    T: renderer::RenderResources,
+    T: renderer::RenderResources + Asset,
 {
     fn get_system(&self, commands: &mut Commands) -> Box<dyn System> {
         let system = asset_render_resources_node_system::<T>.system();
@@ -555,7 +555,7 @@ where
             system.id(),
             RenderResourcesNodeState {
                 command_queue: self.command_queue.clone(),
-                uniform_buffer_arrays: UniformBufferArrays::<Handle<T>, T>::default(),
+                uniform_buffer_arrays: UniformBufferArrays::<HandleId, T>::default(),
                 dynamic_uniforms: self.dynamic_uniforms,
             },
         );
@@ -564,8 +564,8 @@ where
     }
 }
 
-fn asset_render_resources_node_system<T: RenderResources>(
-    mut state: Local<RenderResourcesNodeState<Handle<T>, T>>,
+fn asset_render_resources_node_system<T: RenderResources + Asset>(
+    mut state: Local<RenderResourcesNodeState<HandleId, T>>,
     assets: Res<Assets<T>>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
@@ -575,22 +575,20 @@ fn asset_render_resources_node_system<T: RenderResources>(
     let uniform_buffer_arrays = &mut state.uniform_buffer_arrays;
     let render_resource_context = &**render_resource_context;
 
-    let modified_assets = assets
-        .iter()
-        .map(|(handle, _)| handle)
-        .collect::<Vec<Handle<T>>>();
+    let modified_assets = assets.ids().collect::<Vec<_>>();
 
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
     if let Some(first_handle) = modified_assets.get(0) {
-        let asset = assets.get(first_handle).expect(EXPECT_ASSET_MESSAGE);
+        let asset = assets.get(*first_handle).expect(EXPECT_ASSET_MESSAGE);
         uniform_buffer_arrays.initialize(asset);
     }
 
     for asset_handle in modified_assets.iter() {
-        let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+        let asset = assets.get(*asset_handle).expect(EXPECT_ASSET_MESSAGE);
         uniform_buffer_arrays.prepare_uniform_buffers(*asset_handle, asset);
-        let mut bindings = asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+        let mut bindings =
+            asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
         setup_uniform_texture_resources::<T>(&asset, render_resource_context, &mut bindings);
     }
 
@@ -604,9 +602,9 @@ fn asset_render_resources_node_system<T: RenderResources>(
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
                 for asset_handle in modified_assets.iter() {
-                    let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
-                    let mut render_resource_bindings =
-                        asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+                    let asset = assets.get(*asset_handle).expect(EXPECT_ASSET_MESSAGE);
+                    let mut render_resource_bindings = asset_render_resource_bindings
+                        .get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
                     // TODO: only setup buffer if we haven't seen this handle before
                     state.uniform_buffer_arrays.write_uniform_buffers(
                         *asset_handle,
@@ -627,9 +625,9 @@ fn asset_render_resources_node_system<T: RenderResources>(
     } else {
         let mut staging_buffer: [u8; 0] = [];
         for asset_handle in modified_assets.iter() {
-            let asset = assets.get(&asset_handle).expect(EXPECT_ASSET_MESSAGE);
+            let asset = assets.get(*asset_handle).expect(EXPECT_ASSET_MESSAGE);
             let mut render_resource_bindings =
-                asset_render_resource_bindings.get_or_insert_mut(*asset_handle);
+                asset_render_resource_bindings.get_or_insert_mut(&Handle::<T>::weak(*asset_handle));
             // TODO: only setup buffer if we haven't seen this handle before
             state.uniform_buffer_arrays.write_uniform_buffers(
                 *asset_handle,
@@ -646,7 +644,7 @@ fn asset_render_resources_node_system<T: RenderResources>(
         if !draw.is_visible {
             continue;
         }
-        if let Some(asset_bindings) = asset_render_resource_bindings.get(*asset_handle) {
+        if let Some(asset_bindings) = asset_render_resource_bindings.get(asset_handle) {
             render_pipelines.bindings.extend(asset_bindings);
         }
     }
