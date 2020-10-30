@@ -12,17 +12,10 @@ pub fn run_on_hierarchy<T, S>(
 where
     T: Clone,
 {
-    // TODO: not a huge fan of this pattern. are there ways to do recursive updates in legion without allocations?
-    // TODO: the problem above might be resolvable with world splitting
-    let children = children_query
-        .get::<Children>(entity)
-        .ok()
-        .map(|children| children.0.iter().cloned().collect::<Vec<Entity>>());
-
     let parent_result = run(state, entity, parent_result, previous_result);
     previous_result = None;
-    if let Some(children) = children {
-        for child in children {
+    if let Ok(children) = children_query.entity(entity) {
+        for child in children.iter().cloned() {
             previous_result = run_on_hierarchy(
                 children_query,
                 state,
@@ -51,6 +44,7 @@ fn despawn_with_children_recursive(world: &mut World, entity: Entity) {
             children.retain(|c| *c != entity);
         }
     }
+
     // then despawn the entity and all of its children
     despawn_with_children_recursive_inner(world, entity);
 }
@@ -135,7 +129,6 @@ mod tests {
 
         let results = world
             .query::<(&u32, &u64)>()
-            .iter()
             .map(|(a, b)| (*a, *b))
             .collect::<Vec<_>>();
 

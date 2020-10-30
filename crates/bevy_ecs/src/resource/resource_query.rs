@@ -1,15 +1,13 @@
 use super::{FromResources, Resources};
-use crate::{
-    system::{SystemId, TypeAccess},
-    Resource, ResourceIndex,
-};
-use bevy_hecs::smaller_tuples_too;
+use crate::{system::SystemId, Resource, ResourceIndex};
+use bevy_hecs::{smaller_tuples_too, TypeAccess};
 use core::{
-    any::TypeId,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-use std::marker::PhantomData;
+use std::{any::TypeId, marker::PhantomData};
+
+// TODO: align TypeAccess api with Query::Fetch
 
 /// A shared borrow of a Resource
 /// that will only return in a query if the Resource has been changed
@@ -183,7 +181,7 @@ pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
     type Item: UnsafeClone;
 
-    fn access() -> TypeAccess;
+    fn access() -> TypeAccess<TypeId>;
     fn borrow(resources: &Resources);
     fn release(resources: &Resources);
 
@@ -219,9 +217,9 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceRead<T> {
         resources.release::<T>();
     }
 
-    fn access() -> TypeAccess {
+    fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access.immutable.insert(TypeId::of::<T>());
+        access.add_read(TypeId::of::<T>());
         access
     }
 }
@@ -254,9 +252,9 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceChanged<T> {
         resources.release::<T>();
     }
 
-    fn access() -> TypeAccess {
+    fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access.immutable.insert(TypeId::of::<T>());
+        access.add_read(TypeId::of::<T>());
         access
     }
 }
@@ -286,9 +284,9 @@ impl<'a, T: Resource> FetchResource<'a> for FetchResourceWrite<T> {
         resources.release_mut::<T>();
     }
 
-    fn access() -> TypeAccess {
+    fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access.mutable.insert(TypeId::of::<T>());
+        access.add_write(TypeId::of::<T>());
         access
     }
 }
@@ -328,9 +326,9 @@ impl<'a, T: Resource + FromResources> FetchResource<'a> for FetchResourceLocalMu
         resources.release_mut::<T>();
     }
 
-    fn access() -> TypeAccess {
+    fn access() -> TypeAccess<TypeId> {
         let mut access = TypeAccess::default();
-        access.mutable.insert(TypeId::of::<T>());
+        access.add_write(TypeId::of::<T>());
         access
     }
 }
@@ -361,7 +359,7 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_mut)]
-            fn access() -> TypeAccess {
+            fn access() -> TypeAccess<TypeId> {
                 let mut access = TypeAccess::default();
                 $(access.union(&$name::access());)*
                 access
@@ -422,7 +420,7 @@ macro_rules! tuple_impl_or {
             }
 
             #[allow(unused_mut)]
-            fn access() -> TypeAccess {
+            fn access() -> TypeAccess<TypeId> {
                 let mut access = TypeAccess::default();
                 $(access.union(&$name::access());)*
                 access

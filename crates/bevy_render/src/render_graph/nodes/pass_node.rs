@@ -224,11 +224,9 @@ where
                     // attempt to draw each visible entity
                     let mut draw_state = DrawState::default();
                     for visible_entity in visible_entities.iter() {
-                        if let Ok(query_one) = world.query_one::<Q>(visible_entity.entity) {
-                            if query_one.get().is_none() {
-                                // visible entity does not match the Pass query
-                                continue;
-                            }
+                        if world.query_one::<Q>(visible_entity.entity).is_err() {
+                            // visible entity does not match the Pass query
+                            continue;
                         }
 
                         let draw = if let Ok(draw) = world.get::<Draw>(visible_entity.entity) {

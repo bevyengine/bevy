@@ -56,8 +56,7 @@ pub fn ui_focus_system(
     }
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _global_transform, interaction, _focus_policy) in
-            &mut node_query.iter()
+        for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
@@ -71,9 +70,8 @@ pub fn ui_focus_system(
     let mut hovered_entity = None;
 
     {
-        let mut query_iter = node_query.iter();
-        let mut moused_over_z_sorted_nodes = query_iter
-            .iter()
+        let mut moused_over_z_sorted_nodes = node_query
+            .iter_mut()
             .filter_map(
                 |(entity, node, global_transform, interaction, focus_policy)| {
                     let position = global_transform.translation;

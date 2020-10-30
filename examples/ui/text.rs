@@ -17,7 +17,7 @@ fn main() {
 struct FpsText;
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<(&mut Text, &FpsText)>) {
-    for (mut text, _tag) in &mut query.iter() {
+    for (mut text, _tag) in query.iter_mut() {
         if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(average) = fps.average() {
                 text.value = format!("FPS: {:.2}", average);

@@ -20,7 +20,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use proc_macro_crate::crate_name;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Path};
+use syn::{parse_macro_input, DeriveInput, Ident, Index, Lifetime, Path};
 
 /// Implement `Bundle` for a monomorphic struct
 ///
@@ -140,4 +140,77 @@ fn struct_fields(fields: &syn::Fields) -> (Vec<&syn::Type>, Vec<syn::Ident>) {
             .unzip(),
         syn::Fields::Unit => (Vec::new(), Vec::new()),
     }
+}
+
+fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
+    (0..count)
+        .map(|i| Ident::new(&fmt_string(i), Span::call_site()))
+        .collect::<Vec<Ident>>()
+}
+
+fn get_lifetimes(fmt_string: fn(usize) -> String, count: usize) -> Vec<Lifetime> {
+    (0..count)
+        .map(|i| Lifetime::new(&fmt_string(i), Span::call_site()))
+        .collect::<Vec<Lifetime>>()
+}
+
+#[proc_macro]
+pub fn impl_query_set(_input: TokenStream) -> TokenStream {
+    let mut tokens = TokenStream::new();
+    let max_queries = 4;
+    let queries = get_idents(|i| format!("Q{}", i), max_queries);
+    let lifetimes = get_lifetimes(|i| format!("'q{}", i), max_queries);
+    let mut query_fns = Vec::new();
+    let mut query_fn_muts = Vec::new();
+    for i in 0..max_queries {
+        let query = &queries[i];
+        let lifetime = &lifetimes[i];
+        let fn_name = Ident::new(&format!("q{}", i), Span::call_site());
+        let fn_name_mut = Ident::new(&format!("q{}_mut", i), Span::call_site());
+        let index = Index::from(i);
+        query_fns.push(quote! {
+            pub fn #fn_name(&self) -> &Query<#lifetime, #query> {
+                &self.value.#index
+            }
+        });
+        query_fn_muts.push(quote! {
+            pub fn #fn_name_mut(&mut self) -> &mut Query<#lifetime, #query> {
+                &mut self.value.#index
+            }
+        });
+    }
+
+    for query_count in 1..=max_queries {
+        let query = &queries[0..query_count];
+        let lifetime = &lifetimes[0..query_count];
+        let query_fn = &query_fns[0..query_count];
+        let query_fn_mut = &query_fn_muts[0..query_count];
+        tokens.extend(TokenStream::from(quote! {
+            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QueryTuple for (#(Query<#lifetime, #query>,)*) {
+                unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
+                    (
+                        #(
+                            Query::<#query>::new(
+                                std::mem::transmute(world),
+                                std::mem::transmute(component_access),
+                            ),
+                        )*
+                    )
+                }
+
+                fn get_accesses() -> Vec<QueryAccess> {
+                    vec![
+                        #(<#query::Fetch as Fetch>::access(),)*
+                    ]
+                }
+            }
+
+            impl<#(#lifetime,)* #(#query: HecsQuery,)*> QuerySet<(#(Query<#lifetime, #query>,)*)> {
+                #(#query_fn)*
+                #(#query_fn_mut)*
+            }
+        }));
+    }
+
+    tokens
 }
