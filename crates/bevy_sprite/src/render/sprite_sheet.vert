@@ -47,5 +47,5 @@ void main() {
     );
     v_Uv = (atlas_positions[gl_VertexIndex] + vec2(0.01, 0.01)) / AtlasSize;
     v_Color = TextureAtlasSprite_color;
-    gl_Position = ViewProj * SpriteTransform * vec4(ceil(vertex_Position), 1.0);
+    gl_Position = ViewProj * SpriteTransform * vec4(ceil(vertex_position), 1.0);
 }
