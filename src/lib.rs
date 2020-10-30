@@ -133,7 +133,7 @@ pub mod render {
 
 #[cfg(feature = "bevy_sprite")]
 pub mod sprite {
-    // Items for sprites, rects, texture atlases, etc.
+    //! Items for sprites, rects, texture atlases, etc.
     pub use bevy_sprite::*;
 }
 
