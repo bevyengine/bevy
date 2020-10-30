@@ -33,7 +33,7 @@ trait ResourceStorage: Downcast {}
 impl_downcast!(ResourceStorage);
 
 struct StoredResource<T: 'static> {
-    value: T,
+    value: std::cell::UnsafeCell<T>,
     atomic_borrow: AtomicBorrow,
 }
 
@@ -49,23 +49,20 @@ impl<T: 'static> VecResourceStorage<T> {
     }
 
     fn get_mut(&self, index: usize) -> Option<ResourceRefMut<'_, T>> {
-        self.stored.get(index).map(|stored|
-            // SAFE: ResourceRefMut ensures that this borrow is unique
-            unsafe {
-                let value = &stored.value as *const T as *mut T;
-                ResourceRefMut::new(&mut *value, &stored.atomic_borrow)
-            })
+        self.stored
+            .get(index)
+            .map(|stored| ResourceRefMut::new(&stored.value, &stored.atomic_borrow))
     }
 
     fn push(&mut self, resource: T) {
         self.stored.push(StoredResource {
             atomic_borrow: AtomicBorrow::new(),
-            value: resource,
+            value: std::cell::UnsafeCell::new(resource),
         })
     }
 
     fn set(&mut self, index: usize, resource: T) {
-        self.stored[index].value = resource;
+        self.stored[index].value = std::cell::UnsafeCell::new(resource);
     }
 
     fn is_empty(&self) -> bool {
@@ -414,9 +411,19 @@ pub struct ResourceRef<'a, T: 'static> {
 
 impl<'a, T: 'static> ResourceRef<'a, T> {
     /// Creates a new resource borrow
-    pub fn new(resource: &'a T, borrow: &'a AtomicBorrow) -> Self {
-        borrow.borrow();
-        Self { resource, borrow }
+    pub fn new(resource: &'a std::cell::UnsafeCell<T>, borrow: &'a AtomicBorrow) -> Self {
+        if borrow.borrow() {
+            Self {
+                // Safe because we acquired the lock
+                resource: unsafe { &*resource.get() },
+                borrow,
+            }
+        } else {
+            panic!(
+                "Failed to acquire shared lock on resource: {}",
+                std::any::type_name::<T>()
+            );
+        }
     }
 }
 
@@ -454,9 +461,19 @@ pub struct ResourceRefMut<'a, T: 'static> {
 
 impl<'a, T: 'static> ResourceRefMut<'a, T> {
     /// Creates a new entity component mutable borrow
-    pub fn new(resource: &'a mut T, borrow: &'a AtomicBorrow) -> Self {
-        borrow.borrow_mut();
-        Self { resource, borrow }
+    pub fn new(resource: &'a std::cell::UnsafeCell<T>, borrow: &'a AtomicBorrow) -> Self {
+        if borrow.borrow_mut() {
+            Self {
+                // Safe because we acquired the lock
+                resource: unsafe { &mut *resource.get() },
+                borrow,
+            }
+        } else {
+            panic!(
+                "Failed to acquire exclusive lock on resource: {}",
+                std::any::type_name::<T>()
+            );
+        }
     }
 }
 
