@@ -12,7 +12,6 @@ use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
 use bevy_utils::HashMap;
-use downcast_rs::__alloc::collections::BTreeMap;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
