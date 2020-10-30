@@ -66,7 +66,7 @@ pub mod diagnostic {
 }
 
 pub mod ecs {
-    //! Bevy's entity-componenet-system.
+    //! Bevy's entity-component-system.
     pub use bevy_ecs::*;
 }
 
@@ -122,7 +122,7 @@ pub mod gltf {
 
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
-    //! Physically based rendering
+    //! Physically based rendering. **Note**: true PBR has not yet been implemented; the name `pbr` is aspirational.
     pub use bevy_pbr::*;
 }
 
