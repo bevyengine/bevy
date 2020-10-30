@@ -137,8 +137,14 @@ impl<T: Asset> Assets<T> {
         borrowed
     }
 
+    /// An iterator visiting all key-value pairs in arbitrary order.
     pub fn iter(&self) -> impl Iterator<Item = (HandleId, &T)> {
         self.assets.iter().map(|(k, v)| (*k, v))
+    }
+
+    /// An iterator visiting all key-value pairs in arbitrary order, with mutable references to the values.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (HandleId, &mut T)> {
+        self.assets.iter_mut().map(|(k, v)| (*k, v))
     }
 
     pub fn ids(&self) -> impl Iterator<Item = HandleId> + '_ {
@@ -191,6 +197,16 @@ impl<T: Asset> Assets<T> {
 
     pub fn is_empty(&self) -> bool {
         self.assets.is_empty()
+    }
+
+    /// Returns a reference to the inner assets `HashMap`.
+    pub fn assets(&self) -> &HashMap<HandleId, T> {
+        &self.assets
+    }
+
+    /// Returns a mutable reference to the inner assets `HashMap`.
+    pub fn assets_mut(&mut self) -> &mut HashMap<HandleId, T> {
+        &mut self.assets
     }
 }
 
