@@ -119,15 +119,10 @@ impl<'a> Drawable for DrawableText<'a> {
                     )?;
 
                     let bounds = outlined.px_bounds();
-                    let offset = scaled_font.descent() + glyph_height;
-                    let transform = Mat4::from_translation(
-                        caret
-                            + Vec3::new(
-                                0.0 + glyph_width / 2.0 + bounds.min.x,
-                                glyph_height / 2.0 - bounds.min.y - offset,
-                                0.0,
-                            ),
-                    );
+                    let x = bounds.min.x + glyph_width / 2.0;
+                    // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
+                    let y = -bounds.max.y + glyph_height / 2.0 - scaled_font.descent() + 0.5;
+                    let transform = Mat4::from_translation(caret + Vec3::new(x, y, 0.0));
                     let sprite = TextureAtlasSprite {
                         index: glyph_atlas_info.char_index,
                         color: self.style.color,
