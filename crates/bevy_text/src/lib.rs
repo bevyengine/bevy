@@ -16,7 +16,8 @@ pub use glyph_brush::*;
 pub use pipeline::*;
 
 pub mod prelude {
-    pub use crate::{Font, TextStyle};
+    pub use crate::{Font, TextAlignment, TextStyle};
+    pub use glyph_brush_layout::{HorizontalAlign, VerticalAlign};
 }
 
 use bevy_app::prelude::*;

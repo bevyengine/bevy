@@ -1,19 +1,18 @@
 use crate::{error::TextError, Font, FontAtlas};
-use ab_glyph::{Font as _, Glyph, GlyphId, OutlinedGlyph, Rect};
+use ab_glyph::{GlyphId, OutlinedGlyph};
 use bevy_asset::{Assets, Handle};
 use bevy_core::FloatOrd;
 use bevy_math::Vec2;
-use bevy_render::texture::{Texture, TextureFormat};
+use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::HashMap;
+use bevy_utils::{HashMap, HashMapExt};
 
 type FontSizeKey = FloatOrd;
 
-#[derive(Default, TypeUuid)]
+#[derive(TypeUuid)]
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
-    font: Handle<Font>,
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
@@ -23,12 +22,17 @@ pub struct GlyphAtlasInfo {
     pub glyph_index: u32,
 }
 
-impl FontAtlasSet {
-    pub fn new(font: Handle<Font>) -> Self {
-        Self {
-            font,
-            font_atlases: HashMap::default(),
+impl Default for FontAtlasSet {
+    fn default() -> Self {
+        FontAtlasSet {
+            font_atlases: HashMap::with_capacity(1),
         }
+    }
+}
+
+impl FontAtlasSet {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {

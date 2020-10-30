@@ -9,7 +9,7 @@ use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, ToSectionText,
 };
 
-use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo};
+use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment};
 
 pub struct GlyphBrush {
     section_queue: Mutex<Vec<Vec<SectionGlyph>>>,
@@ -34,15 +34,17 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Size,
-        // screen_position: Vec2,
+        text_alignment: TextAlignment,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         // Todo: handle cache
         let geom = SectionGeometry {
             bounds: (bounds.width, bounds.height),
-            // screen_position: (screen_position.x(), screen_position.y()),
             ..Default::default()
         };
-        let section_glyphs = Layout::default().calculate_glyphs(&self.fonts, &geom, sections);
+        let section_glyphs = Layout::default()
+            .h_align(text_alignment.horizontal)
+            .v_align(text_alignment.vertical)
+            .calculate_glyphs(&self.fonts, &geom, sections);
         Ok(section_glyphs)
     }
 
@@ -50,10 +52,9 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Size,
-        // screen_position: Vec2,
+        text_alignment: TextAlignment,
     ) -> Result<(), TextError> {
-        // let glyphs = self.compute_glyphs(sections, bounds, screen_position)?;
-        let glyphs = self.compute_glyphs(sections, bounds)?;
+        let glyphs = self.compute_glyphs(sections, bounds, text_alignment)?;
         let mut sq = self
             .section_queue
             .lock()
@@ -77,9 +78,13 @@ impl GlyphBrush {
         let vertices = sq
             .into_iter()
             .map(|section_glyphs| {
+                if section_glyphs.is_empty() {
+                    return Ok(Vec::new());
+                }
                 let mut vertices = Vec::new();
-
-                let mut max_y: f32 = 0.0;
+                let sg = section_glyphs.first().unwrap();
+                let mut min_x: f32 = sg.glyph.position.x;
+                let mut max_y: f32 = sg.glyph.position.y;
                 for section_glyph in section_glyphs.iter() {
                     let handle = &self.handles[section_glyph.font_id.0];
                     let font = fonts.get(handle).ok_or(TextError::NoSuchFont)?;
@@ -87,8 +92,10 @@ impl GlyphBrush {
                     let scaled_font = ab_glyph::Font::as_scaled(&font.font, glyph.scale.y);
                     // glyph.position.y = baseline
                     max_y = max_y.max(glyph.position.y - scaled_font.descent());
+                    min_x = min_x.min(glyph.position.x - scaled_font.h_side_bearing(glyph.id));
                 }
                 max_y = max_y.floor();
+                min_x = min_x.floor();
 
                 for section_glyph in section_glyphs {
                     let handle = &self.handles[section_glyph.font_id.0];
@@ -99,9 +106,7 @@ impl GlyphBrush {
                         let bounds = outlined_glyph.px_bounds();
                         let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
                         let font_atlas_set = font_atlas_set_storage
-                            .get_or_insert_with(handle_font_atlas, || {
-                                FontAtlasSet::new(handle.clone())
-                            });
+                            .get_or_insert_with(handle_font_atlas, || FontAtlasSet::default());
 
                         let atlas_info = font_atlas_set
                             .get_glyph_atlas_info(font_size, glyph_id)
@@ -119,7 +124,7 @@ impl GlyphBrush {
                         let glyph_width = glyph_rect.width();
                         let glyph_height = glyph_rect.height();
 
-                        let x = bounds.min.x + glyph_width / 2.0;
+                        let x = bounds.min.x + glyph_width / 2.0 - min_x;
                         // the 0.5 accounts for odd-numbered heights (bump up by 1 pixel)
                         // max_y = text block height, and up is negative (whereas for transform, up is positive)
                         let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;

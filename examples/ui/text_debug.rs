@@ -33,6 +33,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font_size: 50.0,
                     color: Color::WHITE,
+                    alignment: TextAlignment::default(),
                 },
             },
             ..Default::default()
@@ -62,6 +63,10 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font_size: 50.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
+                    alignment: TextAlignment {
+                        horizontal: HorizontalAlign::Right,
+                        vertical: VerticalAlign::Center,
+                    }
                 },
             },
             ..Default::default()
@@ -85,6 +90,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font_size: 50.0,
                     color: Color::WHITE,
+                    alignment: TextAlignment::default(),
                 },
             },
             ..Default::default()
@@ -114,6 +120,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 style: TextStyle {
                     font_size: 50.0,
                     color: Color::WHITE,
+                    alignment: TextAlignment::default(),
                 },
             },
             ..Default::default()

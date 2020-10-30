@@ -8,7 +8,9 @@ use bevy_sprite::TextureAtlas;
 
 use glyph_brush_layout::{FontId, SectionText};
 
-use crate::{error::TextError, glyph_brush::GlyphBrush, Font, FontAtlasSet, TextVertex};
+use crate::{
+    error::TextError, glyph_brush::GlyphBrush, Font, FontAtlasSet, TextAlignment, TextVertex,
+};
 
 pub struct TextPipeline {
     pub brush: GlyphBrush,
@@ -30,8 +32,9 @@ impl TextPipeline {
         font_storage: &Assets<Font>,
         text: &str,
         scale: f32,
+        text_alignment: TextAlignment,
         bounds: Size,
-    ) -> Result<Size<f32>, TextError> {
+    ) -> Result<Size, TextError> {
         let font = font_storage
             .get(font_handle.id)
             .ok_or(TextError::NoSuchFont)?;
@@ -46,16 +49,26 @@ impl TextPipeline {
 
         let scaled_font = ab_glyph::Font::as_scaled(&font.font, scale);
 
-        let section_glyphs = self.brush.compute_glyphs(&[section], bounds)?;
+        let section_glyphs = self
+            .brush
+            .compute_glyphs(&[section], bounds, text_alignment)?;
 
+        if section_glyphs.is_empty() {
+            return Ok(Size::new(0.,0.));
+        }
+        let first_glyph = section_glyphs.first().unwrap();
+        let mut min_x: f32 = first_glyph.glyph.position.x - scaled_font.h_side_bearing(first_glyph.glyph.id);
+        let mut min_y: f32 = first_glyph.glyph.position.y - scaled_font.ascent();
         let mut max_x: f32 = 0.0;
         let mut max_y: f32 = 0.0;
         for section_glyph in section_glyphs.iter() {
             let glyph = &section_glyph.glyph;
+            min_x = min_x.min(glyph.position.x - scaled_font.h_side_bearing(glyph.id));
+            min_y = min_y.min(glyph.position.y - scaled_font.ascent());
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
-        let size = Size::new(max_x, max_y);
+        let size = Size::new(max_x - min_x, max_y - min_y - scaled_font.descent());
         Ok(size)
     }
 
@@ -73,8 +86,8 @@ impl TextPipeline {
         font_storage: &Assets<Font>,
         text: &str,
         font_size: f32,
+        text_alignment: TextAlignment,
         bounds: Size,
-        // screen_position: Vec2,
     ) -> Result<(), TextError> {
         let font = font_storage
             .get(font_handle.id)
@@ -87,7 +100,7 @@ impl TextPipeline {
             text,
         };
 
-        self.brush.queue_text(&[section], bounds)?;
+        self.brush.queue_text(&[section], bounds, text_alignment)?;
 
         Ok(())
     }

@@ -11,8 +11,7 @@ use bevy_render::{
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextPipeline, TextStyle, TextVertices};
-use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use std::collections::HashSet;
+use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -54,12 +53,12 @@ pub fn text_system(
             },
         );
 
-        // TODO: add support for text alignment
         if let Err(e) = text_pipeline.queue_text(
             text.font.clone(),
             &fonts,
             &text.value,
             text.style.font_size,
+            text.style.alignment,
             node_size,
         ) {
             println!("Error when adding text to the queue: {:?}", e);
@@ -68,10 +67,12 @@ pub fn text_system(
             &fonts,
             &text.value,
             text.style.font_size,
+            text.style.alignment,
             node_size,
         ) {
             calculated_size.size = new_size;
         }
+        
 
         match text_pipeline.process_queued(
             &fonts,
@@ -101,7 +102,8 @@ pub fn draw_text_system(
 
     for (mut draw, text, text_vertices, node, global_transform) in &mut query.iter() {
         let position = global_transform.translation - (node.size / 2.0).extend(0.0);
-        let mut text_drawer = DrawableText {
+
+        let mut drawable_text = DrawableText {
             render_resource_bindings: &mut render_resource_bindings,
             asset_render_resource_bindings: &mut asset_render_resource_bindings,
             position,
@@ -110,6 +112,6 @@ pub fn draw_text_system(
             font_quad_vertex_descriptor: vertex_buffer_descriptor,
             style: &text.style,
         };
-        text_drawer.draw(&mut draw, &mut context).unwrap();
+        drawable_text.draw(&mut draw, &mut context).unwrap();
     }
 }
