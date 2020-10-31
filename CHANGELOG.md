@@ -11,22 +11,22 @@ to view all changes since the `0.2.1` release.
 ## Unreleased
 
 ### Added
-- [Mesh overhaul with custom vertex attributes][616] for `Mesh`
-  - Any vertex attribute can now be added over `mesh.attributes.insert()`. For example: `mesh.attributes.insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into())`.
-  - For missing attributes (requested by shader, but not defined by mesh), Bevy will provide a zero-filled fallback buffer.
+
 - [Touch Input][696]
 - [Do not depend on spirv on wasm32 target][689]
 - [Another fast compile flag for macOS][552]
-- [Mesh overhaul with custom vertex attributes][599]
 - [Introduce Mouse capture API][679]
 - [`bevy_input::touch`: implement touch input][696]
 - [D-pad support on MacOS][653]
+- [Support for Android file system][723]
+- [app: PluginGroups and DefaultPlugins][744]
+  - `PluginGroup` is a collection of plugins where each plugin can be enabled or disabled.
 - [Support to get gamepad button/trigger values using `Axis<GamepadButton>`][683]
 - [Expose Winit decorations][627]
 - [Enable changing window settings at runtime][644]
 - [Expose a pointer of EventLoopProxy to process custom messages][674]
 - [Add a way to specify padding/ margins between sprites in a TextureAtlas][460]
-- [Add remove bundle to `bevy_ecs::Commands`][579]
+- [Add `bevy_ecs::Commands::remove` for bundles][579]
 - [impl `Default` for `TextureFormat`][675]
 - [Expose current_entity in ChildBuilder][595]
 - [`AppBuilder::add_thread_local_resource`][671]
@@ -38,14 +38,21 @@ to view all changes since the `0.2.1` release.
 - Index buffer specialization
   - [Allows the use of U32 indices in Mesh index buffers in addition to the usual U16 indices][568]
   - [Switch to u32 indices by default][572]
-- More instructions for system dependences
+- More instructions for system dependencies
   - [Add `systemd-devel` for Fedora Linux dependencies][528]
   - [Add `libudev-dev` to Ubuntu dependencies][538]
   - [Add Void Linux to linux dependencies file][645]
+  - [WSL2 instructions][727]
 - [Suggest `-Zrun-dsymutil-no` for faster compilation on MacOS][552]
 
 ### Changed
 
+- [ecs: ergonomic query.iter(), remove locks, add QuerySets][741]
+  - `query.iter()` is now a real iterator!
+  - `QuerySet` allows working with conflicting queries and is checked at compile-time.
+- [Rename `query.entity()` and `query.get()`][752]
+  - `query.get::<Component>(entity)` is now `query.get_component::<Component>(entity)`
+  - `query.entity(entity)` is now `query.get(entity)`
 - [Asset system rework and GLTF scene loading][693]
 - [Introduces WASM implementation of `AssetIo`][703]
 - [Move transform data out of Mat4][596]
@@ -58,28 +65,20 @@ to view all changes since the `0.2.1` release.
 - [Use `FnOnce` in `Commands` and `ChildBuilder` where possible][535]
 - [Runners explicitly call `App.initialize()`][690]
 - [sRGB awareness for `Color`][616]
-  - Color is now assumed to be provided in the non-linear sRGB colorspace, and constructors such as
-    `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood.
-  - This allows drop-in use of colors from most applications.
+  - Color is now assumed to be provided in the non-linear sRGB colorspace.
+    Constructors such as `Color::rgb` and `Color::rgba` will be converted to linear sRGB.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
-  - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
-- Breaking Change: [Mesh overhaul with custom vertex attributes][616] for `Mesh`
+  - Individual color-components must now be accessed through setters and getters.
+- [`Mesh` overhaul with custom vertex attributes][599]
   - Removed `VertexAttribute`, `Vertex`, `AsVertexBufferDescriptor`.
- 
-- Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
-- Breaking Change: Migrated to rodio 0.12, this means:
-  - Individual color-components must now be accessed through setters and getters:
-    `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
+  - For missing attributes (requested by shader, but not defined by mesh), Bevy will provide a zero-filled fallback buffer.
+  - Any vertex attribute can now be added over `mesh.attributes.insert()`. `mesh.attributes.insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into())`
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic: [#649][649], [#651][651]
 - [Migrated to Rodio 0.12][692]
-  - Playing an mp3 no longer sometimes panics in debug mode
-  - New method of playing audio can be found in the audio example (an intermediary `Audio` struct is used instead of `AudioOutput` directly)
+  - New method of playing audio can be found in the examples.
   
 ### Fixed
 
-[599]: https://github.com/bevyengine/bevy/pull/599
-[696]: https://github.com/bevyengine/bevy/pull/696
-[689]: https://github.com/bevyengine/bevy/pull/689
 - [Properly update bind group ids when setting dynamic bindings][560]
 - [Properly exit the app on AppExit event][610]
 - [Fix FloatOrd hash being different for different NaN values][618]
@@ -87,6 +86,9 @@ to view all changes since the `0.2.1` release.
 - [Update camera_system to fix issue with late camera addition][488]
 - [Register `IndexFormat` as a property][664]
 - [Fix breakout example bug][685]
+- [Fix PreviousParent lag by merging parent update systems][713]
+- [Fix bug of connection event of gamepad at startup][730]
+- [Fix wavy text][725]
 
 [397]: https://github.com/bevyengine/bevy/pull/397
 [460]: https://github.com/bevyengine/bevy/pull/460
@@ -106,6 +108,7 @@ to view all changes since the `0.2.1` release.
 [595]: https://github.com/bevyengine/bevy/pull/595
 [596]: https://github.com/bevyengine/bevy/pull/596
 [597]: https://github.com/bevyengine/bevy/pull/597
+[599]: https://github.com/bevyengine/bevy/pull/599
 [610]: https://github.com/bevyengine/bevy/pull/610
 [616]: https://github.com/bevyengine/bevy/pull/616
 [618]: https://github.com/bevyengine/bevy/pull/618
@@ -134,6 +137,15 @@ to view all changes since the `0.2.1` release.
 [700]: https://github.com/bevyengine/bevy/pull/700
 [703]: https://github.com/bevyengine/bevy/pull/703
 [711]: https://github.com/bevyengine/bevy/pull/711
+[713]: https://github.com/bevyengine/bevy/pull/713
+[723]: https://github.com/bevyengine/bevy/pull/723
+[725]: https://github.com/bevyengine/bevy/pull/725
+[727]: https://github.com/bevyengine/bevy/pull/727
+[730]: https://github.com/bevyengine/bevy/pull/730
+[741]: https://github.com/bevyengine/bevy/pull/741
+[744]: https://github.com/bevyengine/bevy/pull/744
+[752]: https://github.com/bevyengine/bevy/pull/752
+
 
 ## Version 0.2.1 (2020-9-20)
 
