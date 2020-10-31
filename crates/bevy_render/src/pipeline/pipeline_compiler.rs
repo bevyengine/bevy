@@ -1,7 +1,7 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
     pipeline::{
-        VertexAttributeDescriptor, InputStepMode, VertexBufferDescriptor, VertexFormat,
+        InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
         VERTEX_FALLBACK_LAYOUT_NAME,
     },
     renderer::RenderResourceContext,
