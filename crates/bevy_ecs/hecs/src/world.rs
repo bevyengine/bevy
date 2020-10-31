@@ -675,8 +675,9 @@ impl World {
         let to_remove = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
 
         match self.remove_bundle_internal::<_, T>(entity, to_remove, true) {
-            Ok(bundle) => Ok(bundle),
+            Ok(Some(bundle)) => Ok(bundle),
             Err(err) => Err(err),
+            Ok(None) => unreachable!(),
         }
     }
 
@@ -685,7 +686,7 @@ impl World {
         entity: Entity,
         to_remove: std::collections::HashSet<TypeId, S>,
         check_presence: bool,
-    ) -> Result<T, ComponentError> {
+    ) -> Result<Option<T>, ComponentError> {
         use std::collections::hash_map::Entry;
 
         let loc = self.entities.get_mut(entity)?;
@@ -741,7 +742,7 @@ impl World {
             {
                 self.entities.get_mut(moved).unwrap().index = old_index;
             }
-            bundle.ok_or_else(|| ComponentError::MissingComponent(MissingComponent::new::<()>()))
+            Ok(bundle)
         }
     }
 
