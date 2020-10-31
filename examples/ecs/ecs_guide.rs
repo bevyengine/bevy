@@ -141,18 +141,16 @@ fn game_over_system(
 // the initial "state" of our game. The only thing that distinguishes a "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
-// This startup system needs direct access to the ECS World and Resources, which makes it a "thread local system".
-// That being said, startup systems can use any of the system forms we've covered. We will also cover thread local systems more in a bit.
-fn startup_system(world: &mut World, resources: &mut Resources) {
+fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
-    resources.insert(GameRules {
+    commands.insert_resource(GameRules {
         max_rounds: 10,
         winning_score: 4,
         max_players: 4,
     });
 
     // Add some players to our world. Players start with a score of 0 ... we want our game to be fair!
-    world.spawn_batch(vec![
+    commands.spawn_batch(vec![
         (
             Player {
                 name: "Alice".to_string(),
@@ -168,7 +166,6 @@ fn startup_system(world: &mut World, resources: &mut Resources) {
     ]);
 
     // set the total players to "2"
-    let mut game_state = resources.get_mut::<GameState>().unwrap();
     game_state.total_players = 2;
 }
 
@@ -201,8 +198,6 @@ fn new_player_system(
 // These run on the main app thread (hence the name "thread local")
 // WARNING: These will block all parallel execution of other systems until they finish, so they should generally be avoided if you
 // care about performance
-// NOTE: You may notice that this function signature looks exactly like the "startup_system" above.
-// Thats because they are both thread local!
 #[allow(dead_code)]
 fn thread_local_system(world: &mut World, resources: &mut Resources) {
     // this does the same thing as "new_player_system"
@@ -259,7 +254,7 @@ fn main() {
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for
         // app initialization code (ex: adding entities and resources)
-        .add_startup_system(startup_system.thread_local_system())
+        .add_startup_system(startup_system.system())
         // my_system.system() calls converts normal rust functions into ECS systems:
         .add_system(print_message_system.system())
         //
