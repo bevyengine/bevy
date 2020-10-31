@@ -586,9 +586,9 @@ pub fn attributes_to_vertex_buffer_data(
     // get existing attribute data as bytes and generate attribute descriptor
     let mut attributes_gpu_ready = Vec::<(VertexAttributeDescriptor, &[u8])>::default();
     let mut accumulated_offset = 0;
-    let mut attributes_as_vec: Vec<_> = attributes.iter().collect();
-    attributes_as_vec.sort_by(|a, b| a.0.cmp(b.0));
-    for attribute_data in attributes_as_vec {
+    let mut attributes_sorted: Vec<_> = attributes.iter().collect();
+    attributes_sorted.sort_by(|a, b| a.0.cmp(b.0));
+    for attribute_data in attributes_sorted {
         // TODO: allow for custom converter here
         let vertex_format = VertexFormat::from(attribute_data.1);
         attributes_gpu_ready.push((

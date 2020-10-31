@@ -1,4 +1,5 @@
 use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
+use crate::pipeline::InputStepMode;
 use crate::{
     pipeline::{
         VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
@@ -171,41 +172,53 @@ impl PipelineCompiler {
 
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
-        let mut mutated_vertex_buffer_descriptor =
-            pipeline_specialization.mesh_attribute_layout.clone();
+        // the vertex buffer descriptor of the mesh
+        let mesh_vertex_buffer_descriptor = pipeline_specialization.mesh_attribute_layout.clone();
+
+        // the vertex buffer descriptor that will be used for this pipeline
+        let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
+            step_mode: InputStepMode::Vertex,
+            stride: mesh_vertex_buffer_descriptor.stride,
+            ..Default::default()
+        };
 
         let mut fallback_vertex_buffer_descriptor = VertexBufferDescriptor {
             name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME),
             stride: VertexFormat::Float4.get_size(), //TODO: use smallest possible format
             ..Default::default()
         };
-        for shader_vertex_attribute in &mut pipeline_layout.vertex_buffer_descriptors.iter_mut() {
+        for shader_vertex_attribute in pipeline_layout.vertex_buffer_descriptors.iter() {
             let shader_vertex_attribute = shader_vertex_attribute
                 .attributes
                 .get(0)
                 .expect("Reflected layout has no attributes.");
 
-            if let Some(target_vertex_attribute) = mutated_vertex_buffer_descriptor
+            if let Some(target_vertex_attribute) = mesh_vertex_buffer_descriptor
                 .attributes
-                .iter_mut()
+                .iter()
                 .find(|x| x.name == shader_vertex_attribute.name)
             {
                 // copy shader location from reflected layout
-                target_vertex_attribute.shader_location = shader_vertex_attribute.shader_location;
+                let mut compiled_vertex_attribute = target_vertex_attribute.clone();
+                compiled_vertex_attribute.shader_location = shader_vertex_attribute.shader_location;
+                compiled_vertex_buffer_descriptor
+                    .attributes
+                    .push(compiled_vertex_attribute);
             } else {
                 fallback_vertex_buffer_descriptor
                     .attributes
                     .push(VertexAttributeDescriptor {
                         name: Default::default(),
                         offset: 0,
-                        format: shader_vertex_attribute.format, //TODO julian: use smallest possible format to minimalize bandwidth
+                        format: shader_vertex_attribute.format, //TODO: use smallest possible format
                         shader_location: shader_vertex_attribute.shader_location,
                     });
             }
         }
+
         //TODO: add other buffers (like instancing) here
         let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
-        vertex_buffer_descriptors.push(mutated_vertex_buffer_descriptor);
+        vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
         if !fallback_vertex_buffer_descriptor.attributes.is_empty() {
             vertex_buffer_descriptors.push(fallback_vertex_buffer_descriptor);
         }
