@@ -1,0 +1,14 @@
+[package]
+name = "bevy-ios-example"
+version = "0.1.0"
+authors = ["Sebastian Imlay <sebastian.imlay@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "bevy_ios_example"
+crate-type = ["staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { path = "../../", features = [ "bevy_gilrs", "bevy_gltf", "bevy_wgpu", "bevy_winit", "render", "png", "hdr"], default-features = false}
