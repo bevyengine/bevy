@@ -437,35 +437,35 @@ mod tests {
         ) {
             let entities = entity_query.iter().collect::<Vec<Entity>>();
             assert!(
-                b_query.get::<B>(entities[0]).is_err(),
+                b_query.get_component::<B>(entities[0]).is_err(),
                 "entity 0 should not have B"
             );
             assert!(
-                b_query.get::<B>(entities[1]).is_ok(),
+                b_query.get_component::<B>(entities[1]).is_ok(),
                 "entity 1 should have B"
             );
             assert!(
-                b_query.get::<A>(entities[1]).is_err(),
+                b_query.get_component::<A>(entities[1]).is_err(),
                 "entity 1 should have A, but b_query shouldn't have access to it"
             );
             assert!(
-                b_query.get::<D>(entities[3]).is_err(),
+                b_query.get_component::<D>(entities[3]).is_err(),
                 "entity 3 should have D, but it shouldn't be accessible from b_query"
             );
             assert!(
-                b_query.get::<C>(entities[2]).is_err(),
+                b_query.get_component::<C>(entities[2]).is_err(),
                 "entity 2 has C, but it shouldn't be accessible from b_query"
             );
             assert!(
-                a_c_query.get::<C>(entities[2]).is_ok(),
+                a_c_query.get_component::<C>(entities[2]).is_ok(),
                 "entity 2 has C, and it should be accessible from a_c_query"
             );
             assert!(
-                a_c_query.get::<D>(entities[3]).is_err(),
+                a_c_query.get_component::<D>(entities[3]).is_err(),
                 "entity 3 should have D, but it shouldn't be accessible from b_query"
             );
             assert!(
-                d_query.get::<D>(entities[3]).is_ok(),
+                d_query.get_component::<D>(entities[3]).is_ok(),
                 "entity 3 should have D"
             );
 

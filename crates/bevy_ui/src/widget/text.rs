@@ -38,7 +38,7 @@ pub fn text_system(
     // add queued text to atlases
     let mut new_queued_text = Vec::new();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, mut calculated_size)) = queries.q1_mut().entity_mut(entity) {
+        if let Ok((text, mut calculated_size)) = queries.q1_mut().get_mut(entity) {
             let font_atlases = font_atlas_sets
                 .get_or_insert_with(text.font.id, || FontAtlasSet::new(text.font.clone_weak()));
             // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS

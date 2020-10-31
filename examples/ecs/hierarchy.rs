@@ -96,14 +96,14 @@ fn rotate(
 ) {
     let angle = std::f32::consts::PI / 2.0;
     for (parent, mut children, _) in parents_query.iter_mut() {
-        if let Ok(mut transform) = transform_query.entity_mut(parent) {
+        if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate(Quat::from_rotation_z(-angle * time.delta_seconds));
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
         // Alternatively, you could query entities that have a Parent component
         for child in children.iter() {
-            if let Ok(mut transform) = transform_query.entity_mut(*child) {
+            if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate(Quat::from_rotation_z(angle * 2.0 * time.delta_seconds));
             }
         }

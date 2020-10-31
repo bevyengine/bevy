@@ -14,7 +14,7 @@ where
 {
     let parent_result = run(state, entity, parent_result, previous_result);
     previous_result = None;
-    if let Ok(children) = children_query.entity(entity) {
+    if let Ok(children) = children_query.get(entity) {
         for child in children.iter().cloned() {
             previous_result = run_on_hierarchy(
                 children_query,
