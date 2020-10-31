@@ -12,4 +12,3 @@ crate-type = ["staticlib"]
 
 [dependencies]
 bevy = { path = "../../", features = [ "bevy_gilrs", "bevy_gltf", "bevy_wgpu", "bevy_winit", "render", "png", "hdr"], default-features = false}
-bevy_window = { path = "../../crates/bevy_window" }

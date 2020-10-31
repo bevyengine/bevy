@@ -1,9 +1,9 @@
 use bevy::prelude::{
-    shape, AddDefaultPlugins, App, Assets, Camera3dComponents, Color, Commands, FaceToward,
-    IntoQuerySystem, LightComponents, Mat4, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial,
+    shape, AddDefaultPlugins, App, Assets, Camera3dComponents, Color, Commands,
+    IntoQuerySystem, LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial,
     Transform, Vec3, WindowDescriptor,
 };
-use bevy_window::WindowMode;
+use bevy::window::WindowMode;
 
 #[no_mangle]
 extern "C" fn main_rs() {
@@ -57,11 +57,8 @@ fn setup(
         })
         // camera
         .spawn(Camera3dComponents {
-            transform: Transform::new(Mat4::face_toward(
-                Vec3::new(-3.0, 5.0, 8.0),
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            )),
+            transform: Transform::from_translation(Vec3::new(-3.0, 5.0, 8.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
             ..Default::default()
         });
 }
