@@ -15,7 +15,7 @@ use std::{ops::Range, sync::Arc};
 pub struct HeadlessRenderResourceContext {
     buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
     texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
-    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, usize), RenderResourceId>>>,
+    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
 impl HeadlessRenderResourceContext {
@@ -92,7 +92,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
         &self,
         handle: HandleUntyped,
         render_resource: RenderResourceId,
-        index: usize,
+        index: u64,
     ) {
         self.asset_resources
             .write()
@@ -102,7 +102,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
     fn get_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        index: usize,
+        index: u64,
     ) -> Option<RenderResourceId> {
         self.asset_resources.write().get(&(handle, index)).cloned()
     }
@@ -124,7 +124,7 @@ impl RenderResourceContext for HeadlessRenderResourceContext {
 
     fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
 
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
         self.asset_resources.write().remove(&(handle, index));
     }
 

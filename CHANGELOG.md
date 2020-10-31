@@ -11,7 +11,13 @@ to view all changes since the `0.2.1` release.
 ## Unreleased
 
 ### Added
-
+- [Mesh overhaul with custom vertex attributes][616] for `Mesh`
+  - Any vertex attribute can now be added over `mesh.attributes.insert()`. For example: `mesh.attributes.insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into())`.
+  - For missing attributes (requested by shader, but not defined by mesh), Bevy will provide a zero-filled fallback buffer.
+- [Touch Input][696]
+- [Do not depend on spirv on wasm32 target][689]
+- [Another fast compile flag for macOS][552]
+- [Mesh overhaul with custom vertex attributes][599]
 - [Introduce Mouse capture API][679]
 - [`bevy_input::touch`: implement touch input][696]
 - [D-pad support on MacOS][653]
@@ -56,6 +62,12 @@ to view all changes since the `0.2.1` release.
     `Color::rgb` and `Color::rgba` will be converted to linear sRGB under-the-hood.
   - This allows drop-in use of colors from most applications.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
+  - Individual color-components must now be accessed through setters and getters: `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
+- Breaking Change: [Mesh overhaul with custom vertex attributes][616] for `Mesh`
+  - Removed `VertexAttribute`, `Vertex`, `AsVertexBufferDescriptor`.
+ 
+- Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic [649] [651]
+- Breaking Change: Migrated to rodio 0.12, this means:
   - Individual color-components must now be accessed through setters and getters:
     `.r`, `.g`, `.b`, `.a`, `.set_r`, `.set_g`, `.set_b`, `.set_a`, and the corresponding methods with the `*_linear` suffix.
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic: [#649][649], [#651][651]
@@ -65,6 +77,9 @@ to view all changes since the `0.2.1` release.
   
 ### Fixed
 
+[599]: https://github.com/bevyengine/bevy/pull/599
+[696]: https://github.com/bevyengine/bevy/pull/696
+[689]: https://github.com/bevyengine/bevy/pull/689
 - [Properly update bind group ids when setting dynamic bindings][560]
 - [Properly exit the app on AppExit event][610]
 - [Fix FloatOrd hash being different for different NaN values][618]

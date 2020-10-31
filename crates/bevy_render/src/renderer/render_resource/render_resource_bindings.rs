@@ -6,7 +6,6 @@ use crate::{
 use bevy_asset::{Asset, Handle, HandleUntyped};
 use bevy_utils::{HashMap, HashSet};
 use std::{hash::Hash, ops::Range};
-use uuid::Uuid;
 
 #[derive(Clone, Eq, Debug)]
 pub enum RenderResourceBinding {
@@ -104,11 +103,12 @@ pub enum BindGroupStatus {
 // PERF: if the bindings are scoped to a specific pipeline layout, then names could be replaced with indices here for a perf boost
 #[derive(Eq, PartialEq, Debug, Default, Clone)]
 pub struct RenderResourceBindings {
-    // TODO: remove this. it shouldn't be needed anymore
-    pub id: RenderResourceBindingsId,
     bindings: HashMap<String, RenderResourceBinding>,
-    // TODO: remove this
-    vertex_buffers: HashMap<String, (BufferId, Option<BufferId>)>,
+    /// A Buffer that contains all attributes a mesh has defined
+    pub vertex_attribute_buffer: Option<BufferId>,
+    /// A Buffer that is filled with zeros that will be used for attributes required by the shader, but undefined by the mesh.
+    pub vertex_fallback_buffer: Option<BufferId>,
+    pub index_buffer: Option<BufferId>,
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
     dirty_bind_groups: HashSet<BindGroupId>,
@@ -139,25 +139,10 @@ impl RenderResourceBindings {
         for (name, binding) in render_resource_bindings.bindings.iter() {
             self.set(name, binding.clone());
         }
-
-        for (name, (vertex_buffer, index_buffer)) in render_resource_bindings.vertex_buffers.iter()
-        {
-            self.set_vertex_buffer(name, *vertex_buffer, *index_buffer);
-        }
     }
 
-    pub fn get_vertex_buffer(&self, name: &str) -> Option<(BufferId, Option<BufferId>)> {
-        self.vertex_buffers.get(name).cloned()
-    }
-
-    pub fn set_vertex_buffer(
-        &mut self,
-        name: &str,
-        vertex_buffer: BufferId,
-        index_buffer: Option<BufferId>,
-    ) {
-        self.vertex_buffers
-            .insert(name.to_string(), (vertex_buffer, index_buffer));
+    pub fn set_index_buffer(&mut self, index_buffer: BufferId) {
+        self.index_buffer = Some(index_buffer);
     }
 
     fn create_bind_group(&mut self, descriptor: &BindGroupDescriptor) -> BindGroupStatus {
@@ -274,15 +259,6 @@ impl AssetRenderResourceBindings {
 
     pub fn get_mut<T: Asset>(&mut self, handle: &Handle<T>) -> Option<&mut RenderResourceBindings> {
         self.bindings.get_mut(&handle.clone_weak_untyped())
-    }
-}
-
-#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
-pub struct RenderResourceBindingsId(Uuid);
-
-impl Default for RenderResourceBindingsId {
-    fn default() -> Self {
-        RenderResourceBindingsId(Uuid::new_v4())
     }
 }
 

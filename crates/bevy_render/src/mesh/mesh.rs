@@ -1,9 +1,5 @@
-use super::Vertex;
 use crate::{
-    pipeline::{
-        AsVertexBufferDescriptor, PrimitiveTopology, RenderPipelines, VertexBufferDescriptor,
-        VertexBufferDescriptors, VertexFormat,
-    },
+    pipeline::{PrimitiveTopology, RenderPipelines, VertexFormat},
     renderer::{BufferInfo, BufferUsage, RenderResourceContext, RenderResourceId},
 };
 use bevy_app::prelude::{EventReader, Events};
@@ -12,12 +8,14 @@ use bevy_core::AsBytes;
 use bevy_ecs::{Local, Query, Res, ResMut};
 use bevy_math::*;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::HashSet;
 use std::borrow::Cow;
-use thiserror::Error;
 
-pub const VERTEX_BUFFER_ASSET_INDEX: usize = 0;
-pub const INDEX_BUFFER_ASSET_INDEX: usize = 1;
+use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
+use bevy_utils::HashMap;
+
+pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
+pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
+pub const VERTEX_FALLBACK_BUFFER_ID: u64 = 20;
 #[derive(Clone, Debug)]
 pub enum VertexAttributeValues {
     Float(Vec<f32>),
@@ -62,49 +60,28 @@ impl From<&VertexAttributeValues> for VertexFormat {
     }
 }
 
-#[derive(Debug)]
-pub struct VertexAttribute {
-    pub name: Cow<'static, str>,
-    pub values: VertexAttributeValues,
-}
-
-impl VertexAttribute {
-    pub const NORMAL: &'static str = "Vertex_Normal";
-    pub const POSITION: &'static str = "Vertex_Position";
-    pub const UV: &'static str = "Vertex_Uv";
-
-    pub fn position(positions: Vec<[f32; 3]>) -> Self {
-        VertexAttribute {
-            name: Self::POSITION.into(),
-            values: VertexAttributeValues::Float3(positions),
-        }
-    }
-
-    pub fn normal(normals: Vec<[f32; 3]>) -> Self {
-        VertexAttribute {
-            name: Self::NORMAL.into(),
-            values: VertexAttributeValues::Float3(normals),
-        }
-    }
-
-    pub fn uv(uvs: Vec<[f32; 2]>) -> Self {
-        VertexAttribute {
-            name: Self::UV.into(),
-            values: VertexAttributeValues::Float2(uvs),
-        }
+impl From<Vec<f32>> for VertexAttributeValues {
+    fn from(vec: Vec<f32>) -> Self {
+        VertexAttributeValues::Float(vec)
     }
 }
 
-#[derive(Error, Debug)]
-pub enum MeshToVertexBufferError {
-    #[error("VertexBufferDescriptor requires a VertexBufferAttribute this Mesh does not contain.")]
-    MissingVertexAttribute { attribute_name: Cow<'static, str> },
-    #[error("Mesh VertexAttribute VertexFormat is incompatible with VertexBufferDescriptor VertexAttribute VertexFormat.")]
-    IncompatibleVertexAttributeFormat {
-        attribute_name: Cow<'static, str>,
-        descriptor_format: VertexFormat,
-        mesh_format: VertexFormat,
-    },
+impl From<Vec<[f32; 2]>> for VertexAttributeValues {
+    fn from(vec: Vec<[f32; 2]>) -> Self {
+        VertexAttributeValues::Float2(vec)
+    }
+}
+
+impl From<Vec<[f32; 3]>> for VertexAttributeValues {
+    fn from(vec: Vec<[f32; 3]>) -> Self {
+        VertexAttributeValues::Float3(vec)
+    }
+}
+
+impl From<Vec<[f32; 4]>> for VertexAttributeValues {
+    fn from(vec: Vec<[f32; 4]>) -> Self {
+        VertexAttributeValues::Float4(vec)
+    }
 }
 
 #[derive(Debug)]
@@ -112,59 +89,32 @@ pub enum Indices {
     U16(Vec<u16>),
     U32(Vec<u32>),
 }
+// TODO: allow values to be unloaded after been submitting to the GPU to conserve memory
+pub type VertexAttributesHashMap = HashMap<Cow<'static, str>, VertexAttributeValues>;
 
 #[derive(Debug, TypeUuid)]
 #[uuid = "8ecbac0f-f545-4473-ad43-e1f4243af51e"]
 pub struct Mesh {
     pub primitive_topology: PrimitiveTopology,
-    pub attributes: Vec<VertexAttribute>,
+    /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
+    pub attributes: VertexAttributesHashMap,
     pub indices: Option<Indices>,
+    /// The layout of the attributes in the GPU buffer without `shader_location`. `None` will indicate that no data has been uploaded to the GPU yet.
+    pub attribute_buffer_descriptor_reference: Option<VertexBufferDescriptor>,
 }
 
 impl Mesh {
+    pub const ATTRIBUTE_NORMAL: &'static str = "Vertex_Normal";
+    pub const ATTRIBUTE_POSITION: &'static str = "Vertex_Position";
+    pub const ATTRIBUTE_UV_0: &'static str = "Vertex_Uv";
+
     pub fn new(primitive_topology: PrimitiveTopology) -> Self {
         Mesh {
             primitive_topology,
-            attributes: Vec::new(),
+            attributes: Default::default(),
             indices: None,
+            attribute_buffer_descriptor_reference: Default::default(),
         }
-    }
-
-    pub fn get_vertex_buffer_bytes(
-        &self,
-        vertex_buffer_descriptor: &VertexBufferDescriptor,
-        fill_missing_attributes: bool,
-    ) -> Result<Vec<u8>, MeshToVertexBufferError> {
-        let length = self.attributes.first().map(|a| a.values.len()).unwrap_or(0);
-        let mut bytes = vec![0; vertex_buffer_descriptor.stride as usize * length];
-
-        for vertex_attribute in vertex_buffer_descriptor.attributes.iter() {
-            match self
-                .attributes
-                .iter()
-                .find(|a| vertex_attribute.name == a.name)
-            {
-                Some(mesh_attribute) => {
-                    let attribute_bytes = mesh_attribute.values.get_bytes();
-                    let attribute_size = vertex_attribute.format.get_size() as usize;
-                    for (i, vertex_slice) in attribute_bytes.chunks(attribute_size).enumerate() {
-                        let vertex_offset = vertex_buffer_descriptor.stride as usize * i;
-                        let attribute_offset = vertex_offset + vertex_attribute.offset as usize;
-                        bytes[attribute_offset..attribute_offset + attribute_size]
-                            .copy_from_slice(vertex_slice);
-                    }
-                }
-                None => {
-                    if !fill_missing_attributes {
-                        return Err(MeshToVertexBufferError::MissingVertexAttribute {
-                            attribute_name: vertex_attribute.name.clone(),
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(bytes)
     }
 
     pub fn get_index_buffer_bytes(&self) -> Option<Vec<u8>> {
@@ -177,10 +127,11 @@ impl Mesh {
 
 /// Generation for some primitive shape meshes.
 pub mod shape {
-    use super::{Indices, Mesh, VertexAttribute};
+    use super::{Indices, Mesh};
     use crate::pipeline::PrimitiveTopology;
     use bevy_math::*;
     use hexasphere::Hexasphere;
+    use std::borrow::Cow;
 
     /// A cube.
     #[derive(Debug)]
@@ -249,15 +200,15 @@ pub mod shape {
                 20, 21, 22, 22, 23, 20, // back
             ]);
 
-            Mesh {
-                primitive_topology: PrimitiveTopology::TriangleList,
-                attributes: vec![
-                    VertexAttribute::position(positions),
-                    VertexAttribute::normal(normals),
-                    VertexAttribute::uv(uvs),
-                ],
-                indices: Some(indices),
-            }
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh.indices = Some(indices);
+            mesh
         }
     }
 
@@ -339,24 +290,24 @@ pub mod shape {
 
             let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-            let mut positions = Vec::new();
-            let mut normals = Vec::new();
-            let mut uvs = Vec::new();
+            let mut positions = Vec::<[f32; 3]>::new();
+            let mut normals = Vec::<[f32; 3]>::new();
+            let mut uvs = Vec::<[f32; 2]>::new();
             for (position, normal, uv) in vertices.iter() {
                 positions.push(*position);
                 normals.push(*normal);
                 uvs.push(*uv);
             }
 
-            Mesh {
-                primitive_topology: PrimitiveTopology::TriangleList,
-                attributes: vec![
-                    VertexAttribute::position(positions),
-                    VertexAttribute::normal(normals),
-                    VertexAttribute::uv(uvs),
-                ],
-                indices: Some(indices),
-            }
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            mesh.indices = Some(indices);
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh
         }
     }
 
@@ -389,15 +340,15 @@ pub mod shape {
                 uvs.push(*uv);
             }
 
-            Mesh {
-                primitive_topology: PrimitiveTopology::TriangleList,
-                attributes: vec![
-                    VertexAttribute::position(positions),
-                    VertexAttribute::normal(normals),
-                    VertexAttribute::uv(uvs),
-                ],
-                indices: Some(indices),
-            }
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            mesh.indices = Some(indices);
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), positions.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh
         }
     }
 
@@ -463,62 +414,53 @@ pub mod shape {
 
             let indices = Indices::U32(indices);
 
-            Mesh {
-                primitive_topology: PrimitiveTopology::TriangleList,
-                attributes: vec![
-                    VertexAttribute::position(points),
-                    VertexAttribute::normal(normals),
-                    VertexAttribute::uv(uvs),
-                ],
-                indices: Some(indices),
-            }
+            let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+            mesh.indices = Some(indices);
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), normals.into());
+            mesh.attributes
+                .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), uvs.into());
+            mesh
         }
     }
 }
 
+fn remove_resource_save(
+    render_resource_context: &dyn RenderResourceContext,
+    handle: &Handle<Mesh>,
+    index: u64,
+) {
+    if let Some(RenderResourceId::Buffer(buffer)) =
+        render_resource_context.get_asset_resource(&handle, index)
+    {
+        render_resource_context.remove_buffer(buffer);
+        render_resource_context.remove_asset_resource(handle, index);
+    }
+}
 fn remove_current_mesh_resources(
     render_resource_context: &dyn RenderResourceContext,
     handle: &Handle<Mesh>,
 ) {
-    if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(&handle, VERTEX_BUFFER_ASSET_INDEX)
-    {
-        render_resource_context.remove_buffer(buffer);
-        render_resource_context.remove_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX);
-    }
-    if let Some(RenderResourceId::Buffer(buffer)) =
-        render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
-    {
-        render_resource_context.remove_buffer(buffer);
-        render_resource_context.remove_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX);
-    }
+    remove_resource_save(render_resource_context, handle, VERTEX_ATTRIBUTE_BUFFER_ID);
+    remove_resource_save(render_resource_context, handle, VERTEX_FALLBACK_BUFFER_ID);
+    remove_resource_save(render_resource_context, handle, INDEX_BUFFER_ASSET_INDEX);
 }
 
 #[derive(Default)]
 pub struct MeshResourceProviderState {
     mesh_event_reader: EventReader<AssetEvent<Mesh>>,
-    vertex_buffer_descriptor: Option<&'static VertexBufferDescriptor>,
 }
 
 pub fn mesh_resource_provider_system(
     mut state: Local<MeshResourceProviderState>,
     render_resource_context: Res<Box<dyn RenderResourceContext>>,
-    meshes: Res<Assets<Mesh>>,
-    mut vertex_buffer_descriptors: ResMut<VertexBufferDescriptors>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    let vertex_buffer_descriptor = match state.vertex_buffer_descriptor {
-        Some(value) => value,
-        None => {
-            // TODO: allow pipelines to specialize on vertex_buffer_descriptor and index_format
-            let vertex_buffer_descriptor = Vertex::as_vertex_buffer_descriptor();
-            vertex_buffer_descriptors.set(vertex_buffer_descriptor.clone());
-            state.vertex_buffer_descriptor = Some(vertex_buffer_descriptor);
-            vertex_buffer_descriptor
-        }
-    };
-    let mut changed_meshes = HashSet::<Handle<Mesh>>::default();
+    let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
@@ -538,126 +480,151 @@ pub fn mesh_resource_provider_system(
         }
     }
 
+    // update changed mesh data
     for changed_mesh_handle in changed_meshes.iter() {
-        if let Some(mesh) = meshes.get(changed_mesh_handle) {
-            let vertex_bytes = mesh
-                .get_vertex_buffer_bytes(&vertex_buffer_descriptor, true)
-                .unwrap();
-            // TODO: use a staging buffer here
-            let vertex_buffer = render_resource_context.create_buffer_with_data(
-                BufferInfo {
-                    buffer_usage: BufferUsage::VERTEX,
-                    ..Default::default()
-                },
-                &vertex_bytes,
-            );
-
-            let index_bytes = mesh.get_index_buffer_bytes().unwrap();
+        if let Some(mesh) = meshes.get_mut(changed_mesh_handle) {
+            // TODO: check for individual buffer changes in non-interleaved mode
             let index_buffer = render_resource_context.create_buffer_with_data(
                 BufferInfo {
                     buffer_usage: BufferUsage::INDEX,
                     ..Default::default()
                 },
-                &index_bytes,
+                &mesh.get_index_buffer_bytes().unwrap(),
             );
 
-            render_resource_context.set_asset_resource(
-                changed_mesh_handle,
-                RenderResourceId::Buffer(vertex_buffer),
-                VERTEX_BUFFER_ASSET_INDEX,
-            );
             render_resource_context.set_asset_resource(
                 changed_mesh_handle,
                 RenderResourceId::Buffer(index_buffer),
                 INDEX_BUFFER_ASSET_INDEX,
             );
+
+            // Vertex buffer
+            let vertex_count = attributes_count_vertices(&mesh.attributes).unwrap();
+            let interleaved_buffer =
+                attributes_to_vertex_buffer_data(&mesh.attributes, vertex_count);
+
+            mesh.attribute_buffer_descriptor_reference = Some(interleaved_buffer.1);
+            render_resource_context.set_asset_resource(
+                changed_mesh_handle,
+                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    &interleaved_buffer.0,
+                )),
+                VERTEX_ATTRIBUTE_BUFFER_ID,
+            );
+
+            // Fallback buffer
+            // TODO: can be done with a 1 byte buffer + zero stride?
+            render_resource_context.set_asset_resource(
+                changed_mesh_handle,
+                RenderResourceId::Buffer(render_resource_context.create_buffer_with_data(
+                    BufferInfo {
+                        buffer_usage: BufferUsage::VERTEX,
+                        ..Default::default()
+                    },
+                    &vec![0; (vertex_count * VertexFormat::Float4.get_size() as u32) as usize],
+                )),
+                VERTEX_FALLBACK_BUFFER_ID,
+            );
         }
     }
 
+    // handover buffers to pipeline
     // TODO: remove this once batches are pipeline specific and deprecate assigned_meshes draw target
     for (handle, mut render_pipelines) in query.iter_mut() {
         if let Some(mesh) = meshes.get(handle) {
             for render_pipeline in render_pipelines.pipelines.iter_mut() {
                 render_pipeline.specialization.primitive_topology = mesh.primitive_topology;
             }
-        }
 
-        if let Some(RenderResourceId::Buffer(vertex_buffer)) =
-            render_resource_context.get_asset_resource(handle, VERTEX_BUFFER_ASSET_INDEX)
-        {
-            render_pipelines.bindings.set_vertex_buffer(
-                "Vertex",
-                vertex_buffer,
-                render_resource_context
-                    .get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
-                    .and_then(|r| {
-                        if let RenderResourceId::Buffer(buffer) = r {
-                            Some(buffer)
-                        } else {
-                            None
-                        }
-                    }),
-            );
+            if let Some(RenderResourceId::Buffer(index_buffer_resource)) =
+                render_resource_context.get_asset_resource(handle, INDEX_BUFFER_ASSET_INDEX)
+            {
+                // set index buffer into binding
+                render_pipelines
+                    .bindings
+                    .set_index_buffer(index_buffer_resource);
+            }
+
+            if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_resource)) =
+                render_resource_context.get_asset_resource(handle, VERTEX_ATTRIBUTE_BUFFER_ID)
+            {
+                // set index buffer into binding
+                render_pipelines.bindings.vertex_attribute_buffer =
+                    Some(vertex_attribute_buffer_resource);
+            }
+            if let Some(RenderResourceId::Buffer(vertex_attribute_fallback_resource)) =
+                render_resource_context.get_asset_resource(handle, VERTEX_FALLBACK_BUFFER_ID)
+            {
+                // set index buffer into binding
+                render_pipelines.bindings.vertex_fallback_buffer =
+                    Some(vertex_attribute_fallback_resource);
+            }
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{AsVertexBufferDescriptor, Mesh, VertexAttribute};
-    use crate::{mesh::Vertex, pipeline::PrimitiveTopology};
-    use bevy_core::AsBytes;
-
-    #[test]
-    fn test_get_vertex_bytes() {
-        let vertices = &[
-            ([0., 0., 0.], [1., 1., 1.], [2., 2.]),
-            ([3., 3., 3.], [4., 4., 4.], [5., 5.]),
-            ([6., 6., 6.], [7., 7., 7.], [8., 8.]),
-        ];
-
-        let mut positions = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        for (position, normal, uv) in vertices.iter() {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
+pub fn attributes_count_vertices(attributes: &VertexAttributesHashMap) -> Option<u32> {
+    let mut vertex_count: Option<u32> = None;
+    for (attribute_name, attribute_data) in attributes {
+        let attribute_len = attribute_data.len();
+        if let Some(previous_vertex_count) = vertex_count {
+            assert_eq!(previous_vertex_count, attribute_len as u32,
+                       "Attribute {} has a different vertex count ({}) than other attributes ({}) in this mesh.", attribute_name, attribute_len, previous_vertex_count);
         }
-
-        let mesh = Mesh {
-            primitive_topology: PrimitiveTopology::TriangleStrip,
-            attributes: vec![
-                VertexAttribute::position(positions),
-                VertexAttribute::normal(normals),
-                VertexAttribute::uv(uvs),
-            ],
-            indices: None,
-        };
-
-        let expected_vertices = &[
-            Vertex {
-                position: [0., 0., 0.],
-                normal: [1., 1., 1.],
-                uv: [2., 2.],
-            },
-            Vertex {
-                position: [3., 3., 3.],
-                normal: [4., 4., 4.],
-                uv: [5., 5.],
-            },
-            Vertex {
-                position: [6., 6., 6.],
-                normal: [7., 7., 7.],
-                uv: [8., 8.],
-            },
-        ];
-
-        let descriptor = Vertex::as_vertex_buffer_descriptor();
-        assert_eq!(
-            mesh.get_vertex_buffer_bytes(descriptor, true).unwrap(),
-            expected_vertices.as_bytes(),
-            "buffer bytes are equal"
-        );
+        vertex_count = Some(attribute_len as u32);
     }
+    vertex_count
+}
+pub fn attributes_to_vertex_buffer_data(
+    attributes: &VertexAttributesHashMap,
+    vertex_count: u32,
+) -> (Vec<u8>, VertexBufferDescriptor) {
+    // get existing attribute data as bytes and generate attribute descriptor
+    let mut attributes_gpu_ready = Vec::<(VertexAttributeDescriptor, &[u8])>::default();
+    let mut accumulated_offset = 0;
+    let mut attributes_sorted: Vec<_> = attributes.iter().collect();
+    attributes_sorted.sort_by(|a, b| a.0.cmp(b.0));
+    for attribute_data in attributes_sorted {
+        // TODO: allow for custom converter here
+        let vertex_format = VertexFormat::from(attribute_data.1);
+        attributes_gpu_ready.push((
+            // this serves as a reference and is not supposed to be used directly.
+            VertexAttributeDescriptor {
+                name: attribute_data.0.clone(),
+                offset: accumulated_offset,
+                format: vertex_format,
+                shader_location: 0,
+            },
+            attribute_data.1.get_bytes(),
+        ));
+        accumulated_offset += vertex_format.get_size();
+    }
+    let mut attributes_interleaved_buffer = Vec::<u8>::default();
+
+    // bundle into interleaved buffers
+    for vertex_index in 0..vertex_count {
+        let vertex_index = vertex_index as usize;
+        for (attribute_descriptor, attributes_bytes) in &attributes_gpu_ready {
+            let stride = attribute_descriptor.format.get_size() as usize;
+            // insert one element
+            attributes_interleaved_buffer
+                .extend(&attributes_bytes[vertex_index * stride..vertex_index * stride + stride]);
+        }
+    }
+
+    let vertex_buffer_descriptor_reference = VertexBufferDescriptor {
+        name: Default::default(),
+        stride: accumulated_offset,
+        step_mode: InputStepMode::Vertex,
+        attributes: attributes_gpu_ready.iter().map(|x| x.0.clone()).collect(),
+    };
+
+    (
+        attributes_interleaved_buffer,
+        vertex_buffer_descriptor_reference,
+    )
 }

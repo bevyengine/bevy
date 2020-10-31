@@ -6,7 +6,7 @@ use bevy_render::{
     color::Color,
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
-    pipeline::PipelineSpecialization,
+    pipeline::{PipelineSpecialization, VertexBufferDescriptor},
     prelude::Msaa,
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
@@ -41,6 +41,7 @@ pub struct DrawableText<'a> {
     pub style: &'a TextStyle,
     pub text: &'a str,
     pub msaa: &'a Msaa,
+    pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
 }
 
 impl<'a> Drawable for DrawableText<'a> {
@@ -50,16 +51,21 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
+                mesh_attribute_layout: self.font_quad_vertex_descriptor.clone(),
                 ..Default::default()
             },
         )?;
 
         let render_resource_context = &**context.render_resource_context;
-        if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
-            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
+
+        if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_id)) = render_resource_context
+            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_ATTRIBUTE_BUFFER_ID)
         {
-            draw.set_vertex_buffer(0, quad_vertex_buffer, 0);
+            draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
+        } else {
+            println!("could not find vertex buffer for bevy_sprite::QUAD_HANDLE")
         }
+
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
             .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
@@ -140,6 +146,7 @@ impl<'a> Drawable for DrawableText<'a> {
                         .add_binding(0, transform_buffer)
                         .add_binding(1, sprite_buffer)
                         .finish();
+
                     context.create_bind_group_resource(2, &sprite_bind_group)?;
                     draw.set_bind_group(2, &sprite_bind_group);
                     draw.draw_indexed(indices.clone(), 0, 0..1);

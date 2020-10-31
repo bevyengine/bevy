@@ -101,6 +101,11 @@ pub fn draw_render_pipelines_system(
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
             pipeline.specialization.index_format = index_format;
+            pipeline.specialization.mesh_attribute_layout = mesh
+                .attribute_buffer_descriptor_reference
+                .as_ref()
+                .unwrap()
+                .clone();
         }
 
         for render_pipeline in render_pipelines.pipelines.iter() {
@@ -123,6 +128,7 @@ pub fn draw_render_pipelines_system(
             draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
+
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
             }

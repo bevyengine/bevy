@@ -1,7 +1,9 @@
-use super::{
-    state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor, VertexBufferDescriptors,
-};
+use super::{state_descriptors::PrimitiveTopology, IndexFormat, PipelineDescriptor};
 use crate::{
+    pipeline::{
+        InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor, VertexFormat,
+        VERTEX_FALLBACK_LAYOUT_NAME,
+    },
     renderer::RenderResourceContext,
     shader::{Shader, ShaderSource},
 };
@@ -10,6 +12,7 @@ use bevy_property::{Properties, Property};
 use bevy_utils::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[derive(Clone, Eq, PartialEq, Debug, Properties)]
 pub struct PipelineSpecialization {
@@ -17,6 +20,7 @@ pub struct PipelineSpecialization {
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: Vec<DynamicBinding>,
     pub index_format: IndexFormat,
+    pub mesh_attribute_layout: VertexBufferDescriptor,
     pub sample_count: u32,
 }
 
@@ -28,6 +32,7 @@ impl Default for PipelineSpecialization {
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
             index_format: IndexFormat::Uint32,
+            mesh_attribute_layout: Default::default(),
         }
     }
 }
@@ -137,7 +142,6 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: &Handle<PipelineDescriptor>,
-        vertex_buffer_descriptors: &VertexBufferDescriptors,
         pipeline_specialization: &PipelineSpecialization,
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
@@ -162,10 +166,62 @@ impl PipelineCompiler {
         specialized_descriptor.reflect_layout(
             shaders,
             true,
-            Some(vertex_buffer_descriptors),
             &pipeline_specialization.dynamic_bindings,
         );
 
+        // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
+        let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
+        // the vertex buffer descriptor of the mesh
+        let mesh_vertex_buffer_descriptor = pipeline_specialization.mesh_attribute_layout.clone();
+
+        // the vertex buffer descriptor that will be used for this pipeline
+        let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
+            step_mode: InputStepMode::Vertex,
+            stride: mesh_vertex_buffer_descriptor.stride,
+            ..Default::default()
+        };
+
+        let mut fallback_vertex_buffer_descriptor = VertexBufferDescriptor {
+            name: Cow::Borrowed(VERTEX_FALLBACK_LAYOUT_NAME),
+            stride: VertexFormat::Float4.get_size(), //TODO: use smallest possible format
+            ..Default::default()
+        };
+        for shader_vertex_attribute in pipeline_layout.vertex_buffer_descriptors.iter() {
+            let shader_vertex_attribute = shader_vertex_attribute
+                .attributes
+                .get(0)
+                .expect("Reflected layout has no attributes.");
+
+            if let Some(target_vertex_attribute) = mesh_vertex_buffer_descriptor
+                .attributes
+                .iter()
+                .find(|x| x.name == shader_vertex_attribute.name)
+            {
+                // copy shader location from reflected layout
+                let mut compiled_vertex_attribute = target_vertex_attribute.clone();
+                compiled_vertex_attribute.shader_location = shader_vertex_attribute.shader_location;
+                compiled_vertex_buffer_descriptor
+                    .attributes
+                    .push(compiled_vertex_attribute);
+            } else {
+                fallback_vertex_buffer_descriptor
+                    .attributes
+                    .push(VertexAttributeDescriptor {
+                        name: Default::default(),
+                        offset: 0,
+                        format: shader_vertex_attribute.format, //TODO: use smallest possible format
+                        shader_location: shader_vertex_attribute.shader_location,
+                    });
+            }
+        }
+
+        //TODO: add other buffers (like instancing) here
+        let mut vertex_buffer_descriptors = Vec::<VertexBufferDescriptor>::default();
+        vertex_buffer_descriptors.push(compiled_vertex_buffer_descriptor);
+        if !fallback_vertex_buffer_descriptor.attributes.is_empty() {
+            vertex_buffer_descriptors.push(fallback_vertex_buffer_descriptor);
+        }
+        pipeline_layout.vertex_buffer_descriptors = vertex_buffer_descriptors;
         specialized_descriptor.sample_count = pipeline_specialization.sample_count;
         specialized_descriptor.primitive_topology = pipeline_specialization.primitive_topology;
         specialized_descriptor.index_format = pipeline_specialization.index_format;
