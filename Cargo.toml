@@ -255,6 +255,10 @@ name = "properties"
 path = "examples/scene/properties.rs"
 
 [[example]]
+name = "mesh_custom_attribute"
+path = "examples/shader/mesh_custom_attribute.rs"
+
+[[example]]
 name = "shader_custom_material"
 path = "examples/shader/shader_custom_material.rs"
 
