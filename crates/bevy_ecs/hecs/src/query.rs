@@ -625,8 +625,8 @@ pub struct QueryIter<'w, Q: Query> {
 }
 
 impl<'w, Q: Query> QueryIter<'w, Q> {
-    // #[allow(clippy::declare_interior_mutable_const)] // no trait bounds on const fns
-    // const EMPTY: Q::Fetch = Q::Fetch::DANGLING;
+    #[allow(clippy::declare_interior_mutable_const)] // no trait bounds on const fns
+                                                     // const EMPTY: Q::Fetch = Q::Fetch::DANGLING;
     const EMPTY: ChunkInfo<Q> = ChunkInfo {
         fetch: Q::Fetch::DANGLING,
         len: 0,
