@@ -1,9 +1,11 @@
-use bevy::prelude::{
-    shape, AddDefaultPlugins, App, Assets, Camera3dComponents, Color, Commands,
-    IntoQuerySystem, LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial,
-    Transform, Vec3, WindowDescriptor,
+use bevy::{
+    prelude::{
+        shape, AddDefaultPlugins, App, Assets, Camera3dComponents, Color, Commands,
+        IntoQuerySystem, LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial,
+        Transform, Vec3, WindowDescriptor,
+    },
+    window::WindowMode,
 };
-use bevy::window::WindowMode;
 
 #[no_mangle]
 extern "C" fn main_rs() {
