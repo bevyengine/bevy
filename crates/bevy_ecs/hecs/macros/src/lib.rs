@@ -248,7 +248,7 @@ fn struct_fields(fields: &syn::Fields) -> (Vec<&syn::Type>, Vec<syn::Member>) {
     }
 }
 
-fn member_as_idents<'a>(members: &'a [syn::Member]) -> Vec<Cow<'a, syn::Ident>> {
+fn member_as_idents(members: &[syn::Member]) -> Vec<Cow<'_, syn::Ident>> {
     members
         .iter()
         .map(|member| match member {

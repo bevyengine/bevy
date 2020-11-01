@@ -183,7 +183,18 @@ fn derived_bundle() {
 
 #[test]
 #[cfg(feature = "macros")]
-#[should_panic(expected = "each type must occur at most once")]
+#[cfg_attr(
+    debug_assertions,
+    should_panic(
+        expected = "attempted to allocate entity with duplicate i32 components; each type must occur at most once!"
+    )
+)]
+#[cfg_attr(
+    not(debug_assertions),
+    should_panic(
+        expected = "attempted to allocate entity with duplicate components; each type must occur at most once!"
+    )
+)]
 fn bad_bundle_derive() {
     #[derive(Bundle)]
     struct Foo {
@@ -360,4 +371,22 @@ fn added_tracking() {
     assert_eq!(world.query_mut::<Added<i32>>().count(), 0);
     assert!(world.query_one_mut::<&i32>(a).is_ok());
     assert!(world.query_one_mut::<Added<i32>>(a).is_err());
+}
+
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    should_panic(
+        expected = "attempted to allocate entity with duplicate f32 components; each type must occur at most once!"
+    )
+)]
+#[cfg_attr(
+    not(debug_assertions),
+    should_panic(
+        expected = "attempted to allocate entity with duplicate components; each type must occur at most once!"
+    )
+)]
+fn duplicate_components_panic() {
+    let mut world = World::new();
+    world.reserve::<(f32, i64, f32)>(1);
 }
