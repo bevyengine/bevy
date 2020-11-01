@@ -355,9 +355,6 @@ impl<'a> DrawContext<'a> {
             .iter()
             .any(|x| x.name == VERTEX_FALLBACK_LAYOUT_NAME);
         for bindings in render_resource_bindings.iter() {
-            if let Some(index_buffer) = bindings.index_buffer {
-                draw.set_index_buffer(index_buffer, 0);
-            }
             if let Some(main_vertex_buffer) = bindings.vertex_attribute_buffer {
                 draw.set_vertex_buffer(0, main_vertex_buffer, 0);
             }
@@ -365,6 +362,9 @@ impl<'a> DrawContext<'a> {
                 if let Some(fallback_vertex_buffer) = bindings.vertex_fallback_buffer {
                     draw.set_vertex_buffer(1, fallback_vertex_buffer, 0);
                 }
+            }
+            if let Some(index_buffer) = bindings.index_buffer {
+                draw.set_index_buffer(index_buffer, 0);
             }
         }
         Ok(())

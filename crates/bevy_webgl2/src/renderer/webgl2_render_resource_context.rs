@@ -7,7 +7,7 @@ use bevy_asset::{Assets, Handle, HandleUntyped};
 use bevy_render::{
     pipeline::{
         BindGroupDescriptor, BindGroupDescriptorId, BindType, BindingDescriptor,
-        PipelineDescriptor, PipelineLayout, VertexBufferDescriptors,
+        PipelineDescriptor, PipelineLayout,
     },
     renderer::{
         BindGroup, BufferId, BufferInfo, BufferUsage, RenderResourceBinding, RenderResourceContext,
@@ -135,7 +135,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         shaders: &Assets<Shader>,
         shader_stages: &ShaderStages,
         _enforce_bevy_conventions: bool,
-        vertex_buffer_descriptors: Option<&VertexBufferDescriptors>,
         dynamic_bindings: &[String],
     ) -> PipelineLayout {
         log::info!("reflecting shader layoyut!");
@@ -178,9 +177,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
                     bind_group.update_id();
                 }
             }
-        }
-        if let Some(vertex_buffer_descriptors) = vertex_buffer_descriptors {
-            layout.sync_vertex_buffer_descriptors(vertex_buffer_descriptors);
         }
         layout
     }
@@ -431,7 +427,7 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         &self,
         handle: HandleUntyped,
         render_resource: RenderResourceId,
-        index: usize,
+        index: u64,
     ) {
         self.resources
             .asset_resources
@@ -442,7 +438,7 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
     fn get_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        index: usize,
+        index: u64,
     ) -> Option<RenderResourceId> {
         self.resources
             .asset_resources
@@ -599,7 +595,7 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
 
     fn create_shader_module_from_source(&self, _shader_handle: &Handle<Shader>, _shader: &Shader) {}
 
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
         self.resources
             .asset_resources
             .write()

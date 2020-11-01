@@ -31,9 +31,11 @@ impl<'a> RenderPass for WebGL2RenderPass<'a> {
 
         match &buffer.vao {
             Some(vao) => {
+                log::info!("binding existing vao");
                 gl_call!(gl.bind_vertex_array(Some(vao)));
             }
             None => {
+                log::info!("creating new vao, buffer_id: {:?}", buffer_id);
                 let vao = gl_call!(gl.create_vertex_array()).unwrap();
                 gl_call!(gl.bind_vertex_array(Some(&vao)));
                 if let Buffer::WebGlBuffer(buffer_id) = &buffer.buffer {
