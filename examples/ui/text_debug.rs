@@ -64,7 +64,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 50.0,
                     color: Color::rgb(0.8, 0.2, 0.7),
                     alignment: TextAlignment {
-                        horizontal: HorizontalAlign::Right,
+                        horizontal: HorizontalAlign::Center,
                         vertical: VerticalAlign::Center,
                     }
                 },

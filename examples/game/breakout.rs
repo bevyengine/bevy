@@ -73,6 +73,7 @@ fn setup(
                 style: TextStyle {
                     color: Color::rgb(0.5, 0.5, 1.0),
                     font_size: 40.0,
+                    ..Default::default()
                 },
             },
             style: Style {
