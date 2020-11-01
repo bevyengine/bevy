@@ -25,6 +25,21 @@ pub struct Text {
     pub style: TextStyle,
 }
 
+/// Defines how min_size, size, and max_size affects the bounds of a text 
+/// block. 
+pub fn text_constraint(min_size: Val, size: Val, max_size: Val) -> f32 {
+    // Needs support for percentages
+    match (min_size, size, max_size) {
+        (_, _, Val::Px(max)) => max,
+        (Val::Px(min), _, _) => min,
+        (Val::Undefined, Val::Px(size), Val::Undefined) => size,
+        (Val::Auto, Val::Px(size), Val::Auto) => size,
+        _ => f32::MAX,
+    }
+}
+
+/// Computes the size of a text block and updates the TextVertices with the
+/// new computed vertices
 pub fn text_system(
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
@@ -39,18 +54,8 @@ pub fn text_system(
 ) {
     for ((text, style), mut vertices, mut calculated_size) in &mut text_query.iter() {
         let node_size = Size::new(
-            match style.size.width {
-                Val::Auto => f32::MAX,
-                Val::Undefined => f32::MAX,
-                Val::Px(num) => num,
-                Val::Percent(_) => f32::MAX, // TODO: support percentages
-            },
-            match style.size.height {
-                Val::Auto => f32::MAX,
-                Val::Undefined => f32::MAX,
-                Val::Px(num) => num,
-                Val::Percent(_) => f32::MAX, // TODO: support percentages
-            },
+            text_constraint(style.min_size.width, style.size.width, style.max_size.width), 
+            text_constraint(style.min_size.height, style.size.height, style.max_size.height), 
         );
 
         if let Err(e) = text_pipeline.queue_text(

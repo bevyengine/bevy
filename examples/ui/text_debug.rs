@@ -49,15 +49,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     right: Val::Px(15.0),
                     ..Default::default()
                 },
-                size: Size {
-                    width: Val::Px(400.0),
-                    ..Default::default()
+                max_size: Size {
+                    width: Val::Px(400.),
+                    height: Val::Undefined,
                 },
                 ..Default::default()
             },
             text: Text {
                 value:
-                    "This is very long text with limited width in the top right and is also pink"
+                    "This is very long text with limited width in the top right and is also pink" 
                         .to_string(),
                 font: font.clone(),
                 style: TextStyle {

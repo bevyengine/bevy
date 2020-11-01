@@ -59,8 +59,8 @@ impl TextPipeline {
         let first_glyph = section_glyphs.first().unwrap();
         let mut min_x: f32 = first_glyph.glyph.position.x - scaled_font.h_side_bearing(first_glyph.glyph.id);
         let mut min_y: f32 = first_glyph.glyph.position.y - scaled_font.ascent();
-        let mut max_x: f32 = 0.0;
-        let mut max_y: f32 = 0.0;
+        let mut max_x: f32 = first_glyph.glyph.position.x + scaled_font.h_advance(first_glyph.glyph.id);
+        let mut max_y: f32 = first_glyph.glyph.position.y - scaled_font.descent();
         for section_glyph in section_glyphs.iter() {
             let glyph = &section_glyph.glyph;
             min_x = min_x.min(glyph.position.x - scaled_font.h_side_bearing(glyph.id));
@@ -68,7 +68,7 @@ impl TextPipeline {
             max_x = max_x.max(glyph.position.x + scaled_font.h_advance(glyph.id));
             max_y = max_y.max(glyph.position.y - scaled_font.descent());
         }
-        let size = Size::new(max_x - min_x, max_y - min_y - scaled_font.descent());
+        let size = Size::new(max_x - min_x, max_y - min_y);
         Ok(size)
     }
 
