@@ -12,7 +12,7 @@ use bevy::{
 use bevy_render::mesh::VertexAttributeValues;
 use std::borrow::Cow;
 
-/// This example illustrates how to create a custom material asset and a shader that uses that material
+/// This example illustrates how to add a custom attribute to a mesh and use it in a custom shader.
 fn main() {
     App::build()
         .add_default_plugins()
