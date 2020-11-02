@@ -29,21 +29,20 @@ impl Default for RunMode {
     }
 }
 
-/// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
-#[derive(Default)]
-pub struct ScheduleRunnerPlugin {
+#[derive(Copy, Clone, Default)]
+pub struct ScheduleRunnerSettings {
     pub run_mode: RunMode,
 }
 
-impl ScheduleRunnerPlugin {
+impl ScheduleRunnerSettings {
     pub fn run_once() -> Self {
-        ScheduleRunnerPlugin {
+        ScheduleRunnerSettings {
             run_mode: RunMode::Once,
         }
     }
 
     pub fn run_loop(wait_duration: Duration) -> Self {
-        ScheduleRunnerPlugin {
+        ScheduleRunnerSettings {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },
@@ -51,14 +50,21 @@ impl ScheduleRunnerPlugin {
     }
 }
 
+/// Configures an App to run its [Schedule](bevy_ecs::Schedule) according to a given [RunMode]
+#[derive(Default)]
+pub struct ScheduleRunnerPlugin {}
+
 impl Plugin for ScheduleRunnerPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        let run_mode = self.run_mode;
+        let settings = app
+            .resources_mut()
+            .get_or_insert_with(ScheduleRunnerSettings::default)
+            .to_owned();
         app.set_runner(move |mut app: App| {
             app.initialize();
 
             let mut app_exit_event_reader = EventReader::<AppExit>::default();
-            match run_mode {
+            match settings.run_mode {
                 RunMode::Once => {
                     app.update();
                 }

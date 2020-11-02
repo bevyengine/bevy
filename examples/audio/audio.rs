@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// This example illustrates how to load and play an audio file
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }

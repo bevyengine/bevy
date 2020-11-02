@@ -3,7 +3,7 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 /// PluginGroups are a way to group sets of plugins that should be registered together.
 fn main() {
     App::build()
-        // The app.add_default_plugins() you see in all of the examples is just an alias for this:
+        // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
         .add_plugin_group(DefaultPlugins)
         // Adding a plugin group adds all plugins in the group by default
         .add_plugin_group(HelloWorldPlugins)

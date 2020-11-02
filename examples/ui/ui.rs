@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// This example illustrates the various features of Bevy UI.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }

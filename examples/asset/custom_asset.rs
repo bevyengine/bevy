@@ -35,7 +35,7 @@ impl AssetLoader for CustomAssetLoader {
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .init_resource::<State>()
         .add_asset::<CustomAsset>()
         .init_asset_loader::<CustomAssetLoader>()

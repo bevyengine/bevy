@@ -5,6 +5,6 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_resource(DefaultTaskPoolOptions::with_num_threads(4))
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .run();
 }

@@ -73,7 +73,7 @@ fn bounce_system(
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(spawn_system.system())
         .add_system(move_system.system())
         .add_system(bounce_system.system())

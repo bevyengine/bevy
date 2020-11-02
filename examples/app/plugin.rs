@@ -6,7 +6,7 @@ use std::time::Duration;
 /// This example illustrates how to create a simple plugin that prints out a message.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         // plugins are registered as part of the "app building" process
         .add_plugin(PrintMessagePlugin {
             wait_duration: Duration::from_secs(1),

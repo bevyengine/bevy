@@ -4,7 +4,7 @@ use bevy::{asset::LoadState, prelude::*, sprite::TextureAtlasBuilder};
 fn main() {
     App::build()
         .init_resource::<RpgSpriteHandles>()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(load_atlas.system())
         .run();
