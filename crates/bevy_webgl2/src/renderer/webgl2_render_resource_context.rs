@@ -135,7 +135,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         shaders: &Assets<Shader>,
         shader_stages: &ShaderStages,
         _enforce_bevy_conventions: bool,
-        dynamic_bindings: &[String],
     ) -> PipelineLayout {
         log::info!("reflecting shader layoyut!");
         let gl_shaders: Vec<WebGlShader> = shader_stages
@@ -150,34 +149,12 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
 
         let gl = &self.device.get_context();
 
-        let mut layout = reflect_layout(&*gl, &program);
+        let layout = reflect_layout(&*gl, &program);
         log::info!("reflected layoyt: {:#?}", layout);
         self.resources
             .programs
             .write()
             .insert(shader_stages.clone(), program);
-
-        if !dynamic_bindings.is_empty() {
-            // set binding uniforms to dynamic if render resource bindings use dynamic
-            for bind_group in layout.bind_groups.iter_mut() {
-                let mut binding_changed = false;
-                for binding in bind_group.bindings.iter_mut() {
-                    if dynamic_bindings.iter().any(|name| name == &binding.name) {
-                        if let BindType::Uniform {
-                            ref mut dynamic, ..
-                        } = binding.bind_type
-                        {
-                            *dynamic = true;
-                            binding_changed = true;
-                        }
-                    }
-                }
-
-                if binding_changed {
-                    bind_group.update_id();
-                }
-            }
-        }
         layout
     }
 
