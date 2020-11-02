@@ -13,8 +13,6 @@ to view all changes since the `0.2.1` release.
 ### Added
 
 - [Touch Input][696]
-- [Do not depend on spirv on wasm32 target][689]
-- [Another fast compile flag for macOS][552]
 - [Introduce Mouse capture API][679]
 - [`bevy_input::touch`: implement touch input][696]
 - [D-pad support on MacOS][653]
@@ -70,9 +68,10 @@ to view all changes since the `0.2.1` release.
   - New methods `Color::rgb_linear` and `Color::rgba_linear` will accept colors already in linear sRGB (the old behavior)
   - Individual color-components must now be accessed through setters and getters.
 - [`Mesh` overhaul with custom vertex attributes][599]
+  - Any vertex attribute can now be added over `mesh.attributes.insert()`.
+  - See `example/shader/mesh_custom_attribute.rs`
   - Removed `VertexAttribute`, `Vertex`, `AsVertexBufferDescriptor`.
   - For missing attributes (requested by shader, but not defined by mesh), Bevy will provide a zero-filled fallback buffer.
-  - Any vertex attribute can now be added over `mesh.attributes.insert()`. `mesh.attributes.insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), points.into())`
 - Despawning an entity multiple times causes a debug-level log message to be emitted instead of a panic: [#649][649], [#651][651]
 - [Migrated to Rodio 0.12][692]
   - New method of playing audio can be found in the examples.
