@@ -13,4 +13,4 @@ license = "MIT"
 keywords = ["bevy"]
 
 [dependencies]
-glam = { version = "0.9.5", features = ["serde"] }
+glam = { version = "0.10.0", features = ["serde"] }
