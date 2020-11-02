@@ -18,6 +18,8 @@ jobs:
         exclude:
           - os: macos-10.15
             toolchain: nightly
+          - os: windows-2019
+            toolchain: nightly
     runs-on: ${{ matrix.os }}
     needs: clean
     steps:
