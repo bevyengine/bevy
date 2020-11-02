@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        mesh::shape,
+        mesh::{shape, VertexAttributeValues},
         pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
@@ -9,8 +9,6 @@ use bevy::{
     },
     type_registry::TypeUuid,
 };
-use bevy_render::mesh::VertexAttributeValues;
-use std::borrow::Cow;
 
 /// This example illustrates how to add a custom attribute to a mesh and use it in a custom shader.
 fn main() {
@@ -88,9 +86,9 @@ fn setup(
     let mut cube_with_vertex_colors = Mesh::from(shape::Cube { size: 1.0 });
 
     // insert our custom color attribute with some nice colors!
-    cube_with_vertex_colors.attributes.insert(
+    cube_with_vertex_colors.set_attribute(
         // name of the attribute
-        Cow::from("Vertex_Color"),
+        "Vertex_Color",
         // the vertex attributes, represented by `VertexAttributeValues`
         // NOTE: the attribute count has to be consistent across all attributes, otherwise bevy will panic.
         VertexAttributeValues::from(vec![
