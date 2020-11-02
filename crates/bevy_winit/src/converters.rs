@@ -1,7 +1,8 @@
 use bevy_input::{
-    keyboard::{ElementState, KeyCode, KeyboardInput},
+    keyboard::{KeyCode, KeyboardInput},
     mouse::MouseButton,
     touch::{TouchInput, TouchPhase},
+    ElementState,
 };
 use bevy_math::Vec2;
 
