@@ -20,7 +20,7 @@ use gltf::{
     Primitive,
 };
 use image::{GenericImageView, ImageFormat};
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 use thiserror::Error;
 
 /// An error that occurs when loading a GLTF file
@@ -90,28 +90,25 @@ async fn load_gltf<'a, 'b>(
                     .read_positions()
                     .map(|v| VertexAttributeValues::Float3(v.collect()))
                 {
-                    mesh.attributes
-                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_POSITION), vertex_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vertex_attribute);
                 }
 
                 if let Some(vertex_attribute) = reader
                     .read_normals()
                     .map(|v| VertexAttributeValues::Float3(v.collect()))
                 {
-                    mesh.attributes
-                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_NORMAL), vertex_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vertex_attribute);
                 }
 
                 if let Some(vertex_attribute) = reader
                     .read_tex_coords(0)
                     .map(|v| VertexAttributeValues::Float2(v.into_f32().collect()))
                 {
-                    mesh.attributes
-                        .insert(Cow::Borrowed(Mesh::ATTRIBUTE_UV_0), vertex_attribute);
+                    mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vertex_attribute);
                 }
 
                 if let Some(indices) = reader.read_indices() {
-                    mesh.indices = Some(Indices::U32(indices.into_u32().collect()));
+                    mesh.set_indices(Some(Indices::U32(indices.into_u32().collect())));
                 };
 
                 load_context.set_labeled_asset(&primitive_label, LoadedAsset::new(mesh));

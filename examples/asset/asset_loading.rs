@@ -23,7 +23,7 @@ fn setup(
     if let Some(sphere) = meshes.get(&sphere_handle) {
         // You might notice that this doesn't run! This is because assets load in parallel without blocking.
         // When an asset has loaded, it will appear in relevant Assets<T> collection.
-        println!("{:?}", sphere.primitive_topology);
+        println!("{:?}", sphere.primitive_topology());
     } else {
         println!("sphere hasn't loaded yet");
     }

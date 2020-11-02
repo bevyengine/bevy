@@ -100,14 +100,8 @@ pub fn draw_text_system(
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
-    let font_quad_vertex_descriptor = {
-        let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
-        font_quad
-            .attribute_buffer_descriptor_reference
-            .as_ref()
-            .unwrap()
-            .clone()
-    };
+    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
+    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
     for (mut draw, text, node, global_transform) in query.iter_mut() {
         if let Some(font) = fonts.get(&text.font) {
@@ -123,7 +117,7 @@ pub fn draw_text_system(
                 style: &text.style,
                 text: &text.value,
                 container_size: node.size,
-                font_quad_vertex_descriptor: &font_quad_vertex_descriptor,
+                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
             };
             drawable_text.draw(&mut draw, &mut draw_context).unwrap();
         }

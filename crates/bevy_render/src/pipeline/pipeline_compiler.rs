@@ -20,7 +20,7 @@ pub struct PipelineSpecialization {
     pub primitive_topology: PrimitiveTopology,
     pub dynamic_bindings: Vec<DynamicBinding>,
     pub index_format: IndexFormat,
-    pub mesh_attribute_layout: VertexBufferDescriptor,
+    pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
 }
 
@@ -28,11 +28,11 @@ impl Default for PipelineSpecialization {
     fn default() -> Self {
         Self {
             sample_count: 1,
+            index_format: IndexFormat::Uint32,
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
             dynamic_bindings: Default::default(),
-            index_format: IndexFormat::Uint32,
-            mesh_attribute_layout: Default::default(),
+            vertex_buffer_descriptor: Default::default(),
         }
     }
 }
@@ -172,7 +172,7 @@ impl PipelineCompiler {
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer
         let mut pipeline_layout = specialized_descriptor.layout.as_mut().unwrap();
         // the vertex buffer descriptor of the mesh
-        let mesh_vertex_buffer_descriptor = pipeline_specialization.mesh_attribute_layout.clone();
+        let mesh_vertex_buffer_descriptor = &pipeline_specialization.vertex_buffer_descriptor;
 
         // the vertex buffer descriptor that will be used for this pipeline
         let mut compiled_vertex_buffer_descriptor = VertexBufferDescriptor {
