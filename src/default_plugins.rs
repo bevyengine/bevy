@@ -47,12 +47,30 @@ impl PluginGroup for DefaultPlugins {
     }
 }
 
+pub struct MinimalPlugins;
+
+impl PluginGroup for MinimalPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(bevy_type_registry::TypeRegistryPlugin::default());
+        group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_app::ScheduleRunnerPlugin::run_loop(
+            std::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
+    }
+}
+
 pub trait AddDefaultPlugins {
     fn add_default_plugins(&mut self) -> &mut Self;
+
+    fn add_minimal_plugins(&mut self) -> &mut Self;
 }
 
 impl AddDefaultPlugins for AppBuilder {
     fn add_default_plugins(&mut self) -> &mut Self {
         self.add_plugin_group(DefaultPlugins)
+    }
+
+    fn add_minimal_plugins(&mut self) -> &mut Self {
+        self.add_plugin_group(MinimalPlugins)
     }
 }
