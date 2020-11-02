@@ -51,7 +51,7 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
-                mesh_attribute_layout: self.font_quad_vertex_descriptor.clone(),
+                vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
                 ..Default::default()
             },
         )?;
