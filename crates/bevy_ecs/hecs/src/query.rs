@@ -263,6 +263,9 @@ macro_rules! impl_or_query {
                 true $( && $T.should_skip(n) )+
             }
         }
+
+        unsafe impl<$( $T: ReadOnlyFetch ),+> ReadOnlyFetch for Or<($( $T ),+)> {}
+        unsafe impl<$( $T: ReadOnlyFetch ),+> ReadOnlyFetch for FetchOr<($( $T ),+)> {}
     };
 }
 
@@ -320,6 +323,7 @@ impl<'a, T: Component> Query for Mutated<'a, T> {
 
 #[doc(hidden)]
 pub struct FetchMutated<T>(NonNull<T>, NonNull<bool>);
+unsafe impl<T> ReadOnlyFetch for FetchMutated<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
     type Item = Mutated<'a, T>;

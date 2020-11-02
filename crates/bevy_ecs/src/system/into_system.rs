@@ -490,6 +490,43 @@ mod tests {
     }
 
     #[test]
+    fn or_query_set_system() {
+        // Regression test for issue #762
+        use crate::{Added, Changed, Mutated, Or};
+        fn query_system(
+            mut ran: ResMut<bool>,
+            set: QuerySet<(
+                Query<Or<(Changed<A>, Changed<B>)>>,
+                Query<Or<(Added<A>, Added<B>)>>,
+                Query<Or<(Mutated<A>, Mutated<B>)>>,
+            )>,
+        ) {
+            let changed = set.q0().iter().count();
+            let added = set.q1().iter().count();
+            let mutated = set.q2().iter().count();
+
+            assert_eq!(changed, 1);
+            assert_eq!(added, 1);
+            assert_eq!(mutated, 0);
+
+            *ran = true;
+        }
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        resources.insert(false);
+        world.spawn((A, B));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", query_system.system());
+
+        schedule.run(&mut world, &mut resources);
+
+        assert!(*resources.get::<bool>().unwrap(), "system ran");
+    }
+
+    #[test]
     fn changed_resource_system() {
         fn incr_e_on_flip(_run_on_flip: ChangedRes<bool>, mut i: Mut<i32>) {
             *i += 1;
