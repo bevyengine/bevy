@@ -259,7 +259,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         let gl_buffer_info = GlBufferInfo {
             buffer,
             info,
-            vao: None,
         };
         self.resources
             .buffers
@@ -366,7 +365,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         let gl_buffer_info = GlBufferInfo {
             buffer,
             info,
-            vao: None,
         };
         self.resources
             .buffers
@@ -381,9 +379,6 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         let gl = &self.device.get_context();
         let mut buffers = self.resources.buffers.write();
         let gl_buffer = buffers.remove(&buffer).unwrap();
-        if let Some(vao) = gl_buffer.vao {
-            gl_call!(gl.delete_vertex_array(Some(&vao)));
-        }
         if let Buffer::WebGlBuffer(buffer_id) = &gl_buffer.buffer {
             gl_call!(gl.delete_buffer(Some(buffer_id)));
         }
@@ -438,6 +433,7 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
         //     pipeline_descriptor
         // );
         let layout = pipeline_descriptor.get_layout().unwrap();
+        log::info!("layout: {:#?}", layout);
         self.pipeline_descriptors
             .write()
             .insert(source_pipeline_handle, pipeline_descriptor.clone());
@@ -505,17 +501,21 @@ impl RenderResourceContext for WebGL2RenderResourceContext {
             }
         }
         log::info!("done binding");
-
+        log::info!("vertex_buffer_descriptors: {:?}", vertex_buffer_descriptors);
         let vertex_buffer_descriptors = vertex_buffer_descriptors
             .iter()
             .map(|vertex_buffer_descriptor| {
                 GlVertexBufferDescripror::from(gl, program, vertex_buffer_descriptor)
             })
             .collect();
-
+        let vao = gl_call!(gl.create_vertex_array()).unwrap();
         let pipeline = WebGL2Pipeline {
             shader_stages: pipeline_descriptor.shader_stages.clone(),
             vertex_buffer_descriptors,
+            vao,
+            update_vao: false,
+            index_buffer: None,
+            vertex_buffer: None,
         };
         self.resources
             .pipelines

@@ -77,6 +77,10 @@ impl GlVertexBufferDescripror {
 pub struct WebGL2Pipeline {
     pub shader_stages: ShaderStages,
     pub vertex_buffer_descriptors: Vec<GlVertexBufferDescripror>,
+    pub vao: WebGlVertexArrayObject,
+    pub vertex_buffer: Option<BufferId>,
+    pub index_buffer: Option<BufferId>,
+    pub update_vao: bool,
 }
 
 #[derive(Debug)]
@@ -103,7 +107,6 @@ pub enum Buffer {
 pub struct GlBufferInfo {
     pub buffer: Buffer,
     pub info: BufferInfo,
-    pub vao: Option<WebGlVertexArrayObject>,
 }
 
 #[derive(Default, Clone)]

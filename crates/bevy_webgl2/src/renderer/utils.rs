@@ -72,8 +72,6 @@ fn get_vertex_format(gl_type: u32) -> VertexFormat {
 
 pub fn reflect_layout(context: &WebGl2RenderingContext, program: &WebGlProgram) -> PipelineLayout {
     let gl = context;
-    let mut attributes = vec![];
-    let mut offset = 0;
     let mut shader_location = 0;
 
     let active_attributes = gl
@@ -81,6 +79,9 @@ pub fn reflect_layout(context: &WebGl2RenderingContext, program: &WebGlProgram) 
         .as_f64()
         .unwrap() as u32;
     log::info!("active attributes: {:?}", active_attributes);
+
+    let mut vertex_buffer_descriptors = vec![];
+
     for index in 0..active_attributes {
         let info: WebGlActiveInfo = gl.get_active_attrib(&program, index).unwrap();
         let name = info.name();
@@ -96,23 +97,24 @@ pub fn reflect_layout(context: &WebGl2RenderingContext, program: &WebGlProgram) 
         }
 
         let format = get_vertex_format(info.type_());
-        let size = format.get_size();
-        attributes.push(VertexAttributeDescriptor {
-            name: info.name().into(),
-            offset,
-            format,
-            shader_location,
-        });
-        offset += size;
+
+        vertex_buffer_descriptors.push(
+            VertexBufferDescriptor {
+                name: info.name().into(),
+                stride: 0,
+                step_mode: InputStepMode::Vertex,
+                attributes: vec![
+                    VertexAttributeDescriptor {
+                        name: info.name().into(),
+                        offset: 0,
+                        format,
+                        shader_location,
+                    }
+                ]
+            }
+        );
         shader_location += 1;
     }
-
-    let vertex_buffer_descriptors = vec![VertexBufferDescriptor {
-        name: "Vertex".into(),
-        stride: offset,
-        step_mode: InputStepMode::Vertex,
-        attributes,
-    }];
     let mut bind_groups = vec![];
 
     let active_uniform_blocks = gl
