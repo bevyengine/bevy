@@ -30,21 +30,6 @@ default = [
     "x11",
 ]
 
-supported_android_features = [
-    # cpal is not supported yet
-    # "bevy_audio",
-    "bevy_dynamic_plugin",
-    "bevy_gilrs",
-    "bevy_gltf",
-    "bevy_wgpu",
-    "bevy_winit",
-    "render",
-    "png",
-    "hdr",
-    # "mp3",
-    "x11",
-]
-
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
 
@@ -341,10 +326,6 @@ path = "examples/android/bevy_android.rs"
 crate-type = ["cdylib"]
 
 [package.metadata.android]
-build_targets = [ "aarch64-linux-android", "armv7-linux-androideabi" ]
-target_sdk_version = 28
-min_sdk_version = 28
-
-[[package.metadata.android.feature]]
-name = "android.hardware.vulkan.level"
-version = "1"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+target_sdk_version = 29
+min_sdk_version = 16

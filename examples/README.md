@@ -2,7 +2,8 @@
 
 These examples demonstrate the main features of Bevy and how to use them.
 To run an example, use the command `cargo run --example <Example>`, and add the option `--features x11` or `--features wayland` to force the example to run on a specific window compositor, e.g.
-```
+
+```sh
 cargo run --features wayland --example hello_world
 ```
 
@@ -119,47 +120,61 @@ Example | File | Description
 
 ## WASM
 
-#### pre-req
+#### Pre-requirements
 
-    $ rustup target add wasm32-unknown-unknown
-    $ cargo install wasm-bindgen-cli
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+```
 
-#### build & run
+#### Build & run
 
 Following is an example for `headless_wasm`. For other examples in wasm/ directory,
 change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
 to point to the correct `.js` file.
 
-    $ cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
-    $ wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+```sh
+cargo build --example headless_wasm --target wasm32-unknown-unknown --no-default-features
+wasm-bindgen --out-dir examples/wasm/target --target web target/wasm32-unknown-unknown/debug/examples/headless_wasm.wasm
+```
 
 Then serve `examples/wasm` dir to browser. i.e.
 
-    $ basic-http-server examples/wasm
+```sh
+basic-http-server examples/wasm
+```
 
 ## iOS
 
-#### pre-req
+#### Pre-requirements
 
-    $ rustup target add aarch64-apple-ios x86_64-apple-ios
-    $ cargo install cargo-lipo
+```sh
+rustup target add aarch64-apple-ios x86_64-apple-ios
+cargo install cargo-lipo
+```
 
-#### build & run
+#### Build & run
 
 Using bash:
 
-    $ cd examples/ios
-    $ make run
+```sh
+cd examples/ios
+make run
+```
 
 In an ideal world, this will boot up, install and run the app for the first
 iOS simulator in your `xcrun simctl devices list`. If this fails, you can
 specify the simulator device UUID via:
 
-    $ DEVICE_ID=${YOUR_DEVICE_ID} make run
+```sh
+DEVICE_ID=${YOUR_DEVICE_ID} make run
+```
 
 If you'd like to see xcode do stuff, you can run
 
-    $ open bevy_ios_example.xcodeproj/
+```sh
+open bevy_ios_example.xcodeproj/
+```
 
 which will open xcode. You then must push the zoom zoom play button and wait
 for the magic.
@@ -175,42 +190,46 @@ used for the `Makefile`.
 
 ## Android
 
-#### pre-req
+#### Pre-requirements
 
-    $ rustup target add aarch64-linux-android armv7-linux-androideabi
-    $ cargo install cargo-apk
+```sh
+rustup target add aarch64-linux-android armv7-linux-androideabi
+cargo install cargo-apk
+```
 
-The Android SDK 29 must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
+The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-#### build & run
+#### Build & run
 
 To run on a device setup for Android development, run:
 
-    $ cargo apk run --example bevy_android --features="supported_android_features" --no-default-features
+```sh
+cargo apk run --example bevy_android
+```
 
 :warning: At this time Bevy does not work in Android Emulator.
 
 When using Bevy as a library, the following fields must be added to `Cargo.toml`:
 
-    [package.metadata.android]
-    build_targets = [ "aarch64-linux-android", "armv7-linux-androideabi" ]
-    target_sdk_version = 29
-    min_sdk_version = 29
-
-    [[package.metadata.android.feature]]
-    name = "android.hardware.vulkan.level"
-    version = "1"
+```toml
+[package.metadata.android]
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+target_sdk_version = 29
+min_sdk_version = 16
+```
 
 Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
 
-#### old phones
+#### Old phones
 
-Bevy by default requires Android API level 29 which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
+Bevy by default targets Android API level 29 in its examples which is the [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). Users of older phones may want to use an older API when testing.
 
 To use a different API, the following fields must be updated in Cargo.toml:
 
-    [package.metadata.android]
-    target_sdk_version = >>API<<
-    min_sdk_version = >>API or less<<
+```toml
+[package.metadata.android]
+target_sdk_version = >>API<<
+min_sdk_version = >>API or less<<
+```
