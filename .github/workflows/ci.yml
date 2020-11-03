@@ -85,6 +85,17 @@ jobs:
           command: check
           args: --target wasm32-unknown-unknown --no-default-features --features bevy_winit,x11,hdr,bevy_gltf
 
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Android targets
+      run: rustup target add aarch64-linux-android armv7-linux-androideabi
+    - name: Install Cargo APK
+      run: cargo install cargo-apk
+    - name: Build APK
+      run: cargo apk build --example bevy_android
+
   clean:
     runs-on: ubuntu-latest
     steps:

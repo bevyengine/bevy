@@ -17,7 +17,7 @@ pub mod prelude {
         },
         keyboard::KeyCode,
         mouse::MouseButton,
-        touch::{Touches, TouchInput},
+        touch::{TouchInput, Touches},
         Axis, Input,
     };
 }
