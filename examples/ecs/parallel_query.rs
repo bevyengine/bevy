@@ -27,7 +27,7 @@ fn spawn_system(
 // Move sprites according to their velocity
 fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
-    // ComputeTaskPool using batches of 32 sprties
+    // ComputeTaskPool using batches of 32 sprites
     //
     // This example is only for demonstrative purposes.  Using a
     // ParallelIterator for an inexpensive operation like addition on only 128
@@ -41,7 +41,7 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
         });
 }
 
-// Bounce sprties outside the window
+// Bounce sprites outside the window
 fn bounce_system(
     pool: Res<ComputeTaskPool>,
     windows: Res<Windows>,
