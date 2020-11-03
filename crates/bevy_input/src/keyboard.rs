@@ -184,7 +184,7 @@ pub enum KeyCode {
     NumpadAdd,
     Apostrophe,
     Apps,
-    Asterix,
+    Asterisk,
     Plus,
     At,
     Ax,
