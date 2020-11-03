@@ -120,14 +120,14 @@ Example | File | Description
 
 ## WASM
 
-#### Pre-requirements
+#### Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-#### Build & run
+#### Build & Run
 
 Following is an example for `headless_wasm`. For other examples in wasm/ directory,
 change the `headless_wasm` in the following commands **and edit** `examples/wasm/index.html`
@@ -146,14 +146,14 @@ basic-http-server examples/wasm
 
 ## iOS
 
-#### Pre-requirements
+#### Setup
 
 ```sh
 rustup target add aarch64-apple-ios x86_64-apple-ios
 cargo install cargo-lipo
 ```
 
-#### Build & run
+#### Build & Run
 
 Using bash:
 
@@ -190,7 +190,7 @@ used for the `Makefile`.
 
 ## Android
 
-#### Pre-requirements
+#### Setup
 
 ```sh
 rustup target add aarch64-linux-android armv7-linux-androideabi
@@ -201,12 +201,12 @@ The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROO
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-#### Build & run
+#### Build & Run
 
 To run on a device setup for Android development, run:
 
 ```sh
-cargo apk run --example bevy_android
+cargo apk run --example android
 ```
 
 :warning: At this time Bevy does not work in Android Emulator.

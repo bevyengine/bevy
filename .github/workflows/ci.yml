@@ -94,7 +94,7 @@ jobs:
     - name: Install Cargo APK
       run: cargo install cargo-apk
     - name: Build APK
-      run: cargo apk build --example bevy_android
+      run: cargo apk build --example android
 
   clean:
     runs-on: ubuntu-latest
