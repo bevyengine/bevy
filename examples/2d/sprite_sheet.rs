@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(animate_sprite_system.system())
         .run();

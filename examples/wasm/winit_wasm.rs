@@ -22,7 +22,7 @@ fn main() {
             height: 300,
             ..Default::default()
         })
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         // One time greet
         .add_startup_system(hello_wasm_system.system())
         // Track ticks (sanity check, whether game loop is running)

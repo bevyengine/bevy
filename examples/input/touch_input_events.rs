@@ -2,7 +2,7 @@ use bevy::{input::touch::*, prelude::*};
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_system(touch_event_system.system())
         .run();
 }

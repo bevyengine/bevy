@@ -4,7 +4,7 @@ use bevy::{prelude::*, text::FontAtlasSet};
 fn main() {
     App::build()
         .init_resource::<State>()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(text_update_system.system())
         .add_system(atlas_render_system.system())

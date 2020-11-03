@@ -13,7 +13,7 @@ use bevy::{
 /// This example illustrates how to create a custom material asset and a shader that uses that material
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_asset::<MyMaterial>()
         .add_startup_system(setup.system())
         .run();

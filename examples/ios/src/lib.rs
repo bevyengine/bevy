@@ -1,8 +1,8 @@
 use bevy::{
     prelude::{
-        shape, AddDefaultPlugins, App, Assets, Camera3dComponents, Color, Commands,
-        IntoQuerySystem, LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial,
-        Transform, Vec3, WindowDescriptor,
+        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoQuerySystem,
+        LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial, Transform, Vec3,
+        WindowDescriptor,
     },
     window::WindowMode,
 };
@@ -17,7 +17,7 @@ extern "C" fn main_rs() {
             ..Default::default()
         })
         .add_resource(Msaa { samples: 4 })
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }

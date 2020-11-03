@@ -11,7 +11,7 @@ fn main() {
             resizable: false,
             ..Default::default()
         })
-        .add_default_plugins()
+        .add_plugin_group(DefaultPlugins)
         .add_system(change_title.system())
         .add_system(toggle_cursor.system())
         .run();

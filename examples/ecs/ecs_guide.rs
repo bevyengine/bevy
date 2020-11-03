@@ -1,5 +1,5 @@
 use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
+    app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     prelude::*,
 };
 use rand::random;
@@ -244,12 +244,14 @@ fn local_state_system(mut state: Local<State>, query: Query<(&Player, &Score)>) 
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems, resources, and plugins to our app
     App::build()
-        // Plugins are just a grouped set of app builder calls (just like we're doing here).
-        // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
-        // The plugin below runs our app's "system schedule" once every 5 seconds.
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs(5)))
         // Resources can be added to our app like this
         .add_resource(State { counter: 0 })
+        // Some systems are configured by adding their settings as a resource
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs(5)))
+        // Plugins are just a grouped set of app builder calls (just like we're doing here).
+        // We could easily turn our game into a plugin, but you can check out the plugin example for that :)
+        // The plugin below runs our app's "system schedule" once every 5 seconds (configured above).
+        .add_plugin(ScheduleRunnerPlugin::default())
         // Resources that implement the Default or FromResources trait can be added like this:
         .init_resource::<GameState>()
         // Startup systems run exactly once BEFORE all other systems. These are generally used for

@@ -1,7 +1,10 @@
 #[cfg(target_arch = "wasm32")]
 extern crate console_error_panic_hook;
 
-use bevy::{app::ScheduleRunnerPlugin, prelude::*};
+use bevy::{
+    app::{ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    prelude::*,
+};
 use std::time::Duration;
 
 fn main() {
@@ -12,9 +15,10 @@ fn main() {
     }
 
     App::build()
-        .add_plugin(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(
+        .add_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
             1.0 / 60.0,
         )))
+        .add_plugin(ScheduleRunnerPlugin::default())
         .add_startup_system(hello_world_system.system())
         .add_system(counter.system())
         .run();
