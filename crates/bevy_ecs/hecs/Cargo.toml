@@ -31,7 +31,6 @@ bevy_hecs_macros = { path = "macros", version = "0.2.1", optional = true }
 bevy_utils = { path = "../../bevy_utils", version = "0.2.1" }
 lazy_static = { version = "1.4.0", optional = true, features = ["spin_no_std"] }
 serde = { version = "1", features = ["derive"], optional = true}
-rand = "0.7.3"
 
 [dev-dependencies]
 bencher = "0.1.5"
