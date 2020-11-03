@@ -134,10 +134,7 @@ impl Mesh {
         self.attributes.insert(name.into(), values);
     }
 
-    pub fn attribute(
-        &mut self,
-        name: impl Into<Cow<'static, str>>,
-    ) -> Option<&VertexAttributeValues> {
+    pub fn attribute(&self, name: impl Into<Cow<'static, str>>) -> Option<&VertexAttributeValues> {
         self.attributes.get(&name.into())
     }
 
