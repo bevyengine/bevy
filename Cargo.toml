@@ -328,8 +328,4 @@ crate-type = ["cdylib"]
 [package.metadata.android]
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
 target_sdk_version = 29
-min_sdk_version = 18
-
-[[package.metadata.android.feature]]
-name = "android.hardware.vulkan.level"
-version = "1"
+min_sdk_version = 16
