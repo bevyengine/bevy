@@ -4,7 +4,7 @@ use bevy::prelude::*;
 /// and a system that prints a message whenever the event is received.
 fn main() {
     App::build()
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .init_resource::<EventTriggerState>()
         .add_system(event_trigger_system.system())
