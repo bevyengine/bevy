@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -17,9 +17,9 @@ categories = ["game-engines", "data-structures"]
 profiler = []
 
 [dependencies]
-bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.2.1" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.2.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
+bevy_hecs = { path = "hecs", features = ["macros", "serialize"], version = "0.3.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.3.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 rand = "0.7.3"
 thiserror = "1.0"
 fixedbitset = "0.3.1"
