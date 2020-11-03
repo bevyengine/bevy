@@ -272,14 +272,14 @@ impl AppBuilder {
         self
     }
 
-    pub fn add_plugin_group<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
+    pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
         let mut plugin_group_builder = PluginGroupBuilder::default();
         group.build(&mut plugin_group_builder);
         plugin_group_builder.finish(self);
         self
     }
 
-    pub fn add_plugin_group_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
+    pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
     where
         T: PluginGroup,
         F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,

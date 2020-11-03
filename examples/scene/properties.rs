@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// familiar with "reflection" in other languages, Properties are very similar to that concept.
 fn main() {
     App::build()
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         // If you need to deserialize custom property types, register them like this:
         .register_property::<Test>()
         .register_property::<Nested>()

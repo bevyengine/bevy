@@ -17,7 +17,7 @@ extern "C" fn main_rs() {
             ..Default::default()
         })
         .add_resource(Msaa { samples: 4 })
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }

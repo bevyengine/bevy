@@ -19,7 +19,7 @@ fn main() {
         .add_resource(AssetServerSettings {
             asset_folder: "/".to_string(),
         })
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_asset::<RustSourceCode>()
         .init_asset_loader::<RustSourceCodeLoader>()
         .add_startup_system(load_asset.system())

@@ -5,7 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(rotator_system.system())
         .run();

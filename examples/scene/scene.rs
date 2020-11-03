@@ -3,7 +3,7 @@ use bevy::{prelude::*, type_registry::TypeRegistry};
 /// This example illustrates loading and saving scenes from files
 fn main() {
     App::build()
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         // Registering components informs Bevy that they exist. This allows them to be used when loading scenes
         // This step is only required if you want to load your components from scene files.
         // Unregistered components can still be used in your code, but they will be ignored during scene save/load.

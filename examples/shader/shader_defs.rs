@@ -14,7 +14,7 @@ use bevy::{
 /// In Bevy, "shader defs" are a way to selectively enable parts of a shader based on values set in a component or asset.
 fn main() {
     App::build()
-        .add_plugin_group(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_asset::<MyMaterial>()
         .add_startup_system(setup.system())
         .add_system_to_stage(
