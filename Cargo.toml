@@ -321,8 +321,8 @@ path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
 
 [[example]]
-name = "bevy_android"
-path = "examples/android/bevy_android.rs"
+name = "android"
+path = "examples/android/android.rs"
 crate-type = ["cdylib"]
 
 [package.metadata.android]
