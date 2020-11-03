@@ -29,6 +29,22 @@ default = [
     "mp3",
     "x11",
 ]
+
+supported_android_features = [
+    # cpal is not supported yet
+    # "bevy_audio",
+    "bevy_dynamic_plugin",
+    "bevy_gilrs",
+    "bevy_gltf",
+    "bevy_wgpu",
+    "bevy_winit",
+    "render",
+    "png",
+    "hdr",
+    # "mp3",
+    "x11",
+]
+
 profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
 wgpu_trace = ["bevy_wgpu/trace"]
 
@@ -89,6 +105,11 @@ serde = { version = "1", features = ["derive"] }
 log = "0.4"
 ron = "0.6"
 anyhow = "1.0"
+
+# bevy (Android)
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = { version = "0.2", features = ["logger"] }
+android_logger = "0.9"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_error_panic_hook = "0.1.6"
@@ -314,3 +335,16 @@ name = "assets_wasm"
 path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
 
+[[example]]
+name = "bevy_android"
+path = "examples/android/bevy_android.rs"
+crate-type = ["cdylib"]
+
+[package.metadata.android]
+build_targets = [ "aarch64-linux-android", "armv7-linux-androideabi" ]
+target_sdk_version = 28
+min_sdk_version = 28
+
+[[package.metadata.android.feature]]
+name = "android.hardware.vulkan.level"
+version = "1"

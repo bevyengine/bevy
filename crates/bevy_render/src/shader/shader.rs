@@ -28,12 +28,7 @@ fn glsl_to_spirv(
     stage: ShaderStage,
     shader_defs: Option<&[String]>,
 ) -> Vec<u32> {
-    use std::io::Read;
-
-    let mut output = bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs).unwrap();
-    let mut spv_bytes = Vec::new();
-    output.read_to_end(&mut spv_bytes).unwrap();
-    bytes_to_words(&spv_bytes)
+    bevy_glsl_to_spirv::compile(glsl_source, stage.into(), shader_defs).unwrap()
 }
 
 #[cfg(target_os = "ios")]
