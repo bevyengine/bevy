@@ -100,7 +100,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// Gets the query result for the given `entity`
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
-    pub unsafe fn entity_unsafe(
+    pub unsafe fn get_unsafe(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
@@ -161,7 +161,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// the given component type
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
-    pub unsafe fn get_unsafe<T: Component>(
+    pub unsafe fn get_component_unsafe<T: Component>(
         &self,
         entity: Entity,
     ) -> Result<Mut<'_, T>, QueryError> {
