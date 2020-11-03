@@ -253,3 +253,213 @@ pub enum KeyCode {
     Paste,
     Cut,
 }
+
+impl KeyCode {
+    /// Converts a key into its textual char representation on a QWERTY keyboard depending on the provided shift status.
+    ///
+    /// Calls [`KeyCode::to_qwerty_char_with_shift`] if shift is down, or [`KeyCode::to_qwerty_char_without_shift`] if shift isn't down.
+    ///
+    /// Returns `None` if the key has no valid textual mapping on a QWERTY keyboard with the provided shift status.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_input::prelude::KeyCode;
+    /// #
+    /// let c1 = KeyCode::Slash.to_qwerty_char(false);
+    /// assert_eq!(c1, Some('/'));
+    ///
+    /// let c2 = KeyCode::Slash.to_qwerty_char(true);
+    /// assert_eq!(c2, Some('?'));
+    ///
+    /// let c3 = KeyCode::End.to_qwerty_char(true);
+    /// assert_eq!(c3, None);
+    /// ```
+    pub fn to_qwerty_char(self, shift_down: bool) -> Option<char> {
+        if shift_down {
+            self.to_qwerty_char_with_shift()
+        } else {
+            self.to_qwerty_char_without_shift()
+        }
+    }
+
+    /// Converts a key into its textual char representation on a QWERTY keyboard when shift is not pressed.
+    ///
+    /// Returns `None` if the key has no valid textual mapping on a QWERTY keyboard without shift pressed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_input::prelude::KeyCode;
+    /// #
+    /// let c1 = KeyCode::Slash.to_qwerty_char_without_shift();
+    /// assert_eq!(c1, Some('/'))
+    /// ```
+    /// This will cause the slash key to return an actual forward slash character (`/`).
+    /// To get the question mark character (`?`), which is associated with the same key,
+    /// you must use [`KeyCode::to_qwerty_char_with_shift`].
+    ///
+    /// ```
+    /// # use bevy_input::prelude::KeyCode;
+    /// #
+    /// let c2 = KeyCode::End.to_qwerty_char_without_shift();
+    /// assert_eq!(c2, None);
+    /// ```
+    /// Since the End key has no textual representation, the function returns `None`.
+    pub fn to_qwerty_char_without_shift(self) -> Option<char> {
+        let out = match self {
+            KeyCode::Key1 => '1',
+            KeyCode::Key2 => '2',
+            KeyCode::Key3 => '3',
+            KeyCode::Key4 => '4',
+            KeyCode::Key5 => '5',
+            KeyCode::Key6 => '6',
+            KeyCode::Key7 => '7',
+            KeyCode::Key8 => '8',
+            KeyCode::Key9 => '9',
+            KeyCode::Key0 => '0',
+
+            KeyCode::A => 'a',
+            KeyCode::B => 'b',
+            KeyCode::C => 'c',
+            KeyCode::D => 'd',
+            KeyCode::E => 'e',
+            KeyCode::F => 'f',
+            KeyCode::G => 'g',
+            KeyCode::H => 'h',
+            KeyCode::I => 'i',
+            KeyCode::J => 'j',
+            KeyCode::K => 'k',
+            KeyCode::L => 'l',
+            KeyCode::M => 'm',
+            KeyCode::N => 'n',
+            KeyCode::O => 'o',
+            KeyCode::P => 'p',
+            KeyCode::Q => 'q',
+            KeyCode::R => 'r',
+            KeyCode::S => 's',
+            KeyCode::T => 't',
+            KeyCode::U => 'u',
+            KeyCode::V => 'v',
+            KeyCode::W => 'w',
+            KeyCode::X => 'x',
+            KeyCode::Y => 'y',
+            KeyCode::Z => 'z',
+
+            KeyCode::Numpad0 => '0',
+            KeyCode::Numpad1 => '1',
+            KeyCode::Numpad2 => '2',
+            KeyCode::Numpad3 => '3',
+            KeyCode::Numpad4 => '4',
+            KeyCode::Numpad5 => '5',
+            KeyCode::Numpad6 => '6',
+            KeyCode::Numpad7 => '7',
+            KeyCode::Numpad8 => '8',
+            KeyCode::Numpad9 => '9',
+
+            KeyCode::NumpadAdd => '+',
+            KeyCode::Apostrophe => '\'',
+            KeyCode::Backslash => '\\',
+            KeyCode::Comma => ',',
+            KeyCode::NumpadDecimal => '.',
+            KeyCode::NumpadDivide => '/',
+            KeyCode::Equals => '=',
+            KeyCode::Grave => '`',
+            KeyCode::LBracket => '[',
+            KeyCode::Minus => '-',
+            KeyCode::Period => '.',
+            KeyCode::RBracket => ']',
+            KeyCode::Semicolon => ';',
+            KeyCode::Slash => '/',
+            KeyCode::Tab => '\t',
+
+            _ => return None,
+        };
+
+        Some(out)
+    }
+
+    /// Converts a key into its textual char representation on a QWERTY keyboard when shift is pressed.
+    ///
+    /// Returns `None` if the key has no valid textual mapping on a QWERTY keyboard with shift pressed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_input::prelude::KeyCode;
+    /// #
+    /// let c1 = KeyCode::Slash.to_qwerty_char_with_shift();
+    /// assert_eq!(c1, Some('?'));
+    /// ```
+    /// This will cause the slash key to return a question mark character (`?`).
+    /// To get the actual forward slash character (`/`), which is associated with the same key,
+    /// you must use [`KeyCode::to_qwerty_char_without_shift`].
+    ///
+    /// ```
+    /// # use bevy_input::prelude::KeyCode;
+    /// #
+    /// let c2 = KeyCode::End.to_qwerty_char_with_shift();
+    /// assert_eq!(c2, None);
+    /// ```
+    /// Since the End key has no textual representation, the function returns `None`.
+    pub fn to_qwerty_char_with_shift(self) -> Option<char> {
+        let out = match self {
+            KeyCode::Key1 => '!',
+            KeyCode::Key2 => '@',
+            KeyCode::Key3 => '#',
+            KeyCode::Key4 => '$',
+            KeyCode::Key5 => '%',
+            KeyCode::Key6 => '^',
+            KeyCode::Key7 => '&',
+            KeyCode::Key8 => '*',
+            KeyCode::Key9 => '(',
+            KeyCode::Key0 => ')',
+
+            KeyCode::A => 'A',
+            KeyCode::B => 'B',
+            KeyCode::C => 'C',
+            KeyCode::D => 'D',
+            KeyCode::E => 'E',
+            KeyCode::F => 'F',
+            KeyCode::G => 'G',
+            KeyCode::H => 'H',
+            KeyCode::I => 'I',
+            KeyCode::J => 'J',
+            KeyCode::K => 'K',
+            KeyCode::L => 'L',
+            KeyCode::M => 'M',
+            KeyCode::N => 'N',
+            KeyCode::O => 'O',
+            KeyCode::P => 'P',
+            KeyCode::Q => 'Q',
+            KeyCode::R => 'R',
+            KeyCode::S => 'S',
+            KeyCode::T => 'T',
+            KeyCode::U => 'U',
+            KeyCode::V => 'V',
+            KeyCode::W => 'W',
+            KeyCode::X => 'X',
+            KeyCode::Y => 'Y',
+            KeyCode::Z => 'Z',
+
+            KeyCode::NumpadAdd => '+',
+            KeyCode::Apostrophe => '"',
+            KeyCode::Backslash => '|',
+            KeyCode::Comma => '<',
+            KeyCode::NumpadDivide => '/',
+            KeyCode::Equals => '+',
+            KeyCode::Grave => '~',
+            KeyCode::LBracket => '{',
+            KeyCode::Minus => '_',
+            KeyCode::Period => '>',
+            KeyCode::RBracket => '}',
+            KeyCode::Semicolon => ':',
+            KeyCode::Slash => '?',
+            KeyCode::Tab => '\t',
+
+            _ => return None,
+        };
+
+        Some(out)
+    }
+}
