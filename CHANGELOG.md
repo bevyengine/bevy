@@ -13,6 +13,8 @@ to view all changes since the `0.2.1` release.
 ### Added
 
 - [Touch Input][696]
+- [iOS XCode Project][539]
+- [Android Example and use bevy-glsl-to-spirv 0.2.0][740]
 - [Introduce Mouse capture API][679]
 - [`bevy_input::touch`: implement touch input][696]
 - [D-pad support on MacOS][653]
@@ -96,6 +98,7 @@ to view all changes since the `0.2.1` release.
 [528]: https://github.com/bevyengine/bevy/pull/528
 [535]: https://github.com/bevyengine/bevy/pull/535
 [538]: https://github.com/bevyengine/bevy/pull/538
+[539]: https://github.com/bevyengine/bevy/pull/539
 [543]: https://github.com/bevyengine/bevy/pull/543
 [544]: https://github.com/bevyengine/bevy/pull/544
 [552]: https://github.com/bevyengine/bevy/pull/552
@@ -141,6 +144,7 @@ to view all changes since the `0.2.1` release.
 [725]: https://github.com/bevyengine/bevy/pull/725
 [727]: https://github.com/bevyengine/bevy/pull/727
 [730]: https://github.com/bevyengine/bevy/pull/730
+[740]: https://github.com/bevyengine/bevy/pull/740
 [741]: https://github.com/bevyengine/bevy/pull/741
 [744]: https://github.com/bevyengine/bevy/pull/744
 [752]: https://github.com/bevyengine/bevy/pull/752
