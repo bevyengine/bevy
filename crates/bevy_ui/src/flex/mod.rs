@@ -4,14 +4,14 @@ use crate::{CalculatedSize, Node, Style};
 use bevy_ecs::{Changed, Entity, Query, Res, ResMut, With, Without};
 use bevy_math::Vec2;
 use bevy_transform::prelude::{Children, Parent, Transform};
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use bevy_window::{Window, WindowId, Windows};
 use std::fmt;
 use stretch::{number::Number, Stretch};
 
 pub struct FlexSurface {
-    entity_to_stretch: HashMap<Entity, stretch::node::Node>,
-    window_nodes: HashMap<WindowId, stretch::node::Node>,
+    entity_to_stretch: AhashMap<Entity, stretch::node::Node>,
+    window_nodes: AhashMap<WindowId, stretch::node::Node>,
     stretch: Stretch,
 }
 

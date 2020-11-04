@@ -13,7 +13,7 @@ use bevy_asset::{Asset, Assets, Handle, HandleId};
 use bevy_ecs::{
     Commands, Entity, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use renderer::{AssetRenderResourceBindings, BufferId, RenderResourceType, RenderResources};
 use std::{hash::Hash, marker::PhantomData, ops::DerefMut};
 
@@ -40,7 +40,7 @@ struct BufferArray<I> {
     len: usize,
     buffer: Option<BufferId>,
     free_indices: Vec<usize>,
-    indices: HashMap<I, usize>,
+    indices: AhashMap<I, usize>,
 }
 
 impl<I: Hash + Eq> BufferArray<I> {
@@ -56,7 +56,7 @@ impl<I: Hash + Eq> BufferArray<I> {
             min_capacity,
             buffer: None,
             free_indices: Vec::new(),
-            indices: HashMap::default(),
+            indices: AhashMap::default(),
         }
     }
 

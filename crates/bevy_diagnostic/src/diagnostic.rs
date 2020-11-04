@@ -1,4 +1,4 @@
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use std::{
     collections::VecDeque,
     time::{Duration, SystemTime},
@@ -105,7 +105,7 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default)]
 pub struct Diagnostics {
-    diagnostics: HashMap<DiagnosticId, Diagnostic>,
+    diagnostics: AhashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {

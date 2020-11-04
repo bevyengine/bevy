@@ -5,7 +5,7 @@ use bevy_ecs::{
 use bevy_property::{
     DeserializeProperty, Properties, Property, PropertyTypeRegistration, PropertyTypeRegistry,
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{AhashMap, AhashSet};
 use parking_lot::RwLock;
 use std::{any::TypeId, marker::PhantomData, sync::Arc};
 
@@ -17,10 +17,10 @@ pub struct TypeRegistry {
 
 #[derive(Default)]
 pub struct ComponentRegistry {
-    pub registrations: HashMap<TypeId, ComponentRegistration>,
-    pub short_names: HashMap<String, TypeId>,
-    pub full_names: HashMap<String, TypeId>,
-    pub ambigous_names: HashSet<String>,
+    pub registrations: AhashMap<TypeId, ComponentRegistration>,
+    pub short_names: AhashMap<String, TypeId>,
+    pub full_names: AhashMap<String, TypeId>,
+    pub ambigous_names: AhashSet<String>,
 }
 
 impl ComponentRegistry {

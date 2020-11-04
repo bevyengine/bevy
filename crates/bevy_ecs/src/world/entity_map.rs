@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry;
 
 use bevy_hecs::Entity;
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -16,7 +16,7 @@ pub trait MapEntities {
 
 #[derive(Default, Debug)]
 pub struct EntityMap {
-    map: HashMap<Entity, Entity>,
+    map: AhashMap<Entity, Entity>,
 }
 
 impl EntityMap {

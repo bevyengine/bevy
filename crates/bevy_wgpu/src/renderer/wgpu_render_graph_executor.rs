@@ -4,7 +4,7 @@ use bevy_render::{
     render_graph::{Edge, NodeId, ResourceSlots, StageBorrow},
     renderer::RenderResourceContext,
 };
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -28,7 +28,7 @@ impl WgpuRenderGraphExecutor {
         let render_resource_context = render_resource_context
             .downcast_mut::<WgpuRenderResourceContext>()
             .unwrap();
-        let node_outputs: Arc<RwLock<HashMap<NodeId, ResourceSlots>>> = Default::default();
+        let node_outputs: Arc<RwLock<AhashMap<NodeId, ResourceSlots>>> = Default::default();
         for stage in stages.iter_mut() {
             // TODO: sort jobs and slice by "amount of work" / weights
             // stage.jobs.sort_by_key(|j| j.node_states.len());

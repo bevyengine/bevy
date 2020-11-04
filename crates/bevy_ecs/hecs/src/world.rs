@@ -18,7 +18,7 @@ use crate::{
     alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, BatchedIter, EntityReserver, Fetch,
     Mut, QueryIter, RefMut,
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{AhashMap, AhashSet};
 use core::{any::TypeId, fmt, mem, ptr};
 
 #[cfg(feature = "std")]
@@ -40,8 +40,8 @@ use crate::{
 #[derive(Debug)]
 pub struct World {
     entities: Entities,
-    index: HashMap<Vec<TypeId>, u32>,
-    removed_components: HashMap<TypeId, Vec<Entity>>,
+    index: AhashMap<Vec<TypeId>, u32>,
+    removed_components: AhashMap<TypeId, Vec<Entity>>,
     #[allow(missing_docs)]
     pub archetypes: Vec<Archetype>,
     archetype_generation: u64,
@@ -53,14 +53,14 @@ impl World {
         // `flush` assumes archetype 0 always exists, representing entities with no components.
         let mut archetypes = Vec::new();
         archetypes.push(Archetype::new(Vec::new()));
-        let mut index = HashMap::default();
+        let mut index = AhashMap::default();
         index.insert(Vec::new(), 0);
         Self {
             entities: Entities::default(),
             index,
             archetypes,
             archetype_generation: 0,
-            removed_components: HashMap::default(),
+            removed_components: AhashMap::default(),
         }
     }
 
@@ -601,7 +601,7 @@ impl World {
         self.flush();
         let loc = self.entities.get_mut(entity)?;
         unsafe {
-            let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<HashSet<_>>());
+            let removed = T::with_static_ids(|ids| ids.iter().copied().collect::<AhashSet<_>>());
             let info = self.archetypes[loc.archetype as usize]
                 .types()
                 .iter()

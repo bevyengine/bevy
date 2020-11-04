@@ -21,7 +21,7 @@ use crate::alloc::{
     vec::Vec,
 };
 
-use bevy_utils::HashSet;
+use bevy_utils::AhashSet;
 use core::{
     any::TypeId,
     mem::{self, MaybeUninit},
@@ -48,7 +48,7 @@ pub struct EntityBuilder {
     cursor: usize,
     info: Vec<(TypeInfo, usize)>,
     ids: Vec<TypeId>,
-    id_set: HashSet<TypeId>,
+    id_set: AhashSet<TypeId>,
 }
 
 impl EntityBuilder {
@@ -59,7 +59,7 @@ impl EntityBuilder {
             storage: Box::new([]),
             info: Vec::new(),
             ids: Vec::new(),
-            id_set: HashSet::default(),
+            id_set: AhashSet::default(),
         }
     }
 

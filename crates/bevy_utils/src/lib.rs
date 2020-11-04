@@ -9,15 +9,15 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
-pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
-pub type HashSet<K> = std::collections::HashSet<K, RandomState>;
+pub type AhashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
+pub type AhashSet<K> = std::collections::HashSet<K, RandomState>;
 
-pub trait HashMapExt {
+pub trait AhashExt {
     fn with_capacity(cap: usize) -> Self;
 }
 
-impl<K, V> HashMapExt for HashMap<K, V> {
+impl<K, V> AhashExt for AhashMap<K, V> {
     fn with_capacity(cap: usize) -> Self {
-        HashMap::with_capacity_and_hasher(cap, RandomState::default())
+        AhashMap::with_capacity_and_hasher(cap, RandomState::default())
     }
 }

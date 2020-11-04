@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_property::{Properties, Property};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{AhashMap, AhashSet};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -46,7 +46,7 @@ impl PipelineSpecialization {
 
 #[derive(Clone, Eq, PartialEq, Debug, Default, Property, Serialize, Deserialize)]
 pub struct ShaderSpecialization {
-    pub shader_defs: HashSet<String>,
+    pub shader_defs: AhashSet<String>,
 }
 
 #[derive(Debug)]
@@ -69,8 +69,8 @@ pub struct DynamicBinding {
 
 #[derive(Debug, Default)]
 pub struct PipelineCompiler {
-    specialized_shaders: HashMap<Handle<Shader>, Vec<SpecializedShader>>,
-    specialized_pipelines: HashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,
+    specialized_shaders: AhashMap<Handle<Shader>, Vec<SpecializedShader>>,
+    specialized_pipelines: AhashMap<Handle<PipelineDescriptor>, Vec<SpecializedPipeline>>,
 }
 
 impl PipelineCompiler {

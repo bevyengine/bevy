@@ -1,12 +1,12 @@
 use crate::{DeserializeProperty, Property};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{AhashMap, AhashSet};
 use std::{any::TypeId, fmt};
 
 #[derive(Debug, Default)]
 pub struct PropertyTypeRegistry {
-    registrations: HashMap<String, PropertyTypeRegistration>,
-    short_names: HashMap<String, String>,
-    ambigous_names: HashSet<String>,
+    registrations: AhashMap<String, PropertyTypeRegistration>,
+    short_names: AhashMap<String, String>,
+    ambigous_names: AhashSet<String>,
 }
 
 impl PropertyTypeRegistry {

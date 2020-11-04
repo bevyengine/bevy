@@ -7,7 +7,7 @@ use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{Res, ResMut};
 use bevy_math::Vec2;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::HashSet;
+use bevy_utils::AhashSet;
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -87,7 +87,7 @@ impl Texture {
         texture_events: Res<Events<AssetEvent<Texture>>>,
     ) {
         let render_resource_context = &**render_resource_context;
-        let mut changed_textures = HashSet::default();
+        let mut changed_textures = AhashSet::default();
         for event in state.event_reader.iter(&texture_events) {
             match event {
                 AssetEvent::Created { handle } => {

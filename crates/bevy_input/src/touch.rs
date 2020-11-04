@@ -1,7 +1,7 @@
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
 use bevy_math::Vec2;
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use core::ops::DerefMut;
 
 /// Represents a touch event
@@ -120,10 +120,10 @@ impl From<&TouchInput> for Touch {
 
 #[derive(Debug, Clone, Default)]
 pub struct Touches {
-    pressed: HashMap<u64, Touch>,
-    just_pressed: HashMap<u64, Touch>,
-    just_released: HashMap<u64, Touch>,
-    just_cancelled: HashMap<u64, Touch>,
+    pressed: AhashMap<u64, Touch>,
+    just_pressed: AhashMap<u64, Touch>,
+    just_released: AhashMap<u64, Touch>,
+    just_cancelled: AhashMap<u64, Touch>,
 }
 
 impl Touches {

@@ -1,11 +1,11 @@
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use bevy_window::{Window, WindowId, WindowMode};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
-    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
-    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+    pub windows: AhashMap<winit::window::WindowId, winit::window::Window>,
+    pub window_id_to_winit: AhashMap<WindowId, winit::window::WindowId>,
+    pub winit_to_window_id: AhashMap<winit::window::WindowId, WindowId>,
 }
 
 impl WinitWindows {

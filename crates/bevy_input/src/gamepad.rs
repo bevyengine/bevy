@@ -1,7 +1,7 @@
 use crate::{Axis, Input};
 use bevy_app::{EventReader, Events};
 use bevy_ecs::{Local, Res, ResMut};
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -74,9 +74,9 @@ pub struct GamepadSettings {
     pub default_button_settings: ButtonSettings,
     pub default_axis_settings: AxisSettings,
     pub default_button_axis_settings: ButtonAxisSettings,
-    pub button_settings: HashMap<GamepadButton, ButtonSettings>,
-    pub axis_settings: HashMap<GamepadAxis, AxisSettings>,
-    pub button_axis_settings: HashMap<GamepadButton, ButtonAxisSettings>,
+    pub button_settings: AhashMap<GamepadButton, ButtonSettings>,
+    pub axis_settings: AhashMap<GamepadAxis, AxisSettings>,
+    pub button_axis_settings: AhashMap<GamepadButton, ButtonAxisSettings>,
 }
 
 impl GamepadSettings {

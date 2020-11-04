@@ -6,16 +6,16 @@ use crate::{
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Assets, Handle, HandleUntyped};
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 use bevy_window::Window;
 use parking_lot::RwLock;
 use std::{ops::Range, sync::Arc};
 
 #[derive(Debug, Default)]
 pub struct HeadlessRenderResourceContext {
-    buffer_info: Arc<RwLock<HashMap<BufferId, BufferInfo>>>,
-    texture_descriptors: Arc<RwLock<HashMap<TextureId, TextureDescriptor>>>,
-    pub asset_resources: Arc<RwLock<HashMap<(HandleUntyped, u64), RenderResourceId>>>,
+    buffer_info: Arc<RwLock<AhashMap<BufferId, BufferInfo>>>,
+    texture_descriptors: Arc<RwLock<AhashMap<TextureId, TextureDescriptor>>>,
+    pub asset_resources: Arc<RwLock<AhashMap<(HandleUntyped, u64), RenderResourceId>>>,
 }
 
 impl HeadlessRenderResourceContext {

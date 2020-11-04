@@ -1,10 +1,10 @@
 use super::Camera;
 use bevy_ecs::{Entity, Query, ResMut};
-use bevy_utils::HashMap;
+use bevy_utils::AhashMap;
 
 #[derive(Debug, Default)]
 pub struct ActiveCameras {
-    pub cameras: HashMap<String, Option<Entity>>,
+    pub cameras: AhashMap<String, Option<Entity>>,
 }
 
 impl ActiveCameras {
