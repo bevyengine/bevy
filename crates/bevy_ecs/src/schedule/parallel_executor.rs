@@ -546,7 +546,7 @@ impl ExecutorStage {
                     #[cfg(feature = "trace")]
                     let _system_guard = system_span.enter();
                     system.run_thread_local(world, resources);
-                },
+                }
                 ThreadLocalExecution::Immediate => { /* already ran */ }
             }
         }
