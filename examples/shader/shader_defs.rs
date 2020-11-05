@@ -34,12 +34,11 @@ struct MyMaterial {
 }
 
 const VERTEX_SHADER: &str = r#"
-#version 450
-layout(location = 0) in vec3 Vertex_Position;
-layout(set = 0, binding = 0) uniform Camera {
+LAYOUT(location = 0) in vec3 Vertex_Position;
+BLOCK_LAYOUT(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
-layout(set = 1, binding = 0) uniform Transform {
+BLOCK_LAYOUT(set = 1, binding = 0) uniform Transform {
     mat4 Model;
 };
 void main() {
@@ -48,16 +47,15 @@ void main() {
 "#;
 
 const FRAGMENT_SHADER: &str = r#"
-#version 450
-layout(location = 0) out vec4 o_Target;
-layout(set = 1, binding = 1) uniform MyMaterial_color {
+LAYOUT(location = 0) out vec4 o_Target;
+BLOCK_LAYOUT(set = 1, binding = 1) uniform MyMaterial_color {
     vec4 color;
 };
 void main() {
-    o_Target = color;
+    o_Target = encodeColor(color);
 
 # ifdef MYMATERIAL_ALWAYS_BLUE
-    o_Target = vec4(0.0, 0.0, 0.8, 1.0);
+    o_Target = encodeColor(vec4(0.0, 0.0, 0.8, 1.0));
 # endif
 }
 "#;

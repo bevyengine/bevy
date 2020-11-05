@@ -311,16 +311,15 @@ mod tests {
         let vertex_shader = Shader::from_glsl(
             ShaderStage::Vertex,
             r#"
-            #version 450
-            layout(location = 0) in vec4 Vertex_Position;
-            layout(location = 1) in uvec4 Vertex_Normal;
-            layout(location = 2) in uvec4 I_TestInstancing_Property;
+            LAYOUT(location = 0) in vec4 Vertex_Position;
+            LAYOUT(location = 1) in uvec4 Vertex_Normal;
+            LAYOUT(location = 2) in uvec4 I_TestInstancing_Property;
 
-            layout(location = 0) out vec4 v_Position;
-            layout(set = 0, binding = 0) uniform Camera {
+            LAYOUT(location = 0) out vec4 v_Position;
+            BLOCK_LAYOUT(set = 0, binding = 0) uniform Camera {
                 mat4 ViewProj;
             };
-            layout(set = 1, binding = 0) uniform texture2D Texture;
+            UNIFORM_TEXTURE(set = 1, binding = 0, Texture)
 
             void main() {
                 v_Position = Vertex_Position;

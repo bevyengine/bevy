@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{shape, VertexAttributeValues},
-        pipeline::{PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+        pipeline::{PipelineDescriptor, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
         shader::{ShaderStage, ShaderStages},
@@ -24,15 +24,14 @@ fn main() {
 struct MyMaterialWithVertexColorSupport {}
 
 const VERTEX_SHADER: &str = r#"
-#version 450
-layout(location = 0) in vec3 Vertex_Position;
-layout(location = 1) in vec3 Vertex_Color;
-layout(location = 0) out vec3 v_color;
+LAYOUT(location = 0) in vec3 Vertex_Position;
+LAYOUT(location = 1) in vec3 Vertex_Color;
+LAYOUT(location = 0) out vec3 v_color;
 
-layout(set = 0, binding = 0) uniform Camera {
+BLOCK_LAYOUT(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
-layout(set = 1, binding = 0) uniform Transform {
+BLOCK_LAYOUT(set = 1, binding = 0) uniform Transform {
     mat4 Model;
 };
 void main() {
@@ -42,12 +41,11 @@ void main() {
 "#;
 
 const FRAGMENT_SHADER: &str = r#"
-#version 450
-layout(location = 0) out vec4 o_Target;
-layout(location = 0) in vec3 v_color;
+LAYOUT(location = 0) out vec4 o_Target;
+LAYOUT(location = 0) in vec3 v_color;
 
 void main() {
-    o_Target = vec4(v_color, 1.0);
+    o_Target = encodeColor(vec4(v_color, 1.0));
 }
 "#;
 
