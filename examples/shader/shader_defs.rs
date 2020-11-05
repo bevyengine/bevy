@@ -106,10 +106,8 @@ fn setup(
         // cube
         .spawn(MeshComponents {
             mesh: cube_handle.clone(),
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle.clone(),
-                // NOTE: in the future you wont need to manually declare dynamic bindings
-                PipelineSpecialization::default(),
             )]),
             transform: Transform::from_translation(Vec3::new(-2.0, 0.0, 0.0)),
             ..Default::default()
@@ -118,10 +116,8 @@ fn setup(
         // cube
         .spawn(MeshComponents {
             mesh: cube_handle,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 pipeline_handle,
-                // NOTE: in the future you wont need to manually declare dynamic bindings
-                PipelineSpecialization::default(),
             )]),
             transform: Transform::from_translation(Vec3::new(2.0, 0.0, 0.0)),
             ..Default::default()

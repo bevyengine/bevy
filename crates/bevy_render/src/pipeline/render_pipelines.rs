@@ -104,7 +104,7 @@ pub fn draw_render_pipelines_system(
             // TODO: move these to mesh.rs?
         }
 
-        for render_pipeline in render_pipelines.pipelines.iter() {
+        for render_pipeline in render_pipelines.pipelines.iter_mut() {
             let render_resource_bindings = &mut [
                 &mut render_pipelines.bindings,
                 &mut render_resource_bindings,
@@ -113,7 +113,7 @@ pub fn draw_render_pipelines_system(
                 .set_pipeline(
                     &mut draw,
                     &render_pipeline.pipeline,
-                    &render_pipeline.specialization,
+                    &mut render_pipeline.specialization,
                     render_resource_bindings,
                 )
                 .unwrap();

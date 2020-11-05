@@ -6,7 +6,7 @@ use bevy_asset::Handle;
 use bevy_ecs::Bundle;
 use bevy_render::{
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{RenderPipeline, RenderPipelines},
     prelude::Draw,
     render_graph::base::MainPass,
 };
@@ -28,9 +28,8 @@ impl Default for SpriteComponents {
     fn default() -> Self {
         Self {
             mesh: QUAD_HANDLE,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_PIPELINE_HANDLE,
-                PipelineSpecialization::default(),
             )]),
             draw: Draw {
                 is_transparent: true,
@@ -65,9 +64,8 @@ pub struct SpriteSheetComponents {
 impl Default for SpriteSheetComponents {
     fn default() -> Self {
         Self {
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 SPRITE_SHEET_PIPELINE_HANDLE,
-                PipelineSpecialization::default(),
             )]),
             draw: Draw {
                 is_transparent: true,

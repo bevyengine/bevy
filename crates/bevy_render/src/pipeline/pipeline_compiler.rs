@@ -18,6 +18,7 @@ use std::borrow::Cow;
 pub struct PipelineSpecialization {
     pub shader_specialization: ShaderSpecialization,
     pub primitive_topology: PrimitiveTopology,
+    pub dynamic_bindings: Vec<String>,
     pub index_format: IndexFormat,
     pub vertex_buffer_descriptor: VertexBufferDescriptor,
     pub sample_count: u32,
@@ -30,6 +31,7 @@ impl Default for PipelineSpecialization {
             index_format: IndexFormat::Uint32,
             shader_specialization: Default::default(),
             primitive_topology: Default::default(),
+            dynamic_bindings: Default::default(),
             vertex_buffer_descriptor: Default::default(),
         }
     }
@@ -134,7 +136,7 @@ impl PipelineCompiler {
         pipelines: &mut Assets<PipelineDescriptor>,
         shaders: &mut Assets<Shader>,
         source_pipeline: &Handle<PipelineDescriptor>,
-        pipeline_specialization: &PipelineSpecialization,
+        pipeline_specialization: &mut PipelineSpecialization,
         render_resource_bindings: &mut [&mut RenderResourceBindings],
     ) -> Handle<PipelineDescriptor> {
         let source_descriptor = pipelines.get(source_pipeline).unwrap();
@@ -185,7 +187,7 @@ impl PipelineCompiler {
                 }
             }
         }
-
+        pipeline_specialization.dynamic_bindings = dynamic_bindings;
         specialized_descriptor.layout = Some(layout);
 
         // create a vertex layout that provides all attributes from either the specialized vertex buffers or a zero buffer

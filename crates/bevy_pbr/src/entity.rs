@@ -4,7 +4,7 @@ use bevy_ecs::Bundle;
 use bevy_render::{
     draw::Draw,
     mesh::Mesh,
-    pipeline::{PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{RenderPipeline, RenderPipelines},
     render_graph::base::MainPass,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -24,9 +24,8 @@ pub struct PbrComponents {
 impl Default for PbrComponents {
     fn default() -> Self {
         Self {
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 FORWARD_PIPELINE_HANDLE,
-                PipelineSpecialization::default(),
             )]),
             mesh: Default::default(),
             material: Default::default(),
