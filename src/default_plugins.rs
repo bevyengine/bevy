@@ -1,7 +1,5 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
-use crate::app::AppBuilder;
-
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
@@ -47,12 +45,12 @@ impl PluginGroup for DefaultPlugins {
     }
 }
 
-pub trait AddDefaultPlugins {
-    fn add_default_plugins(&mut self) -> &mut Self;
-}
+pub struct MinimalPlugins;
 
-impl AddDefaultPlugins for AppBuilder {
-    fn add_default_plugins(&mut self) -> &mut Self {
-        self.add_plugin_group(DefaultPlugins)
+impl PluginGroup for MinimalPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(bevy_type_registry::TypeRegistryPlugin::default());
+        group.add(bevy_core::CorePlugin::default());
+        group.add(bevy_app::ScheduleRunnerPlugin::default());
     }
 }

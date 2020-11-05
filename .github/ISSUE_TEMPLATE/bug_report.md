@@ -8,11 +8,11 @@ assignees: ''
 
 **Bevy version**
 
-The release number or commit hash of the version you're using
+The release number or commit hash of the version you're using.
 
 **Operating system & version**
 
-e.g. Windows 10, Ubuntu 18.04, iOS 14
+Ex: Windows 10, Ubuntu 18.04, iOS 14.
 
 **What you did**
 
@@ -21,11 +21,11 @@ feasible.
 
 **What you expected to happen**
 
-What you think should've happened if everything was working properly
+What you think should've happened if everything was working properly.
 
 **What actually happened**
 
-The actual result of the actions you described
+The actual result of the actions you described.
 
 **Additional information**
 

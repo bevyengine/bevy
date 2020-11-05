@@ -78,15 +78,11 @@ pub fn camera_node_system(
 ) {
     let render_resource_context = &**render_resource_context;
 
-    let (camera, global_transform) =
-        if let Some(camera_entity) = active_cameras.get(&state.camera_name) {
-            (
-                query.get::<Camera>(camera_entity).unwrap(),
-                query.get::<GlobalTransform>(camera_entity).unwrap(),
-            )
-        } else {
-            return;
-        };
+    let (camera, global_transform) = if let Some(entity) = active_cameras.get(&state.camera_name) {
+        query.get(entity).unwrap()
+    } else {
+        return;
+    };
 
     let staging_buffer = if let Some(staging_buffer) = state.staging_buffer {
         render_resource_context.map_buffer(staging_buffer);

@@ -311,7 +311,7 @@ impl RenderResourceContext for WgpuRenderResourceContext {
         &self,
         handle: HandleUntyped,
         render_resource: RenderResourceId,
-        index: usize,
+        index: u64,
     ) {
         let mut asset_resources = self.resources.asset_resources.write();
         asset_resources.insert((handle, index), render_resource);
@@ -320,13 +320,13 @@ impl RenderResourceContext for WgpuRenderResourceContext {
     fn get_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        index: usize,
+        index: u64,
     ) -> Option<RenderResourceId> {
         let asset_resources = self.resources.asset_resources.read();
         asset_resources.get(&(handle, index)).cloned()
     }
 
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize) {
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64) {
         let mut asset_resources = self.resources.asset_resources.write();
         asset_resources.remove(&(handle, index));
     }

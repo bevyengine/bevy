@@ -295,9 +295,13 @@ impl<'a, T: Resource + FromResources> ResourceQuery for Local<'a, T> {
     type Fetch = FetchResourceLocalMut<T>;
 
     fn initialize(resources: &mut Resources, id: Option<SystemId>) {
-        let value = T::from_resources(resources);
         let id = id.expect("Local<T> resources can only be used by systems");
-        resources.insert_local(id, value);
+
+        // Only add the local resource if it doesn't already exist for this system
+        if resources.get_local::<T>(id).is_none() {
+            let value = T::from_resources(resources);
+            resources.insert_local(id, value);
+        }
     }
 }
 

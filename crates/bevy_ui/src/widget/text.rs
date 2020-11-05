@@ -4,11 +4,12 @@ use bevy_ecs::{Changed, Entity, Local, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
+    mesh::Mesh,
     prelude::Msaa,
     renderer::{AssetRenderResourceBindings, RenderResourceBindings},
     texture::Texture,
 };
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
 use bevy_text::{DrawableText, Font, FontAtlasSet, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
 
@@ -38,7 +39,7 @@ pub fn text_system(
     // add queued text to atlases
     let mut new_queued_text = Vec::new();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, mut calculated_size)) = queries.q1_mut().entity_mut(entity) {
+        if let Ok((text, mut calculated_size)) = queries.q1_mut().get_mut(entity) {
             let font_atlases = font_atlas_sets
                 .get_or_insert_with(text.font.id, || FontAtlasSet::new(text.font.clone_weak()));
             // TODO: this call results in one or more TextureAtlases, whose render resources are created in the RENDER_GRAPH_SYSTEMS
@@ -94,10 +95,14 @@ pub fn draw_text_system(
     msaa: Res<Msaa>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
+    meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
     mut query: Query<(&mut Draw, &Text, &Node, &GlobalTransform)>,
 ) {
+    let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
+    let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
+
     for (mut draw, text, node, global_transform) in query.iter_mut() {
         if let Some(font) = fonts.get(&text.font) {
             let position = global_transform.translation - (node.size / 2.0).extend(0.0);
@@ -112,6 +117,7 @@ pub fn draw_text_system(
                 style: &text.style,
                 text: &text.value,
                 container_size: node.size,
+                font_quad_vertex_descriptor: &vertex_buffer_descriptor,
             };
             drawable_text.draw(&mut draw, &mut draw_context).unwrap();
         }

@@ -9,7 +9,7 @@ use bevy::{
 /// This example visualizes camera z-ordering by setting the material of rotating cubes to their distance from the camera
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system(rotator_system.system())
         .add_system(camera_order_color_system.system())
@@ -32,9 +32,7 @@ fn camera_order_color_system(
 ) {
     for (_camera, visible_entities) in camera_query.iter() {
         for visible_entity in visible_entities.iter() {
-            if let Ok(material_handle) =
-                material_query.get::<Handle<StandardMaterial>>(visible_entity.entity)
-            {
+            if let Ok(material_handle) = material_query.get(visible_entity.entity) {
                 let material = materials.get_mut(&*material_handle).unwrap();
                 let value = 1.0 - (visible_entity.order.0 - 10.0) / 7.0;
                 material.albedo = Color::rgb(value, value, value);

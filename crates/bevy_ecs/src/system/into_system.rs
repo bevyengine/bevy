@@ -437,35 +437,35 @@ mod tests {
         ) {
             let entities = entity_query.iter().collect::<Vec<Entity>>();
             assert!(
-                b_query.get::<B>(entities[0]).is_err(),
+                b_query.get_component::<B>(entities[0]).is_err(),
                 "entity 0 should not have B"
             );
             assert!(
-                b_query.get::<B>(entities[1]).is_ok(),
+                b_query.get_component::<B>(entities[1]).is_ok(),
                 "entity 1 should have B"
             );
             assert!(
-                b_query.get::<A>(entities[1]).is_err(),
+                b_query.get_component::<A>(entities[1]).is_err(),
                 "entity 1 should have A, but b_query shouldn't have access to it"
             );
             assert!(
-                b_query.get::<D>(entities[3]).is_err(),
+                b_query.get_component::<D>(entities[3]).is_err(),
                 "entity 3 should have D, but it shouldn't be accessible from b_query"
             );
             assert!(
-                b_query.get::<C>(entities[2]).is_err(),
+                b_query.get_component::<C>(entities[2]).is_err(),
                 "entity 2 has C, but it shouldn't be accessible from b_query"
             );
             assert!(
-                a_c_query.get::<C>(entities[2]).is_ok(),
+                a_c_query.get_component::<C>(entities[2]).is_ok(),
                 "entity 2 has C, and it should be accessible from a_c_query"
             );
             assert!(
-                a_c_query.get::<D>(entities[3]).is_err(),
+                a_c_query.get_component::<D>(entities[3]).is_err(),
                 "entity 3 should have D, but it shouldn't be accessible from b_query"
             );
             assert!(
-                d_query.get::<D>(entities[3]).is_ok(),
+                d_query.get_component::<D>(entities[3]).is_ok(),
                 "entity 3 should have D"
             );
 
@@ -479,6 +479,43 @@ mod tests {
         world.spawn((A, B));
         world.spawn((A, C));
         world.spawn((A, D));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", query_system.system());
+
+        schedule.run(&mut world, &mut resources);
+
+        assert!(*resources.get::<bool>().unwrap(), "system ran");
+    }
+
+    #[test]
+    fn or_query_set_system() {
+        // Regression test for issue #762
+        use crate::{Added, Changed, Mutated, Or};
+        fn query_system(
+            mut ran: ResMut<bool>,
+            set: QuerySet<(
+                Query<Or<(Changed<A>, Changed<B>)>>,
+                Query<Or<(Added<A>, Added<B>)>>,
+                Query<Or<(Mutated<A>, Mutated<B>)>>,
+            )>,
+        ) {
+            let changed = set.q0().iter().count();
+            let added = set.q1().iter().count();
+            let mutated = set.q2().iter().count();
+
+            assert_eq!(changed, 1);
+            assert_eq!(added, 1);
+            assert_eq!(mutated, 0);
+
+            *ran = true;
+        }
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        resources.insert(false);
+        world.spawn((A, B));
 
         let mut schedule = Schedule::default();
         schedule.add_stage("update");

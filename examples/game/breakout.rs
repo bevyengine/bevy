@@ -8,7 +8,7 @@ use bevy::{
 /// An implementation of the classic game "Breakout"
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_resource(Scoreboard { score: 0 })
         .add_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_startup_system(setup.system())

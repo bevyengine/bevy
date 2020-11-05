@@ -9,8 +9,8 @@ use bevy_math::Vec2;
 use bevy_type_registry::TypeUuid;
 use bevy_utils::HashSet;
 
-pub const TEXTURE_ASSET_INDEX: usize = 0;
-pub const SAMPLER_ASSET_INDEX: usize = 1;
+pub const TEXTURE_ASSET_INDEX: u64 = 0;
+pub const SAMPLER_ASSET_INDEX: u64 = 1;
 
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]

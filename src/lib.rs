@@ -32,7 +32,7 @@
 //!
 //! If you prefer, you can also consume the individual bevy crates directly.
 //! Each module in the root of this crate, except for the prelude, can be found on crates.io
-//! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/0.2.1/bevy_app/).
+//! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/*/bevy_app/).
 
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -51,7 +51,7 @@ pub mod app {
 }
 
 pub mod asset {
-    //! Load and store assets and resources for Apps
+    //! Load and store assets and resources for Apps.
     pub use bevy_asset::*;
 }
 
@@ -76,6 +76,7 @@ pub mod input {
 }
 
 pub mod math {
+    //! Math types (Vec3, Mat4, Quat, etc) and helpers.
     pub use bevy_math::*;
 }
 
@@ -85,18 +86,22 @@ pub mod property {
 }
 
 pub mod scene {
+    //! Save/load collections of entities and components to/from file.
     pub use bevy_scene::*;
 }
 
 pub mod tasks {
+    //! Pools for async, IO, and compute tasks.
     pub use bevy_tasks::*;
 }
 
 pub mod transform {
+    //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;
 }
 
 pub mod type_registry {
+    //! Registered types and components can be used when loading scenes.
     pub use bevy_type_registry::*;
 }
 
@@ -105,6 +110,7 @@ pub mod utils {
 }
 
 pub mod window {
+    //! Configuration, creation, and management of one or more windows.
     pub use bevy_window::*;
 }
 
@@ -122,12 +128,14 @@ pub mod gltf {
 
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
-    //! Physically based rendering. **Note**: true PBR has not yet been implemented; the name `pbr` is aspirational.
+    //! Physically based rendering.
+    //! **Note**: true PBR has not yet been implemented; the name `pbr` is aspirational.
     pub use bevy_pbr::*;
 }
 
 #[cfg(feature = "bevy_render")]
 pub mod render {
+    //! Cameras, meshes, textures, shaders, and pipelines.
     pub use bevy_render::*;
 }
 
@@ -139,11 +147,13 @@ pub mod sprite {
 
 #[cfg(feature = "bevy_text")]
 pub mod text {
+    //! Text drawing, styling, and font assets.
     pub use bevy_text::*;
 }
 
 #[cfg(feature = "bevy_ui")]
 pub mod ui {
+    //! User interface components and widgets.
     pub use bevy_ui::*;
 }
 
@@ -154,6 +164,7 @@ pub mod winit {
 
 #[cfg(feature = "bevy_wgpu")]
 pub mod wgpu {
+    //! A render backend utilizing [wgpu](https://github.com/gfx-rs/wgpu-rs).
     pub use bevy_wgpu::*;
 }
 

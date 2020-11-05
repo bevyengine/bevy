@@ -2,7 +2,7 @@ use bevy::{input::prelude::*, prelude::*, window::CursorMoved};
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_system(print_mouse_events_system.system())
         .run();
 }

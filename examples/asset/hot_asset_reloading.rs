@@ -5,7 +5,7 @@ use bevy::prelude::*;
 /// This example illustrates hot reloading mesh changes.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }

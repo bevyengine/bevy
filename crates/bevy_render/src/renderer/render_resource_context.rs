@@ -38,14 +38,14 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         &self,
         handle: HandleUntyped,
         resource: RenderResourceId,
-        index: usize,
+        index: u64,
     );
     fn get_asset_resource_untyped(
         &self,
         handle: HandleUntyped,
-        index: usize,
+        index: u64,
     ) -> Option<RenderResourceId>;
-    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: usize);
+    fn remove_asset_resource_untyped(&self, handle: HandleUntyped, index: u64);
     fn create_render_pipeline(
         &self,
         pipeline_handle: Handle<PipelineDescriptor>,
@@ -63,29 +63,21 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
 }
 
 impl dyn RenderResourceContext {
-    pub fn set_asset_resource<T>(
-        &self,
-        handle: &Handle<T>,
-        resource: RenderResourceId,
-        index: usize,
-    ) where
+    pub fn set_asset_resource<T>(&self, handle: &Handle<T>, resource: RenderResourceId, index: u64)
+    where
         T: Asset,
     {
         self.set_asset_resource_untyped(handle.clone_weak_untyped(), resource, index);
     }
 
-    pub fn get_asset_resource<T>(
-        &self,
-        handle: &Handle<T>,
-        index: usize,
-    ) -> Option<RenderResourceId>
+    pub fn get_asset_resource<T>(&self, handle: &Handle<T>, index: u64) -> Option<RenderResourceId>
     where
         T: Asset,
     {
         self.get_asset_resource_untyped(handle.clone_weak_untyped(), index)
     }
 
-    pub fn remove_asset_resource<T>(&self, handle: &Handle<T>, index: usize)
+    pub fn remove_asset_resource<T>(&self, handle: &Handle<T>, index: u64)
     where
         T: Asset,
     {

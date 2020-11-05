@@ -2,7 +2,7 @@ use bevy::{input::prelude::*, prelude::*};
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_system(keyboard_input_system.system())
         .run();
 }

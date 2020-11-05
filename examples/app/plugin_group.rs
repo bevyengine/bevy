@@ -3,12 +3,12 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 /// PluginGroups are a way to group sets of plugins that should be registered together.
 fn main() {
     App::build()
-        // The app.add_default_plugins() you see in all of the examples is just an alias for this:
-        .add_plugin_group(DefaultPlugins)
+        // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
+        .add_plugins(DefaultPlugins)
         // Adding a plugin group adds all plugins in the group by default
-        .add_plugin_group(HelloWorldPlugins)
+        .add_plugins(HelloWorldPlugins)
         // You can also modify a PluginGroup (such as disabling plugins) like this:
-        // .add_plugin_group_with(HelloWorldPlugins, |group| {
+        // .add_plugins_with(HelloWorldPlugins, |group| {
         //     group
         //         .disable::<PrintWorldPlugin>()
         //         .add_before::<PrintHelloPlugin, _>(bevy::diagnostic::PrintDiagnosticsPlugin::default())

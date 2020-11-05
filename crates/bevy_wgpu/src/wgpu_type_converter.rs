@@ -103,6 +103,7 @@ impl WgpuFrom<&VertexBufferDescriptor> for OwnedWgpuVertexBufferDescriptor {
             .iter()
             .map(|a| a.wgpu_into())
             .collect::<Vec<wgpu::VertexAttributeDescriptor>>();
+
         OwnedWgpuVertexBufferDescriptor {
             step_mode: val.step_mode.wgpu_into(),
             stride: val.stride,

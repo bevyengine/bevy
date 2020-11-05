@@ -4,10 +4,9 @@ use bevy::prelude::*;
 /// and a system that prints a message whenever the event is received.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .init_resource::<EventTriggerState>()
-        .init_resource::<EventListenerState>()
         .add_system(event_trigger_system.system())
         .add_system(event_listener_system.system())
         .run();
@@ -43,14 +42,12 @@ fn event_trigger_system(
     }
 }
 
-#[derive(Default)]
-struct EventListenerState {
-    my_event_reader: EventReader<MyEvent>,
-}
-
 // prints events as they come in
-fn event_listener_system(mut state: ResMut<EventListenerState>, my_events: Res<Events<MyEvent>>) {
-    for my_event in state.my_event_reader.iter(&my_events) {
+fn event_listener_system(
+    mut my_event_reader: Local<EventReader<MyEvent>>,
+    my_events: Res<Events<MyEvent>>,
+) {
+    for my_event in my_event_reader.iter(&my_events) {
         println!("{}", my_event.message);
     }
 }
