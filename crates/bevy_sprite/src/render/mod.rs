@@ -13,8 +13,6 @@ use bevy_render::{
 };
 use bevy_type_registry::TypeUuid;
 
-use bevy_transform::prelude::GlobalTransform;
-
 pub const SPRITE_PIPELINE_HANDLE: Handle<PipelineDescriptor> =
     Handle::weak_from_u64(PipelineDescriptor::TYPE_UUID, 2785347840338765446);
 
@@ -118,7 +116,6 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
 }
 
 pub mod node {
-    pub const TRANSFORM: &str = "transform";
     pub const COLOR_MATERIAL: &str = "color_material";
     pub const SPRITE: &str = "sprite";
     pub const SPRITE_SHEET: &str = "sprite_sheet";
@@ -131,10 +128,6 @@ pub trait SpriteRenderGraphBuilder {
 
 impl SpriteRenderGraphBuilder for RenderGraph {
     fn add_sprite_graph(&mut self, resources: &Resources) -> &mut Self {
-        self.add_system_node(
-            node::TRANSFORM,
-            RenderResourcesNode::<GlobalTransform>::new(true),
-        );
         self.add_system_node(
             node::COLOR_MATERIAL,
             AssetRenderResourcesNode::<ColorMaterial>::new(false),

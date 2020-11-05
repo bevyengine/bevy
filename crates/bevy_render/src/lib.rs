@@ -95,7 +95,6 @@ impl Plugin for RenderPlugin {
 
         app.add_stage_after(bevy_asset::stage::ASSET_EVENTS, stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_RESOURCE, stage::RENDER_GRAPH_SYSTEMS)
-            // .disable_stage(stage::RENDER_RESOURCE)
             .add_stage_after(stage::RENDER_GRAPH_SYSTEMS, stage::DRAW)
             .add_stage_after(stage::DRAW, stage::RENDER)
             .add_stage_after(stage::RENDER, stage::POST_RENDER)
@@ -145,11 +144,11 @@ impl Plugin for RenderPlugin {
             )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
-                Texture::texture_resource_system.system(),
+                mesh::mesh_resource_provider_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_RESOURCE,
-                mesh::mesh_resource_provider_system.system(),
+                Texture::texture_resource_system.system(),
             )
             .add_system_to_stage(
                 stage::RENDER_GRAPH_SYSTEMS,
@@ -159,8 +158,8 @@ impl Plugin for RenderPlugin {
             .add_system_to_stage(
                 stage::POST_RENDER,
                 shader::clear_shader_defs_system.system(),
-            )
-            .add_system_to_stage(stage::POST_RENDER, flush_render_resource_context.system());
+            );
+            //.add_system_to_stage(stage::POST_RENDER, flush_render_resource_context.system());
 
         if app.resources().get::<Msaa>().is_none() {
             app.init_resource::<Msaa>();
