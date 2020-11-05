@@ -266,10 +266,7 @@ fn load_node(
     }
     // or create empty node
     else {
-        world_builder.spawn((
-            transform_matrix,
-            GlobalTransform::default(),
-        ))
+        world_builder.spawn((transform_matrix, GlobalTransform::default()))
     };
 
     world_builder.with_children(|parent| {
