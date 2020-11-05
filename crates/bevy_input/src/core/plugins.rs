@@ -20,9 +20,9 @@ use bevy_ecs::IntoQuerySystem;
 
 /// Adds input device support to an App
 #[derive(Debug, Default)]
-pub struct InputPlugins;
+pub struct InputPlugin;
 
-impl Plugin for InputPlugins {
+impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(KeyboardPlugin)
             .add_plugin(MousePlugin)
@@ -31,7 +31,7 @@ impl Plugin for InputPlugins {
     }
 }
 
-impl PluginGroup for InputPlugins {
+impl PluginGroup for InputPlugin {
     fn build(&mut self, group: &mut bevy_app::PluginGroupBuilder) {
         group
             .add(KeyboardPlugin)
@@ -50,9 +50,9 @@ impl Plugin for GamepadPlugin {
         app.add_event::<GamepadEvent>()
             .add_event::<GamepadEventRaw>()
             .init_resource::<GamepadSettings>()
-            .init_resource::<BinaryInput<GamepadButtonCode>>()
-            .init_resource::<Axis<GamepadAxisCode>>()
-            .init_resource::<Axis<GamepadButtonCode>>()
+            .init_resource::<BinaryInput<GamepadButton>>()
+            .init_resource::<Axis<GamepadAxis>>()
+            .init_resource::<Axis<GamepadButton>>()
             .add_system_to_stage(bevy_app::stage::EVENT, gamepad_event_system.system());
     }
 }

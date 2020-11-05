@@ -71,7 +71,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
+        mouse_button_input.just_pressed(MouseButtonCode::Left) || touches_input.just_released(0);
     let mut hovered_entity = None;
 
     {

@@ -8,7 +8,7 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_core::CorePlugin::default());
         group.add(bevy_transform::TransformPlugin::default());
         group.add(bevy_diagnostic::DiagnosticsPlugin::default());
-        group.add(bevy_input::InputPlugins::default());
+        group.add(bevy_input::InputPlugin::default());
         group.add(bevy_window::WindowPlugin::default());
         group.add(bevy_asset::AssetPlugin::default());
         group.add(bevy_scene::ScenePlugin::default());

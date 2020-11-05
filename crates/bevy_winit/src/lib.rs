@@ -259,7 +259,7 @@ pub fn winit_runner(mut app: App) {
                 },
                 WindowEvent::Touch(mut touch) => {
                     let mut touch_input_events =
-                        app.resources.get_mut::<Events<TouchInput>>().unwrap();
+                        app.resources.get_mut::<Events<TouchEvent>>().unwrap();
                     let windows = app.resources.get_mut::<Windows>().unwrap();
                     // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
                     if cfg!(target_os = "android") {
