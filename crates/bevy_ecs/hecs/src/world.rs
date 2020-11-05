@@ -102,7 +102,7 @@ impl World {
         unsafe {
             let index = archetype.allocate(entity);
             components.put(|ptr, ty, size| {
-                archetype.put_dynamic(ptr, ty, size, index, true);
+                archetype.put_dynamic(ptr, ty, size, index, true, false);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {
@@ -530,7 +530,7 @@ impl World {
                 // Update components in the current archetype
                 let arch = &mut self.archetypes[loc.archetype as usize];
                 components.put(|ptr, ty, size| {
-                    arch.put_dynamic(ptr, ty, size, loc.index, false);
+                    arch.put_dynamic(ptr, ty, size, loc.index, false, true);
                     true
                 });
                 return Ok(());
@@ -547,7 +547,7 @@ impl World {
             let old_index = mem::replace(&mut loc.index, target_index);
             if let Some(moved) =
                 source_arch.move_to(old_index, |ptr, ty, size, is_added, is_mutated| {
-                    target_arch.put_dynamic(ptr, ty, size, target_index, false);
+                    target_arch.put_dynamic(ptr, ty, size, target_index, false, false);
                     let type_state = target_arch.get_type_state_mut(ty).unwrap();
                     *type_state.added().as_ptr().add(target_index) = is_added;
                     *type_state.mutated().as_ptr().add(target_index) = is_mutated;
@@ -557,7 +557,8 @@ impl World {
             }
 
             components.put(|ptr, ty, size| {
-                target_arch.put_dynamic(ptr, ty, size, target_index, true);
+                let had_component = source_arch.has_dynamic(ty);
+                target_arch.put_dynamic(ptr, ty, size, target_index, !had_component, had_component);
                 true
             });
         }
@@ -1003,7 +1004,8 @@ where
         unsafe {
             let index = self.archetype.allocate(entity);
             components.put(|ptr, ty, size| {
-                self.archetype.put_dynamic(ptr, ty, size, index, true);
+                self.archetype
+                    .put_dynamic(ptr, ty, size, index, true, false);
                 true
             });
             self.entities.meta[entity.id as usize].location = Location {
