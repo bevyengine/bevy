@@ -12,9 +12,7 @@ pub use world::*;
 pub mod prelude {
     pub use crate::{
         resource::{ChangedRes, FromResources, Local, OrRes, Res, ResMut, Resource, Resources},
-        system::{
-            Commands, IntoForEachSystem, IntoQuerySystem, IntoThreadLocalSystem, Query, System,
-        },
+        system::{Commands, IntoSystem, IntoThreadLocalSystem, Query, System},
         world::WorldBuilderSource,
         Added, Bundle, Changed, Component, Entity, Mut, Mutated, Or, QuerySet, Ref, RefMut, With,
         Without, World,

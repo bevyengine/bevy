@@ -194,6 +194,18 @@ pub trait FetchResource<'a>: Sized {
     }
 }
 
+pub trait ResourceFetchSelf {
+    #[allow(clippy::missing_safety_doc)]
+    unsafe fn get(resources: &Resources, system_id: Option<SystemId>) -> Self;
+}
+
+impl<'a, Q: ResourceQuery<Fetch=F>, F: FetchResource<'a, Item=Q>> ResourceFetchSelf for Q {
+    unsafe fn get(resources: &Resources, system_id: Option<SystemId>) -> Q {
+        let resources: &'a Resources = std::mem::transmute(resources);
+        <Q::Fetch as FetchResource<'a>>::get(resources, system_id)
+    }
+}
+
 impl<'a, T: Resource> ResourceQuery for Res<'a, T> {
     type Fetch = FetchResourceRead<T>;
 }

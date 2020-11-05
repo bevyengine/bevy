@@ -31,7 +31,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::Plugin, AppBuilder};
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoSystem;
 use bevy_type_registry::RegisterType;
 
 /// Adds support for Assets to an App. Assets are typed collections with change tracking, which are added as App Resources.

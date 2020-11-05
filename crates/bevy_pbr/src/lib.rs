@@ -14,7 +14,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoSystem;
 use bevy_render::{prelude::Color, render_graph::RenderGraph, shader};
 use bevy_type_registry::RegisterType;
 use light::Light;

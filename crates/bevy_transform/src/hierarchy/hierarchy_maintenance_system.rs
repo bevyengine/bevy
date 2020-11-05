@@ -1,5 +1,5 @@
 use crate::components::*;
-use bevy_ecs::{Commands, Entity, IntoQuerySystem, Query, System, Without};
+use bevy_ecs::{Commands, Entity, IntoSystem, Query, System, Without};
 use bevy_utils::HashMap;
 use smallvec::SmallVec;
 

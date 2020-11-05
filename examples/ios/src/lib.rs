@@ -1,6 +1,6 @@
 use bevy::{
     prelude::{
-        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoQuerySystem,
+        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoSystem,
         LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial, Transform, Vec3,
         WindowDescriptor,
     },

@@ -17,9 +17,9 @@ pub trait QueryTuple {
 }
 
 impl<T: QueryTuple> QuerySet<T> {
-    pub fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
+    pub unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
         QuerySet {
-            value: unsafe { T::new(world, component_access) },
+            value: T::new(world, component_access),
         }
     }
 }

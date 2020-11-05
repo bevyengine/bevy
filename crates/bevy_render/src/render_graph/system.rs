@@ -10,6 +10,11 @@ pub fn render_graph_schedule_executor_system(world: &mut World, resources: &mut 
 
     commands.apply(world, resources);
     if let Some(schedule) = system_schedule.as_mut() {
+        schedule.run_on_systems(|system| {
+            if !system.is_initialized() {
+                system.initialize(world, resources);
+            }
+        });
         schedule.run(world, resources);
     }
     let mut render_graph = resources.get_mut::<RenderGraph>().unwrap();
