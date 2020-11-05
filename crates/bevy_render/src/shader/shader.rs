@@ -117,36 +117,43 @@ impl Shader {
     pub fn get_spirv(&self, macros: Option<&[String]>) -> Vec<u32> {
         match self.source {
             ShaderSource::Spirv(ref bytes) => bytes.clone(),
-            ShaderSource::Glsl(ref source) => glsl_to_spirv(&source, self.stage, macros),
+            ShaderSource::Glsl(ref source) => {
+                let mut new_source = format!("#version 450\n");
+                new_source.push_str(include_str!("common.glsl"));
+                new_source.push_str(source);
+                glsl_to_spirv(&new_source, self.stage, macros)
+            }
         }
     }
 
-    #[allow(unused_variables)]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
-        const WEBGL_300ES: &str = "#version 300 es";
-        #[cfg(not(target_arch = "wasm32"))]
-        let source = { ShaderSource::Spirv(self.get_spirv(macros)) };
-        #[cfg(target_arch = "wasm32")]
-        let source = {
-            let mut header = format!("{}\n", WEBGL_300ES);
-            if let Some(macros) = macros {
-                for m in macros.iter() {
-                    header.push_str(&format!("#define {}\n", m));
-                }
-            }
-            let postprocessed = if let ShaderSource::Glsl(source) = &self.source {
-                assert!(source.starts_with("#version"));
-                let eol_index = source.find('\n').expect("end of line");
+        let mut macros: Vec<String> = macros.unwrap_or(&[]).iter().cloned().collect();
+        macros.push("WGPU".to_string());
+        Shader {
+            source: ShaderSource::Spirv(self.get_spirv(Some(macros.as_slice()))),
+            stage: self.stage,
+        }
+    }
 
-                source.replace(WEBGL_300ES, &header)
-            } else {
-                panic!("spirv shader is not supported");
-            };
-            log::info!("macros: {:?} postprocessed: {:#?}", macros, postprocessed);
-            ShaderSource::Glsl(postprocessed)
+    #[cfg(target_arch = "wasm32")]
+    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
+        let mut macros: Vec<String> = macros.unwrap_or(&[]).iter().cloned().collect();
+        macros.push("WEBGL2".to_string());
+        let mut new_source = "#version 300 es\n".to_string();
+        for m in macros.iter() {
+            new_source.push_str("#define ");
+            new_source.push_str(m);
+            new_source.push('\n');
+        }
+        new_source.push_str(include_str!("common.glsl"));
+        if let ShaderSource::Glsl(source) = &self.source {
+            new_source.push_str(source);
+        } else {
+            panic!("spirv shader is not supported");
         };
         Shader {
-            source,
+            source: ShaderSource::Glsl(new_source),
             stage: self.stage,
         }
     }

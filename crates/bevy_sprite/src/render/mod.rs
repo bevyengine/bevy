@@ -2,7 +2,6 @@ use crate::{ColorMaterial, Sprite, TextureAtlas, TextureAtlasSprite};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::Resources;
 use bevy_render::{
-    glsl_source,
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
@@ -60,11 +59,11 @@ pub fn build_sprite_sheet_pipeline(shaders: &mut Assets<Shader>) -> PipelineDesc
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                glsl_source!("sprite_sheet.vert"),
+                include_str!("sprite_sheet.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                glsl_source!("sprite_sheet.frag"),
+                include_str!("sprite_sheet.frag"),
             ))),
         })
     }
@@ -108,11 +107,11 @@ pub fn build_sprite_pipeline(shaders: &mut Assets<Shader>) -> PipelineDescriptor
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                glsl_source!("sprite.vert"),
+                include_str!("sprite.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                glsl_source!("sprite.frag"),
+                include_str!("sprite.frag"),
             ))),
         })
     }

@@ -1,5 +1,3 @@
-#version 450
-
 const int MAX_LIGHTS = 10;
 
 struct Light {
@@ -8,28 +6,28 @@ struct Light {
     vec4 color;
 };
 
-layout(location = 0) in vec3 v_Position;
-layout(location = 1) in vec3 v_Normal;
-layout(location = 2) in vec2 v_Uv;
+LAYOUT(location = 0) in vec3 v_Position;
+LAYOUT(location = 1) in vec3 v_Normal;
+LAYOUT(location = 2) in vec2 v_Uv;
 
-layout(location = 0) out vec4 o_Target;
+LAYOUT(location = 0) out vec4 o_Target;
 
-layout(set = 0, binding = 0) uniform Camera {
+BLOCK_LAYOUT(set = 0, binding = 0) uniform Camera {
     mat4 ViewProj;
 };
 
-layout(set = 1, binding = 0) uniform Lights {
+BLOCK_LAYOUT(set = 1, binding = 0) uniform Lights {
     uvec4 NumLights;
     Light SceneLights[MAX_LIGHTS];
 };
 
-layout(set = 3, binding = 0) uniform StandardMaterial_albedo {
+BLOCK_LAYOUT(set = 3, binding = 0) uniform StandardMaterial_albedo {
     vec4 Albedo;
 };
 
 # ifdef STANDARDMATERIAL_ALBEDO_TEXTURE
-layout(set = 3, binding = 1) uniform texture2D StandardMaterial_albedo_texture;
-layout(set = 3, binding = 2) uniform sampler StandardMaterial_albedo_texture_sampler;
+UNIFORM_TEXTURE(set = 3, binding = 1, StandardMaterial_albedo_texture)
+UNIFORM_SAMPLER(set = 3, binding = 2, StandardMaterial_albedo_texture_sampler)
 # endif
 
 void main() {
@@ -57,5 +55,5 @@ void main() {
 # endif
 
     // multiply the light by material color
-    o_Target = output_color;
+    o_Target = encodeColor(output_color);
 }

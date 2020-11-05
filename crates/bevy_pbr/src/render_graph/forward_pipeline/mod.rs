@@ -1,6 +1,5 @@
 use bevy_asset::{Assets, Handle};
 use bevy_render::{
-    glsl_source,
     pipeline::{
         BlendDescriptor, BlendFactor, BlendOperation, ColorStateDescriptor, ColorWrite,
         CompareFunction, CullMode, DepthStencilStateDescriptor, FrontFace, PipelineDescriptor,
@@ -52,11 +51,11 @@ pub(crate) fn build_forward_pipeline(shaders: &mut Assets<Shader>) -> PipelineDe
         ..PipelineDescriptor::new(ShaderStages {
             vertex: shaders.add(Shader::from_glsl(
                 ShaderStage::Vertex,
-                glsl_source!("forward.vert"),
+                include_str!("forward.vert"),
             )),
             fragment: Some(shaders.add(Shader::from_glsl(
                 ShaderStage::Fragment,
-                glsl_source!("forward.frag"),
+                include_str!("forward.frag"),
             ))),
         })
     }
