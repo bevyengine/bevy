@@ -40,7 +40,7 @@ png = ["bevy_render/png"]
 hdr = ["bevy_render/hdr"]
 
 # Enable the dynamic systems and components API ( useful for developing scripting solutions )
-dynamic-api = ["bevy_ecs/dynamic-api", "bevy_scene/dynamic-api"]
+dynamic_api = ["bevy_ecs/dynamic_api", "bevy_scene/dynamic_api"]
 
 # Audio format support (MP3 is enabled by default)
 mp3 = ["bevy_audio/mp3"]
@@ -224,12 +224,12 @@ path = "examples/ecs/hierarchy.rs"
 [[example]]
 name = "dynamic_systems"
 path = "examples/ecs/dynamic_systems.rs"
-required-features = ["dynamic-api"]
+required-features = ["dynamic_api"]
 
 [[example]]
 name = "dynamic_components"
 path = "examples/ecs/dynamic_components.rs"
-required-features = ["dynamic-api"]
+required-features = ["dynamic_api"]
 
 [[example]]
 name = "breakout"

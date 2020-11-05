@@ -2,9 +2,9 @@ use crate::resource::Resources;
 use bevy_hecs::{ArchetypeComponent, ComponentId, TypeAccess, World};
 use std::borrow::Cow;
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 use crate::StatefulQuery;
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 use bevy_hecs::DynamicQuery;
 
 /// Determines the strategy used to run the `run_thread_local` function in a [System]
@@ -37,7 +37,7 @@ pub trait System: Send + Sync {
     fn initialize(&mut self, _world: &mut World, _resources: &mut Resources) {}
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 pub struct DynamicSystem<S> {
     pub name: String,
     pub state: S,
@@ -48,7 +48,7 @@ pub struct DynamicSystem<S> {
     settings: DynamicSystemSettings<S>,
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 pub struct DynamicSystemSettings<S> {
     pub workload: fn(&mut S, &Resources, &mut [StatefulQuery<DynamicQuery, DynamicQuery>]),
     pub queries: Vec<DynamicQuery>,
@@ -58,7 +58,7 @@ pub struct DynamicSystemSettings<S> {
     pub resource_access: TypeAccess<ComponentId>,
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl<S> Default for DynamicSystemSettings<S> {
     fn default() -> Self {
         Self {
@@ -72,7 +72,7 @@ impl<S> Default for DynamicSystemSettings<S> {
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl<S> DynamicSystem<S> {
     pub fn new(name: String, state: S) -> Self {
         DynamicSystem {
@@ -92,7 +92,7 @@ impl<S> DynamicSystem<S> {
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl<S: Send + Sync> System for DynamicSystem<S> {
     fn name(&self) -> std::borrow::Cow<'static, str> {
         self.name.clone().into()

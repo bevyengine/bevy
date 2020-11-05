@@ -81,7 +81,7 @@ impl EntityBuilder {
     }
 
     /// Add a dynamic component given the component ID, the layout and the raw data slice
-    #[cfg(feature = "dynamic-api")]
+    #[cfg(feature = "dynamic_api")]
     pub fn add_dynamic(&mut self, info: TypeInfo, data: &[u8]) -> &mut Self {
         self.add_with_typeinfo(info, data, false);
         self
@@ -231,10 +231,10 @@ impl Drop for BuiltEntity<'_> {
 
 #[cfg(test)]
 mod test {
-    #[cfg(feature = "dynamic-api")]
+    #[cfg(feature = "dynamic_api")]
     use super::*;
 
-    #[cfg(feature = "dynamic-api")]
+    #[cfg(feature = "dynamic_api")]
     #[test]
     #[should_panic(expected = "Data length does not match component size")]
     fn dynamic_data_invalid_length_panics() {

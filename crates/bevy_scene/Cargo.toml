@@ -13,7 +13,7 @@ license = "MIT"
 keywords = ["bevy"]
 
 [features]
-dynamic-api = ["bevy_ecs/dynamic-api"]
+dynamic_api = ["bevy_ecs/dynamic_api"]
 
 [dependencies]
 # bevy

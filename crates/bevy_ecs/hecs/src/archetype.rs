@@ -526,7 +526,7 @@ impl TypeInfo {
     }
 
     /// Get the [`TypeInfo`] for an external type with the given layout and drop function
-    #[cfg(feature = "dynamic-api")]
+    #[cfg(feature = "dynamic_api")]
     pub fn of_external(external_id: u64, layout: Layout, drop: unsafe fn(*mut u8)) -> Self {
         TypeInfo {
             id: ComponentId::ExternalId(external_id),

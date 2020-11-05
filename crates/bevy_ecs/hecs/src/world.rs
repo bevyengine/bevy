@@ -637,7 +637,7 @@ impl World {
             let arch = &mut self.archetypes[loc.archetype as usize];
             let mut info = arch.types().to_vec();
             for ty in components.type_info() {
-                #[cfg(feature = "dynamic-api")]
+                #[cfg(feature = "dynamic_api")]
                 // If this is a dynamic component
                 if let ComponentId::ExternalId(id) = ty.id() {
                     // If we've previously registered a component under this ID
@@ -1038,12 +1038,12 @@ impl From<MissingComponent> for ComponentError {
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 use std::{cmp::Ordering, hash::Hasher};
 
 /// Uniquely identifies a type of component. This is conceptually similar to
 /// Rust's [`TypeId`], but allows for external type IDs to be defined.
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum ComponentId {
     /// A Rust-native [`TypeId`]
@@ -1053,7 +1053,7 @@ pub enum ComponentId {
     ExternalId(u64),
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 #[allow(clippy::derive_hash_xor_eq)] // Fine because we uphold k1 == k2 ⇒ hash(k1) == hash(k2)
 impl Hash for ComponentId {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -1068,7 +1068,7 @@ impl Hash for ComponentId {
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl Ord for ComponentId {
     fn cmp(&self, other: &Self) -> Ordering {
         if self == other {
@@ -1090,14 +1090,14 @@ impl Ord for ComponentId {
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl PartialOrd for ComponentId {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(feature = "dynamic-api")]
+#[cfg(feature = "dynamic_api")]
 impl From<TypeId> for ComponentId {
     fn from(item: TypeId) -> Self {
         ComponentId::RustTypeId(item)
@@ -1106,12 +1106,12 @@ impl From<TypeId> for ComponentId {
 
 /// A component identifier
 ///
-/// Without the `dynamic-api` feature enabled, this is just a newtype around a Rust [`TypeId`].
-#[cfg(not(feature = "dynamic-api"))]
+/// Without the `dynamic_api` feature enabled, this is just a newtype around a Rust [`TypeId`].
+#[cfg(not(feature = "dynamic_api"))]
 #[derive(Eq, PartialEq, Debug, Hash, Ord, PartialOrd, Clone, Copy)]
 pub struct ComponentId(pub TypeId);
 
-#[cfg(not(feature = "dynamic-api"))]
+#[cfg(not(feature = "dynamic_api"))]
 impl From<TypeId> for ComponentId {
     fn from(item: TypeId) -> Self {
         ComponentId(item)
@@ -1264,7 +1264,7 @@ where
 mod test {
     #[test]
     #[should_panic(expected = "Attempted to insert dynamic component with a different layout")]
-    #[cfg(feature = "dynamic-api")]
+    #[cfg(feature = "dynamic_api")]
     fn inconsistent_dynamic_component_info_panics() {
         use super::*;
         use crate::EntityBuilder;
