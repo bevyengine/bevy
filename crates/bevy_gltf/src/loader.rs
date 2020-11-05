@@ -213,6 +213,7 @@ fn load_node(
     buffer_data: &[Vec<u8>],
 ) -> Result<(), GltfError> {
     let transform = node.transform();
+    let transform_matrix = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
     let mut gltf_error = None;
 
     // create camera node
@@ -235,9 +236,7 @@ fn load_node(
                         projection_matrix: projection.get_projection_matrix(),
                         ..Default::default()
                     },
-                    transform: Transform::from_matrix(Mat4::from_cols_array_2d(
-                        &transform.matrix(),
-                    )),
+                    transform: transform_matrix,
                     orthographic_projection: projection,
                     ..Default::default()
                 })
@@ -258,9 +257,7 @@ fn load_node(
                         projection_matrix: projection.get_projection_matrix(),
                         ..Default::default()
                     },
-                    transform: Transform::from_matrix(Mat4::from_cols_array_2d(
-                        &transform.matrix(),
-                    )),
+                    transform: transform_matrix,
                     perspective_projection: projection,
                     ..Default::default()
                 })
@@ -270,7 +267,7 @@ fn load_node(
     // or create empty node
     else {
         world_builder.spawn((
-            Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
+            transform_matrix,
             GlobalTransform::default(),
         ))
     };
