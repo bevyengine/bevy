@@ -1,4 +1,4 @@
-use crate::Input;
+use crate::{ElementState, Input};
 use bevy_app::prelude::*;
 use bevy_ecs::{Local, Res, ResMut};
 
@@ -8,19 +8,6 @@ pub struct KeyboardInput {
     pub scan_code: u32,
     pub key_code: Option<KeyCode>,
     pub state: ElementState,
-}
-
-/// The current "press" state of an element
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ElementState {
-    Pressed,
-    Released,
-}
-
-impl ElementState {
-    pub fn is_pressed(&self) -> bool {
-        matches!(self, ElementState::Pressed)
-    }
 }
 
 /// State used by the keyboard input system

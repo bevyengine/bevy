@@ -433,7 +433,7 @@ fn render_resources_node_system<T: RenderResources>(
     let render_resource_context = &**render_resource_context;
     uniform_buffer_arrays.begin_update();
     // initialize uniform buffer arrays using the first RenderResources
-    if let Some((_, first, _, _)) = query.iter().iter().next() {
+    if let Some((_, first, _, _)) = query.iter_mut().next() {
         uniform_buffer_arrays.initialize(first);
     }
 
@@ -441,7 +441,7 @@ fn render_resources_node_system<T: RenderResources>(
         uniform_buffer_arrays.remove_bindings(*entity);
     }
 
-    for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
+    for (entity, uniforms, draw, mut render_pipelines) in query.iter_mut() {
         if !draw.is_visible {
             continue;
         }
@@ -463,7 +463,7 @@ fn render_resources_node_system<T: RenderResources>(
             staging_buffer,
             0..state.uniform_buffer_arrays.staging_buffer_size as u64,
             &mut |mut staging_buffer, _render_resource_context| {
-                for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
+                for (entity, uniforms, draw, mut render_pipelines) in query.iter_mut() {
                     if !draw.is_visible {
                         continue;
                     }
@@ -487,7 +487,7 @@ fn render_resources_node_system<T: RenderResources>(
     } else {
         // TODO: can we just remove this?
         let mut staging_buffer: [u8; 0] = [];
-        for (entity, uniforms, draw, mut render_pipelines) in &mut query.iter() {
+        for (entity, uniforms, draw, mut render_pipelines) in query.iter_mut() {
             if !draw.is_visible {
                 continue;
             }
@@ -640,7 +640,7 @@ fn asset_render_resources_node_system<T: RenderResources + Asset>(
         }
     }
 
-    for (asset_handle, draw, mut render_pipelines) in &mut query.iter() {
+    for (asset_handle, draw, mut render_pipelines) in query.iter_mut() {
         if !draw.is_visible {
             continue;
         }

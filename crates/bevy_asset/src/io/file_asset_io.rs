@@ -50,10 +50,10 @@ impl AssetIo for FileAssetIo {
                     file.read_to_end(&mut bytes)?;
                 }
                 Err(e) => {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        return Err(AssetIoError::NotFound(path.to_owned()));
+                    return if e.kind() == std::io::ErrorKind::NotFound {
+                        Err(AssetIoError::NotFound(path.to_owned()))
                     } else {
-                        return Err(e.into());
+                        Err(e.into())
                     }
                 }
             }
@@ -103,7 +103,10 @@ impl AssetIo for FileAssetIo {
     }
 }
 
-#[cfg(all(feature = "filesystem_watcher", not(target_arch = "wasm32")))]
+#[cfg(all(
+    feature = "filesystem_watcher",
+    all(not(target_arch = "wasm32"), not(target_os = "android"))
+))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
     let mut changed = HashSet::default();
     let asset_io =

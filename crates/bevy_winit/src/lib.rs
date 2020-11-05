@@ -261,9 +261,15 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                 },
-                WindowEvent::Touch(touch) => {
+                WindowEvent::Touch(mut touch) => {
                     let mut touch_input_events =
                         app.resources.get_mut::<Events<TouchInput>>().unwrap();
+                    let windows = app.resources.get_mut::<Windows>().unwrap();
+                    // FIXME?: On Android window start is top while on PC/Linux/OSX on bottom
+                    if cfg!(target_os = "android") {
+                        let window_height = windows.get_primary().unwrap().height();
+                        touch.location.y = window_height as f64 - touch.location.y;
+                    }
                     touch_input_events.send(converters::convert_touch_input(touch));
                 }
                 _ => {}

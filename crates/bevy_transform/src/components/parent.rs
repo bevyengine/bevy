@@ -26,7 +26,7 @@ impl MapEntities for Parent {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct PreviousParent(pub Option<Entity>);
+pub struct PreviousParent(pub Entity);
 
 impl Deref for Parent {
     type Target = Entity;

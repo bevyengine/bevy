@@ -23,11 +23,11 @@ impl ActiveCameras {
 
 pub fn active_cameras_system(
     mut active_cameras: ResMut<ActiveCameras>,
-    mut query: Query<(Entity, &Camera)>,
+    query: Query<(Entity, &Camera)>,
 ) {
     for (name, active_camera) in active_cameras.cameras.iter_mut() {
         if active_camera.is_none() {
-            for (camera_entity, camera) in &mut query.iter() {
+            for (camera_entity, camera) in query.iter() {
                 if let Some(ref current_name) = camera.name {
                     if current_name == name {
                         *active_camera = Some(camera_entity);

@@ -17,6 +17,7 @@ pub mod prelude {
         },
         keyboard::KeyCode,
         mouse::MouseButton,
+        touch::{TouchInput, Touches},
         Axis, Input,
     };
 }
@@ -26,6 +27,7 @@ use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
+use bevy_app::startup_stage::STARTUP;
 use bevy_ecs::IntoQuerySystem;
 use gamepad::{
     gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
@@ -53,8 +55,22 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
             .add_system_to_stage(bevy_app::stage::EVENT, gamepad_event_system.system())
+            .add_startup_system_to_stage(STARTUP, gamepad_event_system.system())
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(bevy_app::stage::EVENT, touch_screen_input_system.system());
+    }
+}
+
+/// The current "press" state of an element
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ElementState {
+    Pressed,
+    Released,
+}
+
+impl ElementState {
+    pub fn is_pressed(&self) -> bool {
+        matches!(self, ElementState::Pressed)
     }
 }

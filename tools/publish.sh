@@ -19,10 +19,10 @@ crates=(
     bevy_transform
     bevy_window
     bevy_render
-    bevy_gltf
     bevy_input
     bevy_gilrs
     bevy_pbr
+    bevy_gltf
     bevy_scene
     bevy_sprite
     bevy_text
@@ -35,8 +35,8 @@ cd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  (cd $crate; cargo publish)
-  sleep 15
+  (cd $crate; cargo publish --no-verify)
+  sleep 20
 done
 
 cd ..

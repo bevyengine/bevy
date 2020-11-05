@@ -4,10 +4,9 @@ use bevy_utils::HashSet;
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .init_resource::<GamepadLobby>()
-        .add_startup_system(connection_system.system())
-        .add_system(connection_system.system())
+        .add_system_to_stage(stage::PRE_UPDATE, connection_system.system())
         .add_system(gamepad_system.system())
         .run();
 }

@@ -160,10 +160,10 @@ unsafe impl Sync for FlexSurface {}
 pub fn flex_node_system(
     windows: Res<Windows>,
     mut flex_surface: ResMut<FlexSurface>,
-    mut root_node_query: Query<With<Node, Without<Parent, Entity>>>,
-    mut node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
-    mut changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
-    mut children_query: Query<With<Node, (Entity, Changed<Children>)>>,
+    root_node_query: Query<With<Node, Without<Parent, Entity>>>,
+    node_query: Query<With<Node, (Entity, Changed<Style>, Option<&CalculatedSize>)>>,
+    changed_size_query: Query<With<Node, (Entity, &Style, Changed<CalculatedSize>)>>,
+    children_query: Query<With<Node, (Entity, Changed<Children>)>>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
 ) {
     // update window root nodes
@@ -172,7 +172,7 @@ pub fn flex_node_system(
     }
 
     // update changed nodes
-    for (entity, style, calculated_size) in &mut node_query.iter() {
+    for (entity, style, calculated_size) in node_query.iter() {
         // TODO: remove node from old hierarchy if its root has changed
         if let Some(calculated_size) = calculated_size {
             flex_surface.upsert_leaf(entity, &style, *calculated_size);
@@ -181,7 +181,7 @@ pub fn flex_node_system(
         }
     }
 
-    for (entity, style, calculated_size) in &mut changed_size_query.iter() {
+    for (entity, style, calculated_size) in changed_size_query.iter() {
         flex_surface.upsert_leaf(entity, &style, *calculated_size);
     }
 
@@ -189,18 +189,18 @@ pub fn flex_node_system(
 
     // update window children (for now assuming all Nodes live in the primary window)
     if let Some(primary_window) = windows.get_primary() {
-        flex_surface.set_window_children(primary_window.id(), root_node_query.iter().iter());
+        flex_surface.set_window_children(primary_window.id(), root_node_query.iter());
     }
 
     // update children
-    for (entity, children) in &mut children_query.iter() {
+    for (entity, children) in children_query.iter() {
         flex_surface.update_children(entity, &children);
     }
 
     // compute layouts
     flex_surface.compute_window_layouts();
 
-    for (entity, mut node, mut transform, parent) in &mut node_transform_query.iter() {
+    for (entity, mut node, mut transform, parent) in node_transform_query.iter_mut() {
         let layout = flex_surface.get_layout(entity).unwrap();
         node.size = Vec2::new(layout.size.width, layout.size.height);
         let position = &mut transform.translation;

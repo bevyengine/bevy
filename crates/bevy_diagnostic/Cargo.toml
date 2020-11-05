@@ -1,6 +1,6 @@
 [package]
 name = "bevy_diagnostic"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2018"
 authors = [
     "Bevy Contributors <bevyengine@gmail.com>",
@@ -17,10 +17,10 @@ profiler = ["bevy_ecs/profiler"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.2.1" }
-bevy_core = { path = "../bevy_core", version = "0.2.1" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.2.1" }
-bevy_utils = { path = "../bevy_utils", version = "0.2.1" }
+bevy_app = { path = "../bevy_app", version = "0.3.0" }
+bevy_core = { path = "../bevy_core", version = "0.3.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 # other
 uuid = { version = "0.8", features = ["v4", "serde"] }

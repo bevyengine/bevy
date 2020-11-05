@@ -3,7 +3,7 @@ use bevy::prelude::*;
 /// This example illustrates how to create a button that changes color and text based on its interaction state.
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .init_resource::<ButtonMaterials>()
         .add_startup_system(setup.system())
         .add_system(button_system.system())
@@ -35,10 +35,10 @@ fn button_system(
         &mut Handle<ColorMaterial>,
         &Children,
     )>,
-    text_query: Query<&mut Text>,
+    mut text_query: Query<&mut Text>,
 ) {
-    for (_button, interaction, mut material, children) in &mut interaction_query.iter() {
-        let mut text = text_query.get_mut::<Text>(children[0]).unwrap();
+    for (_button, interaction, mut material, children) in interaction_query.iter_mut() {
+        let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Clicked => {
                 text.value = "Press".to_string();

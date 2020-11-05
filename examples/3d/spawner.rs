@@ -10,7 +10,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 /// NOTE: Bevy still has a number of optimizations to do in this area. Expect the performance here to go way up in the future
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(PrintDiagnosticsPlugin::default())
         .add_startup_system(setup.system())
@@ -23,7 +23,7 @@ fn move_cubes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut query: Query<(&mut Transform, &Handle<StandardMaterial>)>,
 ) {
-    for (mut transform, material_handle) in &mut query.iter() {
+    for (mut transform, material_handle) in query.iter_mut() {
         let material = materials.get_mut(material_handle).unwrap();
         transform.translation += Vec3::new(1.0, 0.0, 0.0) * time.delta_seconds;
         material.albedo =

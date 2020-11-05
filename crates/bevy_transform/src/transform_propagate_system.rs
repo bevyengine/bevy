@@ -2,15 +2,26 @@ use crate::components::*;
 use bevy_ecs::prelude::*;
 
 pub fn transform_propagate_system(
-    mut root_query: Query<Without<Parent, (Option<&Children>, &Transform, &mut GlobalTransform)>>,
-    mut transform_query: Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
+    mut root_query: Query<
+        Without<
+            Parent,
+            With<GlobalTransform, (Option<&Children>, &Transform, &mut GlobalTransform)>,
+        >,
+    >,
+    mut transform_query: Query<With<Parent, (&Transform, &mut GlobalTransform)>>,
+    children_query: Query<With<Parent, With<GlobalTransform, Option<&Children>>>>,
 ) {
-    for (children, transform, mut global_transform) in &mut root_query.iter() {
+    for (children, transform, mut global_transform) in root_query.iter_mut() {
         *global_transform = GlobalTransform::from(*transform);
 
         if let Some(children) = children {
             for child in children.0.iter() {
-                propagate_recursive(&global_transform, &mut transform_query, *child);
+                propagate_recursive(
+                    &global_transform,
+                    &mut transform_query,
+                    &children_query,
+                    *child,
+                );
             }
         }
     }
@@ -18,16 +29,14 @@ pub fn transform_propagate_system(
 
 fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<(&Transform, &mut GlobalTransform, Option<&Children>)>,
+    transform_query: &mut Query<With<Parent, (&Transform, &mut GlobalTransform)>>,
+    children_query: &Query<With<Parent, With<GlobalTransform, Option<&Children>>>>,
     entity: Entity,
 ) {
     log::trace!("Updating Transform for {:?}", entity);
 
     let global_matrix = {
-        if let (Ok(transform), Ok(mut global_transform)) = (
-            transform_query.get::<Transform>(entity),
-            transform_query.get_mut::<GlobalTransform>(entity),
-        ) {
+        if let Ok((transform, mut global_transform)) = transform_query.get_mut(entity) {
             *global_transform = parent.mul_transform(*transform);
             *global_transform
         } else {
@@ -35,14 +44,10 @@ fn propagate_recursive(
         }
     };
 
-    // Collect children
-    let children = transform_query
-        .get::<Children>(entity)
-        .map(|e| e.0.iter().cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    for child in children {
-        propagate_recursive(&global_matrix, transform_query, child);
+    if let Ok(Some(children)) = children_query.get(entity) {
+        for child in children.0.iter() {
+            propagate_recursive(&global_matrix, transform_query, children_query, *child);
+        }
     }
 }
 

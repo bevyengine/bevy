@@ -1,4 +1,4 @@
-use super::{IndexFormat, PipelineDescriptor, PipelineSpecialization};
+use super::{PipelineDescriptor, PipelineSpecialization};
 use crate::{
     draw::{Draw, DrawContext},
     mesh::{Indices, Mesh},
@@ -79,7 +79,7 @@ pub fn draw_render_pipelines_system(
     meshes: Res<Assets<Mesh>>,
     mut query: Query<(&mut Draw, &mut RenderPipelines, &Handle<Mesh>)>,
 ) {
-    for (mut draw, mut render_pipelines, mesh_handle) in &mut query.iter() {
+    for (mut draw, mut render_pipelines, mesh_handle) in query.iter_mut() {
         if !draw.is_visible {
             continue;
         }
@@ -91,16 +91,16 @@ pub fn draw_render_pipelines_system(
             continue;
         };
 
-        let (index_range, index_format) = match mesh.indices.as_ref() {
-            Some(Indices::U32(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint32),
-            Some(Indices::U16(indices)) => (Some(0..indices.len() as u32), IndexFormat::Uint16),
-            None => (None, IndexFormat::Uint32),
+        let index_range = match mesh.indices() {
+            Some(Indices::U32(indices)) => Some(0..indices.len() as u32),
+            Some(Indices::U16(indices)) => Some(0..indices.len() as u32),
+            None => None,
         };
 
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
-            pipeline.specialization.index_format = index_format;
+            // TODO: move these to mesh.rs?
         }
 
         for render_pipeline in render_pipelines.pipelines.iter() {
@@ -123,6 +123,7 @@ pub fn draw_render_pipelines_system(
             draw_context
                 .set_vertex_buffers_from_bindings(&mut draw, &[&render_pipelines.bindings])
                 .unwrap();
+
             if let Some(indices) = index_range.clone() {
                 draw.draw_indexed(indices, 0, 0..1);
             }

@@ -21,7 +21,7 @@ pub fn image_node_system(
     textures: Res<Assets<Texture>>,
     mut query: Query<(&Image, &mut CalculatedSize, &Handle<ColorMaterial>)>,
 ) {
-    for (_image, mut calculated_size, material_handle) in &mut query.iter() {
+    for (_image, mut calculated_size, material_handle) in query.iter_mut() {
         if let Some(texture) = materials
             .get(material_handle)
             .and_then(|material| material.texture.as_ref())

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::build()
         .add_resource(Msaa { samples: 4 })
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .run();
 }
@@ -23,7 +23,7 @@ fn setup(
     if let Some(sphere) = meshes.get(&sphere_handle) {
         // You might notice that this doesn't run! This is because assets load in parallel without blocking.
         // When an asset has loaded, it will appear in relevant Assets<T> collection.
-        println!("{:?}", sphere.primitive_topology);
+        println!("{:?}", sphere.primitive_topology());
     } else {
         println!("sphere hasn't loaded yet");
     }

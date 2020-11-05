@@ -3,7 +3,7 @@ use bevy::{prelude::*, type_registry::TypeRegistry};
 /// This example illustrates loading and saving scenes from files
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         // Registering components informs Bevy that they exist. This allows them to be used when loading scenes
         // This step is only required if you want to load your components from scene files.
         // Unregistered components can still be used in your code, but they will be ignored during scene save/load.
@@ -65,8 +65,8 @@ fn load_scene_system(asset_server: Res<AssetServer>, mut scene_spawner: ResMut<S
 
 // This system prints all ComponentA components in our world. Try making a change to a ComponentA in load_scene_example.scn.
 // You should immediately see the changes appear in the console.
-fn print_system(mut query: Query<(Entity, Changed<ComponentA>)>) {
-    for (entity, component_a) in &mut query.iter() {
+fn print_system(query: Query<(Entity, Changed<ComponentA>)>) {
+    for (entity, component_a) in query.iter() {
         println!("  Entity({})", entity.id());
         println!(
             "    ComponentA: {{ x: {} y: {} }}\n",

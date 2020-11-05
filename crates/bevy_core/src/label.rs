@@ -70,10 +70,10 @@ pub(crate) fn entity_labels_system(
     mut entity_labels: ResMut<EntityLabels>,
     // TODO: use change tracking when add/remove events are added
     // mut query: Query<(Entity, Changed<Labels>)>,
-    mut query: Query<(Entity, &Labels)>,
+    query: Query<(Entity, &Labels)>,
 ) {
     let entity_labels = entity_labels.deref_mut();
-    for (entity, labels) in &mut query.iter() {
+    for (entity, labels) in query.iter() {
         let current_labels = entity_labels
             .entity_labels
             .entry(entity)

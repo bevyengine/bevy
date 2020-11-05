@@ -2,7 +2,7 @@ use crate::Node;
 use bevy_app::{EventReader, Events};
 use bevy_core::FloatOrd;
 use bevy_ecs::prelude::*;
-use bevy_input::{mouse::MouseButton, Input};
+use bevy_input::{mouse::MouseButton, touch::Touches, Input};
 use bevy_math::Vec2;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::CursorMoved;
@@ -43,6 +43,7 @@ pub fn ui_focus_system(
     mut state: Local<State>,
     mouse_button_input: Res<Input<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
+    touches_input: Res<Touches>,
     mut node_query: Query<(
         Entity,
         &Node,
@@ -54,10 +55,12 @@ pub fn ui_focus_system(
     if let Some(cursor_moved) = state.cursor_moved_event_reader.latest(&cursor_moved_events) {
         state.cursor_position = cursor_moved.position;
     }
+    if let Some(touch) = touches_input.get_pressed(0) {
+        state.cursor_position = touch.position;
+    }
 
-    if mouse_button_input.just_released(MouseButton::Left) {
-        for (_entity, _node, _global_transform, interaction, _focus_policy) in
-            &mut node_query.iter()
+    if mouse_button_input.just_released(MouseButton::Left) || touches_input.just_released(0) {
+        for (_entity, _node, _global_transform, interaction, _focus_policy) in node_query.iter_mut()
         {
             if let Some(mut interaction) = interaction {
                 if *interaction == Interaction::Clicked {
@@ -67,13 +70,13 @@ pub fn ui_focus_system(
         }
     }
 
-    let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left);
+    let mouse_clicked =
+        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.just_released(0);
     let mut hovered_entity = None;
 
     {
-        let mut query_iter = node_query.iter();
-        let mut moused_over_z_sorted_nodes = query_iter
-            .iter()
+        let mut moused_over_z_sorted_nodes = node_query
+            .iter_mut()
             .filter_map(
                 |(entity, node, global_transform, interaction, focus_policy)| {
                     let position = global_transform.translation;
@@ -126,7 +129,9 @@ pub fn ui_focus_system(
     if let Some(new_hovered_entity) = hovered_entity {
         if let Some(old_hovered_entity) = state.hovered_entity {
             if new_hovered_entity != old_hovered_entity {
-                if let Ok(mut interaction) = node_query.get_mut::<Interaction>(old_hovered_entity) {
+                if let Ok(mut interaction) =
+                    node_query.get_component_mut::<Interaction>(old_hovered_entity)
+                {
                     if *interaction == Interaction::Hovered {
                         *interaction = Interaction::None;
                     }

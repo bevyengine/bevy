@@ -27,7 +27,7 @@ fn spawn_system(
 // Move sprites according to their velocity
 fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
-    // ComputeTaskPool using batches of 32 sprties
+    // ComputeTaskPool using batches of 32 sprites
     //
     // This example is only for demonstrative purposes.  Using a
     // ParallelIterator for an inexpensive operation like addition on only 128
@@ -35,14 +35,13 @@ fn move_system(pool: Res<ComputeTaskPool>, mut sprites: Query<(&mut Transform, &
     // See the ParallelIterator documentation for more information on when
     // to use or not use ParallelIterator over a normal Iterator.
     sprites
-        .iter()
-        .par_iter(32)
+        .par_iter_mut(32)
         .for_each(&pool, |(mut transform, velocity)| {
             transform.translation += velocity.0.extend(0.0);
         });
 }
 
-// Bounce sprties outside the window
+// Bounce sprites outside the window
 fn bounce_system(
     pool: Res<ComputeTaskPool>,
     windows: Res<Windows>,
@@ -56,10 +55,9 @@ fn bounce_system(
     let bottom = height as f32 / -2.0;
     let top = height as f32 / 2.0;
     sprites
-        .iter()
         // Batch size of 32 is chosen to limit the overhead of
         // ParallelIterator, since negating a vector is very inexpensive.
-        .par_iter(32)
+        .par_iter_mut(32)
         // Filter out sprites that don't need to be bounced
         .filter(|(transform, _)| {
             !(left < transform.translation.x()
@@ -75,7 +73,7 @@ fn bounce_system(
 
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(spawn_system.system())
         .add_system(move_system.system())
         .add_system(bounce_system.system())

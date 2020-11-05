@@ -16,7 +16,7 @@ impl<'a, 'b> WorldChildBuilder<'a, 'b> {
             .expect("There should always be a parent at this point.");
         self.world_builder
             .spawn(components)
-            .with_bundle((Parent(parent_entity), PreviousParent(Some(parent_entity))));
+            .with_bundle((Parent(parent_entity), PreviousParent(parent_entity)));
         let entity = self.world_builder.current_entity.unwrap();
         {
             let world = &mut self.world_builder.world;
