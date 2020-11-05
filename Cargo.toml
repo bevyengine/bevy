@@ -107,7 +107,7 @@ bevy_sprite = { path = "crates/bevy_sprite", optional = true, version = "0.3.0" 
 bevy_text = { path = "crates/bevy_text", optional = true, version = "0.3.0" }
 bevy_ui = { path = "crates/bevy_ui", optional = true, version = "0.3.0" }
 bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.3.0" }
-bevy_webgl2 = { path = "crates/bevy_webgl2", optional = true, version = "0.2.1" }
+bevy_webgl2 = { path = "crates/bevy_webgl2", optional = true, version = "0.3.0" }
 bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.3.0" }
 bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.3.0" }
 log = { version = "0.4", features = ["release_max_level_info"] }
