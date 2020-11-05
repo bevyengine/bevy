@@ -12,7 +12,7 @@ The release number or commit hash of the version you're using.
 
 **Operating system & version**
 
-E.g Windows 10, Ubuntu 18.04, iOS 14.
+Ex: Windows 10, Ubuntu 18.04, iOS 14.
 
 **What you did**
 
