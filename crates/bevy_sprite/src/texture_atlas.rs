@@ -8,7 +8,7 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_type_registry::TypeUuid;
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap)
 #[derive(Debug, RenderResources, TypeUuid)]
@@ -22,7 +22,7 @@ pub struct TextureAtlas {
     #[render_resources(buffer)]
     pub textures: Vec<Rect>,
     #[render_resources(ignore)]
-    pub texture_handles: Option<AhashMap<Handle<Texture>, usize>>,
+    pub texture_handles: Option<HashMap<Handle<Texture>, usize>>,
 }
 
 // NOTE: cannot do `unsafe impl Byteable` here because Vec3 takes up the space of a Vec4. If/when glam changes this we can swap out

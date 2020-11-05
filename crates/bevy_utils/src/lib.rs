@@ -13,7 +13,7 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 /// intended for use in in-memory hashmaps.
 ///
 /// Ahash is designed for performance and is NOT cryptographically secure.
-pub type AhashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
+pub type HashMap<K, V> = std::collections::HashMap<K, V, RandomState>;
 
 pub trait AhashExt {
     fn new() -> Self;
@@ -21,7 +21,7 @@ pub trait AhashExt {
     fn with_capacity(capacity: usize) -> Self;
 }
 
-impl<K, V> AhashExt for AhashMap<K, V> {
+impl<K, V> AhashExt for HashMap<K, V> {
     /// Creates an empty `HashMap` with Ahash.
     ///
     /// The hash map is initially created with a capacity of 0, so it will not
@@ -30,8 +30,8 @@ impl<K, V> AhashExt for AhashMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{AhashMap, AhashExt};
-    /// let mut map: AhashMap<&str, i32> = AhashMap::new();
+    /// use bevy_utils::{HashMap, AhashExt};
+    /// let mut map: HashMap<&str, i32> = HashMap::new();
     /// ```
     #[inline]
     fn new() -> Self {
@@ -46,12 +46,12 @@ impl<K, V> AhashExt for AhashMap<K, V> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{AhashMap, AhashExt};
-    /// let mut map: AhashMap<&str, i32> = AhashMap::with_capacity(10);
+    /// use bevy_utils::{HashMap, AhashExt};
+    /// let mut map: HashMap<&str, i32> = HashMap::with_capacity(10);
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        AhashMap::with_capacity_and_hasher(capacity, RandomState::default())
+        HashMap::with_capacity_and_hasher(capacity, RandomState::default())
     }
 }
 
@@ -59,9 +59,9 @@ impl<K, V> AhashExt for AhashMap<K, V> {
 /// intended for use in in-memory hashmaps.
 ///
 /// Ahash is designed for performance and is NOT cryptographically secure.
-pub type AhashSet<K> = std::collections::HashSet<K, RandomState>;
+pub type HashSet<K> = std::collections::HashSet<K, RandomState>;
 
-impl<K> AhashExt for AhashSet<K> {
+impl<K> AhashExt for HashSet<K> {
     /// Creates an empty `HashSet` with Ahash.
     ///
     /// The hash set is initially created with a capacity of 0, so it will not
@@ -70,8 +70,8 @@ impl<K> AhashExt for AhashSet<K> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{AhashSet, AhashExt};
-    /// let set: AhashSet<i32> = AhashSet::new();
+    /// use bevy_utils::{HashSet, AhashExt};
+    /// let set: HashSet<i32> = HashSet::new();
     /// ```
     #[inline]
     fn new() -> Self {
@@ -86,12 +86,12 @@ impl<K> AhashExt for AhashSet<K> {
     /// # Examples
     ///
     /// ```
-    /// use bevy_utils::{AhashSet, AhashExt};
-    /// let set: AhashSet<i32> = AhashSet::with_capacity(10);
+    /// use bevy_utils::{HashSet, AhashExt};
+    /// let set: HashSet<i32> = HashSet::with_capacity(10);
     /// assert!(set.capacity() >= 10);
     /// ```
     #[inline]
     fn with_capacity(capacity: usize) -> Self {
-        AhashSet::with_capacity_and_hasher(capacity, RandomState::default())
+        HashSet::with_capacity_and_hasher(capacity, RandomState::default())
     }
 }

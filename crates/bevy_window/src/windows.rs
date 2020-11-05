@@ -1,9 +1,9 @@
 use super::{Window, WindowId};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Windows {
-    windows: AhashMap<WindowId, Window>,
+    windows: HashMap<WindowId, Window>,
 }
 
 impl Windows {

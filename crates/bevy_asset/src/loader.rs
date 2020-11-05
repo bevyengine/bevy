@@ -5,7 +5,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::{Res, ResMut, Resource};
 use bevy_type_registry::{TypeUuid, TypeUuidDynamic};
-use bevy_utils::{BoxedFuture, AhashMap};
+use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
 use downcast_rs::{impl_downcast, Downcast};
 use std::path::Path;
@@ -56,7 +56,7 @@ impl LoadedAsset {
 pub struct LoadContext<'a> {
     pub(crate) ref_change_channel: &'a RefChangeChannel,
     pub(crate) asset_io: &'a dyn AssetIo,
-    pub(crate) labeled_assets: AhashMap<Option<String>, LoadedAsset>,
+    pub(crate) labeled_assets: HashMap<Option<String>, LoadedAsset>,
     pub(crate) path: &'a Path,
     pub(crate) version: usize,
 }

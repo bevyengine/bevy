@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType};
-use bevy_utils::AhashSet;
+use bevy_utils::HashSet;
 
 fn main() {
     App::build()
@@ -13,7 +13,7 @@ fn main() {
 
 #[derive(Default)]
 struct GamepadLobby {
-    gamepads: AhashSet<Gamepad>,
+    gamepads: HashSet<Gamepad>,
     gamepad_event_reader: EventReader<GamepadEvent>,
 }
 

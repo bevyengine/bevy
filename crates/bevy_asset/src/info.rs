@@ -1,5 +1,5 @@
 use crate::{path::AssetPath, LabelId};
-use bevy_utils::{AhashMap, AhashSet};
+use bevy_utils::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -21,9 +21,9 @@ pub struct AssetMeta {
 pub struct SourceInfo {
     pub meta: Option<SourceMeta>,
     pub path: PathBuf,
-    pub asset_types: AhashMap<LabelId, Uuid>,
+    pub asset_types: HashMap<LabelId, Uuid>,
     pub load_state: LoadState,
-    pub committed_assets: AhashSet<LabelId>,
+    pub committed_assets: HashSet<LabelId>,
     pub version: usize,
 }
 

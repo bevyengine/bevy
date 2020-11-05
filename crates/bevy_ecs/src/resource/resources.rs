@@ -1,7 +1,7 @@
 use super::{FetchResource, ResourceQuery};
 use crate::system::SystemId;
 use bevy_hecs::{Archetype, AtomicBorrow, Entity, Ref, RefMut, TypeInfo, TypeState};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use core::any::TypeId;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{
@@ -19,7 +19,7 @@ impl<T: Send + Sync + 'static> Resource for T {}
 pub(crate) struct ResourceData {
     archetype: Archetype,
     default_index: Option<usize>,
-    system_id_to_archetype_index: AhashMap<usize, usize>,
+    system_id_to_archetype_index: HashMap<usize, usize>,
 }
 
 #[derive(Debug)]
@@ -82,8 +82,8 @@ impl<T: 'static> ResourceStorage for VecResourceStorage<T> {}
 
 /// A collection of resource instances identified by their type.
 pub struct Resources {
-    pub(crate) resource_data: AhashMap<TypeId, ResourceData>,
-    thread_local_data: AhashMap<TypeId, Box<dyn ResourceStorage>>,
+    pub(crate) resource_data: HashMap<TypeId, ResourceData>,
+    thread_local_data: HashMap<TypeId, Box<dyn ResourceStorage>>,
     main_thread_id: ThreadId,
 }
 
@@ -194,7 +194,7 @@ impl Resources {
             ResourceData {
                 archetype: Archetype::new(types),
                 default_index: None,
-                system_id_to_archetype_index: AhashMap::default(),
+                system_id_to_archetype_index: HashMap::default(),
             }
         });
 

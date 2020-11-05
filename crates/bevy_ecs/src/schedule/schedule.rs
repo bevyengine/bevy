@@ -3,7 +3,7 @@ use crate::{
     system::{System, SystemId, ThreadLocalExecution},
 };
 use bevy_hecs::World;
-use bevy_utils::{AhashMap, AhashSet};
+use bevy_utils::{HashMap, HashSet};
 use std::{borrow::Cow, fmt};
 
 /// An ordered collection of stages, which each contain an ordered list of [System]s.
@@ -11,9 +11,9 @@ use std::{borrow::Cow, fmt};
 /// They are run on a given [World] and [Resources] reference.
 #[derive(Default)]
 pub struct Schedule {
-    pub(crate) stages: AhashMap<Cow<'static, str>, Vec<Box<dyn System>>>,
+    pub(crate) stages: HashMap<Cow<'static, str>, Vec<Box<dyn System>>>,
     pub(crate) stage_order: Vec<Cow<'static, str>>,
-    pub(crate) system_ids: AhashSet<SystemId>,
+    pub(crate) system_ids: HashSet<SystemId>,
     generation: usize,
     last_initialize_generation: usize,
 }

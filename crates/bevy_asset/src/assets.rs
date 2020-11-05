@@ -4,7 +4,7 @@ use crate::{
 use bevy_app::{prelude::Events, AppBuilder};
 use bevy_ecs::{FromResources, IntoQuerySystem, ResMut};
 use bevy_type_registry::RegisterType;
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
 
@@ -46,7 +46,7 @@ impl<T: Asset> Debug for AssetEvent<T> {
 /// Stores Assets of a given type and tracks changes to them.
 #[derive(Debug)]
 pub struct Assets<T: Asset> {
-    assets: AhashMap<HandleId, T>,
+    assets: HashMap<HandleId, T>,
     events: Events<AssetEvent<T>>,
     pub(crate) ref_change_sender: Sender<RefChange>,
 }
@@ -54,7 +54,7 @@ pub struct Assets<T: Asset> {
 impl<T: Asset> Assets<T> {
     pub(crate) fn new(ref_change_sender: Sender<RefChange>) -> Self {
         Assets {
-            assets: AhashMap::default(),
+            assets: HashMap::default(),
             events: Events::default(),
             ref_change_sender,
         }

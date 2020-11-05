@@ -1,6 +1,6 @@
 use crate::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_ecs::{Profiler, Res, ResMut};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use parking_lot::RwLock;
 use std::{borrow::Cow, sync::Arc};
 
@@ -25,7 +25,7 @@ struct SystemProfiles {
 /// Profiles systems by recording their run duration as diagnostics.
 #[derive(Debug, Default)]
 pub struct SystemProfiler {
-    system_profiles: Arc<RwLock<AhashMap<Cow<'static, str>, SystemProfiles>>>,
+    system_profiles: Arc<RwLock<HashMap<Cow<'static, str>, SystemProfiles>>>,
 }
 
 impl Profiler for SystemProfiler {

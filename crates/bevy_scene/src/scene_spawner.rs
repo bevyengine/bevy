@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::{EntityMap, Resources, World};
 use bevy_type_registry::TypeRegistry;
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -23,9 +23,9 @@ impl InstanceId {
 
 #[derive(Default)]
 pub struct SceneSpawner {
-    spawned_scenes: AhashMap<Handle<Scene>, Vec<InstanceId>>,
-    spawned_dynamic_scenes: AhashMap<Handle<DynamicScene>, Vec<InstanceId>>,
-    spawned_instances: AhashMap<InstanceId, InstanceInfo>,
+    spawned_scenes: HashMap<Handle<Scene>, Vec<InstanceId>>,
+    spawned_dynamic_scenes: HashMap<Handle<DynamicScene>, Vec<InstanceId>>,
+    spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: EventReader<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<Handle<DynamicScene>>,
     scenes_to_spawn: Vec<Handle<Scene>>,

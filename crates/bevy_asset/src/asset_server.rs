@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use bevy_ecs::Res;
 use bevy_tasks::TaskPool;
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use crossbeam_channel::TryRecvError;
 use parking_lot::RwLock;
 use std::{collections::hash_map::Entry, path::Path, sync::Arc};
@@ -32,17 +32,17 @@ pub enum AssetServerError {
 #[derive(Default)]
 pub(crate) struct AssetRefCounter {
     pub(crate) channel: Arc<RefChangeChannel>,
-    pub(crate) ref_counts: Arc<RwLock<AhashMap<HandleId, usize>>>,
+    pub(crate) ref_counts: Arc<RwLock<HashMap<HandleId, usize>>>,
 }
 
 pub struct AssetServerInternal {
     pub(crate) asset_io: Box<dyn AssetIo>,
     pub(crate) asset_ref_counter: AssetRefCounter,
-    pub(crate) asset_sources: Arc<RwLock<AhashMap<SourcePathId, SourceInfo>>>,
-    pub(crate) asset_lifecycles: Arc<RwLock<AhashMap<Uuid, Box<dyn AssetLifecycle>>>>,
+    pub(crate) asset_sources: Arc<RwLock<HashMap<SourcePathId, SourceInfo>>>,
+    pub(crate) asset_lifecycles: Arc<RwLock<HashMap<Uuid, Box<dyn AssetLifecycle>>>>,
     loaders: RwLock<Vec<Arc<Box<dyn AssetLoader>>>>,
-    extension_to_loader_index: RwLock<AhashMap<String, usize>>,
-    handle_to_path: Arc<RwLock<AhashMap<HandleId, AssetPath<'static>>>>,
+    extension_to_loader_index: RwLock<HashMap<String, usize>>,
+    handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
     task_pool: TaskPool,
 }
 

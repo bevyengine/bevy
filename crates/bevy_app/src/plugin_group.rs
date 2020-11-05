@@ -1,5 +1,5 @@
 use crate::{AppBuilder, Plugin};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use std::any::TypeId;
 
 pub trait PluginGroup {
@@ -13,7 +13,7 @@ struct PluginEntry {
 
 #[derive(Default)]
 pub struct PluginGroupBuilder {
-    plugins: AhashMap<TypeId, PluginEntry>,
+    plugins: HashMap<TypeId, PluginEntry>,
     order: Vec<TypeId>,
 }
 

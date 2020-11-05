@@ -1,12 +1,12 @@
-use bevy_utils::AhashSet;
+use bevy_utils::HashSet;
 use std::hash::Hash;
 
 /// A "press-able" input of type `T`
 #[derive(Debug)]
 pub struct Input<T> {
-    pressed: AhashSet<T>,
-    just_pressed: AhashSet<T>,
-    just_released: AhashSet<T>,
+    pressed: HashSet<T>,
+    just_pressed: HashSet<T>,
+    just_released: HashSet<T>,
 }
 
 impl<T> Default for Input<T> {

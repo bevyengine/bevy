@@ -2,7 +2,7 @@ use core::{any::TypeId, hash::Hash};
 use std::{boxed::Box, vec::Vec};
 
 use crate::{Archetype, World};
-use bevy_utils::AhashSet;
+use bevy_utils::HashSet;
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Access {
@@ -199,9 +199,9 @@ impl QueryAccess {
 /// Provides information about the types a [System] reads and writes
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct TypeAccess<T: Hash + Eq + PartialEq> {
-    reads_and_writes: AhashSet<T>,
-    writes: AhashSet<T>,
-    reads: AhashSet<T>,
+    reads_and_writes: HashSet<T>,
+    writes: HashSet<T>,
+    reads: HashSet<T>,
 }
 
 impl<T: Hash + Eq + PartialEq> Default for TypeAccess<T> {

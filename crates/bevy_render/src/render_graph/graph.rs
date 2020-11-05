@@ -1,10 +1,10 @@
 use super::{Edge, Node, NodeId, NodeLabel, NodeState, RenderGraphError, SlotLabel, SystemNode};
 use bevy_ecs::{Commands, Schedule};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 pub struct RenderGraph {
-    nodes: AhashMap<NodeId, NodeState>,
-    node_names: AhashMap<Cow<'static, str>, NodeId>,
+    nodes: HashMap<NodeId, NodeState>,
+    node_names: HashMap<Cow<'static, str>, NodeId>,
     system_node_schedule: Option<Schedule>,
     commands: Commands,
 }
@@ -300,7 +300,7 @@ mod tests {
         renderer::{RenderContext, RenderResourceType},
     };
     use bevy_ecs::{Resources, World};
-    use bevy_utils::AhashSet;
+    use bevy_utils::HashSet;
     use std::iter::FromIterator;
 
     #[derive(Debug)]
@@ -360,45 +360,45 @@ mod tests {
         graph.add_node_edge("B", "C").unwrap();
         graph.add_slot_edge("C", 0, "D", 0).unwrap();
 
-        fn input_nodes(name: &'static str, graph: &RenderGraph) -> AhashSet<NodeId> {
+        fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
             graph
                 .iter_node_inputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<AhashSet<NodeId>>()
+                .collect::<HashSet<NodeId>>()
         }
 
-        fn output_nodes(name: &'static str, graph: &RenderGraph) -> AhashSet<NodeId> {
+        fn output_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
             graph
                 .iter_node_outputs(name)
                 .unwrap()
                 .map(|(_edge, node)| node.id)
-                .collect::<AhashSet<NodeId>>()
+                .collect::<HashSet<NodeId>>()
         }
 
         assert!(input_nodes("A", &graph).is_empty(), "A has no inputs");
         assert!(
-            output_nodes("A", &graph) == AhashSet::from_iter(vec![c_id]),
+            output_nodes("A", &graph) == HashSet::from_iter(vec![c_id]),
             "A outputs to C"
         );
 
         assert!(input_nodes("B", &graph).is_empty(), "B has no inputs");
         assert!(
-            output_nodes("B", &graph) == AhashSet::from_iter(vec![c_id]),
+            output_nodes("B", &graph) == HashSet::from_iter(vec![c_id]),
             "B outputs to C"
         );
 
         assert!(
-            input_nodes("C", &graph) == AhashSet::from_iter(vec![a_id, b_id]),
+            input_nodes("C", &graph) == HashSet::from_iter(vec![a_id, b_id]),
             "A and B input to C"
         );
         assert!(
-            output_nodes("C", &graph) == AhashSet::from_iter(vec![d_id]),
+            output_nodes("C", &graph) == HashSet::from_iter(vec![d_id]),
             "C outputs to D"
         );
 
         assert!(
-            input_nodes("D", &graph) == AhashSet::from_iter(vec![c_id]),
+            input_nodes("D", &graph) == HashSet::from_iter(vec![c_id]),
             "C inputs to D"
         );
         assert!(output_nodes("D", &graph).is_empty(), "D has no outputs");

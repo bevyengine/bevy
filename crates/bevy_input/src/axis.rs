@@ -1,9 +1,9 @@
+use bevy_utils::{AhashExt, HashMap};
 use std::hash::Hash;
-use bevy_utils::{AhashMap, AhashExt};
 
 #[derive(Debug)]
 pub struct Axis<T> {
-    axis_data: AhashMap<T, f32>,
+    axis_data: HashMap<T, f32>,
 }
 
 impl<T> Default for Axis<T>
@@ -12,7 +12,7 @@ where
 {
     fn default() -> Self {
         Axis {
-            axis_data: AhashMap::new(),
+            axis_data: HashMap::new(),
         }
     }
 }

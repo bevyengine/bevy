@@ -6,7 +6,7 @@ use bevy_math::Vec2;
 use bevy_render::texture::Texture;
 use bevy_sprite::TextureAtlas;
 use bevy_type_registry::TypeUuid;
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 
 // work around rust's f32 order/hash limitations
 type FontSizeKey = FloatOrd;
@@ -15,7 +15,7 @@ type FontSizeKey = FloatOrd;
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font: Handle<Font>,
-    font_atlases: AhashMap<FontSizeKey, Vec<FontAtlas>>,
+    font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
 }
 
 #[derive(Debug)]
@@ -28,7 +28,7 @@ impl FontAtlasSet {
     pub fn new(font: Handle<Font>) -> Self {
         Self {
             font,
-            font_atlases: AhashMap::default(),
+            font_atlases: HashMap::default(),
         }
     }
 

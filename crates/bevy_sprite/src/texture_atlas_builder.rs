@@ -2,7 +2,7 @@ use crate::{Rect, TextureAtlas};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_render::texture::{Texture, TextureFormat};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
@@ -114,7 +114,7 @@ impl TextureAtlasBuilder {
         let rect_placements = rect_placements.ok_or(RectanglePackError::NotEnoughSpace)?;
 
         let mut texture_rects = Vec::with_capacity(rect_placements.packed_locations().len());
-        let mut texture_handles = AhashMap::default();
+        let mut texture_handles = HashMap::default();
         for (texture_handle, (_, packed_location)) in rect_placements.packed_locations().iter() {
             let texture = textures.get(texture_handle).unwrap();
             let min = Vec2::new(packed_location.x() as f32, packed_location.y() as f32);

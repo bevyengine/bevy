@@ -1,7 +1,7 @@
 use crate::{filesystem_watcher::FilesystemWatcher, AssetIo, AssetIoError, AssetServer};
 use anyhow::Result;
 use bevy_ecs::{bevy_utils::BoxedFuture, Res};
-use bevy_utils::AhashSet;
+use bevy_utils::HashSet;
 use crossbeam_channel::TryRecvError;
 use fs::File;
 use io::Read;
@@ -108,7 +108,7 @@ impl AssetIo for FileAssetIo {
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
 pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
-    let mut changed = AhashSet::default();
+    let mut changed = HashSet::default();
     let asset_io =
         if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
             asset_io

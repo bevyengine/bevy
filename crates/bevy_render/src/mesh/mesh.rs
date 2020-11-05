@@ -11,7 +11,7 @@ use bevy_type_registry::TypeUuid;
 use std::borrow::Cow;
 
 use crate::pipeline::{InputStepMode, VertexAttributeDescriptor, VertexBufferDescriptor};
-use bevy_utils::AhashMap;
+use bevy_utils::HashMap;
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -105,7 +105,7 @@ impl From<&Indices> for IndexFormat {
 pub struct Mesh {
     primitive_topology: PrimitiveTopology,
     /// `bevy_utils::HashMap` with all defined vertex attributes (Positions, Normals, ...) for this mesh. Attribute name maps to attribute values.
-    attributes: AhashMap<Cow<'static, str>, VertexAttributeValues>,
+    attributes: HashMap<Cow<'static, str>, VertexAttributeValues>,
     indices: Option<Indices>,
 }
 
@@ -541,7 +541,7 @@ pub fn mesh_resource_provider_system(
     mesh_events: Res<Events<AssetEvent<Mesh>>>,
     mut query: Query<(&Handle<Mesh>, &mut RenderPipelines)>,
 ) {
-    let mut changed_meshes = bevy_utils::AhashSet::<Handle<Mesh>>::default();
+    let mut changed_meshes = bevy_utils::HashSet::<Handle<Mesh>>::default();
     let render_resource_context = &**render_resource_context;
     for event in state.mesh_event_reader.iter(&mesh_events) {
         match event {
