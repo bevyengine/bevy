@@ -4,6 +4,7 @@ mod winit_windows;
 use bevy_input::{
     keyboard::KeyboardInput,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
+    text::CharInput,
     touch::TouchInput,
 };
 pub use winit_config::*;
@@ -271,6 +272,12 @@ pub fn winit_runner(mut app: App) {
                         touch.location.y = window_height as f64 - touch.location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch));
+                }
+                WindowEvent::ReceivedCharacter(c) => {
+                    let mut char_input_events =
+                        app.resources.get_mut::<Events<CharInput>>().unwrap();
+
+                    char_input_events.send(CharInput(c))
                 }
                 _ => {}
             },

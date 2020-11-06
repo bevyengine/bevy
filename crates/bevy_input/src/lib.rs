@@ -4,6 +4,7 @@ mod input;
 pub mod keyboard;
 pub mod mouse;
 pub mod system;
+pub mod text;
 pub mod touch;
 
 pub use axis::*;
@@ -25,6 +26,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
 use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use text::CharInput;
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use bevy_app::startup_stage::STARTUP;
@@ -41,6 +43,7 @@ pub struct InputPlugin;
 impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<KeyboardInput>()
+            .add_event::<CharInput>()
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
