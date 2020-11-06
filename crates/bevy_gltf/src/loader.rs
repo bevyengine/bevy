@@ -4,8 +4,9 @@ use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
 use bevy_render::{
-    camera::{Camera, CameraProjection, OrthographicProjection, PerspectiveProjection},
-    entity::{Camera2dComponents, Camera3dComponents},
+    camera::{
+        Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    },
     mesh::{Indices, Mesh, VertexAttributeValues},
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
@@ -207,70 +208,65 @@ async fn load_gltf<'a, 'b>(
 }
 
 fn load_node(
-    node: &gltf::Node,
+    gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     buffer_data: &[Vec<u8>],
 ) -> Result<(), GltfError> {
-    let transform = node.transform();
-    let transform_matrix = Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix()));
+    let transform = gltf_node.transform();
     let mut gltf_error = None;
+    let node = world_builder.spawn((
+        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
+        GlobalTransform::default(),
+    ));
 
     // create camera node
-    let world_builder = if let Some(camera) = node.camera() {
+    if let Some(camera) = gltf_node.camera() {
+        node.with(VisibleEntities {
+            ..Default::default()
+        });
+
         match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
                 let ymag = orthographic.ymag();
-                let mut projection: OrthographicProjection = Default::default();
-                projection.left = -xmag;
-                projection.right = xmag;
-                projection.top = ymag;
-                projection.bottom = -ymag;
-                projection.far = orthographic.zfar();
-                projection.near = orthographic.znear();
-                projection.get_projection_matrix();
-                world_builder.spawn(Camera2dComponents {
-                    camera: Camera {
-                        name: Some(base::camera::CAMERA2D.to_owned()),
-                        projection_matrix: projection.get_projection_matrix(),
-                        ..Default::default()
-                    },
-                    transform: transform_matrix,
-                    orthographic_projection: projection,
+                let mut orthographic_projection: OrthographicProjection = Default::default();
+                orthographic_projection.left = -xmag;
+                orthographic_projection.right = xmag;
+                orthographic_projection.top = ymag;
+                orthographic_projection.bottom = -ymag;
+                orthographic_projection.far = orthographic.zfar();
+                orthographic_projection.near = orthographic.znear();
+                orthographic_projection.get_projection_matrix();
+                node.with(Camera {
+                    name: Some(base::camera::CAMERA2D.to_owned()),
+                    projection_matrix: orthographic_projection.get_projection_matrix(),
                     ..Default::default()
-                })
+                });
+                node.with(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
-                let mut projection: PerspectiveProjection = Default::default();
-                projection.fov = perspective.yfov();
-                projection.near = perspective.znear();
+                let mut perspective_projection: PerspectiveProjection = Default::default();
+                perspective_projection.fov = perspective.yfov();
+                perspective_projection.near = perspective.znear();
                 if let Some(zfar) = perspective.zfar() {
-                    projection.far = zfar;
+                    perspective_projection.far = zfar;
                 }
                 if let Some(aspect_ratio) = perspective.aspect_ratio() {
-                    projection.aspect_ratio = aspect_ratio;
+                    perspective_projection.aspect_ratio = aspect_ratio;
                 }
-                world_builder.spawn(Camera3dComponents {
-                    camera: Camera {
-                        name: Some(base::camera::CAMERA3D.to_owned()),
-                        projection_matrix: projection.get_projection_matrix(),
-                        ..Default::default()
-                    },
-                    transform: transform_matrix,
-                    perspective_projection: projection,
+                node.with(Camera {
+                    name: Some(base::camera::CAMERA3D.to_owned()),
+                    projection_matrix: perspective_projection.get_projection_matrix(),
                     ..Default::default()
-                })
+                });
+                node.with(perspective_projection);
             }
         }
     }
-    // or create empty node
-    else {
-        world_builder.spawn((transform_matrix, GlobalTransform::default()))
-    };
 
-    world_builder.with_children(|parent| {
-        if let Some(mesh) = node.mesh() {
+    node.with_children(|parent| {
+        if let Some(mesh) = gltf_node.mesh() {
             // append primitives
             for primitive in mesh.primitives() {
                 let primitive_label = primitive_label(&mesh, &primitive);
@@ -289,7 +285,7 @@ fn load_node(
         }
 
         // append other nodes
-        for child in node.children() {
+        for child in gltf_node.children() {
             if let Err(err) = load_node(&child, parent, load_context, buffer_data) {
                 gltf_error = Some(err);
                 return;
