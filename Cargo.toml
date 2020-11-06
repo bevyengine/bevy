@@ -149,6 +149,10 @@ name = "z_sort_debug"
 path = "examples/3d/z_sort_debug.rs"
 
 [[example]]
+name = "custom_loop"
+path = "examples/app/custom_loop.rs"
+
+[[example]]
 name = "empty_defaults"
 path = "examples/app/empty_defaults.rs"
 
