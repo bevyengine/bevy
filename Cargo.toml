@@ -117,6 +117,10 @@ name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 
 [[example]]
+name = "contributors"
+path = "examples/2d/contributors.rs"
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
