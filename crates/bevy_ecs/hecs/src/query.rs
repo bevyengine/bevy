@@ -961,25 +961,16 @@ mod tests {
         // non existing components even when changing archetype.
         world.insert(e4, (A(0), B(0))).unwrap();
 
-        let added_a = world
-            .query::<(Added<A>, Entity)>()
-            .iter()
-            .map(|(_, e)| e)
-            .next();
+        let added_a = world.query::<(Added<A>, Entity)>().map(|(_, e)| e).next();
         assert!(added_a.is_none());
 
         assert_eq!(get_mutated_a(&mut world), vec![e4]);
 
-        let added_b = world
-            .query::<(Added<B>, Entity)>()
-            .iter()
-            .map(|(_, e)| e)
-            .next();
+        let added_b = world.query::<(Added<B>, Entity)>().map(|(_, e)| e).next();
         assert!(added_b.is_some());
 
         let mutated_b = world
             .query_mut::<(Mutated<B>, Entity)>()
-            .iter()
             .map(|(_, e)| e)
             .next();
         assert!(mutated_b.is_none());
