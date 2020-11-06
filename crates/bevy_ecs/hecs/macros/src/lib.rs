@@ -16,35 +16,41 @@
 
 extern crate proc_macro;
 
+use std::borrow::Cow;
+
 use proc_macro::TokenStream;
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::crate_name;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Ident, Index, Lifetime, Path};
+use syn::{parse_macro_input, DeriveInput, Error, Ident, Index, Lifetime, Path, Result};
 
 /// Implement `Bundle` for a monomorphic struct
 ///
 /// Using derived `Bundle` impls improves spawn performance and can be convenient when combined with
 /// other derives like `serde::Deserialize`.
-#[allow(clippy::cognitive_complexity)]
 #[proc_macro_derive(Bundle)]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    if !input.generics.params.is_empty() {
-        return TokenStream::from(
-            quote! { compile_error!("derive(Bundle) does not support generics"); },
-        );
+    match derive_bundle_(input) {
+        Ok(ts) => ts,
+        Err(e) => e.to_compile_error(),
     }
+    .into()
+}
+
+#[allow(clippy::cognitive_complexity)]
+fn derive_bundle_(input: DeriveInput) -> Result<TokenStream2> {
+    let ident = input.ident;
     let data = match input.data {
         syn::Data::Struct(s) => s,
         _ => {
-            return TokenStream::from(
-                quote! { compile_error!("derive(Bundle) only supports structs"); },
-            )
+            return Err(Error::new_spanned(
+                ident,
+                "derive(Bundle) does not support enums or unions",
+            ))
         }
     };
-    let ident = input.ident;
-    let (tys, fields) = struct_fields(&data.fields);
+    let (tys, field_members) = struct_fields(&data.fields);
     let path_str = if crate_name("bevy").is_ok() {
         "bevy::ecs"
     } else if crate_name("bevy_ecs").is_ok() {
@@ -52,94 +58,206 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     } else {
         "bevy_hecs"
     };
+    let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let field_idents = member_as_idents(&field_members);
+    let generics = add_additional_bounds_to_generic_params(&crate_path, input.generics);
 
-    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+    let dyn_bundle_code =
+        gen_dynamic_bundle_impl(&crate_path, &ident, &generics, &field_members, &tys);
+    let bundle_code = if tys.is_empty() {
+        gen_unit_struct_bundle_impl(&crate_path, ident, &generics)
+    } else {
+        gen_bundle_impl(
+            &crate_path,
+            &ident,
+            &generics,
+            &field_members,
+            &field_idents,
+            &tys,
+        )
+    };
+    let mut ts = dyn_bundle_code;
+    ts.extend(bundle_code);
+    Ok(ts)
+}
 
-    let n = tys.len();
-    let code = quote! {
-        impl #path::DynamicBundle for #ident {
-            fn with_ids<T>(&self, f: impl FnOnce(&[std::any::TypeId]) -> T) -> T {
-                Self::with_static_ids(f)
+fn gen_dynamic_bundle_impl(
+    crate_path: &syn::Path,
+    ident: &syn::Ident,
+    generics: &syn::Generics,
+    field_members: &[syn::Member],
+    tys: &[&syn::Type],
+) -> TokenStream2 {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    quote! {
+        impl #impl_generics ::#crate_path::DynamicBundle for #ident #ty_generics #where_clause {
+            fn with_ids<__hecs__T>(&self, f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T {
+                <Self as ::#crate_path::Bundle>::with_static_ids(f)
             }
 
-            fn type_info(&self) -> Vec<#path::TypeInfo> {
-                Self::static_type_info()
+            fn type_info(&self) -> ::std::vec::Vec<::#crate_path::TypeInfo> {
+                <Self as ::#crate_path::Bundle>::static_type_info()
             }
 
-            unsafe fn put(mut self, mut f: impl FnMut(*mut u8, std::any::TypeId, usize) -> bool) {
+            #[allow(clippy::forget_copy)]
+            unsafe fn put(mut self, mut f: impl ::std::ops::FnMut(*mut u8, ::std::any::TypeId, usize) -> bool) {
                 #(
-                    if f((&mut self.#fields as *mut #tys).cast::<u8>(), std::any::TypeId::of::<#tys>(), std::mem::size_of::<#tys>()) {
+                    if f((&mut self.#field_members as *mut #tys).cast::<u8>(), ::std::any::TypeId::of::<#tys>(), ::std::mem::size_of::<#tys>()) {
                         #[allow(clippy::forget_copy)]
-                        std::mem::forget(self.#fields);
+                        ::std::mem::forget(self.#field_members);
                     }
                 )*
             }
         }
+    }
+}
 
-        impl #path::Bundle for #ident {
-            fn with_static_ids<T>(f: impl FnOnce(&[std::any::TypeId]) -> T) -> T {
-                use std::any::TypeId;
-                use std::mem;
-
-                #path::lazy_static::lazy_static! {
-                    static ref ELEMENTS: [TypeId; #n] = {
-                        let mut dedup = #path::bevy_utils::HashSet::default();
-                        for &(ty, name) in [#((std::any::TypeId::of::<#tys>(), std::any::type_name::<#tys>())),*].iter() {
-                            if !dedup.insert(ty) {
-                                panic!("{} has multiple {} fields; each type must occur at most once!", stringify!(#ident), name);
-                            }
-                        }
-
-                        let mut tys = [#((mem::align_of::<#tys>(), TypeId::of::<#tys>())),*];
-                        tys.sort_unstable_by(|x, y| x.0.cmp(&y.0).reverse().then(x.1.cmp(&y.1)));
-                        let mut ids = [TypeId::of::<()>(); #n];
-                        for (id, info) in ids.iter_mut().zip(tys.iter()) {
-                            *id = info.1;
-                        }
-                        ids
-                    };
-                }
-
-                f(&*ELEMENTS)
+fn gen_bundle_impl(
+    crate_path: &syn::Path,
+    ident: &syn::Ident,
+    generics: &syn::Generics,
+    field_members: &[syn::Member],
+    field_idents: &[Cow<syn::Ident>],
+    tys: &[&syn::Type],
+) -> TokenStream2 {
+    let num_tys = tys.len();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let with_static_ids_inner = quote! {
+        {
+            let mut tys = [#((::std::mem::align_of::<#tys>(), ::std::any::TypeId::of::<#tys>())),*];
+            tys.sort_unstable_by(|x, y| {
+                ::std::cmp::Ord::cmp(&x.0, &y.0)
+                    .reverse()
+                    .then(::std::cmp::Ord::cmp(&x.1, &y.1))
+            });
+            let mut ids = [::std::any::TypeId::of::<()>(); #num_tys];
+            for (id, info) in ::std::iter::Iterator::zip(ids.iter_mut(), tys.iter()) {
+                *id = info.1;
+            }
+            ids
+        }
+    };
+    let with_static_ids_body = if generics.params.is_empty() {
+        quote! {
+            ::#crate_path::lazy_static::lazy_static! {
+                static ref ELEMENTS: [::std::any::TypeId; #num_tys] = {
+                    #with_static_ids_inner
+                };
+            }
+            f(&*ELEMENTS)
+        }
+    } else {
+        quote! {
+            f(&#with_static_ids_inner)
+        }
+    };
+    quote! {
+        impl #impl_generics ::#crate_path::Bundle for #ident #ty_generics #where_clause {
+            #[allow(non_camel_case_types)]
+            fn with_static_ids<__hecs__T>(f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T {
+                #with_static_ids_body
             }
 
-            fn static_type_info() -> Vec<#path::TypeInfo> {
-                let mut info = vec![#(#path::TypeInfo::of::<#tys>()),*];
+            fn static_type_info() -> ::std::vec::Vec<::#crate_path::TypeInfo> {
+                let mut info = ::std::vec![#(::#crate_path::TypeInfo::of::<#tys>()),*];
                 info.sort_unstable();
                 info
             }
 
             unsafe fn get(
-                mut f: impl FnMut(std::any::TypeId, usize) -> Option<std::ptr::NonNull<u8>>,
-            ) -> Result<Self, #path::MissingComponent> {
+                mut f: impl ::std::ops::FnMut(::std::any::TypeId, usize) -> ::std::option::Option<::std::ptr::NonNull<u8>>,
+            ) -> ::std::result::Result<Self, ::#crate_path::MissingComponent> {
                 #(
-                    let #fields = f(std::any::TypeId::of::<#tys>(), std::mem::size_of::<#tys>())
-                            .ok_or_else(#path::MissingComponent::new::<#tys>)?
+                    let #field_idents = f(::std::any::TypeId::of::<#tys>(), ::std::mem::size_of::<#tys>())
+                            .ok_or_else(::#crate_path::MissingComponent::new::<#tys>)?
                             .cast::<#tys>()
-                        .as_ptr();
+                            .as_ptr();
                 )*
-                Ok(Self { #( #fields: #fields.read(), )* })
+                ::std::result::Result::Ok(Self { #( #field_members: #field_idents.read(), )* })
             }
         }
-    };
-    TokenStream::from(code)
+    }
 }
 
-fn struct_fields(fields: &syn::Fields) -> (Vec<&syn::Type>, Vec<syn::Ident>) {
+// no reason to generate a static for unit structs
+fn gen_unit_struct_bundle_impl(
+    crate_path: &syn::Path,
+    ident: syn::Ident,
+    generics: &syn::Generics,
+) -> TokenStream2 {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    quote! {
+        impl #impl_generics ::#crate_path::Bundle for #ident #ty_generics #where_clause {
+            #[allow(non_camel_case_types)]
+            fn with_static_ids<__hecs__T>(f: impl ::std::ops::FnOnce(&[::std::any::TypeId]) -> __hecs__T) -> __hecs__T { f(&[]) }
+            fn static_type_info() -> ::std::vec::Vec<::#crate_path::TypeInfo> { ::std::vec::Vec::new() }
+
+            unsafe fn get(
+                f: impl ::std::ops::FnMut(::std::any::TypeId, usize) -> ::std::option::Option<::std::ptr::NonNull<u8>>,
+            ) -> Result<Self, ::#crate_path::MissingComponent> {
+                Ok(Self {/* for some reason this works for all unit struct variations */})
+            }
+        }
+    }
+}
+
+fn make_component_trait_bound(crate_path: &syn::Path) -> syn::TraitBound {
+    syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: syn::parse_quote!(::#crate_path::Component),
+    }
+}
+
+fn add_additional_bounds_to_generic_params(
+    crate_path: &syn::Path,
+    mut generics: syn::Generics,
+) -> syn::Generics {
+    generics.type_params_mut().for_each(|tp| {
+        tp.bounds
+            .push(syn::TypeParamBound::Trait(make_component_trait_bound(
+                crate_path,
+            )))
+    });
+    generics
+}
+
+fn struct_fields(fields: &syn::Fields) -> (Vec<&syn::Type>, Vec<syn::Member>) {
     match fields {
         syn::Fields::Named(ref fields) => fields
             .named
             .iter()
-            .map(|f| (&f.ty, f.ident.clone().unwrap()))
+            .map(|f| (&f.ty, syn::Member::Named(f.ident.clone().unwrap())))
             .unzip(),
         syn::Fields::Unnamed(ref fields) => fields
             .unnamed
             .iter()
             .enumerate()
-            .map(|(i, f)| (&f.ty, syn::Ident::new(&i.to_string(), Span::call_site())))
+            .map(|(i, f)| {
+                (
+                    &f.ty,
+                    syn::Member::Unnamed(syn::Index {
+                        index: i as u32,
+                        span: Span::call_site(),
+                    }),
+                )
+            })
             .unzip(),
         syn::Fields::Unit => (Vec::new(), Vec::new()),
     }
+}
+
+fn member_as_idents(members: &[syn::Member]) -> Vec<Cow<'_, syn::Ident>> {
+    members
+        .iter()
+        .map(|member| match member {
+            syn::Member::Named(ident) => Cow::Borrowed(ident),
+            &syn::Member::Unnamed(syn::Index { index, span }) => {
+                Cow::Owned(syn::Ident::new(&format!("tuple_field_{}", index), span))
+            }
+        })
+        .collect()
 }
 
 fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
