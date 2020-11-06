@@ -106,11 +106,11 @@ impl GlyphBrush {
                         let bounds = outlined_glyph.px_bounds();
                         let handle_font_atlas: Handle<FontAtlasSet> = handle.as_weak();
                         let font_atlas_set = font_atlas_set_storage
-                            .get_or_insert_with(handle_font_atlas, || FontAtlasSet::default());
+                            .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
                         let atlas_info = font_atlas_set
                             .get_glyph_atlas_info(font_size, glyph_id)
-                            .map(|gaf| Ok(gaf))
+                            .map(Ok)
                             .unwrap_or_else(|| {
                                 font_atlas_set.add_glyph_to_atlas(
                                     texture_atlases,
@@ -163,11 +163,15 @@ pub struct TextVertex {
 #[derive(Debug, Default, Clone)]
 pub struct TextVertices(Vec<TextVertex>);
 
-impl TextVertices {
-    pub fn borrow(&self) -> &Vec<TextVertex> {
+impl std::ops::Deref for TextVertices {
+    type Target = Vec<TextVertex>;
+
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
+}
 
+impl TextVertices {
     pub fn set(&mut self, vertices: Vec<TextVertex>) {
         self.0 = vertices;
     }

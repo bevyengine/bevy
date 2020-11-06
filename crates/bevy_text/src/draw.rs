@@ -5,7 +5,7 @@ use bevy_render::{
     draw::{Draw, DrawContext, DrawError, Drawable},
     mesh,
     pipeline::{PipelineSpecialization, VertexBufferDescriptor},
-    prelude::{Msaa, Texture},
+    prelude::Msaa,
     renderer::{
         AssetRenderResourceBindings, BindGroup, BufferUsage, RenderResourceBindings,
         RenderResourceId,
@@ -63,16 +63,21 @@ impl<'a> Drawable for DrawableText<'a> {
             &bevy_sprite::SPRITE_SHEET_PIPELINE_HANDLE,
             &PipelineSpecialization {
                 sample_count: self.msaa.samples,
+                vertex_buffer_descriptor: self.font_quad_vertex_descriptor.clone(),
                 ..Default::default()
             },
         )?;
 
         let render_resource_context = &**context.render_resource_context;
-        if let Some(RenderResourceId::Buffer(quad_vertex_buffer)) = render_resource_context
-            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_BUFFER_ASSET_INDEX)
+
+        if let Some(RenderResourceId::Buffer(vertex_attribute_buffer_id)) = render_resource_context
+            .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::VERTEX_ATTRIBUTE_BUFFER_ID)
         {
-            draw.set_vertex_buffer(0, quad_vertex_buffer, 0);
+            draw.set_vertex_buffer(0, vertex_attribute_buffer_id, 0);
+        } else {
+            println!("could not find vertex buffer for bevy_sprite::QUAD_HANDLE")
         }
+
         let mut indices = 0..0;
         if let Some(RenderResourceId::Buffer(quad_index_buffer)) = render_resource_context
             .get_asset_resource(&bevy_sprite::QUAD_HANDLE, mesh::INDEX_BUFFER_ASSET_INDEX)
@@ -88,7 +93,7 @@ impl<'a> Drawable for DrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        for tv in self.text_vertices.borrow() {
+        for tv in &**self.text_vertices {
             let atlas_render_resource_bindings = self
                 .asset_render_resource_bindings
                 .get_mut(&tv.atlas_info.texture_atlas)

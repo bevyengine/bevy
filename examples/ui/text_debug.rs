@@ -4,7 +4,7 @@ extern crate rand;
 /// This example is for debugging text layout
 fn main() {
     App::build()
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .add_startup_system(infotext_system.system())
         .add_system(change_text_system.system())
         .run();
@@ -57,7 +57,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             text: Text {
                 value:
-                    "This is very long text with limited width in the top right and is also pink" 
+                    "This is very long text with limited width in the top right and is also pink"
                         .to_string(),
                 font: font.clone(),
                 style: TextStyle {
@@ -66,7 +66,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                     alignment: TextAlignment {
                         horizontal: HorizontalAlign::Center,
                         vertical: VerticalAlign::Center,
-                    }
+                    },
                 },
             },
             ..Default::default()
