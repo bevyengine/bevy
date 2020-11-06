@@ -116,7 +116,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             text: Text {
                 value: "This\ntext has\nline breaks and also a set width in the bottom left"
                     .to_string(),
-                font: font.clone(),
+                font,
                 style: TextStyle {
                     font_size: 50.0,
                     color: Color::WHITE,
