@@ -9,7 +9,7 @@ pub use window::*;
 pub use windows::*;
 
 pub mod prelude {
-    pub use crate::{CursorMoved, Window, WindowDescriptor, Windows};
+    pub use crate::{CursorMoved, ReceivedCharacter, Window, WindowDescriptor, Windows};
 }
 
 use bevy_app::prelude::*;
@@ -37,6 +37,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowCloseRequested>()
             .add_event::<CloseWindow>()
             .add_event::<CursorMoved>()
+            .add_event::<ReceivedCharacter>()
             .init_resource::<Windows>();
 
         if self.add_primary_window {
