@@ -241,6 +241,10 @@ name = "keyboard_input_events"
 path = "examples/input/keyboard_input_events.rs"
 
 [[example]]
+name = "char_input_events"
+path = "examples/input/char_input_events.rs"
+
+[[example]]
 name = "gamepad_input"
 path = "examples/input/gamepad_input.rs"
 

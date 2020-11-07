@@ -13,7 +13,8 @@ use bevy_app::{prelude::*, AppExit};
 use bevy_ecs::{IntoThreadLocalSystem, Resources, World};
 use bevy_math::Vec2;
 use bevy_window::{
-    CreateWindow, CursorMoved, Window, WindowCloseRequested, WindowCreated, WindowResized, Windows,
+    CreateWindow, CursorMoved, ReceivedCharacter, Window, WindowCloseRequested, WindowCreated,
+    WindowResized, Windows,
 };
 use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -271,6 +272,20 @@ pub fn winit_runner(mut app: App) {
                         touch.location.y = window_height as f64 - touch.location.y;
                     }
                     touch_input_events.send(converters::convert_touch_input(touch));
+                }
+                WindowEvent::ReceivedCharacter(c) => {
+                    let mut char_input_events = app
+                        .resources
+                        .get_mut::<Events<ReceivedCharacter>>()
+                        .unwrap();
+
+                    let winit_windows = app.resources.get_mut::<WinitWindows>().unwrap();
+                    let window_id = winit_windows.get_window_id(winit_window_id).unwrap();
+
+                    char_input_events.send(ReceivedCharacter {
+                        id: window_id,
+                        char: c,
+                    })
                 }
                 _ => {}
             },
