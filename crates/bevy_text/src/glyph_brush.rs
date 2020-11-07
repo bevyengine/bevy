@@ -68,13 +68,13 @@ impl GlyphBrush {
     ) -> Result<Vec<PositionedGlyph>, TextError> {
         let mut sq = self.section_queue.lock();
         let sq = std::mem::replace(&mut *sq, Vec::new());
-        let vertices = sq
+        let glyphs = sq
             .into_iter()
             .map(|section_glyphs| {
                 if section_glyphs.is_empty() {
                     return Ok(Vec::new());
                 }
-                let mut vertices = Vec::new();
+                let mut glyphs = Vec::new();
                 let sg = section_glyphs.first().unwrap();
                 let mut min_x: f32 = sg.glyph.position.x;
                 let mut max_y: f32 = sg.glyph.position.y;
@@ -123,19 +123,19 @@ impl GlyphBrush {
                         let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;
                         let position = Vec2::new(x, y);
 
-                        vertices.push(PositionedGlyph {
+                        glyphs.push(PositionedGlyph {
                             position,
                             atlas_info,
                         });
                     }
                 }
-                Ok(vertices)
+                Ok(glyphs)
             })
             .collect::<Result<Vec<_>, TextError>>()?
             .into_iter()
             .flatten()
             .collect();
-        Ok(vertices)
+        Ok(glyphs)
     }
 
     pub fn add_font(&mut self, handle: Handle<Font>, font: FontArc) -> FontId {
@@ -154,9 +154,9 @@ pub struct PositionedGlyph {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct TextVertices(Vec<PositionedGlyph>);
+pub struct TextGlyphs(Vec<PositionedGlyph>);
 
-impl std::ops::Deref for TextVertices {
+impl std::ops::Deref for TextGlyphs {
     type Target = Vec<PositionedGlyph>;
 
     fn deref(&self) -> &Self::Target {
@@ -164,8 +164,8 @@ impl std::ops::Deref for TextVertices {
     }
 }
 
-impl TextVertices {
-    pub fn set(&mut self, vertices: Vec<PositionedGlyph>) {
-        self.0 = vertices;
+impl std::ops::DerefMut for TextGlyphs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

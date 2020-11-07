@@ -1,4 +1,4 @@
-use crate::TextVertices;
+use crate::TextGlyphs;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     color::Color,
@@ -51,7 +51,7 @@ pub struct DrawableText<'a> {
     pub asset_render_resource_bindings: &'a mut AssetRenderResourceBindings,
     pub position: Vec3,
     pub style: &'a TextStyle,
-    pub text_vertices: &'a TextVertices,
+    pub text_glyphs: &'a TextGlyphs,
     pub msaa: &'a Msaa,
     pub font_quad_vertex_descriptor: &'a VertexBufferDescriptor,
 }
@@ -93,7 +93,7 @@ impl<'a> Drawable for DrawableText<'a> {
         // set global bindings
         context.set_bind_groups_from_bindings(draw, &mut [self.render_resource_bindings])?;
 
-        for tv in &**self.text_vertices {
+        for tv in &**self.text_glyphs {
             let atlas_render_resource_bindings = self
                 .asset_render_resource_bindings
                 .get_mut(&tv.atlas_info.texture_atlas)

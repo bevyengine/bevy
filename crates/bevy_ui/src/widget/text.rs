@@ -10,7 +10,7 @@ use bevy_render::{
     texture::Texture,
 };
 use bevy_sprite::{TextureAtlas, QUAD_HANDLE};
-use bevy_text::{DrawableText, Font, FontAtlasSet, TextPipeline, TextStyle, TextVertices};
+use bevy_text::{DrawableText, Font, FontAtlasSet, TextGlyphs, TextPipeline, TextStyle};
 use bevy_transform::prelude::GlobalTransform;
 
 #[derive(Debug, Default)]
@@ -38,8 +38,8 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val) -> f32 {
     }
 }
 
-/// Computes the size of a text block and updates the TextVertices with the
-/// new computed vertices
+/// Computes the size of a text block and updates the TextGlyphs with the
+/// new computed glyphs from the layout
 pub fn text_system(
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
@@ -48,11 +48,11 @@ pub fn text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Or<(Changed<Text>, Changed<Style>)>,
-        &mut TextVertices,
+        &mut TextGlyphs,
         &mut CalculatedSize,
     )>,
 ) {
-    for ((text, style), mut vertices, mut calculated_size) in text_query.iter_mut() {
+    for ((text, style), mut glyphs, mut calculated_size) in text_query.iter_mut() {
         let node_size = Size::new(
             text_constraint(style.min_size.width, style.size.width, style.max_size.width),
             text_constraint(
@@ -89,7 +89,9 @@ pub fn text_system(
             &mut textures,
         ) {
             Err(e) => println!("Error when drawing text: {:?}", e),
-            Ok(new_vertices) => vertices.set(new_vertices),
+            Ok(new_glyphs) => {
+                **glyphs = new_glyphs;
+            }
         }
     }
 }
@@ -101,12 +103,12 @@ pub fn draw_text_system(
     meshes: Res<Assets<Mesh>>,
     mut render_resource_bindings: ResMut<RenderResourceBindings>,
     mut asset_render_resource_bindings: ResMut<AssetRenderResourceBindings>,
-    mut query: Query<(&mut Draw, &Text, &TextVertices, &Node, &GlobalTransform)>,
+    mut query: Query<(&mut Draw, &Text, &TextGlyphs, &Node, &GlobalTransform)>,
 ) {
     let font_quad = meshes.get(&QUAD_HANDLE).unwrap();
     let vertex_buffer_descriptor = font_quad.get_vertex_buffer_descriptor();
 
-    for (mut draw, text, text_vertices, node, global_transform) in query.iter_mut() {
+    for (mut draw, text, text_glyphs, node, global_transform) in query.iter_mut() {
         let position = global_transform.translation - (node.size / 2.0).extend(0.0);
 
         let mut drawable_text = DrawableText {
@@ -114,7 +116,7 @@ pub fn draw_text_system(
             asset_render_resource_bindings: &mut asset_render_resource_bindings,
             position,
             msaa: &msaa,
-            text_vertices,
+            text_glyphs,
             font_quad_vertex_descriptor: &vertex_buffer_descriptor,
             style: &text.style,
         };
