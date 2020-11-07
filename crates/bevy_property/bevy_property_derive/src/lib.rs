@@ -2,9 +2,9 @@ extern crate proc_macro;
 
 mod modules;
 
+use find_crate::Manifest;
 use modules::{get_modules, get_path};
 use proc_macro::TokenStream;
-use proc_macro_crate::crate_name;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
@@ -344,13 +344,15 @@ impl Parse for PropertyDef {
 pub fn impl_property(input: TokenStream) -> TokenStream {
     let property_def = parse_macro_input!(input as PropertyDef);
 
-    let bevy_property_path = get_path(if crate_name("bevy").is_ok() {
-        "bevy::property"
-    } else if crate_name("bevy_property").is_ok() {
-        "bevy_property"
+    let manifest = Manifest::new().unwrap();
+    let crate_path = if let Some(package) = manifest.find(|name| name == "bevy") {
+        format!("{}::property", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_property") {
+        package.name
     } else {
-        "crate"
-    });
+        "crate".to_string()
+    };
+    let bevy_property_path = get_path(&crate_path);
 
     let (impl_generics, ty_generics, where_clause) = property_def.generics.split_for_impl();
     let ty = &property_def.type_name;
