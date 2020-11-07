@@ -31,10 +31,6 @@ impl Default for FontAtlasSet {
 }
 
 impl FontAtlasSet {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (&FontSizeKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
     }
