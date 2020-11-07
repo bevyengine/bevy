@@ -296,6 +296,10 @@ name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
 [[example]]
+name = "text_debug"
+path = "examples/ui/text_debug.rs"
+
+[[example]]
 name = "ui"
 path = "examples/ui/ui.rs"
 
