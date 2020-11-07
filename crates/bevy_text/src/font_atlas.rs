@@ -32,12 +32,8 @@ impl FontAtlas {
         }
     }
 
-    pub fn get_char_index(&self, character: char) -> Option<u32> {
-        self.glyph_to_index.get(&character).cloned()
-    }
-
     pub fn get_glyph_index(&self, glyph_id: GlyphId) -> Option<u32> {
-        self.glyph_to_atlas_index.get(&glyph_id).cloned()
+        self.glyph_to_atlas_index.get(&glyph_id).copied()
     }
 
     pub fn has_glyph(&self, glyph_id: GlyphId) -> bool {
@@ -61,36 +57,5 @@ impl FontAtlas {
         } else {
             false
         }
-    }
-
-    pub fn add_char(
-        &mut self,
-        textures: &mut Assets<Texture>,
-        texture_atlases: &mut Assets<TextureAtlas>,
-        character: char,
-        texture: &Texture,
-    ) -> bool {
-        let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        if let Some(index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(texture_atlas, textures, texture)
-        {
-            self.glyph_to_index.insert(character, index);
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn add_texture(
-        &mut self,
-        textures: &mut Assets<Texture>,
-        texture_atlases: &mut Assets<TextureAtlas>,
-        texture: &Texture,
-    ) -> bool {
-        let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        self.dynamic_texture_atlas_builder
-            .add_texture(texture_atlas, textures, texture)
-            .is_some()
     }
 }
