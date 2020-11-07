@@ -27,4 +27,5 @@ bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 anyhow = "1.0"
 ab_glyph = "0.2.5"
 glyph_brush_layout = "0.2"
+parking_lot = "0.11.0"
 thiserror = "1.0"

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use ab_glyph::{Font as _, FontArc, ScaleFont as _};
 use bevy_asset::{Assets, Handle};
 use bevy_math::{Size, Vec2};
@@ -8,6 +6,7 @@ use bevy_sprite::TextureAtlas;
 use glyph_brush_layout::{
     FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, ToSectionText,
 };
+use parking_lot::Mutex;
 
 use crate::{error::TextError, Font, FontAtlasSet, GlyphAtlasInfo, TextAlignment};
 
@@ -55,10 +54,7 @@ impl GlyphBrush {
         text_alignment: TextAlignment,
     ) -> Result<(), TextError> {
         let glyphs = self.compute_glyphs(sections, bounds, text_alignment)?;
-        let mut sq = self
-            .section_queue
-            .lock()
-            .expect("Poisoned Mutex on text queue");
+        let mut sq = self.section_queue.lock();
         sq.push(glyphs);
         Ok(())
     }
@@ -70,10 +66,7 @@ impl GlyphBrush {
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Texture>,
     ) -> Result<Vec<TextVertex>, TextError> {
-        let mut sq = self
-            .section_queue
-            .lock()
-            .expect("Poisoned Mutex on text queue");
+        let mut sq = self.section_queue.lock();
         let sq = std::mem::replace(&mut *sq, Vec::new());
         let vertices = sq
             .into_iter()
