@@ -1,21 +1,18 @@
-use crate::{
-    Commands, FetchResource, Query, QuerySet, QueryTuple, ResourceFetchSelf, ResourceQuery,
-    Resources, System, SystemId, ThreadLocalExecution,
-};
-use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, QueryAccess, TypeAccess, World};
+use crate::{Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
+use bevy_hecs::{ArchetypeComponent, QueryAccess, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
 pub struct SystemState {
-    id: SystemId,
-    name: Cow<'static, str>,
-    is_initialized: bool,
-    archetype_component_access: TypeAccess<ArchetypeComponent>,
-    resource_access: TypeAccess<TypeId>,
-    query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
-    query_accesses: Vec<Vec<QueryAccess>>,
-    query_type_names: Vec<&'static str>,
-    commands: Commands,
-    current_query_index: usize,
+    pub(crate) id: SystemId,
+    pub(crate) name: Cow<'static, str>,
+    pub(crate) is_initialized: bool,
+    pub(crate) archetype_component_access: TypeAccess<ArchetypeComponent>,
+    pub(crate) resource_access: TypeAccess<TypeId>,
+    pub(crate) query_archetype_component_accesses: Vec<TypeAccess<ArchetypeComponent>>,
+    pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
+    pub(crate) query_type_names: Vec<&'static str>,
+    pub(crate) commands: Commands,
+    pub(crate) current_query_index: usize,
 }
 
 impl SystemState {
@@ -131,91 +128,6 @@ where
     }
 }
 
-pub trait SystemParam {
-    fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
-    fn get_param(system_state: &mut SystemState, world: &World, resources: &Resources) -> Self;
-}
-
-impl<'a, Q: HecsQuery> SystemParam for Query<'a, Q> {
-    #[inline]
-    fn get_param(system_state: &mut SystemState, world: &World, _resources: &Resources) -> Self {
-        let query_index = system_state.current_query_index;
-        unsafe {
-            let world: &'a World = std::mem::transmute(world);
-            let archetype_component_access: &'a TypeAccess<ArchetypeComponent> =
-                std::mem::transmute(&system_state.query_archetype_component_accesses[query_index]);
-            system_state.current_query_index += 1;
-            Query::new(world, archetype_component_access)
-        }
-    }
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        system_state
-            .query_archetype_component_accesses
-            .push(TypeAccess::default());
-        system_state
-            .query_accesses
-            .push(vec![<Q::Fetch as Fetch>::access()]);
-        system_state
-            .query_type_names
-            .push(std::any::type_name::<Q>());
-    }
-}
-
-impl<T: QueryTuple> SystemParam for QuerySet<T> {
-    #[inline]
-    fn get_param(system_state: &mut SystemState, world: &World, _resources: &Resources) -> Self {
-        let query_index = system_state.current_query_index;
-        system_state.current_query_index += 1;
-        unsafe {
-            QuerySet::new(
-                world,
-                &system_state.query_archetype_component_accesses[query_index],
-            )
-        }
-    }
-
-    fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
-        system_state
-            .query_archetype_component_accesses
-            .push(TypeAccess::default());
-        system_state.query_accesses.push(T::get_accesses());
-        system_state
-            .query_type_names
-            .push(std::any::type_name::<T>());
-    }
-}
-
-impl<R> SystemParam for R
-where
-    R: ResourceQuery + ResourceFetchSelf,
-{
-    fn init(system_state: &mut SystemState, _world: &World, resources: &mut Resources) {
-        R::initialize(resources, Some(system_state.id));
-        system_state
-            .resource_access
-            .union(&<R::Fetch as FetchResource>::access());
-    }
-
-    #[inline]
-    fn get_param(system_state: &mut SystemState, _world: &World, resources: &Resources) -> Self {
-        unsafe { <R as ResourceFetchSelf>::get(resources, Some(system_state.id)) }
-    }
-}
-
-impl SystemParam for Commands {
-    fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
-        system_state
-            .commands
-            .set_entity_reserver(world.get_entity_reserver())
-    }
-
-    #[inline]
-    fn get_param(system_state: &mut SystemState, _world: &World, _resources: &Resources) -> Self {
-        system_state.commands.clone()
-    }
-}
-
 pub trait IntoSystem<Params> {
     fn system(self) -> Box<dyn System>;
 }
@@ -226,6 +138,7 @@ macro_rules! impl_into_system {
         where Func: FnMut($($param),*) + Send + Sync + 'static,
         {
             #[allow(unused_variables)]
+            #[allow(unused_unsafe)]
             fn system(mut self) -> Box<dyn System> {
                 Box::new(FuncSystem {
                     state: SystemState {
@@ -242,7 +155,9 @@ macro_rules! impl_into_system {
                     },
                     func: move |state, world, resources| {
                         state.reset_indices();
-                        self($($param::get_param(state, world, resources)),*);
+                        unsafe {
+                            self($($param::get_param(state, world, resources)),*);
+                        }
                     },
                     thread_local_func: |state, world, resources| {
                         state.commands.apply(world, resources);
@@ -276,8 +191,12 @@ impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P));
 
 #[cfg(test)]
 mod tests {
-    use super::{IntoSystem, Query};
-    use crate::{ChangedRes, QuerySet, System, resource::{ResMut, Resources}, schedule::Schedule};
+    use super::IntoSystem;
+    use crate::{
+        resource::{ResMut, Resources},
+        schedule::Schedule,
+        ChangedRes, Query, QuerySet, System,
+    };
     use bevy_hecs::{Entity, With, World};
 
     #[derive(Debug, Eq, PartialEq)]

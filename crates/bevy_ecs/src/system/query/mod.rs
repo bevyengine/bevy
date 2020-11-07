@@ -28,7 +28,7 @@ pub enum QueryError {
 
 impl<'a, Q: HecsQuery> Query<'a, Q> {
     #[inline]
-    pub fn new(world: &'a World, component_access: &'a TypeAccess<ArchetypeComponent>) -> Self {
+    pub unsafe fn new(world: &'a World, component_access: &'a TypeAccess<ArchetypeComponent>) -> Self {
         Self {
             world,
             component_access,
@@ -59,7 +59,6 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         self.world.query_unchecked()
     }
 
-    #[inline]
     pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -68,7 +67,6 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
     }
 
-    #[inline]
     pub fn par_iter_mut(&mut self, batch_size: usize) -> ParIter<'_, Q> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
