@@ -28,12 +28,6 @@ impl<'a, T: Resource> ChangedRes<'a, T> {
     }
 }
 
-impl<'a, T: Resource> UnsafeClone for ChangedRes<'a, T> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self { value: self.value }
-    }
-}
-
 unsafe impl<T: Resource> Send for ChangedRes<'_, T> {}
 unsafe impl<T: Resource> Sync for ChangedRes<'_, T> {}
 
@@ -60,18 +54,6 @@ impl<'a, T: Resource> Res<'a, T> {
         Self {
             value: &*value.as_ptr(),
         }
-    }
-}
-
-/// A clone that is unsafe to perform. You probably shouldn't use this.
-pub trait UnsafeClone {
-    #[allow(clippy::missing_safety_doc)]
-    unsafe fn unsafe_clone(&self) -> Self;
-}
-
-impl<'a, T: Resource> UnsafeClone for Res<'a, T> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self { value: self.value }
     }
 }
 
@@ -128,31 +110,12 @@ impl<'a, T: Resource> DerefMut for ResMut<'a, T> {
     }
 }
 
-impl<'a, T: Resource> UnsafeClone for ResMut<'a, T> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            value: self.value,
-            mutated: self.mutated,
-            _marker: Default::default(),
-        }
-    }
-}
-
 /// Local<T> resources are unique per-system. Two instances of the same system will each have their own resource.
 /// Local resources are automatically initialized using the FromResources trait.
 #[derive(Debug)]
 pub struct Local<'a, T: Resource + FromResources> {
     value: *mut T,
     _marker: PhantomData<&'a T>,
-}
-
-impl<'a, T: Resource + FromResources> UnsafeClone for Local<'a, T> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            value: self.value,
-            _marker: Default::default(),
-        }
-    }
 }
 
 impl<'a, T: Resource + FromResources> Deref for Local<'a, T> {
@@ -179,7 +142,7 @@ pub trait ResourceQuery {
 /// Streaming iterators over contiguous homogeneous ranges of resources
 pub trait FetchResource<'a>: Sized {
     /// Type of value to be fetched
-    type Item: UnsafeClone;
+    type Item;
 
     fn access() -> TypeAccess<TypeId>;
     fn borrow(resources: &Resources);
@@ -390,15 +353,6 @@ macro_rules! tuple_impl {
                 $($name::initialize(resources, system_id);)*
             }
         }
-
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        impl<$($name: UnsafeClone),*> UnsafeClone for ($($name,)*) {
-            unsafe fn unsafe_clone(&self) -> Self {
-                let ($($name,)*) = self;
-                ($($name.unsafe_clone(),)*)
-            }
-        }
     };
 }
 
@@ -449,15 +403,6 @@ macro_rules! tuple_impl_or {
             #[allow(unused_variables)]
             fn initialize(resources: &mut Resources, system_id: Option<SystemId>) {
                 $($name::initialize(resources, system_id);)*
-            }
-        }
-
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        impl<$($name: UnsafeClone),*> UnsafeClone for OrRes<($($name,)*)> {
-            unsafe fn unsafe_clone(&self) -> Self {
-                let OrRes(($($name,)*)) = self;
-                OrRes(($($name.unsafe_clone(),)*))
             }
         }
 

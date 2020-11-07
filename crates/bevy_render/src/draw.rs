@@ -12,7 +12,7 @@ use crate::{
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
     FetchResource, Query, Res, ResMut, ResourceIndex, ResourceQuery, Resources, SystemId,
-    TypeAccess, UnsafeClone,
+    TypeAccess,
 };
 use bevy_property::Properties;
 use std::{any::TypeId, ops::Range, sync::Arc};
@@ -133,19 +133,6 @@ pub struct DrawContext<'a> {
     pub render_resource_context: Res<'a, Box<dyn RenderResourceContext>>,
     pub shared_buffers: Res<'a, SharedBuffers>,
     pub current_pipeline: Option<Handle<PipelineDescriptor>>,
-}
-
-impl<'a> UnsafeClone for DrawContext<'a> {
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            pipelines: self.pipelines.unsafe_clone(),
-            shaders: self.shaders.unsafe_clone(),
-            pipeline_compiler: self.pipeline_compiler.unsafe_clone(),
-            render_resource_context: self.render_resource_context.unsafe_clone(),
-            shared_buffers: self.shared_buffers.unsafe_clone(),
-            current_pipeline: self.current_pipeline.clone(),
-        }
-    }
 }
 
 impl<'a> ResourceQuery for DrawContext<'a> {
