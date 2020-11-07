@@ -14,6 +14,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
+bevy_core = { path = "../bevy_core", version = "0.3.0" }
 bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
@@ -24,8 +25,11 @@ bevy_math = { path = "../bevy_math", version = "0.3.0" }
 bevy_scene = { path = "../bevy_scene", version = "0.3.0" }
 bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
 
+# bevy (contrib)
+bevy_skinned_mesh = { path = "../bevy_skinned_mesh", version = "0.3.0" }
+
 # other
-gltf = { version = "0.15.2", default-features = false, features = ["utils"] }
+gltf = { version = "0.15.2", default-features = false, features = ["names", "utils"] }
 image = { version = "0.23", default-features = false }
 thiserror = "1.0"
 anyhow = "1.0"

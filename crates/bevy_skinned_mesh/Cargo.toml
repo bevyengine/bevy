@@ -1,0 +1,22 @@
+[package]
+name = "bevy_skinned_mesh"
+version = "0.3.0"
+authors = ["Felipe Jorge <felipe.jorge.pereira@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy_app = { path = "../bevy_app", version = "0.3.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.3.0" }
+bevy_core = { path = "../bevy_core", version = "0.3.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.3.0" }
+bevy_math = { path = "../bevy_math", version = "0.3.0" }
+bevy_render = { path = "../bevy_render", version = "0.3.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.3.0" }
+bevy_type_registry = { path = "../bevy_type_registry", version = "0.3.0" }
+bevy_property = { path = "../bevy_property", version = "0.3.0" }
+
+# # other
+# serde = { version = "1.0", features = ["derive"] }
+smallvec = { version = "1.4", features = ["serde"] }

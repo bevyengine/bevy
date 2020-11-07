@@ -21,6 +21,7 @@ default = [
     "bevy_dynamic_plugin",
     "bevy_gilrs",
     "bevy_gltf",
+    "bevy_skinned_mesh",
     "bevy_wgpu",
     "bevy_winit",
     "render",
@@ -74,6 +75,7 @@ bevy_tasks = { path = "crates/bevy_tasks", version = "0.3.0" }
 # bevy (optional)
 bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.3.0" }
 bevy_gltf = { path = "crates/bevy_gltf", optional = true, version = "0.3.0" }
+bevy_skinned_mesh = { path = "crates/bevy_skinned_mesh", optional = true, version = "0.3.0" }
 bevy_pbr = { path = "crates/bevy_pbr", optional = true, version = "0.3.0" }
 bevy_render = { path = "crates/bevy_render", optional = true, version = "0.3.0" }
 bevy_dynamic_plugin = { path = "crates/bevy_dynamic_plugin", optional = true, version = "0.3.0" }

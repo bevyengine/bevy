@@ -35,7 +35,10 @@ impl PluginGroup for DefaultPlugins {
         group.add(bevy_gilrs::GilrsPlugin::default());
 
         #[cfg(feature = "bevy_gltf")]
-        group.add(bevy_gltf::GltfPlugin::default());
+        {
+            group.add(bevy_gltf::GltfPlugin::default());
+            group.add(bevy_skinned_mesh::MeshSkinPlugin::default());
+        }
 
         #[cfg(feature = "bevy_winit")]
         group.add(bevy_winit::WinitPlugin::default());

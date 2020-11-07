@@ -1,17 +1,19 @@
 mod bytes;
 mod float_ord;
 mod label;
+mod name;
 mod task_pool_options;
 mod time;
 
 pub use bytes::*;
 pub use float_ord::*;
 pub use label::*;
+pub use name::*;
 pub use task_pool_options::DefaultTaskPoolOptions;
 pub use time::*;
 
 pub mod prelude {
-    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Time, Timer};
+    pub use crate::{DefaultTaskPoolOptions, EntityLabels, Labels, Name, Time, Timer};
 }
 
 use bevy_app::prelude::*;
@@ -33,7 +35,9 @@ impl Plugin for CorePlugin {
 
         app.init_resource::<Time>()
             .init_resource::<EntityLabels>()
+            .register_component::<Name>()
             .register_component::<Timer>()
+            .register_component::<Labels>()
             .register_property::<Vec2>()
             .register_property::<Vec3>()
             .register_property::<Mat3>()
