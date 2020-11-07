@@ -65,7 +65,7 @@ impl GlyphBrush {
         fonts: &Assets<Font>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Texture>,
-    ) -> Result<Vec<TextVertex>, TextError> {
+    ) -> Result<Vec<PositionedGlyph>, TextError> {
         let mut sq = self.section_queue.lock();
         let sq = std::mem::replace(&mut *sq, Vec::new());
         let vertices = sq
@@ -123,7 +123,7 @@ impl GlyphBrush {
                         let y = max_y - bounds.max.y + glyph_height / 2.0 + 0.5;
                         let position = Vec2::new(x, y);
 
-                        vertices.push(TextVertex {
+                        vertices.push(PositionedGlyph {
                             position,
                             atlas_info,
                         });
@@ -148,16 +148,16 @@ impl GlyphBrush {
 }
 
 #[derive(Debug, Clone)]
-pub struct TextVertex {
+pub struct PositionedGlyph {
     pub position: Vec2,
     pub atlas_info: GlyphAtlasInfo,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct TextVertices(Vec<TextVertex>);
+pub struct TextVertices(Vec<PositionedGlyph>);
 
 impl std::ops::Deref for TextVertices {
-    type Target = Vec<TextVertex>;
+    type Target = Vec<PositionedGlyph>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -165,7 +165,7 @@ impl std::ops::Deref for TextVertices {
 }
 
 impl TextVertices {
-    pub fn set(&mut self, vertices: Vec<TextVertex>) {
+    pub fn set(&mut self, vertices: Vec<PositionedGlyph>) {
         self.0 = vertices;
     }
 }
