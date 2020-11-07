@@ -92,7 +92,7 @@ impl GlyphBrush {
                     let scaled_font = ab_glyph::Font::as_scaled(&font.font, glyph.scale.y);
                     // glyph.position.y = baseline
                     max_y = max_y.max(glyph.position.y - scaled_font.descent());
-                    min_x = min_x.min(glyph.position.x - scaled_font.h_side_bearing(glyph.id));
+                    min_x = min_x.min(glyph.position.x);
                 }
                 max_y = max_y.floor();
                 min_x = min_x.floor();
