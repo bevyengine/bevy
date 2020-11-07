@@ -57,10 +57,10 @@ impl TextPipeline {
             return Ok(Size::new(0., 0.));
         }
 
-        let mut min_x: f32 = std::f32::MIN;
-        let mut min_y: f32 = std::f32::MIN;
-        let mut max_x: f32 = std::f32::MAX;
-        let mut max_y: f32 = std::f32::MAX;
+        let mut min_x: f32 = std::f32::MAX;
+        let mut min_y: f32 = std::f32::MAX;
+        let mut max_x: f32 = std::f32::MIN;
+        let mut max_y: f32 = std::f32::MIN;
 
         for section_glyph in section_glyphs.iter() {
             let glyph = &section_glyph.glyph;
