@@ -40,7 +40,7 @@ Audio of mp3 format support.
 
 ### x11
 
-Make GUI applications use X11 procotol. You could enable wayland feature to override this.
+Make GUI applications use X11 protocol. You could enable wayland feature to override this.
 
 ## Optional Features
 
@@ -54,7 +54,7 @@ For tracing wgpu.
 
 ### flac
 
-FLAC audio fromat support. It's included in bevy_audio feature.
+FLAC audio format support. It's included in bevy_audio feature.
 
 ### wav
 
