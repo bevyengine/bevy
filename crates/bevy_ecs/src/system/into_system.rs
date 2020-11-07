@@ -268,15 +268,16 @@ impl_into_system!((A, B, C, D, E, F, G));
 impl_into_system!((A, B, C, D, E, F, G, H));
 impl_into_system!((A, B, C, D, E, F, G, H, I));
 impl_into_system!((A, B, C, D, E, F, G, H, I, J));
+impl_into_system!((A, B, C, D, E, F, G, H, I, J, K));
+impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L));
+impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M));
+impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M, N, O));
+impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P));
 
 #[cfg(test)]
 mod tests {
     use super::{IntoSystem, Query};
-    use crate::{
-        resource::{ResMut, Resources},
-        schedule::Schedule,
-        ChangedRes, QuerySet,
-    };
+    use crate::{ChangedRes, QuerySet, System, resource::{ResMut, Resources}, schedule::Schedule};
     use bevy_hecs::{Entity, With, World};
 
     #[derive(Debug, Eq, PartialEq)]
@@ -339,11 +340,7 @@ mod tests {
         world.spawn((A, C));
         world.spawn((A, D));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", query_system.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, query_system.system());
 
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
@@ -376,11 +373,7 @@ mod tests {
         resources.insert(false);
         world.spawn((A, B));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", query_system.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, query_system.system());
 
         assert!(*resources.get::<bool>().unwrap(), "system ran");
     }
@@ -401,6 +394,7 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
         schedule.add_system_to_stage("update", incr_e_on_flip.system());
+        schedule.initialize(&mut world, &mut resources);
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
@@ -422,11 +416,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", sys.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -438,11 +428,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", sys.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -453,11 +439,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", sys.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -469,11 +451,7 @@ mod tests {
         let mut resources = Resources::default();
         world.spawn((A,));
 
-        let mut schedule = Schedule::default();
-        schedule.add_stage("update");
-        schedule.add_system_to_stage("update", sys.system());
-
-        schedule.run(&mut world, &mut resources);
+        run_system(&mut world, &mut resources, sys.system());
     }
 
     #[test]
@@ -484,11 +462,15 @@ mod tests {
         let mut world = World::default();
         let mut resources = Resources::default();
         world.spawn((A,));
+        run_system(&mut world, &mut resources, sys.system());
+    }
 
+    fn run_system(world: &mut World, resources: &mut Resources, system: Box<dyn System>) {
         let mut schedule = Schedule::default();
         schedule.add_stage("update");
-        schedule.add_system_to_stage("update", sys.system());
+        schedule.add_system_to_stage("update", system);
 
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize(world, resources);
+        schedule.run(world, resources);
     }
 }
