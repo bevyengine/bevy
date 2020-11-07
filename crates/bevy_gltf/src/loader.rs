@@ -4,9 +4,13 @@ use bevy_ecs::{bevy_utils::BoxedFuture, World, WorldBuilderSource};
 use bevy_math::Mat4;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
 use bevy_render::{
+    camera::{
+        Camera, CameraProjection, OrthographicProjection, PerspectiveProjection, VisibleEntities,
+    },
     mesh::{Indices, Mesh, VertexAttributeValues},
     pipeline::PrimitiveTopology,
     prelude::{Color, Texture},
+    render_graph::base,
     texture::{AddressMode, FilterMode, SamplerDescriptor, TextureFormat},
 };
 use bevy_scene::Scene;
@@ -204,49 +208,90 @@ async fn load_gltf<'a, 'b>(
 }
 
 fn load_node(
-    node: &gltf::Node,
+    gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
     buffer_data: &[Vec<u8>],
 ) -> Result<(), GltfError> {
-    let transform = node.transform();
+    let transform = gltf_node.transform();
     let mut gltf_error = None;
-    world_builder
-        .spawn((
-            Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
-            GlobalTransform::default(),
-        ))
-        .with_children(|parent| {
-            if let Some(mesh) = node.mesh() {
-                for primitive in mesh.primitives() {
-                    let primitive_label = primitive_label(&mesh, &primitive);
-                    let mesh_asset_path =
-                        AssetPath::new_ref(load_context.path(), Some(&primitive_label));
-                    let material = primitive.material();
-                    let material_label = material_label(&material);
-                    let material_asset_path =
-                        AssetPath::new_ref(load_context.path(), Some(&material_label));
-                    parent.spawn(PbrComponents {
-                        mesh: load_context.get_handle(mesh_asset_path),
-                        material: load_context.get_handle(material_asset_path),
-                        ..Default::default()
-                    });
-                }
-            }
+    let node = world_builder.spawn((
+        Transform::from_matrix(Mat4::from_cols_array_2d(&transform.matrix())),
+        GlobalTransform::default(),
+    ));
 
-            if parent.current_entity().is_none() {
+    // create camera node
+    if let Some(camera) = gltf_node.camera() {
+        node.with(VisibleEntities {
+            ..Default::default()
+        });
+
+        match camera.projection() {
+            gltf::camera::Projection::Orthographic(orthographic) => {
+                let xmag = orthographic.xmag();
+                let ymag = orthographic.ymag();
+                let mut orthographic_projection: OrthographicProjection = Default::default();
+                orthographic_projection.left = -xmag;
+                orthographic_projection.right = xmag;
+                orthographic_projection.top = ymag;
+                orthographic_projection.bottom = -ymag;
+                orthographic_projection.far = orthographic.zfar();
+                orthographic_projection.near = orthographic.znear();
+                orthographic_projection.get_projection_matrix();
+                node.with(Camera {
+                    name: Some(base::camera::CAMERA2D.to_owned()),
+                    projection_matrix: orthographic_projection.get_projection_matrix(),
+                    ..Default::default()
+                });
+                node.with(orthographic_projection);
+            }
+            gltf::camera::Projection::Perspective(perspective) => {
+                let mut perspective_projection: PerspectiveProjection = Default::default();
+                perspective_projection.fov = perspective.yfov();
+                perspective_projection.near = perspective.znear();
+                if let Some(zfar) = perspective.zfar() {
+                    perspective_projection.far = zfar;
+                }
+                if let Some(aspect_ratio) = perspective.aspect_ratio() {
+                    perspective_projection.aspect_ratio = aspect_ratio;
+                }
+                node.with(Camera {
+                    name: Some(base::camera::CAMERA3D.to_owned()),
+                    projection_matrix: perspective_projection.get_projection_matrix(),
+                    ..Default::default()
+                });
+                node.with(perspective_projection);
+            }
+        }
+    }
+
+    node.with_children(|parent| {
+        if let Some(mesh) = gltf_node.mesh() {
+            // append primitives
+            for primitive in mesh.primitives() {
+                let primitive_label = primitive_label(&mesh, &primitive);
+                let mesh_asset_path =
+                    AssetPath::new_ref(load_context.path(), Some(&primitive_label));
+                let material = primitive.material();
+                let material_label = material_label(&material);
+                let material_asset_path =
+                    AssetPath::new_ref(load_context.path(), Some(&material_label));
+                parent.spawn(PbrComponents {
+                    mesh: load_context.get_handle(mesh_asset_path),
+                    material: load_context.get_handle(material_asset_path),
+                    ..Default::default()
+                });
+            }
+        }
+
+        // append other nodes
+        for child in gltf_node.children() {
+            if let Err(err) = load_node(&child, parent, load_context, buffer_data) {
+                gltf_error = Some(err);
                 return;
             }
-
-            parent.with_children(|parent| {
-                for child in node.children() {
-                    if let Err(err) = load_node(&child, parent, load_context, buffer_data) {
-                        gltf_error = Some(err);
-                        return;
-                    }
-                }
-            });
-        });
+        }
+    });
     if let Some(err) = gltf_error {
         Err(err)
     } else {
