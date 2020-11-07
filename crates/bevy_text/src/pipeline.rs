@@ -13,8 +13,8 @@ use crate::{
 };
 
 pub struct TextPipeline {
-    pub brush: GlyphBrush,
-    pub map_font_id: HashMap<HandleId, FontId>,
+    brush: GlyphBrush,
+    map_font_id: HashMap<HandleId, FontId>,
 }
 
 impl Default for TextPipeline {
@@ -56,12 +56,12 @@ impl TextPipeline {
         if section_glyphs.is_empty() {
             return Ok(Size::new(0., 0.));
         }
-        let first_glyph = section_glyphs.first().unwrap();
-        let mut min_x: f32 = first_glyph.glyph.position.x;
-        let mut min_y: f32 = first_glyph.glyph.position.y - scaled_font.ascent();
-        let mut max_x: f32 =
-            first_glyph.glyph.position.x + scaled_font.h_advance(first_glyph.glyph.id);
-        let mut max_y: f32 = first_glyph.glyph.position.y - scaled_font.descent();
+
+        let mut min_x: f32 = std::f32::MIN;
+        let mut min_y: f32 = std::f32::MIN;
+        let mut max_x: f32 = std::f32::MAX;
+        let mut max_y: f32 = std::f32::MAX;
+
         for section_glyph in section_glyphs.iter() {
             let glyph = &section_glyph.glyph;
             min_x = min_x.min(glyph.position.x);
