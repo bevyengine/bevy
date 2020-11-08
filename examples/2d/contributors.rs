@@ -46,7 +46,7 @@ const COL_SELECTED: Color = Color::rgb_linear(5.0, 5.0, 5.0);
 const SHOWCASE_TIMER_SECS: f32 = 3.0;
 
 fn setup(
-    mut cmd: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -54,7 +54,8 @@ fn setup(
 
     let texture_handle = asset_server.load("branding/icon.png");
 
-    cmd.spawn(Camera2dComponents::default())
+    commands
+        .spawn(Camera2dComponents::default())
         .spawn(UiCameraComponents::default());
 
     let mut sel = ContributorSelection {
@@ -76,7 +77,8 @@ fn setup(
         let mut transform = Transform::from_translation(Vec3::new(pos.0, pos.1, 0.0));
         *transform.scale.x_mut() *= if flipped { -1.0 } else { 1.0 };
 
-        cmd.spawn((Contributor { color: col },))
+        commands
+            .spawn((Contributor { color: col },))
             .with(Velocity {
                 translation: velocity,
                 rotation: -dir * 5.0,
@@ -94,16 +96,17 @@ fn setup(
             })
             .with(transform);
 
-        let e = cmd.current_entity().unwrap();
+        let e = commands.current_entity().unwrap();
 
         sel.order.push((name, e));
     }
 
     sel.order.shuffle(&mut rnd);
 
-    cmd.spawn((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
+    commands.spawn((SelectTimer, Timer::from_seconds(SHOWCASE_TIMER_SECS, true)));
 
-    cmd.spawn((ContributorDisplay,))
+    commands
+        .spawn((ContributorDisplay,))
         .with_bundle(TextComponents {
             style: Style {
                 align_self: AlignSelf::FlexEnd,
@@ -120,7 +123,7 @@ fn setup(
             ..Default::default()
         });
 
-    cmd.insert_resource(sel);
+    commands.insert_resource(sel);
 }
 
 /// Finds the next contributor to display and selects the entity

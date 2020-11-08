@@ -22,10 +22,9 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::crate_name;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Error, Ident, Index, Lifetime, Path, Result};
 use syn::{
-    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Field, Fields, Ident,
-    Index, Lifetime, Path,
+    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields,
+    Ident, Index, Lifetime, Path, Result,
 };
 
 /// Implement `Bundle` for a monomorphic struct
