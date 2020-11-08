@@ -62,7 +62,7 @@ impl SystemState {
                 }
             }
             panic!("System {} has conflicting queries. {} conflicts with the component access [{}] in this prior query: {}",
-                core::any::type_name::<Self>(),
+                self.name,
                 self.query_type_names[conflict_index],
                 conflict_name.unwrap_or("Unknown"),
                 conflicts_with_index.map(|index| self.query_type_names[index]).unwrap_or("Unknown"));
