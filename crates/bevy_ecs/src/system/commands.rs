@@ -1,8 +1,7 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
-use parking_lot::Mutex;
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 /// A [World] mutation
 pub trait Command: Send + Sync {

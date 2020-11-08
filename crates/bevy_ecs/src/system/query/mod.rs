@@ -28,7 +28,10 @@ pub enum QueryError {
 
 impl<'a, Q: HecsQuery> Query<'a, Q> {
     #[inline]
-    pub unsafe fn new(world: &'a World, component_access: &'a TypeAccess<ArchetypeComponent>) -> Self {
+    pub unsafe fn new(
+        world: &'a World,
+        component_access: &'a TypeAccess<ArchetypeComponent>,
+    ) -> Self {
         Self {
             world,
             component_access,

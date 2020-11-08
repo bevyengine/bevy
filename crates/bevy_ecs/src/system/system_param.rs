@@ -5,7 +5,8 @@ use crate::{
     ResourceIndex, Resources, SystemState,
 };
 use bevy_hecs::{ArchetypeComponent, Fetch, Or, Query as HecsQuery, TypeAccess, World};
-use std::any::TypeId;
+use parking_lot::Mutex;
+use std::{any::TypeId, sync::Arc};
 
 pub trait SystemParam: Sized {
     fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
@@ -85,6 +86,25 @@ impl<'a> SystemParam for &'a mut Commands {
     ) -> Option<Self> {
         let commands: &'a mut Commands = std::mem::transmute(&mut system_state.commands);
         Some(commands)
+    }
+}
+
+impl SystemParam for Arc<Mutex<Commands>> {
+    fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
+        system_state.arc_commands.get_or_insert_with(|| {
+            let mut commands = Commands::default();
+            commands.set_entity_reserver(world.get_entity_reserver());
+            Arc::new(Mutex::new(commands))
+        });
+    }
+
+    #[inline]
+    unsafe fn get_param(
+        system_state: &mut SystemState,
+        _world: &World,
+        _resources: &Resources,
+    ) -> Option<Self> {
+        Some(system_state.arc_commands.as_ref().unwrap().clone())
     }
 }
 

@@ -1,8 +1,7 @@
-use crate::{
-    Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution,
-};
+use crate::{Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
 use bevy_hecs::{ArchetypeComponent, QueryAccess, TypeAccess, World};
-use std::{any::TypeId, borrow::Cow};
+use parking_lot::Mutex;
+use std::{any::TypeId, borrow::Cow, sync::Arc};
 
 pub struct SystemState {
     pub(crate) id: SystemId,
@@ -14,6 +13,7 @@ pub struct SystemState {
     pub(crate) query_accesses: Vec<Vec<QueryAccess>>,
     pub(crate) query_type_names: Vec<&'static str>,
     pub(crate) commands: Commands,
+    pub(crate) arc_commands: Option<Arc<Mutex<Commands>>>,
     pub(crate) current_query_index: usize,
 }
 
@@ -151,6 +151,7 @@ macro_rules! impl_into_system {
                         is_initialized: false,
                         id: SystemId::new(),
                         commands: Commands::default(),
+                        arc_commands: Default::default(),
                         query_archetype_component_accesses: Vec::new(),
                         query_accesses: Vec::new(),
                         query_type_names: Vec::new(),
@@ -166,6 +167,10 @@ macro_rules! impl_into_system {
                     },
                     thread_local_func: |state, world, resources| {
                         state.commands.apply(world, resources);
+                        if let Some(ref commands) = state.arc_commands {
+                            let mut commands = commands.lock();
+                            commands.apply(world, resources);
+                        }
                     },
                     init_func: |state, world, resources| {
                         $($param::init(state, world, resources);)*
@@ -274,14 +279,12 @@ mod tests {
     fn or_query_set_system() {
         // Regression test for issue #762
         use crate::{Added, Changed, Mutated, Or};
-        let query_system = move |
-            mut ran: ResMut<bool>,
-            set: QuerySet<(
-                Query<Or<(Changed<A>, Changed<B>)>>,
-                Query<Or<(Added<A>, Added<B>)>>,
-                Query<Or<(Mutated<A>, Mutated<B>)>>,
-            )>,
-        | {
+        let query_system = move |mut ran: ResMut<bool>,
+                                 set: QuerySet<(
+            Query<Or<(Changed<A>, Changed<B>)>>,
+            Query<Or<(Added<A>, Added<B>)>>,
+            Query<Or<(Mutated<A>, Mutated<B>)>>,
+        )>| {
             let changed = set.q0().iter().count();
             let added = set.q1().iter().count();
             let mutated = set.q2().iter().count();
@@ -334,7 +337,10 @@ mod tests {
 
     #[test]
     fn changed_resource_or_system() {
-        fn incr_e_on_flip(_or: Or<(Option<ChangedRes<bool>>, Option<ChangedRes<i32>>)>, mut query: Query<&mut i32>) {
+        fn incr_e_on_flip(
+            _or: Or<(Option<ChangedRes<bool>>, Option<ChangedRes<i32>>)>,
+            mut query: Query<&mut i32>,
+        ) {
             for mut i in query.iter_mut() {
                 *i += 1;
             }
@@ -363,7 +369,7 @@ mod tests {
 
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
-        
+
         *resources.get_mut::<i32>().unwrap() = 20;
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 3);
