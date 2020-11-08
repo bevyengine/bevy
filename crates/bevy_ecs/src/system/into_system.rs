@@ -1,4 +1,4 @@
-use crate::{Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
+use crate::{Commands, FlattenOptions, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
 use bevy_hecs::{ArchetypeComponent, QueryAccess, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
@@ -133,12 +133,13 @@ pub trait IntoSystem<Params> {
 }
 
 macro_rules! impl_into_system {
-    (($($param: ident),*)) => {
+    ($($param: ident),*) => {
         impl<Func, $($param: SystemParam),*> IntoSystem<($($param,)*)> for Func
         where Func: FnMut($($param),*) + Send + Sync + 'static,
         {
             #[allow(unused_variables)]
             #[allow(unused_unsafe)]
+            #[allow(non_snake_case)]
             fn system(mut self) -> Box<dyn System> {
                 Box::new(FuncSystem {
                     state: SystemState {
@@ -156,7 +157,9 @@ macro_rules! impl_into_system {
                     func: move |state, world, resources| {
                         state.reset_indices();
                         unsafe {
-                            self($($param::get_param(state, world, resources)),*);
+                            if let Some(($($param,)*)) = ($($param::get_param(state, world, resources),)*).flatten_options() {
+                                self($($param),*);
+                            }
                         }
                     },
                     thread_local_func: |state, world, resources| {
@@ -172,22 +175,23 @@ macro_rules! impl_into_system {
     };
 }
 
-impl_into_system!(());
-impl_into_system!((A));
-impl_into_system!((A, B));
-impl_into_system!((A, B, C));
-impl_into_system!((A, B, C, D));
-impl_into_system!((A, B, C, D, E));
-impl_into_system!((A, B, C, D, E, F));
-impl_into_system!((A, B, C, D, E, F, G));
-impl_into_system!((A, B, C, D, E, F, G, H));
-impl_into_system!((A, B, C, D, E, F, G, H, I));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J, K));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M, N, O));
-impl_into_system!((A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P));
+impl_into_system!();
+impl_into_system!(A);
+impl_into_system!(A, B);
+impl_into_system!(A, B, C);
+impl_into_system!(A, B, C, D);
+impl_into_system!(A, B, C, D, E);
+impl_into_system!(A, B, C, D, E, F);
+impl_into_system!(A, B, C, D, E, F, G);
+impl_into_system!(A, B, C, D, E, F, G, H);
+impl_into_system!(A, B, C, D, E, F, G, H, I);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_into_system!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
 #[cfg(test)]
 mod tests {

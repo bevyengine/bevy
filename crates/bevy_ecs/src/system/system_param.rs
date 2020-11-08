@@ -6,13 +6,14 @@ use crate::{
 };
 use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, TypeAccess, World};
 use std::any::TypeId;
-pub trait SystemParam {
+
+pub trait SystemParam: Sized {
     fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
     unsafe fn get_param(
         system_state: &mut SystemState,
         world: &World,
         resources: &Resources,
-    ) -> Self;
+    ) -> Option<Self>;
 }
 
 impl<'a, Q: HecsQuery> SystemParam for Query<'a, Q> {
@@ -21,13 +22,13 @@ impl<'a, Q: HecsQuery> SystemParam for Query<'a, Q> {
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
-    ) -> Self {
+    ) -> Option<Self> {
         let query_index = system_state.current_query_index;
         let world: &'a World = std::mem::transmute(world);
         let archetype_component_access: &'a TypeAccess<ArchetypeComponent> =
             std::mem::transmute(&system_state.query_archetype_component_accesses[query_index]);
         system_state.current_query_index += 1;
-        Query::new(world, archetype_component_access)
+        Some(Query::new(world, archetype_component_access))
     }
 
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
@@ -49,13 +50,13 @@ impl<T: QueryTuple> SystemParam for QuerySet<T> {
         system_state: &mut SystemState,
         world: &World,
         _resources: &Resources,
-    ) -> Self {
+    ) -> Option<Self> {
         let query_index = system_state.current_query_index;
         system_state.current_query_index += 1;
-        QuerySet::new(
+        Some(QuerySet::new(
             world,
             &system_state.query_archetype_component_accesses[query_index],
-        )
+        ))
     }
 
     fn init(system_state: &mut SystemState, _world: &World, _resources: &mut Resources) {
@@ -81,8 +82,8 @@ impl SystemParam for Commands {
         system_state: &mut SystemState,
         _world: &World,
         _resources: &Resources,
-    ) -> Self {
-        system_state.commands.clone()
+    ) -> Option<Self> {
+        Some(system_state.commands.clone())
     }
 }
 
@@ -95,8 +96,8 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
-    ) -> Self {
-        Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+    ) -> Option<Self> {
+        Some(Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)))
     }
 }
 
@@ -109,10 +110,10 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
-    ) -> Self {
+    ) -> Option<Self> {
         let (value, type_state) =
             resources.get_unsafe_ref_with_type_state::<T>(ResourceIndex::Global);
-        ResMut::new(value, type_state.mutated())
+        Some(ResMut::new(value, type_state.mutated()))
     }
 }
 
@@ -125,12 +126,12 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
         _system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
-    ) -> Self {
+    ) -> Option<Self> {
         let (added, mutated) = resources.get_unsafe_added_and_mutated::<T>(ResourceIndex::Global);
         if *added.as_ptr() || *mutated.as_ptr() {
-            ChangedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global))
+            Some(ChangedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)))
         } else {
-            todo!("return option");
+            None
         }
     }
 }
@@ -148,7 +149,41 @@ impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
         system_state: &mut SystemState,
         _world: &World,
         resources: &Resources,
-    ) -> Self {
-        Local::new(resources, system_state.id)
+    ) -> Option<Self> {
+        Some(Local::new(resources, system_state.id))
     }
 }
+
+pub trait FlattenOptions<U> {
+    fn flatten_options(self) -> Option<U>;
+}
+
+macro_rules! impl_system_param_tuple {
+    ($($param: ident),*) => {
+        #[allow(non_snake_case)]
+        impl<$($param: SystemParam),*> FlattenOptions<($($param,)*)> for ($(Option<$param>,)*) {
+            fn flatten_options(self) -> Option<($($param,)*)> {
+                let ($($param,)*) = self;
+                Some(($($param?,)*))
+            }
+        } 
+    };
+}
+
+impl_system_param_tuple!();
+impl_system_param_tuple!(A);
+impl_system_param_tuple!(A, B);
+impl_system_param_tuple!(A, B, C);
+impl_system_param_tuple!(A, B, C, D);
+impl_system_param_tuple!(A, B, C, D, E);
+impl_system_param_tuple!(A, B, C, D, E, F);
+impl_system_param_tuple!(A, B, C, D, E, F, G);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
+impl_system_param_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);

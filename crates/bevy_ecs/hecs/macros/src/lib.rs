@@ -416,11 +416,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 system_state: &mut #path::SystemState,
                 world: &#path::World,
                 resources: &#path::Resources,
-            ) -> Self {
-                #struct_name {
-                    #(#fields: <#field_types>::get_param(system_state, world, resources),)*
+            ) -> Option<Self> {
+                Some(#struct_name {
+                    #(#fields: <#field_types>::get_param(system_state, world, resources)?,)*
                     #(#ignored_fields: <#ignored_field_types>::default(),)*
-                }
+                })
             }
         }
     })
