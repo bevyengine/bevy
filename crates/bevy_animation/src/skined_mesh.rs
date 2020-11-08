@@ -30,6 +30,7 @@ impl MeshSkin {
     }
 }
 
+// TODO: Find a better name!
 /// Component that skins some mesh.
 /// Requires a `Handle<MeshSkin>` attached to same entity as the component
 #[derive(Properties)]
@@ -87,7 +88,7 @@ impl MapEntities for MeshSkinner {
 
 // NOTE: This system is provided for a user convenience, once the root bone is assigned this system
 // will find the rest of the skeleton hierarchy.
-fn mesh_skinner_startup(
+pub(crate) fn mesh_skinner_startup(
     mesh_skin_assets: Res<Assets<MeshSkin>>,
     mut skinners_query: Query<(&Handle<MeshSkin>, &mut MeshSkinner, Option<&Children>)>,
     meshes_query: Query<(&Handle<Mesh>,)>,
@@ -150,14 +151,10 @@ fn mesh_skinner_startup(
 //     // TODO: have to send the matrices into each entity
 // }
 
-#[derive(Default)]
-pub struct MeshSkinPlugin;
-
-impl Plugin for MeshSkinPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app.add_asset::<MeshSkin>()
-            .register_component_with::<MeshSkinner>(|reg| reg.map_entities())
-            .add_system(mesh_skinner_startup.system());
-        // .register_component::<BoneName>();
-    }
-}
+// #[derive(Default, Debug)]
+// pub struct MeshSkinnerDebuger {
+//     pub enabled: bool,
+//     currently_enabled: bool,
+//     mesh: Handle<Mesh>,
+//     entity: Option<Entity>,
+// }

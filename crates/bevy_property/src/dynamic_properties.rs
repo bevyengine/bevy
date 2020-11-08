@@ -207,6 +207,14 @@ impl Property for DynamicProperties {
     fn property_type(&self) -> PropertyType {
         self.property_type
     }
+
+    fn as_ptr(&self) -> *const u8 {
+        panic!("as_ptr isn't supported for DynamicProperties")
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        panic!("as_mut_ptr isn't supported for DynamicProperties")
+    }
 }
 
 impl DeserializeProperty for DynamicProperties {

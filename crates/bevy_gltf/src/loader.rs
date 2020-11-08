@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bevy_animation::prelude::*;
 use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_core::Name;
 use bevy_ecs::{bevy_utils::BoxedFuture, Entity, World, WorldBuilderSource};
@@ -11,7 +12,6 @@ use bevy_render::{
     texture::{AddressMode, FilterMode, SamplerDescriptor, TextureFormat},
 };
 use bevy_scene::Scene;
-use bevy_skinned_mesh::{MeshSkin, MeshSkinner};
 use bevy_transform::{
     hierarchy::{BuildWorldChildren, WorldChildBuilder},
     prelude::{GlobalTransform, Transform},
@@ -451,3 +451,37 @@ async fn load_buffers(
 
     Ok(buffer_data)
 }
+
+// const EPSILON: f32 = 1.0e-8;
+// const EPSILON_SQUARED: f32 = EPSILON * EPSILON;
+
+// fn angle(a: Quat, b: Quat) -> f32 {
+//     let dot = a.dot(b);
+//     if dot > (1.0 - EPSILON) {
+//         0.0
+//     } else {
+//         dot.abs().min(1.0).acos() * 2.0 * 180.0 / std::f32::consts::PI
+//     }
+// }
+
+// fn axis(a: Quat) -> Vec3 {
+//     let (x, y, z, w) = Vec4::from(a).into();
+//     let scale_sq = (1.0 - w * w).max(0.0);
+//     if scale_sq >= EPSILON_SQUARED {
+//         Vec3::new(x, y, z) / scale_sq.sqrt()
+//     } else {
+//         Vec3::unit_x()
+//     }
+// }
+
+// fn is_axis_flipped(a: Quat, b: Quat) -> bool {
+//     let dot = axis(a).dot(axis(b));
+//     dbg!(dot);
+//     if (1.0 - dot.abs()) > 0.1 {
+//         false
+//     } else {
+//         // Quaternion axis are (almost) colinear
+//         // but heir axis are opposing to each other
+//         dot < 0.0
+//     }
+// }

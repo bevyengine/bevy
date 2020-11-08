@@ -223,6 +223,14 @@ pub fn derive_properties(input: TokenStream) -> TokenStream {
             fn property_type(&self) -> #bevy_property_path::PropertyType {
                 #bevy_property_path::PropertyType::Map
             }
+
+            fn as_ptr(&self) -> *const u8 {
+                self as *const _ as *const u8
+            }
+
+            fn as_mut_ptr(&mut self) -> *mut u8 {
+                self as *mut _ as *mut u8
+            }
         }
     })
 }
@@ -282,6 +290,14 @@ pub fn derive_property(input: TokenStream) -> TokenStream {
 
             fn property_type(&self) -> #bevy_property_path::PropertyType {
                 #bevy_property_path::PropertyType::Value
+            }
+
+            fn as_ptr(&self) -> *const u8 {
+                self as *const _ as *const u8
+            }
+
+            fn as_mut_ptr(&mut self) -> *mut u8 {
+                self as *mut _ as *mut u8
             }
         }
 
@@ -414,6 +430,14 @@ pub fn impl_property(input: TokenStream) -> TokenStream {
 
             fn property_type(&self) -> #bevy_property_path::PropertyType {
                 #bevy_property_path::PropertyType::Value
+            }
+
+            fn as_ptr(&self) -> *const u8 {
+                self as *const _ as *const u8
+            }
+
+            fn as_mut_ptr(&mut self) -> *mut u8 {
+                self as *mut _ as *mut u8
             }
         }
 
