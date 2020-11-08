@@ -63,7 +63,7 @@ void main() {
 "#;
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut pipelines: ResMut<Assets<PipelineDescriptor>>,
     mut shaders: ResMut<Assets<Shader>>,
     mut meshes: ResMut<Assets<Mesh>>,

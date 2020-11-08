@@ -4,7 +4,7 @@ use crate::{
     ChangedRes, Commands, FromResources, Local, Query, QuerySet, QueryTuple, Res, ResMut, Resource,
     ResourceIndex, Resources, SystemState,
 };
-use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, TypeAccess, World, Or};
+use bevy_hecs::{ArchetypeComponent, Fetch, Or, Query as HecsQuery, TypeAccess, World};
 use std::any::TypeId;
 
 pub trait SystemParam: Sized {
@@ -70,7 +70,7 @@ impl<T: QueryTuple> SystemParam for QuerySet<T> {
     }
 }
 
-impl SystemParam for Commands {
+impl<'a> SystemParam for &'a mut Commands {
     fn init(system_state: &mut SystemState, world: &World, _resources: &mut Resources) {
         system_state
             .commands
@@ -83,7 +83,8 @@ impl SystemParam for Commands {
         _world: &World,
         _resources: &Resources,
     ) -> Option<Self> {
-        Some(system_state.commands.clone())
+        let commands: &'a mut Commands = std::mem::transmute(&mut system_state.commands);
+        Some(commands)
     }
 }
 
@@ -98,7 +99,9 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _world: &World,
         resources: &Resources,
     ) -> Option<Self> {
-        Some(Res::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)))
+        Some(Res::new(
+            resources.get_unsafe_ref::<T>(ResourceIndex::Global),
+        ))
     }
 }
 
@@ -132,7 +135,9 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
     ) -> Option<Self> {
         let (added, mutated) = resources.get_unsafe_added_and_mutated::<T>(ResourceIndex::Global);
         if *added.as_ptr() || *mutated.as_ptr() {
-            Some(ChangedRes::new(resources.get_unsafe_ref::<T>(ResourceIndex::Global)))
+            Some(ChangedRes::new(
+                resources.get_unsafe_ref::<T>(ResourceIndex::Global),
+            ))
         } else {
             None
         }
@@ -174,7 +179,7 @@ macro_rules! impl_system_param_tuple {
             ) -> Option<Self> {
                 Some(($($param::get_param(system_state, world, resources)?,)*))
             }
-        } 
+        }
 
         #[allow(unused_variables)]
         #[allow(unused_mut)]
@@ -204,7 +209,7 @@ macro_rules! impl_system_param_tuple {
                     None
                 }
             }
-        } 
+        }
     };
 }
 

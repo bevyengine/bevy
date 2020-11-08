@@ -88,10 +88,10 @@ mod test {
                 ),
             ])
             .collect::<Vec<Entity>>();
-        // we need to run the schedule three times because components need to be filled in
+        // we need to run the schedule two times because components need to be filled in
         // to resolve this problem in code, just add the correct components, or use Commands
         // which adds all of the components needed with the correct state (see next test)
-        schedule.run(&mut world, &mut resources);
+        schedule.initialize(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
@@ -142,6 +142,7 @@ mod test {
                     .for_current_entity(|entity| children.push(entity));
             });
         commands.apply(&mut world, &mut resources);
+        schedule.initialize(&mut world, &mut resources);
         schedule.run(&mut world, &mut resources);
 
         assert_eq!(
