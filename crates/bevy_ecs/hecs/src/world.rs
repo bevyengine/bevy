@@ -249,6 +249,7 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
+    #[inline]
     pub fn query<Q: Query>(&self) -> QueryIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -281,6 +282,7 @@ impl World {
     /// assert!(entities.contains(&(a, 123, true)));
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
+    #[inline]
     pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
@@ -288,6 +290,7 @@ impl World {
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
+    #[inline]
     pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -298,6 +301,7 @@ impl World {
 
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
+    #[inline]
     pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q> {
         // SAFE: unique mutable access
         unsafe { self.query_batched_unchecked(batch_size) }
@@ -316,6 +320,7 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
     pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'_, Q> {
         QueryIter::new(&self.archetypes)
     }
@@ -347,6 +352,7 @@ impl World {
     /// let (number, flag) = world.query_one::<(&i32, &bool)>(a).unwrap();
     /// assert_eq!(*number, 123);
     /// ```
+    #[inline]
     pub fn query_one<Q: Query>(
         &self,
         entity: Entity,
@@ -372,6 +378,7 @@ impl World {
     /// if *flag { *number *= 2; }
     /// assert_eq!(*number, 246);
     /// ```
+    #[inline]
     pub fn query_one_mut<Q: Query>(
         &mut self,
         entity: Entity,
@@ -387,6 +394,7 @@ impl World {
     /// # Safety
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    #[inline]
     pub unsafe fn query_one_unchecked<Q: Query>(
         &self,
         entity: Entity,
@@ -399,6 +407,7 @@ impl World {
     }
 
     /// Borrow the `T` component of `entity`
+    #[inline]
     pub fn get<T: Component>(&self, entity: Entity) -> Result<&'_ T, ComponentError> {
         unsafe {
             let loc = self.entities.get(entity)?;
@@ -414,6 +423,7 @@ impl World {
     }
 
     /// Mutably borrow the `T` component of `entity`
+    #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Result<Mut<'_, T>, ComponentError> {
         // SAFE: uniquely borrows world
         unsafe { self.get_mut_unchecked(entity) }
@@ -434,6 +444,7 @@ impl World {
     /// # Safety
     /// This does not check for mutable access correctness. To be safe, make sure this is the only
     /// thing accessing this entity's T component.
+    #[inline]
     pub unsafe fn get_mut_unchecked<T: Component>(
         &self,
         entity: Entity,

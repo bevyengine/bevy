@@ -37,6 +37,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 
     /// Iterates over the query results. This can only be called for read-only queries
+    #[inline]
     pub fn iter(&self) -> QueryIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -46,6 +47,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 
     /// Iterates over the query results
+    #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, Q> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe { self.world.query_unchecked() }
@@ -54,11 +56,13 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// Iterates over the query results
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, Q> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         self.world.query_unchecked()
     }
 
+    #[inline]
     pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, Q>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -67,12 +71,14 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
     }
 
+    #[inline]
     pub fn par_iter_mut(&mut self, batch_size: usize) -> ParIter<'_, Q> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe { ParIter::new(self.world.query_batched_unchecked(batch_size)) }
     }
 
     /// Gets the query result for the given `entity`
+    #[inline]
     pub fn get(&self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError>
     where
         Q::Fetch: ReadOnlyFetch,
@@ -86,6 +92,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     }
 
     /// Gets the query result for the given `entity`
+    #[inline]
     pub fn get_mut(&mut self, entity: Entity) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -98,6 +105,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// Gets the query result for the given `entity`
     /// # Safety
     /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    #[inline]
     pub unsafe fn get_unsafe(
         &self,
         entity: Entity,

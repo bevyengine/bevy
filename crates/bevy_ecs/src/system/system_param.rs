@@ -92,6 +92,7 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
         system_state.resource_access.add_read(TypeId::of::<T>());
     }
 
+    #[inline]
     unsafe fn get_param(
         _system_state: &mut SystemState,
         _world: &World,
@@ -106,6 +107,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         system_state.resource_access.add_write(TypeId::of::<T>());
     }
 
+    #[inline]
     unsafe fn get_param(
         _system_state: &mut SystemState,
         _world: &World,
@@ -122,6 +124,7 @@ impl<'a, T: Resource> SystemParam for ChangedRes<'a, T> {
         system_state.resource_access.add_read(TypeId::of::<T>());
     }
 
+    #[inline]
     unsafe fn get_param(
         _system_state: &mut SystemState,
         _world: &World,
@@ -145,6 +148,7 @@ impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
         }
     }
 
+    #[inline]
     unsafe fn get_param(
         system_state: &mut SystemState,
         _world: &World,
@@ -154,17 +158,21 @@ impl<'a, T: Resource + FromResources> SystemParam for Local<'a, T> {
     }
 }
 
-pub trait FlattenOptions<U> {
-    fn flatten_options(self) -> Option<U>;
-}
-
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
-        impl<$($param: SystemParam),*> FlattenOptions<($($param,)*)> for ($(Option<$param>,)*) {
-            fn flatten_options(self) -> Option<($($param,)*)> {
-                let ($($param,)*) = self;
-                Some(($($param?,)*))
+        #[allow(unused_variables)]
+        impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
+            fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
+                $($param::init(system_state, world, resources);)*
+            }
+
+            #[inline]
+            unsafe fn get_param(
+                system_state: &mut SystemState,
+                world: &World,
+                resources: &Resources,
+            ) -> Option<Self> {
+                Some(($($param::get_param(system_state, world, resources)?,)*))
             }
         } 
     };

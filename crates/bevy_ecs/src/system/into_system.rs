@@ -1,4 +1,6 @@
-use crate::{Commands, FlattenOptions, Resources, System, SystemId, SystemParam, ThreadLocalExecution};
+use crate::{
+    Commands, Resources, System, SystemId, SystemParam, ThreadLocalExecution,
+};
 use bevy_hecs::{ArchetypeComponent, QueryAccess, TypeAccess, World};
 use std::{any::TypeId, borrow::Cow};
 
@@ -157,7 +159,7 @@ macro_rules! impl_into_system {
                     func: move |state, world, resources| {
                         state.reset_indices();
                         unsafe {
-                            if let Some(($($param,)*)) = ($($param::get_param(state, world, resources),)*).flatten_options() {
+                            if let Some(($($param,)*)) = <($($param,)*)>::get_param(state, world, resources) {
                                 self($($param),*);
                             }
                         }
