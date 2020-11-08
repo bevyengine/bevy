@@ -27,6 +27,9 @@ pub enum QueryError {
 }
 
 impl<'a, Q: HecsQuery> Query<'a, Q> {
+    /// # Safety
+    /// This will create a Query that could violate memory safety rules. Make sure that this is only called in
+    /// ways that ensure the Queries have unique mutable access.
     #[inline]
     pub unsafe fn new(
         world: &'a World,

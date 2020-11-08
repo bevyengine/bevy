@@ -10,6 +10,9 @@ use std::{any::TypeId, sync::Arc};
 
 pub trait SystemParam: Sized {
     fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources);
+    /// # Safety
+    /// This call might access any of the input parameters in a safe way. Make sure the data access is safe in
+    /// the context of the system scheduler 
     unsafe fn get_param(
         system_state: &mut SystemState,
         world: &World,
