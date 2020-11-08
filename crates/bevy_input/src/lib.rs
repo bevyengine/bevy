@@ -28,7 +28,7 @@ use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotio
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
 use bevy_app::startup_stage::STARTUP;
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoSystem;
 use gamepad::{
     gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent, GamepadEventRaw,
     GamepadSettings,

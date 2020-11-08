@@ -18,7 +18,7 @@ impl Plugin for DiagnosticsPlugin {
         app.init_resource::<Diagnostics>();
         #[cfg(feature = "profiler")]
         {
-            use bevy_ecs::IntoQuerySystem;
+            use bevy_ecs::IntoSystem;
             app.add_resource::<Box<dyn bevy_ecs::Profiler>>(Box::new(
                 system_profiler::SystemProfiler::default(),
             ))

@@ -23,6 +23,7 @@ impl SystemId {
 pub trait System: Send + Sync {
     fn name(&self) -> Cow<'static, str>;
     fn id(&self) -> SystemId;
+    fn is_initialized(&self) -> bool;
     fn update(&mut self, world: &World);
     fn archetype_component_access(&self) -> &TypeAccess<ArchetypeComponent>;
     fn resource_access(&self) -> &TypeAccess<TypeId>;

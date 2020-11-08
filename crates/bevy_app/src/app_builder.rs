@@ -4,7 +4,7 @@ use crate::{
     plugin::Plugin,
     stage, startup_stage, PluginGroup, PluginGroupBuilder,
 };
-use bevy_ecs::{FromResources, IntoQuerySystem, Resources, System, World};
+use bevy_ecs::{FromResources, IntoSystem, Resources, System, World};
 
 /// Configure [App]s using the builder pattern
 pub struct AppBuilder {

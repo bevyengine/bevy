@@ -1,8 +1,7 @@
 use super::SystemId;
 use crate::resource::{Resource, Resources};
 use bevy_hecs::{Bundle, Component, DynamicBundle, Entity, EntityReserver, World};
-use parking_lot::Mutex;
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 /// A [World] mutation
 pub trait Command: Send + Sync {
@@ -157,13 +156,13 @@ impl<T: Resource> Command for InsertLocalResource<T> {
 }
 
 #[derive(Default)]
-pub struct CommandsInternal {
-    pub commands: Vec<Box<dyn Command>>,
-    pub current_entity: Option<Entity>,
-    pub entity_reserver: Option<EntityReserver>,
+pub struct Commands {
+    commands: Vec<Box<dyn Command>>,
+    current_entity: Option<Entity>,
+    entity_reserver: Option<EntityReserver>,
 }
 
-impl CommandsInternal {
+impl Commands {
     pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
         let entity = self
             .entity_reserver
@@ -173,6 +172,66 @@ impl CommandsInternal {
         self.current_entity = Some(entity);
         self.commands.push(Box::new(Insert { entity, components }));
         self
+    }
+
+    pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
+    where
+        I: IntoIterator + Send + Sync + 'static,
+        I::Item: Bundle,
+    {
+        self.add_command(SpawnBatch { components_iter })
+    }
+
+    /// Despawns only the specified entity, ignoring any other consideration.
+    pub fn despawn(&mut self, entity: Entity) -> &mut Self {
+        self.add_command(Despawn { entity })
+    }
+
+    pub fn insert(
+        &mut self,
+        entity: Entity,
+        components: impl DynamicBundle + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.add_command(Insert { entity, components })
+    }
+
+    pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
+        self.add_command(InsertOne { entity, component })
+    }
+
+    pub fn insert_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
+        self.add_command(InsertResource { resource })
+    }
+
+    pub fn insert_local_resource<T: Resource>(
+        &mut self,
+        system_id: SystemId,
+        resource: T,
+    ) -> &mut Self {
+        self.add_command(InsertLocalResource {
+            system_id,
+            resource,
+        })
+    }
+
+    pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Component,
+    {
+        self.add_command(RemoveOne::<T> {
+            entity,
+            phantom: PhantomData,
+        })
+    }
+
+    pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
+    where
+        T: Bundle + Send + Sync + 'static,
+    {
+        self.add_command(Remove::<T> {
+            entity,
+            phantom: PhantomData,
+        })
     }
 
     pub fn with_bundle(
@@ -205,137 +264,35 @@ impl CommandsInternal {
         self.commands.push(command);
         self
     }
-}
 
-/// A queue of [Command]s to run on the current [World] and [Resources]. Todo: remove arc here
-#[derive(Default, Clone)]
-pub struct Commands {
-    pub commands: Arc<Mutex<CommandsInternal>>,
-}
-
-impl Commands {
-    pub fn spawn(&mut self, components: impl DynamicBundle + Send + Sync + 'static) -> &mut Self {
-        {
-            let mut commands = self.commands.lock();
-            commands.spawn(components);
-        }
-        self
-    }
-
-    pub fn spawn_batch<I>(&mut self, components_iter: I) -> &mut Self
-    where
-        I: IntoIterator + Send + Sync + 'static,
-        I::Item: Bundle,
-    {
-        self.add_command(SpawnBatch { components_iter })
-    }
-
-    /// Despawns only the specified entity, ignoring any other consideration.
-    pub fn despawn(&mut self, entity: Entity) -> &mut Self {
-        self.add_command(Despawn { entity })
-    }
-
-    pub fn with(&mut self, component: impl Component) -> &mut Self {
-        {
-            let mut commands = self.commands.lock();
-            commands.with(component);
-        }
-        self
-    }
-
-    pub fn with_bundle(
-        &mut self,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        {
-            let mut commands = self.commands.lock();
-            commands.with_bundle(components);
-        }
-        self
-    }
-
-    pub fn insert(
-        &mut self,
-        entity: Entity,
-        components: impl DynamicBundle + Send + Sync + 'static,
-    ) -> &mut Self {
-        self.add_command(Insert { entity, components })
-    }
-
-    pub fn insert_one(&mut self, entity: Entity, component: impl Component) -> &mut Self {
-        self.add_command(InsertOne { entity, component })
-    }
-
-    pub fn insert_resource<T: Resource>(&mut self, resource: T) -> &mut Self {
-        self.add_command(InsertResource { resource })
-    }
-
-    pub fn insert_local_resource<T: Resource>(
-        &mut self,
-        system_id: SystemId,
-        resource: T,
-    ) -> &mut Self {
-        self.add_command(InsertLocalResource {
-            system_id,
-            resource,
-        })
-    }
-
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
-        self.commands.lock().add_command(command);
-        self
-    }
-
-    pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
-        self.commands.lock().add_command_boxed(command);
-        self
-    }
-
-    pub fn apply(&self, world: &mut World, resources: &mut Resources) {
-        let mut commands = self.commands.lock();
-        for command in commands.commands.drain(..) {
+    pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
+        for command in self.commands.drain(..) {
             command.write(world, resources);
         }
     }
 
     pub fn current_entity(&self) -> Option<Entity> {
-        let commands = self.commands.lock();
-        commands.current_entity
+        self.current_entity
+    }
+
+    pub fn set_current_entity(&mut self, entity: Entity) {
+        self.current_entity = Some(entity);
+    }
+
+    pub fn clear_current_entity(&mut self) {
+        self.current_entity = None;
     }
 
     pub fn for_current_entity(&mut self, f: impl FnOnce(Entity)) -> &mut Self {
-        {
-            let commands = self.commands.lock();
-            let current_entity = commands
-                .current_entity
-                .expect("The 'current entity' is not set. You should spawn an entity first.");
-            f(current_entity);
-        }
+        let current_entity = self
+            .current_entity
+            .expect("The 'current entity' is not set. You should spawn an entity first.");
+        f(current_entity);
         self
     }
 
-    pub fn remove_one<T>(&mut self, entity: Entity) -> &mut Self
-    where
-        T: Component,
-    {
-        self.add_command(RemoveOne::<T> {
-            entity,
-            phantom: PhantomData,
-        })
-    }
-
-    pub fn remove<T>(&mut self, entity: Entity) -> &mut Self
-    where
-        T: Bundle + Send + Sync + 'static,
-    {
-        self.add_command(Remove::<T> {
-            entity,
-            phantom: PhantomData,
-        })
-    }
-
-    pub fn set_entity_reserver(&self, entity_reserver: EntityReserver) {
-        self.commands.lock().entity_reserver = Some(entity_reserver);
+    pub fn set_entity_reserver(&mut self, entity_reserver: EntityReserver) {
+        self.entity_reserver = Some(entity_reserver);
     }
 }
 

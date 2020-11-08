@@ -22,7 +22,10 @@ use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_crate::crate_name;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Error, Ident, Index, Lifetime, Path, Result};
+use syn::{
+    parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields,
+    Ident, Index, Lifetime, Path, Result,
+};
 
 /// Implement `Bundle` for a monomorphic struct
 ///
@@ -331,4 +334,93 @@ pub fn impl_query_set(_input: TokenStream) -> TokenStream {
     }
 
     tokens
+}
+
+#[derive(Default)]
+struct SystemParamFieldAttributes {
+    pub ignore: bool,
+}
+
+static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
+
+#[proc_macro_derive(SystemParam, attributes(system_param))]
+pub fn derive_system_param(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    let fields = match &ast.data {
+        Data::Struct(DataStruct {
+            fields: Fields::Named(fields),
+            ..
+        }) => &fields.named,
+        _ => panic!("expected a struct with named fields"),
+    };
+
+    let path_str = if crate_name("bevy").is_ok() {
+        "bevy::ecs"
+    } else {
+        "bevy_ecs"
+    };
+    let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
+
+    let field_attributes = fields
+        .iter()
+        .map(|field| {
+            (
+                field,
+                field
+                    .attrs
+                    .iter()
+                    .find(|a| *a.path.get_ident().as_ref().unwrap() == SYSTEM_PARAM_ATTRIBUTE_NAME)
+                    .map_or_else(SystemParamFieldAttributes::default, |a| {
+                        syn::custom_keyword!(ignore);
+                        let mut attributes = SystemParamFieldAttributes::default();
+                        a.parse_args_with(|input: ParseStream| {
+                            if input.parse::<Option<ignore>>()?.is_some() {
+                                attributes.ignore = true;
+                            }
+                            Ok(())
+                        })
+                        .expect("invalid 'render_resources' attribute format");
+
+                        attributes
+                    }),
+            )
+        })
+        .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
+    let mut fields = Vec::new();
+    let mut field_types = Vec::new();
+    let mut ignored_fields = Vec::new();
+    let mut ignored_field_types = Vec::new();
+    for (field, attrs) in field_attributes.iter() {
+        if attrs.ignore {
+            ignored_fields.push(field.ident.as_ref().unwrap());
+            ignored_field_types.push(&field.ty);
+        } else {
+            fields.push(field.ident.as_ref().unwrap());
+            field_types.push(&field.ty);
+        }
+    }
+
+    let generics = ast.generics;
+    let (impl_generics, ty_generics, _where_clause) = generics.split_for_impl();
+
+    let struct_name = &ast.ident;
+
+    TokenStream::from(quote! {
+        impl #impl_generics #path::SystemParam for #struct_name#ty_generics {
+            fn init(system_state: &mut #path::SystemState, world: &#path::World, resources: &mut #path::Resources) {
+                #(<#field_types>::init(system_state, world, resources);)*
+            }
+
+            unsafe fn get_param(
+                system_state: &mut #path::SystemState,
+                world: &#path::World,
+                resources: &#path::Resources,
+            ) -> Option<Self> {
+                Some(#struct_name {
+                    #(#fields: <#field_types>::get_param(system_state, world, resources)?,)*
+                    #(#ignored_fields: <#ignored_field_types>::default(),)*
+                })
+            }
+        }
+    })
 }

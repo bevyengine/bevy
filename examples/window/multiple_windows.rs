@@ -22,7 +22,7 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut create_window_events: ResMut<Events<CreateWindow>>,
     mut active_cameras: ResMut<ActiveCameras>,
     mut render_graph: ResMut<RenderGraph>,

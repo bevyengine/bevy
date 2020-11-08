@@ -1,6 +1,6 @@
 use bevy::{
     prelude::{
-        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoQuerySystem,
+        shape, App, Assets, Camera3dComponents, Color, Commands, DefaultPlugins, IntoSystem,
         LightComponents, Mesh, Msaa, PbrComponents, ResMut, StandardMaterial, Transform, Vec3,
         WindowDescriptor,
     },
@@ -23,7 +23,7 @@ extern "C" fn main_rs() {
 }
 /// set up a simple 3D scene
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

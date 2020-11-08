@@ -8,7 +8,7 @@ use crate::{
 };
 use bevy_core::AsBytes;
 
-use bevy_ecs::{Commands, IntoQuerySystem, Local, Query, Res, ResMut, Resources, System, World};
+use bevy_ecs::{Commands, IntoSystem, Local, Query, Res, ResMut, Resources, System, World};
 use bevy_transform::prelude::*;
 use std::borrow::Cow;
 

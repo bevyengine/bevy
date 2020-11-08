@@ -28,7 +28,7 @@ impl Default for State {
 }
 
 fn atlas_render_system(
-    mut commands: Commands,
+    commands: &mut Commands,
     mut state: ResMut<State>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
@@ -72,7 +72,7 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
+fn setup(commands: &mut Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
     commands

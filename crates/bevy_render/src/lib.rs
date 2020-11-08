@@ -32,7 +32,7 @@ use crate::prelude::*;
 use base::{MainPass, Msaa};
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
-use bevy_ecs::{IntoQuerySystem, IntoThreadLocalSystem};
+use bevy_ecs::{IntoSystem, IntoThreadLocalSystem};
 use camera::{
     ActiveCameras, Camera, OrthographicProjection, PerspectiveProjection, VisibleEntities,
 };

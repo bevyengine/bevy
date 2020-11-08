@@ -13,7 +13,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoSystem;
 
 pub struct WindowPlugin {
     pub add_primary_window: bool,

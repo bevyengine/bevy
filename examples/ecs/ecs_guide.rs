@@ -141,7 +141,7 @@ fn game_over_system(
 // the initial "state" of our game. The only thing that distinguishes a "startup" system from a "normal" system is how it is registered:
 //      Startup: app.add_startup_system(startup_system)
 //      Normal:  app.add_system(normal_system)
-fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
+fn startup_system(commands: &mut Commands, mut game_state: ResMut<GameState>) {
     // Create our game rules resource
     commands.insert_resource(GameRules {
         max_rounds: 10,
@@ -175,7 +175,7 @@ fn startup_system(mut commands: Commands, mut game_state: ResMut<GameState>) {
 // Command buffers give us the ability to queue up changes to our World without directly accessing it
 // NOTE: Command buffers must always come before resources and queries in system functions
 fn new_player_system(
-    mut commands: Commands,
+    commands: &mut Commands,
     game_rules: Res<GameRules>,
     mut game_state: ResMut<GameState>,
 ) {

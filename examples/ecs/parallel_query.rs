@@ -4,7 +4,7 @@ use rand::random;
 struct Velocity(Vec2);
 
 fn spawn_system(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {

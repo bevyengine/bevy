@@ -57,7 +57,7 @@ fn button_system(
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     button_materials: Res<ButtonMaterials>,
 ) {

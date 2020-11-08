@@ -26,7 +26,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle};
-use bevy_ecs::IntoQuerySystem;
+use bevy_ecs::IntoSystem;
 use bevy_math::Vec2;
 use bevy_render::{
     mesh::{shape, Mesh},

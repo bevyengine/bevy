@@ -3,7 +3,7 @@ use crate::{
     transform_propagate_system::transform_propagate_system, transform_systems,
 };
 
-use bevy_ecs::{IntoQuerySystem, System};
+use bevy_ecs::{IntoSystem, System};
 use hierarchy_maintenance_system::hierarchy_maintenance_systems;
 use transform_systems::transform_systems;
 

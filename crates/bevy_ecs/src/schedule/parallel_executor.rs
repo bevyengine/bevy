@@ -532,7 +532,7 @@ mod tests {
     use crate::{
         resource::{Res, ResMut, Resources},
         schedule::Schedule,
-        system::{IntoQuerySystem, IntoThreadLocalSystem, Query},
+        system::{IntoSystem, IntoThreadLocalSystem, Query},
         Commands,
     };
     use bevy_hecs::{Entity, World};
@@ -556,7 +556,7 @@ mod tests {
         schedule.add_stage("PreArchetypeChange");
         schedule.add_stage("PostArchetypeChange");
 
-        fn insert(mut commands: Commands) {
+        fn insert(commands: &mut Commands) {
             commands.spawn((1u32,));
         }
 
@@ -603,6 +603,7 @@ mod tests {
 
         schedule.add_system_to_stage("update", insert.thread_local_system());
         schedule.add_system_to_stage("update", read.system());
+        schedule.initialize(&mut world, &mut resources);
 
         let mut executor = ParallelExecutor::default();
         executor.run(&mut schedule, &mut world, &mut resources);
@@ -743,6 +744,7 @@ mod tests {
         schedule.add_system_to_stage("C", read_isize_res.system());
         schedule.add_system_to_stage("C", read_isize_write_f64_res.system());
         schedule.add_system_to_stage("C", write_f64_res.system());
+        schedule.initialize(&mut world, &mut resources);
 
         fn run_executor_and_validate(
             executor: &mut ParallelExecutor,
