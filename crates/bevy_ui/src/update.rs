@@ -8,7 +8,7 @@ use bevy_transform::{
 pub const UI_Z_STEP: f32 = 0.001;
 
 pub fn ui_z_system(
-    root_node_query: Query<With<Node, Without<Parent, Entity>>>,
+    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
     mut node_query: Query<(Entity, &Node, &mut Transform)>,
     children_query: Query<&Children>,
 ) {

@@ -282,10 +282,11 @@ impl<T: Hash + Eq + PartialEq + Copy> TypeAccess<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ArchetypeComponent, Entity, Fetch, Query, TypeAccess, With, World};
+    use crate::{ArchetypeComponent, Entity, Fetch, Query, QueryAccess, TypeAccess, World};
     use std::vec;
 
     struct A;
+    #[derive(Clone, Eq, PartialEq, Debug)]
     struct B;
     struct C;
 
@@ -344,7 +345,7 @@ mod tests {
         );
 
         let mut a_with_b_type_access = TypeAccess::default();
-        <With<B, &A> as Query>::Fetch::access()
+        QueryAccess::with::<B>(<&A as Query>::Fetch::access())
             .get_world_archetype_access(&world, Some(&mut a_with_b_type_access));
 
         assert_eq!(
@@ -353,7 +354,7 @@ mod tests {
         );
 
         let mut a_with_b_option_c_type_access = TypeAccess::default();
-        <With<B, (&A, Option<&mut C>)> as Query>::Fetch::access()
+        QueryAccess::with::<B>(<(&A, Option<&mut C>) as Query>::Fetch::access())
             .get_world_archetype_access(&world, Some(&mut a_with_b_option_c_type_access));
 
         assert_eq!(

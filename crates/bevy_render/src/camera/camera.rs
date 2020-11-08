@@ -40,7 +40,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     windows: Res<Windows>,
     mut queries: QuerySet<(
         Query<(Entity, &mut Camera, &mut T)>,
-        Query<(Entity, Added<Camera>)>,
+        Query<Entity, Added<Camera>>,
     )>,
 ) {
     let mut changed_window_ids = Vec::new();
@@ -71,7 +71,7 @@ pub fn camera_system<T: CameraProjection + Component>(
     }
 
     let mut added_cameras = vec![];
-    for (entity, _camera) in &mut queries.q1().iter() {
+    for entity in &mut queries.q1().iter() {
         added_cameras.push(entity);
     }
     for (entity, mut camera, mut camera_projection) in queries.q0_mut().iter_mut() {

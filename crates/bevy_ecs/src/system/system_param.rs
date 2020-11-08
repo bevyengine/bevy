@@ -1,10 +1,11 @@
-pub use bevy_hecs::SystemParam;
-
 use crate::{
-    ChangedRes, Commands, FromResources, Local, Query, QuerySet, QueryTuple, Res, ResMut, Resource,
-    ResourceIndex, Resources, SystemState,
+    ChangedRes, Commands, FromResources, Local, Query, QueryAccess, QuerySet, QueryTuple, Res,
+    ResMut, Resource, ResourceIndex, Resources, SystemState,
 };
-use bevy_hecs::{ArchetypeComponent, Fetch, Or, Query as HecsQuery, TypeAccess, World};
+pub use bevy_hecs::SystemParam;
+use bevy_hecs::{
+    ArchetypeComponent, Fetch, Or, Query as HecsQuery, QueryFilter, TypeAccess, World,
+};
 use parking_lot::Mutex;
 use std::{any::TypeId, sync::Arc};
 
@@ -20,7 +21,7 @@ pub trait SystemParam: Sized {
     ) -> Option<Self>;
 }
 
-impl<'a, Q: HecsQuery> SystemParam for Query<'a, Q> {
+impl<'a, Q: HecsQuery, F: QueryFilter> SystemParam for Query<'a, Q, F> {
     #[inline]
     unsafe fn get_param(
         system_state: &mut SystemState,
@@ -39,9 +40,8 @@ impl<'a, Q: HecsQuery> SystemParam for Query<'a, Q> {
         system_state
             .query_archetype_component_accesses
             .push(TypeAccess::default());
-        system_state
-            .query_accesses
-            .push(vec![<Q::Fetch as Fetch>::access()]);
+        let access = QueryAccess::union(vec![Q::Fetch::access(), F::access()]);
+        system_state.query_accesses.push(vec![access]);
         system_state
             .query_type_names
             .push(std::any::type_name::<Q>());

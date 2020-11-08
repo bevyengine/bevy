@@ -220,7 +220,7 @@ mod tests {
     fn query_system_gets() {
         fn query_system(
             mut ran: ResMut<bool>,
-            entity_query: Query<With<A, Entity>>,
+            entity_query: Query<Entity, With<A>>,
             b_query: Query<&B>,
             a_c_query: Query<(&A, &C)>,
             d_query: Query<&D>,
@@ -281,9 +281,9 @@ mod tests {
         use crate::{Added, Changed, Mutated, Or};
         let query_system = move |mut ran: ResMut<bool>,
                                  set: QuerySet<(
-            Query<Or<(Changed<A>, Changed<B>)>>,
-            Query<Or<(Added<A>, Added<B>)>>,
-            Query<Or<(Mutated<A>, Mutated<B>)>>,
+            Query<(), Or<(Changed<A>, Changed<B>)>>,
+            Query<(), Or<(Added<A>, Added<B>)>>,
+            Query<(), Or<(Mutated<A>, Mutated<B>)>>,
         )>| {
             let changed = set.q0().iter().count();
             let added = set.q1().iter().count();

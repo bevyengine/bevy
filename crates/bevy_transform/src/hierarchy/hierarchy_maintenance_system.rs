@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 pub fn parent_update_system(
     commands: &mut Commands,
-    removed_parent_query: Query<Without<Parent, (Entity, &PreviousParent)>>,
+    removed_parent_query: Query<(Entity, &PreviousParent), Without<Parent>>,
     // TODO: ideally this only runs when the Parent component has changed
     mut changed_parent_query: Query<(Entity, &Parent, Option<&mut PreviousParent>)>,
     mut children_query: Query<&mut Children>,

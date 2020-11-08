@@ -69,6 +69,7 @@ mod borrow;
 mod bundle;
 mod entities;
 mod entity_builder;
+mod filter;
 mod query;
 #[cfg(feature = "serde")]
 mod serde;
@@ -80,10 +81,8 @@ pub use borrow::{AtomicBorrow, Ref, RefMut};
 pub use bundle::{Bundle, DynamicBundle, MissingComponent};
 pub use entities::{Entity, EntityReserver, Location, NoSuchEntity};
 pub use entity_builder::{BuiltEntity, EntityBuilder};
-pub use query::{
-    Added, Batch, BatchedIter, Changed, Mut, Mutated, Or, Query, QueryIter, ReadOnlyFetch, With,
-    Without,
-};
+pub use filter::{Added, Changed, EntityFilter, Mutated, Or, QueryFilter, With, Without};
+pub use query::{Batch, BatchedIter, Mut, Query, QueryIter, ReadOnlyFetch};
 pub use world::{ArchetypesGeneration, Component, ComponentError, SpawnBatchIter, World};
 
 // Unstable implementation details needed by the macros
