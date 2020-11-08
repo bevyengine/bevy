@@ -4,7 +4,7 @@ use crate::{
     ChangedRes, Commands, FromResources, Local, Query, QuerySet, QueryTuple, Res, ResMut, Resource,
     ResourceIndex, Resources, SystemState,
 };
-use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, TypeAccess, World};
+use bevy_hecs::{ArchetypeComponent, Fetch, Query as HecsQuery, TypeAccess, World, Or};
 use std::any::TypeId;
 
 pub trait SystemParam: Sized {
@@ -173,6 +173,36 @@ macro_rules! impl_system_param_tuple {
                 resources: &Resources,
             ) -> Option<Self> {
                 Some(($($param::get_param(system_state, world, resources)?,)*))
+            }
+        } 
+
+        #[allow(unused_variables)]
+        #[allow(unused_mut)]
+        #[allow(non_snake_case)]
+        impl<$($param: SystemParam),*> SystemParam for Or<($(Option<$param>,)*)> {
+            fn init(system_state: &mut SystemState, world: &World, resources: &mut Resources) {
+                $($param::init(system_state, world, resources);)*
+            }
+
+            #[inline]
+            unsafe fn get_param(
+                system_state: &mut SystemState,
+                world: &World,
+                resources: &Resources,
+            ) -> Option<Self> {
+                let mut has_some = false;
+                $(
+                    let $param = $param::get_param(system_state, world, resources);
+                    if $param.is_some() {
+                        has_some = true;
+                    }
+                )*
+
+                if has_some {
+                    Some(Or(($($param,)*)))
+                } else {
+                    None
+                }
             }
         } 
     };

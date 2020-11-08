@@ -203,7 +203,7 @@ mod tests {
         schedule::Schedule,
         ChangedRes, Query, QuerySet, System,
     };
-    use bevy_hecs::{Entity, With, World};
+    use bevy_hecs::{Entity, Or, With, World};
 
     #[derive(Debug, Eq, PartialEq)]
     struct A;
@@ -330,6 +330,43 @@ mod tests {
         *resources.get_mut::<bool>().unwrap() = true;
         schedule.run(&mut world, &mut resources);
         assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
+    }
+
+    #[test]
+    fn changed_resource_or_system() {
+        fn incr_e_on_flip(_or: Or<(Option<ChangedRes<bool>>, Option<ChangedRes<i32>>)>, mut query: Query<&mut i32>) {
+            for mut i in query.iter_mut() {
+                *i += 1;
+            }
+        }
+
+        let mut world = World::default();
+        let mut resources = Resources::default();
+        resources.insert(false);
+        resources.insert::<i32>(10);
+        let ent = world.spawn((0,));
+
+        let mut schedule = Schedule::default();
+        schedule.add_stage("update");
+        schedule.add_system_to_stage("update", incr_e_on_flip.system());
+        schedule.initialize(&mut world, &mut resources);
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 1);
+
+        *resources.get_mut::<bool>().unwrap() = true;
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
+
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 2);
+        
+        *resources.get_mut::<i32>().unwrap() = 20;
+        schedule.run(&mut world, &mut resources);
+        assert_eq!(*(world.get::<i32>(ent).unwrap()), 3);
     }
 
     #[test]

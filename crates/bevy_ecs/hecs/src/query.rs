@@ -296,7 +296,7 @@ impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
 ///     .collect::<Vec<_>>();
 /// assert_eq!(components, &[(false, 457)]);
 /// ```
-pub struct Or<T>(PhantomData<T>);
+pub struct Or<T>(pub T);
 //pub struct Or<Q1, Q2, Q3>(PhantomData<(Q1, Q2, Q3)>);
 
 #[doc(hidden)]
