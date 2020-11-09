@@ -1,6 +1,5 @@
 // TODO: Later merge with bevy_animation
-use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, Assets, Handle};
+use bevy_asset::{Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::prelude::*;
 use bevy_ecs::MapEntities;
@@ -8,9 +7,8 @@ use bevy_math::Mat4;
 use bevy_property::Properties;
 use bevy_render::mesh::Mesh;
 use bevy_transform::prelude::*;
-use bevy_type_registry::{RegisterType, TypeUuid};
+use bevy_type_registry::TypeUuid;
 use smallvec::SmallVec;
-// use serde::{Deserialize, Serialize};
 
 /// Skin asset used by the mesh skinning process
 #[derive(Debug, Clone, TypeUuid)]

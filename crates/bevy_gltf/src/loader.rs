@@ -3,7 +3,7 @@ use bevy_animation::prelude::*;
 use bevy_asset::{AssetIoError, AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_core::Name;
 use bevy_ecs::{bevy_utils::BoxedFuture, Entity, World, WorldBuilderSource};
-use bevy_math::Mat4;
+use bevy_math::prelude::*;
 use bevy_pbr::prelude::{PbrComponents, StandardMaterial};
 use bevy_render::{
     mesh::{Indices, Mesh, VertexAttributeValues},
@@ -17,6 +17,7 @@ use bevy_transform::{
     prelude::{GlobalTransform, Transform},
 };
 use gltf::{
+    animation::{util::ReadOutputs, Interpolation},
     mesh::Mode,
     texture::{MagFilter, MinFilter, WrappingMode},
     Primitive,
@@ -242,6 +243,129 @@ async fn load_gltf<'a, 'b>(
         )
     }
 
+    let mut clips_handles: Vec<Handle<Clip>> = vec![];
+    for animation in gltf.animations() {
+        let anim_label = animation_label(&animation);
+        if load_context.has_labeled_asset(&anim_label) {
+            panic!("non unique animation labels");
+        }
+
+        let mut clip = Clip::default();
+        clip.warp = true; // Enable warping by default
+
+        let mut start_time = f32::MAX;
+
+        // Each chanel defines how to sample the data and where it will be written
+        for channel in animation.channels() {
+            let sampler = channel.sampler();
+            // TODO: Support cubic spline interpolation
+            assert!(sampler.interpolation() != Interpolation::CubicSpline);
+
+            let target = channel.target();
+
+            // Find node path
+            let node = target.node();
+            let mut property_path = node
+                .name()
+                .expect("unnamed node can't be animated")
+                .to_string();
+            let mut parent = parents[node.index()];
+            while let Some(p) = parent {
+                let node = gltf.nodes().nth(p).unwrap();
+                let name = node
+                    .name()
+                    .expect("unnamed node can't be parent of an animated node");
+                property_path = format!("{}/{}", name, property_path);
+                parent = parents[node.index()];
+            }
+
+            let reader = channel.reader(|buffer| Some(&buffer_data[buffer.index()]));
+            let time_stamps = reader.read_inputs().unwrap().collect::<Vec<_>>();
+
+            // Start time
+            start_time = start_time.min(time_stamps.get(0).copied().unwrap_or(0.0));
+
+            // Figure out clip duration
+            clip.length = clip.length.max(time_stamps.last().copied().unwrap_or(0.0));
+
+            match reader.read_outputs().unwrap() {
+                ReadOutputs::Translations(values) => {
+                    let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
+                    property_path += "@Transform.translation";
+                    clip.add_animated_prop(
+                        property_path,
+                        Value::Vec3(Curve::new(time_stamps, values)),
+                    )
+
+                    // TODO: This is a runtime importer so here's no place for further optimizations
+                }
+                ReadOutputs::Rotations(values) => {
+                    let mut values = values.into_f32().map(|v| Quat::from(v)).collect::<Vec<_>>();
+
+                    // NOTE: To avoid 2pi rotations in between frames we keep the w value always positive
+                    // this happens when decomposing frames from Mat4, each frame snapshot by it self is
+                    // correct but the motion is wrong, causing a in between frames 360º spin around the
+                    // quaternion axis;
+                    //
+                    // When quaternion changes its sign: https://math.stackexchange.com/questions/2016282/negative-quaternion
+
+                    // NOTE: Making sure w > 0 is not enough
+                    // for r in rotation.iter_mut() {
+                    //     if r[3] < 0.0 {
+                    //         *r = -*r;
+                    //     }
+                    //     // NODE: No need to normalize the quaternion
+                    // }
+
+                    // NOTE: Same problem than before but in a different way, some times the quaternion
+                    // axis will flip in between frames (even ensuring w > 0). So the function `is_axis_flipped`
+                    // will check if they are colinear and if they flipped their sing.
+                    if values.len() > 1 {
+                        for i in 0..values.len() - 1 {
+                            if is_axis_flipped(values[i], values[i + 1]) {
+                                let r = &mut values[i + 1];
+                                *r = -(*r);
+                            }
+                        }
+                    }
+
+                    property_path += "@Transform.rotation";
+                    clip.add_animated_prop(
+                        property_path,
+                        Value::Quat(Curve::new(time_stamps, values)),
+                    );
+                }
+                ReadOutputs::Scales(values) => {
+                    let values = values.map(|v| Vec3::from(v)).collect::<Vec<_>>();
+
+                    property_path += "@Transform.scale";
+                    clip.add_animated_prop(
+                        property_path,
+                        Value::Vec3(Curve::new(time_stamps, values)),
+                    )
+                }
+                ReadOutputs::MorphTargetWeights(_) => {
+                    unimplemented!("morph targets aren't current supported")
+                }
+            }
+        }
+
+        // Make sure the start frame is always 0.0
+        for (_, value) in clip.iter_mut() {
+            value.samples_mut().for_each(|x| *x -= start_time);
+        }
+
+        clip.length -= start_time;
+
+        // Sort properties by path to optimize clip execution
+        clip.optimize();
+
+        load_context.set_labeled_asset(&anim_label, LoadedAsset::new(clip));
+
+        let path = AssetPath::new_ref(load_context.path(), Some(&anim_label));
+        clips_handles.push(load_context.get_handle(path));
+    }
+
     // Each node will be mapped to a slot inside this `entity_lookup`
     let mut entity_lookup = vec![];
     entity_lookup.resize_with(gltf.nodes().count(), || None);
@@ -252,6 +376,13 @@ async fn load_gltf<'a, 'b>(
         if let Some(name) = scene.name() {
             world_builder.with(Name(name.to_string()));
         }
+
+        // Animator component
+        let mut animator = Animator::default();
+        for clip_handle in &clips_handles {
+            animator.add_clip(clip_handle.clone());
+        }
+        world_builder.with(animator);
 
         world_builder.with_children(|parent| {
             for node in scene.nodes() {
@@ -347,10 +478,6 @@ fn load_node(
     });
 }
 
-fn skin_label(skin: &gltf::Skin) -> String {
-    format!("Skin{}", skin.index())
-}
-
 fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
     format!("Mesh{}/Primitive{}", mesh.index(), primitive.index())
 }
@@ -365,6 +492,21 @@ fn material_label(material: &gltf::Material) -> String {
 
 fn texture_label(texture: &gltf::Texture) -> String {
     format!("Texture{}", texture.index())
+}
+
+fn skin_label(skin: &gltf::Skin) -> String {
+    format!("Skin{}", skin.index())
+}
+
+fn animation_label(animation: &gltf::Animation) -> String {
+    // NOTE: I kind really want these to be properly named, so it's possible to
+    // reference tha right animation, but also want the indexed version
+    // for workflows with 1 animation per file
+    // animation.name().map_or_else(
+    //     || format!("Anims/{}", animation.index()),
+    //     |name| format!("Anims/{}", name),
+    // )
+    format!("Anim{}", animation.index())
 }
 
 fn texture_sampler(texture: &gltf::Texture) -> Result<SamplerDescriptor, GltfError> {
@@ -452,36 +594,26 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
-// const EPSILON: f32 = 1.0e-8;
-// const EPSILON_SQUARED: f32 = EPSILON * EPSILON;
+const EPSILON: f32 = 1.0e-8;
+const EPSILON_SQUARED: f32 = EPSILON * EPSILON;
 
-// fn angle(a: Quat, b: Quat) -> f32 {
-//     let dot = a.dot(b);
-//     if dot > (1.0 - EPSILON) {
-//         0.0
-//     } else {
-//         dot.abs().min(1.0).acos() * 2.0 * 180.0 / std::f32::consts::PI
-//     }
-// }
+fn axis(a: Quat) -> Vec3 {
+    let (x, y, z, w) = Vec4::from(a).into();
+    let scale_sq = (1.0 - w * w).max(0.0);
+    if scale_sq >= EPSILON_SQUARED {
+        Vec3::new(x, y, z) / scale_sq.sqrt()
+    } else {
+        Vec3::unit_x()
+    }
+}
 
-// fn axis(a: Quat) -> Vec3 {
-//     let (x, y, z, w) = Vec4::from(a).into();
-//     let scale_sq = (1.0 - w * w).max(0.0);
-//     if scale_sq >= EPSILON_SQUARED {
-//         Vec3::new(x, y, z) / scale_sq.sqrt()
-//     } else {
-//         Vec3::unit_x()
-//     }
-// }
-
-// fn is_axis_flipped(a: Quat, b: Quat) -> bool {
-//     let dot = axis(a).dot(axis(b));
-//     dbg!(dot);
-//     if (1.0 - dot.abs()) > 0.1 {
-//         false
-//     } else {
-//         // Quaternion axis are (almost) colinear
-//         // but heir axis are opposing to each other
-//         dot < 0.0
-//     }
-// }
+fn is_axis_flipped(a: Quat, b: Quat) -> bool {
+    let dot = axis(a).dot(axis(b));
+    if (1.0 - dot.abs()) > 0.1 {
+        false
+    } else {
+        // Quaternion axis are (almost) colinear
+        // but heir axis are opposing to each other
+        dot < 0.0
+    }
+}

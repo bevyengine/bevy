@@ -1,3 +1,4 @@
+// use bevy_asset::prelude::*;
 use bevy_math::prelude::*;
 
 pub trait LerpValue: Copy {
@@ -19,3 +20,13 @@ impl LerpValue for Quat {
         Vec4::lerp(a.into(), b.into(), t).normalize().into()
     }
 }
+
+// impl<T: 'static> LerpValue for Handle<T> {
+//     fn lerp(a: Self, b: Self, t: f32) -> Self {
+//         if t > 0.5 {
+//             b
+//         } else {
+//             a
+//         }
+//     }
+// }

@@ -1,17 +1,15 @@
 use anyhow::Result;
-use bevy_app::prelude::*;
-use bevy_asset::{AddAsset, AssetLoader, Assets, Handle, LoadedAsset};
+use bevy_asset::{Assets, Handle};
 use bevy_core::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::{MapEntities, TypeAccess};
-use bevy_math::{Quat, Vec3, Vec4};
+use bevy_ecs::TypeAccess;
+use bevy_math::prelude::*;
 use bevy_property::Properties;
 use bevy_property::PropertyType;
 use bevy_transform::prelude::*;
 use bevy_type_registry::{TypeRegistry, TypeUuid};
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
-use std::collections::HashMap;
 
 use super::lerping::LerpValue;
 
@@ -25,7 +23,7 @@ use super::lerping::LerpValue;
 pub struct Clip {
     #[serde(default = "clip_default_warp")]
     pub warp: bool,
-    length: f32,
+    pub length: f32,
     //pub bones: Vec<Bone>,
     /// Property to be animated will be in the format `"path/to/named_entity@Transform.translation.x"`
     /// where the left side `@` defines a path to the entity to animate,
@@ -40,6 +38,44 @@ fn clip_default_warp() -> bool {
     true
 }
 
+impl Clip {
+    pub fn add_animated_prop(&mut self, property_path: String, value: Value) {
+        self.properties.push(property_path);
+        self.values.push(value);
+    }
+
+    pub fn iter(&mut self) -> impl Iterator<Item = (&String, &Value)> {
+        self.properties.iter().zip(self.values.iter())
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut String, &mut Value)> {
+        self.properties.iter_mut().zip(self.values.iter_mut())
+    }
+
+    pub fn optimize(&mut self) {
+        // // SAFE: No string gets dropped and are only used during for sorting
+        // let props: &[String] = unsafe { &*(&self.properties[..] as *const _) };
+
+        // let mut indexes = props
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, n)| (i, i, n))
+        //     .collect::<Vec<_>>();
+
+        // indexes.sort_by(|a, b| a.2.partial_cmp(b.2).unwrap());
+        // indexes.iter_mut().enumerate().for_each(|(i, (j, k, _))| {
+        //     *k = i;
+        // });
+        // // It's necessary to sort
+        // indexes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+        // for (i, j, _) in indexes {
+        //     self.properties[..].swap(i, j);
+        //     self.values[..].swap(i, j);
+        // }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Value {
     Float(Curve<f32>),
@@ -49,6 +85,15 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn samples_mut(&mut self) -> impl Iterator<Item = &mut f32> {
+        match self {
+            Value::Float(c) => c.samples.iter_mut(),
+            Value::Vec3(c) => c.samples.iter_mut(),
+            Value::Vec4(c) => c.samples.iter_mut(),
+            Value::Quat(c) => c.samples.iter_mut(),
+        }
+    }
+
     pub fn type_name(&self) -> &str {
         use std::any::type_name;
         match self {
@@ -71,6 +116,12 @@ impl<T> Curve<T>
 where
     T: LerpValue,
 {
+    pub fn new(samples: Vec<f32>, values: Vec<T>) -> Self {
+        // TODO: Proper error handling
+        assert!(samples.len() == values.len());
+        Self { samples, values }
+    }
+
     /// Samples the curve beginning from the keyframe at index
     pub fn sample(&self, mut index: usize, time: f32) -> (usize, T) {
         // Adjust for the current keyframe index
@@ -150,6 +201,15 @@ impl Default for Animator {
     }
 }
 
+impl Animator {
+    pub fn add_clip(&mut self, clip: Handle<Clip>) {
+        if self.animations.contains(&clip) {
+            return;
+        }
+        self.animations.push(clip);
+    }
+}
+
 /// Instance info to be animated
 #[derive(Default, Debug)]
 struct Instance {
@@ -162,13 +222,15 @@ struct Instance {
 /// Fetches entities and properties to animate
 pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     // Fetch useful resources
-    let type_registry = resources
-        .get_thread_local::<TypeRegistry>()
-        .expect("missing TypeRegistry");
+    let type_registry = resources.get_thread_local::<TypeRegistry>();
+    let clips = resources.get_thread_local::<Assets<Clip>>();
 
-    let clips = resources
-        .get_thread_local::<Assets<Clip>>()
-        .expect("missing Assets<Clip>");
+    if type_registry.is_none() || clips.is_none() {
+        return;
+    }
+
+    let type_registry = type_registry.unwrap();
+    let clips = clips.unwrap();
 
     // Build queries
     let type_access = TypeAccess::default();
