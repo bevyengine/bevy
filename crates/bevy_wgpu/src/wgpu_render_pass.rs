@@ -31,6 +31,10 @@ impl<'a> RenderPass for WgpuRenderPass<'a> {
             .set_viewport(x, y, w, h, min_depth, max_depth);
     }
 
+    fn set_scissor_rect(&mut self, x: u32, y: u32, w: u32, h: u32) {
+        self.render_pass.set_scissor_rect(x, y, w, h);
+    }
+
     fn set_stencil_reference(&mut self, reference: u32) {
         self.render_pass.set_stencil_reference(reference);
     }
