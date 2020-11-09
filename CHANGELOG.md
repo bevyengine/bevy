@@ -1,14 +1,22 @@
 # Changelog
 
-While we try to keep the `Unreleased` changes updated, it is often behind master and does not include
-all merged pull requests. To see a list of all changes since the latest release, you may compare 
-master using the [git tags for releases](https://github.com/bevyengine/bevy/tags).
+While we try to keep the `Unreleased` changes updated, it is often behind and does not include
+all merged pull requests. To see a list of all changes since the latest release, you may compare
+current changes on git with [previous release tags][git_tag_comparison].
 
-For example,
-[https://github.com/bevyengine/bevy/compare/v0.2.1...master](https://github.com/bevyengine/bevy/compare/v0.2.1...master)
-to view all changes since the `0.2.1` release.
+[git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.3.0...master
+
 
 ## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+
+## Version 0.3.0 (2020-11-03)
 
 ### Added
 
