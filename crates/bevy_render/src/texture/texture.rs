@@ -48,8 +48,10 @@ impl Texture {
     }
 
     pub fn new_fill(size: Vec2, pixel: &[u8], format: TextureFormat) -> Self {
-        let mut value = Self::default();
-        value.format = format;
+        let mut value = Texture {
+            format,
+            ..Default::default()
+        };
         value.resize(size);
 
         debug_assert_eq!(
