@@ -2,7 +2,7 @@
 name: Feature Request
 about: Propose a new feature!
 title: ''
-labels: 'enhancement'
+labels: ''
 assignees: ''
 ---
 
