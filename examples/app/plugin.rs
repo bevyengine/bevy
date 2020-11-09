@@ -40,8 +40,7 @@ struct PrintMessageState {
 }
 
 fn print_message_system(mut state: ResMut<PrintMessageState>, time: Res<Time>) {
-    state.timer.tick(time.delta_seconds);
-    if state.timer.finished {
+    if state.timer.tick(time.delta_seconds).finished {
         println!("{}", state.message);
     }
 }
