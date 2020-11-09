@@ -14,13 +14,16 @@ use bevy_property::Properties;
 pub struct RenderPipeline {
     pub pipeline: Handle<PipelineDescriptor>,
     pub specialization: PipelineSpecialization,
+    /// used to track if PipelineSpecialization::dynamic_bindings is in sync with RenderResourceBindings
+    pub dynamic_bindings_generation: usize,
 }
 
 impl RenderPipeline {
     pub fn new(pipeline: Handle<PipelineDescriptor>) -> Self {
         RenderPipeline {
+            specialization: Default::default(),
             pipeline,
-            ..Default::default()
+            dynamic_bindings_generation: std::usize::MAX,
         }
     }
 
@@ -31,6 +34,7 @@ impl RenderPipeline {
         RenderPipeline {
             pipeline,
             specialization,
+            dynamic_bindings_generation: std::usize::MAX,
         }
     }
 }
@@ -100,7 +104,17 @@ pub fn draw_render_pipelines_system(
         let render_pipelines = &mut *render_pipelines;
         for pipeline in render_pipelines.pipelines.iter_mut() {
             pipeline.specialization.sample_count = msaa.samples;
-            // TODO: move these to mesh.rs?
+            if pipeline.dynamic_bindings_generation
+                != render_pipelines.bindings.dynamic_bindings_generation()
+            {
+                pipeline.specialization.dynamic_bindings = render_pipelines
+                    .bindings
+                    .iter_dynamic_bindings()
+                    .map(|name| name.to_string())
+                    .collect::<Vec<String>>();
+                pipeline.dynamic_bindings_generation =
+                    render_pipelines.bindings.dynamic_bindings_generation();
+            }
         }
 
         for render_pipeline in render_pipelines.pipelines.iter_mut() {
@@ -112,8 +126,7 @@ pub fn draw_render_pipelines_system(
                 .set_pipeline(
                     &mut draw,
                     &render_pipeline.pipeline,
-                    &mut render_pipeline.specialization,
-                    render_resource_bindings,
+                    &render_pipeline.specialization,
                 )
                 .unwrap();
             draw_context

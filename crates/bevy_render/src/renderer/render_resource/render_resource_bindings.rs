@@ -35,6 +35,13 @@ impl RenderResourceBinding {
         }
     }
 
+    pub fn is_dynamic_buffer(&self) -> bool {
+        matches!(self, RenderResourceBinding::Buffer {
+            dynamic_index: Some(_),
+            ..
+        })
+    }
+
     pub fn get_sampler(&self) -> Option<SamplerId> {
         if let RenderResourceBinding::Sampler(sampler) = self {
             Some(*sampler)
@@ -112,6 +119,7 @@ pub struct RenderResourceBindings {
     bind_groups: HashMap<BindGroupId, BindGroup>,
     bind_group_descriptors: HashMap<BindGroupDescriptorId, Option<BindGroupId>>,
     dirty_bind_groups: HashSet<BindGroupId>,
+    dynamic_bindings_generation: usize,
 }
 
 impl RenderResourceBindings {
@@ -124,9 +132,17 @@ impl RenderResourceBindings {
         self.bindings.insert(name.to_string(), binding);
     }
 
+    /// The current "generation" of dynamic bindings. This number increments every time a dynamic binding changes
+    pub fn dynamic_bindings_generation(&self) -> usize {
+        self.dynamic_bindings_generation
+    }
+
     fn try_set_dirty(&mut self, name: &str, binding: &RenderResourceBinding) {
         if let Some(current_binding) = self.bindings.get(name) {
             if current_binding != binding {
+                if current_binding.is_dynamic_buffer() {
+                    self.dynamic_bindings_generation += 1;
+                }
                 // TODO: this is crude. we shouldn't need to invalidate all bind groups
                 for id in self.bind_groups.keys() {
                     self.dirty_bind_groups.insert(*id);
@@ -235,6 +251,18 @@ impl RenderResourceBindings {
         }
 
         Some(bind_group_builder.finish())
+    }
+
+    pub fn iter_dynamic_bindings(&self) -> impl Iterator<Item = &str> {
+        self.bindings
+            .iter()
+            .filter(|(_, binding)| {
+                matches!(binding, RenderResourceBinding::Buffer {
+                    dynamic_index: Some(_),
+                    ..
+                })
+            })
+            .map(|(name, _)| name.as_str())
     }
 }
 
