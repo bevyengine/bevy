@@ -3,16 +3,16 @@ use bevy_asset::AddAsset;
 use bevy_ecs::prelude::*;
 use bevy_type_registry::RegisterType;
 
-use crate::generic::*;
-use crate::skined_mesh::*;
-
 pub mod generic;
-mod lerping;
-pub mod skined_mesh;
+pub mod lerping;
+mod skined_mesh;
+
+pub use crate::generic::*;
+pub use crate::skined_mesh::*;
 //mod util;
 
 pub mod prelude {
-    pub use crate::generic::*;
+    pub use crate::generic::{Animator, Clip, Curve, Value};
     pub use crate::lerping::LerpValue;
     pub use crate::skined_mesh::{MeshSkin, MeshSkinner};
 }
@@ -30,6 +30,7 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<Clip>()
             .add_stage_after(stage::UPDATE, stage::ANIMATE)
             //.add_asset_loader(ClipLoader)
+            .register_component::<Animator>()
             .add_system_to_stage(stage::ANIMATE, animator_fetch.thread_local_system())
             //.add_system_to_stage(stage::ANIMATE, animator_update.system())
             .add_asset::<MeshSkin>()

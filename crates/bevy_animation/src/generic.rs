@@ -208,22 +208,39 @@ impl Animator {
         }
         self.animations.push(clip);
     }
+
+    pub fn clips_len(&self) -> usize {
+        self.animations.len()
+    }
 }
 
 /// Instance info to be animated
-#[derive(Default, Debug)]
+#[derive(Debug)]
 struct Instance {
+    dirty: bool,
     valid: Vec<bool>,
     entities: Vec<Entity>,
     components: Vec<TypeId>,
     properties: Vec<isize>,
 }
 
+impl Default for Instance {
+    fn default() -> Self {
+        Self {
+            dirty: true,
+            valid: vec![],
+            entities: vec![],
+            components: vec![],
+            properties: vec![],
+        }
+    }
+}
+
 /// Fetches entities and properties to animate
 pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     // Fetch useful resources
-    let type_registry = resources.get_thread_local::<TypeRegistry>();
-    let clips = resources.get_thread_local::<Assets<Clip>>();
+    let type_registry = resources.get::<TypeRegistry>();
+    let clips = resources.get::<Assets<Clip>>();
 
     if type_registry.is_none() || clips.is_none() {
         return;
@@ -235,6 +252,7 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
     // Build queries
     let type_access = TypeAccess::default();
     let mut animators_query: Query<(&mut Animator, &Children)> = Query::new(&world, &type_access);
+    //let animators_query = unsafe { world.query_unchecked::<(&mut Animator, &Children)>() };
     let entities_query: Query<(Entity, &Name, &Children)> = Query::new(&world, &type_access);
 
     // TODO: Parallelize this loop
@@ -246,7 +264,9 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
         // TODO: Needs to be updated when a clip changes
         let animations_count = animator.animations.len();
         if animations_count == animator.instances.len() {
-            continue;
+            if animator.instances.iter().all(|item| !item.dirty) {
+                break;
+            }
         }
 
         animator
@@ -254,9 +274,14 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
             .resize_with(animations_count, || Default::default());
 
         for (clip_index, clip_handle) in animator.animations.iter().enumerate() {
+            let instance = &mut animator.instances[clip_index];
+            if !instance.dirty {
+                continue;
+            }
+
             if let Some(clip) = clips.get(clip_handle) {
                 // Get instance reference to modify during the function
-                let instance = &mut animator.instances[clip_index];
+                instance.dirty = false;
 
                 let mut paths = clip
                     .properties
@@ -290,8 +315,12 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                 for parent in root_children.iter().copied() {
                     if let Ok((entity, name, children)) = entities_query.get(parent) {
                         let name = Some(name.0.as_str());
-                        if let Some(i) = hierarchy.iter().position(|level| *level == name) {
-                            hierarchy[i] = paths[i].0.next();
+                        for (i, level) in hierarchy.iter_mut().enumerate() {
+                            if *level != name {
+                                continue;
+                            }
+
+                            *level = paths[i].0.next();
                             entities[i] = entity;
                             valid[i] = true;
                             stack.push((i, children));
@@ -299,6 +328,7 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                     }
                 }
                 // Fast educated search into the nested hierarchy
+                // TODO: Many identical queries for the same entity will happen here!
                 while let Some((i, parents)) = stack.pop() {
                     for parent in parents.iter().copied() {
                         if let Ok((entity, name, children)) = entities_query.get(parent) {
@@ -322,12 +352,12 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                 properties.resize(paths.len(), 0);
 
                 // 2. Find components and properties in all entities that completed the path
-                for (i, path) in hierarchy.iter().enumerate() {
+                for (i, level) in hierarchy.iter().enumerate() {
                     if valid[i] {
                         // Not reached the entity at the path
-                        if path.is_none() {
+                        if level.is_some() {
                             valid[i] = false;
-                            break;
+                            continue;
                         }
 
                         let component = paths[i].1.next().unwrap_or("?");
@@ -391,6 +421,14 @@ pub(crate) fn animator_fetch(world: &mut World, resources: &mut Resources) {
                         }
                     }
                 }
+
+                // for (i, valid) in valid.iter().copied().enumerate() {
+                //     if valid {
+                //         println!("found: {}", &clip.properties[i]);
+                //     } else {
+                //         println!("missing: {}", &clip.properties[i]);
+                //     }
+                // }
             }
         }
     }
