@@ -230,14 +230,16 @@ fn load_node(
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
                 let ymag = orthographic.ymag();
-                let mut orthographic_projection: OrthographicProjection = Default::default();
-                orthographic_projection.left = -xmag;
-                orthographic_projection.right = xmag;
-                orthographic_projection.top = ymag;
-                orthographic_projection.bottom = -ymag;
-                orthographic_projection.far = orthographic.zfar();
-                orthographic_projection.near = orthographic.znear();
-                orthographic_projection.get_projection_matrix();
+                let orthographic_projection: OrthographicProjection = OrthographicProjection {
+                    left: -xmag,
+                    right: xmag,
+                    top: ymag,
+                    bottom: -ymag,
+                    far: orthographic.zfar(),
+                    near: orthographic.znear(),
+                    ..Default::default()
+                };
+
                 node.with(Camera {
                     name: Some(base::camera::CAMERA2D.to_owned()),
                     projection_matrix: orthographic_projection.get_projection_matrix(),
@@ -246,9 +248,11 @@ fn load_node(
                 node.with(orthographic_projection);
             }
             gltf::camera::Projection::Perspective(perspective) => {
-                let mut perspective_projection: PerspectiveProjection = Default::default();
-                perspective_projection.fov = perspective.yfov();
-                perspective_projection.near = perspective.znear();
+                let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
+                    fov: perspective.yfov(),
+                    near: perspective.znear(),
+                    ..Default::default()
+                };
                 if let Some(zfar) = perspective.zfar() {
                     perspective_projection.far = zfar;
                 }

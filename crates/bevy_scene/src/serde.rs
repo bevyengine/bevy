@@ -92,12 +92,11 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut scene = DynamicScene::default();
-        scene.entities = deserializer.deserialize_seq(SceneEntitySeqVisitor {
-            property_type_registry: self.property_type_registry,
-        })?;
-
-        Ok(scene)
+        Ok(DynamicScene {
+            entities: deserializer.deserialize_seq(SceneEntitySeqVisitor {
+                property_type_registry: self.property_type_registry,
+            })?,
+        })
     }
 }
 
