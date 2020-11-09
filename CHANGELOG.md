@@ -5,10 +5,20 @@ all merged pull requests. To see a list of all changes since the latest release,
 master using the [git tags for releases](https://github.com/bevyengine/bevy/tags).
 
 For example,
-[https://github.com/bevyengine/bevy/compare/v0.2.1...master](https://github.com/bevyengine/bevy/compare/v0.2.1...master)
-to view all changes since the `0.2.1` release.
+[https://github.com/bevyengine/bevy/compare/v0.3.0...master](https://github.com/bevyengine/bevy/compare/v0.0.3...master)
+to view all changes since the `0.3.0` release.
+
 
 ## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+
+## Version 0.3.0 (2020-11-03)
 
 ### Added
 
