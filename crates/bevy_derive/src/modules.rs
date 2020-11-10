@@ -1,5 +1,5 @@
+use find_crate::Manifest;
 use proc_macro::TokenStream;
-use proc_macro_crate::crate_name;
 use syn::{Attribute, Path};
 
 #[derive(Debug)]
@@ -12,13 +12,13 @@ pub struct Modules {
 }
 
 impl Modules {
-    pub fn meta() -> Modules {
+    pub fn meta(name: &str) -> Modules {
         Modules {
-            bevy_asset: "bevy::asset".to_string(),
-            bevy_render: "bevy::render".to_string(),
-            bevy_core: "bevy::core".to_string(),
-            bevy_app: "bevy::app".to_string(),
-            bevy_type_registry: "bevy::type_registry".to_string(),
+            bevy_asset: format!("{}::asset", name),
+            bevy_render: format!("{}::render", name),
+            bevy_core: format!("{}::core", name),
+            bevy_app: format!("{}::app", name),
+            bevy_type_registry: format!("{}::type_registry", name),
         }
     }
 
@@ -33,19 +33,21 @@ impl Modules {
     }
 }
 
-fn use_meta() -> bool {
-    crate_name("bevy").is_ok()
+fn get_meta() -> Option<Modules> {
+    let manifest = Manifest::new().unwrap();
+    if let Some(package) = manifest.find(|name| name == "bevy") {
+        Some(Modules::meta(&package.name))
+    } else if let Some(package) = manifest.find(|name| name == "bevy_internal") {
+        Some(Modules::meta(&package.name))
+    } else {
+        None
+    }
 }
 
 const AS_CRATE_ATTRIBUTE_NAME: &str = "as_crate";
 
 pub fn get_modules(attributes: &[Attribute]) -> Modules {
-    let mut modules = if use_meta() {
-        Modules::meta()
-    } else {
-        Modules::external()
-    };
-
+    let mut modules = get_meta().unwrap_or_else(Modules::external);
     for attribute in attributes.iter() {
         if *attribute.path.get_ident().as_ref().unwrap() == AS_CRATE_ATTRIBUTE_NAME {
             let value = attribute.tokens.to_string();

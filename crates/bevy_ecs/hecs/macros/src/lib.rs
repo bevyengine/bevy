@@ -18,9 +18,9 @@ extern crate proc_macro;
 
 use std::borrow::Cow;
 
+use find_crate::Manifest;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use proc_macro_crate::crate_name;
 use quote::quote;
 use syn::{
     parse::ParseStream, parse_macro_input, Data, DataStruct, DeriveInput, Error, Field, Fields,
@@ -54,12 +54,13 @@ fn derive_bundle_(input: DeriveInput) -> Result<TokenStream2> {
         }
     };
     let (tys, field_members) = struct_fields(&data.fields);
-    let path_str = if crate_name("bevy").is_ok() {
-        "bevy::ecs"
-    } else if crate_name("bevy_ecs").is_ok() {
-        "bevy_ecs"
+    let manifest = Manifest::new().unwrap();
+    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
+        format!("{}::ecs", package.name)
+    } else if let Some(package) = manifest.find(|name| name == "bevy_ecs") {
+        package.name
     } else {
-        "bevy_hecs"
+        "bevy_hecs".to_string()
     };
     let crate_path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
     let field_idents = member_as_idents(&field_members);
@@ -354,10 +355,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => panic!("expected a struct with named fields"),
     };
 
-    let path_str = if crate_name("bevy").is_ok() {
-        "bevy::ecs"
+    let manifest = Manifest::new().unwrap();
+    let path_str = if let Some(package) = manifest.find(|name| name == "bevy") {
+        format!("{}::ecs", package.name)
     } else {
-        "bevy_ecs"
+        "bevy_ecs".to_string()
     };
     let path: Path = syn::parse(path_str.parse::<TokenStream>().unwrap()).unwrap();
 

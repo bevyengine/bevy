@@ -3,102 +3,88 @@ name = "bevy"
 version = "0.3.0"
 edition = "2018"
 authors = [
-    "Bevy Contributors <bevyengine@gmail.com>",
-    "Carter Anderson <mcanders1@gmail.com>",
+  "Bevy Contributors <bevyengine@gmail.com>",
+  "Carter Anderson <mcanders1@gmail.com>",
 ]
-description = "A refreshingly simple data-driven game engine and app framework"
-homepage = "https://bevyengine.org"
-repository = "https://github.com/bevyengine/bevy"
-license = "MIT"
-keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
-readme = "README.md"
+description = "A refreshingly simple data-driven game engine and app framework"
 exclude = ["assets/**/*", "tools/**/*", ".github/**/*", "crates/**/*"]
+homepage = "https://bevyengine.org"
+keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
+license = "MIT"
+repository = "https://github.com/bevyengine/bevy"
+
+[workspace]
+exclude = ["benches"]
+members = ["crates/*", "crates/bevy_ecs/hecs", "examples/ios"]
 
 [features]
 default = [
-    "bevy_audio",
-    "bevy_dynamic_plugin",
-    "bevy_gilrs",
-    "bevy_gltf",
-    "bevy_wgpu",
-    "bevy_winit",
-    "render",
-    "png",
-    "hdr",
-    "mp3",
-    "x11",
+  "bevy_audio",
+  "bevy_dynamic_plugin",
+  "bevy_gilrs",
+  "bevy_gltf",
+  "bevy_wgpu",
+  "bevy_winit",
+  "render",
+  "png",
+  "hdr",
+  "mp3",
+  "x11",
 ]
 
-profiler = ["bevy_ecs/profiler", "bevy_diagnostic/profiler"]
-wgpu_trace = ["bevy_wgpu/trace"]
+# Force dynamic linking, which improves iterative compile times
+dynamic = ["bevy_dylib"]
 
 # Rendering support
-render = ["bevy_pbr", "bevy_render", "bevy_sprite", "bevy_text", "bevy_ui"]
+render = ["bevy_internal/bevy_pbr", "bevy_internal/bevy_render", "bevy_internal/bevy_sprite", "bevy_internal/bevy_text", "bevy_internal/bevy_ui"]
+
+# Optional bevy crates
+bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
+bevy_gilrs = ["bevy_internal/bevy_gilrs"]
+bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_wgpu = ["bevy_internal/bevy_wgpu"]
+bevy_winit = ["bevy_internal/bevy_winit"]
+
+profiler = ["bevy_internal/profiler"]
+wgpu_trace = ["bevy_internal/wgpu_trace"]
+
 # Image format support for texture loading (PNG and HDR are enabled by default)
-png = ["bevy_render/png"]
-hdr = ["bevy_render/hdr"]
+hdr = ["bevy_internal/hdr"]
+png = ["bevy_internal/png"]
 
 # Audio format support (MP3 is enabled by default)
-mp3 = ["bevy_audio/mp3"]
-flac = ["bevy_audio/flac"]
-wav = ["bevy_audio/wav"]
-vorbis = ["bevy_audio/vorbis"]
+flac = ["bevy_internal/flac"]
+mp3 = ["bevy_internal/mp3"]
+vorbis = ["bevy_internal/vorbis"]
+wav = ["bevy_internal/wav"]
 
-serialize = ["bevy_input/serialize"]
+serialize = ["bevy_internal/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
-wayland = ["bevy_winit/wayland"]
-x11 = ["bevy_winit/x11"]
-
-[workspace]
-members = ["crates/*", "crates/bevy_ecs/hecs", "examples/ios"]
-exclude = ["benches"]
+wayland = ["bevy_internal/wayland"]
+x11 = ["bevy_internal/x11"]
 
 [dependencies]
-# bevy
-bevy_app = { path = "crates/bevy_app", version = "0.3.0" }
-bevy_asset = { path = "crates/bevy_asset", version = "0.3.0" }
-bevy_type_registry = { path = "crates/bevy_type_registry", version = "0.3.0" }
-bevy_core = { path = "crates/bevy_core", version = "0.3.0" }
-bevy_diagnostic = { path = "crates/bevy_diagnostic", version = "0.3.0" }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.3.0" }
-bevy_input = { path = "crates/bevy_input", version = "0.3.0" }
-bevy_math = { path = "crates/bevy_math", version = "0.3.0" }
-bevy_property = { path = "crates/bevy_property", version = "0.3.0" }
-bevy_scene = { path = "crates/bevy_scene", version = "0.3.0" }
-bevy_transform = { path = "crates/bevy_transform", version = "0.3.0" }
-bevy_utils = { path = "crates/bevy_utils", version = "0.3.0" }
-bevy_window = { path = "crates/bevy_window", version = "0.3.0" }
-bevy_tasks = { path = "crates/bevy_tasks", version = "0.3.0" }
-# bevy (optional)
-bevy_audio = { path = "crates/bevy_audio", optional = true, version = "0.3.0" }
-bevy_gltf = { path = "crates/bevy_gltf", optional = true, version = "0.3.0" }
-bevy_pbr = { path = "crates/bevy_pbr", optional = true, version = "0.3.0" }
-bevy_render = { path = "crates/bevy_render", optional = true, version = "0.3.0" }
-bevy_dynamic_plugin = { path = "crates/bevy_dynamic_plugin", optional = true, version = "0.3.0" }
-bevy_sprite = { path = "crates/bevy_sprite", optional = true, version = "0.3.0" }
-bevy_text = { path = "crates/bevy_text", optional = true, version = "0.3.0" }
-bevy_ui = { path = "crates/bevy_ui", optional = true, version = "0.3.0" }
-bevy_wgpu = { path = "crates/bevy_wgpu", optional = true, version = "0.3.0" }
-bevy_winit = { path = "crates/bevy_winit", optional = true, version = "0.3.0" }
-bevy_gilrs = { path = "crates/bevy_gilrs", optional = true, version = "0.3.0" }
+bevy_dylib = {path = "crates/bevy_dylib", version = "0.3.0", default-features = false, optional = true}
+bevy_internal = {path = "crates/bevy_internal", version = "0.3.0", default-features = false}
 
 [dev-dependencies]
-rand = "0.7.3"
-serde = { version = "1", features = ["derive"] }
-log = "0.4"
-ron = "0.6"
 anyhow = "1.0"
+log = "0.4"
+rand = "0.7.3"
+ron = "0.6"
+serde = {version = "1", features = ["derive"]}
 
 # bevy (Android)
 [target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = { version = "0.2", features = ["logger"] }
 android_logger = "0.9"
+ndk-glue = {version = "0.2", features = ["logger"]}
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 console_error_panic_hook = "0.1.6"
-console_log = { version = "0.2", features = ["color"] }
+console_log = {version = "0.2", features = ["color"]}
 
 [[example]]
 name = "hello_world"
@@ -333,11 +319,11 @@ path = "examples/wasm/assets_wasm.rs"
 required-features = ["bevy_winit"]
 
 [[example]]
+crate-type = ["cdylib"]
 name = "android"
 path = "examples/android/android.rs"
-crate-type = ["cdylib"]
 
 [package.metadata.android]
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-target_sdk_version = 29
 min_sdk_version = 16
+target_sdk_version = 29
