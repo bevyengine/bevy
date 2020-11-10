@@ -59,6 +59,15 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         unsafe { self.world.query_unchecked() }
     }
 
+    /// Iterates over the query results
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    #[inline]
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, Q> {
+        // SAFE: system runs without conflicts with other systems. same-system queries have runtime borrow checks when they conflict
+        self.world.query_unchecked()
+    }
+
     #[inline]
     pub fn par_iter(&self, batch_size: usize) -> ParIter<'_, Q>
     where
@@ -97,6 +106,19 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
                 .query_one_unchecked::<Q>(entity)
                 .map_err(|_err| QueryError::NoSuchEntity)
         }
+    }
+
+    /// Gets the query result for the given `entity`
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    #[inline]
+    pub unsafe fn get_unsafe(
+        &self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch>::Item, QueryError> {
+        self.world
+            .query_one_unchecked::<Q>(entity)
+            .map_err(|_err| QueryError::NoSuchEntity)
     }
 
     /// Gets a reference to the entity's component of the given type. This will fail if the entity does not have
@@ -145,6 +167,19 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
         } else {
             Err(QueryError::CannotWriteArchetype)
         }
+    }
+
+    /// Gets a mutable reference to the entity's component of the given type. This will fail if the entity does not have
+    /// the given component type
+    /// # Safety
+    /// This allows aliased mutability. You must make sure this call does not result in multiple mutable references to the same component
+    pub unsafe fn get_component_unsafe<T: Component>(
+        &self,
+        entity: Entity,
+    ) -> Result<Mut<'_, T>, QueryError> {
+        self.world
+            .get_mut_unchecked(entity)
+            .map_err(QueryError::ComponentError)
     }
 
     pub fn removed<C: Component>(&self) -> &[Entity] {
