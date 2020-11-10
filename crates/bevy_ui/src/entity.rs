@@ -11,7 +11,7 @@ use bevy_render::{
     camera::{Camera, OrthographicProjection, VisibleEntities, WindowOrigin},
     draw::Draw,
     mesh::Mesh,
-    pipeline::{DynamicBinding, PipelineSpecialization, RenderPipeline, RenderPipelines},
+    pipeline::{RenderPipeline, RenderPipelines},
 };
 use bevy_sprite::{ColorMaterial, QUAD_HANDLE};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -32,23 +32,8 @@ impl Default for NodeComponents {
     fn default() -> Self {
         NodeComponents {
             mesh: QUAD_HANDLE,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             node: Default::default(),
             style: Default::default(),
@@ -78,23 +63,8 @@ impl Default for ImageComponents {
     fn default() -> Self {
         ImageComponents {
             mesh: QUAD_HANDLE,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             node: Default::default(),
             image: Default::default(),
@@ -158,23 +128,8 @@ impl Default for ButtonComponents {
         ButtonComponents {
             button: Button,
             mesh: QUAD_HANDLE,
-            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::specialized(
+            render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
                 UI_PIPELINE_HANDLE,
-                PipelineSpecialization {
-                    dynamic_bindings: vec![
-                        // Transform
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 0,
-                        },
-                        // Node_size
-                        DynamicBinding {
-                            bind_group: 1,
-                            binding: 1,
-                        },
-                    ],
-                    ..Default::default()
-                },
             )]),
             interaction: Default::default(),
             focus_policy: Default::default(),

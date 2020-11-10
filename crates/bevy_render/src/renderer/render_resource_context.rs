@@ -1,7 +1,7 @@
 use crate::{
-    pipeline::{BindGroupDescriptorId, PipelineDescriptor},
+    pipeline::{BindGroupDescriptorId, PipelineDescriptor, PipelineLayout},
     renderer::{BindGroup, BufferId, BufferInfo, RenderResourceId, SamplerId, TextureId},
-    shader::Shader,
+    shader::{Shader, ShaderLayout, ShaderStages},
     texture::{SamplerDescriptor, TextureDescriptor},
 };
 use bevy_asset::{Asset, Assets, Handle, HandleUntyped};
@@ -60,6 +60,34 @@ pub trait RenderResourceContext: Downcast + Send + Sync + 'static {
         bind_group: &BindGroup,
     );
     fn clear_bind_groups(&self);
+    /// Reflects the pipeline layout from its shaders.
+    ///
+    /// If `bevy_conventions` is true, it will be assumed that the shader follows "bevy shader conventions". These allow
+    /// richer reflection, such as inferred Vertex Buffer names and inferred instancing.
+    ///
+    /// If `dynamic_bindings` has values, shader uniforms will be set to "dynamic" if there is a matching binding in the list
+    ///
+    /// If `vertex_buffer_descriptors` is set, the pipeline's vertex buffers
+    /// will inherit their layouts from global descriptors, otherwise the layout will be assumed to be complete / local.
+    fn reflect_pipeline_layout(
+        &self,
+        shaders: &Assets<Shader>,
+        shader_stages: &ShaderStages,
+        enforce_bevy_conventions: bool,
+    ) -> PipelineLayout {
+        // TODO: maybe move this default implementation to PipelineLayout?
+        let mut shader_layouts: Vec<ShaderLayout> = shader_stages
+            .iter()
+            .map(|handle| {
+                shaders
+                    .get(&handle)
+                    .unwrap()
+                    .reflect_layout(enforce_bevy_conventions)
+                    .unwrap()
+            })
+            .collect();
+        PipelineLayout::from_shader_layouts(&mut shader_layouts)
+    }
 }
 
 impl dyn RenderResourceContext {
