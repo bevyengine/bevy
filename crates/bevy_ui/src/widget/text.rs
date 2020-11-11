@@ -1,6 +1,6 @@
 use crate::{CalculatedSize, Node, Style, Val};
 use bevy_asset::{Assets, Handle};
-use bevy_ecs::{Changed, Entity, Or, Query, Res, ResMut};
+use bevy_ecs::{Changed, Entity, Local, Or, Query, QuerySet, Res, ResMut};
 use bevy_math::Size;
 use bevy_render::{
     draw::{Draw, DrawContext, Drawable},
@@ -41,46 +41,56 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val) -> f32 {
 /// Computes the size of a text block and updates the TextGlyphs with the
 /// new computed glyphs from the layout
 pub fn text_system(
+    mut queued_text: Local<QueuedText>,
     mut textures: ResMut<Assets<Texture>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
-    mut text_query: Query<(
-        Entity,
-        Or<(Changed<Text>, Changed<Style>)>,
-        &mut CalculatedSize,
+    mut text_queries: QuerySet<(
+        Query<(Entity, Or<(Changed<Text>, Changed<Style>)>)>,
+        Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
-    for (entity, (text, style), mut calculated_size) in text_query.iter_mut() {
-        let node_size = Size::new(
-            text_constraint(style.min_size.width, style.size.width, style.max_size.width),
-            text_constraint(
-                style.min_size.height,
-                style.size.height,
-                style.max_size.height,
-            ),
-        );
+    // Adds all entities where the text or the style has changed to the local queue
+    for (entity, (_text, _style)) in text_queries.q0_mut().iter_mut() {
+        queued_text.entities.push(entity);
+    }
 
-        match add_text_to_pipeline(
-            entity,
-            &*text,
-            node_size,
-            &mut *textures,
-            &*fonts,
-            &mut *texture_atlases,
-            &mut *font_atlas_set_storage,
-            &mut *text_pipeline,
-        ) {
-            TextPipelineResult::Ok => {
-                let text_layout_info = text_pipeline
-                    .get_glyphs(&entity)
-                    .expect("Failed to get glyphs from the pipeline that have just been computed");
-                calculated_size.size = text_layout_info.size;
+    if queued_text.entities.is_empty() {
+        return;
+    }
+
+    // Computes all text in the local queue
+    let mut new_queue = Vec::new();
+    let query = text_queries.q1_mut();
+    for entity in queued_text.entities.drain(..) {
+        if let Ok((text, style, mut calculated_size)) = query.get_mut(entity) {
+            match add_text_to_pipeline(
+                entity,
+                &*text,
+                &*style,
+                &mut *textures,
+                &*fonts,
+                &mut *texture_atlases,
+                &mut *font_atlas_set_storage,
+                &mut *text_pipeline,
+            ) {
+                TextPipelineResult::Ok => {
+                    let text_layout_info = text_pipeline.get_glyphs(&entity).expect(
+                        "Failed to get glyphs from the pipeline that have just been computed",
+                    );
+                    calculated_size.size = text_layout_info.size;
+                }
+                TextPipelineResult::Reschedule => {
+                    // There was an error processing the text layout, let's add this entity to the queue for further processing
+                    new_queue.push(entity);
+                }
             }
-            TextPipelineResult::Reschedule => {} // TODO: Reschedule the text computing when font is ready
         }
     }
+
+    queued_text.entities = new_queue;
 }
 
 enum TextPipelineResult {
@@ -92,13 +102,22 @@ enum TextPipelineResult {
 fn add_text_to_pipeline(
     entity: Entity,
     text: &Text,
-    node_size: Size,
+    style: &Style,
     textures: &mut Assets<Texture>,
     fonts: &Assets<Font>,
     texture_atlases: &mut Assets<TextureAtlas>,
     font_atlas_set_storage: &mut Assets<FontAtlasSet>,
     text_pipeline: &mut DefaultTextPipeline,
 ) -> TextPipelineResult {
+    let node_size = Size::new(
+        text_constraint(style.min_size.width, style.size.width, style.max_size.width),
+        text_constraint(
+            style.min_size.height,
+            style.size.height,
+            style.max_size.height,
+        ),
+    );
+
     match text_pipeline.queue_text(
         entity,
         text.font.clone(),
