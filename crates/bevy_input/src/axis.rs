@@ -1,4 +1,5 @@
-use std::{collections::HashMap, hash::Hash};
+use bevy_utils::{AHashExt, HashMap};
+use std::hash::Hash;
 
 #[derive(Debug)]
 pub struct Axis<T> {
