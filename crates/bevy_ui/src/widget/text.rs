@@ -48,12 +48,12 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<DefaultTextPipeline>,
     mut text_queries: QuerySet<(
-        Query<(Entity, Or<(Changed<Text>, Changed<Style>)>)>,
+        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
         Query<(&Text, &Style, &mut CalculatedSize)>,
     )>,
 ) {
     // Adds all entities where the text or the style has changed to the local queue
-    for (entity, (_text, _style)) in text_queries.q0_mut().iter_mut() {
+    for entity in text_queries.q0_mut().iter_mut() {
         queued_text.entities.push(entity);
     }
 
