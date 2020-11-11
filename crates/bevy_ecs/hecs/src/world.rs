@@ -15,8 +15,8 @@
 // modified by Bevy contributors
 
 use crate::{
-    alloc::vec::Vec, borrow::EntityRef, query::ReadOnlyFetch, BatchedIter, EntityReserver, Fetch,
-    Mut, QueryIter, RefMut,
+    alloc::vec::Vec, borrow::EntityRef, filter::EntityFilter, query::ReadOnlyFetch, BatchedIter,
+    EntityReserver, Fetch, Mut, QueryFilter, QueryIter, RefMut,
 };
 use bevy_utils::{HashMap, HashSet};
 use core::{any::TypeId, fmt, mem, ptr};
@@ -250,7 +250,16 @@ impl World {
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
     #[inline]
-    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q>
+    pub fn query<Q: Query>(&self) -> QueryIter<'_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    #[inline]
+    pub fn query_filtered<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -283,7 +292,13 @@ impl World {
     /// assert!(entities.contains(&(b, 456, false)));
     /// ```
     #[inline]
-    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q> {
+    pub fn query_mut<Q: Query>(&mut self) -> QueryIter<'_, Q, ()> {
+        // SAFE: unique mutable access
+        unsafe { self.query_unchecked() }
+    }
+
+    #[inline]
+    pub fn query_filtered_mut<Q: Query, F: QueryFilter>(&mut self) -> QueryIter<'_, Q, F> {
         // SAFE: unique mutable access
         unsafe { self.query_unchecked() }
     }
@@ -291,7 +306,19 @@ impl World {
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
     #[inline]
-    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q>
+    pub fn query_batched<Q: Query>(&self, batch_size: usize) -> BatchedIter<'_, Q, ()>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
+    }
+
+    #[inline]
+    pub fn query_batched_filtered<Q: Query, F: QueryFilter>(
+        &self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q, F>
     where
         Q::Fetch: ReadOnlyFetch,
     {
@@ -302,7 +329,16 @@ impl World {
     /// Like `query`, but instead of returning a single iterator it returns a "batched iterator",
     /// where each batch is `batch_size`. This is generally used for parallel iteration.
     #[inline]
-    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q> {
+    pub fn query_batched_mut<Q: Query>(&mut self, batch_size: usize) -> BatchedIter<'_, Q, ()> {
+        // SAFE: unique mutable access
+        unsafe { self.query_batched_unchecked(batch_size) }
+    }
+
+    #[inline]
+    pub fn query_batched_filtered_mut<Q: Query, F: QueryFilter>(
+        &mut self,
+        batch_size: usize,
+    ) -> BatchedIter<'_, Q, F> {
         // SAFE: unique mutable access
         unsafe { self.query_batched_unchecked(batch_size) }
     }
@@ -321,7 +357,7 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_unchecked<Q: Query>(&self) -> QueryIter<'_, Q> {
+    pub unsafe fn query_unchecked<Q: Query, F: QueryFilter>(&self) -> QueryIter<'_, Q, F> {
         QueryIter::new(&self.archetypes)
     }
 
@@ -332,10 +368,10 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_batched_unchecked<Q: Query>(
+    pub unsafe fn query_batched_unchecked<Q: Query, F: QueryFilter>(
         &self,
         batch_size: usize,
-    ) -> BatchedIter<'_, Q> {
+    ) -> BatchedIter<'_, Q, F> {
         BatchedIter::new(&self.archetypes, batch_size)
     }
 
@@ -361,7 +397,19 @@ impl World {
         Q::Fetch: ReadOnlyFetch,
     {
         // SAFE: read-only access to world and read only query prevents mutable access
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked::<Q, ()>(entity) }
+    }
+
+    #[inline]
+    pub fn query_one_filtered<Q: Query, F: QueryFilter>(
+        &self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity>
+    where
+        Q::Fetch: ReadOnlyFetch,
+    {
+        // SAFE: read-only access to world and read only query prevents mutable access
+        unsafe { self.query_one_unchecked::<Q, F>(entity) }
     }
 
     /// Prepare a query against a single entity
@@ -384,7 +432,16 @@ impl World {
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         // SAFE: unique mutable access to world
-        unsafe { self.query_one_unchecked::<Q>(entity) }
+        unsafe { self.query_one_unchecked::<Q, ()>(entity) }
+    }
+
+    #[inline]
+    pub fn query_one_filtered_mut<Q: Query, F: QueryFilter>(
+        &mut self,
+        entity: Entity,
+    ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
+        // SAFE: unique mutable access to world
+        unsafe { self.query_one_unchecked::<Q, F>(entity) }
     }
 
     /// Prepare a query against a single entity, without checking the safety of mutable queries
@@ -395,15 +452,22 @@ impl World {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn query_one_unchecked<Q: Query>(
+    pub unsafe fn query_one_unchecked<Q: Query, F: QueryFilter>(
         &self,
         entity: Entity,
     ) -> Result<<Q::Fetch as Fetch>::Item, NoSuchEntity> {
         let loc = self.entities.get(entity)?;
-        <Q::Fetch as Fetch>::get(&self.archetypes[loc.archetype as usize], 0)
-            .filter(|fetch| !fetch.should_skip(loc.index))
-            .map(|fetch| fetch.fetch(loc.index))
-            .ok_or(NoSuchEntity)
+        let archetype = &self.archetypes[loc.archetype as usize];
+        let matches_filter = F::get_entity_filter(archetype)
+            .map(|entity_filter| entity_filter.matches_entity(loc.index))
+            .unwrap_or(false);
+        if matches_filter {
+            <Q::Fetch as Fetch>::get(archetype, 0)
+                .map(|fetch| fetch.fetch(loc.index))
+                .ok_or(NoSuchEntity)
+        } else {
+            Err(NoSuchEntity)
+        }
     }
 
     /// Borrow the `T` component of `entity`

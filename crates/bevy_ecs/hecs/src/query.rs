@@ -14,15 +14,16 @@
 
 // modified by Bevy contributors
 
+use crate::{
+    access::QueryAccess, archetype::Archetype, Component, Entity, EntityFilter, MissingComponent,
+    QueryFilter,
+};
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     ptr::NonNull,
 };
-
 use std::vec;
-
-use crate::{access::QueryAccess, archetype::Archetype, Component, Entity, MissingComponent};
 
 /// A collection of component types to fetch from a `World`
 pub trait Query {
@@ -32,9 +33,6 @@ pub trait Query {
 
 /// A fetch that is read only. This should only be implemented for read-only fetches.
 pub unsafe trait ReadOnlyFetch {}
-
-/// A fetch that will always match every entity in an archetype (aka Fetch::should_skip always returns false)
-pub trait UnfilteredFetch {}
 
 /// Streaming iterators over contiguous homogeneous ranges of components
 pub trait Fetch<'a>: Sized {
@@ -54,14 +52,6 @@ pub trait Fetch<'a>: Sized {
     /// `offset` must be in bounds of `archetype`
     unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self>;
 
-    /// if this returns true, the nth item should be skipped during iteration
-    ///
-    /// # Safety
-    /// shouldn't be called if there is no current item
-    unsafe fn should_skip(&self, _n: usize) -> bool {
-        false
-    }
-
     /// Access the `n`th item in this archetype without bounds checking
     ///
     /// # Safety
@@ -75,7 +65,6 @@ pub trait Fetch<'a>: Sized {
 #[derive(Copy, Clone, Debug)]
 pub struct EntityFetch(NonNull<Entity>);
 unsafe impl ReadOnlyFetch for EntityFetch {}
-impl UnfilteredFetch for EntityFetch {}
 
 impl Query for Entity {
     type Fetch = EntityFetch;
@@ -112,7 +101,6 @@ impl<'a, T: Component> Query for &'a T {
 pub struct FetchRead<T>(NonNull<T>);
 
 unsafe impl<T> ReadOnlyFetch for FetchRead<T> {}
-impl<T> UnfilteredFetch for FetchRead<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchRead<T> {
     type Item = &'a T;
@@ -197,7 +185,6 @@ impl<'a, T: Component> Query for Mut<'a, T> {
 }
 #[doc(hidden)]
 pub struct FetchMut<T>(NonNull<T>, NonNull<bool>);
-impl<T> UnfilteredFetch for FetchMut<T> {}
 
 impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     type Item = Mut<'a, T>;
@@ -229,257 +216,9 @@ impl<'a, T: Component> Fetch<'a> for FetchMut<T> {
     }
 }
 
-macro_rules! impl_or_query {
-    ( $( $T:ident ),+ ) => {
-        impl<$( $T: Query ),+> Query for Or<($( $T ),+)> {
-            type Fetch = FetchOr<($( $T::Fetch ),+)>;
-        }
-
-        impl<'a, $( $T: Fetch<'a> ),+> Fetch<'a> for FetchOr<($( $T ),+)> {
-            type Item = ($( $T::Item ),+);
-
-            const DANGLING: Self = Self(($( $T::DANGLING ),+));
-
-            fn access() -> QueryAccess {
-                QueryAccess::union(vec![
-                    $($T::access(),)+
-                ])
-            }
-
-
-            unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-                Some(Self(( $( $T::get(archetype, offset)?),+ )))
-            }
-
-            #[allow(non_snake_case)]
-            unsafe fn fetch(&self, n: usize) -> Self::Item {
-                let ($( $T ),+) = &self.0;
-                ($( $T.fetch(n) ),+)
-            }
-
-             #[allow(non_snake_case)]
-            unsafe fn should_skip(&self, n: usize) -> bool {
-                let ($( $T ),+) = &self.0;
-                true $( && $T.should_skip(n) )+
-            }
-        }
-
-        unsafe impl<$( $T: ReadOnlyFetch ),+> ReadOnlyFetch for Or<($( $T ),+)> {}
-        unsafe impl<$( $T: ReadOnlyFetch ),+> ReadOnlyFetch for FetchOr<($( $T ),+)> {}
-    };
-}
-
-impl_or_query!(Q1, Q2);
-impl_or_query!(Q1, Q2, Q3);
-impl_or_query!(Q1, Q2, Q3, Q4);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
-impl_or_query!(Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
-
-/// Query transformer performing a logical or on a pair of queries
-/// Intended to be used on Mutated or Changed queries.
-/// # Example
-/// ```
-/// # use bevy_hecs::*;
-/// let mut world = World::new();
-/// world.spawn((123, true, 1., Some(1)));
-/// world.spawn((456, false, 2., Some(0)));
-/// for mut b in world.query_mut::<Mut<i32>>().skip(1).take(1) {
-///     *b += 1;
-/// }
-/// let components = world
-///     .query_mut::<Or<(Mutated<bool>, Mutated<i32>, Mutated<f64>, Mutated<Option<i32>>)>>()
-///     .map(|(b, i, f, o)| (*b, *i))
-///     .collect::<Vec<_>>();
-/// assert_eq!(components, &[(false, 457)]);
-/// ```
-pub struct Or<T>(pub T);
-//pub struct Or<Q1, Q2, Q3>(PhantomData<(Q1, Q2, Q3)>);
-
-#[doc(hidden)]
-pub struct FetchOr<T>(T);
-
-/// Query transformer that retrieves components of type `T` that have been mutated since the start of the frame.
-/// Added components do not count as mutated.
-pub struct Mutated<'a, T> {
-    value: &'a T,
-}
-
-impl<'a, T: Component> Deref for Mutated<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: Component> Query for Mutated<'a, T> {
-    type Fetch = FetchMutated<T>;
-}
-
-#[doc(hidden)]
-pub struct FetchMutated<T>(NonNull<T>, NonNull<bool>);
-unsafe impl<T> ReadOnlyFetch for FetchMutated<T> {}
-
-impl<'a, T: Component> Fetch<'a> for FetchMutated<T> {
-    type Item = Mutated<'a, T>;
-
-    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
-
-    #[inline]
-    fn access() -> QueryAccess {
-        QueryAccess::read::<T>()
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
-                )
-            })
-    }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't mutated
-        !*self.1.as_ptr().add(n)
-    }
-
-    #[inline]
-    unsafe fn fetch(&self, n: usize) -> Self::Item {
-        Mutated {
-            value: &*self.0.as_ptr().add(n),
-        }
-    }
-}
-
-/// Query transformer that retrieves components of type `T` that have been added since the start of the frame.
-pub struct Added<'a, T> {
-    value: &'a T,
-}
-
-impl<'a, T: Component> Deref for Added<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: Component> Query for Added<'a, T> {
-    type Fetch = FetchAdded<T>;
-}
-
-#[doc(hidden)]
-pub struct FetchAdded<T>(NonNull<T>, NonNull<bool>);
-unsafe impl<T> ReadOnlyFetch for FetchAdded<T> {}
-
-impl<'a, T: Component> Fetch<'a> for FetchAdded<T> {
-    type Item = Added<'a, T>;
-
-    const DANGLING: Self = Self(NonNull::dangling(), NonNull::dangling());
-
-    #[inline]
-    fn access() -> QueryAccess {
-        QueryAccess::read::<T>()
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
-                )
-            })
-    }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't added
-        !*self.1.as_ptr().add(n)
-    }
-
-    #[inline]
-    unsafe fn fetch(&self, n: usize) -> Self::Item {
-        Added {
-            value: &*self.0.as_ptr().add(n),
-        }
-    }
-}
-
-/// Query transformer that retrieves components of type `T` that have either been mutated or added since the start of the frame.
-pub struct Changed<'a, T> {
-    value: &'a T,
-}
-
-impl<'a, T: Component> Deref for Changed<'a, T> {
-    type Target = T;
-
-    #[inline]
-    fn deref(&self) -> &T {
-        self.value
-    }
-}
-
-impl<'a, T: Component> Query for Changed<'a, T> {
-    type Fetch = FetchChanged<T>;
-}
-
-#[doc(hidden)]
-pub struct FetchChanged<T>(NonNull<T>, NonNull<bool>, NonNull<bool>);
-unsafe impl<T> ReadOnlyFetch for FetchChanged<T> {}
-
-impl<'a, T: Component> Fetch<'a> for FetchChanged<T> {
-    type Item = Changed<'a, T>;
-
-    const DANGLING: Self = Self(
-        NonNull::dangling(),
-        NonNull::dangling(),
-        NonNull::dangling(),
-    );
-
-    #[inline]
-    fn access() -> QueryAccess {
-        QueryAccess::read::<T>()
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        archetype
-            .get_with_type_state::<T>()
-            .map(|(components, type_state)| {
-                Self(
-                    NonNull::new_unchecked(components.as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.added().as_ptr().add(offset)),
-                    NonNull::new_unchecked(type_state.mutated().as_ptr().add(offset)),
-                )
-            })
-    }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        // skip if the current item wasn't added or mutated
-        !*self.1.as_ptr().add(n) && !*self.2.as_ptr().add(n)
-    }
-
-    #[inline]
-    unsafe fn fetch(&self, n: usize) -> Self::Item {
-        Changed {
-            value: &*self.0.as_ptr().add(n),
-        }
-    }
-}
-
 #[doc(hidden)]
 pub struct TryFetch<T>(Option<T>);
 unsafe impl<T> ReadOnlyFetch for TryFetch<T> where T: ReadOnlyFetch {}
-impl<T> UnfilteredFetch for TryFetch<T> where T: UnfilteredFetch {}
 
 impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     type Item = Option<T::Item>;
@@ -498,142 +237,27 @@ impl<'a, T: Fetch<'a>> Fetch<'a> for TryFetch<T> {
     unsafe fn fetch(&self, n: usize) -> Option<T::Item> {
         Some(self.0.as_ref()?.fetch(n))
     }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        self.0.as_ref().map_or(false, |fetch| fetch.should_skip(n))
-    }
 }
 
-/// Query transformer skipping entities that have a `T` component
-///
-/// See also `QueryBorrow::without`.
-///
-/// # Example
-/// ```
-/// # use bevy_hecs::*;
-/// let mut world = World::new();
-/// let a = world.spawn((123, true, "abc"));
-/// let b = world.spawn((456, false));
-/// let c = world.spawn((42, "def"));
-/// let entities = world.query::<Without<bool, (Entity, &i32)>>()
-///     .map(|(e, &i)| (e, i))
-///     .collect::<Vec<_>>();
-/// assert_eq!(entities, &[(c, 42)]);
-/// ```
-pub struct Without<T, Q>(PhantomData<(Q, fn(T))>);
-
-impl<T: Component, Q: Query> Query for Without<T, Q> {
-    type Fetch = FetchWithout<T, Q::Fetch>;
-}
-
-#[doc(hidden)]
-pub struct FetchWithout<T, F>(F, PhantomData<fn(T)>);
-unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWithout<T, F> where
-    F: ReadOnlyFetch
-{
-}
-impl<T, F> UnfilteredFetch for FetchWithout<T, F> where F: UnfilteredFetch {}
-
-impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWithout<T, F> {
-    type Item = F::Item;
-
-    const DANGLING: Self = Self(F::DANGLING, PhantomData);
-
-    #[inline]
-    fn access() -> QueryAccess {
-        QueryAccess::without::<T>(F::access())
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        if archetype.has::<T>() {
-            return None;
-        }
-        Some(Self(F::get(archetype, offset)?, PhantomData))
-    }
-
-    unsafe fn fetch(&self, n: usize) -> F::Item {
-        self.0.fetch(n)
-    }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        self.0.should_skip(n)
-    }
-}
-
-/// Query transformer skipping entities that do not have a `T` component
-///
-/// See also `QueryBorrow::with`.
-///
-/// # Example
-/// ```
-/// # use bevy_hecs::*;
-/// let mut world = World::new();
-/// let a = world.spawn((123, true, "abc"));
-/// let b = world.spawn((456, false));
-/// let c = world.spawn((42, "def"));
-/// let entities = world.query::<With<bool, (Entity, &i32)>>()
-///     .map(|(e, &i)| (e, i))
-///     .collect::<Vec<_>>();
-/// assert_eq!(entities.len(), 2);
-/// assert!(entities.contains(&(a, 123)));
-/// assert!(entities.contains(&(b, 456)));
-/// ```
-pub struct With<T, Q>(PhantomData<(Q, fn(T))>);
-
-impl<T: Component, Q: Query> Query for With<T, Q> {
-    type Fetch = FetchWith<T, Q::Fetch>;
-}
-
-#[doc(hidden)]
-pub struct FetchWith<T, F>(F, PhantomData<fn(T)>);
-unsafe impl<'a, T: Component, F: Fetch<'a>> ReadOnlyFetch for FetchWith<T, F> where F: ReadOnlyFetch {}
-impl<T, F> UnfilteredFetch for FetchWith<T, F> where F: UnfilteredFetch {}
-
-impl<'a, T: Component, F: Fetch<'a>> Fetch<'a> for FetchWith<T, F> {
-    type Item = F::Item;
-
-    const DANGLING: Self = Self(F::DANGLING, PhantomData);
-
-    #[inline]
-    fn access() -> QueryAccess {
-        QueryAccess::with::<T>(F::access())
-    }
-
-    unsafe fn get(archetype: &'a Archetype, offset: usize) -> Option<Self> {
-        if !archetype.has::<T>() {
-            return None;
-        }
-        Some(Self(F::get(archetype, offset)?, PhantomData))
-    }
-
-    unsafe fn fetch(&self, n: usize) -> F::Item {
-        self.0.fetch(n)
-    }
-
-    unsafe fn should_skip(&self, n: usize) -> bool {
-        self.0.should_skip(n)
-    }
-}
-
-struct ChunkInfo<Q: Query> {
+struct ChunkInfo<Q: Query, F: QueryFilter> {
     fetch: Q::Fetch,
+    filter: F::EntityFilter,
     len: usize,
 }
 
 /// Iterator over the set of entities with the components in `Q`
-pub struct QueryIter<'w, Q: Query> {
+pub struct QueryIter<'w, Q: Query, F: QueryFilter> {
     archetypes: &'w [Archetype],
     archetype_index: usize,
-    chunk_info: ChunkInfo<Q>,
+    chunk_info: ChunkInfo<Q, F>,
     chunk_position: usize,
 }
 
-impl<'w, Q: Query> QueryIter<'w, Q> {
-    // #[allow(clippy::declare_interior_mutable_const)] // no trait bounds on const fns
-    // const EMPTY: Q::Fetch = Q::Fetch::DANGLING;
-    const EMPTY: ChunkInfo<Q> = ChunkInfo {
+impl<'w, Q: Query, F: QueryFilter> QueryIter<'w, Q, F> {
+    const EMPTY: ChunkInfo<Q, F> = ChunkInfo {
         fetch: Q::Fetch::DANGLING,
         len: 0,
+        filter: F::EntityFilter::DANGLING,
     };
 
     /// Creates a new QueryIter
@@ -648,7 +272,7 @@ impl<'w, Q: Query> QueryIter<'w, Q> {
     }
 }
 
-impl<'w, Q: Query> Iterator for QueryIter<'w, Q> {
+impl<'w, Q: Query, F: QueryFilter> Iterator for QueryIter<'w, Q, F> {
     type Item = <Q::Fetch as Fetch<'w>>::Item;
 
     #[inline]
@@ -660,18 +284,21 @@ impl<'w, Q: Query> Iterator for QueryIter<'w, Q> {
                     self.archetype_index += 1;
                     self.chunk_position = 0;
                     self.chunk_info = Q::Fetch::get(archetype, 0)
-                        .map(|fetch| ChunkInfo {
-                            fetch,
-                            len: archetype.len(),
+                        .and_then(|fetch| {
+                            Some(ChunkInfo {
+                                fetch,
+                                len: archetype.len(),
+                                filter: F::get_entity_filter(archetype)?,
+                            })
                         })
                         .unwrap_or(Self::EMPTY);
                     continue;
                 }
 
-                if self
+                if !self
                     .chunk_info
-                    .fetch
-                    .should_skip(self.chunk_position as usize)
+                    .filter
+                    .matches_entity(self.chunk_position as usize)
                 {
                     self.chunk_position += 1;
                     continue;
@@ -687,10 +314,7 @@ impl<'w, Q: Query> Iterator for QueryIter<'w, Q> {
 
 // if the Fetch is an UnfilteredFetch, then we can cheaply compute the length of the query by getting
 // the length of each matching archetype
-impl<'w, Q: Query> ExactSizeIterator for QueryIter<'w, Q>
-where
-    Q::Fetch: UnfilteredFetch,
-{
+impl<'w, Q: Query> ExactSizeIterator for QueryIter<'w, Q, ()> {
     fn len(&self) -> usize {
         self.archetypes
             .iter()
@@ -700,20 +324,21 @@ where
     }
 }
 
-struct ChunkIter<Q: Query> {
+struct ChunkIter<Q: Query, F: QueryFilter> {
     fetch: Q::Fetch,
+    filter: F::EntityFilter,
     position: usize,
     len: usize,
 }
 
-impl<Q: Query> ChunkIter<Q> {
+impl<Q: Query, F: QueryFilter> ChunkIter<Q, F> {
     unsafe fn next<'a>(&mut self) -> Option<<Q::Fetch as Fetch<'a>>::Item> {
         loop {
             if self.position == self.len {
                 return None;
             }
 
-            if self.fetch.should_skip(self.position as usize) {
+            if !self.filter.matches_entity(self.position as usize) {
                 self.position += 1;
                 continue;
             }
@@ -726,15 +351,15 @@ impl<Q: Query> ChunkIter<Q> {
 }
 
 /// Batched version of `QueryIter`
-pub struct BatchedIter<'w, Q: Query> {
+pub struct BatchedIter<'w, Q: Query, F: QueryFilter> {
     archetypes: &'w [Archetype],
     archetype_index: usize,
     batch_size: usize,
     batch: usize,
-    _marker: PhantomData<Q>,
+    _marker: PhantomData<(Q, F)>,
 }
 
-impl<'w, Q: Query> BatchedIter<'w, Q> {
+impl<'w, Q: Query, F: QueryFilter> BatchedIter<'w, Q, F> {
     pub(crate) fn new(archetypes: &'w [Archetype], batch_size: usize) -> Self {
         Self {
             archetypes,
@@ -746,11 +371,11 @@ impl<'w, Q: Query> BatchedIter<'w, Q> {
     }
 }
 
-unsafe impl<'w, Q: Query> Send for BatchedIter<'w, Q> {}
-unsafe impl<'w, Q: Query> Sync for BatchedIter<'w, Q> {}
+unsafe impl<'w, Q: Query, F: QueryFilter> Send for BatchedIter<'w, Q, F> {}
+unsafe impl<'w, Q: Query, F: QueryFilter> Sync for BatchedIter<'w, Q, F> {}
 
-impl<'w, Q: Query> Iterator for BatchedIter<'w, Q> {
-    type Item = Batch<'w, Q>;
+impl<'w, Q: Query, F: QueryFilter> Iterator for BatchedIter<'w, Q, F> {
+    type Item = Batch<'w, Q, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -761,7 +386,10 @@ impl<'w, Q: Query> Iterator for BatchedIter<'w, Q> {
                 self.batch = 0;
                 continue;
             }
-            if let Some(fetch) = unsafe { Q::Fetch::get(archetype, offset) } {
+            if let (Some(fetch), Some(filter)) = (
+                unsafe { Q::Fetch::get(archetype, offset) },
+                F::get_entity_filter(archetype),
+            ) {
                 self.batch += 1;
                 return Some(Batch {
                     _marker: PhantomData,
@@ -769,6 +397,7 @@ impl<'w, Q: Query> Iterator for BatchedIter<'w, Q> {
                         fetch,
                         position: 0,
                         len: self.batch_size.min(archetype.len() - offset),
+                        filter,
                     },
                 });
             } else {
@@ -784,12 +413,12 @@ impl<'w, Q: Query> Iterator for BatchedIter<'w, Q> {
 }
 
 /// A sequence of entities yielded by `BatchedIter`
-pub struct Batch<'q, Q: Query> {
+pub struct Batch<'q, Q: Query, F: QueryFilter> {
     _marker: PhantomData<&'q ()>,
-    state: ChunkIter<Q>,
+    state: ChunkIter<Q, F>,
 }
 
-impl<'q, 'w, Q: Query> Iterator for Batch<'q, Q> {
+impl<'q, 'w, Q: Query, F: QueryFilter> Iterator for Batch<'q, Q, F> {
     type Item = <Q::Fetch as Fetch<'q>>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -798,8 +427,8 @@ impl<'q, 'w, Q: Query> Iterator for Batch<'q, Q> {
     }
 }
 
-unsafe impl<'q, Q: Query> Send for Batch<'q, Q> {}
-unsafe impl<'q, Q: Query> Sync for Batch<'q, Q> {}
+unsafe impl<'q, Q: Query, F: QueryFilter> Send for Batch<'q, Q, F> {}
+unsafe impl<'q, Q: Query, F: QueryFilter> Sync for Batch<'q, Q, F> {}
 
 macro_rules! tuple_impl {
     ($($name: ident),*) => {
@@ -825,13 +454,6 @@ macro_rules! tuple_impl {
                 let ($($name,)*) = self;
                 ($($name.fetch(n),)*)
             }
-
-            #[allow(unused_variables)]
-            unsafe fn should_skip(&self, n: usize) -> bool {
-                #[allow(non_snake_case)]
-                let ($($name,)*) = self;
-                $($name.should_skip(n)||)* false
-            }
         }
 
         impl<$($name: Query),*> Query for ($($name,)*) {
@@ -839,7 +461,6 @@ macro_rules! tuple_impl {
         }
 
         unsafe impl<$($name: ReadOnlyFetch),*> ReadOnlyFetch for ($($name,)*) {}
-        impl<$($name: UnfilteredFetch),*> UnfilteredFetch for ($($name,)*) {}
     };
 }
 
@@ -847,7 +468,7 @@ smaller_tuples_too!(tuple_impl, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
 
 #[cfg(test)]
 mod tests {
-    use crate::{Entity, Mut, Mutated, World};
+    use crate::{Added, Changed, Entity, Mut, Mutated, Or, World};
     use std::{vec, vec::Vec};
 
     use super::*;
@@ -863,8 +484,7 @@ mod tests {
 
         fn get_added<Com: Component>(world: &World) -> Vec<Entity> {
             world
-                .query::<(Added<Com>, Entity)>()
-                .map(|(_added, e)| e)
+                .query_filtered::<Entity, Added<Com>>()
                 .collect::<Vec<Entity>>()
         };
 
@@ -880,8 +500,7 @@ mod tests {
         assert_eq!(get_added::<B>(&world), vec![e2]);
 
         let added = world
-            .query::<(Entity, Added<A>, Added<B>)>()
-            .map(|a| a.0)
+            .query_filtered::<Entity, (Added<A>, Added<B>)>()
             .collect::<Vec<Entity>>();
         assert_eq!(added, vec![e2]);
     }
@@ -900,24 +519,21 @@ mod tests {
             }
         }
 
-        fn get_mutated_a(world: &mut World) -> Vec<Entity> {
-            world
-                .query_mut::<(Mutated<A>, Entity)>()
-                .map(|(_a, e)| e)
-                .collect::<Vec<Entity>>()
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> Vec<Entity> {
+            world.query_filtered::<Entity, F>().collect::<Vec<Entity>>()
         };
 
-        assert_eq!(get_mutated_a(&mut world), vec![e1, e3]);
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e1, e3]);
 
         // ensure changing an entity's archetypes also moves its mutated state
         world.insert(e1, (C,)).unwrap();
 
-        assert_eq!(get_mutated_a(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new A entity should not change existing mutated state
         world.insert(e1, (A(0), B)).unwrap();
         assert_eq!(
-            get_mutated_a(&mut world),
+            get_filtered::<Mutated<A>>(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -925,7 +541,7 @@ mod tests {
         // removing an unchanged entity should not change mutated state
         world.despawn(e2).unwrap();
         assert_eq!(
-            get_mutated_a(&mut world),
+            get_filtered::<Mutated<A>>(&mut world),
             vec![e3, e1],
             "changed entities list should not change"
         );
@@ -933,26 +549,23 @@ mod tests {
         // removing a changed entity should remove it from enumeration
         world.despawn(e1).unwrap();
         assert_eq!(
-            get_mutated_a(&mut world),
+            get_filtered::<Mutated<A>>(&mut world),
             vec![e3],
             "e1 should no longer be returned"
         );
 
         world.clear_trackers();
 
-        assert!(world
-            .query_mut::<(Mutated<A>, Entity)>()
-            .map(|(_a, e)| e)
-            .next()
-            .is_none());
+        assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
 
         let e4 = world.spawn(());
 
         world.insert_one(e4, A(0)).unwrap();
-        assert!(get_mutated_a(&mut world).is_empty());
+        assert!(get_filtered::<Mutated<A>>(&mut world).is_empty());
+        assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
 
         world.insert_one(e4, A(1)).unwrap();
-        assert_eq!(get_mutated_a(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]);
 
         world.clear_trackers();
 
@@ -961,19 +574,10 @@ mod tests {
         // non existing components even when changing archetype.
         world.insert(e4, (A(0), B(0))).unwrap();
 
-        let added_a = world.query::<(Added<A>, Entity)>().map(|(_, e)| e).next();
-        assert!(added_a.is_none());
-
-        assert_eq!(get_mutated_a(&mut world), vec![e4]);
-
-        let added_b = world.query::<(Added<B>, Entity)>().map(|(_, e)| e).next();
-        assert!(added_b.is_some());
-
-        let mutated_b = world
-            .query_mut::<(Mutated<B>, Entity)>()
-            .map(|(_, e)| e)
-            .next();
-        assert!(mutated_b.is_none());
+        assert!(get_filtered::<Added<A>>(&mut world).is_empty());
+        assert_eq!(get_filtered::<Mutated<A>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Added<B>>(&mut world), vec![e4]);
+        assert!(get_filtered::<Mutated<B>>(&mut world).is_empty());
     }
 
     #[test]
@@ -992,8 +596,7 @@ mod tests {
         }
 
         let a_b_mutated = world
-            .query_mut::<(Mutated<A>, Mutated<B>, Entity)>()
-            .map(|(_a, _b, e)| e)
+            .query_filtered_mut::<Entity, (Mutated<A>, Mutated<B>)>()
             .collect::<Vec<Entity>>();
         assert_eq!(a_b_mutated, vec![e2]);
     }
@@ -1016,8 +619,7 @@ mod tests {
         }
 
         let a_b_mutated = world
-            .query_mut::<(Or<(Mutated<A>, Mutated<B>)>, Entity)>()
-            .map(|((_a, _b), e)| e)
+            .query_filtered_mut::<Entity, Or<(Mutated<A>, Mutated<B>)>>()
             .collect::<Vec<Entity>>();
         // e1 has mutated A, e3 has mutated B, e2 has mutated A and B, _e4 has no mutated component
         assert_eq!(a_b_mutated, vec![e1, e2, e3]);
@@ -1030,8 +632,7 @@ mod tests {
 
         fn get_changed(world: &World) -> Vec<Entity> {
             world
-                .query::<(Changed<A>, Entity)>()
-                .map(|(_a, e)| e)
+                .query_filtered::<Entity, Changed<A>>()
                 .collect::<Vec<Entity>>()
         };
         assert_eq!(get_changed(&world), vec![e1]);

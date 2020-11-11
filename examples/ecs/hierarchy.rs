@@ -92,7 +92,7 @@ fn rotate(
     commands: &mut Commands,
     time: Res<Time>,
     mut parents_query: Query<(Entity, &mut Children, &Sprite)>,
-    mut transform_query: Query<With<Sprite, &mut Transform>>,
+    mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     let angle = std::f32::consts::PI / 2.0;
     for (parent, mut children, _) in parents_query.iter_mut() {

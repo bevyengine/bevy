@@ -32,7 +32,7 @@ pub fn text_system(
     mut font_atlas_sets: ResMut<Assets<FontAtlasSet>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut queries: QuerySet<(
-        Query<(Entity, Changed<Text>, &mut CalculatedSize)>,
+        Query<(Entity, &Text, &mut CalculatedSize), Changed<Text>>,
         Query<(&Text, &mut CalculatedSize)>,
     )>,
 ) {

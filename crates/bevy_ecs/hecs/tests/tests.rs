@@ -251,7 +251,6 @@ fn query_batched() {
         .flat_map(|x| x)
         .map(|e| e)
         .collect::<Vec<_>>();
-    dbg!(&entities);
     assert_eq!(entities.len(), 3);
     assert!(entities.contains(&a));
     assert!(entities.contains(&b));
@@ -355,22 +354,22 @@ fn added_tracking() {
     let a = world.spawn((123,));
 
     assert_eq!(world.query::<&i32>().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().count(), 1);
+    assert_eq!(world.query_filtered::<(), Added<i32>>().count(), 1);
     assert_eq!(world.query_mut::<&i32>().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().count(), 1);
+    assert_eq!(world.query_filtered_mut::<(), Added<i32>>().count(), 1);
     assert!(world.query_one::<&i32>(a).is_ok());
-    assert!(world.query_one::<Added<i32>>(a).is_ok());
+    assert!(world.query_one_filtered::<(), Added<i32>>(a).is_ok());
     assert!(world.query_one_mut::<&i32>(a).is_ok());
-    assert!(world.query_one_mut::<Added<i32>>(a).is_ok());
+    assert!(world.query_one_filtered_mut::<(), Added<i32>>(a).is_ok());
 
     world.clear_trackers();
 
     assert_eq!(world.query::<&i32>().count(), 1);
-    assert_eq!(world.query::<Added<i32>>().count(), 0);
+    assert_eq!(world.query_filtered::<(), Added<i32>>().count(), 0);
     assert_eq!(world.query_mut::<&i32>().count(), 1);
-    assert_eq!(world.query_mut::<Added<i32>>().count(), 0);
+    assert_eq!(world.query_filtered_mut::<(), Added<i32>>().count(), 0);
     assert!(world.query_one_mut::<&i32>(a).is_ok());
-    assert!(world.query_one_mut::<Added<i32>>(a).is_err());
+    assert!(world.query_one_filtered_mut::<(), Added<i32>>(a).is_err());
 }
 
 #[test]
