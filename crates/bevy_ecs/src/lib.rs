@@ -1,3 +1,4 @@
+#![feature(backtrace)]
 mod core;
 mod resource;
 mod schedule;

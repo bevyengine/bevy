@@ -6,6 +6,9 @@ use crate::{
 use bevy_utils::tracing::{debug, warn};
 use std::marker::PhantomData;
 
+#[cfg(feature = "commands_backtraces")]
+use std::backtrace::Backtrace;
+
 /// A [World] mutation
 pub trait Command: Send + Sync {
     fn write(self: Box<Self>, world: &mut World, resources: &mut Resources);
@@ -184,6 +187,8 @@ impl<T: Resource> Command for InsertLocalResource<T> {
 #[derive(Default)]
 pub struct Commands {
     commands: Vec<Box<dyn Command>>,
+    #[cfg(feature = "commands_backtraces")]
+    backtraces: Vec<Backtrace>,
     current_entity: Option<Entity>,
     entity_reserver: Option<EntityReserver>,
 }
@@ -197,6 +202,10 @@ impl Commands {
             .reserve_entity();
         self.current_entity = Some(entity);
         self.commands.push(Box::new(Insert { entity, components }));
+        #[cfg(feature = "commands_backtraces")]
+        {
+            self.backtraces.push(Backtrace::capture());
+        }
         self
     }
 
@@ -269,6 +278,10 @@ impl Commands {
             entity: current_entity,
             components,
         }));
+        #[cfg(feature = "commands_backtraces")]
+        {
+            self.backtraces.push(Backtrace::capture());
+        }
         self
     }
 
@@ -278,21 +291,42 @@ impl Commands {
             entity: current_entity,
             component,
         }));
+        #[cfg(feature = "commands_backtraces")]
+        {
+            self.backtraces.push(Backtrace::capture());
+        }
         self
     }
 
     pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
         self.commands.push(Box::new(command));
+        #[cfg(feature = "commands_backtraces")]
+        {
+            self.backtraces.push(Backtrace::capture());
+        }
         self
     }
 
     pub fn add_command_boxed(&mut self, command: Box<dyn Command>) -> &mut Self {
         self.commands.push(command);
+        #[cfg(feature = "commands_backtraces")]
+        {
+            self.backtraces.push(Backtrace::capture());
+        }
         self
     }
 
+    #[cfg(not(feature = "commands_backtraces"))]
     pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
         for command in self.commands.drain(..) {
+            command.write(world, resources);
+        }
+    }
+
+    #[cfg(feature = "commands_backtraces")]
+    pub fn apply(&mut self, world: &mut World, resources: &mut Resources) {
+        for (command, backtrace) in self.commands.drain(..).zip(self.backtraces.drain(..)) {
+            println!("Applying command from here: {}", backtrace);
             command.write(world, resources);
         }
     }
