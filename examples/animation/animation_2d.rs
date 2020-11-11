@@ -7,6 +7,16 @@ fn main() {
         .run();
 }
 
+trait QuatExt {
+    fn from_roll(radians: f32) -> Quat;
+}
+
+impl QuatExt for Quat {
+    fn from_roll(radians: f32) -> Quat {
+        Quat::from_rotation_ypr(0., 0., radians)
+    }
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -32,14 +42,13 @@ fn setup(
                 Key::new(1.5, -100.0, Interpolation::Linear),
                 Key::new(3.0, 100.0, Interpolation::Linear),
             ]),
-            rotation: Spline::from_vec(vec![
-                Key::new(0.0, Quat::identity().into(), Interpolation::Linear),
-                Key::new(0.5, Quat::from_xyzw(0., 0., 1., 0.).into(), Interpolation::Linear),
-                Key::new(1.0, Quat::from_xyzw(0., 0., 0., -1.).into(), Interpolation::Linear),
-                Key::new(1.5, Quat::from_xyzw(0., 0., -1., 0.).into(), Interpolation::Linear),
-                Key::new(2.0, Quat::from_xyzw(0., 0., 0., 1.).into(), Interpolation::Linear),
-            ]),
             translation_z: Spline::from_vec(vec![]),
+            rotation: Spline::from_vec(vec![
+                Key::new(0.0, Quat::from_roll(720_f32.to_radians()), Interpolation::Linear),
+                Key::new(1.0, Quat::from_roll(480_f32.to_radians()), Interpolation::Linear),
+                Key::new(2.0, Quat::from_roll(240_f32.to_radians()), Interpolation::Linear),
+                Key::new(3.0, Quat::from_roll(0_f32.to_radians()), Interpolation::Linear),
+            ]),
             scale: Spline::from_vec(vec![
                 Key::new(0.0, 1.0, Interpolation::Cosine),
                 Key::new(0.5, 1.5, Interpolation::Cosine),

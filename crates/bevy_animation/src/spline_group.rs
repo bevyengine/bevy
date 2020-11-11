@@ -34,7 +34,10 @@ pub trait SplineGroup {
     }
 
     fn is_empty(&self) -> bool {
-        let any_not_empty = self.spline_key_times().into_iter().any(|mut i| i.next().is_some());
+        let any_not_empty = self
+            .spline_key_times()
+            .into_iter()
+            .any(|mut i| i.next().is_some());
         !any_not_empty
     }
 
@@ -46,10 +49,7 @@ pub trait SplineGroup {
 
         let first = starts.next()?;
 
-        Some(
-            starts
-                .fold(first, |acc, v| if v < acc { v } else { acc }),
-        )
+        Some(starts.fold(first, |acc, v| if v < acc { v } else { acc }))
     }
 
     fn end_time(&self) -> Option<f32> {
@@ -60,10 +60,7 @@ pub trait SplineGroup {
 
         let first = ends.next()?;
 
-        Some(
-            ends
-                .fold(first, |acc, v| if v > acc { v } else { acc }),
-        )
+        Some(ends.fold(first, |acc, v| if v > acc { v } else { acc }))
     }
 
     fn duration(&self) -> Option<Duration> {

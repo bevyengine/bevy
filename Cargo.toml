@@ -290,3 +290,6 @@ required-features = []
 name = "winit_wasm"
 path = "examples/wasm/winit_wasm.rs"
 required-features = ["bevy_winit"]
+
+[patch.crates-io]
+splines = { git = "https://github.com/iwikal/splines", branch = "glam" }
