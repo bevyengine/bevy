@@ -18,7 +18,7 @@ bevy_app = { path = "../bevy_app", version = "0.3.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.3.0" }
 
 tracing-subscriber = "0.2.15"
-tracing-chrome = { git = "https://github.com/superdump/tracing-chrome", branch = "name.fields", optional = true}
+tracing-chrome = { version = "0.2.0", optional = true } 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"
