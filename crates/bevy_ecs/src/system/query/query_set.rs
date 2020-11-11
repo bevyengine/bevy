@@ -20,7 +20,10 @@ impl<T: QueryTuple> QuerySet<T> {
     /// # Safety
     /// This will create a set of Query types that could violate memory safety rules. Make sure that this is only called in
     /// ways that ensure the Queries have unique mutable access.
-    pub unsafe fn new(world: &World, component_access: &TypeAccess<ArchetypeComponent>) -> Self {
+    pub(crate) unsafe fn new(
+        world: &World,
+        component_access: &TypeAccess<ArchetypeComponent>,
+    ) -> Self {
         QuerySet {
             value: T::new(world, component_access),
         }

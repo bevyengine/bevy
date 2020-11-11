@@ -31,7 +31,7 @@ impl<'a, Q: HecsQuery> Query<'a, Q> {
     /// This will create a Query that could violate memory safety rules. Make sure that this is only called in
     /// ways that ensure the Queries have unique mutable access.
     #[inline]
-    pub unsafe fn new(
+    pub(crate) unsafe fn new(
         world: &'a World,
         component_access: &'a TypeAccess<ArchetypeComponent>,
     ) -> Self {
