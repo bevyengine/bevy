@@ -121,14 +121,35 @@ impl Shader {
         }
     }
 
-    #[allow(unused_variables)]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
         Shader {
-            #[cfg(not(target_arch = "wasm32"))]
             source: ShaderSource::Spirv(self.get_spirv(macros)),
-            #[cfg(target_arch = "wasm32")]
-            source: self.source.clone(),
             stage: self.stage,
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn get_spirv_shader(&self, macros: Option<&[String]>) -> Shader {
+        if let ShaderSource::Glsl(source) = &self.source {
+            assert!(source.starts_with("#version"));
+            let eol_index = source.find('\n').unwrap();
+            let (version_str, source) = source.split_at(eol_index);
+            let mut processed = version_str.to_string();
+            processed.push_str("\n");
+            if let Some(macros) = macros {
+                for m in macros.iter() {
+                    processed.push_str(&format!("#define {}\n", m));
+                }
+            }
+            processed.push_str("#define WEBGL\n");
+            processed.push_str(source);
+            Shader {
+                source: ShaderSource::Glsl(processed),
+                stage: self.stage,
+            }
+        } else {
+            panic!("spirv shader is not supported");
         }
     }
 
